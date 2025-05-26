@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import Header from '../../../../components/layout/Header';
 
@@ -24,8 +24,9 @@ interface Module {
 const CourseDetailPage = () => {
   const router = useRouter();
   const { courseId } = router.query;
-  const supabase = useSupabaseClient();
 
+  const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -35,6 +36,38 @@ const CourseDetailPage = () => {
   const [newModuleTitle, setNewModuleTitle] = useState<string>('');
   const [newModuleDescription, setNewModuleDescription] = useState<string>('');
   const [isSubmittingModule, setIsSubmittingModule] = useState<boolean>(false);
+
+  // Check authentication and admin status
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          router.push('/login');
+          return;
+        }
+        
+        setUser(session.user);
+        
+        // Check if user is admin
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+          
+        const adminFromMetadata = session.user.user_metadata?.role === 'admin';
+        const adminFromProfile = profileData?.role === 'admin';
+        setIsAdmin(adminFromMetadata || adminFromProfile);
+        
+      } catch (error) {
+        console.error('Error checking session:', error);
+        router.push('/login');
+      }
+    };
+    
+    checkSession();
+  }, [router]);
 
   const fetchCourseAndModules = useCallback(async () => {
     if (!courseId) return;
@@ -119,21 +152,18 @@ const CourseDetailPage = () => {
     }
   }, [courseId, fetchCourseAndModules]);
 
-  if (loading) {
+  if (loading || !user) {
     return (
-      <>
-        <Header />
-        <div className="min-h-screen bg-brand_beige flex justify-center items-center" style={{paddingTop: '120px'}}>
-          <p className="text-xl text-brand_blue font-mont">Cargando detalles del curso...</p>
-        </div>
-      </>
+      <div className="min-h-screen bg-brand_beige flex justify-center items-center">
+        <p className="text-xl text-brand_blue font-mont">Cargando...</p>
+      </div>
     );
   }
 
   if (error) {
     return (
       <>
-        <Header />
+        <Header user={user} isAdmin={isAdmin} />
         <div className="min-h-screen bg-brand_beige flex flex-col items-center justify-center h-screen p-4" style={{paddingTop: '120px'}}>
           <p className="text-xl text-red-600 font-mont">Error: {error}</p>
           <Link href="/admin/course-builder" legacyBehavior>
@@ -149,7 +179,7 @@ const CourseDetailPage = () => {
   if (!course) {
     return (
       <>
-        <Header />
+        <Header user={user} isAdmin={isAdmin} />
         <div className="min-h-screen bg-brand_beige flex justify-center items-center" style={{paddingTop: '120px'}}>
           <p className="text-xl text-brand_blue font-mont">Curso no encontrado.</p>
         </div>
@@ -159,7 +189,7 @@ const CourseDetailPage = () => {
 
   return (
     <>
-      <Header />
+      <Header user={user} isAdmin={isAdmin} />
       <div className="min-h-screen bg-brand_beige px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8" style={{marginTop: '120px'}}>
       <div className="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-6 mt-8">
         <div className="mb-6 flex justify-between items-center">

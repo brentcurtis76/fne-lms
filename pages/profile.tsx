@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import Head from 'next/head';
 import Link from 'next/link';
+import { toast } from 'react-hot-toast';
 import Header from '../components/layout/Header';
 
 type School = {
@@ -267,18 +268,19 @@ export default function ProfilePage() {
       // Check for errors
       if (updateError) {
         console.error('Profile update failed:', updateError);
-        alert(`Error updating profile: ${updateError.message}`);
+        toast.error(`Error actualizando perfil: ${updateError.message}`);
       } else {
         // Success message
         if (avatarUploadFailed) {
-          alert(`Perfil actualizado, pero hubo un problema con la imagen: ${avatarErrorMessage}`);
+          toast.success('Perfil actualizado correctamente');
+          toast.error(`Problema con la imagen: ${avatarErrorMessage}`);
         } else {
-          alert('Perfil actualizado correctamente');
+          toast.success('Perfil actualizado correctamente');
         }
       }
     } catch (error) {
       console.error('Unexpected error saving profile:', error);
-      alert('Error inesperado al guardar el perfil. Por favor, intenta de nuevo.');
+      toast.error('Error inesperado al guardar el perfil. Por favor, intenta de nuevo.');
     }
   };
 

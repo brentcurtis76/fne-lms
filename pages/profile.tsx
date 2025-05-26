@@ -34,6 +34,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isNewUser, setIsNewUser] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -84,11 +85,17 @@ export default function ProfilePage() {
         setSchool(profileData.school || '');
         setAvatarUrl(profileData.avatar_url || '');
         
+        // Check if this is a new user (profile exists but no first name = incomplete)
+        setIsNewUser(!profileData.first_name);
+        
         // If we still don't have admin status, check profile role as fallback
         if (!isAdmin && profileData.role === 'admin') {
           console.log('Is admin from profile data:', true);
           setIsAdmin(true);
         }
+      } else {
+        // No profile data means this is definitely a new user
+        setIsNewUser(true);
       }
 
       // Fetch schools for dropdown
@@ -276,6 +283,13 @@ export default function ProfilePage() {
           toast.error(`Problema con la imagen: ${avatarErrorMessage}`);
         } else {
           toast.success('Perfil actualizado correctamente');
+        }
+        
+        // Redirect new users to pending approval page after profile completion
+        if (isNewUser) {
+          setTimeout(() => {
+            router.push('/pending-approval');
+          }, 1500); // Small delay to show success message
         }
       }
     } catch (error) {

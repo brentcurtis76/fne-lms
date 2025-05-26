@@ -47,16 +47,25 @@ const CourseBuilder: React.FC = () => {
       // Get user profile to check role
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, approval_status')
         .eq('id', session.user.id)
         .single();
+
+      console.log('Course builder auth check:', {
+        userId: session.user.id,
+        userEmail: session.user.email,
+        profileData,
+        adminInMetadata: session.user.user_metadata?.role,
+      });
 
       const adminInMetadata = session.user.user_metadata?.role === 'admin';
       const adminInProfile = profileData?.role === 'admin';
       
       if (adminInMetadata || adminInProfile) {
+        console.log('Setting user role to admin');
         setUserRole('admin');
       } else {
+        console.log('Setting user role to docente');
         setUserRole('docente');
       }
     } catch (error) {
@@ -64,6 +73,21 @@ const CourseBuilder: React.FC = () => {
       setUserRole(null);
     }
   }, [router]);
+
+  // Get initial session
+  useEffect(() => {
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+      } else {
+        setUser(null);
+        setLoading(false);
+      }
+    };
+    
+    getInitialSession();
+  }, []);
 
   const fetchCourses = useCallback(async () => {
     if (!user) return;

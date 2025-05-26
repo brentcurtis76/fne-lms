@@ -41,20 +41,28 @@ export default function UserManagement() {
   
   // Approval functions
   const handleApproveUser = async (userId: string) => {
+    console.log('🔥 APPROVE BUTTON CLICKED FOR USER:', userId);
     try {
-      const { error } = await supabase
+      console.log('Attempting to approve user:', userId);
+      const { data, error } = await supabase
         .from('profiles')
         .update({ approval_status: 'approved' })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select();
+
+      console.log('Approval result:', { data, error });
 
       if (error) {
+        console.error('Approval error:', error);
         toast.error('Error al aprobar usuario: ' + error.message);
       } else {
+        console.log('User approved successfully:', data);
         toast.success('Usuario aprobado correctamente');
         // Refresh users list
         fetchUsers();
       }
     } catch (error) {
+      console.error('Unexpected approval error:', error);
       toast.error('Error inesperado al aprobar usuario');
     }
   };

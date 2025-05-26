@@ -49,9 +49,9 @@ export default function Dashboard() {
             if (profileData) {
               setProfileData(profileData);
               
-              if (profileData.role === 'admin' || adminRole) {
-                setIsAdmin(true);
-              }
+              // Check if user is admin from either metadata or profile
+              const isAdminUser = profileData.role === 'admin' || adminRole;
+              setIsAdmin(isAdminUser);
               
               if (profileData.first_name && profileData.last_name) {
                 setProfileName(`${profileData.first_name} ${profileData.last_name}`);
@@ -60,32 +60,32 @@ export default function Dashboard() {
               if (profileData.avatar_url) {
                 setAvatarUrl(profileData.avatar_url);
               }
-            }
-          }
-        }
 
-        // Fetch courses based on user role
-        if (adminRole) {
-          // Admins see all courses and can create courses
-          const { data: allCoursesData, error: allCoursesError } = await supabase
-            .from('courses')
-            .select('*')
-            .order('created_at', { ascending: false });
-          
-          if (allCoursesData) {
-            setAllCourses(allCoursesData);
-            
-            // Filter courses created by current user
-            if (userData?.user?.id) {
-              const userCreatedCourses = allCoursesData.filter(course => course.created_by === userData.user.id);
-              setMyCourses(userCreatedCourses);
+              // Fetch courses based on user role
+              if (isAdminUser) {
+                // Admins see all courses and can create courses
+                const { data: allCoursesData, error: allCoursesError } = await supabase
+                  .from('courses')
+                  .select('*')
+                  .order('created_at', { ascending: false });
+                
+                if (allCoursesData) {
+                  setAllCourses(allCoursesData);
+                  
+                  // Filter courses created by current user
+                  if (userData?.user?.id) {
+                    const userCreatedCourses = allCoursesData.filter(course => course.created_by === userData.user.id);
+                    setMyCourses(userCreatedCourses);
+                  }
+                }
+              } else {
+                // Teachers only see courses assigned to them
+                // For now, until course assignments are implemented, teachers see no courses
+                setAllCourses([]);
+                setMyCourses([]);
+              }
             }
           }
-        } else {
-          // Teachers only see courses assigned to them
-          // For now, until course assignments are implemented, teachers see no courses
-          setAllCourses([]);
-          setMyCourses([]);
         }
         
         setLoading(false);

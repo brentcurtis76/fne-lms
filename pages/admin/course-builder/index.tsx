@@ -1,8 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import { useUser } from '@supabase/auth-helpers-react';
+import { supabase } from '../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import Header from '../../../components/layout/Header';
 import DeleteCourseModal from '../../../components/DeleteCourseModal';
@@ -23,9 +22,8 @@ interface FormattedCourse extends CourseFromDB {
 }
 
 const CourseBuilder: React.FC = () => {
-  const [supabase] = useState(() => createClientComponentClient());
-  const user = useUser();
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
   const [courses, setCourses] = useState<FormattedCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -37,35 +35,35 @@ const CourseBuilder: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchUserRole = useCallback(async () => {
-    if (!user) return;
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        console.error('Error fetching user data:', userError);
-        setUserRole(null);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        router.push('/login');
         return;
       }
-      const adminInMetadata = userData?.user?.user_metadata?.role === 'admin';
-      if (adminInMetadata) {
-        setUserRole('admin');
-        return;
-      }
-      const { data: profileData, error: profileError } = await supabase
+
+      setUser(session.user);
+
+      // Get user profile to check role
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', user.id)
+        .eq('id', session.user.id)
         .single();
+
+      const adminInMetadata = session.user.user_metadata?.role === 'admin';
+      const adminInProfile = profileData?.role === 'admin';
       
-      if (profileError || !profileData || profileData.role !== 'admin') {
-        setUserRole(null);
-      } else {
+      if (adminInMetadata || adminInProfile) {
         setUserRole('admin');
+      } else {
+        setUserRole('docente');
       }
     } catch (error) {
       console.error('Error checking admin access:', error);
       setUserRole(null);
     }
-  }, [user?.id]);
+  }, [router]);
 
   const fetchCourses = useCallback(async () => {
     if (!user) return;

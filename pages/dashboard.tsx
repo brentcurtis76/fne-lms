@@ -80,9 +80,35 @@ export default function Dashboard() {
                 }
               } else {
                 // Teachers only see courses assigned to them
-                // For now, until course assignments are implemented, teachers see no courses
-                setAllCourses([]);
-                setMyCourses([]);
+                const { data: assignedCoursesData, error: assignedCoursesError } = await supabase
+                  .from('course_assignments')
+                  .select(`
+                    course_id,
+                    courses (
+                      id,
+                      title,
+                      description,
+                      thumbnail_url,
+                      instructor_id,
+                      created_at,
+                      created_by
+                    )
+                  `)
+                  .eq('teacher_id', userData.user.id);
+
+                if (assignedCoursesData && !assignedCoursesError) {
+                  // Extract course data from the join
+                  const teacherCourses = assignedCoursesData
+                    .map(assignment => assignment.courses)
+                    .filter(course => course !== null); // Filter out null courses
+                  
+                  setAllCourses(teacherCourses);
+                  setMyCourses([]); // Teachers don't have "my courses" - only assigned courses
+                } else {
+                  console.error('Error fetching assigned courses:', assignedCoursesError);
+                  setAllCourses([]);
+                  setMyCourses([]);
+                }
               }
             }
           }

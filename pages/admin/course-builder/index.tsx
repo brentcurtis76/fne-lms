@@ -5,6 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import Header from '../../../components/layout/Header';
 import DeleteCourseModal from '../../../components/DeleteCourseModal';
+import AssignTeachersModal from '../../../components/AssignTeachersModal';
 
 interface CourseFromDB {
   id: string;
@@ -33,6 +34,10 @@ const CourseBuilder: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedCourseForDeletion, setSelectedCourseForDeletion] = useState<FormattedCourse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // State for assignment modal
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [selectedCourseForAssignment, setSelectedCourseForAssignment] = useState<FormattedCourse | null>(null);
 
   const fetchUserRole = useCallback(async () => {
     try {
@@ -151,6 +156,17 @@ const CourseBuilder: React.FC = () => {
   const handleCloseDeleteModal = () => {
     setSelectedCourseForDeletion(null);
     setIsDeleteModalOpen(false);
+  };
+
+  // Assignment modal handlers
+  const handleOpenAssignModal = (course: FormattedCourse) => {
+    setSelectedCourseForAssignment(course);
+    setIsAssignModalOpen(true);
+  };
+
+  const handleCloseAssignModal = () => {
+    setSelectedCourseForAssignment(null);
+    setIsAssignModalOpen(false);
   };
 
   // Handler for actual deletion - SIMPLIFIED VERSION
@@ -358,6 +374,12 @@ const CourseBuilder: React.FC = () => {
                       </a>
                     </Link>
                     <button
+                      onClick={() => handleOpenAssignModal(course)}
+                      className="w-full sm:w-auto text-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors duration-150 font-mont"
+                    >
+                      Asignar Docentes
+                    </button>
+                    <button
                       onClick={() => handleOpenDeleteModal(course)}
                       className="w-full sm:w-auto text-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-150 font-mont"
                     >
@@ -378,6 +400,16 @@ const CourseBuilder: React.FC = () => {
           onClose={handleCloseDeleteModal}
           onConfirm={handleConfirmDelete}
           isDeleting={isDeleting}
+        />
+      )}
+      
+      {/* Assign Teachers Modal */}
+      {isAssignModalOpen && selectedCourseForAssignment && (
+        <AssignTeachersModal
+          isOpen={isAssignModalOpen}
+          onClose={handleCloseAssignModal}
+          courseId={selectedCourseForAssignment.id}
+          courseTitle={selectedCourseForAssignment.title}
         />
       )}
     </div>

@@ -210,7 +210,7 @@ export default function Dashboard() {
                 {isAdmin && (
                   <>
                     <Link
-                      href="/admin/course-builder"
+                      href="/admin/course-builder/new"
                       className="block p-6 bg-brand_blue text-white rounded-lg hover:bg-brand_yellow hover:text-brand_blue transition-colors"
                     >
                       <h3 className="text-lg font-semibold mb-2">Crear Curso</h3>

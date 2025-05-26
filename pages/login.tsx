@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
 import { checkProfileCompletion } from '../utils/profileUtils';
 import Header from '../components/layout/Header';
 
 export default function LoginPage() {
-  const [supabase] = useState(() => createClientComponentClient());
   const router = useRouter();
 
   const [email, setEmail] = useState('');

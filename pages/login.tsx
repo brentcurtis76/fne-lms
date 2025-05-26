@@ -15,6 +15,15 @@ export default function LoginPage() {
   const [isResetMode, setIsResetMode] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
+  // Debug Supabase configuration
+  useEffect(() => {
+    console.log('Supabase config check:', {
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      keyExists: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      supabaseInstance: !!supabase
+    });
+  }, []);
+
   useEffect(() => {
     // Check if we should clear session based on remember me preference
     const checkSessionPersistence = async () => {
@@ -91,19 +100,39 @@ export default function LoginPage() {
   };
 
   const handleSignUp = async () => {
+    if (!email || !password) {
+      setMessage('Por favor ingresa email y contraseña');
+      return;
+    }
+
+    if (password.length < 6) {
+      setMessage('La contraseña debe tener al menos 6 caracteres');
+      return;
+    }
+
     try {
-      const { error, data } = await supabase.auth.signUp({ email, password });
+      console.log('Attempting signup with:', { email, passwordLength: password.length });
+      
+      const { error, data } = await supabase.auth.signUp({ 
+        email: email.trim(), 
+        password: password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/profile`
+        }
+      });
+
+      console.log('Signup response:', { error, data });
 
       if (error) {
-        setMessage('Signup failed: ' + error.message);
+        console.error('Signup error details:', error);
+        setMessage('Error de registro: ' + error.message);
       } else {
-        setMessage('Signup successful! Check your email for confirmation.');
-        // Always redirect to profile page after signup to complete profile
-        router.push('/profile');
+        setMessage('¡Registro exitoso! Revisa tu email para confirmar tu cuenta.');
+        // Don't redirect immediately, let them confirm email first
       }
     } catch (err) {
       console.error('Sign up error:', err);
-      setMessage('Signup failed: An unexpected error occurred');
+      setMessage('Error de registro: Ocurrió un error inesperado');
     }
   };
 

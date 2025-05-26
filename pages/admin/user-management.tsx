@@ -340,7 +340,8 @@ export default function UserManagement() {
           last_name: newUserLastName,
           role: newUserRole,
           school: '',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          approval_status: 'approved' // Admin-created users are auto-approved
         };
 
         setUsers([newUser, ...users]);

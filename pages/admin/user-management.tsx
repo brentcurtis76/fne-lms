@@ -14,6 +14,7 @@ type User = {
   role: string;
   school: string;
   created_at: string;
+  approval_status: string;
 };
 
 export default function UserManagement() {
@@ -23,6 +24,7 @@ export default function UserManagement() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'all'>('pending');
   
   // Add user form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -36,6 +38,45 @@ export default function UserManagement() {
   // Delete confirmation modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<{id: string, email: string} | null>(null);
+  
+  // Approval functions
+  const handleApproveUser = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ approval_status: 'approved' })
+        .eq('id', userId);
+
+      if (error) {
+        toast.error('Error al aprobar usuario: ' + error.message);
+      } else {
+        toast.success('Usuario aprobado correctamente');
+        // Refresh users list
+        fetchUsers();
+      }
+    } catch (error) {
+      toast.error('Error inesperado al aprobar usuario');
+    }
+  };
+
+  const handleRejectUser = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ approval_status: 'rejected' })
+        .eq('id', userId);
+
+      if (error) {
+        toast.error('Error al rechazar usuario: ' + error.message);
+      } else {
+        toast.success('Usuario rechazado');
+        // Refresh users list
+        fetchUsers();
+      }
+    } catch (error) {
+      toast.error('Error inesperado al rechazar usuario');
+    }
+  };
 
   useEffect(() => {
     const checkAdminAndFetchUsers = async () => {
@@ -79,7 +120,7 @@ export default function UserManagement() {
       // Fetch all users
       const { data: usersData, error } = await supabase
         .from('profiles')
-        .select('id, email, first_name, last_name, role, school, created_at')
+        .select('id, email, first_name, last_name, role, school, created_at, approval_status')
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -93,6 +134,25 @@ export default function UserManagement() {
 
     checkAdminAndFetchUsers();
   }, [router]);
+
+  const fetchUsers = async () => {
+    try {
+      const { data: usersData, error } = await supabase
+        .from('profiles')
+        .select('id, email, first_name, last_name, role, school, created_at, approval_status')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching users:', error);
+        toast.error('Error al cargar usuarios');
+      } else {
+        setUsers(usersData || []);
+      }
+    } catch (error) {
+      console.error('Unexpected error fetching users:', error);
+      toast.error('Error inesperado al cargar usuarios');
+    }
+  };
 
   const handleRoleChange = async (userId: string, newRole: string) => {
     try {
@@ -392,6 +452,42 @@ export default function UserManagement() {
             </button>
           </div>
 
+          {/* Approval Tabs */}
+          <div className="mb-6 border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8">
+              <button
+                onClick={() => setActiveTab('pending')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'pending'
+                    ? 'border-yellow-500 text-yellow-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Pendientes de Aprobación ({users.filter(u => u.approval_status === 'pending').length})
+              </button>
+              <button
+                onClick={() => setActiveTab('approved')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'approved'
+                    ? 'border-green-500 text-green-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Usuarios Aprobados ({users.filter(u => u.approval_status === 'approved').length})
+              </button>
+              <button
+                onClick={() => setActiveTab('all')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'all'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Todos los Usuarios ({users.length})
+              </button>
+            </nav>
+          </div>
+
           {/* Add User Form */}
           {showAddForm && (
             <div className="mb-6 bg-gray-50 p-6 rounded-lg border">
@@ -496,13 +592,22 @@ export default function UserManagement() {
                   <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Nombre</th>
                   <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Email</th>
                   <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Escuela</th>
-                  <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Rol Actual</th>
-                  <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Cambiar Rol</th>
+                  <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Estado</th>
+                  <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Rol</th>
+                  {activeTab !== 'pending' && (
+                    <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Cambiar Rol</th>
+                  )}
                   <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {users
+                  .filter(user => {
+                    if (activeTab === 'pending') return user.approval_status === 'pending';
+                    if (activeTab === 'approved') return user.approval_status === 'approved';
+                    return true; // 'all' tab shows everyone
+                  })
+                  .map((user) => (
                   <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50">
                     <td className="px-4 py-3">
                       {user.first_name && user.last_name 
@@ -514,6 +619,18 @@ export default function UserManagement() {
                     <td className="px-4 py-3">{user.school || 'Sin escuela'}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        user.approval_status === 'pending' 
+                          ? 'bg-yellow-100 text-yellow-800' 
+                          : user.approval_status === 'approved'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {user.approval_status === 'pending' ? 'Pendiente' : 
+                         user.approval_status === 'approved' ? 'Aprobado' : 'Rechazado'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         user.role === 'admin' 
                           ? 'bg-red-100 text-red-800' 
                           : 'bg-blue-100 text-blue-800'
@@ -521,24 +638,46 @@ export default function UserManagement() {
                         {user.role || 'docente'}
                       </span>
                     </td>
+                    {activeTab !== 'pending' && (
+                      <td className="px-4 py-3">
+                        <select
+                          value={user.role || 'docente'}
+                          onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                          className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                        >
+                          <option value="docente">Docente</option>
+                          <option value="admin">Administrador</option>
+                        </select>
+                      </td>
+                    )}
                     <td className="px-4 py-3">
-                      <select
-                        value={user.role || 'docente'}
-                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                        className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                      >
-                        <option value="docente">Docente</option>
-                        <option value="admin">Administrador</option>
-                      </select>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDeleteClick(user.id, user.email)}
-                        className="text-red-600 hover:text-red-800 p-1 rounded transition"
-                        title="Eliminar usuario"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {user.approval_status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleApproveUser(user.id)}
+                              className="text-green-600 hover:text-green-800 p-1 rounded transition"
+                              title="Aprobar usuario"
+                            >
+                              <CheckCircle size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleRejectUser(user.id)}
+                              className="text-red-600 hover:text-red-800 p-1 rounded transition"
+                              title="Rechazar usuario"
+                            >
+                              <X size={16} />
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={() => handleDeleteClick(user.id, user.email)}
+                          className="text-red-600 hover:text-red-800 p-1 rounded transition"
+                          title="Eliminar usuario"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

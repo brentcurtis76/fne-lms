@@ -509,7 +509,7 @@ export default function StudentLessonViewer() {
                 
                 <div className="flex justify-center gap-4">
                   <button
-                    onClick={() => router.push('/student/dashboard')}
+                    onClick={() => router.push('/dashboard')}
                     className="px-6 py-3 bg-white text-[#00365b] rounded-lg font-medium hover:bg-gray-100 transition flex items-center gap-2"
                   >
                     <ArrowLeft className="w-4 h-4" />
@@ -531,7 +531,7 @@ export default function StudentLessonViewer() {
                     </div>
                   ) : (
                     <button
-                      onClick={() => router.push('/student/dashboard')}
+                      onClick={() => router.push('/dashboard')}
                       className="px-6 py-3 bg-[#fdb933] text-[#00365b] rounded-lg font-medium hover:bg-yellow-400 transition flex items-center gap-2"
                     >
                       Ir al Dashboard

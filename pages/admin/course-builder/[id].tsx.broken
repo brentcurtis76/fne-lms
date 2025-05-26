@@ -1,0 +1,598 @@
+import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { Session, SupabaseClient } from '@supabase/supabase-js';
+import { GetServerSideProps } from 'next';
+import { useRouter } from 'next/router';
+import React, { useState, useEffect, useCallback } from 'react';
+import toast from 'react-hot-toast';
+import { Block, Course, TextBlock, ImageBlock, VideoBlock, DownloadBlock, ExternalLinksBlock, QuizBlock, TipTapEditor, BlockTitleWithActions, getEmbedUrl } from '@/components/CourseEditor'; // Assuming these are correctly defined and exported
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ChevronDown, ChevronUp, PlusCircle, Save, Trash2, ExternalLink, LinkIcon, HelpCircle, Image as ImageIcon, Video as VideoIcon, Download as DownloadIcon, Edit3, CheckCircle, XCircle } from 'lucide-react';
+
+// Define BlockType based on usage and lint errors if not already imported
+// If BlockType is imported from '@/components/CourseEditor', ensure it matches this structure.
+export type BlockType = 'text' | 'image' | 'video' | 'download' | 'external-links' | 'quiz';
+
+// Define specific block payload types if not already imported or correctly defined
+// These are illustrative based on typical structures. Adjust if your actual types differ.
+
+// interface TextBlockPayload {
+//   content: any; // Or string, depending on TipTap's output
+// }
+
+// interface ImageBlockPayload {
+//   url: string;
+//   caption: string;
+// }
+
+// interface VideoBlockPayload {
+//   url: string;
+//   caption: string;
+// }
+
+// interface DownloadBlockPayload {
+//   files: Array<{ name: string; url: string; type: 'pdf' | 'zip' | 'doc' | 'generic' }>;
+// }
+
+// interface ExternalLinkItem {
+//   label: string;
+//   url: string;
+// }
+
+// interface ExternalLinksBlockPayload {
+//   links: ExternalLinkItem[];
+// }
+
+// interface Answer {
+//   id?: string; // Optional if new answers don't have IDs until save
+//   answerText: string;
+//   isCorrect: boolean;
+// }
+
+// interface Question {
+//   id?: string; // Optional
+//   questionText: string;
+//   answers: Answer[];
+// }
+
+// interface QuizBlockPayload {
+//   questions: Question[];
+// }
+
+
+const CourseEditorPage: React.FC<{ initialSession: Session }> = ({ initialSession }) => {
+  const router = useRouter();
+  const { id } = router.query; // This is the course ID
+  const supabase = new SupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!);
+
+  const [course, setCourse] = useState<Course | null>(null);
+  const [blocks, setBlocks] = useState<Block[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showExitConfirmModal, setShowExitConfirmModal] = useState(false);
+
+  // State for tracking original blocks to compare for unsaved changes
+  const [originalBlocks, setOriginalBlocks] = useState<Block[] | null>(null);
+
+  // State for tracking collapsed/expanded state of blocks
+  const [firstBlockCollapsed, setFirstBlockCollapsed] = useState(false); // Example for a specific block
+  const [collapsedTextBlocks, setCollapsedTextBlocks] = useState<Record<string, boolean>>({});
+  const [collapsedImageBlocks, setCollapsedImageBlocks] = useState<Record<string, boolean>>({});
+  const [collapsedVideoBlocks, setCollapsedVideoBlocks] = useState<Record<string, boolean>>({});
+  const [collapsedDownloadBlocks, setCollapsedDownloadBlocks] = useState<Record<string, boolean>>({});
+  const [collapsedExternalLinksBlocks, setCollapsedExternalLinksBlocks] = useState<Record<string, boolean>>({});
+  const [collapsedQuizBlocks, setCollapsedQuizBlocks] = useState<Record<string, boolean>>({});
+
+  // --- START: Restored Core Logic & Effects ---
+  // Effect to fetch course and blocks data
+  useEffect(() => {
+    if (!id || typeof id !== 'string') {
+      if (!id) setLoading(true); // Keep loading if id is missing
+      return;
+    }
+
+    const fetchData = async () => {
+      setLoading(true);
+      // 1. Fetch the course
+      const { data: courseData, error: courseError } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (courseError) {
+        console.error("Error fetching course:", courseError);
+        toast.error(`Error al cargar el curso: ${courseError.message}`);
+        setCourse(null);
+        setBlocks([]);
+        setOriginalBlocks([]);
+        setLoading(false);
+        return;
+      }
+      if (courseData) {
+        setCourse(courseData);
+        // 2. Fetch existing blocks for this course
+        const { data: fetchedBlocksData, error: blocksError } = await supabase
+          .from('blocks')
+          .select('*')
+          .eq('course_id', id)
+          .order('position', { ascending: true });
+
+        if (blocksError) {
+          console.error("Error fetching blocks:", blocksError);
+          toast.error(`Error al cargar los bloques: ${blocksError.message}`);
+          setBlocks([]);
+          setOriginalBlocks([]);
+        } else {
+          const actualFetchedBlocks = fetchedBlocksData || [];
+          setBlocks(actualFetchedBlocks);
+          setOriginalBlocks(JSON.parse(JSON.stringify(actualFetchedBlocks))); // Deep clone
+        }
+      }
+      setLoading(false);
+    };
+
+    fetchData();
+  }, [id, supabase]);
+
+  // Effect to detect unsaved changes
+  useEffect(() => {
+    if (originalBlocks) {
+      const currentBlocksString = JSON.stringify(blocks.map(b => ({ ...b, course_id: id }))); // Ensure course_id consistency
+      const originalBlocksString = JSON.stringify(originalBlocks.map(b => ({ ...b, course_id: id })));
+      setHasUnsavedChanges(currentBlocksString !== originalBlocksString);
+    } else {
+      setHasUnsavedChanges(false);
+    }
+  }, [blocks, originalBlocks, id]);
+
+  // Handler for TipTap editor changes
+  const handleTipTapChange = (blockId: string, jsonContent: any) => {
+    setBlocks(prevBlocks =>
+      prevBlocks.map(b =>
+        b.id === blockId && b.type === 'text'
+          ? { ...b, payload: { ...b.payload, content: jsonContent } }
+          : b
+      )
+    );
+    setHasUnsavedChanges(true);
+  };
+  // --- END: Restored Core Logic & Effects ---
+
+  // --- START: Block Handlers (Video, Image, etc.) ---
+
+  // Video Block Handlers
+  const handleAddVideoBlock = () => {
+    const newVideoBlock: VideoBlock = {
+      id: crypto.randomUUID(),
+      type: 'video',
+      title: 'Nuevo Bloque de Video',
+      payload: { url: '', caption: '' },
+      course_id: id || '', // Ensure course_id is set
+      position: blocks.length, // Set initial position
+    };
+    setBlocks(prevBlocks => [...prevBlocks, newVideoBlock]);
+    setHasUnsavedChanges(true);
+    // Optionally, expand the new block
+    setCollapsedVideoBlocks(prev => ({ ...prev, [newVideoBlock.id]: false }));
+  };
+
+  // Handler to update video block content (URL, caption)
+  const handleVideoBlockUpdate = (blockId: string, field: 'url' | 'caption', value: string) => {
+    setHasUnsavedChanges(true);
+    setBlocks(prevBlocks =>
+      prevBlocks.map(block => {
+        if (block.id === blockId && block.type === 'video') {
+          return {
+            ...block,
+            payload: {
+              ...(block.payload as VideoBlock['payload']),
+              [field]: value,
+            },
+          } as VideoBlock;
+        }
+        return block;
+      })
+    );
+  };
+
+  const toggleVideoBlockCollapse = (blockId: string) => {
+    setCollapsedVideoBlocks(prev => ({ ...prev, [blockId]: !prev[blockId] }));
+  };
+
+  // Image Block Handlers
+  const handleAddImageBlock = () => {
+    const newImageBlock: ImageBlock = {
+      id: crypto.randomUUID(),
+      type: 'image',
+      title: 'Nuevo Bloque de Imagen',
+      payload: { url: '', caption: '' },
+      course_id: id as string,
+      position: blocks.length,
+    };
+    setBlocks(prevBlocks => [...prevBlocks, newImageBlock]);
+    setHasUnsavedChanges(true);
+    setCollapsedImageBlocks(prev => ({ ...prev, [newImageBlock.id]: false }));
+  };
+
+  const handleImageBlockUpdate = (blockId: string, field: 'url' | 'caption', value: string) => {
+    setBlocks(prevBlocks =>
+      prevBlocks.map(block => {
+        if (block.id === blockId && block.type === 'image') {
+          return {
+            ...block,
+            payload: {
+              ...(block.payload as ImageBlock['payload']),
+              [field]: value,
+            },
+          } as ImageBlock;
+        }
+        return block;
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const handleImageUploadSuccess = (blockId: string, imageUrl: string) => {
+    handleImageBlockUpdate(blockId, 'url', imageUrl);
+    // Potentially close modal or give other feedback
+  };
+
+  const toggleImageBlockCollapse = (blockId: string) => {
+    setCollapsedImageBlocks(prev => ({ ...prev, [blockId]: !prev[blockId] }));
+  };
+
+  // Text Block Handlers (Add, Toggle)
+  const handleAddTextBlock = () => {
+    const newTextBlock: TextBlock = {
+      id: crypto.randomUUID(),
+      type: 'text',
+      title: 'Nuevo Bloque de Texto',
+      payload: { content: '' }, // Or some default initial content for TipTap
+      course_id: id as string,
+      position: blocks.length,
+    };
+    setBlocks(prevBlocks => [...prevBlocks, newTextBlock]);
+    setHasUnsavedChanges(true);
+    setCollapsedTextBlocks(prev => ({ ...prev, [newTextBlock.id]: false }));
+  };
+
+  const toggleTextBlockCollapse = (blockId: string) => {
+    setCollapsedTextBlocks(prev => ({ ...prev, [blockId]: !prev[blockId] }));
+  };
+
+  // Download Block Handlers
+  const handleAddDownloadBlock = () => {
+    const newDownloadBlock: DownloadBlock = {
+      id: crypto.randomUUID(),
+      type: 'download',
+      title: 'Nuevo Bloque de Descarga',
+      payload: { files: [] }, // Initialize with an empty array of files
+      course_id: id as string,
+      position: blocks.length,
+    };
+    setBlocks(prevBlocks => [...prevBlocks, newDownloadBlock]);
+    setHasUnsavedChanges(true);
+    setCollapsedDownloadBlocks(prev => ({ ...prev, [newDownloadBlock.id]: false }));
+  };
+
+  // This is a STUB - actual implementation will involve file objects and upload logic
+  const handleAddFileToDownloadBlock = (blockId: string, fileName: string, fileUrl: string, fileType: 'pdf' | 'zip' | 'doc' | 'generic') => {
+    setBlocks(prevBlocks =>
+      prevBlocks.map(b => {
+        if (b.id === blockId && b.type === 'download') {
+          const downloadPayload = b.payload as DownloadBlock['payload'];
+          const newFile = { name: fileName, url: fileUrl, type: fileType };
+          return {
+            ...b,
+            payload: { files: [...downloadPayload.files, newFile] },
+          } as DownloadBlock;
+        }
+        return b;
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const handleRemoveFileFromDownloadBlock = (blockId: string, fileIndex: number) => {
+    setBlocks(prevBlocks =>
+      prevBlocks.map(b => {
+        if (b.id === blockId && b.type === 'download') {
+          const downloadPayload = b.payload as DownloadBlock['payload'];
+          const updatedFiles = downloadPayload.files.filter((_, idx) => idx !== fileIndex);
+          return {
+            ...b,
+            payload: { files: updatedFiles },
+          } as DownloadBlock;
+        }
+        return b;
+      })
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const toggleDownloadBlockCollapse = (blockId: string) => {
+    setCollapsedDownloadBlocks(prev => ({ ...prev, [blockId]: !prev[blockId] }));
+  };
+
+  // External Links Block Handlers
+  const handleAddExternalLinksBlock = () => {
+    const newBlock: ExternalLinksBlock = {
+      id: crypto.randomUUID(),
+      type: 'external-links',
+      title: 'Nuevo Bloque de Enlaces Externos',
+      payload: { links: [{ label: 'Nuevo Enlace', url: '' }] },
+      course_id: id as string,
+      position: blocks.length,
+    };
+    setBlocks(prev => [...prev, newBlock]);
+    setHasUnsavedChanges(true);
+    setCollapsedExternalLinksBlocks(prev => ({ ...prev, [newBlock.id]: false }));
+  };
+
+  const toggleExternalLinksBlockCollapse = (blockId: string) => {
+    setCollapsedExternalLinksBlocks(prev => ({ ...prev, [blockId]: !prev[blockId] }));
+  };
+
+  // Quiz Block Handlers
+  const handleAddQuizBlock = () => {
+    const newBlock: QuizBlock = {
+      id: crypto.randomUUID(),
+      type: 'quiz',
+      title: 'Nuevo Quiz',
+      payload: {
+        questions: [
+          {
+            id: crypto.randomUUID(),
+            questionText: 'Nueva Pregunta',
+            answers: [{ id: crypto.randomUUID(), answerText: 'Opción 1', isCorrect: false }],
+          },
+        ],
+      },
+      course_id: id as string,
+      position: blocks.length,
+    };
+    setBlocks(prev => [...prev, newBlock]);
+    setHasUnsavedChanges(true);
+    setCollapsedQuizBlocks(prev => ({ ...prev, [newBlock.id]: false }));
+  };
+
+  const toggleQuizBlockCollapse = (blockId: string) => {
+    setCollapsedQuizBlocks(prev => ({ ...prev, [blockId]: !prev[blockId] }));
+  };
+
+  // --- END: Block Handlers ---
+
+  // --- START: Stubs for missing handlers (from previous session) ---
+  const handleSaveBlock = async (blockId: string) => {
+    console.log('handleSaveBlock called for blockId:', blockId);
+    // In a real scenario, this would save the specific block to the backend
+    // For now, it's a stub. We might not need individual save if handleSaveAllChanges is comprehensive.
+    toast.success(`Bloque ${blockId} guardado (simulado).`);
+  };
+
+  const handleBlockTitleUpdate = (blockId: string, newTitle: string) => {
+    setBlocks(prevBlocks =>
+      prevBlocks.map(b => (b.id === blockId ? { ...b, title: newTitle } : b))
+    );
+    setHasUnsavedChanges(true);
+  };
+
+  const handleDeleteBlock = async (blockId: string) => {
+    console.log('handleDeleteBlock called for blockId:', blockId);
+    setBlocks(prevBlocks => prevBlocks.filter(b => b.id !== blockId));
+    setHasUnsavedChanges(true);
+    // In a real scenario, this would also delete the block from the backend
+    toast.success(`Bloque ${blockId} eliminado (simulado).`);
+  };
+
+  const handleSaveAllChanges = async () => {
+    console.log('handleSaveAllChanges called');
+    setSaving(true);
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    // In a real app, you'd upsert all blocks to Supabase here.
+    // For example, delete blocks not in current `blocks` but in `originalBlocks`,
+    // update existing ones, and insert new ones.
+    setOriginalBlocks(JSON.parse(JSON.stringify(blocks))); // Update originalBlocks to current state
+    setHasUnsavedChanges(false);
+    setSaving(false);
+    toast.success('Todos los cambios guardados (simulado).');
+  };
+
+  const handleConfirmExit = () => {
+    console.log('handleConfirmExit called');
+    // setHasUnsavedChanges(false); // This should be handled by router or user decision
+    router.push('/admin/dashboard'); // Or wherever the user should go
+  };
+
+  // External Links Block Specific Handlers (Stubs from previous session)
+  const handleExternalLinkChange = (blockId: string, linkIndex: number, field: 'label' | 'url', value: string) => {
+    setBlocks(prevBlocks => prevBlocks.map(b => {
+      if (b.id === blockId && b.type === 'external-links') {
+        const externalLinksPayload = b.payload as ExternalLinksBlock['payload'];
+        const updatedLinks = externalLinksPayload.links.map((link, idx) => 
+          idx === linkIndex ? { ...link, [field]: value } : link
+        );
+        return { ...b, payload: { ...externalLinksPayload, links: updatedLinks } };
+      }
+      return b;
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleRemoveExternalLink = (blockId: string, linkIndex: number) => {
+    setBlocks(prevBlocks => prevBlocks.map(b => {
+      if (b.id === blockId && b.type === 'external-links') {
+        const externalLinksPayload = b.payload as ExternalLinksBlock['payload'];
+        const updatedLinks = externalLinksPayload.links.filter((_, idx) => idx !== linkIndex);
+        return { ...b, payload: { ...externalLinksPayload, links: updatedLinks } };
+      }
+      return b;
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleAddExternalLink = (blockId: string) => {
+    setBlocks(prevBlocks => prevBlocks.map(b => {
+      if (b.id === blockId && b.type === 'external-links') {
+        const externalLinksPayload = b.payload as ExternalLinksBlock['payload'];
+        const newLink = { label: 'Nuevo Enlace', url: '' }; // Changed title to label
+        const updatedLinks = [...externalLinksPayload.links, newLink];
+        return { ...b, payload: { ...externalLinksPayload, links: updatedLinks } };
+      }
+      return b;
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  // Quiz Block Specific Handlers (Stubs from previous session)
+  const handleQuestionTextChange = (blockId: string, questionIndex: number, value: string) => {
+    setBlocks(prevBlocks => prevBlocks.map(b => {
+      if (b.id === blockId && b.type === 'quiz') {
+        const quizPayload = b.payload as QuizBlock['payload'];
+        const updatedQuestions = quizPayload.questions.map((q, idx) => 
+          idx === questionIndex ? { ...q, questionText: value } : q
+        );
+        return { ...b, payload: { ...quizPayload, questions: updatedQuestions } };
+      }
+      return b;
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleRemoveQuestion = (blockId: string, questionIndex: number) => {
+    setBlocks(prevBlocks => prevBlocks.map(b => {
+      if (b.id === blockId && b.type === 'quiz') {
+        const quizPayload = b.payload as QuizBlock['payload'];
+        const updatedQuestions = quizPayload.questions.filter((_, idx) => idx !== questionIndex);
+        return { ...b, payload: { ...quizPayload, questions: updatedQuestions } };
+      }
+      return b;
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleAnswerTextChange = (blockId: string, questionIndex: number, answerIndex: number, value: string) => {
+    setBlocks(prevBlocks => prevBlocks.map(b => {
+      if (b.id === blockId && b.type === 'quiz') {
+        const quizPayload = b.payload as QuizBlock['payload'];
+        const updatedQuestions = quizPayload.questions.map((q, qIdx) => {
+          if (qIdx === questionIndex) {
+            const updatedAnswers = q.answers.map((a, aIdx) => 
+              aIdx === answerIndex ? { ...a, answerText: value } : a
+            );
+            return { ...q, answers: updatedAnswers };
+          }
+          return q;
+        });
+        return { ...b, payload: { ...quizPayload, questions: updatedQuestions } };
+      }
+      return b;
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleCorrectAnswerToggle = (blockId: string, questionIndex: number, answerIndex: number) => {
+    setBlocks(prevBlocks => prevBlocks.map(b => {
+      if (b.id === blockId && b.type === 'quiz') {
+        const quizPayload = b.payload as QuizBlock['payload'];
+        const updatedQuestions = quizPayload.questions.map((q, qIdx) => {
+          if (qIdx === questionIndex) {
+            const updatedAnswers = q.answers.map((a, aIdx) => 
+              aIdx === answerIndex ? { ...a, isCorrect: !a.isCorrect } : a
+            );
+            return { ...q, answers: updatedAnswers };
+          }
+          return q;
+        });
+        return { ...b, payload: { ...quizPayload, questions: updatedQuestions } };
+      }
+      return b;
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleRemoveAnswer = (blockId: string, questionIndex: number, answerIndex: number) => {
+    setBlocks(prevBlocks => prevBlocks.map(b => {
+      if (b.id === blockId && b.type === 'quiz') {
+        const quizPayload = b.payload as QuizBlock['payload'];
+        const updatedQuestions = quizPayload.questions.map((q, qIdx) => {
+          if (qIdx === questionIndex) {
+            const updatedAnswers = q.answers.filter((_, aIdx) => aIdx !== answerIndex);
+            return { ...q, answers: updatedAnswers };
+          }
+          return q;
+        });
+        return { ...b, payload: { ...quizPayload, questions: updatedQuestions } };
+      }
+      return b;
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleAddAnswer = (blockId: string, questionIndex: number) => {
+    setBlocks(prevBlocks => prevBlocks.map(b => {
+      if (b.id === blockId && b.type === 'quiz') {
+        const quizPayload = b.payload as QuizBlock['payload'];
+        const updatedQuestions = quizPayload.questions.map((q, qIdx) => {
+          if (qIdx === questionIndex) {
+            const newAnswer = { id: crypto.randomUUID(), answerText: 'Nueva Opción', isCorrect: false };
+            return { ...q, answers: [...q.answers, newAnswer] };
+          }
+          return q;
+        });
+        return { ...b, payload: { ...quizPayload, questions: updatedQuestions } };
+      }
+      return b;
+    }));
+    setHasUnsavedChanges(true);
+  };
+
+  const handleAddQuestion = (blockId: string) => {
+    setBlocks(prevBlocks => prevBlocks.map(b => {
+      if (b.id === blockId && b.type === 'quiz') {
+        const quizPayload = b.payload as QuizBlock['payload'];
+        const newQuestion = {
+          id: crypto.randomUUID(),
+          questionText: 'Nueva Pregunta',
+          answers: [{ id: crypto.randomUUID(), answerText: 'Opción 1', isCorrect: false }]
+        };
+        return { ...b, payload: { ...quizPayload, questions: [...quizPayload.questions, newQuestion] } };
+      }
+      return b;
+    }));
+    setHasUnsavedChanges(true);
+  };
+  // --- END: Stubs for missing handlers ---
+
+  // Utility to get embed URL (already present, ensure it's used correctly)
+  // const getEmbedUrl = (url: string): string => { ... }
+
+  // Comment out the duplicate/old handleVideoBlockUpdate
+  /*
+  // Handler to update video block properties
+  const handleVideoBlockUpdate = (blockId: string, field: 'url' | 'caption', value: string) => {
+    setHasUnsavedChanges(true);
+    setBlocks(prevBlocks => 
+      prevBlocks.map(block => 
+        block.id === blockId && block.type === 'video'
+          ? { 
+              ...block, 
+              payload: { 
+                ...block.payload, 
+                [field]: value 
+              } 
+            }
+          : block
+      )
+    );
+  };
+  */
+
+  // Handler to upload a PDF file to Supabase Storage
+  const handlePdfUpload = async (blockId: string, fileIndex: number, file: File) => {
+    // ... (rest of the code remains the same)

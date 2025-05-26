@@ -1,24 +1,107 @@
 // Base Block Payloads
 export interface TextBlockPayload {
+  title?: string;
   content: string;
 }
 
+export interface CarouselImage {
+  id: string;
+  src: string;
+  alt?: string;
+  caption?: string;
+}
+
+export interface ImageBlockPayload {
+  title?: string;
+  images: CarouselImage[];
+  // Backward compatibility for single image
+  src?: string;
+  alt?: string;
+  caption?: string;
+}
+
 export interface VideoBlockPayload {
+  title?: string;
   url: string;
   caption?: string;
 }
 
-// Add other payload types as needed, e.g., QuizBlockPayload
+export interface DownloadFile {
+  id: string;
+  name: string;
+  originalName: string;
+  url: string;
+  size: number;
+  type: string;
+  description?: string;
+  uploadedAt: string;
+}
+
+export interface DownloadBlockPayload {
+  title: string;
+  description?: string;
+  files: DownloadFile[];
+  allowBulkDownload: boolean;
+  requireAuth: boolean;
+}
+
+export interface ExternalLink {
+  id: string;
+  title: string;
+  url: string;
+  description?: string;
+  category?: string;
+  thumbnail?: string;
+  openInNewTab: boolean;
+  isActive: boolean;
+}
+
+export interface ExternalLinksBlockPayload {
+  title: string;
+  description?: string;
+  links: ExternalLink[];
+  groupByCategory: boolean;
+  showThumbnails: boolean;
+  showDescriptions: boolean;
+}
+
+export interface QuizQuestion {
+  id: string;
+  question: string;
+  type: 'multiple-choice' | 'true-false';
+  options: Array<{
+    id: string;
+    text: string;
+    isCorrect: boolean;
+  }>;
+  points: number;
+  explanation?: string;
+  timeLimit?: number; // seconds
+}
+
+export interface QuizBlockPayload {
+  title: string;
+  description?: string;
+  instructions?: string;
+  questions: QuizQuestion[];
+  totalPoints: number;
+  timeLimit?: number; // Total time limit in minutes
+  allowRetries: boolean;
+  showResults: boolean;
+  randomizeQuestions: boolean;
+  randomizeAnswers: boolean;
+}
 
 // Base Block Structure
+export type BlockType = 'text' | 'image' | 'video' | 'quiz' | 'download' | 'external-links';
+
 export interface BaseBlock {
   id: string; // UUID
-  course_id?: string; // UUID, optional if block is not yet saved
+  type: BlockType;
   position?: number; // Order of the block in the course
-  title?: string; // Optional title for the block to identify it in the timeline
-  // Timestamps that Supabase typically adds
-  created_at?: string;
-  updated_at?: string;
+  course_id?: string; // UUID, optional if block is not yet saved
+  lesson_id?: string; // UUID, optional if block is not yet saved
+  payload?: any; // Block content - structure depends on block type
 }
 
 // Specific Block Types
@@ -27,51 +110,30 @@ export interface TextBlock extends BaseBlock {
   payload: TextBlockPayload;
 }
 
+export interface ImageBlock extends BaseBlock {
+  type: 'image';
+  payload: ImageBlockPayload;
+}
+
 export interface VideoBlock extends BaseBlock {
   type: 'video';
   payload: VideoBlockPayload;
 }
 
-export interface ImageBlock extends BaseBlock {
-  type: 'image';
-  payload: {
-    src: string;        // image URL (e.g. from Supabase Storage)
-    caption?: string;
-    alt?: string;
-  };
-};
-
 export interface DownloadBlock extends BaseBlock {
   type: 'download';
-  payload: {
-    files: {
-      name: string;
-      url: string;
-    }[];
-  };
-};
+  payload: DownloadBlockPayload;
+}
 
 export interface ExternalLinksBlock extends BaseBlock {
-  type: 'external-links';
-  payload: {
-    links: {
-      label: string;
-      url: string;
-    }[];
-  };
-};
+  type: 'external-links'; // Consistent with BlockType
+  payload: ExternalLinksBlockPayload;
+}
 
-// Quiz Block Type
 export interface QuizBlock extends BaseBlock {
   type: 'quiz';
-  payload: {
-    questions: Array<{
-      question: string;
-      options: string[];
-      correctAnswerIndex: number;
-    }>;
-  };
+  payload: QuizBlockPayload;
 }
 
 // Union type for all possible blocks
-export type Block = TextBlock | VideoBlock | ImageBlock | DownloadBlock | ExternalLinksBlock | QuizBlock;
+export type Block = TextBlock | ImageBlock | VideoBlock | DownloadBlock | ExternalLinksBlock | QuizBlock;

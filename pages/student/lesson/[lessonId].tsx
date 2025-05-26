@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../../../lib/supabase';
 import Head from 'next/head';
 import { ArrowLeft, ArrowRight, CheckCircle, Clock, Trophy, Star, BookOpen } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -37,7 +37,6 @@ interface Progress {
 export default function StudentLessonViewer() {
   const router = useRouter();
   const { lessonId } = router.query;
-  const supabase = useSupabaseClient();
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [blocks, setBlocks] = useState<Block[]>([]);

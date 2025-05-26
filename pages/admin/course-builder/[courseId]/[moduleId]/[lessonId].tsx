@@ -2,7 +2,7 @@ import { GetServerSideProps, NextPage } from 'next';
 import { useRouter } from 'next/router';
 import React, { useState, useCallback, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../../../../../lib/supabase';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import {
   DndContext,
@@ -55,7 +55,6 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
     return new Set();
   });
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
-  const supabase = useSupabaseClient();
   const [isLoading, setIsLoading] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [user, setUser] = useState<any>(null);

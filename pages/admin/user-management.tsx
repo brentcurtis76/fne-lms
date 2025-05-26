@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../../lib/supabase';
 import Head from 'next/head';
 import Header from '../../components/layout/Header';
 import { Trash2, Plus, X, AlertTriangle, CheckCircle } from 'lucide-react';
@@ -17,7 +17,6 @@ type User = {
 };
 
 export default function UserManagement() {
-  const supabase = useSupabaseClient();
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);

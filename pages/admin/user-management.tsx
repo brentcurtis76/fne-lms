@@ -43,46 +43,81 @@ export default function UserManagement() {
   const handleApproveUser = async (userId: string) => {
     console.log('🔥 APPROVE BUTTON CLICKED FOR USER:', userId);
     try {
-      console.log('Attempting to approve user:', userId);
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ approval_status: 'approved' })
-        .eq('id', userId)
-        .select();
-
-      console.log('Approval result:', { data, error });
-
-      if (error) {
-        console.error('Approval error:', error);
-        toast.error('Error al aprobar usuario: ' + error.message);
-      } else {
-        console.log('User approved successfully:', data);
-        toast.success('Usuario aprobado correctamente');
-        // Refresh users list
-        fetchUsers();
+      console.log('Attempting to approve user via admin API:', userId);
+      
+      // Get current user's session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No authentication token available');
       }
-    } catch (error) {
+
+      // Call the admin API to approve the user
+      const response = await fetch('/api/admin/approve-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          userId: userId,
+          action: 'approve'
+        })
+      });
+
+      const result = await response.json();
+      console.log('API response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to approve user');
+      }
+
+      console.log('User approved successfully:', result.user);
+      toast.success('Usuario aprobado correctamente');
+      // Refresh users list
+      fetchUsers();
+    } catch (error: any) {
       console.error('Unexpected approval error:', error);
-      toast.error('Error inesperado al aprobar usuario');
+      toast.error('Error al aprobar usuario: ' + error.message);
     }
   };
 
   const handleRejectUser = async (userId: string) => {
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ approval_status: 'rejected' })
-        .eq('id', userId);
-
-      if (error) {
-        toast.error('Error al rechazar usuario: ' + error.message);
-      } else {
-        toast.success('Usuario rechazado');
-        // Refresh users list
-        fetchUsers();
+      console.log('Attempting to reject user via admin API:', userId);
+      
+      // Get current user's session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No authentication token available');
       }
-    } catch (error) {
-      toast.error('Error inesperado al rechazar usuario');
+
+      // Call the admin API to reject the user
+      const response = await fetch('/api/admin/approve-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          userId: userId,
+          action: 'reject'
+        })
+      });
+
+      const result = await response.json();
+      console.log('Reject API response:', result);
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to reject user');
+      }
+
+      console.log('User rejected successfully:', result.user);
+      toast.success('Usuario rechazado');
+      // Refresh users list
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Unexpected rejection error:', error);
+      toast.error('Error al rechazar usuario: ' + error.message);
     }
   };
 

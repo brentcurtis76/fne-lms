@@ -1,15 +1,26 @@
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import { Database } from '@/types/supabase';
+import { supabase } from '../../../../../lib/supabase';
 import Link from 'next/link';
 import Head from 'next/head';
 import { ArrowLeftIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
 import { toast } from 'react-hot-toast';
 import Header from '../../../../../components/layout/Header';
 
-type Module = Database['public']['Tables']['modules']['Row'];
-type Lesson = Database['public']['Tables']['lessons']['Row'];
+interface Module {
+  id: string;
+  title: string;
+  description: string;
+  course_id: string;
+  order_number: number;
+}
+
+interface Lesson {
+  id: string;
+  title: string;
+  module_id: string;
+  order_number: number;
+}
 
 // Basic UUID validation
 const isValidUUID = (uuid: string | undefined): uuid is string => {
@@ -20,11 +31,11 @@ const isValidUUID = (uuid: string | undefined): uuid is string => {
 
 const ModuleDetailPage = () => {
   const router = useRouter();
-  const supabase = useSupabaseClient<Database>();
-  // Ensure router.query values are treated as string | string[] | undefined initially
   const courseIdQuery = router.query.courseId;
   const moduleIdQuery = router.query.moduleId;
 
+  const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [module, setModule] = useState<Module | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]); 
   const [loading, setLoading] = useState<boolean>(true);
@@ -36,6 +47,38 @@ const ModuleDetailPage = () => {
       setLoading(true);
       setError(null);
       setLessons([]); 
+      
+      // Check authentication first
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          router.push('/login');
+          return;
+        }
+        
+        setUser(session.user);
+        
+        // Check admin status
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+          
+        const adminFromMetadata = session.user.user_metadata?.role === 'admin';
+        const adminFromProfile = profileData?.role === 'admin';
+        setIsAdmin(adminFromMetadata || adminFromProfile);
+        
+        if (!adminFromMetadata && !adminFromProfile) {
+          router.push('/dashboard');
+          return;
+        }
+      } catch (authError) {
+        console.error('Authentication error:', authError);
+        router.push('/login');
+        return;
+      }
+      
       console.log('[ModuleDetail] Starting fetchModuleAndLessons...');
       console.log('[ModuleDetail] Raw router.query:', router.query);
       console.log('[ModuleDetail] Extracted courseIdQuery:', courseIdQuery, 'Type:', typeof courseIdQuery);
@@ -168,21 +211,17 @@ const ModuleDetailPage = () => {
   };
 
   // Loading state
-  if (loading) {
+  if (loading || !user) {
     return (
-      <>
-        <Header />
-        <div className="flex justify-center items-center h-screen bg-gray-100 pt-40">
-          <Head>
-            <title>Cargando Módulo...</title>
-          </Head>
-          <div className="text-center">
-            <div className="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-32 w-32 mb-4 mx-auto" style={{borderColor: '#e5e7eb', borderTopColor: '#3b82f6'}}></div>
-            <h2 className="text-xl font-semibold text-gray-700">Cargando detalles del módulo...</h2>
-            <p className="text-gray-500">Por favor, espere.</p>
-          </div>
+      <div className="flex justify-center items-center h-screen bg-gray-100">
+        <Head>
+          <title>Cargando Módulo...</title>
+        </Head>
+        <div className="text-center">
+          <div className="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-32 w-32 mb-4 mx-auto" style={{borderColor: '#e5e7eb', borderTopColor: '#3b82f6'}}></div>
+          <h2 className="text-xl font-semibold text-gray-700">Cargando...</h2>
         </div>
-      </>
+      </div>
     );
   }
 
@@ -191,7 +230,7 @@ const ModuleDetailPage = () => {
     const courseIdForLink = Array.isArray(courseIdQuery) ? courseIdQuery[0] : courseIdQuery;
     return (
       <>
-        <Header />
+        <Header user={user} isAdmin={isAdmin} />
         <div className="flex flex-col justify-center items-center h-screen bg-red-50 p-4 pt-40">
         <Head>
           <title>Error</title>
@@ -218,7 +257,7 @@ const ModuleDetailPage = () => {
     const courseIdForLink = Array.isArray(courseIdQuery) ? courseIdQuery[0] : courseIdQuery;
     return (
       <>
-        <Header />
+        <Header user={user} isAdmin={isAdmin} />
         <div className="flex flex-col justify-center items-center h-screen bg-gray-100 p-4 pt-40">
         <Head>
           <title>Módulo no encontrado</title>
@@ -243,7 +282,7 @@ const ModuleDetailPage = () => {
   // Simplified success rendering: module title and description
   return (
     <>
-      <Header />
+      <Header user={user} isAdmin={isAdmin} />
       <div className="min-h-screen bg-gray-100 px-4 md:px-8 py-4 md:py-8 pt-16">
       <Head>
         <title>Módulo: {module.title || 'Detalle'}</title>

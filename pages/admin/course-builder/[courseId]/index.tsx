@@ -198,12 +198,19 @@ const CourseDetailPage = () => {
               &larr; Volver a Cursos
             </a>
           </Link>
-          <button 
-            onClick={() => setShowCreateModuleForm(true)} 
-            className="px-4 py-2 bg-brand_blue text-white font-mont rounded-md hover:bg-brand_yellow hover:text-brand_blue transition duration-150"
-          >
-            Crear Módulo
-          </button>
+          <div className="flex gap-3">
+            <Link href={`/admin/course-builder/${courseId}/edit`} legacyBehavior>
+              <a className="px-4 py-2 bg-gray-600 text-white font-mont rounded-md hover:bg-gray-700 transition duration-150">
+                Editar Información
+              </a>
+            </Link>
+            <button 
+              onClick={() => setShowCreateModuleForm(true)} 
+              className="px-4 py-2 bg-brand_blue text-white font-mont rounded-md hover:bg-brand_yellow hover:text-brand_blue transition duration-150"
+            >
+              Crear Módulo
+            </button>
+          </div>
         </div>
 
         <div className="mb-8 border-b border-brand_blue/20 pb-4">

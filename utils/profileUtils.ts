@@ -1,4 +1,4 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { supabase } from '../lib/supabase';
 
 /**
  * Checks if a user's profile is complete based on required fields
@@ -7,8 +7,6 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
  */
 export const checkProfileCompletion = async (userId: string): Promise<boolean> => {
   if (!userId) return false;
-  
-  const supabase = createClientComponentClient();
   
   // Fetch the user's profile
   const { data: profile, error } = await supabase

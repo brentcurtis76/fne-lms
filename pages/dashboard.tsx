@@ -64,20 +64,28 @@ export default function Dashboard() {
           }
         }
 
-        // Fetch all courses and separate by creator
-        const { data: allCoursesData, error: allCoursesError } = await supabase
-          .from('courses')
-          .select('*')
-          .order('created_at', { ascending: false });
-        
-        if (allCoursesData) {
-          setAllCourses(allCoursesData);
+        // Fetch courses based on user role
+        if (adminRole) {
+          // Admins see all courses and can create courses
+          const { data: allCoursesData, error: allCoursesError } = await supabase
+            .from('courses')
+            .select('*')
+            .order('created_at', { ascending: false });
           
-          // Filter courses created by current user (if they exist)
-          if (userData?.user?.id) {
-            const userCreatedCourses = allCoursesData.filter(course => course.created_by === userData.user.id);
-            setMyCourses(userCreatedCourses);
+          if (allCoursesData) {
+            setAllCourses(allCoursesData);
+            
+            // Filter courses created by current user
+            if (userData?.user?.id) {
+              const userCreatedCourses = allCoursesData.filter(course => course.created_by === userData.user.id);
+              setMyCourses(userCreatedCourses);
+            }
           }
+        } else {
+          // Teachers only see courses assigned to them
+          // For now, until course assignments are implemented, teachers see no courses
+          setAllCourses([]);
+          setMyCourses([]);
         }
         
         setLoading(false);
@@ -150,7 +158,7 @@ export default function Dashboard() {
                   <div className="space-y-2">
                     <p><span className="font-semibold">Nombre:</span> {profileName || 'No disponible'}</p>
                     <p><span className="font-semibold">Email:</span> {user?.email || 'No disponible'}</p>
-                    <p><span className="font-semibold">Rol:</span> {isAdmin ? 'Administrador' : 'Usuario'}</p>
+                    <p><span className="font-semibold">Rol:</span> {isAdmin ? 'Administrador' : 'Docente'}</p>
                   </div>
                 </div>
                 
@@ -223,8 +231,8 @@ export default function Dashboard() {
                     document.getElementById('todos-cursos')?.scrollIntoView({ behavior: 'smooth' });
                   }}
                 >
-                  <h3 className="text-lg font-semibold mb-2">Todos los Cursos</h3>
-                  <p className="text-sm opacity-90">Ver todos los cursos ({allCourses.length})</p>
+                  <h3 className="text-lg font-semibold mb-2">{isAdmin ? 'Todos los Cursos' : 'Mis Cursos'}</h3>
+                  <p className="text-sm opacity-90">{isAdmin ? `Ver todos los cursos (${allCourses.length})` : `Cursos asignados (${allCourses.length})`}</p>
                 </Link>
               </div>
             </div>
@@ -279,8 +287,12 @@ export default function Dashboard() {
 
             {/* All Courses Section */}
             <div id="todos-cursos" className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 text-brand_blue">Todos los Cursos ({allCourses.length})</h2>
-              <p className="text-gray-600 mb-4">Todos los cursos disponibles en la plataforma</p>
+              <h2 className="text-xl font-semibold mb-4 text-brand_blue">
+                {isAdmin ? `Todos los Cursos (${allCourses.length})` : `Mis Cursos (${allCourses.length})`}
+              </h2>
+              <p className="text-gray-600 mb-4">
+                {isAdmin ? 'Todos los cursos disponibles en la plataforma' : 'Cursos asignados a tu cuenta'}
+              </p>
               
               {allCourses.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -325,7 +337,14 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="text-center py-8 bg-brand_beige rounded-lg">
-                  <p className="text-brand_blue">No hay cursos disponibles.</p>
+                  <p className="text-brand_blue mb-2">
+                    {isAdmin ? 'No hay cursos disponibles.' : 'No tienes cursos asignados aún.'}
+                  </p>
+                  {!isAdmin && (
+                    <p className="text-gray-600 text-sm">
+                      Los cursos serán asignados por el administrador según tu institución.
+                    </p>
+                  )}
                 </div>
               )}
             </div>

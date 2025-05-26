@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -28,7 +28,6 @@ type Profile = {
 };
 
 export default function ProfilePage() {
-  const supabase = useSupabaseClient();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);

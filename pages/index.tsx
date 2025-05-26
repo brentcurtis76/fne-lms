@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../lib/supabase';
 import { checkProfileCompletion } from '../utils/profileUtils';
 
 export default function HomePage() {
   const router = useRouter();
-  const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {

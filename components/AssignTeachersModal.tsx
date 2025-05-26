@@ -74,7 +74,7 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
         throw new Error(result.error || 'Failed to fetch assignments');
       }
 
-      const assignedIds = new Set(result.assignments?.map((a: any) => a.teacher_id) || []);
+      const assignedIds = new Set<string>(result.assignments?.map((a: any) => a.teacher_id as string) || []);
       setAssignedTeachers(assignedIds);
     } catch (error) {
       console.error('Error fetching assigned teachers:', error);

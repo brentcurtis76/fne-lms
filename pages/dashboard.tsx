@@ -172,40 +172,48 @@ export default function Dashboard() {
             <div className="mb-8">
               <h2 className="text-xl font-semibold mb-4 text-brand_blue">Acciones Rápidas</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Link
-                  href="/admin/course-builder"
-                  className="block p-6 bg-brand_blue text-white rounded-lg hover:bg-brand_yellow hover:text-brand_blue transition-colors"
-                >
-                  <h3 className="text-lg font-semibold mb-2">Crear Curso</h3>
-                  <p className="text-sm opacity-90">Crea nuevos cursos</p>
-                </Link>
-                
-                {myCourses.length > 0 ? (
-                  <Link
-                    href={`/admin/course-builder/${myCourses[0].id}`}
-                    className="block p-6 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_blue hover:text-white transition-colors"
-                  >
-                    <h3 className="text-lg font-semibold mb-2">Editor de Lecciones</h3>
-                    <p className="text-sm opacity-90">Edita lecciones interactivas</p>
-                  </Link>
-                ) : (
-                  <div className="p-6 bg-gray-300 text-gray-500 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-2">Editor de Lecciones</h3>
-                    <p className="text-sm">Crea un curso primero</p>
-                  </div>
+                {/* Admin-only actions */}
+                {isAdmin && (
+                  <>
+                    <Link
+                      href="/admin/course-builder"
+                      className="block p-6 bg-brand_blue text-white rounded-lg hover:bg-brand_yellow hover:text-brand_blue transition-colors"
+                    >
+                      <h3 className="text-lg font-semibold mb-2">Crear Curso</h3>
+                      <p className="text-sm opacity-90">Crea nuevos cursos</p>
+                    </Link>
+                    
+                    {myCourses.length > 0 ? (
+                      <Link
+                        href={`/admin/course-builder/${myCourses[0].id}`}
+                        className="block p-6 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_blue hover:text-white transition-colors"
+                      >
+                        <h3 className="text-lg font-semibold mb-2">Editor de Lecciones</h3>
+                        <p className="text-sm opacity-90">Edita lecciones interactivas</p>
+                      </Link>
+                    ) : (
+                      <div className="p-6 bg-gray-300 text-gray-500 rounded-lg">
+                        <h3 className="text-lg font-semibold mb-2">Editor de Lecciones</h3>
+                        <p className="text-sm">Crea un curso primero</p>
+                      </div>
+                    )}
+                  </>
                 )}
 
-                <Link
-                  href="#mis-cursos"
-                  className="block p-6 bg-blue-100 text-blue-900 rounded-lg hover:bg-blue-200 transition-colors"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    document.getElementById('mis-cursos')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                >
-                  <h3 className="text-lg font-semibold mb-2">Mis Cursos</h3>
-                  <p className="text-sm opacity-90">Cursos que he creado ({myCourses.length})</p>
-                </Link>
+                {/* Available to all users */}
+                {isAdmin && (
+                  <Link
+                    href="#mis-cursos"
+                    className="block p-6 bg-blue-100 text-blue-900 rounded-lg hover:bg-blue-200 transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById('mis-cursos')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    <h3 className="text-lg font-semibold mb-2">Mis Cursos</h3>
+                    <p className="text-sm opacity-90">Cursos que he creado ({myCourses.length})</p>
+                  </Link>
+                )}
 
                 <Link
                   href="#todos-cursos"
@@ -221,10 +229,11 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* My Courses Section */}
-            <div id="mis-cursos" className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 text-brand_blue">Mis Cursos ({myCourses.length})</h2>
-              <p className="text-gray-600 mb-4">Cursos que has creado como administrador</p>
+            {/* My Courses Section - Admin Only */}
+            {isAdmin && (
+              <div id="mis-cursos" className="mb-8">
+                <h2 className="text-xl font-semibold mb-4 text-brand_blue">Mis Cursos ({myCourses.length})</h2>
+                <p className="text-gray-600 mb-4">Cursos que has creado como administrador</p>
               
               {myCourses.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -265,7 +274,8 @@ export default function Dashboard() {
                   </Link>
                 </div>
               )}
-            </div>
+              </div>
+            )}
 
             {/* All Courses Section */}
             <div id="todos-cursos" className="mb-8">
@@ -286,7 +296,7 @@ export default function Dashboard() {
                       </div>
                       <p className="text-gray-600 text-sm mb-4">{course.description || 'Sin descripción'}</p>
                       <div className="flex space-x-2">
-                        {course.created_by === user?.id ? (
+                        {isAdmin && course.created_by === user?.id ? (
                           <>
                             <Link
                               href={`/admin/course-builder/${course.id}`}

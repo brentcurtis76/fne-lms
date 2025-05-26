@@ -247,7 +247,8 @@ export default function ProfilePage() {
             school,
             avatar_url,
             growth_community: profile?.growth_community || null,
-            role: 'docente'
+            role: 'docente',
+            approval_status: 'pending'
           });
       }
       

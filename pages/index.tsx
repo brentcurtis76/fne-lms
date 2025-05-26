@@ -14,10 +14,30 @@ export default function HomePage() {
       // If user is logged in, check their profile
       if (session?.user) {
         try {
+          // Get user profile with approval status
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (!profile) {
+            // No profile exists, redirect to profile creation
+            router.push('/profile');
+            return;
+          }
+          
+          // Check approval status first
+          if (profile.approval_status === 'pending' || profile.approval_status === 'rejected') {
+            router.push('/pending-approval');
+            return;
+          }
+          
+          // If approved, check if profile is complete
           const isProfileComplete = await checkProfileCompletion(session.user.id);
           
           if (isProfileComplete) {
-            // If profile is complete, redirect to dashboard
+            // If profile is complete and approved, redirect to dashboard
             router.push('/dashboard');
           } else {
             // If profile is incomplete, redirect to profile page

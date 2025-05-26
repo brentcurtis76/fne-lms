@@ -31,6 +31,7 @@ const CourseDetailPage = () => {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
 
   const [showCreateModuleForm, setShowCreateModuleForm] = useState<boolean>(false);
   const [newModuleTitle, setNewModuleTitle] = useState<string>('');
@@ -49,16 +50,21 @@ const CourseDetailPage = () => {
         
         setUser(session.user);
         
-        // Check if user is admin
+        // Check if user is admin and get avatar
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, avatar_url')
           .eq('id', session.user.id)
           .single();
           
         const adminFromMetadata = session.user.user_metadata?.role === 'admin';
         const adminFromProfile = profileData?.role === 'admin';
         setIsAdmin(adminFromMetadata || adminFromProfile);
+        
+        // Set avatar URL if available
+        if (profileData?.avatar_url) {
+          setAvatarUrl(profileData.avatar_url);
+        }
         
       } catch (error) {
         console.error('Error checking session:', error);
@@ -163,7 +169,7 @@ const CourseDetailPage = () => {
   if (error) {
     return (
       <>
-        <Header user={user} isAdmin={isAdmin} />
+        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
         <div className="min-h-screen bg-brand_beige flex flex-col items-center justify-center h-screen p-4" style={{paddingTop: '120px'}}>
           <p className="text-xl text-red-600 font-mont">Error: {error}</p>
           <Link href="/admin/course-builder" legacyBehavior>
@@ -179,7 +185,7 @@ const CourseDetailPage = () => {
   if (!course) {
     return (
       <>
-        <Header user={user} isAdmin={isAdmin} />
+        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
         <div className="min-h-screen bg-brand_beige flex justify-center items-center" style={{paddingTop: '120px'}}>
           <p className="text-xl text-brand_blue font-mont">Curso no encontrado.</p>
         </div>
@@ -189,7 +195,7 @@ const CourseDetailPage = () => {
 
   return (
     <>
-      <Header user={user} isAdmin={isAdmin} />
+      <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
       <div className="min-h-screen bg-brand_beige px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8" style={{marginTop: '120px'}}>
       <div className="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-6 mt-8">
         <div className="mb-6 flex justify-between items-center">

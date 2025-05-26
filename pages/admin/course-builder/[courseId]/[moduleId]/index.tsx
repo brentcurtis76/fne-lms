@@ -36,6 +36,7 @@ const ModuleDetailPage = () => {
 
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [module, setModule] = useState<Module | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]); 
   const [loading, setLoading] = useState<boolean>(true);
@@ -61,13 +62,18 @@ const ModuleDetailPage = () => {
         // Check admin status
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, avatar_url')
           .eq('id', session.user.id)
           .single();
           
         const adminFromMetadata = session.user.user_metadata?.role === 'admin';
         const adminFromProfile = profileData?.role === 'admin';
         setIsAdmin(adminFromMetadata || adminFromProfile);
+        
+        // Set avatar URL
+        if (profileData?.avatar_url) {
+          setAvatarUrl(profileData.avatar_url);
+        }
         
         if (!adminFromMetadata && !adminFromProfile) {
           router.push('/dashboard');
@@ -230,7 +236,7 @@ const ModuleDetailPage = () => {
     const courseIdForLink = Array.isArray(courseIdQuery) ? courseIdQuery[0] : courseIdQuery;
     return (
       <>
-        <Header user={user} isAdmin={isAdmin} />
+        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
         <div className="flex flex-col justify-center items-center h-screen bg-red-50 p-4 pt-40">
         <Head>
           <title>Error</title>
@@ -257,7 +263,7 @@ const ModuleDetailPage = () => {
     const courseIdForLink = Array.isArray(courseIdQuery) ? courseIdQuery[0] : courseIdQuery;
     return (
       <>
-        <Header user={user} isAdmin={isAdmin} />
+        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
         <div className="flex flex-col justify-center items-center h-screen bg-gray-100 p-4 pt-40">
         <Head>
           <title>Módulo no encontrado</title>
@@ -282,7 +288,7 @@ const ModuleDetailPage = () => {
   // Simplified success rendering: module title and description
   return (
     <>
-      <Header user={user} isAdmin={isAdmin} />
+      <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
       <div className="min-h-screen bg-gray-100 px-4 md:px-8 py-4 md:py-8 pt-16">
       <Head>
         <title>Módulo: {module.title || 'Detalle'}</title>

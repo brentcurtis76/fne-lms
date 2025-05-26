@@ -66,15 +66,27 @@ export default function Dashboard() {
                 // Admins see all courses and can create courses
                 const { data: allCoursesData, error: allCoursesError } = await supabase
                   .from('courses')
-                  .select('*')
+                  .select(`
+                    *,
+                    instructors(full_name)
+                  `)
                   .order('created_at', { ascending: false });
                 
                 if (allCoursesData) {
-                  setAllCourses(allCoursesData);
+                  // Format courses with instructor names
+                  const formattedCourses = allCoursesData.map(course => ({
+                    ...course,
+                    // @ts-ignore
+                    instructor_name: course.instructors?.full_name || 'Sin instructor',
+                    // Ensure thumbnail_url is a string or null, and specifically handle 'default-thumbnail.png'
+                    thumbnail_url: (course.thumbnail_url && course.thumbnail_url !== 'default-thumbnail.png') ? course.thumbnail_url : null 
+                  }));
+                  
+                  setAllCourses(formattedCourses);
                   
                   // Filter courses created by current user
                   if (userData?.user?.id) {
-                    const userCreatedCourses = allCoursesData.filter(course => course.created_by === userData.user.id);
+                    const userCreatedCourses = formattedCourses.filter(course => course.created_by === userData.user.id);
                     setMyCourses(userCreatedCourses);
                   }
                 }
@@ -91,16 +103,24 @@ export default function Dashboard() {
                       thumbnail_url,
                       instructor_id,
                       created_at,
-                      created_by
+                      created_by,
+                      instructors(full_name)
                     )
                   `)
                   .eq('teacher_id', userData.user.id);
 
                 if (assignedCoursesData && !assignedCoursesError) {
-                  // Extract course data from the join
+                  // Extract course data from the join and format with instructor names
                   const teacherCourses = assignedCoursesData
                     .map(assignment => assignment.courses)
-                    .filter(course => course !== null); // Filter out null courses
+                    .filter(course => course !== null) // Filter out null courses
+                    .map(course => ({
+                      ...course,
+                      // @ts-ignore
+                      instructor_name: course?.instructors?.full_name || 'Sin instructor',
+                      // @ts-ignore - Ensure thumbnail_url is a string or null, and specifically handle 'default-thumbnail.png'
+                      thumbnail_url: (course?.thumbnail_url && course?.thumbnail_url !== 'default-thumbnail.png') ? course?.thumbnail_url : null 
+                    }));
                   
                   setAllCourses(teacherCourses);
                   setMyCourses([]); // Teachers don't have "my courses" - only assigned courses
@@ -270,29 +290,56 @@ export default function Dashboard() {
                 <p className="text-gray-600 mb-4">Cursos que has creado como administrador</p>
               
               {myCourses.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                   {myCourses.map((course) => (
-                    <div key={course.id} className="border-2 border-blue-200 rounded-lg p-4 hover:shadow-md transition-shadow bg-blue-50">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold text-lg text-brand_blue">{course.title}</h4>
-                        <span className="px-2 py-1 bg-blue-200 text-blue-700 text-xs rounded-full font-medium">
-                          Mío
-                        </span>
-                      </div>
-                      <p className="text-gray-600 text-sm mb-4">{course.description || 'Sin descripción'}</p>
-                      <div className="flex space-x-2">
-                        <Link
-                          href={`/admin/course-builder/${course.id}`}
-                          className="flex-1 text-center px-3 py-2 bg-brand_blue text-white rounded hover:bg-brand_yellow hover:text-brand_blue transition-colors text-sm font-medium"
-                        >
-                          Editar
-                        </Link>
-                        <Link
-                          href={`/student/course/${course.id}`}
-                          className="flex-1 text-center px-3 py-2 border border-blue-300 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 transition-colors text-sm font-medium"
-                        >
-                          Vista Estudiante
-                        </Link>
+                    <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
+                      <Link href={`/admin/course-builder/${course.id}`} legacyBehavior>
+                        <a className="block group">
+                          {/* Thumbnail Section */}
+                          <div className="aspect-[16/9] w-full bg-brand_blue/5 flex items-center justify-center">
+                            {course.thumbnail_url ? (
+                              <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                            ) : (
+                              <svg className="w-16 h-16 text-brand_blue/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                              </svg>
+                            )}
+                          </div>
+                          {/* Content Section */}
+                          <div className="p-5 md:p-6 flex-grow">
+                            <div className="flex items-center justify-between mb-2">
+                              <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
+                                {course.title}
+                              </h2>
+                              <span className="px-2 py-1 bg-blue-200 text-blue-700 text-xs rounded-full font-medium">
+                                Mío
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm text-gray-600 line-clamp-3 h-[3.75em]">
+                              {course.description || 'Sin descripción'}
+                            </p>
+                            <p className="mt-3 text-xs text-gray-500">
+                              Instructor: {course.instructor_name || 'Sin instructor'}
+                            </p>
+                          </div>
+                        </a>
+                      </Link>
+                      {/* Action Buttons */}
+                      <div className="p-4 md:p-5 bg-gray-50 border-t border-gray-200 mt-auto">
+                        <div className="flex space-x-2">
+                          <Link
+                            href={`/admin/course-builder/${course.id}`}
+                            className="flex-1 text-center px-3 py-2 bg-brand_blue text-white rounded hover:bg-brand_yellow hover:text-brand_blue transition-colors text-sm font-medium"
+                          >
+                            Editar
+                          </Link>
+                          <Link
+                            href={`/student/course/${course.id}`}
+                            className="flex-1 text-center px-3 py-2 border border-blue-300 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 transition-colors text-sm font-medium"
+                          >
+                            Vista Estudiante
+                          </Link>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -321,42 +368,69 @@ export default function Dashboard() {
               </p>
               
               {allCourses.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                   {allCourses.map((course) => (
-                    <div key={course.id} className="border-2 border-brand_blue rounded-lg p-4 hover:shadow-md transition-shadow bg-white">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-semibold text-lg text-brand_blue">{course.title}</h4>
-                        {course.created_by === user?.id && (
-                          <span className="px-2 py-1 bg-blue-200 text-blue-700 text-xs rounded-full font-medium">
-                            Mío
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-gray-600 text-sm mb-4">{course.description || 'Sin descripción'}</p>
-                      <div className="flex space-x-2">
-                        {isAdmin && course.created_by === user?.id ? (
-                          <>
-                            <Link
-                              href={`/admin/course-builder/${course.id}`}
-                              className="flex-1 text-center px-3 py-2 bg-brand_blue text-white rounded hover:bg-brand_yellow hover:text-brand_blue transition-colors text-sm font-medium"
-                            >
-                              Editar
-                            </Link>
+                    <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
+                      <Link href={isAdmin && course.created_by === user?.id ? `/admin/course-builder/${course.id}` : `/student/course/${course.id}`} legacyBehavior>
+                        <a className="block group">
+                          {/* Thumbnail Section */}
+                          <div className="aspect-[16/9] w-full bg-brand_blue/5 flex items-center justify-center">
+                            {course.thumbnail_url ? (
+                              <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                            ) : (
+                              <svg className="w-16 h-16 text-brand_blue/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                              </svg>
+                            )}
+                          </div>
+                          {/* Content Section */}
+                          <div className="p-5 md:p-6 flex-grow">
+                            <div className="flex items-center justify-between mb-2">
+                              <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
+                                {course.title}
+                              </h2>
+                              {course.created_by === user?.id && (
+                                <span className="px-2 py-1 bg-blue-200 text-blue-700 text-xs rounded-full font-medium">
+                                  Mío
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-2 text-sm text-gray-600 line-clamp-3 h-[3.75em]">
+                              {course.description || 'Sin descripción'}
+                            </p>
+                            <p className="mt-3 text-xs text-gray-500">
+                              Instructor: {course.instructor_name || 'Sin instructor'}
+                            </p>
+                          </div>
+                        </a>
+                      </Link>
+                      {/* Action Buttons */}
+                      <div className="p-4 md:p-5 bg-gray-50 border-t border-gray-200 mt-auto">
+                        <div className="flex space-x-2">
+                          {isAdmin && course.created_by === user?.id ? (
+                            <>
+                              <Link
+                                href={`/admin/course-builder/${course.id}`}
+                                className="flex-1 text-center px-3 py-2 bg-brand_blue text-white rounded hover:bg-brand_yellow hover:text-brand_blue transition-colors text-sm font-medium"
+                              >
+                                Editar
+                              </Link>
+                              <Link
+                                href={`/student/course/${course.id}`}
+                                className="flex-1 text-center px-3 py-2 border border-blue-300 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 transition-colors text-sm font-medium"
+                              >
+                                Vista Estudiante
+                              </Link>
+                            </>
+                          ) : (
                             <Link
                               href={`/student/course/${course.id}`}
-                              className="flex-1 text-center px-3 py-2 border border-blue-300 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 transition-colors text-sm font-medium"
+                              className="w-full text-center px-3 py-2 bg-yellow-200 text-yellow-800 rounded hover:bg-yellow-300 transition-colors text-sm font-medium"
                             >
-                              Vista Estudiante
+                              Ver Curso
                             </Link>
-                          </>
-                        ) : (
-                          <Link
-                            href={`/student/course/${course.id}`}
-                            className="w-full text-center px-3 py-2 bg-yellow-200 text-yellow-800 rounded hover:bg-yellow-300 transition-colors text-sm font-medium"
-                          >
-                            Ver Curso
-                          </Link>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

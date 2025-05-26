@@ -29,6 +29,7 @@ const CourseBuilder: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
 
   // State for delete confirmation modal
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -49,10 +50,10 @@ const CourseBuilder: React.FC = () => {
 
       setUser(session.user);
 
-      // Get user profile to check role
+      // Get user profile to check role and avatar
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('role, approval_status')
+        .select('role, approval_status, avatar_url')
         .eq('id', session.user.id)
         .single();
 
@@ -65,6 +66,11 @@ const CourseBuilder: React.FC = () => {
 
       const adminInMetadata = session.user.user_metadata?.role === 'admin';
       const adminInProfile = profileData?.role === 'admin';
+      
+      // Set avatar URL if available
+      if (profileData?.avatar_url) {
+        setAvatarUrl(profileData.avatar_url);
+      }
       
       if (adminInMetadata || adminInProfile) {
         console.log('Setting user role to admin');
@@ -288,7 +294,7 @@ const CourseBuilder: React.FC = () => {
   if (userRole !== 'admin') {
     return (
       <div className="min-h-screen bg-brand_beige flex flex-col justify-center items-center">
-        {user && <Header user={user} isAdmin={false} />}
+        {user && <Header user={user} isAdmin={false} avatarUrl={avatarUrl} />}
         <div className="text-center p-8">
           <h1 className="text-2xl font-semibold text-brand_blue mb-4">Acceso Denegado</h1>
           <p className="text-gray-700 mb-6">No tienes permiso para acceder a esta página.</p>
@@ -304,7 +310,7 @@ const CourseBuilder: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-brand_beige text-brand_blue">
-      <Header user={user} isAdmin={userRole === 'admin'} /> {/* Render Header */}
+      <Header user={user} isAdmin={userRole === 'admin'} avatarUrl={avatarUrl} /> {/* Render Header */}
       {/* Add padding-top to account for the fixed header's height */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 pt-40 md:pt-44"> 
         <header className="mb-8 md:mb-12 flex flex-col sm:flex-row justify-between items-center gap-4">

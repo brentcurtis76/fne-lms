@@ -46,6 +46,11 @@ interface LessonEditorProps {
 
 const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, courseId, moduleId, lessonIdString }) => {
   const router = useRouter();
+  
+  console.log(`[LessonEditor] Initializing with lesson data:`, initialLessonData);
+  console.log(`[LessonEditor] Initial blocks count:`, initialLessonData.blocks?.length || 0);
+  console.log(`[LessonEditor] Initial blocks:`, initialLessonData.blocks);
+  
   const [lessonTitle, setLessonTitle] = useState(initialLessonData.title);
   const [blocks, setBlocks] = useState<Block[]>(initialLessonData.blocks || []);
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(() => {
@@ -59,14 +64,49 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
 
-  // Fetch user authentication state
+  // Fetch user authentication state and refetch blocks if needed
   useEffect(() => {
     const getUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUser(session.user);
         setIsAdmin(session.user?.user_metadata?.role === 'admin');
+        
+        // Fetch avatar URL
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('avatar_url')
+          .eq('id', session.user.id)
+          .single();
+          
+        if (profileData?.avatar_url) {
+          setAvatarUrl(profileData.avatar_url);
+        }
+        
+        // If no blocks were loaded initially, try to refetch them client-side
+        if (!initialLessonData.blocks || initialLessonData.blocks.length === 0) {
+          console.log(`[LessonEditor] No blocks found initially, refetching client-side...`);
+          const { data: blocksData, error: blocksError } = await supabase
+            .from('blocks')
+            .select('*')
+            .eq('lesson_id', lessonIdString)
+            .order('position', { ascending: true });
+            
+          if (blocksError) {
+            console.error('Error refetching blocks:', blocksError);
+          } else {
+            console.log(`[LessonEditor] Client-side refetch found ${blocksData?.length || 0} blocks:`, blocksData);
+            if (blocksData && blocksData.length > 0) {
+              const parsedBlocks = blocksData.map(block => ({
+                ...block,
+                payload: block.payload
+              })) as Block[];
+              setBlocks(parsedBlocks);
+            }
+          }
+        }
       }
     };
     getUser();
@@ -418,7 +458,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
 
   return (
     <div>
-      <Header user={user} isAdmin={isAdmin} />
+      <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
       <div className="min-h-screen bg-gray-100 px-4 py-8 pt-40">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Simple Timeline Sidebar - NO DnD */}
@@ -797,6 +837,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   if (blocksError) {
     console.error('Error fetching blocks:', blocksError?.message);
   }
+  
+  console.log(`[GetServerSideProps] Fetching blocks for lesson ID: ${lessonId}`);
+  console.log(`[GetServerSideProps] Blocks found:`, blocks?.length || 0);
+  console.log(`[GetServerSideProps] Blocks data:`, blocks);
 
   const parsedBlocks = (blocks || []).map(block => ({
     ...block,

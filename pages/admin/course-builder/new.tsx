@@ -10,6 +10,7 @@ export default function NewCourse() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
   
   // Form state
   const [title, setTitle] = useState('');
@@ -51,12 +52,17 @@ export default function NewCourse() {
         // Always check profiles table as well
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, avatar_url')
           .eq('id', session.user.id)
           .single();
           
         console.log('Profile data:', profileData);
         const adminFromProfile = profileData?.role === 'admin';
+        
+        // Set avatar URL if available
+        if (profileData?.avatar_url) {
+          setAvatarUrl(profileData.avatar_url);
+        }
         
         if (!adminRole && !adminFromProfile) {
           console.log('User is not an admin, redirecting to dashboard');
@@ -224,6 +230,7 @@ export default function NewCourse() {
         <Header 
           user={user} 
           isAdmin={isAdmin}
+          avatarUrl={avatarUrl}
         />
         
         <main className="container mx-auto pt-32 pb-10 px-4">

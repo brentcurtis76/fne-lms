@@ -21,6 +21,7 @@ export default function EditCourse() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
   
   // Course data
   const [course, setCourse] = useState<Course | null>(null);
@@ -46,7 +47,7 @@ export default function EditCourse() {
         // Check admin status
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, avatar_url')
           .eq('id', session.user.id)
           .single();
           
@@ -54,6 +55,11 @@ export default function EditCourse() {
         const adminFromProfile = profileData?.role === 'admin';
         const isAdminUser = adminFromMetadata || adminFromProfile;
         setIsAdmin(isAdminUser);
+        
+        // Set avatar URL
+        if (profileData?.avatar_url) {
+          setAvatarUrl(profileData.avatar_url);
+        }
         
         if (!isAdminUser) {
           router.push('/dashboard');
@@ -174,7 +180,7 @@ export default function EditCourse() {
   if (!course) {
     return (
       <>
-        <Header user={user} isAdmin={isAdmin} />
+        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
         <div className="min-h-screen bg-brand_beige flex flex-col items-center justify-center" style={{paddingTop: '120px'}}>
           <p className="text-xl text-red-600 font-mont">Curso no encontrado</p>
           <Link href="/admin/course-builder" legacyBehavior>
@@ -194,7 +200,7 @@ export default function EditCourse() {
       </Head>
       
       <div className="min-h-screen bg-brand_beige">
-        <Header user={user} isAdmin={isAdmin} />
+        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
         
         <main className="container mx-auto pt-32 pb-10 px-4">
           <div className="max-w-2xl mx-auto">

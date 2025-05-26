@@ -113,6 +113,13 @@ export default function LoginPage() {
     try {
       console.log('Attempting signup with:', { email, passwordLength: password.length });
       
+      // Clear any existing sessions first
+      await supabase.auth.signOut();
+      
+      // Check if user already exists first
+      const { data: existingSession } = await supabase.auth.getSession();
+      console.log('Current session before signup:', existingSession);
+      
       const { error, data } = await supabase.auth.signUp({ 
         email: email.trim(), 
         password: password,
@@ -121,7 +128,13 @@ export default function LoginPage() {
         }
       });
 
-      console.log('Signup response:', { error, data });
+      console.log('Signup response:', { 
+        error, 
+        data,
+        userExists: data?.user && !data?.session,
+        needsConfirmation: data?.user && !data?.session,
+        autoSignedIn: !!data?.session
+      });
 
       if (error) {
         console.error('Signup error details:', error);

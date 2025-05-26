@@ -8,9 +8,10 @@ interface HeaderProps {
   isAdmin?: boolean;
   onLogout?: () => void;
   avatarUrl?: string;
+  showNavigation?: boolean;
 }
 
-export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarUrl }: HeaderProps) {
+export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarUrl, showNavigation = true }: HeaderProps) {
   const router = useRouter();
   const [localUser, setLocalUser] = useState<User | null>(user || null);
   const [localIsAdmin, setLocalIsAdmin] = useState(isAdmin || false);
@@ -76,8 +77,9 @@ export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarU
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-1">
-            {!isLoggedIn && (
+          {showNavigation && (
+            <nav className="hidden md:flex items-center space-x-1">
+              {!isLoggedIn && (
               <>
                 <Link href="/" legacyBehavior>
                   <a className={`relative px-6 py-3 text-sm font-medium transition-all duration-300 group ${
@@ -182,7 +184,8 @@ export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarU
                 )}
               </>
             )}
-          </nav>
+            </nav>
+          )}
 
           {/* User Area & Auth Buttons */}
           <div className="hidden md:flex items-center space-x-3">

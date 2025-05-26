@@ -70,29 +70,9 @@ export default function PendingApprovalPage() {
       <Head>
         <title>Estado de Cuenta | FNE LMS</title>
       </Head>
-      {/* Minimal header without navigation options */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-brand_blue shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-brand_yellow rounded-full flex items-center justify-center mr-3">
-                <svg className="w-6 h-6 text-brand_blue" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10 12L8 10L6 12L4 10L2 12L10 20L18 12L16 10L14 12L12 10L10 12Z"/>
-                </svg>
-              </div>
-              <h1 className="text-xl font-bold text-white">Fundación Nueva Educación</h1>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="px-4 py-2 bg-brand_yellow text-brand_blue rounded-lg hover:bg-white transition-colors font-medium"
-            >
-              Cerrar Sesión
-            </button>
-          </div>
-        </div>
-      </div>
+      <Header user={user} isAdmin={false} showNavigation={false} onLogout={handleSignOut} />
       
-      <div className="min-h-screen bg-brand_beige pt-20 px-4">
+      <div className="min-h-screen bg-brand_beige pt-40 px-4">
         <div className="max-w-2xl mx-auto">
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
             {isRejected ? (

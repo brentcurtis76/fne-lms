@@ -126,7 +126,8 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
       toast.success(`Curso asignado a ${selectedTeachers.size} docente(s)`);
       
       // Update assigned teachers and clear selection
-      const newAssigned = new Set([...assignedTeachers, ...selectedTeachers]);
+      const newAssigned = new Set(assignedTeachers);
+      selectedTeachers.forEach(teacherId => newAssigned.add(teacherId));
       setAssignedTeachers(newAssigned);
       setSelectedTeachers(new Set());
       

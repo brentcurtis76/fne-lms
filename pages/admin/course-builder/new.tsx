@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../../../lib/supabase';
 import Header from '../../../components/layout/Header';
 import { toast } from 'react-hot-toast';
 
 export default function NewCourse() {
-  const supabase = useSupabaseClient();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -29,8 +28,8 @@ export default function NewCourse() {
         const { data: { session } } = await supabase.auth.getSession();
         
         if (!session?.user) {
-          // User is not logged in, redirect to homepage
-          router.push('/');
+          console.log('No session found, redirecting to login');
+          router.push('/login');
           return;
         }
         
@@ -47,24 +46,26 @@ export default function NewCourse() {
         
         // Check for admin role in user metadata
         const adminRole = userData?.user?.user_metadata?.role === 'admin';
+        console.log('Admin from metadata:', adminRole);
         
-        if (!adminRole) {
-          // If not found in metadata, check profiles table as fallback
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', session.user.id)
-            .single();
-            
-          if (profileError || profileData?.role !== 'admin') {
-            // User is not an admin, redirect to homepage
-            console.log('User is not an admin, redirecting to homepage');
-            router.push('/');
-            return;
-          }
+        // Always check profiles table as well
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+          
+        console.log('Profile data:', profileData);
+        const adminFromProfile = profileData?.role === 'admin';
+        
+        if (!adminRole && !adminFromProfile) {
+          console.log('User is not an admin, redirecting to dashboard');
+          router.push('/dashboard');
+          return;
         }
         
         // User is an admin, allow access to the page
+        console.log('User is admin, allowing access to new course page');
         setIsAdmin(true);
         setLoading(false);
         
@@ -73,12 +74,12 @@ export default function NewCourse() {
         
       } catch (error) {
         console.error('Error checking admin access:', error);
-        router.push('/');
+        router.push('/login');
       }
     };
     
     checkAdminAccess();
-  }, [router, supabase.auth]);
+  }, [router]);
   
   // Function to fetch instructors from Supabase
   const fetchInstructors = async () => {

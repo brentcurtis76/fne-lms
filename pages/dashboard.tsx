@@ -40,30 +40,11 @@ export default function Dashboard() {
           
           // Always fetch profile data for all users (admin and non-admin)
           if (userData?.user) {
-            // Special handling for admin user who has RLS issues
-            let profileData = null;
-            let profileError = null;
-            
-            if (userData.user.email === 'brent@perrotuertocm.cl') {
-              // Hardcode the admin profile data since RLS is blocking it
-              profileData = {
-                role: 'admin',
-                first_name: 'Brent',
-                last_name: 'Curtis',
-                avatar_url: null,
-                school: 'Fundación Nueva Educación',
-                description: 'Esposo de Paz, Papá de Nicole, Tommy, Mili, Clapton & Wilco. Pastor en Iglesia Anglicana San Andrés. Teclados en Aeroplan'
-              };
-            } else {
-              // Normal profile fetch for other users
-              const result = await supabase
-                .from('profiles')
-                .select('role, first_name, last_name, avatar_url, school, description')
-                .eq('id', userData.user.id)
-                .single();
-              profileData = result.data;
-              profileError = result.error;
-            }
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('role, first_name, last_name, avatar_url, school, description')
+              .eq('id', userData.user.id)
+              .single();
               
             if (profileData) {
               setProfileData(profileData);

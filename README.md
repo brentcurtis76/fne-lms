@@ -695,6 +695,106 @@ npm run build
 - 🔧 **Performance Optimization** - Database query optimization for larger datasets
 - 📱 **Mobile Enhancement** - Further mobile experience improvements
 
+# CRITICAL DEVELOPMENT PATTERNS
+
+## Header Component Implementation Pattern
+
+**⚠️ CRITICAL**: All pages must implement the Header component with proper authentication props to prevent logout issues.
+
+### Required Header Props
+```typescript
+<Header 
+  user={user}                    // User object from Supabase session
+  isAdmin={isAdmin}             // Boolean indicating admin status
+  avatarUrl={avatarUrl}         // User avatar URL from profile
+  onLogout={handleLogout}       // Logout function that clears session
+  showNavigation={true}         // Optional: defaults to true
+/>
+```
+
+### Complete Implementation Example
+```typescript
+// State variables needed in every page
+const [user, setUser] = useState<any>(null);
+const [isAdmin, setIsAdmin] = useState(false);
+const [avatarUrl, setAvatarUrl] = useState('');
+const [profileName, setProfileName] = useState('');
+
+// Authentication initialization in useEffect
+useEffect(() => {
+  const initializeAuth = async () => {
+    try {
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        router.push('/login');
+        return;
+      }
+      setUser(session.user);
+
+      // Get profile data and admin status
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('role, first_name, last_name, avatar_url')
+        .eq('id', session.user.id)
+        .single();
+      
+      if (profileData) {
+        setIsAdmin(profileData.role === 'admin');
+        
+        if (profileData.first_name && profileData.last_name) {
+          setProfileName(`${profileData.first_name} ${profileData.last_name}`);
+        }
+        
+        if (profileData.avatar_url) {
+          setAvatarUrl(profileData.avatar_url);
+        }
+      }
+    } catch (error) {
+      console.error('Auth initialization error:', error);
+      router.push('/login');
+    }
+  };
+
+  initializeAuth();
+}, [router]);
+
+// Logout handler
+const handleLogout = async () => {
+  await supabase.auth.signOut();
+  localStorage.removeItem('rememberMe');
+  sessionStorage.removeItem('sessionOnly');
+  router.push('/login');
+};
+
+// Header usage in JSX
+<Header 
+  user={user} 
+  isAdmin={isAdmin} 
+  avatarUrl={avatarUrl}
+  onLogout={handleLogout}
+/>
+```
+
+### CRITICAL REQUIREMENTS:
+1. **Always use consistent Supabase client**: Import from `../lib/supabase`, never use `@supabase/auth-helpers-react`
+2. **Always pass authentication state**: Never use `<Header />` without props
+3. **Always provide onLogout handler**: Prevents authentication conflicts
+4. **Always fetch profile data**: Required for proper admin status and avatar display
+
+### Common Mistakes to Avoid:
+- ❌ `<Header />` (missing props)
+- ❌ `useSupabaseClient()` from auth helpers (use consistent client)
+- ❌ Missing onLogout handler (causes logout issues)
+- ❌ Not fetching profile data (missing avatar and admin status)
+
+### Login Page Special Case:
+```typescript
+<Header user={null} isAdmin={false} showNavigation={true} />
+```
+
+---
+
 # LMS Test Suite
 
 This test suite verifies the core functionality of the course-related operations in the FNE LMS.

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../../../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Play, CheckCircle, Clock, BookOpen, FileText } from 'lucide-react';
@@ -40,7 +40,6 @@ interface Progress {
 export default function StudentCourseViewer() {
   const router = useRouter();
   const { courseId } = router.query;
-  const supabase = useSupabaseClient();
 
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
@@ -48,6 +47,8 @@ export default function StudentCourseViewer() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [profileName, setProfileName] = useState('');
 
   useEffect(() => {
     const initializeCourseViewer = async () => {
@@ -68,7 +69,7 @@ export default function StudentCourseViewer() {
         }
         setUser(session.user);
 
-        // Check if user is admin
+        // Check if user is admin and get profile data
         try {
           const adminInMetadata = session.user?.user_metadata?.role === 'admin';
           if (adminInMetadata) {
@@ -76,10 +77,21 @@ export default function StudentCourseViewer() {
           } else {
             const { data: profileData } = await supabase
               .from('profiles')
-              .select('role')
+              .select('role, first_name, last_name, avatar_url')
               .eq('id', session.user.id)
               .single();
-            setIsAdmin(profileData?.role === 'admin');
+            
+            if (profileData) {
+              setIsAdmin(profileData.role === 'admin');
+              
+              if (profileData.first_name && profileData.last_name) {
+                setProfileName(`${profileData.first_name} ${profileData.last_name}`);
+              }
+              
+              if (profileData.avatar_url) {
+                setAvatarUrl(profileData.avatar_url);
+              }
+            }
           }
         } catch (error) {
           console.error('Error checking admin status:', error);
@@ -302,7 +314,15 @@ export default function StudentCourseViewer() {
       </Head>
       
       <div className="min-h-screen bg-gray-100">
-        <Header user={user} isAdmin={isAdmin} />
+        <Header 
+          user={user} 
+          isAdmin={isAdmin} 
+          avatarUrl={avatarUrl}
+          onLogout={async () => {
+            await supabase.auth.signOut();
+            router.push('/login');
+          }}
+        />
 
         {/* Course Content */}
         <div className="max-w-6xl mx-auto p-6 pt-32">

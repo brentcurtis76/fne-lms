@@ -174,8 +174,6 @@ export default function LoginPage() {
 
   return (
     <>
-      <Header />
-      <div className="min-h-screen flex flex-col items-center justify-center bg-brand_beige relative overflow-hidden pt-40">
       <Head>
         <title>Inicia sesión en tu cuenta | FNE LMS</title>
         <link
@@ -190,6 +188,10 @@ export default function LoginPage() {
           referrerPolicy="no-referrer" 
         />
       </Head>
+      
+      <Header user={null} isAdmin={false} showNavigation={true} />
+      
+      <div className="min-h-screen flex flex-col items-center justify-center bg-brand_beige relative overflow-hidden pt-40">
       
       {/* Decorative circles */}
       <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-brand_yellow opacity-20 -mr-20 -mt-20"></div>

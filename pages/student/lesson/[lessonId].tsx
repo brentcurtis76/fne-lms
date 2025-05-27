@@ -45,6 +45,8 @@ export default function StudentLessonViewer() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [profileName, setProfileName] = useState('');
   const [startTime, setStartTime] = useState<Date>(new Date());
   const [showCompletionPage, setShowCompletionPage] = useState(false);
   const [nextLesson, setNextLesson] = useState<any>(null);
@@ -70,14 +72,25 @@ export default function StudentLessonViewer() {
         }
         setUser(session.user);
 
-        // Check if user is admin
+        // Check if user is admin and get profile data
         try {
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('role')
+            .select('role, first_name, last_name, avatar_url')
             .eq('id', session.user.id)
             .single();
-          setIsAdmin(profileData?.role === 'admin');
+          
+          if (profileData) {
+            setIsAdmin(profileData.role === 'admin');
+            
+            if (profileData.first_name && profileData.last_name) {
+              setProfileName(`${profileData.first_name} ${profileData.last_name}`);
+            }
+            
+            if (profileData.avatar_url) {
+              setAvatarUrl(profileData.avatar_url);
+            }
+          }
         } catch (error) {
           console.error('Error checking admin status:', error);
           setIsAdmin(false);
@@ -380,7 +393,15 @@ export default function StudentLessonViewer() {
       </Head>
       
       <div className="min-h-screen bg-gray-100">
-        <Header user={user} isAdmin={isAdmin} />
+        <Header 
+          user={user} 
+          isAdmin={isAdmin} 
+          avatarUrl={avatarUrl}
+          onLogout={async () => {
+            await supabase.auth.signOut();
+            router.push('/login');
+          }}
+        />
         
         {/* Lesson Sub-Header */}
         <div className="bg-white shadow-sm border-b px-4 py-3 mt-24">

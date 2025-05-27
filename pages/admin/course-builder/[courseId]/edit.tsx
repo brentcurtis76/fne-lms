@@ -11,6 +11,7 @@ interface Course {
   title: string;
   description: string;
   thumbnail_url: string | null;
+  instructor_id: string | null;
 }
 
 export default function EditCourse() {
@@ -29,8 +30,13 @@ export default function EditCourse() {
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [instructor, setInstructor] = useState('');
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [currentThumbnailUrl, setCurrentThumbnailUrl] = useState<string | null>(null);
+  
+  // Instructors data
+  const [instructors, setInstructors] = useState<any[]>([]);
+  const [loadingInstructors, setLoadingInstructors] = useState(false);
 
   useEffect(() => {
     const checkAuthAndLoadCourse = async () => {
@@ -83,7 +89,11 @@ export default function EditCourse() {
           setCourse(courseData);
           setTitle(courseData.title);
           setDescription(courseData.description);
+          setInstructor(courseData.instructor_id || '');
           setCurrentThumbnailUrl(courseData.thumbnail_url);
+          
+          // Fetch instructors
+          fetchInstructors();
         }
         
       } catch (error) {
@@ -96,6 +106,27 @@ export default function EditCourse() {
     
     checkAuthAndLoadCourse();
   }, [router, courseId]);
+  
+  // Function to fetch instructors from Supabase
+  const fetchInstructors = async () => {
+    try {
+      setLoadingInstructors(true);
+      const { data, error } = await supabase
+        .from('instructors')
+        .select('id, full_name')
+        .order('full_name', { ascending: true });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      setInstructors(data || []);
+    } catch (err) {
+      console.error('Error fetching instructors:', err);
+    } finally {
+      setLoadingInstructors(false);
+    }
+  };
 
   const uploadThumbnail = async (file: File): Promise<string> => {
     const fileExt = file.name.split('.').pop();
@@ -141,6 +172,7 @@ export default function EditCourse() {
         .update({
           title: title.trim(),
           description: description.trim(),
+          instructor_id: instructor || null,
           thumbnail_url: thumbnailUrl
         })
         .eq('id', courseId as string);
@@ -249,6 +281,30 @@ export default function EditCourse() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-transparent"
                     placeholder="Describe el contenido y objetivos del curso..."
                   />
+                </div>
+
+                {/* Instructor */}
+                <div>
+                  <label htmlFor="instructor" className="block text-sm font-medium text-brand_blue mb-2">
+                    Instructor
+                  </label>
+                  <select
+                    id="instructor"
+                    value={instructor}
+                    onChange={(e) => setInstructor(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    disabled={loadingInstructors}
+                  >
+                    <option value="">Selecciona un instructor</option>
+                    {instructors.map((inst) => (
+                      <option key={inst.id} value={inst.id}>
+                        {inst.full_name}
+                      </option>
+                    ))}
+                  </select>
+                  {loadingInstructors && (
+                    <p className="text-sm text-gray-500 mt-1">Cargando instructores...</p>
+                  )}
                 </div>
 
                 {/* Current Thumbnail */}

@@ -231,38 +231,47 @@ export default function Dashboard() {
                   <>
                     <Link
                       href="/admin/course-builder/new"
-                      className="block p-6 bg-brand_blue text-white rounded-lg hover:bg-brand_yellow hover:text-brand_blue transition-colors"
+                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
                     >
-                      <h3 className="text-lg font-semibold mb-2">Crear Curso</h3>
-                      <p className="text-sm opacity-90">Crea nuevos cursos</p>
+                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Crear Curso</h3>
+                      <p className="text-sm text-gray-600">Crea nuevos cursos</p>
                     </Link>
                     
                     {myCourses.length > 0 ? (
                       <Link
                         href={`/admin/course-builder/${myCourses[0].id}`}
-                        className="block p-6 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_blue hover:text-white transition-colors"
+                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
                       >
-                        <h3 className="text-lg font-semibold mb-2">Editor de Lecciones</h3>
-                        <p className="text-sm opacity-90">Edita lecciones interactivas</p>
+                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Editor de Lecciones</h3>
+                        <p className="text-sm text-gray-600">Edita lecciones interactivas</p>
                       </Link>
                     ) : (
-                      <div className="p-6 bg-gray-300 text-gray-500 rounded-lg">
-                        <h3 className="text-lg font-semibold mb-2">Editor de Lecciones</h3>
-                        <p className="text-sm">Crea un curso primero</p>
+                      <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 opacity-60">
+                        <h3 className="text-lg font-semibold mb-2 text-gray-500">Editor de Lecciones</h3>
+                        <p className="text-sm text-gray-400">Crea un curso primero</p>
                       </div>
                     )}
-                  </>
-                )}
 
-                {/* Admin-specific actions */}
-                {isAdmin && (
-                  <Link
-                    href="/admin/course-builder"
-                    className="block p-6 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_blue hover:text-white transition-colors"
-                  >
-                    <h3 className="text-lg font-semibold mb-2">Asigna Cursos</h3>
-                    <p className="text-sm opacity-90">Asignar cursos a docentes</p>
-                  </Link>
+                    <Link
+                      href="/admin/course-builder"
+                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
+                    >
+                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Asigna Cursos</h3>
+                      <p className="text-sm text-gray-600">Asignar cursos a docentes</p>
+                    </Link>
+
+                    <Link
+                      href="#todos-cursos"
+                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById('todos-cursos')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    >
+                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Todos los Cursos</h3>
+                      <p className="text-sm text-gray-600">Ver todos los cursos ({allCourses.length})</p>
+                    </Link>
+                  </>
                 )}
 
                 {/* Teacher-specific actions */}
@@ -270,55 +279,40 @@ export default function Dashboard() {
                   <>
                     <Link
                       href="#todos-mis-cursos"
-                      className="block p-6 bg-brand_blue text-white rounded-lg hover:bg-brand_yellow hover:text-brand_blue transition-colors"
+                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
                       onClick={(e) => {
                         e.preventDefault();
                         document.getElementById('todos-mis-cursos')?.scrollIntoView({ behavior: 'smooth' });
                       }}
                     >
-                      <h3 className="text-lg font-semibold mb-2">Todos mis cursos</h3>
-                      <p className="text-sm opacity-90">Ver todos los cursos ({allCourses.length})</p>
+                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Todos mis cursos</h3>
+                      <p className="text-sm text-gray-600">Ver todos los cursos ({allCourses.length})</p>
                     </Link>
 
                     <Link
                       href="#cursos-abiertos"
-                      className="block p-6 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_blue hover:text-white transition-colors"
+                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
                       onClick={(e) => {
                         e.preventDefault();
                         document.getElementById('cursos-abiertos')?.scrollIntoView({ behavior: 'smooth' });
                       }}
                     >
-                      <h3 className="text-lg font-semibold mb-2">Cursos Abiertos</h3>
-                      <p className="text-sm opacity-90">Cursos en progreso ({allCourses.length})</p>
+                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Cursos Abiertos</h3>
+                      <p className="text-sm text-gray-600">Cursos en progreso ({allCourses.length})</p>
                     </Link>
 
                     <Link
                       href="#cursos-finalizados"
-                      className="block p-6 bg-brand_beige text-brand_blue rounded-lg hover:bg-brand_blue hover:text-white transition-colors"
+                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-gray-300 transition-all duration-200"
                       onClick={(e) => {
                         e.preventDefault();
                         document.getElementById('cursos-finalizados')?.scrollIntoView({ behavior: 'smooth' });
                       }}
                     >
-                      <h3 className="text-lg font-semibold mb-2">Cursos Finalizados</h3>
-                      <p className="text-sm opacity-90">Cursos completados (0)</p>
+                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Cursos Finalizados</h3>
+                      <p className="text-sm text-gray-600">Cursos completados (0)</p>
                     </Link>
                   </>
-                )}
-
-                {/* Common action - show for admins as well */}
-                {isAdmin && (
-                  <Link
-                    href="#todos-cursos"
-                    className="block p-6 bg-yellow-100 text-yellow-900 rounded-lg hover:bg-yellow-200 transition-colors"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      document.getElementById('todos-cursos')?.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                  >
-                    <h3 className="text-lg font-semibold mb-2">Todos los Cursos</h3>
-                    <p className="text-sm opacity-90">Ver todos los cursos (${allCourses.length})</p>
-                  </Link>
                 )}
               </div>
             </div>

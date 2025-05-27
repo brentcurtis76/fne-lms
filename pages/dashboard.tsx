@@ -254,7 +254,7 @@ export default function Dashboard() {
                   </>
                 )}
 
-                {/* Available to all users */}
+                {/* Admin-specific actions */}
                 {isAdmin && (
                   <Link
                     href="#mis-cursos"
@@ -269,17 +269,61 @@ export default function Dashboard() {
                   </Link>
                 )}
 
-                <Link
-                  href="#todos-cursos"
-                  className="block p-6 bg-yellow-100 text-yellow-900 rounded-lg hover:bg-yellow-200 transition-colors"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    document.getElementById('todos-cursos')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                >
-                  <h3 className="text-lg font-semibold mb-2">{isAdmin ? 'Todos los Cursos' : 'Mis Cursos'}</h3>
-                  <p className="text-sm opacity-90">{isAdmin ? `Ver todos los cursos (${allCourses.length})` : `Cursos asignados (${allCourses.length})`}</p>
-                </Link>
+                {/* Teacher-specific actions */}
+                {!isAdmin && (
+                  <>
+                    <Link
+                      href="#todos-mis-cursos"
+                      className="block p-6 bg-blue-100 text-blue-900 rounded-lg hover:bg-blue-200 transition-colors"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById('todos-mis-cursos')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    >
+                      <h3 className="text-lg font-semibold mb-2">Todos mis cursos</h3>
+                      <p className="text-sm opacity-90">Ver todos los cursos ({allCourses.length})</p>
+                    </Link>
+
+                    <Link
+                      href="#cursos-abiertos"
+                      className="block p-6 bg-green-100 text-green-900 rounded-lg hover:bg-green-200 transition-colors"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById('cursos-abiertos')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    >
+                      <h3 className="text-lg font-semibold mb-2">Cursos Abiertos</h3>
+                      <p className="text-sm opacity-90">Cursos en progreso ({allCourses.length})</p>
+                    </Link>
+
+                    <Link
+                      href="#cursos-finalizados"
+                      className="block p-6 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        document.getElementById('cursos-finalizados')?.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                    >
+                      <h3 className="text-lg font-semibold mb-2">Cursos Finalizados</h3>
+                      <p className="text-sm opacity-90">Cursos completados (0)</p>
+                    </Link>
+                  </>
+                )}
+
+                {/* Common action - show for admins as well */}
+                {isAdmin && (
+                  <Link
+                    href="#todos-cursos"
+                    className="block p-6 bg-yellow-100 text-yellow-900 rounded-lg hover:bg-yellow-200 transition-colors"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById('todos-cursos')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    <h3 className="text-lg font-semibold mb-2">Todos los Cursos</h3>
+                    <p className="text-sm opacity-90">Ver todos los cursos (${allCourses.length})</p>
+                  </Link>
+                )}
               </div>
             </div>
 
@@ -358,7 +402,148 @@ export default function Dashboard() {
               </div>
             )}
 
-            {/* All Courses Section */}
+            {/* Teacher Courses Sections */}
+            {!isAdmin && (
+              <>
+                {/* Todos mis cursos - Teacher */}
+                <div id="todos-mis-cursos" className="mb-8">
+                  <h2 className="text-xl font-semibold mb-4 text-brand_blue">Todos mis cursos ({allCourses.length})</h2>
+                  <p className="text-gray-600 mb-4">Todos los cursos asignados a tu cuenta</p>
+                  
+                  {allCourses.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                      {allCourses.map((course) => (
+                        <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
+                          <Link href={`/student/course/${course.id}`} legacyBehavior>
+                            <a className="block group">
+                              {/* Thumbnail Section */}
+                              <div className="aspect-[16/9] w-full bg-brand_blue/5 flex items-center justify-center">
+                                {course.thumbnail_url ? (
+                                  <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                ) : (
+                                  <svg className="w-16 h-16 text-brand_blue/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                                  </svg>
+                                )}
+                              </div>
+                              {/* Content Section */}
+                              <div className="p-5 md:p-6 flex-grow">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
+                                    {course.title}
+                                  </h2>
+                                  <span className="px-2 py-1 bg-blue-200 text-blue-700 text-xs rounded-full font-medium">
+                                    Asignado
+                                  </span>
+                                </div>
+                                <p className="mt-2 text-sm text-gray-600 line-clamp-3 h-[3.75em]">
+                                  {course.description || 'Sin descripción'}
+                                </p>
+                                <p className="mt-3 text-xs text-gray-500">
+                                  Instructor: {course.instructor_name || 'Sin instructor'}
+                                </p>
+                              </div>
+                            </a>
+                          </Link>
+                          {/* Action Buttons */}
+                          <div className="p-4 md:p-5 bg-gray-50 border-t border-gray-200 mt-auto">
+                            <div className="flex space-x-2">
+                              <Link
+                                href={`/student/course/${course.id}`}
+                                className="w-full text-center px-3 py-2 bg-brand_blue text-white rounded hover:bg-brand_yellow hover:text-brand_blue transition-colors text-sm font-medium"
+                              >
+                                Ver Curso
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-brand_beige rounded-lg">
+                      <p className="text-brand_blue mb-2">No tienes cursos asignados aún.</p>
+                      <p className="text-gray-600 text-sm">Los cursos serán asignados por el administrador según tu institución.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Cursos Abiertos - Teacher */}
+                <div id="cursos-abiertos" className="mb-8">
+                  <h2 className="text-xl font-semibold mb-4 text-brand_blue">Cursos Abiertos ({allCourses.length})</h2>
+                  <p className="text-gray-600 mb-4">Cursos que estás cursando actualmente</p>
+                  
+                  {allCourses.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                      {allCourses.map((course) => (
+                        <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl border-l-4 border-green-500">
+                          <Link href={`/student/course/${course.id}`} legacyBehavior>
+                            <a className="block group">
+                              {/* Thumbnail Section */}
+                              <div className="aspect-[16/9] w-full bg-brand_blue/5 flex items-center justify-center">
+                                {course.thumbnail_url ? (
+                                  <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                ) : (
+                                  <svg className="w-16 h-16 text-brand_blue/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                                  </svg>
+                                )}
+                              </div>
+                              {/* Content Section */}
+                              <div className="p-5 md:p-6 flex-grow">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
+                                    {course.title}
+                                  </h2>
+                                  <span className="px-2 py-1 bg-green-200 text-green-700 text-xs rounded-full font-medium">
+                                    En Progreso
+                                  </span>
+                                </div>
+                                <p className="mt-2 text-sm text-gray-600 line-clamp-3 h-[3.75em]">
+                                  {course.description || 'Sin descripción'}
+                                </p>
+                                <p className="mt-3 text-xs text-gray-500">
+                                  Instructor: {course.instructor_name || 'Sin instructor'}
+                                </p>
+                              </div>
+                            </a>
+                          </Link>
+                          {/* Action Buttons */}
+                          <div className="p-4 md:p-5 bg-gray-50 border-t border-gray-200 mt-auto">
+                            <div className="flex space-x-2">
+                              <Link
+                                href={`/student/course/${course.id}`}
+                                className="w-full text-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium"
+                              >
+                                Continuar Curso
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-green-700 mb-2">No tienes cursos en progreso.</p>
+                      <p className="text-gray-600 text-sm">Los cursos aparecerán aquí cuando comiences a estudiar.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Cursos Finalizados - Teacher */}
+                <div id="cursos-finalizados" className="mb-8">
+                  <h2 className="text-xl font-semibold mb-4 text-brand_blue">Cursos Finalizados (0)</h2>
+                  <p className="text-gray-600 mb-4">Cursos que has completado exitosamente</p>
+                  
+                  <div className="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p className="text-gray-700 mb-2">No has completado ningún curso aún.</p>
+                    <p className="text-gray-600 text-sm">Los cursos completados aparecerán aquí con tu certificado de finalización.</p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* All Courses Section - Admin Only */}
+            {isAdmin && (
             <div id="todos-cursos" className="mb-8">
               <h2 className="text-xl font-semibold mb-4 text-brand_blue">
                 {isAdmin ? `Todos los Cursos (${allCourses.length})` : `Mis Cursos (${allCourses.length})`}
@@ -448,6 +633,7 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+            )}
           </div>
         </main>
       </div>

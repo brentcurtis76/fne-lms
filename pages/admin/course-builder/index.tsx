@@ -292,7 +292,8 @@ const CourseBuilder: React.FC = () => {
     );
   }
 
-  if (userRole !== 'admin') {
+  // Only show access denied if we've determined the user role and they're not admin
+  if (userRole !== null && userRole !== 'admin') {
     return (
       <div className="min-h-screen bg-brand_beige flex flex-col justify-center items-center">
         {user && <Header user={user} isAdmin={false} avatarUrl={avatarUrl} />}

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { XMarkIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { supabase } from '../lib/supabase';
 
 interface RegistrationModalProps {
   isOpen: boolean;
@@ -13,21 +14,14 @@ export interface RegistrationFormData {
   lastName: string;
   email: string;
   password: string;
+  confirmPassword: string;
   school: string;
 }
 
-const SCHOOLS = [
-  'Colegio San Patricio',
-  'Instituto Nacional',
-  'Liceo de Aplicación',
-  'Colegio Saint George',
-  'Colegio Villa María',
-  'Liceo Carmela Carvajal',
-  'Colegio San Gabriel',
-  'Instituto Alonso de Ercilla',
-  'Colegio Tabancura',
-  'Liceo Manuel de Salas'
-];
+interface School {
+  id: string;
+  name: string;
+}
 
 const RegistrationModal: React.FC<RegistrationModalProps> = ({
   isOpen,
@@ -40,10 +34,56 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
     lastName: '',
     email: '',
     password: '',
+    confirmPassword: '',
     school: ''
   });
 
   const [errors, setErrors] = useState<Partial<RegistrationFormData>>({});
+  const [schools, setSchools] = useState<School[]>([]);
+  const [loadingSchools, setLoadingSchools] = useState(false);
+
+  // Fetch schools from database when modal opens
+  useEffect(() => {
+    if (isOpen && schools.length === 0) {
+      fetchSchools();
+    }
+  }, [isOpen]);
+
+  const fetchSchools = async () => {
+    setLoadingSchools(true);
+    try {
+      const { data: schoolsData, error } = await supabase
+        .from('schools')
+        .select('id, name')
+        .order('name', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching schools:', error);
+        // Fallback to hardcoded schools if database fails
+        setSchools([
+          { id: '1', name: 'Colegio San Patricio' },
+          { id: '2', name: 'Instituto Nacional' },
+          { id: '3', name: 'Liceo de Aplicación' },
+          { id: '4', name: 'Colegio Saint George' },
+          { id: '5', name: 'Colegio Villa María' }
+        ]);
+      } else {
+        setSchools(schoolsData || []);
+      }
+    } catch (error) {
+      console.error('Unexpected error fetching schools:', error);
+      // Fallback to hardcoded schools
+      setSchools([
+        { id: '1', name: 'Colegio San Patricio' },
+        { id: '2', name: 'Instituto Nacional' },
+        { id: '3', name: 'Liceo de Aplicación' },
+        { id: '4', name: 'Colegio Saint George' },
+        { id: '5', name: 'Colegio Villa María' }
+      ]);
+    } finally {
+      setLoadingSchools(false);
+    }
+  };
 
   const validateForm = (): boolean => {
     const newErrors: Partial<RegistrationFormData> = {};
@@ -66,6 +106,12 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
       newErrors.password = 'La contraseña es obligatoria';
     } else if (formData.password.length < 6) {
       newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
+    }
+
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = 'Debes confirmar la contraseña';
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Las contraseñas no coinciden';
     }
 
     if (!formData.school) {
@@ -189,12 +235,14 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-brand_blue ${
                   errors.school ? 'border-red-500' : 'border-gray-300'
                 }`}
-                disabled={isSubmitting}
+                disabled={isSubmitting || loadingSchools}
               >
-                <option value="">Selecciona tu escuela</option>
-                {SCHOOLS.map((school) => (
-                  <option key={school} value={school}>
-                    {school}
+                <option value="">
+                  {loadingSchools ? 'Cargando escuelas...' : 'Selecciona tu escuela'}
+                </option>
+                {schools.map((school) => (
+                  <option key={school.id} value={school.name}>
+                    {school.name}
                   </option>
                 ))}
               </select>
@@ -221,6 +269,27 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
               />
               {errors.password && (
                 <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+              )}
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                Confirmar Contraseña <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="password"
+                id="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-brand_blue ${
+                  errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Repite la contraseña"
+                disabled={isSubmitting}
+              />
+              {errors.confirmPassword && (
+                <p className="text-red-500 text-xs mt-1">{errors.confirmPassword}</p>
               )}
             </div>
           </div>

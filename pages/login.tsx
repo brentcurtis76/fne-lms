@@ -112,10 +112,10 @@ export default function LoginPage() {
         school: formData.school
       });
       
-      // Create user account in Supabase Auth
+      // Create user account in Supabase Auth (use password, not confirmPassword)
       const { error: authError, data: authData } = await supabase.auth.signUp({ 
         email: formData.email.trim(), 
-        password: formData.password,
+        password: formData.password, // Use main password field
         options: {
           data: {
             first_name: formData.firstName,

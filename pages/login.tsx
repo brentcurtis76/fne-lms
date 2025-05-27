@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
 import { checkProfileCompletion } from '../utils/profileUtils';
-import Header from '../components/layout/Header';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -189,9 +188,7 @@ export default function LoginPage() {
         />
       </Head>
       
-      <Header user={null} isAdmin={false} showNavigation={true} />
-      
-      <div className="min-h-screen flex flex-col items-center justify-center bg-brand_beige relative overflow-hidden pt-40">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-brand_beige relative overflow-hidden">
       
       {/* Decorative circles */}
       <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-brand_yellow opacity-20 -mr-20 -mt-20"></div>

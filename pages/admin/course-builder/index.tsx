@@ -101,52 +101,41 @@ const CourseBuilder: React.FC = () => {
   }, []);
 
   const fetchCourses = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user, skipping course fetch');
+      return;
+    }
+    
+    console.log('Fetching courses for user:', user.id);
     setLoading(true);
+    
     try {
-      // First, try to get courses with instructor names from profiles
+      // Simple fetch without joins to avoid database errors
       const { data, error } = await supabase
         .from('courses')
-        .select(`
-          *,
-          profiles:instructor_id(first_name, last_name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching courses with profiles:', error);
-        
-        // Fallback: fetch courses without instructor join
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('courses')
-          .select('*')
-          .order('created_at', { ascending: false });
-          
-        if (fallbackError) {
-          toast.error('Error al cargar los cursos: ' + fallbackError.message);
-          throw fallbackError;
-        }
-        
-        const formattedCourses = fallbackData.map(course => ({
-          ...course,
-          instructor_name: 'Sin instructor',
-          thumbnail_url: (course.thumbnail_url && course.thumbnail_url !== 'default-thumbnail.png') ? course.thumbnail_url : null 
-        }));
-        setCourses(formattedCourses);
+        console.error('Error fetching courses:', error);
+        toast.error('Error al cargar los cursos: ' + error.message);
+        setCourses([]);
         return;
       }
 
-      const formattedCourses = data.map(course => ({
+      console.log('Courses fetched successfully:', data?.length || 0);
+      
+      const formattedCourses = (data || []).map(course => ({
         ...course,
-        // @ts-ignore
-        instructor_name: course.profiles ? `${course.profiles.first_name || ''} ${course.profiles.last_name || ''}`.trim() || 'Sin instructor' : 'Sin instructor',
-        // Ensure thumbnail_url is a string or null, and specifically handle 'default-thumbnail.png'
+        instructor_name: 'Sin instructor', // Simplified - no join for now
         thumbnail_url: (course.thumbnail_url && course.thumbnail_url !== 'default-thumbnail.png') ? course.thumbnail_url : null 
       }));
+      
       setCourses(formattedCourses);
     } catch (error) {
-      console.error('Error fetching courses:', error);
-      toast.error('Error al cargar los cursos');
+      console.error('Unexpected error fetching courses:', error);
+      toast.error('Error inesperado al cargar cursos');
+      setCourses([]);
     } finally {
       setLoading(false);
     }
@@ -155,23 +144,31 @@ const CourseBuilder: React.FC = () => {
   useEffect(() => {
     const checkAdminAndFetchData = async () => {
       if (!user) {
-        // Don't redirect if user is just undefined (still loading)
-        // Only redirect if we have explicitly determined there's no user
         return;
       }
+      
       setLoading(true);
       await fetchUserRole();
+      
+      // Only fetch courses if user role check succeeds
+      if (userRole === 'admin') {
+        await fetchCourses();
+      } else {
+        setLoading(false);
+      }
     };
+    
     checkAdminAndFetchData();
-  }, [user, router, fetchUserRole]);
+  }, [user?.id]); // Simplified dependencies
 
+  // Separate effect for when userRole changes
   useEffect(() => {
-    if (userRole === 'admin') {
+    if (user && userRole === 'admin') {
       fetchCourses();
-    } else if (userRole === null && user) {
+    } else if (userRole !== null && userRole !== 'admin') {
       setLoading(false);
     }
-  }, [userRole, user, fetchCourses, router]);
+  }, [userRole]);
 
   // Handler to open the delete confirmation modal
   const handleOpenDeleteModal = (course: FormattedCourse) => {

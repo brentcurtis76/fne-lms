@@ -20,8 +20,18 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   return (
     <SessionContextProvider supabaseClient={client} initialSession={pageProps.initialSession}>
       <Head>
-        <title>My App</title>
+        <title>FNE LMS</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        
+        {/* Favicon */}
+        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/favicon.svg" />
+        <meta name="theme-color" content="#00365b" />
+        
+        {/* App metadata */}
+        <meta name="description" content="Plataforma de aprendizaje de Fundación Nueva Educación" />
+        <meta name="application-name" content="FNE LMS" />
       </Head>
       <Component {...pageProps} />
       <Toaster position="bottom-right" reverseOrder={false} />

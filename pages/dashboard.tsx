@@ -274,7 +274,7 @@ export default function Dashboard() {
                   <>
                     <Link
                       href="#todos-mis-cursos"
-                      className="block p-6 bg-blue-100 text-blue-900 rounded-lg hover:bg-blue-200 transition-colors"
+                      className="block p-6 bg-brand_blue text-white rounded-lg hover:bg-brand_yellow hover:text-brand_blue transition-colors"
                       onClick={(e) => {
                         e.preventDefault();
                         document.getElementById('todos-mis-cursos')?.scrollIntoView({ behavior: 'smooth' });
@@ -286,7 +286,7 @@ export default function Dashboard() {
 
                     <Link
                       href="#cursos-abiertos"
-                      className="block p-6 bg-green-100 text-green-900 rounded-lg hover:bg-green-200 transition-colors"
+                      className="block p-6 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_blue hover:text-white transition-colors"
                       onClick={(e) => {
                         e.preventDefault();
                         document.getElementById('cursos-abiertos')?.scrollIntoView({ behavior: 'smooth' });
@@ -298,7 +298,7 @@ export default function Dashboard() {
 
                     <Link
                       href="#cursos-finalizados"
-                      className="block p-6 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors"
+                      className="block p-6 bg-brand_beige text-brand_blue rounded-lg hover:bg-brand_blue hover:text-white transition-colors"
                       onClick={(e) => {
                         e.preventDefault();
                         document.getElementById('cursos-finalizados')?.scrollIntoView({ behavior: 'smooth' });
@@ -432,7 +432,7 @@ export default function Dashboard() {
                                   <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
                                     {course.title}
                                   </h2>
-                                  <span className="px-2 py-1 bg-blue-200 text-blue-700 text-xs rounded-full font-medium">
+                                  <span className="px-2 py-1 bg-brand_blue text-white text-xs rounded-full font-medium">
                                     Asignado
                                   </span>
                                 </div>
@@ -475,7 +475,7 @@ export default function Dashboard() {
                   {allCourses.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
                       {allCourses.map((course) => (
-                        <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl border-l-4 border-green-500">
+                        <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl border-l-4 border-brand_yellow">
                           <Link href={`/student/course/${course.id}`} legacyBehavior>
                             <a className="block group">
                               {/* Thumbnail Section */}
@@ -494,7 +494,7 @@ export default function Dashboard() {
                                   <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
                                     {course.title}
                                   </h2>
-                                  <span className="px-2 py-1 bg-green-200 text-green-700 text-xs rounded-full font-medium">
+                                  <span className="px-2 py-1 bg-brand_yellow text-brand_blue text-xs rounded-full font-medium">
                                     En Progreso
                                   </span>
                                 </div>
@@ -512,7 +512,7 @@ export default function Dashboard() {
                             <div className="flex space-x-2">
                               <Link
                                 href={`/student/course/${course.id}`}
-                                className="w-full text-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium"
+                                className="w-full text-center px-3 py-2 bg-brand_yellow text-brand_blue rounded hover:bg-brand_blue hover:text-white transition-colors text-sm font-medium"
                               >
                                 Continuar Curso
                               </Link>
@@ -522,8 +522,8 @@ export default function Dashboard() {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-green-700 mb-2">No tienes cursos en progreso.</p>
+                    <div className="text-center py-8 bg-brand_beige border border-brand_blue/20 rounded-lg">
+                      <p className="text-brand_blue mb-2">No tienes cursos en progreso.</p>
                       <p className="text-gray-600 text-sm">Los cursos aparecerán aquí cuando comiences a estudiar.</p>
                     </div>
                   )}
@@ -534,8 +534,8 @@ export default function Dashboard() {
                   <h2 className="text-xl font-semibold mb-4 text-brand_blue">Cursos Finalizados (0)</h2>
                   <p className="text-gray-600 mb-4">Cursos que has completado exitosamente</p>
                   
-                  <div className="text-center py-8 bg-gray-50 border border-gray-200 rounded-lg">
-                    <p className="text-gray-700 mb-2">No has completado ningún curso aún.</p>
+                  <div className="text-center py-8 bg-brand_beige border border-brand_blue/20 rounded-lg">
+                    <p className="text-brand_blue mb-2">No has completado ningún curso aún.</p>
                     <p className="text-gray-600 text-sm">Los cursos completados aparecerán aquí con tu certificado de finalización.</p>
                   </div>
                 </div>

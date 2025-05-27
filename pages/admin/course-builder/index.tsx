@@ -104,29 +104,49 @@ const CourseBuilder: React.FC = () => {
     if (!user) return;
     setLoading(true);
     try {
+      // First, try to get courses with instructor names from profiles
       const { data, error } = await supabase
         .from('courses')
         .select(`
           *,
-          instructors(full_name)
+          profiles:instructor_id(first_name, last_name)
         `)
         .order('created_at', { ascending: false });
 
       if (error) {
-        toast.error('Error al cargar los cursos: ' + error.message);
-        throw error;
+        console.error('Error fetching courses with profiles:', error);
+        
+        // Fallback: fetch courses without instructor join
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('courses')
+          .select('*')
+          .order('created_at', { ascending: false });
+          
+        if (fallbackError) {
+          toast.error('Error al cargar los cursos: ' + fallbackError.message);
+          throw fallbackError;
+        }
+        
+        const formattedCourses = fallbackData.map(course => ({
+          ...course,
+          instructor_name: 'Sin instructor',
+          thumbnail_url: (course.thumbnail_url && course.thumbnail_url !== 'default-thumbnail.png') ? course.thumbnail_url : null 
+        }));
+        setCourses(formattedCourses);
+        return;
       }
 
       const formattedCourses = data.map(course => ({
         ...course,
         // @ts-ignore
-        instructor_name: course.instructors?.full_name || 'Sin instructor',
+        instructor_name: course.profiles ? `${course.profiles.first_name || ''} ${course.profiles.last_name || ''}`.trim() || 'Sin instructor' : 'Sin instructor',
         // Ensure thumbnail_url is a string or null, and specifically handle 'default-thumbnail.png'
         thumbnail_url: (course.thumbnail_url && course.thumbnail_url !== 'default-thumbnail.png') ? course.thumbnail_url : null 
       }));
       setCourses(formattedCourses);
     } catch (error) {
       console.error('Error fetching courses:', error);
+      toast.error('Error al cargar los cursos');
     } finally {
       setLoading(false);
     }

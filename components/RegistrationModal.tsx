@@ -7,6 +7,7 @@ interface RegistrationModalProps {
   onClose: () => void;
   onSubmit: (formData: RegistrationFormData) => void;
   isSubmitting: boolean;
+  showSuccess?: boolean;
 }
 
 export interface RegistrationFormData {
@@ -27,7 +28,8 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
-  isSubmitting
+  isSubmitting,
+  showSuccess = false
 }) => {
   const [formData, setFormData] = useState<RegistrationFormData>({
     firstName: '',
@@ -41,6 +43,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
   const [errors, setErrors] = useState<Partial<RegistrationFormData>>({});
   const [schools, setSchools] = useState<School[]>([]);
   const [loadingSchools, setLoadingSchools] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   // Fetch schools from database when modal opens
   useEffect(() => {
@@ -294,19 +297,21 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
             </div>
           </div>
 
-          <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mt-6">
-            <div className="flex">
-              <UserPlusIcon className="h-5 w-5 text-blue-400 mt-0.5 mr-3 flex-shrink-0" />
-              <div>
-                <h4 className="text-sm font-medium text-blue-800 mb-1">
-                  Proceso de Registro
-                </h4>
-                <p className="text-sm text-blue-700">
-                  Tu solicitud será revisada por un administrador. Recibirás una notificación por email cuando tu cuenta sea aprobada.
-                </p>
+          {showSuccess && (
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mt-6">
+              <div className="flex">
+                <UserPlusIcon className="h-5 w-5 text-blue-400 mt-0.5 mr-3 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-medium text-blue-800 mb-1">
+                    Proceso de Registro
+                  </h4>
+                  <p className="text-sm text-blue-700">
+                    Tu solicitud será revisada por un administrador. Recibirás una notificación por email cuando tu cuenta sea aprobada.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="flex justify-end space-x-3 pt-6 mt-6 border-t border-gray-200">
             <button

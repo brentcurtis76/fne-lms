@@ -16,6 +16,7 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
   const [isSubmittingRegistration, setIsSubmittingRegistration] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   // Debug Supabase configuration
   useEffect(() => {
@@ -156,8 +157,14 @@ export default function LoginPage() {
       }
 
       console.log('Registration successful for user:', authData.user.id);
+      setRegistrationSuccess(true);
       setMessage('¡Solicitud de registro enviada! Un administrador revisará tu cuenta y te notificará por email cuando sea aprobada.');
-      setIsRegistrationModalOpen(false);
+      
+      // Close modal after showing success message for a moment
+      setTimeout(() => {
+        setIsRegistrationModalOpen(false);
+        setRegistrationSuccess(false);
+      }, 3000);
       
     } catch (err) {
       console.error('Registration error:', err);
@@ -336,9 +343,13 @@ export default function LoginPage() {
       {/* Registration Modal */}
       <RegistrationModal
         isOpen={isRegistrationModalOpen}
-        onClose={() => setIsRegistrationModalOpen(false)}
+        onClose={() => {
+          setIsRegistrationModalOpen(false);
+          setRegistrationSuccess(false);
+        }}
         onSubmit={handleRegistrationSubmit}
         isSubmitting={isSubmittingRegistration}
+        showSuccess={registrationSuccess}
       />
     </div>
     </>

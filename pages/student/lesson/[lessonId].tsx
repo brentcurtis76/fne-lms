@@ -534,7 +534,7 @@ export default function StudentLessonViewer() {
                     className="px-6 py-3 bg-white text-[#00365b] rounded-lg font-medium hover:bg-gray-100 transition flex items-center gap-2"
                   >
                     <ArrowLeft className="w-4 h-4" />
-                    Volver al Dashboard
+                    Volver a mi Panel
                   </button>
                   
                   {nextLesson ? (

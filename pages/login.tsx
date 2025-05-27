@@ -4,8 +4,6 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
 import { checkProfileCompletion } from '../utils/profileUtils';
-import RegistrationModal, { RegistrationFormData } from '../components/RegistrationModal';
-
 export default function LoginPage() {
   const router = useRouter();
 
@@ -14,9 +12,6 @@ export default function LoginPage() {
   const [message, setMessage] = useState('');
   const [isResetMode, setIsResetMode] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
-  const [isSubmittingRegistration, setIsSubmittingRegistration] = useState(false);
-  const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   // Debug Supabase configuration
   useEffect(() => {
@@ -342,17 +337,6 @@ export default function LoginPage() {
 
       </div>
 
-      {/* Registration Modal */}
-      <RegistrationModal
-        isOpen={isRegistrationModalOpen}
-        onClose={() => {
-          setIsRegistrationModalOpen(false);
-          setRegistrationSuccess(false);
-        }}
-        onSubmit={handleRegistrationSubmit}
-        isSubmitting={isSubmittingRegistration}
-        showSuccess={registrationSuccess}
-      />
     </div>
     </>
   );

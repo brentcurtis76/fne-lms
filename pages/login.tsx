@@ -97,79 +97,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleRegistrationSubmit = async (formData: RegistrationFormData) => {
-    setIsSubmittingRegistration(true);
-    
-    try {
-      console.log('Processing registration:', { 
-        email: formData.email, 
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        school: formData.school
-      });
-      
-      // Create user account in Supabase Auth (use password, not confirmPassword)
-      const { error: authError, data: authData } = await supabase.auth.signUp({ 
-        email: formData.email.trim(), 
-        password: formData.password, // Use main password field
-        options: {
-          data: {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            school: formData.school
-          }
-        }
-      });
-
-      if (authError) {
-        console.error('Auth signup error:', authError);
-        setMessage('Error de registro: ' + authError.message);
-        return;
-      }
-
-      if (!authData.user) {
-        setMessage('Error de registro: No se pudo crear el usuario');
-        return;
-      }
-
-      // Create profile record with pending approval status using upsert
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({
-          id: authData.user.id,
-          first_name: formData.firstName,
-          last_name: formData.lastName,
-          email: formData.email,
-          school: formData.school,
-          role: 'docente',
-          approval_status: 'pending'
-        }, {
-          onConflict: 'id'
-        });
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError);
-        setMessage('Error al crear perfil: ' + profileError.message);
-        return;
-      }
-
-      console.log('Registration successful for user:', authData.user.id);
-      setRegistrationSuccess(true);
-      setMessage('¡Solicitud de registro enviada! Un administrador revisará tu cuenta y te notificará por email cuando sea aprobada.');
-      
-      // Close modal after showing success message for a moment
-      setTimeout(() => {
-        setIsRegistrationModalOpen(false);
-        setRegistrationSuccess(false);
-      }, 3000);
-      
-    } catch (err) {
-      console.error('Registration error:', err);
-      setMessage('Error de registro: Ocurrió un error inesperado');
-    } finally {
-      setIsSubmittingRegistration(false);
-    }
-  };
 
   const handlePasswordReset = async () => {
     if (!email) {
@@ -311,18 +238,12 @@ export default function LoginPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="mb-6">
             <button 
               onClick={handleSignIn} 
-              className="bg-brand_blue hover:bg-brand_yellow text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out"
+              className="w-full bg-brand_blue hover:bg-brand_yellow text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out"
             >
               Entrar
-            </button>
-            <button 
-              onClick={() => setIsRegistrationModalOpen(true)} 
-              className="bg-white border-2 border-brand_blue hover:bg-brand_yellow hover:border-brand_yellow text-brand_blue hover:text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out"
-            >
-              Registrarse
             </button>
           </div>
         )}

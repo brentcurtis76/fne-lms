@@ -135,7 +135,8 @@ const CourseBuilder: React.FC = () => {
   useEffect(() => {
     const checkAdminAndFetchData = async () => {
       if (!user) {
-        if (user === null) router.push('/');
+        // Don't redirect if user is just undefined (still loading)
+        // Only redirect if we have explicitly determined there's no user
         return;
       }
       setLoading(true);

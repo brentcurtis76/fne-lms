@@ -137,10 +137,10 @@ export default function LoginPage() {
         return;
       }
 
-      // Create profile record with pending approval status
+      // Create profile record with pending approval status using upsert
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert({
+        .upsert({
           id: authData.user.id,
           first_name: formData.firstName,
           last_name: formData.lastName,
@@ -148,6 +148,8 @@ export default function LoginPage() {
           school: formData.school,
           role: 'docente',
           approval_status: 'pending'
+        }, {
+          onConflict: 'id'
         });
 
       if (profileError) {

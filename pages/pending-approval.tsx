@@ -152,18 +152,12 @@ export default function PendingApprovalPage() {
                   Este proceso generalmente toma 1-2 días hábiles.
                 </p>
                 
-                <div className="flex gap-4 justify-center">
+                <div className="flex justify-center">
                   <button
                     onClick={handleSignOut}
                     className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                   >
                     Cerrar Sesión
-                  </button>
-                  <button
-                    onClick={() => router.push('/profile')}
-                    className="px-6 py-3 bg-brand_blue text-white rounded-lg hover:bg-brand_yellow transition-colors"
-                  >
-                    Editar Perfil
                   </button>
                 </div>
               </>

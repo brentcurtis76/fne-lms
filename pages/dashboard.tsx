@@ -183,8 +183,8 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold mb-6 text-brand_blue">Bienvenido a tu Panel</h1>
             
             {/* User Info Section */}
-            <div className="mb-8 p-6 bg-white rounded-lg shadow">
-              <h2 className="text-xl font-semibold mb-4 text-brand_blue">Información de Usuario</h2>
+            <div className="mb-8 p-6 bg-brand_blue rounded-lg shadow">
+              <h2 className="text-xl font-semibold mb-4 text-white">Información de Usuario</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Profile Picture and Basic Info */}
                 <div className="flex items-start space-x-4">
@@ -192,29 +192,29 @@ export default function Dashboard() {
                     <img 
                       src={avatarUrl} 
                       alt="Foto de perfil" 
-                      className="w-20 h-20 rounded-full object-cover border-2 border-brand_blue"
+                      className="w-20 h-20 rounded-full object-cover border-2 border-brand_yellow"
                     />
                   ) : (
-                    <div className="w-20 h-20 rounded-full bg-brand_blue flex items-center justify-center">
-                      <span className="text-white font-bold text-xl">
+                    <div className="w-20 h-20 rounded-full bg-brand_yellow flex items-center justify-center">
+                      <span className="text-brand_blue font-bold text-xl">
                         {profileName ? profileName.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase()}
                       </span>
                     </div>
                   )}
                   <div className="space-y-2">
-                    <p><span className="font-semibold">Nombre:</span> {profileName || 'No disponible'}</p>
-                    <p><span className="font-semibold">Email:</span> {user?.email || 'No disponible'}</p>
-                    <p><span className="font-semibold">Rol:</span> {isAdmin ? 'Administrador' : 'Docente'}</p>
+                    <p className="text-white"><span className="font-semibold text-brand_yellow">Nombre:</span> {profileName || 'No disponible'}</p>
+                    <p className="text-white"><span className="font-semibold text-brand_yellow">Email:</span> {user?.email || 'No disponible'}</p>
+                    <p className="text-white"><span className="font-semibold text-brand_yellow">Rol:</span> {isAdmin ? 'Administrador' : 'Docente'}</p>
                   </div>
                 </div>
                 
                 {/* Additional Profile Info */}
                 <div className="space-y-2">
-                  <p><span className="font-semibold">Institución:</span> {profileData?.school || 'No especificado'}</p>
-                  <p><span className="font-semibold">Descripción:</span> {profileData?.description || 'No especificado'}</p>
+                  <p className="text-white"><span className="font-semibold text-brand_yellow">Institución:</span> {profileData?.school || 'No especificado'}</p>
+                  <p className="text-white"><span className="font-semibold text-brand_yellow">Descripción:</span> {profileData?.description || 'No especificado'}</p>
                   <Link
                     href="/profile"
-                    className="inline-block mt-2 text-brand_blue hover:text-brand_yellow font-medium"
+                    className="inline-block mt-2 text-brand_yellow hover:text-white font-medium transition-colors"
                   >
                     Editar perfil →
                   </Link>

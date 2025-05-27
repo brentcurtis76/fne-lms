@@ -6,6 +6,8 @@ import Head from 'next/head';
 import { ArrowLeftIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
 import { toast } from 'react-hot-toast';
 import Header from '../../../../../components/layout/Header';
+import DeleteLessonModal from '../../../../../components/DeleteLessonModal';
+import MoveLessonModal from '../../../../../components/MoveLessonModal';
 
 interface Module {
   id: string;
@@ -42,6 +44,16 @@ const ModuleDetailPage = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreatingLesson, setIsCreatingLesson] = useState<boolean>(false);
+  
+  // State for delete confirmation modal
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedLessonForDeletion, setSelectedLessonForDeletion] = useState<Lesson | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // State for move lesson modal
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+  const [selectedLessonForMove, setSelectedLessonForMove] = useState<Lesson | null>(null);
+  const [isMoving, setIsMoving] = useState(false);
 
   useEffect(() => {
     const fetchModuleAndLessons = async () => {
@@ -259,6 +271,140 @@ const ModuleDetailPage = () => {
     }
   };
 
+  // Handler to open the delete confirmation modal
+  const handleOpenDeleteModal = (lesson: Lesson) => {
+    setSelectedLessonForDeletion(lesson);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Handler to close the delete confirmation modal
+  const handleCloseDeleteModal = () => {
+    setSelectedLessonForDeletion(null);
+    setIsDeleteModalOpen(false);
+  };
+
+  // Handler for actual deletion
+  const handleConfirmDelete = async () => {
+    if (!selectedLessonForDeletion) {
+      toast.error('No se ha seleccionado ninguna lección para eliminar.');
+      return;
+    }
+
+    const lessonIdToDelete = selectedLessonForDeletion.id;
+    console.log('[DeleteLesson] Starting deletion for lesson:', selectedLessonForDeletion.title);
+    setIsDeleting(true);
+    const loadingToastId = toast.loading('Eliminando lección...');
+
+    try {
+      // Delete blocks first (if any)
+      console.log('[DeleteLesson] Deleting blocks for lesson:', lessonIdToDelete);
+      const { error: deleteBlocksError } = await supabase
+        .from('blocks')
+        .delete()
+        .eq('lesson_id', lessonIdToDelete);
+      
+      if (deleteBlocksError) {
+        console.log('[DeleteLesson] Block deletion failed, continuing anyway:', deleteBlocksError);
+        // Continue with lesson deletion even if blocks fail
+      }
+
+      // Delete the lesson
+      console.log('[DeleteLesson] Deleting lesson:', lessonIdToDelete);
+      const { error: deleteLessonError } = await supabase
+        .from('lessons')
+        .delete()
+        .eq('id', lessonIdToDelete);
+      
+      if (deleteLessonError) {
+        throw new Error(deleteLessonError.message || 'Error al eliminar la lección.');
+      }
+
+      console.log('[DeleteLesson] Lesson deleted successfully from DB.');
+      toast.success('Lección eliminada exitosamente');
+      
+      // Update the lessons list by removing the deleted lesson
+      setLessons(prevLessons => prevLessons.filter(lesson => lesson.id !== lessonIdToDelete));
+      handleCloseDeleteModal();
+
+    } catch (error: any) {
+      console.error('[DeleteLesson] Failed to delete lesson:', error.message);
+      toast.error(`Error al eliminar: ${error.message}`);
+    } finally {
+      toast.dismiss(loadingToastId);
+      setIsDeleting(false);
+    }
+  };
+
+  // Handler to open the move lesson modal
+  const handleOpenMoveModal = (lesson: Lesson) => {
+    setSelectedLessonForMove(lesson);
+    setIsMoveModalOpen(true);
+  };
+
+  // Handler to close the move lesson modal
+  const handleCloseMoveModal = () => {
+    setSelectedLessonForMove(null);
+    setIsMoveModalOpen(false);
+  };
+
+  // Handler for moving lesson to another module
+  const handleConfirmMove = async (targetModuleId: string) => {
+    if (!selectedLessonForMove) {
+      toast.error('No se ha seleccionado ninguna lección para mover.');
+      return;
+    }
+
+    const lessonIdToMove = selectedLessonForMove.id;
+    console.log('[MoveLesson] Starting move for lesson:', selectedLessonForMove.title, 'to module:', targetModuleId);
+    setIsMoving(true);
+    const loadingToastId = toast.loading('Moviendo lección...');
+
+    try {
+      // Get the target module's current lesson count to set the new order number
+      const { data: targetModuleLessons, error: countError } = await supabase
+        .from('lessons')
+        .select('order_number')
+        .eq('module_id', targetModuleId)
+        .order('order_number', { ascending: false })
+        .limit(1);
+
+      if (countError) {
+        console.error('[MoveLesson] Error getting target module lesson count:', countError);
+      }
+
+      const newOrderNumber = targetModuleLessons && targetModuleLessons.length > 0 
+        ? targetModuleLessons[0].order_number + 1 
+        : 1;
+
+      // Update the lesson's module_id and order_number
+      const { error: updateError } = await supabase
+        .from('lessons')
+        .update({ 
+          module_id: targetModuleId,
+          order_number: newOrderNumber 
+        })
+        .eq('id', lessonIdToMove);
+      
+      if (updateError) {
+        throw new Error(updateError.message || 'Error al mover la lección.');
+      }
+
+      console.log('[MoveLesson] Lesson moved successfully.');
+      toast.success('Lección movida exitosamente al nuevo módulo');
+      
+      // Update the lessons list by removing the moved lesson
+      setLessons(prevLessons => prevLessons.filter(lesson => lesson.id !== lessonIdToMove));
+      handleCloseMoveModal();
+
+    } catch (error: any) {
+      console.error('[MoveLesson] Failed to move lesson:', error.message);
+      toast.error(`Error al mover la lección: ${error.message}`);
+    } finally {
+      toast.dismiss(loadingToastId);
+      setIsMoving(false);
+    }
+  };
+
   // Loading state
   if (loading || !user) {
     return (
@@ -380,21 +526,35 @@ const ModuleDetailPage = () => {
                     <div>
                       <h3 className="text-lg font-semibold font-mont text-gray-800">{lesson.order_number}. {lesson.title}</h3>
                     </div>
-                    <Link 
-                      href={`/admin/course-builder/${module.course_id}/${module.id}/${lesson.id}`} 
-                      legacyBehavior
-                    >
-                      <a 
-                        className="px-4 py-2 bg-brand_yellow text-brand_blue font-mont rounded-md hover:bg-brand_blue hover:text-white transition text-sm"
-                        onClick={(e) => {
-                          // e.preventDefault(); // Uncomment this if you want to prevent navigation for testing the click log only
-                          const href = `/admin/course-builder/${module.course_id}/${module.id}/${lesson.id}`;
-                          console.log(`[ModuleDetailPage] 'Editar Lección' clicked for lesson ID: ${lesson.id}. Navigating to: ${href}`);
-                        }}
+                    <div className="flex flex-wrap space-x-2 gap-y-2">
+                      <Link 
+                        href={`/admin/course-builder/${module.course_id}/${module.id}/${lesson.id}`} 
+                        legacyBehavior
                       >
-                        Editar Lección
-                      </a>
-                    </Link>
+                        <a 
+                          className="px-3 py-2 bg-brand_yellow text-brand_blue font-mont rounded-md hover:bg-brand_blue hover:text-white transition text-xs md:text-sm"
+                          onClick={(e) => {
+                            // e.preventDefault(); // Uncomment this if you want to prevent navigation for testing the click log only
+                            const href = `/admin/course-builder/${module.course_id}/${module.id}/${lesson.id}`;
+                            console.log(`[ModuleDetailPage] 'Editar Lección' clicked for lesson ID: ${lesson.id}. Navigating to: ${href}`);
+                          }}
+                        >
+                          Editar
+                        </a>
+                      </Link>
+                      <button
+                        onClick={() => handleOpenMoveModal(lesson)}
+                        className="px-3 py-2 bg-brand_blue text-white font-mont rounded-md hover:bg-brand_blue/90 transition text-xs md:text-sm"
+                      >
+                        Mover
+                      </button>
+                      <button
+                        onClick={() => handleOpenDeleteModal(lesson)}
+                        className="px-3 py-2 bg-red-600 text-white font-mont rounded-md hover:bg-red-700 transition text-xs md:text-sm"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -415,6 +575,31 @@ const ModuleDetailPage = () => {
           )}
         </div>
       </div>
+      
+      {/* Delete Lesson Modal */}
+      {isDeleteModalOpen && selectedLessonForDeletion && (
+        <DeleteLessonModal
+          lessonTitle={selectedLessonForDeletion.title}
+          isOpen={isDeleteModalOpen}
+          onClose={handleCloseDeleteModal}
+          onConfirm={handleConfirmDelete}
+          isDeleting={isDeleting}
+        />
+      )}
+
+      {/* Move Lesson Modal */}
+      {isMoveModalOpen && selectedLessonForMove && module && (
+        <MoveLessonModal
+          lessonTitle={selectedLessonForMove.title}
+          lessonId={selectedLessonForMove.id}
+          currentModuleId={module.id}
+          courseId={module.course_id}
+          isOpen={isMoveModalOpen}
+          onClose={handleCloseMoveModal}
+          onConfirm={handleConfirmMove}
+          isMoving={isMoving}
+        />
+      )}
     </div>
     </>
   );

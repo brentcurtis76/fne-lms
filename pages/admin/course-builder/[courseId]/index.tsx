@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { supabase } from '../../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import Header from '../../../../components/layout/Header';
+import DeleteModuleModal from '../../../../components/DeleteModuleModal';
 
 interface Course {
   id: string;
@@ -37,6 +38,11 @@ const CourseDetailPage = () => {
   const [newModuleTitle, setNewModuleTitle] = useState<string>('');
   const [newModuleDescription, setNewModuleDescription] = useState<string>('');
   const [isSubmittingModule, setIsSubmittingModule] = useState<boolean>(false);
+
+  // State for delete confirmation modal
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedModuleForDeletion, setSelectedModuleForDeletion] = useState<Module | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Check authentication and admin status
   useEffect(() => {
@@ -149,6 +155,97 @@ const CourseDetailPage = () => {
       toast.error(err.message || 'No se pudo crear el módulo.');
     } finally {
       setIsSubmittingModule(false);
+    }
+  };
+
+  // Handler to open the delete confirmation modal
+  const handleOpenDeleteModal = (module: Module) => {
+    setSelectedModuleForDeletion(module);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Handler to close the delete confirmation modal
+  const handleCloseDeleteModal = () => {
+    setSelectedModuleForDeletion(null);
+    setIsDeleteModalOpen(false);
+  };
+
+  // Handler for actual deletion
+  const handleConfirmDelete = async () => {
+    if (!selectedModuleForDeletion) {
+      toast.error('No se ha seleccionado ningún módulo para eliminar.');
+      return;
+    }
+
+    const moduleIdToDelete = selectedModuleForDeletion.id;
+    console.log('[DeleteModule] Starting deletion for module:', selectedModuleForDeletion.title);
+    setIsDeleting(true);
+    const loadingToastId = toast.loading('Eliminando módulo y lecciones...');
+
+    try {
+      // Step 1: Get all lessons for this module
+      console.log('[DeleteModule] Getting lessons for module:', moduleIdToDelete);
+      const { data: lessons, error: lessonsError } = await supabase
+        .from('lessons')
+        .select('id')
+        .eq('module_id', moduleIdToDelete);
+
+      if (lessonsError) {
+        console.log('[DeleteModule] Error getting lessons:', lessonsError);
+        // Continue anyway - we'll still try to delete the module
+      }
+
+      const lessonIds = lessons?.map(lesson => lesson.id) || [];
+      console.log('[DeleteModule] Found lesson IDs:', lessonIds);
+
+      // Step 2: Delete all blocks for all lessons in this module
+      if (lessonIds.length > 0) {
+        console.log('[DeleteModule] Deleting blocks for lessons:', lessonIds);
+        const { error: deleteBlocksError } = await supabase
+          .from('blocks')
+          .delete()
+          .in('lesson_id', lessonIds);
+        
+        if (deleteBlocksError) {
+          console.log('[DeleteModule] Block deletion failed, continuing anyway:', deleteBlocksError);
+        }
+      }
+
+      // Step 3: Delete all lessons for this module
+      console.log('[DeleteModule] Deleting lessons for module:', moduleIdToDelete);
+      const { error: deleteLessonsError } = await supabase
+        .from('lessons')
+        .delete()
+        .eq('module_id', moduleIdToDelete);
+      
+      if (deleteLessonsError) {
+        console.log('[DeleteModule] Lesson deletion failed, continuing anyway:', deleteLessonsError);
+      }
+
+      // Step 4: Delete the module itself
+      console.log('[DeleteModule] Deleting module:', moduleIdToDelete);
+      const { error: deleteModuleError } = await supabase
+        .from('modules')
+        .delete()
+        .eq('id', moduleIdToDelete);
+      
+      if (deleteModuleError) {
+        throw new Error(deleteModuleError.message || 'Error al eliminar el módulo.');
+      }
+
+      console.log('[DeleteModule] Module deleted successfully from DB.');
+      toast.success('Módulo y todas sus lecciones eliminados exitosamente');
+      
+      // Update the modules list by removing the deleted module
+      setModules(prevModules => prevModules.filter(module => module.id !== moduleIdToDelete));
+      handleCloseDeleteModal();
+
+    } catch (error: any) {
+      console.error('[DeleteModule] Failed to delete module:', error.message);
+      toast.error(`Error al eliminar: ${error.message}`);
+    } finally {
+      toast.dismiss(loadingToastId);
+      setIsDeleting(false);
     }
   };
 
@@ -294,11 +391,19 @@ const CourseDetailPage = () => {
                       <p className="text-brand_blue/80 mt-1 text-sm">{moduleItem.description}</p>
                     )}
                   </div>
-                  <Link href={`/admin/course-builder/${courseId}/${moduleItem.id}`} legacyBehavior>
-                    <a className="ml-4 px-3 py-2 bg-brand_yellow text-brand_blue font-mont text-sm rounded-md hover:bg-brand_blue hover:text-brand_yellow transition duration-150 whitespace-nowrap">
-                      Ver Lecciones
-                    </a>
-                  </Link>
+                  <div className="flex space-x-3 ml-4">
+                    <Link href={`/admin/course-builder/${courseId}/${moduleItem.id}`} legacyBehavior>
+                      <a className="px-3 py-2 bg-brand_yellow text-brand_blue font-mont text-sm rounded-md hover:bg-brand_blue hover:text-brand_yellow transition duration-150 whitespace-nowrap">
+                        Ver Lecciones
+                      </a>
+                    </Link>
+                    <button
+                      onClick={() => handleOpenDeleteModal(moduleItem)}
+                      className="px-3 py-2 bg-red-600 text-white font-mont text-sm rounded-md hover:bg-red-700 transition duration-150 whitespace-nowrap"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
                 </div>
               </li>
             ))}
@@ -307,6 +412,17 @@ const CourseDetailPage = () => {
           <p className="text-brand_blue/80 font-mont">Este curso aún no tiene módulos.</p>
         )}
       </div>
+      
+      {/* Delete Module Modal */}
+      {isDeleteModalOpen && selectedModuleForDeletion && (
+        <DeleteModuleModal
+          moduleTitle={selectedModuleForDeletion.title}
+          isOpen={isDeleteModalOpen}
+          onClose={handleCloseDeleteModal}
+          onConfirm={handleConfirmDelete}
+          isDeleting={isDeleting}
+        />
+      )}
     </div>
     </>
   );

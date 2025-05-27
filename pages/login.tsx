@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
 import { checkProfileCompletion } from '../utils/profileUtils';
+import RegistrationModal, { RegistrationFormData } from '../components/RegistrationModal';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,6 +14,8 @@ export default function LoginPage() {
   const [message, setMessage] = useState('');
   const [isResetMode, setIsResetMode] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
+  const [isSubmittingRegistration, setIsSubmittingRegistration] = useState(false);
 
   // Debug Supabase configuration
   useEffect(() => {
@@ -98,53 +101,69 @@ export default function LoginPage() {
     }
   };
 
-  const handleSignUp = async () => {
-    if (!email || !password) {
-      setMessage('Por favor ingresa email y contraseña');
-      return;
-    }
-
-    if (password.length < 6) {
-      setMessage('La contraseña debe tener al menos 6 caracteres');
-      return;
-    }
-
+  const handleRegistrationSubmit = async (formData: RegistrationFormData) => {
+    setIsSubmittingRegistration(true);
+    
     try {
-      console.log('Attempting signup with:', { email, passwordLength: password.length });
+      console.log('Processing registration:', { 
+        email: formData.email, 
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        school: formData.school
+      });
       
-      // Clear any existing sessions first
-      await supabase.auth.signOut();
-      
-      // Check if user already exists first
-      const { data: existingSession } = await supabase.auth.getSession();
-      console.log('Current session before signup:', existingSession);
-      
-      const { error, data } = await supabase.auth.signUp({ 
-        email: email.trim(), 
-        password: password,
+      // Create user account in Supabase Auth
+      const { error: authError, data: authData } = await supabase.auth.signUp({ 
+        email: formData.email.trim(), 
+        password: formData.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/profile`
+          data: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+            school: formData.school
+          }
         }
       });
 
-      console.log('Signup response:', { 
-        error, 
-        data,
-        userExists: data?.user && !data?.session,
-        needsConfirmation: data?.user && !data?.session,
-        autoSignedIn: !!data?.session
-      });
-
-      if (error) {
-        console.error('Signup error details:', error);
-        setMessage('Error de registro: ' + error.message);
-      } else {
-        setMessage('¡Registro exitoso! Revisa tu email para confirmar tu cuenta.');
-        // Don't redirect immediately, let them confirm email first
+      if (authError) {
+        console.error('Auth signup error:', authError);
+        setMessage('Error de registro: ' + authError.message);
+        return;
       }
+
+      if (!authData.user) {
+        setMessage('Error de registro: No se pudo crear el usuario');
+        return;
+      }
+
+      // Create profile record with pending approval status
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: authData.user.id,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          email: formData.email,
+          school: formData.school,
+          role: 'docente',
+          approval_status: 'pending'
+        });
+
+      if (profileError) {
+        console.error('Profile creation error:', profileError);
+        setMessage('Error al crear perfil: ' + profileError.message);
+        return;
+      }
+
+      console.log('Registration successful for user:', authData.user.id);
+      setMessage('¡Solicitud de registro enviada! Un administrador revisará tu cuenta y te notificará por email cuando sea aprobada.');
+      setIsRegistrationModalOpen(false);
+      
     } catch (err) {
-      console.error('Sign up error:', err);
+      console.error('Registration error:', err);
       setMessage('Error de registro: Ocurrió un error inesperado');
+    } finally {
+      setIsSubmittingRegistration(false);
     }
   };
 
@@ -296,7 +315,7 @@ export default function LoginPage() {
               Entrar
             </button>
             <button 
-              onClick={handleSignUp} 
+              onClick={() => setIsRegistrationModalOpen(true)} 
               className="bg-white border-2 border-brand_blue hover:bg-brand_yellow hover:border-brand_yellow text-brand_blue hover:text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out"
             >
               Registrarse
@@ -313,6 +332,14 @@ export default function LoginPage() {
         
 
       </div>
+
+      {/* Registration Modal */}
+      <RegistrationModal
+        isOpen={isRegistrationModalOpen}
+        onClose={() => setIsRegistrationModalOpen(false)}
+        onSubmit={handleRegistrationSubmit}
+        isSubmitting={isSubmittingRegistration}
+      />
     </div>
     </>
   );

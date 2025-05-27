@@ -373,43 +373,45 @@ const ModuleDetailPage = () => {
               </div>
             </div>
           ) : (
-            <ul className="space-y-4">
-              {lessons.map((lesson) => (
-                <li key={lesson.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
-                  <div>
-                    <h3 className="text-lg font-semibold font-mont text-gray-800">{lesson.order_number}. {lesson.title}</h3>
-                  </div>
-                  <Link 
-                    href={`/admin/course-builder/${module.course_id}/${module.id}/${lesson.id}`} 
-                    legacyBehavior
-                  >
-                    <a 
-                      className="px-4 py-2 bg-brand_yellow text-brand_blue font-mont rounded-md hover:bg-brand_blue hover:text-white transition text-sm"
-                      onClick={(e) => {
-                        // e.preventDefault(); // Uncomment this if you want to prevent navigation for testing the click log only
-                        const href = `/admin/course-builder/${module.course_id}/${module.id}/${lesson.id}`;
-                        console.log(`[ModuleDetailPage] 'Editar Lección' clicked for lesson ID: ${lesson.id}. Navigating to: ${href}`);
-                      }}
+            <>
+              <ul className="space-y-4">
+                {lessons.map((lesson) => (
+                  <li key={lesson.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-semibold font-mont text-gray-800">{lesson.order_number}. {lesson.title}</h3>
+                    </div>
+                    <Link 
+                      href={`/admin/course-builder/${module.course_id}/${module.id}/${lesson.id}`} 
+                      legacyBehavior
                     >
-                      Editar Lección
-                    </a>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-            
-            {/* Add New Lesson Button */}
-            <div className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={handleCreateNewLesson}
-                disabled={isCreatingLesson}
-                className="inline-flex items-center px-6 py-3 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-brand_blue hover:bg-brand_yellow hover:text-brand_blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue disabled:opacity-50 transition-colors duration-150"
-              >
-                <PlusCircleIcon className="-ml-1 mr-3 h-6 w-6" aria-hidden="true" />
-                {isCreatingLesson ? 'Creando lección...' : 'Crear Una Nueva Lección'}
-              </button>
-            </div>
+                      <a 
+                        className="px-4 py-2 bg-brand_yellow text-brand_blue font-mont rounded-md hover:bg-brand_blue hover:text-white transition text-sm"
+                        onClick={(e) => {
+                          // e.preventDefault(); // Uncomment this if you want to prevent navigation for testing the click log only
+                          const href = `/admin/course-builder/${module.course_id}/${module.id}/${lesson.id}`;
+                          console.log(`[ModuleDetailPage] 'Editar Lección' clicked for lesson ID: ${lesson.id}. Navigating to: ${href}`);
+                        }}
+                      >
+                        Editar Lección
+                      </a>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              
+              {/* Add New Lesson Button */}
+              <div className="mt-6 text-center">
+                <button
+                  type="button"
+                  onClick={handleCreateNewLesson}
+                  disabled={isCreatingLesson}
+                  className="inline-flex items-center px-6 py-3 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-brand_blue hover:bg-brand_yellow hover:text-brand_blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue disabled:opacity-50 transition-colors duration-150"
+                >
+                  <PlusCircleIcon className="-ml-1 mr-3 h-6 w-6" aria-hidden="true" />
+                  {isCreatingLesson ? 'Creando lección...' : 'Crear Una Nueva Lección'}
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>

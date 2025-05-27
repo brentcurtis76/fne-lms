@@ -257,15 +257,11 @@ export default function Dashboard() {
                 {/* Admin-specific actions */}
                 {isAdmin && (
                   <Link
-                    href="#mis-cursos"
-                    className="block p-6 bg-blue-100 text-blue-900 rounded-lg hover:bg-blue-200 transition-colors"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      document.getElementById('mis-cursos')?.scrollIntoView({ behavior: 'smooth' });
-                    }}
+                    href="/admin/course-builder"
+                    className="block p-6 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_blue hover:text-white transition-colors"
                   >
-                    <h3 className="text-lg font-semibold mb-2">Mis Cursos</h3>
-                    <p className="text-sm opacity-90">Cursos que he creado ({myCourses.length})</p>
+                    <h3 className="text-lg font-semibold mb-2">Asigna Cursos</h3>
+                    <p className="text-sm opacity-90">Asignar cursos a docentes</p>
                   </Link>
                 )}
 

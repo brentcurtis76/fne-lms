@@ -216,6 +216,49 @@ const ModuleDetailPage = () => {
     }
   };
 
+  const handleCreateNewLesson = async () => {
+    const courseIdStr = Array.isArray(courseIdQuery) ? courseIdQuery[0] : courseIdQuery;
+    const moduleIdStr = Array.isArray(moduleIdQuery) ? moduleIdQuery[0] : moduleIdQuery;
+
+    if (!isValidUUID(courseIdStr) || !isValidUUID(moduleIdStr)) {
+      toast.error('IDs de curso o módulo no válidos.');
+      return;
+    }
+
+    setIsCreatingLesson(true);
+    const toastId = toast.loading('Creando nueva lección...');
+
+    try {
+      // Calculate the next order number
+      const nextOrderNumber = lessons.length + 1;
+      
+      console.log(`[ModuleDetail] Creating new lesson for module ID: ${moduleIdStr}, order: ${nextOrderNumber}`);
+      const { data: newLesson, error: insertError } = await supabase
+        .from('lessons')
+        .insert({
+          title: `Lección ${nextOrderNumber}`, // Default title with order number
+          module_id: moduleIdStr,
+          course_id: courseIdStr,
+          order_number: nextOrderNumber,
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+      if (!newLesson) throw new Error('No se pudo obtener la lección creada.');
+
+      console.log('[ModuleDetail] Successfully created lesson:', newLesson);
+      toast.success('Lección creada! Redirigiendo al editor...', { id: toastId });
+      router.push(`/admin/course-builder/${courseIdStr}/${moduleIdStr}/${newLesson.id}`);
+
+    } catch (e: any) {
+      console.error('[ModuleDetail] Error creating new lesson:', e);
+      toast.error(`Error al crear lección: ${e.message || 'Error desconocido'}`, { id: toastId });
+    } finally {
+      setIsCreatingLesson(false);
+    }
+  };
+
   // Loading state
   if (loading || !user) {
     return (
@@ -353,8 +396,20 @@ const ModuleDetailPage = () => {
                   </Link>
                 </li>
               ))}
-              {/* TODO: Add a button here to create subsequent lessons if needed */}
             </ul>
+            
+            {/* Add New Lesson Button */}
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={handleCreateNewLesson}
+                disabled={isCreatingLesson}
+                className="inline-flex items-center px-6 py-3 border border-transparent shadow-sm text-base font-medium rounded-md text-white bg-brand_blue hover:bg-brand_yellow hover:text-brand_blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue disabled:opacity-50 transition-colors duration-150"
+              >
+                <PlusCircleIcon className="-ml-1 mr-3 h-6 w-6" aria-hidden="true" />
+                {isCreatingLesson ? 'Creando lección...' : 'Crear Una Nueva Lección'}
+              </button>
+            </div>
           )}
         </div>
       </div>

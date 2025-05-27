@@ -5,6 +5,7 @@ import { supabase } from '../../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import Header from '../../../../components/layout/Header';
 import DeleteModuleModal from '../../../../components/DeleteModuleModal';
+import EditModuleModal from '../../../../components/EditModuleModal';
 
 interface Course {
   id: string;
@@ -43,6 +44,11 @@ const CourseDetailPage = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [selectedModuleForDeletion, setSelectedModuleForDeletion] = useState<Module | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // State for edit module modal
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedModuleForEdit, setSelectedModuleForEdit] = useState<Module | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Check authentication and admin status
   useEffect(() => {
@@ -249,6 +255,66 @@ const CourseDetailPage = () => {
     }
   };
 
+  // Handler to open the edit module modal
+  const handleOpenEditModal = (module: Module) => {
+    setSelectedModuleForEdit(module);
+    setIsEditModalOpen(true);
+  };
+
+  // Handler to close the edit module modal
+  const handleCloseEditModal = () => {
+    setSelectedModuleForEdit(null);
+    setIsEditModalOpen(false);
+  };
+
+  // Handler for updating module
+  const handleConfirmEdit = async (newTitle: string, newDescription: string) => {
+    if (!selectedModuleForEdit) {
+      toast.error('No se ha seleccionado ningún módulo para editar.');
+      return;
+    }
+
+    const moduleIdToUpdate = selectedModuleForEdit.id;
+    console.log('[EditModule] Starting update for module:', selectedModuleForEdit.title);
+    setIsUpdating(true);
+    const loadingToastId = toast.loading('Actualizando módulo...');
+
+    try {
+      // Update the module in the database
+      const { error: updateError } = await supabase
+        .from('modules')
+        .update({ 
+          title: newTitle,
+          description: newDescription || null
+        })
+        .eq('id', moduleIdToUpdate);
+      
+      if (updateError) {
+        throw new Error(updateError.message || 'Error al actualizar el módulo.');
+      }
+
+      console.log('[EditModule] Module updated successfully.');
+      toast.success('Módulo actualizado exitosamente');
+      
+      // Update the modules list with the new data
+      setModules(prevModules => 
+        prevModules.map(module => 
+          module.id === moduleIdToUpdate 
+            ? { ...module, title: newTitle, description: newDescription || null }
+            : module
+        )
+      );
+      handleCloseEditModal();
+
+    } catch (error: any) {
+      console.error('[EditModule] Failed to update module:', error.message);
+      toast.error(`Error al actualizar: ${error.message}`);
+    } finally {
+      toast.dismiss(loadingToastId);
+      setIsUpdating(false);
+    }
+  };
+
   useEffect(() => {
     if (courseId) {
       fetchCourseAndModules();
@@ -391,15 +457,21 @@ const CourseDetailPage = () => {
                       <p className="text-brand_blue/80 mt-1 text-sm">{moduleItem.description}</p>
                     )}
                   </div>
-                  <div className="flex space-x-3 ml-4">
+                  <div className="flex flex-wrap space-x-2 gap-y-2 ml-4">
                     <Link href={`/admin/course-builder/${courseId}/${moduleItem.id}`} legacyBehavior>
-                      <a className="px-3 py-2 bg-brand_yellow text-brand_blue font-mont text-sm rounded-md hover:bg-brand_blue hover:text-brand_yellow transition duration-150 whitespace-nowrap">
+                      <a className="px-3 py-2 bg-brand_yellow text-brand_blue font-mont text-xs md:text-sm rounded-md hover:bg-brand_blue hover:text-brand_yellow transition duration-150 whitespace-nowrap">
                         Ver Lecciones
                       </a>
                     </Link>
                     <button
+                      onClick={() => handleOpenEditModal(moduleItem)}
+                      className="px-3 py-2 bg-brand_blue text-white font-mont text-xs md:text-sm rounded-md hover:bg-brand_blue/90 transition duration-150 whitespace-nowrap"
+                    >
+                      Editar
+                    </button>
+                    <button
                       onClick={() => handleOpenDeleteModal(moduleItem)}
-                      className="px-3 py-2 bg-red-600 text-white font-mont text-sm rounded-md hover:bg-red-700 transition duration-150 whitespace-nowrap"
+                      className="px-3 py-2 bg-red-600 text-white font-mont text-xs md:text-sm rounded-md hover:bg-red-700 transition duration-150 whitespace-nowrap"
                     >
                       Eliminar
                     </button>
@@ -421,6 +493,19 @@ const CourseDetailPage = () => {
           onClose={handleCloseDeleteModal}
           onConfirm={handleConfirmDelete}
           isDeleting={isDeleting}
+        />
+      )}
+
+      {/* Edit Module Modal */}
+      {isEditModalOpen && selectedModuleForEdit && (
+        <EditModuleModal
+          moduleId={selectedModuleForEdit.id}
+          moduleTitle={selectedModuleForEdit.title}
+          moduleDescription={selectedModuleForEdit.description}
+          isOpen={isEditModalOpen}
+          onClose={handleCloseEditModal}
+          onConfirm={handleConfirmEdit}
+          isUpdating={isUpdating}
         />
       )}
     </div>

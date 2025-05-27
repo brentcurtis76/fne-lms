@@ -25,7 +25,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         
         {/* Favicon */}
         <link rel="icon" href="/favicon.ico" />
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="icon" type="image/png" href="/favicon.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/favicon.svg" />
         <meta name="theme-color" content="#00365b" />
         

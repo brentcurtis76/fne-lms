@@ -7,6 +7,7 @@ import Header from '../components/layout/Header';
 import { ArrowLeft, FileText, Plus, Calendar, DollarSign, Users, Eye, Download, Trash2, CheckSquare, Square, Upload, TrendingUp, Edit } from 'lucide-react';
 import ContractForm from '../components/contracts/ContractForm';
 import CashFlowView from '../components/contracts/CashFlowView';
+import ContractDetailsModal from '../components/contracts/ContractDetailsModal';
 
 interface Programa {
   id: string;
@@ -418,15 +419,12 @@ export default function ContractsPage() {
                     <table className="w-full border-collapse bg-white">
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue w-32">N° Contrato</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue w-64">Cliente</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue w-24">Código</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue w-24">Fecha</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue w-28">Valor Total</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue w-20">Cuotas</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue w-28">Estado</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue w-28">Flujo Caja</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue w-40">Acciones</th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">N° Contrato</th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Cliente</th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Fecha</th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Valor Total</th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Estado</th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_blue text-center">Acciones</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -435,29 +433,19 @@ export default function ContractsPage() {
                             <td className="py-4 px-4">
                               <button 
                                 onClick={() => setSelectedContrato(contrato)}
-                                className="font-medium text-brand_blue text-sm hover:text-blue-600 hover:underline cursor-pointer"
+                                className="font-medium text-brand_blue hover:text-blue-600 hover:underline cursor-pointer"
                               >
                                 {contrato.numero_contrato}
                               </button>
                             </td>
                             <td className="py-4 px-4">
-                              <div className="max-w-64">
-                                <div className="font-medium text-gray-900 truncate" title={contrato.clientes.nombre_legal}>
-                                  {contrato.clientes.nombre_legal}
-                                </div>
-                                <div className="text-sm text-gray-500 truncate" title={contrato.clientes.nombre_fantasia}>
-                                  {contrato.clientes.nombre_fantasia}
-                                </div>
-                                <div className="text-xs text-gray-400">{contrato.clientes.rut}</div>
+                              <div>
+                                <div className="font-medium text-gray-900">{contrato.clientes.nombre_fantasia}</div>
+                                <div className="text-sm text-gray-500">{contrato.clientes.rut}</div>
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              <div className="font-medium text-brand_blue text-sm">
-                                {contrato.programas.codigo_servicio || 'N/A'}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-sm text-gray-900">
                                 {formatDate(contrato.fecha_contrato)}
                               </div>
                             </td>
@@ -467,23 +455,7 @@ export default function ContractsPage() {
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              <div className="text-center">
-                                {contrato.cuotas ? (
-                                  <div>
-                                    <div className="font-medium text-gray-900">
-                                      {contrato.cuotas.length}
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                      {contrato.cuotas.filter(c => c.pagada).length} pagadas
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <span className="text-xs text-gray-400">Sin cuotas</span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="flex flex-col items-center space-y-2">
+                              <div className="flex items-center space-x-2">
                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                                   contrato.estado === 'activo' 
                                     ? 'bg-green-100 text-green-800' 
@@ -491,55 +463,21 @@ export default function ContractsPage() {
                                 }`}>
                                   {contrato.estado === 'activo' ? 'Activo' : 'Pendiente'}
                                 </span>
-                                {contrato.estado !== 'activo' && (
-                                  <label className="cursor-pointer">
-                                    <input
-                                      type="file"
-                                      accept=".pdf,.doc,.docx"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0];
-                                        if (file) {
-                                          handleUploadContract(contrato, file);
-                                        }
-                                      }}
-                                      className="hidden"
-                                    />
-                                    <div className="flex items-center justify-center w-8 h-8 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
-                                      <Upload 
-                                        className="text-blue-600" 
-                                        size={16}
-                                      />
-                                    </div>
-                                  </label>
+                                {contrato.incluir_en_flujo && (
+                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                    En Flujo
+                                  </span>
                                 )}
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              <div className="flex items-center justify-center">
-                                <button
-                                  onClick={() => handleToggleCashFlow(contrato)}
-                                  className={`flex items-center space-x-1 text-xs px-3 py-1 rounded-full transition-colors ${
-                                    contrato.incluir_en_flujo 
-                                      ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                                  }`}
-                                  title={contrato.incluir_en_flujo ? "Excluir del flujo de caja" : "Incluir en flujo de caja"}
-                                >
-                                  <TrendingUp size={12} />
-                                  <span className="font-medium">
-                                    {contrato.incluir_en_flujo ? 'Incluido' : 'Excluido'}
-                                  </span>
-                                </button>
-                              </div>
-                            </td>
-                            <td className="py-4 px-4">
-                              <div className="flex items-center justify-center space-x-1">
+                              <div className="flex items-center justify-center space-x-2">
                                 <button
                                   onClick={() => setSelectedContrato(contrato)}
                                   className="p-2 text-brand_blue hover:bg-blue-50 rounded-lg transition-colors"
                                   title="Ver detalles"
                                 >
-                                  <Eye size={14} />
+                                  <Eye size={16} />
                                 </button>
                                 <button
                                   onClick={() => {
@@ -667,86 +605,23 @@ export default function ContractsPage() {
             )}
 
             {/* Contract Details Modal */}
-            {selectedContrato && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-                <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                  <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-brand_blue">
-                      Detalles del Contrato {selectedContrato.numero_contrato}
-                    </h3>
-                    <button
-                      onClick={() => setSelectedContrato(null)}
-                      className="text-gray-400 hover:text-gray-600 transition-colors"
-                    >
-                      <Plus className="rotate-45" size={24} />
-                    </button>
-                  </div>
-                  <div className="p-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                      <div>
-                        <h4 className="font-semibold text-brand_blue mb-3">Información del Cliente</h4>
-                        <div className="space-y-2 text-sm">
-                          <p><span className="font-medium">Nombre Legal:</span> {selectedContrato.clientes.nombre_legal}</p>
-                          <p><span className="font-medium">Nombre Fantasía:</span> {selectedContrato.clientes.nombre_fantasia}</p>
-                          <p><span className="font-medium">RUT:</span> {selectedContrato.clientes.rut}</p>
-                          <p><span className="font-medium">Dirección:</span> {selectedContrato.clientes.direccion}</p>
-                          <p><span className="font-medium">Comuna:</span> {selectedContrato.clientes.comuna}</p>
-                          <p><span className="font-medium">Ciudad:</span> {selectedContrato.clientes.ciudad}</p>
-                          <p><span className="font-medium">Representante:</span> {selectedContrato.clientes.nombre_representante}</p>
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="font-semibold text-brand_blue mb-3">Información del Programa</h4>
-                        <div className="space-y-2 text-sm">
-                          <p><span className="font-medium">Código:</span> {selectedContrato.programas.codigo_servicio}</p>
-                          <p><span className="font-medium">Programa:</span> {selectedContrato.programas.nombre}</p>
-                          <p><span className="font-medium">Descripción:</span> {selectedContrato.programas.descripcion}</p>
-                          <p><span className="font-medium">Horas Totales:</span> {selectedContrato.programas.horas_totales}h</p>
-                          <p><span className="font-medium">Modalidad:</span> {selectedContrato.programas.modalidad}</p>
-                          <p><span className="font-medium">Valor Total:</span> {formatCurrency(selectedContrato.precio_total_uf)}</p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {selectedContrato.cuotas && selectedContrato.cuotas.length > 0 && (
-                      <div>
-                        <h4 className="font-semibold text-brand_blue mb-3">Plan de Pagos</h4>
-                        <div className="overflow-x-auto">
-                          <table className="w-full border-collapse border border-gray-200">
-                            <thead>
-                              <tr className="bg-gray-50">
-                                <th className="border border-gray-200 px-4 py-2 text-left">Cuota</th>
-                                <th className="border border-gray-200 px-4 py-2 text-left">Fecha Vencimiento</th>
-                                <th className="border border-gray-200 px-4 py-2 text-left">Monto</th>
-                                <th className="border border-gray-200 px-4 py-2 text-left">Estado</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {selectedContrato.cuotas.map((cuota) => (
-                                <tr key={cuota.id}>
-                                  <td className="border border-gray-200 px-4 py-2">Cuota {cuota.numero_cuota}</td>
-                                  <td className="border border-gray-200 px-4 py-2">{formatDate(cuota.fecha_vencimiento)}</td>
-                                  <td className="border border-gray-200 px-4 py-2">{formatCurrency(cuota.monto_uf)}</td>
-                                  <td className="border border-gray-200 px-4 py-2">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                      cuota.pagada 
-                                        ? 'bg-green-100 text-green-800' 
-                                        : 'bg-yellow-100 text-yellow-800'
-                                    }`}>
-                                      {cuota.pagada ? 'Pagada' : 'Pendiente'}
-                                    </span>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
+            <ContractDetailsModal
+              contrato={selectedContrato}
+              isOpen={!!selectedContrato}
+              onClose={() => setSelectedContrato(null)}
+              onEdit={(contrato) => {
+                setEditingContrato(contrato);
+                setSelectedContrato(null);
+                setActiveTab('editar');
+              }}
+              onDelete={(contrato) => {
+                setDeleteModalContrato(contrato);
+                setSelectedContrato(null);
+              }}
+              onToggleCashFlow={handleToggleCashFlow}
+              onUploadContract={handleUploadContract}
+              onGeneratePDF={(contrato) => window.open(`/contract-print/${contrato.id}`, '_blank')}
+            />
           </div>
         </main>
       </div>

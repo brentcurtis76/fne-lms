@@ -236,6 +236,86 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
     return { uf: ufTotal, clp: clpTotal };
   };
 
+  // Calculate ALL contract totals (not limited by time period)
+  const getAllContractsTotals = () => {
+    // Include all contracts with incluir_en_flujo = true
+    const includedContratos = contratos.filter(contrato => contrato.incluir_en_flujo);
+    
+    let totalUF = 0;
+    let totalCLP = 0;
+    let paidUF = 0;
+    let paidCLP = 0;
+    let pendingUF = 0;
+    let pendingCLP = 0;
+    
+    console.log('🔍 Calculating ALL contract totals...');
+    console.log(`📊 Found ${includedContratos.length} contracts with incluir_en_flujo = true`);
+    
+    includedContratos.forEach(contrato => {
+      console.log(`📋 Contract ${contrato.numero_contrato}:`);
+      console.log(`   - Total value: ${contrato.precio_total_uf} (tipo_moneda: ${contrato.tipo_moneda})`);
+      
+      // Detect if contract is in CLP or UF
+      const isClpContract = contrato.tipo_moneda === 'CLP' || 
+                          (!contrato.tipo_moneda && contrato.precio_total_uf > 1000);
+      
+      if (isClpContract) {
+        // Contract is in CLP
+        totalCLP += contrato.precio_total_uf;
+        // Convert to UF for UF total
+        totalUF += contrato.precio_total_uf / currentUFValue;
+        console.log(`   - Added ${contrato.precio_total_uf} CLP (${(contrato.precio_total_uf / currentUFValue).toFixed(2)} UF)`);
+      } else {
+        // Contract is in UF
+        totalUF += contrato.precio_total_uf;
+        // Convert to CLP for CLP total
+        totalCLP += contrato.precio_total_uf * currentUFValue;
+        console.log(`   - Added ${contrato.precio_total_uf} UF (${(contrato.precio_total_uf * currentUFValue).toLocaleString()} CLP)`);
+      }
+      
+      // Calculate paid vs pending from cuotas
+      if (contrato.cuotas) {
+        contrato.cuotas.forEach(cuota => {
+          const cuotaIsClp = contrato.tipo_moneda === 'CLP' || 
+                            (!contrato.tipo_moneda && cuota.monto_uf > 1000);
+          
+          if (cuota.pagada) {
+            if (cuotaIsClp) {
+              paidCLP += cuota.monto_uf;
+              paidUF += cuota.monto_uf / currentUFValue;
+            } else {
+              paidUF += cuota.monto_uf;
+              paidCLP += cuota.monto_uf * currentUFValue;
+            }
+          } else {
+            if (cuotaIsClp) {
+              pendingCLP += cuota.monto_uf;
+              pendingUF += cuota.monto_uf / currentUFValue;
+            } else {
+              pendingUF += cuota.monto_uf;
+              pendingCLP += cuota.monto_uf * currentUFValue;
+            }
+          }
+        });
+      }
+    });
+    
+    console.log(`💰 TOTAL CALCULATIONS:`);
+    console.log(`   - Total UF: ${totalUF.toFixed(2)}`);
+    console.log(`   - Total CLP: ${totalCLP.toLocaleString()}`);
+    console.log(`   - Paid UF: ${paidUF.toFixed(2)}`);
+    console.log(`   - Paid CLP: ${paidCLP.toLocaleString()}`);
+    console.log(`   - Pending UF: ${pendingUF.toFixed(2)}`);
+    console.log(`   - Pending CLP: ${pendingCLP.toLocaleString()}`);
+    
+    return {
+      total: { uf: totalUF, clp: totalCLP },
+      paid: { uf: paidUF, clp: paidCLP },
+      pending: { uf: pendingUF, clp: pendingCLP },
+      contractCount: includedContratos.length
+    };
+  };
+
   const getOverdueCuotas = () => {
     const today = new Date().toISOString().split('T')[0];
     const overdue: Array<{ contrato: Contrato; cuota: Cuota }> = [];
@@ -482,43 +562,98 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
         )}
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-blue-600">Total Proyectado</p>
-              <p className="text-2xl font-bold text-blue-900">{formatCurrency(getTotalProjected().uf, 'UF', getTotalProjected().clp)}</p>
+      {/* Summary Cards - ALL CONTRACTS TOTALS */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-gray-900">Resumen de Todos los Contratos</h3>
+          <span className="text-sm text-gray-500">({getAllContractsTotals().contractCount} contratos incluidos en flujo)</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600">Total de Contratos</p>
+                <p className="text-2xl font-bold text-blue-900">{formatCurrency(getAllContractsTotals().total.uf, 'UF', getAllContractsTotals().total.clp)}</p>
+                <p className="text-xs text-blue-600 mt-1">Valor total de todos los contratos</p>
+              </div>
+              <TrendingUp className="text-blue-600" size={24} />
             </div>
-            <TrendingUp className="text-blue-600" size={24} />
+          </div>
+          
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600">Total Pagado</p>
+                <p className="text-2xl font-bold text-green-900">{formatCurrency(getAllContractsTotals().paid.uf, 'UF', getAllContractsTotals().paid.clp)}</p>
+                <p className="text-xs text-green-600 mt-1">Cuotas ya pagadas</p>
+              </div>
+              <CheckCircle className="text-green-600" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-yellow-600">Total Pendiente</p>
+                <p className="text-2xl font-bold text-yellow-900">{formatCurrency(getAllContractsTotals().pending.uf, 'UF', getAllContractsTotals().pending.clp)}</p>
+                <p className="text-xs text-yellow-600 mt-1">Cuotas por cobrar</p>
+              </div>
+              <Calendar className="text-yellow-600" size={24} />
+            </div>
           </div>
         </div>
-        
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-green-600">Total Pagado</p>
-              <p className="text-2xl font-bold text-green-900">{formatCurrency(getTotalPaid().uf, 'UF', getTotalPaid().clp)}</p>
+      </div>
+
+      {/* Period-based Summary Cards */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-semibold text-gray-900">Flujo de Caja - Próximos {selectedPeriod === '3m' ? '3' : selectedPeriod === '6m' ? '6' : '12'} Meses</h3>
+          <span className="text-sm text-gray-500">Solo cuotas vencen en el período seleccionado</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-blue-600">Proyectado ({selectedPeriod === '3m' ? '3' : selectedPeriod === '6m' ? '6' : '12'} meses)</p>
+                <p className="text-2xl font-bold text-blue-900">{formatCurrency(getTotalProjected().uf, 'UF', getTotalProjected().clp)}</p>
+                <p className="text-xs text-blue-600 mt-1">Cuotas que vencen en período</p>
+              </div>
+              <TrendingUp className="text-blue-600" size={24} />
             </div>
-            <CheckCircle className="text-green-600" size={24} />
+          </div>
+          
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-green-600">Pagado (período)</p>
+                <p className="text-2xl font-bold text-green-900">{formatCurrency(getTotalPaid().uf, 'UF', getTotalPaid().clp)}</p>
+                <p className="text-xs text-green-600 mt-1">Cuotas pagadas en período</p>
+              </div>
+              <CheckCircle className="text-green-600" size={24} />
+            </div>
+          </div>
+          
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-yellow-600">Pendiente (período)</p>
+                <p className="text-2xl font-bold text-yellow-900">{formatCurrency(getTotalPending().uf, 'UF', getTotalPending().clp)}</p>
+                <p className="text-xs text-yellow-600 mt-1">Cuotas pendientes en período</p>
+              </div>
+              <Calendar className="text-yellow-600" size={24} />
+            </div>
           </div>
         </div>
-        
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-yellow-600">Total Pendiente</p>
-              <p className="text-2xl font-bold text-yellow-900">{formatCurrency(getTotalPending().uf, 'UF', getTotalPending().clp)}</p>
-            </div>
-            <Calendar className="text-yellow-600" size={24} />
-          </div>
-        </div>
-        
+      </div>
+
+      {/* Overdue Cuotas Card */}
+      <div className="grid grid-cols-1 gap-4 mb-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-red-600">Cuotas Vencidas</p>
               <p className="text-2xl font-bold text-red-900">{overdueCuotas.length}</p>
+              <p className="text-xs text-red-600 mt-1">Cuotas que ya pasaron su fecha límite</p>
             </div>
             <AlertCircle className="text-red-600" size={24} />
           </div>

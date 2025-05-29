@@ -37,17 +37,28 @@ class UFService {
     }
 
     try {
-      // Try CMF API first (requires API key)
+      // Try public UF API first (no API key required)
+      const ufValue = await this.fetchFromPublicAPI();
+      if (ufValue) {
+        this.cache.set(today, ufValue);
+        return ufValue;
+      }
+    } catch (error) {
+      console.warn('Public API failed, trying CMF API:', error);
+    }
+
+    try {
+      // Try CMF API as secondary option (requires API key)
       const ufValue = await this.fetchFromCMF();
       if (ufValue) {
         this.cache.set(today, ufValue);
         return ufValue;
       }
     } catch (error) {
-      console.warn('CMF API failed, trying fallback:', error);
+      console.warn('CMF API failed, using fallback:', error);
     }
 
-    // Fallback to SII scraping or alternative sources
+    // Fallback to static value
     return this.getFallbackUF();
   }
 
@@ -186,17 +197,39 @@ class UFService {
   }
 
   /**
+   * Fetch from public UF API (no API key required)
+   */
+  private async fetchFromPublicAPI(): Promise<UFValue | null> {
+    try {
+      // Try mindicador.cl - free Chilean economic indicators API
+      const response = await fetch('https://mindicador.cl/api/uf');
+      
+      if (!response.ok) throw new Error(`API error: ${response.status}`);
+      
+      const data = await response.json();
+      const latest = data.serie[0]; // Most recent value
+      
+      return {
+        fecha: latest.fecha.split('T')[0], // Convert to YYYY-MM-DD
+        valor: Math.round(latest.valor)
+      };
+    } catch (error) {
+      console.error('Public API fetch failed:', error);
+      return null;
+    }
+  }
+
+  /**
    * Fallback UF value when API is unavailable
-   * Uses approximate current value (updates manually as needed)
+   * Updated with current SII value as of May 29, 2025
    */
   private getFallbackUF(): UFValue {
     const today = new Date().toISOString().split('T')[0];
     
-    // Approximate UF value as of late 2024/early 2025
-    // This should be updated periodically if API access is unavailable
+    // Current UF value as of May 29, 2025 from SII
     return {
       fecha: today,
-      valor: 37500 // Approximate current UF value in CLP
+      valor: 39184 // Current UF value: $39,184.40 CLP (rounded)
     };
   }
 

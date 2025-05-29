@@ -280,17 +280,30 @@ export default function ContractsPage() {
 
   const handleToggleCashFlow = async (contrato: Contrato) => {
     try {
-      const newCashFlowStatus = !contrato.incluir_en_flujo;
+      console.log('Toggling cash flow for contract:', contrato.numero_contrato);
+      console.log('Current incluir_en_flujo status:', contrato.incluir_en_flujo);
       
-      const { error } = await supabase
+      const newCashFlowStatus = !contrato.incluir_en_flujo;
+      console.log('New status will be:', newCashFlowStatus);
+      
+      const { data, error } = await supabase
         .from('contratos')
         .update({ incluir_en_flujo: newCashFlowStatus })
-        .eq('id', contrato.id);
+        .eq('id', contrato.id)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
+
+      console.log('Update successful, updated data:', data);
 
       // Refresh the contracts list
       await loadContratos();
+      
+      // Show success message
+      alert(`Contrato ${newCashFlowStatus ? 'incluido en' : 'removido del'} flujo de caja exitosamente.`);
     } catch (error) {
       console.error('Error updating cash flow status:', error);
       alert('Error al actualizar el flujo de caja: ' + (error as Error).message);

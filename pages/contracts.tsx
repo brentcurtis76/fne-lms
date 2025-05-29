@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
+import { toast } from 'react-hot-toast';
 import Header from '../components/layout/Header';
 import { ArrowLeft, FileText, Plus, Calendar, DollarSign, Users, Eye, Download, Trash2, CheckSquare, Square, Upload, TrendingUp, Edit } from 'lucide-react';
 import ContractForm from '../components/contracts/ContractForm';
@@ -214,7 +215,7 @@ export default function ContractsPage() {
       
     } catch (error) {
       console.error('Error deleting contract:', error);
-      alert('Error al eliminar el contrato: ' + (error as Error).message);
+      toast.error('Error al eliminar el contrato: ' + (error as Error).message);
     }
   };
 
@@ -233,7 +234,7 @@ export default function ContractsPage() {
       await loadContratos();
     } catch (error) {
       console.error('Error updating contract signed status:', error);
-      alert('Error al actualizar el estado del contrato: ' + (error as Error).message);
+      toast.error('Error al actualizar el estado del contrato: ' + (error as Error).message);
     }
   };
 
@@ -272,7 +273,7 @@ export default function ContractsPage() {
       
     } catch (error) {
       console.error('Error uploading contract:', error);
-      alert('Error al subir el contrato: ' + (error as Error).message);
+      toast.error('Error al subir el contrato: ' + (error as Error).message);
     } finally {
       setUploadingContrato(null);
     }
@@ -303,10 +304,10 @@ export default function ContractsPage() {
       await loadContratos();
       
       // Show success message
-      alert(`Contrato ${newCashFlowStatus ? 'incluido en' : 'removido del'} flujo de caja exitosamente.`);
+      toast.success(`Contrato ${newCashFlowStatus ? 'incluido en' : 'removido del'} flujo de caja exitosamente.`);
     } catch (error) {
       console.error('Error updating cash flow status:', error);
-      alert('Error al actualizar el flujo de caja: ' + (error as Error).message);
+      toast.error('Error al actualizar el flujo de caja: ' + (error as Error).message);
     }
   };
 
@@ -338,7 +339,7 @@ export default function ContractsPage() {
       if (updateError) throw updateError;
 
       // Show success notification
-      alert(`✅ Factura subida exitosamente: ${file.name}`);
+      toast.success(`Factura subida exitosamente: ${file.name}`);
       
       // Refresh the contracts list to update the modal
       await loadContratos();
@@ -363,7 +364,7 @@ export default function ContractsPage() {
       
     } catch (error) {
       console.error('Error uploading invoice:', error);
-      alert('❌ Error al subir la factura: ' + (error as Error).message);
+      toast.error('Error al subir la factura: ' + (error as Error).message);
     }
   };
 
@@ -381,7 +382,7 @@ export default function ContractsPage() {
       if (error) throw error;
 
       // Show success notification
-      alert(`✅ Cuota marcada como ${!currentStatus ? 'pagada' : 'pendiente'}`);
+      toast.success(`Cuota marcada como ${!currentStatus ? 'pagada' : 'pendiente'}`);
 
       // Refresh the contracts list to update the modal
       await loadContratos();
@@ -406,7 +407,7 @@ export default function ContractsPage() {
       
     } catch (error) {
       console.error('Error updating payment status:', error);
-      alert('❌ Error al actualizar el estado de pago: ' + (error as Error).message);
+      toast.error('Error al actualizar el estado de pago: ' + (error as Error).message);
     }
   };
 

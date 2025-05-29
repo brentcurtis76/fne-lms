@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
+import { toast } from 'react-hot-toast';
 
 interface Programa {
   id: string;
@@ -289,7 +290,7 @@ export default function ContractForm({ programas, clientes, editingContract, onS
               clienteId = existingCliente.id;
             } else {
               // User canceled - stop the creation process
-              alert('Creación de contrato cancelada. Por favor verifica el RUT del cliente.');
+              toast.error('Creación de contrato cancelada. Por favor verifica el RUT del cliente.');
               setLoading(false);
               return;
             }
@@ -366,7 +367,7 @@ export default function ContractForm({ programas, clientes, editingContract, onS
       onSuccess();
     } catch (error) {
       console.error('Error saving contract:', error);
-      alert('Error al guardar el contrato: ' + (error as Error).message);
+      toast.error('Error al guardar el contrato: ' + (error as Error).message);
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Calendar, DollarSign, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react';
+import { Calendar, DollarSign, TrendingUp, AlertCircle, CheckCircle, Upload, Check, X, Filter } from 'lucide-react';
 import UFService from '../../lib/uf-service';
+import { supabase } from '../../lib/supabase';
 
 interface Cuota {
   id: string;
@@ -11,6 +12,8 @@ interface Cuota {
   pagada: boolean;
   created_at: string;
   monto_clp?: number;
+  factura_url?: string;
+  factura_pagada?: boolean;
 }
 
 interface Contrato {
@@ -59,6 +62,8 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   const [currencyDisplay, setCurrencyDisplay] = useState<'UF' | 'CLP' | 'BOTH'>('BOTH');
   const [loading, setLoading] = useState(false);
   const [currentUFValue, setCurrentUFValue] = useState<number>(0);
+  const [paymentFilter, setPaymentFilter] = useState<'all' | 'due_unpaid' | 'due_paid'>('all');
+  const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
 
   useEffect(() => {
     loadUFValueAndGenerateCashFlow();
@@ -250,6 +255,86 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
 
   const overdueCuotas = getOverdueCuotas();
 
+  // Handle invoice upload
+  const handleInvoiceUpload = async (cuotaId: string, file: File) => {
+    try {
+      setUploadingInvoice(cuotaId);
+      
+      // Upload file to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `cuota_${cuotaId}_${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('facturas')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('facturas')
+        .getPublicUrl(fileName);
+
+      // Update cuota with invoice URL
+      const { error: updateError } = await supabase
+        .from('cuotas')
+        .update({ 
+          factura_url: publicUrl
+        })
+        .eq('id', cuotaId);
+
+      if (updateError) throw updateError;
+
+      // Refresh cash flow data
+      await loadUFValueAndGenerateCashFlow();
+      
+    } catch (error) {
+      console.error('Error uploading invoice:', error);
+      alert('Error al subir la factura: ' + (error as Error).message);
+    } finally {
+      setUploadingInvoice(null);
+    }
+  };
+
+  // Handle payment status toggle
+  const handlePaymentStatusToggle = async (cuotaId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('cuotas')
+        .update({ 
+          factura_pagada: !currentStatus
+        })
+        .eq('id', cuotaId);
+
+      if (error) throw error;
+
+      // Refresh cash flow data
+      await loadUFValueAndGenerateCashFlow();
+      
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      alert('Error al actualizar el estado de pago: ' + (error as Error).message);
+    }
+  };
+
+  // Filter cuotas based on payment filter
+  const filterCuotas = (cuotas: any[]) => {
+    if (paymentFilter === 'all') return cuotas;
+    
+    const today = new Date();
+    return cuotas.filter(({ cuota }) => {
+      const dueDate = new Date(cuota.fecha_vencimiento);
+      const isDue = dueDate <= today;
+      
+      if (paymentFilter === 'due_unpaid') {
+        return isDue && !cuota.factura_pagada;
+      } else if (paymentFilter === 'due_paid') {
+        return isDue && cuota.factura_pagada;
+      }
+      return true;
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* UF Value Indicator */}
@@ -351,6 +436,49 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
               Vista Detallada
             </button>
           </div>
+        </div>
+
+        {/* Payment Filter (only show in detailed view) */}
+        {viewType === 'detailed' && (
+          <div className="flex items-center space-x-4 bg-gray-50 p-4 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <Filter className="text-gray-600" size={16} />
+              <span className="text-sm font-medium text-gray-700">Filtrar por estado:</span>
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setPaymentFilter('all')}
+                className={`px-3 py-1 text-sm rounded-lg font-medium transition-colors ${
+                  paymentFilter === 'all'
+                    ? 'bg-brand_blue text-white'
+                    : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                Todas
+              </button>
+              <button
+                onClick={() => setPaymentFilter('due_unpaid')}
+                className={`px-3 py-1 text-sm rounded-lg font-medium transition-colors ${
+                  paymentFilter === 'due_unpaid'
+                    ? 'bg-red-100 text-red-800 border border-red-300'
+                    : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                Vencidas sin pagar
+              </button>
+              <button
+                onClick={() => setPaymentFilter('due_paid')}
+                className={`px-3 py-1 text-sm rounded-lg font-medium transition-colors ${
+                  paymentFilter === 'due_paid'
+                    ? 'bg-green-100 text-green-800 border border-green-300'
+                    : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                Vencidas pagadas
+              </button>
+            </div>
+          </div>
+        )}
         </div>
       </div>
 
@@ -491,11 +619,13 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                     <th className="text-left py-3 px-4 font-semibold text-brand_blue">Cuota</th>
                     <th className="text-left py-3 px-4 font-semibold text-brand_blue">Monto</th>
                     <th className="text-left py-3 px-4 font-semibold text-brand_blue">Estado</th>
+                    <th className="text-left py-3 px-4 font-semibold text-brand_blue">Factura</th>
+                    <th className="text-left py-3 px-4 font-semibold text-brand_blue">Pagado</th>
                   </tr>
                 </thead>
                 <tbody>
                   {cashFlow.map(monthItem => 
-                    monthItem.cuotas
+                    filterCuotas(monthItem.cuotas)
                       .sort((a, b) => a.cuota.fecha_vencimiento.localeCompare(b.cuota.fecha_vencimiento))
                       .map(({ contrato, cuota, monto_clp }, index) => (
                         <tr key={`${contrato.id}-${cuota.id}`} className="border-b border-gray-100 hover:bg-gray-50">
@@ -524,6 +654,53 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                                 : 'Pendiente'
                               }
                             </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center space-x-2">
+                              {cuota.factura_url ? (
+                                <a 
+                                  href={cuota.factura_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:text-blue-800 underline text-sm"
+                                >
+                                  Ver factura
+                                </a>
+                              ) : (
+                                <label className="cursor-pointer">
+                                  <input
+                                    type="file"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    onChange={(e) => {
+                                      const file = e.target.files?.[0];
+                                      if (file) {
+                                        handleInvoiceUpload(cuota.id, file);
+                                      }
+                                    }}
+                                    className="hidden"
+                                  />
+                                  <div className="flex items-center justify-center w-8 h-8 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                                    {uploadingInvoice === cuota.id ? (
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                    ) : (
+                                      <Upload className="text-blue-600" size={16} />
+                                    )}
+                                  </div>
+                                </label>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <button
+                              onClick={() => handlePaymentStatusToggle(cuota.id, cuota.factura_pagada || false)}
+                              className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
+                                cuota.factura_pagada
+                                  ? 'bg-green-100 hover:bg-green-200 text-green-600'
+                                  : 'bg-gray-100 hover:bg-gray-200 text-gray-400'
+                              }`}
+                            >
+                              <Check size={16} />
+                            </button>
                           </td>
                         </tr>
                       ))

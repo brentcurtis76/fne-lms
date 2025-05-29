@@ -37,7 +37,18 @@ class UFService {
     }
 
     try {
-      // Try public UF API first (no API key required)
+      // Try SII scraping first (most accurate)
+      const ufValue = await this.fetchFromSII();
+      if (ufValue) {
+        this.cache.set(today, ufValue);
+        return ufValue;
+      }
+    } catch (error) {
+      console.warn('SII API failed, trying public API:', error);
+    }
+
+    try {
+      // Try public UF API as backup (no API key required)
       const ufValue = await this.fetchFromPublicAPI();
       if (ufValue) {
         this.cache.set(today, ufValue);
@@ -48,7 +59,7 @@ class UFService {
     }
 
     try {
-      // Try CMF API as secondary option (requires API key)
+      // Try CMF API as last resort (requires API key)
       const ufValue = await this.fetchFromCMF();
       if (ufValue) {
         this.cache.set(today, ufValue);
@@ -197,7 +208,33 @@ class UFService {
   }
 
   /**
-   * Fetch from public UF API (no API key required)
+   * Fetch from our SII scraping API (most accurate)
+   */
+  private async fetchFromSII(): Promise<UFValue | null> {
+    try {
+      const response = await fetch('/api/uf-value');
+      
+      if (!response.ok) throw new Error(`SII API error: ${response.status}`);
+      
+      const data = await response.json();
+      
+      if (data.success && data.valor) {
+        return {
+          fecha: data.fecha,
+          valor: data.valor
+        };
+      } else {
+        console.warn('SII API returned unsuccessful response:', data);
+        return null;
+      }
+    } catch (error) {
+      console.error('SII API fetch failed:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Fetch from public UF API (backup)
    */
   private async fetchFromPublicAPI(): Promise<UFValue | null> {
     try {

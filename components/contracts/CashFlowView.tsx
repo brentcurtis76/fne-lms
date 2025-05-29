@@ -10,6 +10,7 @@ interface Cuota {
   monto_uf: number;
   pagada: boolean;
   created_at: string;
+  monto_clp?: number;
 }
 
 interface Contrato {

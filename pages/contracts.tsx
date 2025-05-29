@@ -508,7 +508,6 @@ export default function ContractsPage() {
                                       <Upload 
                                         className="text-blue-600" 
                                         size={16}
-                                        title="Subir contrato firmado"
                                       />
                                     </div>
                                   </label>

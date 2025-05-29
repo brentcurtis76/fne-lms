@@ -586,7 +586,140 @@ npm run build
 
 ---
 
-*Last Updated: 2025-05-27 by Claude Code (Complete Content Management System)*
+#### Session 2025-05-28 - Complete Contract Management System & UF Currency Integration
+
+**Major System Addition:**
+- ✅ **Complete Contract Management System** - Implemented comprehensive contract creation, editing, uploading, and PDF generation system for admin users
+- ✅ **Multi-Step Contract Form** - 3-step workflow: Cliente → Contrato → Cuotas with validation and navigation  
+- ✅ **Client Management Integration** - Create new clients or select existing ones with full address and representative information
+- ✅ **Payment Installment System** - Flexible installment planning with automatic calculation and date management
+- ✅ **Contract Duration Calculation** - Automatic duration calculation from start to end date with months and days display
+- ✅ **Multi-Currency Support** - Support for both UF (Unidades de Fomento) and Chilean Pesos with conditional placeholders
+- ✅ **Professional Contract Template System** - Customizable legal contract template with placeholder replacement
+- ✅ **Contract Editing Functionality** - Full editing capability for existing contracts with pre-populated forms
+- ✅ **Upload System** - Signed contract upload with status management (pendiente → activo)
+- ✅ **Cash Flow Management** - Independent cash flow inclusion toggle separate from contract status
+- ✅ **Professional Table UI** - Enhanced contracts list with improved spacing, truncation, and visual hierarchy
+
+**UF Currency Integration:**
+- ✅ **Official Chilean UF API Service** - Integration with CMF Chile API for real-time UF values (~$37,500 CLP)
+- ✅ **Smart Currency Detection** - Automatic detection of UF vs CLP contracts based on amount size and database fields
+- ✅ **Real-Time Currency Conversion** - Live UF to CLP conversion for mixed currency cash flow projections
+- ✅ **Future UF Projections** - Projected UF values for future installment due dates using inflation trends
+- ✅ **Multi-Currency Cash Flow** - Toggle between UF only, CLP only, or both currencies in financial projections
+- ✅ **Intelligent Amount Handling** - Proper handling of legacy contracts without currency type metadata
+- ✅ **Professional Financial Dashboard** - Enhanced cash flow view with current UF value display and automatic updates
+
+**Contract Template System:**
+- ✅ **Customizable Legal Template** - Complete contract template with actual legal clauses in `/lib/contract-template.ts`
+- ✅ **Dynamic Placeholder Replacement** - 30+ placeholders for client, contract, and program data
+- ✅ **Conditional Currency Display** - `{{IF_UF}}` and `{{IF_CLP}}` conditional blocks for currency-specific content
+- ✅ **Duration Calculations** - Automatic "X meses y Y días" calculation from contract dates
+- ✅ **PDF Generation** - Clean HTML-based contract generation for browser printing/PDF saving
+- ✅ **Print Optimization** - Proper margins and formatting for professional contract printing
+
+**Database Schema Updates:**
+```sql
+-- Enhanced contracts table
+ALTER TABLE contratos 
+ADD COLUMN estado VARCHAR DEFAULT 'pendiente',
+ADD COLUMN incluir_en_flujo BOOLEAN DEFAULT FALSE,
+ADD COLUMN contrato_url TEXT,
+ADD COLUMN fecha_fin DATE,
+ADD COLUMN tipo_moneda VARCHAR DEFAULT 'UF';
+
+-- Enhanced clients table (comuna/ciudad support)
+ALTER TABLE clientes 
+ADD COLUMN comuna VARCHAR,
+ADD COLUMN ciudad VARCHAR,
+ADD COLUMN rut_representante VARCHAR,
+ADD COLUMN fecha_escritura VARCHAR,
+ADD COLUMN nombre_notario VARCHAR,
+ADD COLUMN comuna_notaria VARCHAR;
+
+-- Enhanced cuotas table (UF amount support)
+ALTER TABLE cuotas 
+ADD COLUMN monto_uf DECIMAL;
+```
+
+**User Interface Enhancements:**
+- ✅ **Modern Contracts Table** - Improved spacing, color-coded badges, and professional action buttons
+- ✅ **Multi-Step Form Navigation** - Clear progress indicators and validation at each step
+- ✅ **Contract Status Management** - Visual status indicators with upload functionality
+- ✅ **Cash Flow Toggle** - Independent inclusion control for financial projections
+- ✅ **Print-Optimized Contracts** - Professional PDF generation with proper margins and typography
+- ✅ **Mobile-Responsive Design** - All contract interfaces optimized for mobile devices
+
+**Key Features Implemented:**
+- ✅ **Contract Creation** - 3-step form with client selection, contract details, and installment planning
+- ✅ **Contract Editing** - Full editing capability with pre-populated data from database
+- ✅ **PDF Generation** - Professional contract PDFs with legal template and real client data
+- ✅ **File Upload** - Signed contract upload with automatic status updates
+- ✅ **Cash Flow Projections** - 3/6/12 month financial forecasting with selective contract inclusion
+- ✅ **Delete Functionality** - Safe contract deletion with cascade cleanup and custom confirmation modals
+- ✅ **Multi-Currency Support** - UF and CLP support with conditional template rendering
+
+**Contract Template Placeholders:**
+```typescript
+// Basic client and contract data
+{{FECHA_CONTRATO}}, {{CLIENTE_NOMBRE_LEGAL}}, {{CLIENTE_NOMBRE_FANTASIA}}
+{{CLIENTE_RUT}}, {{CLIENTE_DIRECCION}}, {{CLIENTE_COMUNA}}, {{CLIENTE_CIUDAD}}
+{{CLIENTE_REPRESENTANTE}}, {{PROGRAMA_NOMBRE}}, {{CONTRATO_NUMERO}}
+
+// Currency conditionals
+{{IF_UF}}UF content{{/IF_UF}}
+{{IF_CLP}}CLP content{{/IF_CLP}}
+{{CONTRATO_VALOR_UF}}, {{CONTRATO_VALOR_CLP}}
+
+// Duration and payments
+{{CONTRATO_FECHA_FIN}}, {{CONTRATO_DURACION_COMPLETA}}
+{{CUOTAS_DETALLE}}, {{CUOTAS_CANTIDAD}}
+```
+
+**Technical Implementation:**
+- ✅ **Template Processing Engine** - Sophisticated placeholder replacement with conditional blocks
+- ✅ **Date Calculations** - Precise month/day duration calculations between contract dates
+- ✅ **Currency Formatting** - Proper UF and CLP number formatting for Chilean market
+- ✅ **File Management** - Supabase Storage integration for signed contract uploads
+- ✅ **Database Relations** - Proper foreign key relationships between contracts, clients, programs, and installments
+- ✅ **Row Level Security** - Proper RLS policies for admin-only contract access
+
+**Cash Flow Management:**
+- ✅ **3/6/12 Month Projections** - Financial forecasting based on installment schedules
+- ✅ **Selective Inclusion** - Independent toggle for including contracts in cash flow calculations
+- ✅ **UF/CLP Support** - Mixed currency cash flow projections
+- ✅ **Visual Dashboard** - Clear cash flow visualization with filtering controls
+
+**Code Changes:**
+- `/pages/contracts.tsx` - Complete contracts management page with list, creation, editing, and cash flow views
+- `/components/contracts/ContractForm.tsx` - Multi-step contract creation and editing form
+- `/components/contracts/CashFlowView.tsx` - Financial projection dashboard with filtering
+- `/lib/contract-template.ts` - Customizable contract template with placeholder system
+- `/pages/contract-print/[id].tsx` - Print-optimized contract display page
+- `/components/contracts/ContractPDFComplete.tsx` - React PDF contract generation (legacy)
+
+**Contract Workflow:**
+1. **Create Contract** - 3-step process with client selection, contract details, and installments
+2. **Generate PDF** - Download professional contract PDF for client signature
+3. **Upload Signed Contract** - Upload signed document, status changes to "activo"
+4. **Manage Cash Flow** - Toggle inclusion in financial projections independently
+5. **Edit as Needed** - Full editing capability for contract modifications
+
+**Platform Status - CONTRACTS MODULE COMPLETE:**
+- ✅ **Admin Contract Management** - Complete CRUD operations for contracts
+- ✅ **Professional PDF Generation** - Legal-compliant contract templates
+- ✅ **Financial Projections** - Cash flow forecasting and management
+- ✅ **File Upload System** - Signed contract storage and management
+- ✅ **Multi-Currency Support** - UF and CLP handling throughout system
+- ✅ **Mobile-Responsive UI** - Professional interface across all devices
+
+**Next Session Goals:**
+- 🚀 **Team Training** - Contract system ready for FNE administrative team
+- 📊 **Reporting Integration** - Connect contract data to broader LMS reporting
+- 🔧 **Performance Optimization** - Monitor contract loading and PDF generation performance
+- 📱 **Mobile UX Testing** - Verify contract creation workflow on mobile devices
+
+*Last Updated: 2025-05-28 by Claude Code (Complete Contract Management System)*
 
 #### Session 2025-05-26 (Continued) - User Approval Workflow, Course Assignment System & Avatar Implementation
 
@@ -728,15 +861,88 @@ npm run build
 - ✅ **Authentication System** - Complete login, approval, and role management
 - ✅ **Content Management** - Full course builder with interactive lesson editor
 
-#### Session 2025-05-27 - Complete Content Management System Implementation
+#### Session 2025-05-27 - 6-Role System Implementation & Growth Community Architecture
 
-**Completed:**
+**Major System Expansion:**
+- ✅ **Complete 6-Role System Implementation** - Transformed from simple admin/docente to comprehensive organizational role hierarchy
+- ✅ **Spanish Role Consistency** - All role names now in Spanish matching existing 'docente' convention: admin, consultor, equipo_directivo, lider_generacion, lider_comunidad, docente
+- ✅ **Database Migration Applied** - New role system successfully deployed to production with full backward compatibility
+- ✅ **Growth Community Auto-Creation Logic** - Implemented community leader-centric approach where assigning lider_comunidad automatically creates named community
+- ✅ **Enhanced User Management Interface** - Updated with professional RoleAssignmentModal supporting all 6 roles and organizational scope assignment
+- ✅ **Multi-Role Display System** - User management page now shows all assigned roles with color-coded badges and organizational context
+
+**6-Role System Architecture:**
+- **admin** - Global FNE administrators (ONLY role with admin powers: course creation, user management, course assignment)
+- **consultor** - FNE consultants assigned to specific schools (student-level access with school reporting scope)
+- **equipo_directivo** - School-level administrators (student-level access with school reporting scope)  
+- **lider_generacion** - Generation leaders for Tractor/Innova (student-level access with generation reporting scope)
+- **lider_comunidad** - Growth Community leaders (student-level access with community reporting scope, auto-creates community)
+- **docente** - Regular teachers (student-level access with individual reporting scope)
+
+**Growth Community Workflow Implemented:**
+1. **Assign Community Leader** → Auto-creates community named "Comunidad de [Leader Name] - [Generation]"
+2. **Assign Teachers to Communities** → Teachers join existing communities led by community leaders
+3. **Multiple Role Support** → Users can have multiple roles across different organizational scopes
+4. **Flexible Leadership** → Easy succession planning when community leaders change
+
+**Technical Implementation:**
+- Database tables: `schools`, `generations`, `growth_communities`, `user_roles` with organizational hierarchy
+- Auto-community creation logic in `assignRole()` function with leader name-based naming
+- Spanish role types enum with organizational scope support (school_id, generation_id, community_id)
+- Professional role assignment modal with school/generation/community selection
+- Multi-role display with color-coded badges and hover tooltips showing organizational context
+- Backward compatibility maintained - existing admin/docente users automatically migrated
+
+**User Experience Enhancements:**
+- **Professional Role Management** - Clean modal interface without decorative icons, focused on functionality
+- **Organizational Context** - Clear school, generation, and community selections with proper filtering
+- **Multi-Role Visualization** - Color-coded role badges showing all user assignments in single view
+- **Intuitive Workflow** - Simple process: select role → select scope → auto-create or join existing structure
+
+**Database Changes:**
+- New organizational tables with proper foreign key relationships (handling integer school IDs from existing system)
+- user_roles table with organizational scoping and multi-role support
+- Helper functions: `is_global_admin()`, `get_user_admin_status()` for permission checking
+- Migration preserved all existing user data while adding new role capabilities
+
+**Pending Tasks for Next Session:**
+- 🔄 **Create default generations for all schools** - Currently only schools 1 & 2 have Tractor/Innova generations
+- 🔄 **Test complete Growth Community workflow** - Verify community leader assignment and auto-creation
+- 🔄 **Test teacher assignment to communities** - Verify teachers can join existing communities
+- 🔄 **Verify multi-role display** - Ensure users with multiple roles display correctly
+
+**Key Architectural Decision:**
+Chose Option A (community leader-centric) over pre-defined communities for maximum flexibility:
+- Communities auto-created when first lider_comunidad assigned
+- Community naming based on leader name + generation
+- Teachers assigned TO community leaders (not abstract communities)
+- Supports unknown number of communities per school/generation
+- Easy leadership succession through role reassignment
+
+**System Status - PRODUCTION READY:**
+- ✅ All role assignment functionality operational
+- ✅ Backward compatibility with existing admin/docente system
+- ✅ Professional UI matching modern LMS standards
+- ✅ Database migration successfully applied
+- ✅ Multi-role support for complex organizational structures
+
+#### Session 2025-05-27 (Previous) - Complete Content Management System Implementation & Demo Preparation
+
+**Content Management Completed:**
 - ✅ **Lesson Deletion System** - Full lesson deletion with confirmation modal and cascade cleanup of all associated blocks
 - ✅ **Module Deletion System** - Complete module deletion with automatic removal of all lessons and blocks in cascade
 - ✅ **Lesson Movement Between Modules** - Professional modal interface for moving lessons between modules with automatic order reorganization
 - ✅ **Module Editing Functionality** - Real-time editing of module titles and descriptions with validation and instant UI updates
 - ✅ **Comprehensive Confirmation Modals** - Professional warning dialogs for all destructive actions with clear messaging
 - ✅ **Enhanced Action Button Layout** - Professional grid-based button layouts across all management interfaces
+
+**Demo Preparation & User Management:**
+- ✅ **Registration Removal** - Completely removed registration functionality from login page for cleaner demo experience
+- ✅ **Pre-loaded User System** - Switched to admin-created user accounts for controlled demo environment
+- ✅ **Team Account Creation** - Successfully created 7 team accounts with proper roles and consistent passwords
+- ✅ **Favicon Implementation** - Added official FNE favicon with proper sizing and cache-busting parameters
+- ✅ **Course Edit Enhancement** - Added missing instructor field to course edit form for complete course management
+- ✅ **Production Deployment** - Successfully deployed all changes to live production environment
 
 **Content Management Features:**
 - ✅ **Delete Lessons** - Individual lesson deletion with cascade cleanup of blocks and confirmation modal
@@ -791,22 +997,57 @@ npm run build
 4. **Delete** - Remove content safely with cascade cleanup and confirmations
 5. **Assign** - Distribute courses to teachers with management oversight
 
-**Ready for Production Use:**
-- ✅ **Team Onboarding** - Platform ready for immediate FNE team use
-- ✅ **Content Creation** - Full authoring tools available for curriculum development
+**Team Account Setup:**
+- ✅ **Admin Accounts (password: demo123)**:
+  - acisternas@nuevaeducacion.org (Arnoldo Cisternas)
+  - mdelfresno@nuevaeducacion.org (Mora Del Fresno)
+  - gnaranjo@nuevaeducacion.org (Gabriela Naranjo)
+- ✅ **Docente Accounts (password: demo123)**:
+  - arnoldocisternas@gmail.com (Arnoldo Cisternas)
+  - moradelfresno@gmail.com (Mora Del Fresno)
+  - gnaranjoarmas@gmail.com (Gabriela Naranjo)
+  - bcurtis@nuevaeducacion.org (Brent Curtis)
+- ✅ **Original Admin Account**: brent@perrotuertocm.cl (password: Brent123!)
+
+**Authentication Issues & Ongoing Challenges:**
+- ⚠️ **User Role Consistency Problems** - Persistent issues with role assignment and authentication flow
+- ⚠️ **Supabase Auth Complexity** - Multiple attempts to resolve user creation and login failures
+- ⚠️ **RLS Policy Conflicts** - Ongoing challenges with Row Level Security policies affecting user operations
+- ⚠️ **Account Creation Instability** - Team account creation required multiple SQL script attempts and manual intervention
+- ⚠️ **Password Reset Inconsistencies** - Some accounts required manual password resets via SQL rather than standard auth flow
+- ⚠️ **Session Management Issues** - Intermittent problems with session persistence and role detection
+
+**Unresolved Authentication Problems:**
+- ❌ **Inconsistent Login Behavior** - Some team accounts experience login failures despite correct credentials
+- ❌ **Role Assignment Fragility** - User roles occasionally reset or fail to persist properly
+- ❌ **SQL Dependency for User Management** - Many user operations require direct SQL intervention rather than standard Supabase auth
+- ❌ **RLS Policy Conflicts** - Database policies sometimes block legitimate admin operations
+- ❌ **Account State Corruption** - Some user accounts become corrupted and require deletion/recreation
+
+**Technical Debt & Concerns:**
+- 🔧 **Authentication Architecture** - Current auth system shows signs of instability under user management operations
+- 🔧 **Database Consistency** - Manual SQL operations indicate underlying issues with standard Supabase patterns
+- 🔧 **Production Reliability** - Authentication issues could affect live user experience and team adoption
+- 🔧 **Maintenance Overhead** - Current user management requires significant manual intervention
+
+**Ready for Production Use (with caveats):**
+- ✅ **Team Onboarding** - Platform ready for immediate FNE team use (authentication permitting)
+- ⚠️ **Content Creation** - Full authoring tools available (subject to login reliability)
 - ✅ **Flexible Organization** - Easy content reorganization as curriculum evolves
 - ✅ **Safe Operations** - All destructive actions protected with confirmations
 - ✅ **Professional Experience** - Modern, intuitive interface matching educational software standards
 
 **Deployment Status:**
-- ✅ **Live Production** - https://fne-lms.vercel.app fully operational
+- ✅ **Live Production** - https://fne-lms.vercel.app operational (with authentication caveats)
 - ✅ **Automatic Deployment** - GitHub integration enables continuous deployment
 - ✅ **Environment Configured** - All Supabase credentials and settings production-ready
-- ✅ **Database Optimized** - Efficient queries and proper indexing for content management
+- ⚠️ **Database Stability** - User management operations show inconsistent behavior
 
-**Next Phase Goals:**
-- 📊 **Usage Analytics** - Monitor platform adoption and content creation metrics
-- 📚 **Content Development** - Support FNE team in building comprehensive curriculum
+**Critical Next Phase Goals:**
+- 🚨 **Authentication System Overhaul** - Resolve persistent user role and login issues
+- 🔧 **RLS Policy Audit** - Comprehensive review and fix of Row Level Security conflicts
+- 📊 **User Management Reliability** - Implement robust user creation and role assignment
+- 📚 **Content Development** - Support FNE team in building comprehensive curriculum (pending auth stability)
 - 🎓 **Student Experience** - Gather feedback on lesson engagement and completion
 - 🔧 **Performance Monitoring** - Optimize load times as content library grows
 

@@ -1,0 +1,254 @@
+/**
+ * FNE LMS 6-Role System Types
+ * Defines the new role hierarchy and organizational structure
+ */
+
+// Role types enum matching database - Spanish names for consistency
+export type UserRoleType = 
+  | 'admin'               // FNE staff with full platform control (global admin)
+  | 'consultor'           // FNE consultants assigned to specific schools
+  | 'equipo_directivo'    // School-level administrators  
+  | 'lider_generacion'    // Leaders of Tractor/Innova generations
+  | 'lider_comunidad'     // Leaders of Growth Communities (2-16 teachers)
+  | 'docente';            // Regular teachers/course participants
+
+// Organizational entities
+export interface School {
+  id: string;
+  name: string;
+  code?: string;
+  created_at?: string;
+}
+
+export interface Generation {
+  id: string;
+  school_id: string;
+  name: string; // 'Tractor' or 'Innova'
+  grade_range?: string; // e.g., 'PreK-2nd' or '3rd-12th'
+  created_at?: string;
+  school?: School;
+}
+
+export interface GrowthCommunity {
+  id: string;
+  generation_id: string;
+  school_id: string;
+  name: string;
+  max_teachers?: number;
+  created_at?: string;
+  generation?: Generation;
+  school?: School;
+}
+
+// User role assignment
+export interface UserRole {
+  id: string;
+  user_id: string;
+  role_type: UserRoleType;
+  school_id?: string;
+  generation_id?: string;
+  community_id?: string;
+  is_active: boolean;
+  assigned_at: string;
+  reporting_scope?: Record<string, any>; // For future analytics features
+  feedback_scope?: Record<string, any>;  // For future feedback workflows
+  created_at: string;
+  
+  // Related entities (populated via joins)
+  school?: School;
+  generation?: Generation;
+  community?: GrowthCommunity;
+}
+
+// Extended user profile with role information
+export interface UserProfile {
+  id: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar_url?: string;
+  role?: string; // Legacy role field for backward compatibility
+  school_id?: string;
+  generation_id?: string;
+  community_id?: string;
+  created_at?: string;
+  
+  // New role system
+  user_roles?: UserRole[];
+  school?: School;
+  generation?: Generation;
+  community?: GrowthCommunity;
+}
+
+// Role hierarchy and permissions
+export interface RolePermissions {
+  // Course management
+  can_create_courses: boolean;
+  can_edit_all_courses: boolean;
+  can_delete_courses: boolean;
+  can_assign_courses: boolean;
+  
+  // User management
+  can_create_users: boolean;
+  can_edit_users: boolean;
+  can_delete_users: boolean;
+  can_assign_roles: boolean;
+  
+  // Organizational management
+  can_manage_schools: boolean;
+  can_manage_generations: boolean;
+  can_manage_communities: boolean;
+  
+  // Reporting and analytics
+  reporting_scope: 'global' | 'school' | 'generation' | 'community' | 'individual';
+  feedback_scope: 'global' | 'school' | 'generation' | 'community' | 'individual';
+}
+
+// Role hierarchy definition
+export const ROLE_HIERARCHY: Record<UserRoleType, RolePermissions> = {
+  admin: {
+    can_create_courses: true,
+    can_edit_all_courses: true,
+    can_delete_courses: true,
+    can_assign_courses: true,
+    can_create_users: true,
+    can_edit_users: true,
+    can_delete_users: true,
+    can_assign_roles: true,
+    can_manage_schools: true,
+    can_manage_generations: true,
+    can_manage_communities: true,
+    reporting_scope: 'global',
+    feedback_scope: 'global'
+  },
+  consultor: {
+    can_create_courses: false,
+    can_edit_all_courses: false,
+    can_delete_courses: false,
+    can_assign_courses: true,
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_assign_roles: false,
+    can_manage_schools: false,
+    can_manage_generations: false,
+    can_manage_communities: false,
+    reporting_scope: 'school',
+    feedback_scope: 'school'
+  },
+  equipo_directivo: {
+    can_create_courses: false,
+    can_edit_all_courses: false,
+    can_delete_courses: false,
+    can_assign_courses: false,
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_assign_roles: false,
+    can_manage_schools: false,
+    can_manage_generations: false,
+    can_manage_communities: false,
+    reporting_scope: 'school',
+    feedback_scope: 'school'
+  },
+  lider_generacion: {
+    can_create_courses: false,
+    can_edit_all_courses: false,
+    can_delete_courses: false,
+    can_assign_courses: false,
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_assign_roles: false,
+    can_manage_schools: false,
+    can_manage_generations: false,
+    can_manage_communities: false,
+    reporting_scope: 'generation',
+    feedback_scope: 'generation'
+  },
+  lider_comunidad: {
+    can_create_courses: false,
+    can_edit_all_courses: false,
+    can_delete_courses: false,
+    can_assign_courses: false,
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_assign_roles: false,
+    can_manage_schools: false,
+    can_manage_generations: false,
+    can_manage_communities: false,
+    reporting_scope: 'community',
+    feedback_scope: 'community'
+  },
+  docente: {
+    can_create_courses: false,
+    can_edit_all_courses: false,
+    can_delete_courses: false,
+    can_assign_courses: false,
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_assign_roles: false,
+    can_manage_schools: false,
+    can_manage_generations: false,
+    can_manage_communities: false,
+    reporting_scope: 'individual',
+    feedback_scope: 'individual'
+  }
+};
+
+// Role display names (in Spanish)
+export const ROLE_NAMES: Record<UserRoleType, string> = {
+  admin: 'Administrador Global',
+  consultor: 'Consultor FNE',
+  equipo_directivo: 'Equipo Directivo',
+  lider_generacion: 'Líder de Generación',
+  lider_comunidad: 'Líder de Comunidad',
+  docente: 'Docente'
+};
+
+// Role descriptions
+export const ROLE_DESCRIPTIONS: Record<UserRoleType, string> = {
+  admin: 'Staff de FNE con control total de la plataforma. Pueden pertenecer a comunidades para colaboración.',
+  consultor: 'Consultores FNE asignados a colegios específicos. Pueden pertenecer a comunidades para colaboración.',
+  equipo_directivo: 'Administradores a nivel de colegio. Pueden pertenecer a comunidades para colaboración.',
+  lider_generacion: 'Líderes de generaciones Tractor/Innova. Pueden pertenecer a comunidades para colaboración.',
+  lider_comunidad: 'Líderes de Comunidades de Crecimiento (2-16 miembros). Crean automáticamente su propia comunidad.',
+  docente: 'Docentes participantes en cursos. Pueden pertenecer a comunidades para colaboración.'
+};
+
+// Utility type for permission checking
+export type PermissionKey = keyof Omit<RolePermissions, 'reporting_scope' | 'feedback_scope'>;
+
+// Migration helper types
+export interface LegacyProfile {
+  id: string;
+  role: 'admin' | 'docente';
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+}
+
+// Legacy to new role mapping
+export const LEGACY_ROLE_MAPPING = {
+  'admin': 'admin' as UserRoleType,     // Keep admin as admin (but now it means global admin)
+  'docente': 'docente' as UserRoleType  // Keep docente as docente
+} as const;
+
+// Course assignment with new role system
+export interface CourseAssignment {
+  id: string;
+  course_id: string;
+  user_id: string;
+  assigned_by: string;
+  assigned_at: string;
+  is_active: boolean;
+  
+  // Role context for the assignment
+  role_context?: {
+    school_id?: string;
+    generation_id?: string;
+    community_id?: string;
+  };
+}

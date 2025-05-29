@@ -4,6 +4,8 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
 import Header from '../components/layout/Header';
+import { getUserRoles, getCommunityMembers } from '../utils/roleUtils';
+import { UserRole, UserProfile } from '../types/roles';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -15,6 +17,8 @@ export default function Dashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [allCourses, setAllCourses] = useState<any[]>([]);
   const [myCourses, setMyCourses] = useState<any[]>([]);
+  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+  const [communityMembers, setCommunityMembers] = useState<Record<string, UserProfile[]>>({});
   
   useEffect(() => {
     const checkSession = async () => {
@@ -60,6 +64,24 @@ export default function Dashboard() {
               if (profileData.avatar_url) {
                 setAvatarUrl(profileData.avatar_url);
               }
+
+              // Fetch user roles and community information
+              const roles = await getUserRoles(userData.user.id);
+              setUserRoles(roles);
+
+              // Get community members for each community the user belongs to
+              const communityMembersData: Record<string, UserProfile[]> = {};
+              for (const role of roles) {
+                if (role.community_id) {
+                  try {
+                    const members = await getCommunityMembers(role.community_id);
+                    communityMembersData[role.community_id] = members;
+                  } catch (error) {
+                    console.error('Error fetching community members:', error);
+                  }
+                }
+              }
+              setCommunityMembers(communityMembersData);
 
               // Fetch courses based on user role
               if (isAdminUser) {
@@ -204,7 +226,25 @@ export default function Dashboard() {
                   <div className="space-y-2">
                     <p className="text-white"><span className="font-semibold text-brand_yellow">Nombre:</span> {profileName || 'No disponible'}</p>
                     <p className="text-white"><span className="font-semibold text-brand_yellow">Email:</span> {user?.email || 'No disponible'}</p>
-                    <p className="text-white"><span className="font-semibold text-brand_yellow">Rol:</span> {isAdmin ? 'Administrador' : 'Docente'}</p>
+                    <div className="text-white">
+                      <span className="font-semibold text-brand_yellow">Roles:</span>
+                      {userRoles.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {userRoles.map(role => (
+                            <span key={role.id} className="inline-block bg-brand_yellow text-brand_blue px-2 py-1 rounded-full text-xs font-medium">
+                              {role.role_type === 'admin' && 'Administrador Global'}
+                              {role.role_type === 'consultor' && 'Consultor FNE'}
+                              {role.role_type === 'equipo_directivo' && 'Equipo Directivo'}
+                              {role.role_type === 'lider_generacion' && 'Líder de Generación'}
+                              {role.role_type === 'lider_comunidad' && 'Líder de Comunidad'}
+                              {role.role_type === 'docente' && 'Docente'}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span> {isAdmin ? 'Administrador' : 'Docente'}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
                 
@@ -221,6 +261,83 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+
+            {/* Growth Community Section */}
+            {userRoles.some(role => role.community_id) && (
+              <div className="mb-8">
+                <h2 className="text-xl font-semibold mb-4 text-brand_blue">Mi Comunidad de Crecimiento</h2>
+                {userRoles.map(role => {
+                  if (!role.community_id || !role.community) return null;
+                  
+                  const members = communityMembers[role.community_id] || [];
+                  
+                  return (
+                    <div key={role.id} className="bg-white rounded-lg shadow-md p-6 mb-4">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold text-brand_blue">{role.community.name}</h3>
+                          <p className="text-sm text-gray-600">
+                            {role.school?.name} • {role.generation?.name}
+                          </p>
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {members.length} {members.length === 1 ? 'miembro' : 'miembros'}
+                        </div>
+                      </div>
+                      
+                      {members.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {members.map(member => (
+                            <Link
+                              key={member.id}
+                              href={`/user/${member.id}`}
+                              className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 hover:shadow-md transition-all cursor-pointer"
+                            >
+                              {member.avatar_url ? (
+                                <img 
+                                  src={member.avatar_url} 
+                                  alt={`${member.first_name} ${member.last_name}`}
+                                  className="w-10 h-10 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-brand_yellow flex items-center justify-center">
+                                  <span className="text-brand_blue font-bold text-sm">
+                                    {member.first_name?.charAt(0) || 'U'}{member.last_name?.charAt(0) || ''}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">
+                                  {member.first_name && member.last_name 
+                                    ? `${member.first_name} ${member.last_name}`
+                                    : member.email || 'Usuario sin nombre'
+                                  }
+                                </p>
+                                <p className="text-xs text-gray-500 truncate">
+                                  {member.user_roles?.[0]?.role_type === 'admin' && 'Administrador'}
+                                  {member.user_roles?.[0]?.role_type === 'consultor' && 'Consultor'}
+                                  {member.user_roles?.[0]?.role_type === 'equipo_directivo' && 'Equipo Directivo'}
+                                  {member.user_roles?.[0]?.role_type === 'lider_generacion' && 'Líder de Generación'}
+                                  {member.user_roles?.[0]?.role_type === 'lider_comunidad' && 'Líder de Comunidad'}
+                                  {member.user_roles?.[0]?.role_type === 'docente' && 'Docente'}
+                                </p>
+                              </div>
+                              {member.id === user?.id && (
+                                <div className="w-3 h-3 rounded-full bg-brand_yellow" title="Tú"></div>
+                              )}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No hay otros miembros en esta comunidad aún.</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Quick Actions */}
             <div className="mb-8">
@@ -258,6 +375,14 @@ export default function Dashboard() {
                     >
                       <h3 className="text-lg font-semibold mb-2 text-brand_blue">Asigna Cursos</h3>
                       <p className="text-sm text-gray-600">Asignar cursos a docentes</p>
+                    </Link>
+
+                    <Link
+                      href="/contracts"
+                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
+                    >
+                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Contratos</h3>
+                      <p className="text-sm text-gray-600">Generar y gestionar contratos</p>
                     </Link>
 
                     <Link

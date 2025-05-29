@@ -3,8 +3,11 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import Head from 'next/head';
 import Header from '../../components/layout/Header';
-import { Trash2, Plus, X, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Trash2, Plus, X, AlertTriangle, CheckCircle, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import RoleAssignmentModal from '../../components/RoleAssignmentModal';
+import { getUserRoles } from '../../utils/roleUtils';
+import { ROLE_NAMES } from '../../types/roles';
 
 type User = {
   id: string;
@@ -15,6 +18,7 @@ type User = {
   school: string;
   created_at: string;
   approval_status: string;
+  user_roles?: any[];
 };
 
 export default function UserManagement() {
@@ -33,11 +37,37 @@ export default function UserManagement() {
   const [newUserFirstName, setNewUserFirstName] = useState('');
   const [newUserLastName, setNewUserLastName] = useState('');
   const [newUserRole, setNewUserRole] = useState('docente');
+  
+  const handleOpenRoleModal = (user: User) => {
+    const userName = user.first_name && user.last_name 
+      ? `${user.first_name} ${user.last_name}` 
+      : 'Sin nombre';
+    setSelectedUser({
+      id: user.id,
+      name: userName,
+      email: user.email
+    });
+    setShowRoleModal(true);
+  };
+  
+  const handleCloseRoleModal = () => {
+    setShowRoleModal(false);
+    setSelectedUser(null);
+  };
+  
+  const handleRoleUpdate = () => {
+    // Refresh users list after role update
+    fetchUsers();
+  };
   const [isCreating, setIsCreating] = useState(false);
   
   // Delete confirmation modal state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<{id: string, email: string} | null>(null);
+  
+  // Role assignment modal state
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<{id: string, name: string, email: string} | null>(null);
   
   // Approval functions
   const handleApproveUser = async (userId: string) => {
@@ -180,6 +210,7 @@ export default function UserManagement() {
 
   const fetchUsers = async () => {
     try {
+      // First get all users
       const { data: usersData, error } = await supabase
         .from('profiles')
         .select('id, email, first_name, last_name, role, school, created_at, approval_status')
@@ -188,9 +219,21 @@ export default function UserManagement() {
       if (error) {
         console.error('Error fetching users:', error);
         toast.error('Error al cargar usuarios');
-      } else {
-        setUsers(usersData || []);
+        return;
       }
+
+      // Then get roles for each user
+      const usersWithRoles = await Promise.all(
+        (usersData || []).map(async (user) => {
+          const userRoles = await getUserRoles(user.id);
+          return {
+            ...user,
+            user_roles: userRoles
+          };
+        })
+      );
+
+      setUsers(usersWithRoles);
     } catch (error) {
       console.error('Unexpected error fetching users:', error);
       toast.error('Error inesperado al cargar usuarios');
@@ -674,24 +717,46 @@ export default function UserManagement() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        user.role === 'admin' 
-                          ? 'bg-red-100 text-red-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {user.role || 'docente'}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {user.user_roles && user.user_roles.length > 0 ? (
+                          user.user_roles.map((userRole, index) => (
+                            <span 
+                              key={index}
+                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                userRole.role_type === 'admin'
+                                  ? 'bg-red-100 text-red-800'
+                                  : userRole.role_type === 'lider_comunidad'
+                                  ? 'bg-purple-100 text-purple-800'
+                                  : userRole.role_type === 'lider_generacion'
+                                  ? 'bg-indigo-100 text-indigo-800'
+                                  : userRole.role_type === 'equipo_directivo'
+                                  ? 'bg-orange-100 text-orange-800'
+                                  : userRole.role_type === 'consultor'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-blue-100 text-blue-800'
+                              }`}
+                              title={userRole.school?.name || 'Sin ámbito específico'}
+                            >
+                              {ROLE_NAMES[userRole.role_type] || userRole.role_type}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            {user.role || 'Sin roles'}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     {activeTab !== 'pending' && (
                       <td className="px-4 py-3">
-                        <select
-                          value={user.role || 'docente'}
-                          onChange={(e) => handleRoleChange(user.id, e.target.value)}
-                          className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                        <button
+                          onClick={() => handleOpenRoleModal(user)}
+                          className="flex items-center px-3 py-1 bg-[#fdb933] text-white rounded text-sm hover:bg-[#e6a530] transition-colors"
+                          title="Gestionar roles"
                         >
-                          <option value="docente">Docente</option>
-                          <option value="admin">Administrador</option>
-                        </select>
+                          <Settings size={14} className="mr-1" />
+                          Gestionar Roles
+                        </button>
                       </td>
                     )}
                     <td className="px-4 py-3">
@@ -737,6 +802,19 @@ export default function UserManagement() {
 
         </div>
       </div>
+      
+      {/* Role Assignment Modal */}
+      {showRoleModal && selectedUser && (
+        <RoleAssignmentModal
+          isOpen={showRoleModal}
+          onClose={handleCloseRoleModal}
+          userId={selectedUser.id}
+          userName={selectedUser.name}
+          userEmail={selectedUser.email}
+          currentUserId={currentUser?.id || ''}
+          onRoleUpdate={handleRoleUpdate}
+        />
+      )}
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && userToDelete && (

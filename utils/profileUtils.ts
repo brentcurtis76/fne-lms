@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { canAccessAdminFeatures } from './roleUtils';
 
 /**
  * Checks if a user's profile is complete based on required fields
@@ -30,3 +31,11 @@ export const checkProfileCompletion = async (userId: string): Promise<boolean> =
   
   return isComplete;
 };
+
+/**
+ * Check if user has admin privileges using new role system
+ * Maintains backward compatibility with legacy admin role
+ */
+export async function hasAdminAccess(userId: string): Promise<boolean> {
+  return await canAccessAdminFeatures(userId);
+}

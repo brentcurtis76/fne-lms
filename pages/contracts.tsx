@@ -59,6 +59,8 @@ interface Cuota {
   monto_uf: number;
   pagada: boolean;
   created_at: string;
+  factura_url?: string;
+  factura_pagada?: boolean;
 }
 
 export default function ContractsPage() {
@@ -292,6 +294,62 @@ export default function ContractsPage() {
     } catch (error) {
       console.error('Error updating cash flow status:', error);
       alert('Error al actualizar el flujo de caja: ' + (error as Error).message);
+    }
+  };
+
+  const handleInvoiceUpload = async (cuotaId: string, file: File) => {
+    try {
+      // Upload file to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `invoice_${cuotaId}_${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('facturas')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('facturas')
+        .getPublicUrl(fileName);
+
+      // Update cuota with invoice URL
+      const { error: updateError } = await supabase
+        .from('cuotas')
+        .update({ 
+          factura_url: publicUrl
+        })
+        .eq('id', cuotaId);
+
+      if (updateError) throw updateError;
+
+      // Refresh the contracts list to update the modal
+      await loadContratos();
+      
+    } catch (error) {
+      console.error('Error uploading invoice:', error);
+      alert('Error al subir la factura: ' + (error as Error).message);
+    }
+  };
+
+  const handleTogglePaymentStatus = async (cuotaId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('cuotas')
+        .update({ 
+          factura_pagada: !currentStatus
+        })
+        .eq('id', cuotaId);
+
+      if (error) throw error;
+
+      // Refresh the contracts list to update the modal
+      await loadContratos();
+      
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      alert('Error al actualizar el estado de pago: ' + (error as Error).message);
     }
   };
 
@@ -621,6 +679,8 @@ export default function ContractsPage() {
               onToggleCashFlow={handleToggleCashFlow}
               onUploadContract={handleUploadContract}
               onGeneratePDF={(contrato) => window.open(`/contract-print/${contrato.id}`, '_blank')}
+              onUploadInvoice={handleInvoiceUpload}
+              onTogglePaymentStatus={handleTogglePaymentStatus}
             />
           </div>
         </main>

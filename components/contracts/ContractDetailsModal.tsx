@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, FileText, Calendar, DollarSign, MapPin, User, Building, CreditCard, Download, Upload, TrendingUp, Edit, Trash2 } from 'lucide-react';
+import { X, FileText, Calendar, DollarSign, MapPin, User, Building, CreditCard, Download, Upload, TrendingUp, Edit, Trash2, Check, Eye } from 'lucide-react';
 
 interface Programa {
   id: string;
@@ -33,6 +33,8 @@ interface Cuota {
   monto_uf: number;
   pagada: boolean;
   created_at: string;
+  factura_url?: string;
+  factura_pagada?: boolean;
 }
 
 interface Contrato {
@@ -62,6 +64,8 @@ interface ContractDetailsModalProps {
   onToggleCashFlow: (contrato: Contrato) => void;
   onUploadContract: (contrato: Contrato, file: File) => void;
   onGeneratePDF: (contrato: Contrato) => void;
+  onUploadInvoice?: (cuotaId: string, file: File) => Promise<void>;
+  onTogglePaymentStatus?: (cuotaId: string, currentStatus: boolean) => Promise<void>;
 }
 
 export default function ContractDetailsModal({
@@ -72,9 +76,12 @@ export default function ContractDetailsModal({
   onDelete,
   onToggleCashFlow,
   onUploadContract,
-  onGeneratePDF
+  onGeneratePDF,
+  onUploadInvoice,
+  onTogglePaymentStatus
 }: ContractDetailsModalProps) {
   const [uploadingContract, setUploadingContract] = useState(false);
+  const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -99,6 +106,28 @@ export default function ContractDetailsModal({
         await onUploadContract(contrato, file);
       } finally {
         setUploadingContract(false);
+      }
+    }
+  };
+
+  const handleInvoiceUpload = async (cuotaId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && onUploadInvoice) {
+      setUploadingInvoice(cuotaId);
+      try {
+        await onUploadInvoice(cuotaId, file);
+      } finally {
+        setUploadingInvoice(null);
+      }
+    }
+  };
+
+  const handlePaymentToggle = async (cuotaId: string, currentStatus: boolean) => {
+    if (onTogglePaymentStatus) {
+      try {
+        await onTogglePaymentStatus(cuotaId, currentStatus);
+      } catch (error) {
+        console.error('Error toggling payment status:', error);
       }
     }
   };
@@ -306,39 +335,89 @@ export default function ContractDetailsModal({
               <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">
                 Cronograma de Pagos ({contrato.cuotas.length} cuotas)
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {contrato.cuotas.map((cuota) => (
-                  <div 
-                    key={cuota.id} 
-                    className={`p-4 rounded-lg border-2 ${
-                      cuota.pagada 
-                        ? 'border-green-200 bg-green-50' 
-                        : new Date(cuota.fecha_vencimiento) < new Date()
-                        ? 'border-red-200 bg-red-50'
-                        : 'border-gray-200 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium">Cuota {cuota.numero_cuota}</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        cuota.pagada 
-                          ? 'bg-green-100 text-green-800' 
-                          : new Date(cuota.fecha_vencimiento) < new Date()
-                          ? 'bg-red-100 text-red-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {cuota.pagada 
-                          ? 'Pagada' 
-                          : new Date(cuota.fecha_vencimiento) < new Date()
-                          ? 'Vencida'
-                          : 'Pendiente'
-                        }
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600">Vence: {formatDate(cuota.fecha_vencimiento)}</p>
-                    <p className="font-semibold text-brand_blue">{formatCurrency(cuota.monto_uf)}</p>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-200">
+                  <thead>
+                    <tr className="bg-gray-50">
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-brand_blue">Cuota</th>
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-brand_blue">Fecha Vencimiento</th>
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-brand_blue">Monto</th>
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-brand_blue">Estado</th>
+                      <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-brand_blue">Factura</th>
+                      <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-brand_blue">Pagado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {contrato.cuotas.map((cuota) => (
+                      <tr key={cuota.id} className="hover:bg-gray-50">
+                        <td className="border border-gray-200 px-4 py-3 font-medium">Cuota {cuota.numero_cuota}</td>
+                        <td className="border border-gray-200 px-4 py-3">{formatDate(cuota.fecha_vencimiento)}</td>
+                        <td className="border border-gray-200 px-4 py-3 font-semibold text-brand_blue">{formatCurrency(cuota.monto_uf)}</td>
+                        <td className="border border-gray-200 px-4 py-3">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            cuota.pagada 
+                              ? 'bg-green-100 text-green-800' 
+                              : new Date(cuota.fecha_vencimiento) < new Date()
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {cuota.pagada 
+                              ? 'Pagada' 
+                              : new Date(cuota.fecha_vencimiento) < new Date()
+                              ? 'Vencida'
+                              : 'Pendiente'
+                            }
+                          </span>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3 text-center">
+                          <div className="flex items-center justify-center space-x-2">
+                            {cuota.factura_url ? (
+                              <a 
+                                href={cuota.factura_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center justify-center w-8 h-8 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                title="Ver factura"
+                              >
+                                <Eye className="text-blue-600" size={16} />
+                              </a>
+                            ) : (
+                              <label className="cursor-pointer">
+                                <input
+                                  type="file"
+                                  accept=".pdf,.jpg,.jpeg,.png"
+                                  onChange={(e) => handleInvoiceUpload(cuota.id, e)}
+                                  className="hidden"
+                                />
+                                <div className="flex items-center justify-center w-8 h-8 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                     title="Subir factura">
+                                  {uploadingInvoice === cuota.id ? (
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                  ) : (
+                                    <Upload className="text-blue-600" size={16} />
+                                  )}
+                                </div>
+                              </label>
+                            )}
+                          </div>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3 text-center">
+                          <button
+                            onClick={() => handlePaymentToggle(cuota.id, cuota.factura_pagada || false)}
+                            className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
+                              cuota.factura_pagada
+                                ? 'bg-green-100 hover:bg-green-200 text-green-600'
+                                : 'bg-gray-100 hover:bg-gray-200 text-gray-400'
+                            }`}
+                            title={cuota.factura_pagada ? 'Marcar como no pagado' : 'Marcar como pagado'}
+                          >
+                            <Check size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}

@@ -264,7 +264,7 @@ export default function ContractForm({ programas, clientes, editingContract, onS
           // Check if client with this RUT already exists
           const { data: existingCliente, error: checkError } = await supabase
             .from('clientes')
-            .select('id')
+            .select('*')
             .eq('rut', clienteForm.rut)
             .single();
             
@@ -274,8 +274,25 @@ export default function ContractForm({ programas, clientes, editingContract, onS
           }
           
           if (existingCliente) {
-            // Client already exists, use existing ID
-            clienteId = existingCliente.id;
+            // Client already exists - show warning
+            const confirmMessage = `⚠️ Ya existe un cliente con el RUT ${clienteForm.rut}:\n\n` +
+              `Nombre: ${existingCliente.nombre_legal}\n` +
+              `Nombre Fantasía: ${existingCliente.nombre_fantasia}\n` +
+              `Ciudad: ${existingCliente.ciudad}\n` +
+              `Representante: ${existingCliente.nombre_representante}\n\n` +
+              `¿Deseas usar este cliente existente para el contrato?\n\n` +
+              `• SÍ: Usará el cliente existente\n` +
+              `• NO: Verifica el RUT y corrige los datos`;
+            
+            if (confirm(confirmMessage)) {
+              // User confirmed to use existing client
+              clienteId = existingCliente.id;
+            } else {
+              // User canceled - stop the creation process
+              alert('Creación de contrato cancelada. Por favor verifica el RUT del cliente.');
+              setLoading(false);
+              return;
+            }
           } else {
             // Create new client
             const { data: newCliente, error: clienteError } = await supabase

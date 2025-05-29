@@ -369,21 +369,44 @@ export default function ContractsPage() {
 
   const handleTogglePaymentStatus = async (cuotaId: string, currentStatus: boolean) => {
     try {
+      console.log(`Toggling payment status for cuota ${cuotaId}: ${currentStatus} -> ${!currentStatus}`);
+      
       const { error } = await supabase
         .from('cuotas')
         .update({ 
-          factura_pagada: !currentStatus
+          pagada: !currentStatus
         })
         .eq('id', cuotaId);
 
       if (error) throw error;
 
+      // Show success notification
+      alert(`✅ Cuota marcada como ${!currentStatus ? 'pagada' : 'pendiente'}`);
+
       // Refresh the contracts list to update the modal
       await loadContratos();
       
+      // Force refresh the modal if it's open by re-fetching the specific contract
+      if (selectedContrato) {
+        const { data: refreshedContract, error: refreshError } = await supabase
+          .from('contratos')
+          .select(`
+            *,
+            clientes(*),
+            programas(*),
+            cuotas(*)
+          `)
+          .eq('id', selectedContrato.id)
+          .single();
+          
+        if (!refreshError && refreshedContract) {
+          setSelectedContrato(refreshedContract);
+        }
+      }
+      
     } catch (error) {
       console.error('Error updating payment status:', error);
-      alert('Error al actualizar el estado de pago: ' + (error as Error).message);
+      alert('❌ Error al actualizar el estado de pago: ' + (error as Error).message);
     }
   };
 

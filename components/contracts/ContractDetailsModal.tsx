@@ -419,13 +419,13 @@ export default function ContractDetailsModal({
                         </td>
                         <td className="border border-gray-200 px-4 py-3 text-center">
                           <button
-                            onClick={() => handlePaymentToggle(cuota.id, cuota.factura_pagada || false)}
+                            onClick={() => handlePaymentToggle(cuota.id, cuota.pagada || false)}
                             className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
-                              cuota.factura_pagada
+                              cuota.pagada
                                 ? 'bg-green-100 hover:bg-green-200 text-green-600'
                                 : 'bg-gray-100 hover:bg-gray-200 text-gray-400'
                             }`}
-                            title={cuota.factura_pagada ? 'Marcar como no pagado' : 'Marcar como pagado'}
+                            title={cuota.pagada ? 'Marcar como no pagado' : 'Marcar como pagado'}
                           >
                             <Check size={16} />
                           </button>

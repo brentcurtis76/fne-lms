@@ -401,67 +401,90 @@ export default function ContractsPage() {
       </Head>
       
       <div className="min-h-screen bg-brand_beige">
-        <Header 
-          user={currentUser}
-          isAdmin={isAdmin}
-          onLogout={handleLogout}
-          avatarUrl={avatarUrl}
-        />
+        {/* Only show header when not in form mode */}
+        {activeTab === 'lista' || activeTab === 'flujo' ? (
+          <Header 
+            user={currentUser}
+            isAdmin={isAdmin}
+            onLogout={handleLogout}
+            avatarUrl={avatarUrl}
+          />
+        ) : null}
         
-        <main className="container mx-auto pt-44 pb-10 px-4">
+        <main className={`container mx-auto pb-10 px-4 ${
+          activeTab === 'lista' || activeTab === 'flujo' ? 'pt-44' : 'pt-8'
+        }`}>
           <div className="max-w-7xl mx-auto">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-              <div className="flex items-center space-x-4 mb-4 md:mb-0">
-                <Link
-                  href="/dashboard"
-                  className="inline-flex items-center text-brand_blue hover:text-brand_yellow transition-colors"
-                >
-                  <ArrowLeft className="mr-2" size={20} />
-                  Volver al Panel
-                </Link>
-                <div className="h-6 w-px bg-gray-300"></div>
-                <h1 className="text-3xl font-bold text-brand_blue flex items-center">
-                  <FileText className="mr-3" size={32} />
-                  Gestión de Contratos
-                </h1>
+            {/* Conditional Header */}
+            {(activeTab === 'lista' || activeTab === 'flujo') && (
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+                <div className="flex items-center space-x-4 mb-4 md:mb-0">
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center text-brand_blue hover:text-brand_yellow transition-colors"
+                  >
+                    <ArrowLeft className="mr-2" size={20} />
+                    Volver al Panel
+                  </Link>
+                  <div className="h-6 w-px bg-gray-300"></div>
+                  <h1 className="text-3xl font-bold text-brand_blue flex items-center">
+                    <FileText className="mr-3" size={32} />
+                    Gestión de Contratos
+                  </h1>
+                </div>
+                
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setActiveTab('lista')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      activeTab === 'lista' 
+                        ? 'bg-brand_blue text-white' 
+                        : 'bg-white text-brand_blue border border-brand_blue hover:bg-brand_blue hover:text-white'
+                    }`}
+                  >
+                    Lista de Contratos
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('nuevo')}
+                    className="px-4 py-2 rounded-lg font-medium transition-colors flex items-center bg-white text-brand_blue border border-brand_yellow hover:bg-brand_yellow hover:text-brand_blue"
+                  >
+                    <Plus className="mr-2" size={16} />
+                    Nuevo Contrato
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('flujo')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center ${
+                      activeTab === 'flujo' 
+                        ? 'bg-green-600 text-white' 
+                        : 'bg-white text-green-600 border border-green-600 hover:bg-green-600 hover:text-white'
+                    }`}
+                  >
+                    <DollarSign className="mr-2" size={16} />
+                    Flujo de Caja
+                  </button>
+                </div>
               </div>
-              
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setActiveTab('lista')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    activeTab === 'lista' 
-                      ? 'bg-brand_blue text-white' 
-                      : 'bg-white text-brand_blue border border-brand_blue hover:bg-brand_blue hover:text-white'
-                  }`}
-                >
-                  Lista de Contratos
-                </button>
-                <button
-                  onClick={() => setActiveTab('nuevo')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center ${
-                    activeTab === 'nuevo' 
-                      ? 'bg-brand_yellow text-brand_blue' 
-                      : 'bg-white text-brand_blue border border-brand_yellow hover:bg-brand_yellow hover:text-brand_blue'
-                  }`}
-                >
-                  <Plus className="mr-2" size={16} />
-                  Nuevo Contrato
-                </button>
-                <button
-                  onClick={() => setActiveTab('flujo')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center ${
-                    activeTab === 'flujo' 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-white text-green-600 border border-green-600 hover:bg-green-600 hover:text-white'
-                  }`}
-                >
-                  <DollarSign className="mr-2" size={16} />
-                  Flujo de Caja
-                </button>
+            )}
+
+            {/* Form Header for nuevo/editar modes */}
+            {(activeTab === 'nuevo' || activeTab === 'editar') && (
+              <div className="mb-8">
+                <div className="flex items-center space-x-4 mb-6">
+                  <button
+                    onClick={() => setActiveTab('lista')}
+                    className="inline-flex items-center text-brand_blue hover:text-brand_yellow transition-colors"
+                  >
+                    <ArrowLeft className="mr-2" size={20} />
+                    Volver a Contratos
+                  </button>
+                  <div className="h-6 w-px bg-gray-300"></div>
+                  <h1 className="text-3xl font-bold text-brand_blue flex items-center">
+                    <FileText className="mr-3" size={32} />
+                    {activeTab === 'nuevo' ? 'Crear Nuevo Contrato' : 'Editar Contrato'}
+                  </h1>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Content based on active tab */}
             {activeTab === 'lista' && (

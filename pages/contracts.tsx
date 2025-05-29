@@ -337,12 +337,33 @@ export default function ContractsPage() {
 
       if (updateError) throw updateError;
 
+      // Show success notification
+      alert(`✅ Factura subida exitosamente: ${file.name}`);
+      
       // Refresh the contracts list to update the modal
       await loadContratos();
       
+      // Force refresh the modal if it's open by re-fetching the specific contract
+      if (selectedContrato) {
+        const { data: refreshedContract, error: refreshError } = await supabase
+          .from('contratos')
+          .select(`
+            *,
+            clientes(*),
+            programas(*),
+            cuotas(*)
+          `)
+          .eq('id', selectedContrato.id)
+          .single();
+          
+        if (!refreshError && refreshedContract) {
+          setSelectedContrato(refreshedContract);
+        }
+      }
+      
     } catch (error) {
       console.error('Error uploading invoice:', error);
-      alert('Error al subir la factura: ' + (error as Error).message);
+      alert('❌ Error al subir la factura: ' + (error as Error).message);
     }
   };
 

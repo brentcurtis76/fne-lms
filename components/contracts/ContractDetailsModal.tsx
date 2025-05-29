@@ -372,15 +372,31 @@ export default function ContractDetailsModal({
                         <td className="border border-gray-200 px-4 py-3 text-center">
                           <div className="flex items-center justify-center space-x-2">
                             {cuota.factura_url ? (
-                              <a 
-                                href={cuota.factura_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="flex items-center justify-center w-8 h-8 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                                title="Ver factura"
-                              >
-                                <Eye className="text-blue-600" size={16} />
-                              </a>
+                              <div className="flex items-center space-x-2">
+                                {/* File name display */}
+                                <div className="text-xs text-gray-600 max-w-20 truncate" title={cuota.factura_url.split('/').pop()}>
+                                  {cuota.factura_url.split('/').pop()?.split('_').slice(-1)[0] || 'Factura'}
+                                </div>
+                                {/* View button */}
+                                <a 
+                                  href={cuota.factura_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                  title="Ver factura"
+                                >
+                                  <Eye className="text-blue-600" size={14} />
+                                </a>
+                                {/* Download button */}
+                                <a 
+                                  href={cuota.factura_url} 
+                                  download
+                                  className="flex items-center justify-center w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                                  title="Descargar factura"
+                                >
+                                  <Download className="text-green-600" size={14} />
+                                </a>
+                              </div>
                             ) : (
                               <label className="cursor-pointer">
                                 <input

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Plus, Trash2, Save, Calendar, DollarSign, Upload, X, Eye, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { convertToCLP, formatCurrency, getAvailableCurrencies } from '../../lib/currency-service';
 
 interface ExpenseCategory {
   id: string;
@@ -16,6 +17,9 @@ interface ExpenseItemForm {
   category_id: string;
   description: string;
   amount: number;
+  original_amount?: number;
+  currency: 'CLP' | 'USD' | 'EUR';
+  conversion_rate?: number;
   expense_date: string;
   vendor: string;
   notes: string;
@@ -48,6 +52,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
       category_id: '',
       description: '',
       amount: 0,
+      currency: 'CLP',
       expense_date: '',
       vendor: '',
       notes: ''
@@ -86,6 +91,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
       category_id: '',
       description: '',
       amount: 0,
+      currency: 'CLP',
       expense_date: '',
       vendor: '',
       notes: ''
@@ -98,9 +104,29 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
     }
   };
 
-  const updateExpenseItem = (index: number, field: keyof ExpenseItemForm, value: any) => {
+  const updateExpenseItem = async (index: number, field: keyof ExpenseItemForm, value: any) => {
     const updatedItems = [...expenseItems];
     updatedItems[index] = { ...updatedItems[index], [field]: value };
+    
+    // If currency or amount changed, handle conversion
+    if (field === 'currency' || field === 'amount') {
+      const item = updatedItems[index];
+      if (item.amount > 0 && item.currency) {
+        try {
+          const conversion = await convertToCLP(item.amount, item.currency);
+          updatedItems[index] = {
+            ...updatedItems[index],
+            original_amount: conversion.originalAmount,
+            amount: conversion.convertedAmount, // Store CLP equivalent
+            conversion_rate: conversion.conversionRate
+          };
+        } catch (error) {
+          console.error('Currency conversion error:', error);
+          toast.error('Error al convertir moneda');
+        }
+      }
+    }
+    
     setExpenseItems(updatedItems);
   };
 
@@ -245,6 +271,10 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
           category_id: item.category_id,
           description: item.description,
           amount: item.amount,
+          original_amount: item.original_amount || item.amount,
+          currency: item.currency || 'CLP',
+          conversion_rate: item.conversion_rate || 1.0,
+          conversion_date: new Date().toISOString().split('T')[0],
           expense_date: item.expense_date,
           vendor: item.vendor || null,
           receipt_url: item.receipt_url || null,
@@ -288,6 +318,10 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
           category_id: item.category_id,
           description: item.description,
           amount: item.amount,
+          original_amount: item.original_amount || item.amount,
+          currency: item.currency || 'CLP',
+          conversion_rate: item.conversion_rate || 1.0,
+          conversion_date: new Date().toISOString().split('T')[0],
           expense_date: item.expense_date,
           vendor: item.vendor || null,
           receipt_url: item.receipt_url || null,
@@ -451,17 +485,48 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
 
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Monto (CLP) *
+                      Moneda *
                     </label>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={item.amount || ''}
-                      onChange={(e) => updateExpenseItem(index, 'amount', parseFloat(e.target.value) || 0)}
+                    <select
+                      value={item.currency}
+                      onChange={(e) => updateExpenseItem(index, 'currency', e.target.value as 'CLP' | 'USD' | 'EUR')}
                       className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
-                      placeholder="0"
-                    />
+                    >
+                      {getAvailableCurrencies().map(currency => (
+                        <option key={currency.code} value={currency.code}>
+                          {currency.code} - {currency.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Monto ({item.currency}) *
+                    </label>
+                    <div className="space-y-1">
+                      <input
+                        type="number"
+                        min="0"
+                        step={item.currency === 'CLP' ? '1' : '0.01'}
+                        value={item.currency === 'CLP' ? (item.amount || '') : (item.original_amount || '')}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          if (item.currency === 'CLP') {
+                            updateExpenseItem(index, 'amount', value);
+                          } else {
+                            updateExpenseItem(index, 'amount', value);
+                          }
+                        }}
+                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
+                        placeholder="0"
+                      />
+                      {item.currency !== 'CLP' && item.conversion_rate && item.original_amount && (
+                        <div className="text-xs text-gray-500">
+                          ≈ ${Math.round((item.original_amount || 0) * (item.conversion_rate || 1)).toLocaleString('es-CL')} CLP
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div>

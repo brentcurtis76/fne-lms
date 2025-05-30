@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Calendar, DollarSign, Receipt, Eye, Download, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { formatCurrency } from '../../lib/currency-service';
 
 interface ExpenseCategory {
   id: string;
@@ -16,6 +17,10 @@ interface ExpenseItem {
   category_id: string;
   description: string;
   amount: number;
+  original_amount?: number;
+  currency?: 'CLP' | 'USD' | 'EUR';
+  conversion_rate?: number;
+  conversion_date?: string;
   expense_date: string;
   vendor?: string;
   receipt_url?: string;
@@ -386,7 +391,20 @@ export default function ExpenseReportDetails({
                           {item.vendor || '-'}
                         </td>
                         <td className="py-3 px-4 text-right font-semibold text-gray-900">
-                          {formatCurrency(item.amount)}
+                          <div className="space-y-1">
+                            {item.currency && item.currency !== 'CLP' && item.original_amount ? (
+                              <>
+                                <div className="text-sm text-gray-600">
+                                  {formatCurrency(item.original_amount, item.currency)}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  ≈ ${item.amount.toLocaleString('es-CL')} CLP
+                                </div>
+                              </>
+                            ) : (
+                              <div>${item.amount.toLocaleString('es-CL')}</div>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-4 text-center">
                           <ReceiptCell item={item} />

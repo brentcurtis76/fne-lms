@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { X, Calendar, DollarSign, Receipt, Eye, Download, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
@@ -151,6 +152,75 @@ export default function ExpenseReportDetails({
     } catch (error) {
       console.error('Error opening receipt:', error);
     }
+  };
+
+  // Component to handle receipt display logic
+  const ReceiptCell = ({ item }: { item: ExpenseItem }) => {
+    // Simple logic: if there's a filename, assume there's a receipt
+    const hasReceipt = !!(item.receipt_url || item.receipt_filename);
+
+    if (hasReceipt) {
+      return (
+        <div className="flex items-center justify-center space-x-2">
+          <button
+            onClick={() => handleReceiptClick(item)}
+            className="flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+            title={`Ver boleta: ${item.receipt_filename || 'archivo'}`}
+          >
+            <Eye className="text-blue-600" size={14} />
+          </button>
+          <button
+            onClick={async () => {
+              try {
+                let url = '';
+                if (item.receipt_url) {
+                  url = await getReceiptUrl(item.receipt_url);
+                } else if (item.receipt_filename) {
+                  // Try to get any available file for download
+                  const { data: files, error: listError } = await supabase.storage
+                    .from('boletas')
+                    .list('', { limit: 10 });
+                  
+                  if (!listError && files && files.length > 0) {
+                    const receiptFile = files.find(file => 
+                      file.name.includes('receipt_') && file.name.endsWith('.pdf')
+                    ) || files[0];
+                    
+                    if (receiptFile) {
+                      const { data: urlData, error: urlError } = await supabase.storage
+                        .from('boletas')
+                        .createSignedUrl(receiptFile.name, 3600);
+                      
+                      if (!urlError && urlData.signedUrl) {
+                        url = urlData.signedUrl;
+                      }
+                    }
+                  }
+                }
+                
+                if (url) {
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = item.receipt_filename || 'receipt.pdf';
+                  link.click();
+                }
+              } catch (error) {
+                console.error('Error downloading receipt:', error);
+              }
+            }}
+            className="flex items-center justify-center w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+            title="Descargar boleta"
+          >
+            <Download className="text-green-600" size={14} />
+          </button>
+          <span className="text-xs text-green-600 font-medium ml-2" title={item.receipt_filename || 'Boleta disponible'}>
+            ✅
+          </span>
+        </div>
+      );
+    }
+
+    return <span className="text-gray-400 text-sm">Sin boleta</span>;
   };
 
   return (
@@ -319,68 +389,7 @@ export default function ExpenseReportDetails({
                           {formatCurrency(item.amount)}
                         </td>
                         <td className="py-3 px-4 text-center">
-                          {item.receipt_url || item.receipt_filename ? (
-                            <div className="flex items-center justify-center space-x-2">
-                              <button
-                                onClick={() => handleReceiptClick(item)}
-                                className="flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
-                                title={`Ver boleta: ${item.receipt_filename || 'archivo'}`}
-                              >
-                                <Eye className="text-blue-600" size={14} />
-                              </button>
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    let url = '';
-                                    if (item.receipt_url) {
-                                      url = await getReceiptUrl(item.receipt_url);
-                                    } else if (item.receipt_filename) {
-                                      // Try to get any available file for download
-                                      const { data: files, error: listError } = await supabase.storage
-                                        .from('boletas')
-                                        .list('', { limit: 10 });
-                                      
-                                      if (!listError && files && files.length > 0) {
-                                        const receiptFile = files.find(file => 
-                                          file.name.includes('receipt_') && file.name.endsWith('.pdf')
-                                        ) || files[0];
-                                        
-                                        if (receiptFile) {
-                                          const { data: urlData, error: urlError } = await supabase.storage
-                                            .from('boletas')
-                                            .createSignedUrl(receiptFile.name, 3600);
-                                          
-                                          if (!urlError && urlData.signedUrl) {
-                                            url = urlData.signedUrl;
-                                          }
-                                        }
-                                      }
-                                    }
-                                    
-                                    if (url) {
-                                      const link = document.createElement('a');
-                                      link.href = url;
-                                      link.download = item.receipt_filename || 'receipt.pdf';
-                                      link.click();
-                                    }
-                                  } catch (error) {
-                                    console.error('Error downloading receipt:', error);
-                                  }
-                                }}
-                                className="flex items-center justify-center w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
-                                title="Descargar boleta"
-                              >
-                                <Download className="text-green-600" size={14} />
-                              </button>
-                              {item.receipt_filename && (
-                                <span className="text-xs text-green-600 font-medium ml-2" title={item.receipt_filename}>
-                                  ✅
-                                </span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">Sin boleta</span>
-                          )}
+                          <ReceiptCell item={item} />
                         </td>
                       </tr>
                     ))}

@@ -58,6 +58,8 @@ interface ExpenseReportDetailsProps {
   onClose: () => void;
   onEdit: (report: ExpenseReport) => void;
   onDelete: (report: ExpenseReport) => void;
+  currentUser?: any;
+  isAdmin?: boolean;
 }
 
 export default function ExpenseReportDetails({
@@ -65,7 +67,9 @@ export default function ExpenseReportDetails({
   isOpen,
   onClose,
   onEdit,
-  onDelete
+  onDelete,
+  currentUser,
+  isAdmin = false
 }: ExpenseReportDetailsProps) {
   if (!isOpen || !report) return null;
 
@@ -260,10 +264,12 @@ export default function ExpenseReportDetails({
             </div>
 
             <div className="flex items-center space-x-2">
-              {report.status === 'draft' && (
+              {/* Allow editing if: user is admin, user is author, or report is draft */}
+              {(isAdmin || (currentUser && report.submitted_by === currentUser.id) || report.status === 'draft') && (
                 <button
                   onClick={() => onEdit(report)}
                   className="flex items-center px-3 py-1 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_yellow/90 transition-colors text-sm font-medium"
+                  title={report.status !== 'draft' ? 'Editar como autor del reporte' : 'Editar reporte'}
                 >
                   <Edit size={14} className="mr-1" />
                   Editar

@@ -695,6 +695,8 @@ export default function ExpenseReportsPage() {
                 setDeleteModalReport(report);
                 setSelectedReport(null);
               }}
+              currentUser={currentUser}
+              isAdmin={isAdmin}
             />
           </div>
         </main>

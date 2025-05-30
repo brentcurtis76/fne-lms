@@ -134,38 +134,49 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
     if (!file) return;
 
     setUploadingReceipts(prev => new Set(prev).add(index));
+    console.log('📤 Starting upload for file:', file.name, 'at index:', index);
 
     try {
       // Upload file to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `receipt_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
       
+      console.log('📁 Generated filename:', fileName);
+      
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('boletas')
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
+      
+      console.log('✅ File uploaded successfully:', uploadData);
 
       // Get signed URL for private bucket (valid for 1 year)
       const { data: urlData, error: urlError } = await supabase.storage
         .from('boletas')
         .createSignedUrl(fileName, 365 * 24 * 60 * 60); // 1 year
 
+      let finalUrl = '';
       if (urlError) {
-        console.warn('Error creating signed URL, using basic path:', urlError);
-        // Fallback: store the file path for later URL generation
-        updateExpenseItem(index, 'receipt_url', `boletas/${fileName}`);
+        console.warn('⚠️ Error creating signed URL, using basic path:', urlError);
+        finalUrl = `boletas/${fileName}`;
       } else {
-        // Store the signed URL
-        updateExpenseItem(index, 'receipt_url', urlData.signedUrl);
+        console.log('🔗 Signed URL created:', urlData.signedUrl);
+        finalUrl = urlData.signedUrl;
       }
       
+      // Update the form state
+      console.log('📝 Updating expense item with URL:', finalUrl);
+      updateExpenseItem(index, 'receipt_url', finalUrl);
       updateExpenseItem(index, 'receipt_filename', file.name);
+      
+      // Log the current state after update
+      console.log('📊 Current expense items after update:', expenseItems);
       
       toast.success(`✅ Boleta subida exitosamente: ${file.name}`);
       
     } catch (error) {
-      console.error('Error uploading receipt:', error);
+      console.error('❌ Error uploading receipt:', error);
       toast.error('Error al subir la boleta: ' + (error as Error).message);
     } finally {
       setUploadingReceipts(prev => {
@@ -559,6 +570,8 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       📄 Boleta/Recibo
                     </label>
+                    {/* Debug logging */}
+                    {console.log(`🔍 Receipt check for item ${index}:`, { receipt_url: item.receipt_url, receipt_filename: item.receipt_filename })}
                     {item.receipt_url ? (
                       <div className="space-y-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                         {/* Receipt uploaded indicator */}

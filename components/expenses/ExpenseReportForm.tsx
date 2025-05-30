@@ -483,28 +483,28 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Moneda *
+                  <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
+                    <label className="block text-sm font-medium text-brand_blue mb-2">
+                      💰 Moneda *
                     </label>
                     <select
                       value={item.currency}
                       onChange={(e) => updateExpenseItem(index, 'currency', e.target.value as 'CLP' | 'USD' | 'EUR')}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
+                      className="w-full p-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-brand_blue text-sm font-medium bg-white"
                     >
                       {getAvailableCurrencies().map(currency => (
                         <option key={currency.code} value={currency.code}>
-                          {currency.code} - {currency.name}
+                          {currency.symbol} {currency.code} - {currency.name}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Monto ({item.currency}) *
+                  <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
+                    <label className="block text-sm font-medium text-brand_blue mb-2">
+                      💵 Monto ({item.currency}) *
                     </label>
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       <input
                         type="number"
                         min="0"
@@ -518,12 +518,13 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                             updateExpenseItem(index, 'amount', value);
                           }
                         }}
-                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
-                        placeholder="0"
+                        className="w-full p-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-brand_blue text-sm font-medium bg-white"
+                        placeholder="0.00"
                       />
                       {item.currency !== 'CLP' && item.conversion_rate && item.original_amount && (
-                        <div className="text-xs text-gray-500">
+                        <div className="text-sm text-blue-700 font-medium bg-blue-100 p-2 rounded">
                           ≈ ${Math.round((item.original_amount || 0) * (item.conversion_rate || 1)).toLocaleString('es-CL')} CLP
+                          <span className="text-xs text-blue-600 block">Tasa: {item.conversion_rate?.toFixed(2)}</span>
                         </div>
                       )}
                     </div>
@@ -555,17 +556,17 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Boleta/Recibo
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      📄 Boleta/Recibo
                     </label>
                     {item.receipt_url ? (
-                      <div className="space-y-2">
+                      <div className="space-y-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                         {/* Receipt uploaded indicator */}
-                        <div className="flex items-center p-2 bg-green-50 border border-green-200 rounded-lg">
-                          <FileText size={16} className="text-green-600 mr-2" />
+                        <div className="flex items-center">
+                          <FileText size={20} className="text-green-600 mr-3" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-green-800 truncate" title={item.receipt_filename}>
-                              ✅ {item.receipt_filename}
+                            <p className="text-sm font-medium text-green-800 truncate" title={item.receipt_filename}>
+                              ✅ {item.receipt_filename || 'Archivo subido'}
                             </p>
                             <p className="text-xs text-green-600">Boleta subida correctamente</p>
                           </div>
@@ -577,25 +578,25 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                             href={item.receipt_url} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="flex items-center px-3 py-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
+                            className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white border border-blue-600 rounded-lg hover:bg-blue-700 transition-colors font-medium"
                             title="Ver boleta"
                           >
-                            <Eye size={12} className="mr-1" />
-                            Ver
+                            <Eye size={14} className="mr-2" />
+                            Ver Boleta
                           </a>
                           <button
                             type="button"
                             onClick={() => handleReceiptDelete(index)}
-                            className="flex items-center px-3 py-1.5 text-xs bg-red-50 text-red-700 border border-red-200 rounded hover:bg-red-100 transition-colors"
-                            title="Eliminar boleta"
+                            className="flex items-center px-3 py-2 text-sm bg-red-600 text-white border border-red-600 rounded-lg hover:bg-red-700 transition-colors font-medium"
+                            title="Eliminar y reemplazar"
                           >
-                            <Trash2 size={12} className="mr-1" />
+                            <Trash2 size={14} className="mr-2" />
                             Eliminar
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <label className="cursor-pointer">
+                      <label className="cursor-pointer block">
                         <input
                           type="file"
                           accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
@@ -605,19 +606,19 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                           }}
                           className="hidden"
                         />
-                        <div className="flex items-center justify-center w-full p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-brand_blue hover:bg-blue-50 transition-colors">
+                        <div className="flex items-center justify-center w-full p-4 border-2 border-dashed border-gray-400 rounded-lg hover:border-brand_blue hover:bg-blue-50 transition-all duration-200">
                           {uploadingReceipts.has(index) ? (
-                            <div className="flex items-center text-sm text-brand_blue">
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand_blue mr-2"></div>
-                              Subiendo...
+                            <div className="flex items-center text-brand_blue">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand_blue mr-3"></div>
+                              <span className="font-medium">Subiendo archivo...</span>
                             </div>
                           ) : (
                             <div className="text-center">
-                              <Upload size={20} className="mx-auto text-gray-400 mb-1" />
-                              <p className="text-xs text-gray-600">
-                                <span className="font-medium text-brand_blue">Subir boleta</span>
+                              <Upload size={24} className="mx-auto text-gray-500 mb-2" />
+                              <p className="text-sm text-gray-700 font-medium">
+                                <span className="text-brand_blue">Hacer clic para subir boleta</span>
                               </p>
-                              <p className="text-xs text-gray-400 mt-1">
+                              <p className="text-xs text-gray-500 mt-1">
                                 PDF, JPG, PNG (máx. 50MB)
                               </p>
                             </div>

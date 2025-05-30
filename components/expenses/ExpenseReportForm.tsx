@@ -86,6 +86,16 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
     }
   }, [editingReport]);
 
+  // Debug logging for expense items state
+  useEffect(() => {
+    console.log('🔍 Expense items updated:', expenseItems.map((item, index) => ({
+      index,
+      receipt_url: item.receipt_url,
+      receipt_filename: item.receipt_filename,
+      hasReceipt: !!(item.receipt_url || item.receipt_filename)
+    })));
+  }, [expenseItems]);
+
   const addExpenseItem = () => {
     setExpenseItems([...expenseItems, {
       category_id: '',
@@ -570,8 +580,6 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       📄 Boleta/Recibo
                     </label>
-                    {/* Debug logging */}
-                    {console.log(`🔍 Receipt check for item ${index}:`, { receipt_url: item.receipt_url, receipt_filename: item.receipt_filename })}
                     {item.receipt_url ? (
                       <div className="space-y-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                         {/* Receipt uploaded indicator */}

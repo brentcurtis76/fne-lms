@@ -175,13 +175,16 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
         finalUrl = urlData.signedUrl;
       }
       
-      // Update the form state
+      // Update the form state in a single update to avoid race conditions
       console.log('📝 Updating expense item with URL:', finalUrl);
-      updateExpenseItem(index, 'receipt_url', finalUrl);
-      updateExpenseItem(index, 'receipt_filename', file.name);
-      
-      // Log the current state after update
-      console.log('📊 Current expense items after update:', expenseItems);
+      const updatedItems = [...expenseItems];
+      updatedItems[index] = {
+        ...updatedItems[index],
+        receipt_url: finalUrl,
+        receipt_filename: file.name
+      };
+      setExpenseItems(updatedItems);
+      console.log('📝 Updated item at index', index, ':', updatedItems[index]);
       
       toast.success(`✅ Boleta subida exitosamente: ${file.name}`);
       

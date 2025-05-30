@@ -403,19 +403,14 @@ export default function ExpenseReportsPage() {
       </Head>
       
       <div className="min-h-screen bg-brand_beige">
-        {/* Only show header when not in form mode */}
-        {activeTab === 'lista' ? (
-          <Header 
-            user={currentUser}
-            isAdmin={isAdmin}
-            onLogout={handleLogout}
-            avatarUrl={avatarUrl}
-          />
-        ) : null}
+        <Header 
+          user={currentUser}
+          isAdmin={isAdmin}
+          onLogout={handleLogout}
+          avatarUrl={avatarUrl}
+        />
         
-        <main className={`container mx-auto pb-10 px-4 ${
-          activeTab === 'lista' ? 'pt-44' : 'pt-8'
-        }`}>
+        <main className="container mx-auto pt-44 pb-10 px-4">
           <div className="max-w-7xl mx-auto">
             {/* Conditional Header */}
             {activeTab === 'lista' && (

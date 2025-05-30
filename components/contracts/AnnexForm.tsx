@@ -48,13 +48,15 @@ interface CuotaForm {
 
 interface AnnexFormProps {
   clientes: Cliente[];
+  editingAnnex?: any; // Annex being edited
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormProps) {
+export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel }: AnnexFormProps) {
   // Form states
   const [loading, setLoading] = useState(false);
+  const [loadingParent, setLoadingParent] = useState(false);
   const [step, setStep] = useState<'cliente' | 'contrato' | 'anexo' | 'cuotas'>('cliente');
   
   // Client selection
@@ -78,6 +80,66 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
   const [cuotas, setCuotas] = useState<CuotaForm[]>([
     { numero_cuota: 1, fecha_vencimiento: '', monto: 0 }
   ]);
+
+  // Populate form when editing an annex
+  useEffect(() => {
+    if (editingAnnex) {
+      // Load parent contract data first
+      loadParentContract();
+    }
+  }, [editingAnnex]);
+
+  const loadParentContract = async () => {
+    if (!editingAnnex?.parent_contrato_id) return;
+    
+    setLoadingParent(true);
+    try {
+      const { data, error } = await supabase
+        .from('contratos')
+        .select(`
+          *,
+          clientes(*),
+          programas(*)
+        `)
+        .eq('id', editingAnnex.parent_contrato_id)
+        .single();
+
+      if (error) throw error;
+
+      // Set parent contract as selected
+      setSelectedContrato(data);
+      setSelectedClienteId(data.cliente_id);
+      setSelectedContratoId(data.id);
+      
+      // Populate annex form
+      setAnnexForm({
+        anexo_fecha: editingAnnex.anexo_fecha || new Date().toISOString().split('T')[0],
+        numero_participantes: editingAnnex.numero_participantes || 1,
+        nombre_ciclo: editingAnnex.nombre_ciclo || 'Primer Ciclo',
+        precio_total_uf: editingAnnex.precio_total_uf || 0,
+        tipo_moneda: editingAnnex.tipo_moneda || 'UF',
+      });
+      
+      // Populate installments
+      if (editingAnnex.cuotas && editingAnnex.cuotas.length > 0) {
+        const cuotasData = editingAnnex.cuotas.map((cuota: any) => ({
+          numero_cuota: cuota.numero_cuota,
+          fecha_vencimiento: cuota.fecha_vencimiento,
+          monto: cuota.monto_uf || 0
+        }));
+        setCuotas(cuotasData);
+      }
+      
+      // Skip to the annex details step when editing
+      setStep('anexo');
+      
+    } catch (error) {
+      console.error('Error loading parent contract:', error);
+      toast.error('Error al cargar el contrato padre');
+    } finally {
+      setLoadingParent(false);
+    }
+  };
 
   // Load contracts when client is selected
   useEffect(() => {
@@ -179,7 +241,8 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
   const handleSaveAnnex = async () => {
     setLoading(true);
     try {
-      if (!selectedContrato) {
+      // For editing mode, we need the parent contract info
+      if (!editingAnnex && !selectedContrato) {
         throw new Error('No se ha seleccionado un contrato padre');
       }
 
@@ -214,50 +277,97 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
         return;
       }
 
-      // Get next annex number
-      const anexoNumero = await getNextAnexoNumber(selectedContrato.id);
-      const numeroContrato = generateAnexoNumeroContrato(selectedContrato.numero_contrato, anexoNumero);
+      if (editingAnnex) {
+        // EDITING MODE
+        
+        // Update annex contract
+        const { error: annexError } = await supabase
+          .from('contratos')
+          .update({
+            anexo_fecha: annexForm.anexo_fecha,
+            numero_participantes: annexForm.numero_participantes,
+            nombre_ciclo: annexForm.nombre_ciclo,
+            precio_total_uf: annexForm.precio_total_uf,
+            tipo_moneda: annexForm.tipo_moneda,
+          })
+          .eq('id', editingAnnex.id);
 
-      // Create annex contract
-      const { data: newAnnex, error: annexError } = await supabase
-        .from('contratos')
-        .insert([{
-          numero_contrato: numeroContrato,
-          fecha_contrato: annexForm.anexo_fecha,
-          cliente_id: selectedContrato.cliente_id,
-          programa_id: selectedContrato.programa_id,
-          precio_total_uf: annexForm.precio_total_uf,
-          tipo_moneda: annexForm.tipo_moneda,
-          is_anexo: true,
-          parent_contrato_id: selectedContrato.id,
-          anexo_numero: anexoNumero,
-          anexo_fecha: annexForm.anexo_fecha,
-          numero_participantes: annexForm.numero_participantes,
-          nombre_ciclo: annexForm.nombre_ciclo,
-          estado: 'pendiente',
-          incluir_en_flujo: true
-        }])
-        .select()
-        .single();
+        if (annexError) throw annexError;
 
-      if (annexError) throw annexError;
+        // Delete existing installments and create new ones
+        const { error: deleteError } = await supabase
+          .from('cuotas')
+          .delete()
+          .eq('contrato_id', editingAnnex.id);
+          
+        if (deleteError) throw deleteError;
 
-      // Create installments
-      const cuotasData = validCuotas.map(cuota => ({
-        contrato_id: newAnnex.id,
-        numero_cuota: cuota.numero_cuota,
-        fecha_vencimiento: cuota.fecha_vencimiento,
-        monto_uf: cuota.monto,
-        pagada: false
-      }));
+        // Create new installments
+        const cuotasData = validCuotas.map(cuota => ({
+          contrato_id: editingAnnex.id,
+          numero_cuota: cuota.numero_cuota,
+          fecha_vencimiento: cuota.fecha_vencimiento,
+          monto_uf: cuota.monto,
+          pagada: false
+        }));
 
-      const { error: cuotasError } = await supabase
-        .from('cuotas')
-        .insert(cuotasData);
+        const { error: cuotasError } = await supabase
+          .from('cuotas')
+          .insert(cuotasData);
 
-      if (cuotasError) throw cuotasError;
+        if (cuotasError) throw cuotasError;
 
-      toast.success('Anexo creado exitosamente');
+        toast.success('Anexo actualizado exitosamente');
+        
+      } else {
+        // CREATE MODE
+        
+        // Get next annex number
+        const anexoNumero = await getNextAnexoNumber(selectedContrato.id);
+        const numeroContrato = generateAnexoNumeroContrato(selectedContrato.numero_contrato, anexoNumero);
+
+        // Create annex contract
+        const { data: newAnnex, error: annexError } = await supabase
+          .from('contratos')
+          .insert([{
+            numero_contrato: numeroContrato,
+            fecha_contrato: annexForm.anexo_fecha,
+            cliente_id: selectedContrato.cliente_id,
+            programa_id: selectedContrato.programa_id,
+            precio_total_uf: annexForm.precio_total_uf,
+            tipo_moneda: annexForm.tipo_moneda,
+            is_anexo: true,
+            parent_contrato_id: selectedContrato.id,
+            anexo_numero: anexoNumero,
+            anexo_fecha: annexForm.anexo_fecha,
+            numero_participantes: annexForm.numero_participantes,
+            nombre_ciclo: annexForm.nombre_ciclo,
+            estado: 'pendiente',
+            incluir_en_flujo: true
+          }])
+          .select()
+          .single();
+
+        if (annexError) throw annexError;
+
+        // Create installments
+        const cuotasData = validCuotas.map(cuota => ({
+          contrato_id: newAnnex.id,
+          numero_cuota: cuota.numero_cuota,
+          fecha_vencimiento: cuota.fecha_vencimiento,
+          monto_uf: cuota.monto,
+          pagada: false
+        }));
+
+        const { error: cuotasError } = await supabase
+          .from('cuotas')
+          .insert(cuotasData);
+
+        if (cuotasError) throw cuotasError;
+
+        toast.success('Anexo creado exitosamente');
+      }
+      
       onSuccess();
       
     } catch (error) {
@@ -287,19 +397,62 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
         }
       };
 
-      console.log('🔍 Generating annex with data:', annexData);
       const contractHTML = generateAnnexFromTemplate(annexData);
-      console.log('📄 Generated HTML starts with:', contractHTML.substring(0, 100));
       
-      const pdf = new jsPDF();
-      pdf.html(contractHTML, {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      
+      // Clean and format the HTML for better PDF rendering
+      const cleanHTML = contractHTML
+        .replace(/1\. Ingreso de nuevos destinatarios/g, '<h3 style="font-weight: bold; margin: 20px 0 10px 0;">1. Ingreso de nuevos destinatarios</h3>')
+        .replace(/2\. Valor y forma de pago/g, '<h3 style="font-weight: bold; margin: 20px 0 10px 0;">2. Valor y forma de pago</h3>')
+        .replace(/3\. Ratificación del contrato original/g, '<h3 style="font-weight: bold; margin: 20px 0 10px 0;">3. Ratificación del contrato original</h3>')
+        .replace(/4\. Firma de conformidad/g, '<h3 style="font-weight: bold; margin: 20px 0 10px 0;">4. Firma de conformidad</h3>')
+        .replace(/\n/g, '<br>');
+      
+      // Create a temporary element to render the HTML
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = cleanHTML;
+      tempDiv.style.width = '800px';
+      tempDiv.style.fontFamily = 'Arial, sans-serif';
+      tempDiv.style.fontSize = '12px';
+      tempDiv.style.lineHeight = '1.6';
+      tempDiv.style.padding = '20px';
+      tempDiv.style.color = '#000';
+      tempDiv.style.backgroundColor = '#fff';
+      
+      // Style all paragraphs
+      const elements = tempDiv.querySelectorAll('*');
+      elements.forEach(el => {
+        const htmlEl = el as HTMLElement;
+        if (htmlEl.tagName === 'P') {
+          htmlEl.style.textAlign = 'justify';
+          htmlEl.style.marginBottom = '15px';
+          htmlEl.style.lineHeight = '1.6';
+        }
+        if (htmlEl.tagName === 'H1' || htmlEl.tagName === 'H2' || htmlEl.tagName === 'H3' || htmlEl.tagName === 'H4') {
+          htmlEl.style.fontWeight = 'bold';
+          htmlEl.style.margin = '15px 0 10px 0';
+        }
+      });
+      
+      // Add to DOM temporarily for rendering
+      document.body.appendChild(tempDiv);
+      
+      pdf.html(tempDiv, {
         callback: function (pdf) {
+          // Remove temporary element
+          document.body.removeChild(tempDiv);
           pdf.save(`anexo-${selectedContrato.numero_contrato}A${anexoNumero}-preview.pdf`);
         },
         x: 10,
         y: 10,
         width: 180,
-        windowWidth: 800
+        windowWidth: 800,
+        html2canvas: {
+          scale: 1.0,
+          useCORS: true,
+          letterRendering: true
+        }
       });
       
     } catch (error) {
@@ -344,7 +497,9 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
     <div className="bg-white rounded-lg shadow-md">
       {/* Header with steps */}
       <div className="border-b border-gray-200 px-6 py-4">
-        <h2 className="text-xl font-semibold text-brand_blue mb-4">Crear Nuevo Anexo</h2>
+        <h2 className="text-xl font-semibold text-brand_blue mb-4">
+          {editingAnnex ? 'Editar Anexo' : 'Crear Nuevo Anexo'}
+        </h2>
         
         {/* Step indicator */}
         <div className="flex items-center space-x-4">
@@ -353,29 +508,52 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
             { key: 'contrato', label: 'Contrato', icon: FileText },
             { key: 'anexo', label: 'Anexo', icon: Calendar },
             { key: 'cuotas', label: 'Cuotas', icon: DollarSign }
-          ].map(({ key, label, icon: Icon }, index) => (
+          ].map(({ key, label, icon: Icon }, index) => {
+            const currentStepIndex = ['cliente', 'contrato', 'anexo', 'cuotas'].indexOf(step);
+            const isCompleted = editingAnnex ? 
+              (key === 'cliente' || key === 'contrato' || currentStepIndex > index) :
+              currentStepIndex > index;
+            const isActive = step === key;
+            const isDisabled = editingAnnex && (key === 'cliente' || key === 'contrato');
+            
+            return (
             <div key={key} className="flex items-center">
               <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                step === key ? 'bg-brand_blue text-white border-brand_blue' :
-                ['cliente', 'contrato', 'anexo', 'cuotas'].indexOf(step) > index ? 'bg-green-500 text-white border-green-500' :
+                isActive ? 'bg-brand_blue text-white border-brand_blue' :
+                isCompleted ? 'bg-green-500 text-white border-green-500' :
+                isDisabled ? 'bg-gray-400 text-white border-gray-400' :
                 'bg-gray-200 text-gray-500 border-gray-300'
               }`}>
                 <Icon size={16} />
               </div>
               <span className={`ml-2 text-sm font-medium ${
-                step === key ? 'text-brand_blue' : 'text-gray-500'
+                isActive ? 'text-brand_blue' : 
+                isCompleted ? 'text-green-600' :
+                isDisabled ? 'text-gray-400' :
+                'text-gray-500'
               }`}>
                 {label}
               </span>
               {index < 3 && <div className="ml-4 w-8 h-px bg-gray-300"></div>}
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
       <div className="p-6">
+        {/* Loading state when editing */}
+        {editingAnnex && loadingParent && (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand_blue mx-auto"></div>
+              <p className="mt-4 text-brand_blue font-medium">Cargando datos del anexo...</p>
+            </div>
+          </div>
+        )}
+
         {/* Step 1: Client Selection */}
-        {step === 'cliente' && (
+        {step === 'cliente' && !loadingParent && (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-brand_blue">Seleccionar Cliente</h3>
             <div className="grid grid-cols-1 gap-4 max-h-96 overflow-y-auto">
@@ -399,7 +577,7 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
         )}
 
         {/* Step 2: Contract Selection */}
-        {step === 'contrato' && (
+        {step === 'contrato' && !loadingParent && (
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-brand_blue">
               Seleccionar Contrato de {clientes.find(c => c.id === selectedClienteId)?.nombre_legal}
@@ -430,7 +608,7 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
         )}
 
         {/* Step 3: Annex Details */}
-        {step === 'anexo' && selectedContrato && (
+        {step === 'anexo' && selectedContrato && !loadingParent && (
           <div className="space-y-6">
             <h3 className="text-lg font-semibold text-brand_blue">
               Detalles del Anexo para {selectedContrato.numero_contrato}
@@ -509,7 +687,7 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
         )}
 
         {/* Step 4: Installments */}
-        {step === 'cuotas' && (
+        {step === 'cuotas' && !loadingParent && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold text-brand_blue">Configurar Cuotas</h3>
@@ -583,6 +761,7 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
         )}
 
         {/* Action buttons */}
+        {!loadingParent && (
         <div className="flex justify-between items-center pt-6 border-t border-gray-200">
           <div className="flex space-x-3">
             <button
@@ -630,7 +809,7 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
                 ) : (
                   <>
                     <Save size={16} className="mr-2" />
-                    Crear Anexo
+                    {editingAnnex ? 'Actualizar Anexo' : 'Crear Anexo'}
                   </>
                 )}
               </button>
@@ -645,6 +824,7 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
             )}
           </div>
         </div>
+        )}
       </div>
     </div>
   );

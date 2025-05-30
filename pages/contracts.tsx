@@ -85,9 +85,10 @@ export default function ContractsPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   
   // View states
-  const [activeTab, setActiveTab] = useState<'lista' | 'nuevo' | 'editar' | 'flujo' | 'nuevo-anexo'>('lista');
+  const [activeTab, setActiveTab] = useState<'lista' | 'nuevo' | 'editar' | 'flujo' | 'nuevo-anexo' | 'editar-anexo'>('lista');
   const [selectedContrato, setSelectedContrato] = useState<Contrato | null>(null);
   const [editingContrato, setEditingContrato] = useState<Contrato | null>(null);
+  const [editingAnexo, setEditingAnexo] = useState<Contrato | null>(null);
   const [deleteModalContrato, setDeleteModalContrato] = useState<Contrato | null>(null);
   const [uploadingContrato, setUploadingContrato] = useState<string | null>(null);
 
@@ -467,19 +468,14 @@ export default function ContractsPage() {
       </Head>
       
       <div className="min-h-screen bg-brand_beige">
-        {/* Only show header when not in form mode */}
-        {activeTab === 'lista' || activeTab === 'flujo' ? (
-          <Header 
-            user={currentUser}
-            isAdmin={isAdmin}
-            onLogout={handleLogout}
-            avatarUrl={avatarUrl}
-          />
-        ) : null}
+        <Header 
+          user={currentUser}
+          isAdmin={isAdmin}
+          onLogout={handleLogout}
+          avatarUrl={avatarUrl}
+        />
         
-        <main className={`container mx-auto pb-10 px-4 ${
-          activeTab === 'lista' || activeTab === 'flujo' ? 'pt-44' : 'pt-8'
-        }`}>
+        <main className="container mx-auto pt-44 pb-10 px-4">
           <div className="max-w-7xl mx-auto">
             {/* Conditional Header */}
             {(activeTab === 'lista' || activeTab === 'flujo') && (
@@ -540,7 +536,7 @@ export default function ContractsPage() {
             )}
 
             {/* Form Header for nuevo/editar modes */}
-            {(activeTab === 'nuevo' || activeTab === 'editar' || activeTab === 'nuevo-anexo') && (
+            {(activeTab === 'nuevo' || activeTab === 'editar' || activeTab === 'nuevo-anexo' || activeTab === 'editar-anexo') && (
               <div className="mb-8">
                 <div className="flex items-center space-x-4 mb-6">
                   <button
@@ -554,7 +550,8 @@ export default function ContractsPage() {
                   <h1 className="text-3xl font-bold text-brand_blue flex items-center">
                     <FileText className="mr-3" size={32} />
                     {activeTab === 'nuevo' ? 'Crear Nuevo Contrato' : 
-                     activeTab === 'nuevo-anexo' ? 'Crear Nuevo Anexo' : 'Editar Contrato'}
+                     activeTab === 'nuevo-anexo' ? 'Crear Nuevo Anexo' : 
+                     activeTab === 'editar-anexo' ? 'Editar Anexo' : 'Editar Contrato'}
                   </h1>
                 </div>
               </div>
@@ -591,6 +588,11 @@ export default function ContractsPage() {
                                 className="font-medium text-brand_blue hover:text-blue-600 hover:underline cursor-pointer"
                               >
                                 {contrato.numero_contrato}
+                                {contrato.is_anexo && (
+                                  <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                                    ANEXO
+                                  </span>
+                                )}
                               </button>
                             </td>
                             <td className="py-4 px-4">
@@ -636,11 +638,16 @@ export default function ContractsPage() {
                                 </button>
                                 <button
                                   onClick={() => {
-                                    setEditingContrato(contrato);
-                                    setActiveTab('editar');
+                                    if (contrato.is_anexo) {
+                                      setEditingAnexo(contrato);
+                                      setActiveTab('editar-anexo');
+                                    } else {
+                                      setEditingContrato(contrato);
+                                      setActiveTab('editar');
+                                    }
                                   }}
                                   className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
-                                  title="Editar contrato"
+                                  title={contrato.is_anexo ? "Editar anexo" : "Editar contrato"}
                                 >
                                   <Edit size={14} />
                                 </button>
@@ -719,6 +726,22 @@ export default function ContractsPage() {
                   loadContratos();
                 }}
                 onCancel={() => setActiveTab('lista')}
+              />
+            )}
+
+            {activeTab === 'editar-anexo' && editingAnexo && (
+              <AnnexForm
+                clientes={clientes}
+                editingAnnex={editingAnexo}
+                onSuccess={() => {
+                  setActiveTab('lista');
+                  setEditingAnexo(null);
+                  loadContratos();
+                }}
+                onCancel={() => {
+                  setActiveTab('lista');
+                  setEditingAnexo(null);
+                }}
               />
             )}
 

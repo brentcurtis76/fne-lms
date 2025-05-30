@@ -2,19 +2,21 @@
 // Replace this with your actual legal annex text
 
 export const ANNEX_TEMPLATE = `
+<div style="font-family: Arial, sans-serif; font-size: 12px; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px;">
 
-<div style="text-align: center; font-weight: bold; margin-bottom: 20px;">
-ANEXO DE CONTRATO<br>
-FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN)<br>   
-Y<br>
-{{CLIENTE_NOMBRE_LEGAL}}<br>
-Anexo Número {{ANEXO_NUMERO}}
+<div style="text-align: center; font-weight: bold; margin-bottom: 30px; font-size: 14px;">
+<h1 style="font-size: 16px; margin: 0; font-weight: bold;">ANEXO DE CONTRATO</h1>
+<br>
+<h2 style="font-size: 14px; margin: 10px 0; font-weight: bold;">FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN)</h2>   
+<h2 style="font-size: 14px; margin: 10px 0; font-weight: bold;">Y</h2>
+<h2 style="font-size: 14px; margin: 10px 0; font-weight: bold;">{{CLIENTE_NOMBRE_LEGAL}}</h2>
+<br>
+<h3 style="font-size: 14px; margin: 10px 0; font-weight: bold;">Anexo Número {{ANEXO_NUMERO}}</h3>
 </div>
- 
 
-
-
-En Santiago de Chile, a {{FECHA_ANEXO}}, las partes firmantes del contrato original suscrito con fecha {{FECHA_CONTRATO}}, entre {{CLIENTE_NOMBRE_LEGAL}} y FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN), acuerdan el presente Anexo, que se incorpora como parte integrante del contrato {{CONTRATO_NUMERO}}, según las condiciones que siguen: 
+<p style="text-align: justify; margin-bottom: 15px;">
+En Santiago de Chile, a {{FECHA_ANEXO}}, las partes firmantes del contrato original suscrito con fecha {{FECHA_CONTRATO}}, entre {{CLIENTE_NOMBRE_LEGAL}} y FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN), acuerdan el presente Anexo, que se incorpora como parte integrante del contrato {{CONTRATO_NUMERO}}, según las condiciones que siguen:
+</p> 
 
 1. Ingreso de nuevos destinatarios
 
@@ -67,7 +69,6 @@ p.p Representante Legal FUNDACIÓN NUEVA EDUCACIÓN
 
 // Function to replace placeholders with actual data for annexes
 export function generateAnnexFromTemplate(annexData: any): string {
-  console.log('🏗️ Using ANNEX_TEMPLATE, starts with:', ANNEX_TEMPLATE.substring(0, 100));
   let contract = ANNEX_TEMPLATE;
   
   // Date formatting

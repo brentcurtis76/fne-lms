@@ -129,8 +129,16 @@ export default function UserProfileView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand_beige flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-brand_blue"></div>
+      <div className="min-h-screen bg-brand_beige">
+        <Header 
+          user={currentUser}
+          isAdmin={isAdmin}
+          onLogout={handleLogout}
+          avatarUrl={avatarUrl}
+        />
+        <main className="container mx-auto pt-44 pb-10 px-4 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-brand_blue"></div>
+        </main>
       </div>
     );
   }

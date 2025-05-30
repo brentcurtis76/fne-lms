@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import { generateContractFromTemplate } from '../../lib/contract-template';
+import { generateAnnexFromTemplate } from '../../lib/annex-template';
 import Head from 'next/head';
 
 interface Contrato {
@@ -9,6 +10,13 @@ interface Contrato {
   numero_contrato: string;
   fecha_contrato: string;
   precio_total_uf: number;
+  tipo_moneda?: 'UF' | 'CLP';
+  is_anexo?: boolean;
+  parent_contrato_id?: string;
+  anexo_numero?: number;
+  anexo_fecha?: string;
+  numero_participantes?: number;
+  nombre_ciclo?: 'Primer Ciclo' | 'Segundo Ciclo' | 'Tercer Ciclo' | 'Equipo Directivo';
   clientes: {
     nombre_legal: string;
     nombre_fantasia: string;
@@ -33,6 +41,7 @@ interface Contrato {
     fecha_vencimiento: string;
     monto_uf: number;
   }>;
+  parent_contract?: Contrato;
 }
 
 export default function ContractPrintPage() {
@@ -61,6 +70,26 @@ export default function ContractPrintPage() {
         .single();
 
       if (error) throw error;
+      
+      
+      // If this is an annex, also load the parent contract
+      if (data.is_anexo && data.parent_contrato_id) {
+        const { data: parentData, error: parentError } = await supabase
+          .from('contratos')
+          .select(`
+            *,
+            clientes(*),
+            programas(*),
+            cuotas(*)
+          `)
+          .eq('id', data.parent_contrato_id)
+          .single();
+        
+        if (!parentError) {
+          data.parent_contract = parentData;
+        }
+      }
+      
       setContrato(data);
     } catch (error) {
       console.error('Error loading contract:', error);
@@ -158,31 +187,64 @@ export default function ContractPrintPage() {
           <div 
             className="whitespace-pre-line leading-relaxed contract-content"
             dangerouslySetInnerHTML={{
-              __html: generateContractFromTemplate({
-                numero_contrato: contrato.numero_contrato,
-                fecha_contrato: contrato.fecha_contrato,
-                precio_total_uf: contrato.precio_total_uf,
-                cliente: {
-                  nombre_legal: contrato.clientes.nombre_legal,
-                  nombre_fantasia: contrato.clientes.nombre_fantasia,
-                  rut: contrato.clientes.rut,
-                  direccion: contrato.clientes.direccion,
-                  comuna: contrato.clientes.comuna,
-                  ciudad: contrato.clientes.ciudad,
-                  nombre_representante: contrato.clientes.nombre_representante,
-                  rut_representante: contrato.clientes.rut_representante,
-                  fecha_escritura: contrato.clientes.fecha_escritura,
-                  nombre_notario: contrato.clientes.nombre_notario,
-                  comuna_notaria: contrato.clientes.comuna_notaria,
-                },
-                programa: {
-                  nombre: contrato.programas.nombre,
-                  descripcion: contrato.programas.descripcion,
-                  horas_totales: contrato.programas.horas_totales,
-                  modalidad: contrato.programas.modalidad,
-                },
-                cuotas: contrato.cuotas
-              }).replace(/\n/g, '<br>')
+              __html: contrato.is_anexo 
+                  ? generateAnnexFromTemplate({
+                    anexo_numero: contrato.anexo_numero,
+                    anexo_fecha: contrato.anexo_fecha,
+                    numero_participantes: contrato.numero_participantes,
+                    nombre_ciclo: contrato.nombre_ciclo,
+                    precio_total_uf: contrato.precio_total_uf,
+                    tipo_moneda: contrato.tipo_moneda || 'UF',
+                    cuotas: contrato.cuotas,
+                    parentContract: contrato.parent_contract ? {
+                      numero_contrato: contrato.parent_contract.numero_contrato,
+                      fecha_contrato: contrato.parent_contract.fecha_contrato,
+                      cliente: {
+                        nombre_legal: contrato.parent_contract.clientes.nombre_legal,
+                        nombre_fantasia: contrato.parent_contract.clientes.nombre_fantasia,
+                        rut: contrato.parent_contract.clientes.rut,
+                        direccion: contrato.parent_contract.clientes.direccion,
+                        comuna: contrato.parent_contract.clientes.comuna,
+                        ciudad: contrato.parent_contract.clientes.ciudad,
+                        nombre_representante: contrato.parent_contract.clientes.nombre_representante,
+                        rut_representante: contrato.parent_contract.clientes.rut_representante,
+                        fecha_escritura: contrato.parent_contract.clientes.fecha_escritura,
+                        nombre_notario: contrato.parent_contract.clientes.nombre_notario,
+                        comuna_notaria: contrato.parent_contract.clientes.comuna_notaria,
+                      },
+                      programa: {
+                        nombre: contrato.parent_contract.programas.nombre,
+                        descripcion: contrato.parent_contract.programas.descripcion,
+                        horas_totales: contrato.parent_contract.programas.horas_totales,
+                        modalidad: contrato.parent_contract.programas.modalidad,
+                      }
+                    } : undefined
+                  })
+                : generateContractFromTemplate({
+                    numero_contrato: contrato.numero_contrato,
+                    fecha_contrato: contrato.fecha_contrato,
+                    precio_total_uf: contrato.precio_total_uf,
+                    cliente: {
+                      nombre_legal: contrato.clientes.nombre_legal,
+                      nombre_fantasia: contrato.clientes.nombre_fantasia,
+                      rut: contrato.clientes.rut,
+                      direccion: contrato.clientes.direccion,
+                      comuna: contrato.clientes.comuna,
+                      ciudad: contrato.clientes.ciudad,
+                      nombre_representante: contrato.clientes.nombre_representante,
+                      rut_representante: contrato.clientes.rut_representante,
+                      fecha_escritura: contrato.clientes.fecha_escritura,
+                      nombre_notario: contrato.clientes.nombre_notario,
+                      comuna_notaria: contrato.clientes.comuna_notaria,
+                    },
+                    programa: {
+                      nombre: contrato.programas.nombre,
+                      descripcion: contrato.programas.descripcion,
+                      horas_totales: contrato.programas.horas_totales,
+                      modalidad: contrato.programas.modalidad,
+                    },
+                    cuotas: contrato.cuotas
+                  })
             }}
           />
         </div>

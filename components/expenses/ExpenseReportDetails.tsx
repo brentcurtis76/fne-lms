@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Calendar, DollarSign, Receipt, Eye, Download, Edit, Trash2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { formatCurrency } from '../../lib/currency-service';
+import { formatCurrency as formatCurrencyWithSymbol } from '../../lib/currency-service';
 
 interface ExpenseCategory {
   id: string;
@@ -395,7 +395,7 @@ export default function ExpenseReportDetails({
                             {item.currency && item.currency !== 'CLP' && item.original_amount ? (
                               <>
                                 <div className="text-sm text-gray-600">
-                                  {formatCurrency(item.original_amount, item.currency)}
+                                  {formatCurrencyWithSymbol(item.original_amount, item.currency)}
                                 </div>
                                 <div className="text-xs text-gray-500">
                                   ≈ ${item.amount.toLocaleString('es-CL')} CLP

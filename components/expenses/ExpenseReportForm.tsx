@@ -75,6 +75,9 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
           category_id: item.category_id || '',
           description: item.description || '',
           amount: item.amount || 0,
+          currency: item.currency || 'CLP', // Default to CLP for existing reports
+          original_amount: item.original_amount || item.amount || 0, // Use amount as fallback
+          conversion_rate: item.conversion_rate || 1.0,
           expense_date: item.expense_date || '',
           vendor: item.vendor || '',
           notes: item.notes || '',
@@ -532,11 +535,11 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                       <input
                         type="number"
                         min="0"
-                        step={item.currency === 'CLP' ? '1' : '0.01'}
-                        value={item.currency === 'CLP' ? (item.amount || '') : (item.original_amount || '')}
+                        step={(item.currency === 'CLP' || !item.currency) ? '1' : '0.01'}
+                        value={(item.currency === 'CLP' || !item.currency) ? (item.amount || '') : (item.original_amount || '')}
                         onChange={(e) => {
                           const value = parseFloat(e.target.value) || 0;
-                          if (item.currency === 'CLP') {
+                          if (item.currency === 'CLP' || !item.currency) {
                             updateExpenseItem(index, 'amount', value);
                           } else {
                             updateExpenseItem(index, 'amount', value);

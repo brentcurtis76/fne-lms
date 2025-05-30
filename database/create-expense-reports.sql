@@ -108,17 +108,9 @@ CREATE POLICY "expense_items_own_reports" ON expense_items
     )
   );
 
--- Create storage bucket policies for boletas
-CREATE POLICY "boletas_authenticated_all" ON storage.objects
-FOR ALL 
-USING (
-    bucket_id = 'boletas' 
-    AND auth.role() = 'authenticated'
-)
-WITH CHECK (
-    bucket_id = 'boletas' 
-    AND auth.role() = 'authenticated'
-);
+-- Note: Storage bucket policies for boletas are now managed separately
+-- Run scripts/apply-boletas-policies.js to configure proper RLS policies
+-- for admin-only access to receipt uploads
 
 -- Add comments for documentation
 COMMENT ON TABLE expense_categories IS 'Categories for organizing expense items';

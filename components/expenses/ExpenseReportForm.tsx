@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, Trash2, Save, Calendar, DollarSign, Upload, X } from 'lucide-react';
+import { Plus, Trash2, Save, Calendar, DollarSign, Upload, X, Eye, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 interface ExpenseCategory {
@@ -120,16 +120,23 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      // Get signed URL for private bucket (valid for 1 year)
+      const { data: urlData, error: urlError } = await supabase.storage
         .from('boletas')
-        .getPublicUrl(fileName);
+        .createSignedUrl(fileName, 365 * 24 * 60 * 60); // 1 year
 
-      // Update the expense item
-      updateExpenseItem(index, 'receipt_url', publicUrl);
+      if (urlError) {
+        console.warn('Error creating signed URL, using basic path:', urlError);
+        // Fallback: store the file path for later URL generation
+        updateExpenseItem(index, 'receipt_url', `boletas/${fileName}`);
+      } else {
+        // Store the signed URL
+        updateExpenseItem(index, 'receipt_url', urlData.signedUrl);
+      }
+      
       updateExpenseItem(index, 'receipt_filename', file.name);
       
-      toast.success(`Boleta subida: ${file.name}`);
+      toast.success(`✅ Boleta subida exitosamente: ${file.name}`);
       
     } catch (error) {
       console.error('Error uploading receipt:', error);
@@ -140,6 +147,37 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
         newSet.delete(index);
         return newSet;
       });
+    }
+  };
+
+  const handleReceiptDelete = async (index: number) => {
+    const item = expenseItems[index];
+    if (!item.receipt_url) return;
+
+    try {
+      // Extract file name from URL to delete from storage
+      const urlParts = item.receipt_url.split('/');
+      const fileName = urlParts[urlParts.length - 1];
+      
+      // Delete from Supabase Storage
+      const { error: deleteError } = await supabase.storage
+        .from('boletas')
+        .remove([fileName]);
+
+      if (deleteError) {
+        console.warn('Error deleting file from storage:', deleteError);
+        // Continue anyway - might be already deleted or not exist
+      }
+
+      // Clear the receipt from the form
+      updateExpenseItem(index, 'receipt_url', '');
+      updateExpenseItem(index, 'receipt_filename', '');
+      
+      toast.success('Boleta eliminada');
+      
+    } catch (error) {
+      console.error('Error deleting receipt:', error);
+      toast.error('Error al eliminar la boleta');
     }
   };
 
@@ -456,52 +494,68 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                       Boleta/Recibo
                     </label>
                     {item.receipt_url ? (
-                      <div className="flex items-center space-x-2">
-                        <span className="text-xs text-green-600 truncate" title={item.receipt_filename}>
-                          {item.receipt_filename}
-                        </span>
-                        <a 
-                          href={item.receipt_url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800"
-                          title="Ver boleta"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-                            <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
-                          </svg>
-                        </a>
-                        <button
-                          onClick={() => {
-                            updateExpenseItem(index, 'receipt_url', '');
-                            updateExpenseItem(index, 'receipt_filename', '');
-                          }}
-                          className="text-red-600 hover:text-red-800"
-                          title="Eliminar boleta"
-                        >
-                          <X size={14} />
-                        </button>
+                      <div className="space-y-2">
+                        {/* Receipt uploaded indicator */}
+                        <div className="flex items-center p-2 bg-green-50 border border-green-200 rounded-lg">
+                          <FileText size={16} className="text-green-600 mr-2" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-green-800 truncate" title={item.receipt_filename}>
+                              ✅ {item.receipt_filename}
+                            </p>
+                            <p className="text-xs text-green-600">Boleta subida correctamente</p>
+                          </div>
+                        </div>
+                        
+                        {/* Action buttons */}
+                        <div className="flex gap-2">
+                          <a 
+                            href={item.receipt_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="flex items-center px-3 py-1.5 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 transition-colors"
+                            title="Ver boleta"
+                          >
+                            <Eye size={12} className="mr-1" />
+                            Ver
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleReceiptDelete(index)}
+                            className="flex items-center px-3 py-1.5 text-xs bg-red-50 text-red-700 border border-red-200 rounded hover:bg-red-100 transition-colors"
+                            title="Eliminar boleta"
+                          >
+                            <Trash2 size={12} className="mr-1" />
+                            Eliminar
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <label className="cursor-pointer">
                         <input
                           type="file"
-                          accept=".pdf,.jpg,.jpeg,.png"
+                          accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) handleReceiptUpload(index, file);
                           }}
                           className="hidden"
                         />
-                        <div className="flex items-center justify-center w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm bg-gray-50 hover:bg-gray-100 transition-colors">
+                        <div className="flex items-center justify-center w-full p-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-brand_blue hover:bg-blue-50 transition-colors">
                           {uploadingReceipts.has(index) ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand_blue"></div>
+                            <div className="flex items-center text-sm text-brand_blue">
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand_blue mr-2"></div>
+                              Subiendo...
+                            </div>
                           ) : (
-                            <>
-                              <Upload size={14} className="mr-1" />
-                              Subir
-                            </>
+                            <div className="text-center">
+                              <Upload size={20} className="mx-auto text-gray-400 mb-1" />
+                              <p className="text-xs text-gray-600">
+                                <span className="font-medium text-brand_blue">Subir boleta</span>
+                              </p>
+                              <p className="text-xs text-gray-400 mt-1">
+                                PDF, JPG, PNG (máx. 50MB)
+                              </p>
+                            </div>
                           )}
                         </div>
                       </label>

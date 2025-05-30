@@ -69,7 +69,7 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
   const [annexForm, setAnnexForm] = useState({
     anexo_fecha: new Date().toISOString().split('T')[0],
     numero_participantes: 1,
-    nombre_ciclo: 'Primer Ciclo' as 'Primer Ciclo' | 'Segundo Ciclo' | 'Tercer Ciclo',
+    nombre_ciclo: 'Primer Ciclo' as 'Primer Ciclo' | 'Segundo Ciclo' | 'Tercer Ciclo' | 'Equipo Directivo',
     precio_total_uf: 0,
     tipo_moneda: 'UF' as 'UF' | 'CLP',
   });
@@ -334,7 +334,8 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
   const cycleOptions = [
     'Primer Ciclo',
     'Segundo Ciclo', 
-    'Tercer Ciclo'
+    'Tercer Ciclo',
+    'Equipo Directivo'
   ] as const;
 
   return (

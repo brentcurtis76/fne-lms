@@ -53,7 +53,7 @@ interface Contrato {
   anexo_numero?: number;
   anexo_fecha?: string;
   numero_participantes?: number;
-  nombre_ciclo?: 'Primer Ciclo' | 'Segundo Ciclo' | 'Tercer Ciclo';
+  nombre_ciclo?: 'Primer Ciclo' | 'Segundo Ciclo' | 'Tercer Ciclo' | 'Equipo Directivo';
   clientes: Cliente;
   programas: Programa;
   cuotas?: Cuota[];

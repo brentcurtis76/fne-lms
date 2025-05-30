@@ -18,7 +18,7 @@ ALTER TABLE contratos
 ADD COLUMN numero_participantes INTEGER;
 
 ALTER TABLE contratos 
-ADD COLUMN nombre_ciclo VARCHAR(50) CHECK (nombre_ciclo IN ('Primer Ciclo', 'Segundo Ciclo', 'Tercer Ciclo'));
+ADD COLUMN nombre_ciclo VARCHAR(50) CHECK (nombre_ciclo IN ('Primer Ciclo', 'Segundo Ciclo', 'Tercer Ciclo', 'Equipo Directivo'));
 
 -- Add index for efficient parent contract queries
 CREATE INDEX idx_contratos_parent_id ON contratos(parent_contrato_id);

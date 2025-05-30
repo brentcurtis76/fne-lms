@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import Header from '../components/layout/Header';
 import { ArrowLeft, FileText, Plus, Calendar, DollarSign, Users, Eye, Download, Trash2, CheckSquare, Square, Upload, TrendingUp, Edit } from 'lucide-react';
 import ContractForm from '../components/contracts/ContractForm';
+import AnnexForm from '../components/contracts/AnnexForm';
 import CashFlowView from '../components/contracts/CashFlowView';
 import ContractDetailsModal from '../components/contracts/ContractDetailsModal';
 
@@ -47,9 +48,16 @@ interface Contrato {
   estado?: 'pendiente' | 'activo';
   incluir_en_flujo?: boolean;
   contrato_url?: string;
+  is_anexo?: boolean;
+  parent_contrato_id?: string;
+  anexo_numero?: number;
+  anexo_fecha?: string;
+  numero_participantes?: number;
+  nombre_ciclo?: 'Primer Ciclo' | 'Segundo Ciclo' | 'Tercer Ciclo';
   clientes: Cliente;
   programas: Programa;
   cuotas?: Cuota[];
+  parent_contract?: Contrato; // For displaying parent contract info
 }
 
 interface Cuota {
@@ -77,7 +85,7 @@ export default function ContractsPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   
   // View states
-  const [activeTab, setActiveTab] = useState<'lista' | 'nuevo' | 'editar' | 'flujo'>('lista');
+  const [activeTab, setActiveTab] = useState<'lista' | 'nuevo' | 'editar' | 'flujo' | 'nuevo-anexo'>('lista');
   const [selectedContrato, setSelectedContrato] = useState<Contrato | null>(null);
   const [editingContrato, setEditingContrato] = useState<Contrato | null>(null);
   const [deleteModalContrato, setDeleteModalContrato] = useState<Contrato | null>(null);
@@ -510,6 +518,13 @@ export default function ContractsPage() {
                     Nuevo Contrato
                   </button>
                   <button
+                    onClick={() => setActiveTab('nuevo-anexo')}
+                    className="px-4 py-2 rounded-lg font-medium transition-colors flex items-center bg-white text-brand_blue border border-brand_blue hover:bg-brand_blue hover:text-white"
+                  >
+                    <FileText className="mr-2" size={16} />
+                    Nuevo Anexo
+                  </button>
+                  <button
                     onClick={() => setActiveTab('flujo')}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center ${
                       activeTab === 'flujo' 
@@ -525,7 +540,7 @@ export default function ContractsPage() {
             )}
 
             {/* Form Header for nuevo/editar modes */}
-            {(activeTab === 'nuevo' || activeTab === 'editar') && (
+            {(activeTab === 'nuevo' || activeTab === 'editar' || activeTab === 'nuevo-anexo') && (
               <div className="mb-8">
                 <div className="flex items-center space-x-4 mb-6">
                   <button
@@ -538,7 +553,8 @@ export default function ContractsPage() {
                   <div className="h-6 w-px bg-gray-300"></div>
                   <h1 className="text-3xl font-bold text-brand_blue flex items-center">
                     <FileText className="mr-3" size={32} />
-                    {activeTab === 'nuevo' ? 'Crear Nuevo Contrato' : 'Editar Contrato'}
+                    {activeTab === 'nuevo' ? 'Crear Nuevo Contrato' : 
+                     activeTab === 'nuevo-anexo' ? 'Crear Nuevo Anexo' : 'Editar Contrato'}
                   </h1>
                 </div>
               </div>
@@ -692,6 +708,17 @@ export default function ContractsPage() {
                   setActiveTab('lista');
                   setEditingContrato(null);
                 }}
+              />
+            )}
+
+            {activeTab === 'nuevo-anexo' && (
+              <AnnexForm
+                clientes={clientes}
+                onSuccess={() => {
+                  setActiveTab('lista');
+                  loadContratos();
+                }}
+                onCancel={() => setActiveTab('lista')}
               />
             )}
 

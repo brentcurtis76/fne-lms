@@ -14,8 +14,7 @@ Contrato {{CONTRATO_NUMERO}}
 
 
 
-En Santiago de Chile, a {{FECHA_CONTRATO}}, entre {{CLIENTE_NOMBRE_LEGAL}}  Rol Único Tributario número {{CLIENTE_RUT}}, representada por {{CLIENTE_REPRESENTANTE}}, cédula nacional de identidad número 11.707.894-9, todos con domicilio para estos efectos en {{CLIENTE_DIRECCION}}, comuna de {{CLIENTE_COMUNA}}, ciudad de {{CLIENTE_CIUDAD}}
-, en adelante e indistintamente como “{{CLIENTE_NOMBRE_FANTASIA}}  ” por una parte, y por la otra parte, FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN), Rol Único Tributario número 65.166.503-5, representada por don Arnoldo Cisternas Chávez, cédula nacional de identidad número 10.740.623-9, ambos domiciliados para estos efectos calle Carlos Silva Vildósola N° 10448, comuna de La Reina, en adelante indistintamente como “FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN)”; se ha convenido el siguiente contrato de prestación de servicios:
+En Santiago de Chile, a {{FECHA_CONTRATO}}, entre {{CLIENTE_NOMBRE_LEGAL}}  Rol Único Tributario número {{CLIENTE_RUT}}, representada por {{CLIENTE_REPRESENTANTE}}, cédula nacional de identidad número 11.707.894-9, todos con domicilio para estos efectos en {{CLIENTE_DIRECCION}}, comuna de {{CLIENTE_COMUNA}}, ciudad de {{CLIENTE_CIUDAD}}, en adelante e indistintamente como “{{CLIENTE_NOMBRE_FANTASIA}}  ” por una parte, y por la otra parte, FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN), Rol Único Tributario número 65.166.503-5, representada por don Arnoldo Cisternas Chávez, cédula nacional de identidad número 10.740.623-9, ambos domiciliados para estos efectos calle Carlos Silva Vildósola N° 10448, comuna de La Reina, en adelante indistintamente como “FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN)”; se ha convenido el siguiente contrato de prestación de servicios:
 
 PRIMERO: Antecedentes.
 

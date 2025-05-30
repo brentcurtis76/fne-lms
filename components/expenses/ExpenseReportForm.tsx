@@ -586,7 +586,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       📄 Boleta/Recibo
                     </label>
-                    {item.receipt_url ? (
+                    {(item.receipt_url || item.receipt_filename) ? (
                       <div className="space-y-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                         {/* Receipt uploaded indicator */}
                         <div className="flex items-center">
@@ -601,16 +601,52 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                         
                         {/* Action buttons */}
                         <div className="flex gap-2">
-                          <a 
-                            href={item.receipt_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                let url = '';
+                                if (item.receipt_url) {
+                                  url = item.receipt_url;
+                                } else if (item.receipt_filename) {
+                                  // Try to find the file in storage and generate URL
+                                  const { data: files, error: listError } = await supabase.storage
+                                    .from('boletas')
+                                    .list('', { limit: 50 });
+                                    
+                                  if (!listError && files) {
+                                    const receiptFile = files.find(file => 
+                                      file.name.includes('receipt_') && file.name.endsWith('.pdf')
+                                    ) || files[0];
+                                    
+                                    if (receiptFile) {
+                                      const { data: urlData, error: urlError } = await supabase.storage
+                                        .from('boletas')
+                                        .createSignedUrl(receiptFile.name, 3600);
+                                        
+                                      if (!urlError && urlData.signedUrl) {
+                                        url = urlData.signedUrl;
+                                      }
+                                    }
+                                  }
+                                }
+                                
+                                if (url) {
+                                  window.open(url, '_blank');
+                                } else {
+                                  toast.error('No se pudo abrir la boleta');
+                                }
+                              } catch (error) {
+                                console.error('Error opening receipt:', error);
+                                toast.error('Error al abrir la boleta');
+                              }
+                            }}
                             className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white border border-blue-600 rounded-lg hover:bg-blue-700 transition-colors font-medium"
                             title="Ver boleta"
                           >
                             <Eye size={14} className="mr-2" />
                             Ver Boleta
-                          </a>
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleReceiptDelete(index)}

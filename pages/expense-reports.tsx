@@ -92,6 +92,12 @@ export default function ExpenseReportsPage() {
         if (profile) {
           setIsAdmin(profile.role === 'admin');
           setAvatarUrl(profile.avatar_url || '');
+          
+          // Redirect non-admins away from expense reports
+          if (profile.role !== 'admin') {
+            router.push('/dashboard');
+            return;
+          }
         }
 
         await Promise.all([
@@ -153,6 +159,11 @@ export default function ExpenseReportsPage() {
     localStorage.removeItem('rememberMe');
     sessionStorage.removeItem('sessionOnly');
     router.push('/login');
+  };
+
+  // Check if current user is the designated approver
+  const isDesignatedApprover = () => {
+    return currentUser?.email === 'gnaranjo@nuevaeducacion.org';
   };
 
   const formatCurrency = (amount: number) => {
@@ -225,11 +236,18 @@ export default function ExpenseReportsPage() {
 
   const handleApproveReport = async (reportId: string) => {
     try {
+      // Get the designated approver's ID
+      const { data: approverProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', 'gnaranjo@nuevaeducacion.org')
+        .single();
+
       const { error } = await supabase
         .from('expense_reports')
         .update({ 
           status: 'approved',
-          reviewed_by: currentUser.id,
+          reviewed_by: approverProfile?.id || currentUser.id,
           reviewed_at: new Date().toISOString()
         })
         .eq('id', reportId);
@@ -249,11 +267,18 @@ export default function ExpenseReportsPage() {
     const comments = prompt('Comentarios de rechazo (opcional):');
     
     try {
+      // Get the designated approver's ID
+      const { data: approverProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', 'gnaranjo@nuevaeducacion.org')
+        .single();
+
       const { error } = await supabase
         .from('expense_reports')
         .update({ 
           status: 'rejected',
-          reviewed_by: currentUser.id,
+          reviewed_by: approverProfile?.id || currentUser.id,
           reviewed_at: new Date().toISOString(),
           review_comments: comments || undefined
         })
@@ -443,7 +468,7 @@ export default function ExpenseReportsPage() {
                                   </>
                                 )}
 
-                                {isAdmin && report.status === 'submitted' && (
+                                {isDesignatedApprover() && report.status === 'submitted' && (
                                   <>
                                     <button
                                       onClick={() => handleApproveReport(report.id)}

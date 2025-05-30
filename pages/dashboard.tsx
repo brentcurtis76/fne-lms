@@ -386,6 +386,14 @@ export default function Dashboard() {
                     </Link>
 
                     <Link
+                      href="/expense-reports"
+                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
+                    >
+                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Rendición de Gastos</h3>
+                      <p className="text-sm text-gray-600">Crear y gestionar reportes de gastos</p>
+                    </Link>
+
+                    <Link
                       href="#todos-cursos"
                       className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
                       onClick={(e) => {

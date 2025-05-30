@@ -67,6 +67,7 @@ p.p Representante Legal FUNDACIÓN NUEVA EDUCACIÓN
 
 // Function to replace placeholders with actual data for annexes
 export function generateAnnexFromTemplate(annexData: any): string {
+  console.log('🏗️ Using ANNEX_TEMPLATE, starts with:', ANNEX_TEMPLATE.substring(0, 100));
   let contract = ANNEX_TEMPLATE;
   
   // Date formatting

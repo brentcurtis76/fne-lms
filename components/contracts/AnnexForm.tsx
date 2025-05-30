@@ -287,7 +287,9 @@ export default function AnnexForm({ clientes, onSuccess, onCancel }: AnnexFormPr
         }
       };
 
+      console.log('🔍 Generating annex with data:', annexData);
       const contractHTML = generateAnnexFromTemplate(annexData);
+      console.log('📄 Generated HTML starts with:', contractHTML.substring(0, 100));
       
       const pdf = new jsPDF();
       pdf.html(contractHTML, {

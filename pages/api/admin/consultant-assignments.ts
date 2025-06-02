@@ -105,13 +105,13 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Get user details for consultants and students
-    const consultantIds = [...new Set(assignments.map(a => a.consultant_id))];
-    const studentIds = [...new Set(assignments.map(a => a.student_id))];
+    const consultantIds = Array.from(new Set(assignments.map(a => a.consultant_id)));
+    const studentIds = Array.from(new Set(assignments.map(a => a.student_id)));
 
     const { data: users } = await supabase
       .from('profiles')
       .select('id, first_name, last_name, email')
-      .in('id', [...consultantIds, ...studentIds]);
+      .in('id', consultantIds.concat(studentIds));
 
     // Enrich assignments with user data
     const enrichedAssignments = assignments.map(assignment => {

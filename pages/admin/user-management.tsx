@@ -6,6 +6,7 @@ import Header from '../../components/layout/Header';
 import { Trash2, Plus, X, AlertTriangle, CheckCircle, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import RoleAssignmentModal from '../../components/RoleAssignmentModal';
+import ConsultantAssignmentModal from '../../components/ConsultantAssignmentModal';
 import { getUserRoles } from '../../utils/roleUtils';
 import { ROLE_NAMES } from '../../types/roles';
 
@@ -19,6 +20,8 @@ type User = {
   created_at: string;
   approval_status: string;
   user_roles?: any[];
+  consultant_assignments?: any[];
+  student_assignments?: any[];
 };
 
 export default function UserManagement() {
@@ -59,6 +62,21 @@ export default function UserManagement() {
     // Refresh users list after role update
     fetchUsers();
   };
+
+  const handleOpenConsultantModal = (user: User) => {
+    setSelectedUserForAssignment(user);
+    setShowConsultantModal(true);
+  };
+  
+  const handleCloseConsultantModal = () => {
+    setShowConsultantModal(false);
+    setSelectedUserForAssignment(null);
+  };
+  
+  const handleConsultantAssignmentCreated = () => {
+    // Refresh users list after assignment update
+    fetchUsers();
+  };
   const [isCreating, setIsCreating] = useState(false);
   
   // Delete confirmation modal state
@@ -68,6 +86,10 @@ export default function UserManagement() {
   // Role assignment modal state
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<{id: string, name: string, email: string} | null>(null);
+  
+  // Consultant assignment modal state
+  const [showConsultantModal, setShowConsultantModal] = useState(false);
+  const [selectedUserForAssignment, setSelectedUserForAssignment] = useState<User | null>(null);
   
   // Approval functions
   const handleApproveUser = async (userId: string) => {
@@ -682,6 +704,9 @@ export default function UserManagement() {
                   <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Estado</th>
                   <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Rol</th>
                   {activeTab !== 'pending' && (
+                    <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Asignaciones</th>
+                  )}
+                  {activeTab !== 'pending' && (
                     <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Cambiar Rol</th>
                   )}
                   <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Acciones</th>
@@ -749,6 +774,75 @@ export default function UserManagement() {
                     </td>
                     {activeTab !== 'pending' && (
                       <td className="px-4 py-3">
+                        <div className="flex flex-col space-y-1">
+                          {/* Show consultant assignments (as consultant) */}
+                          {user.consultant_assignments && user.consultant_assignments.length > 0 && (
+                            <div className="text-xs">
+                              <span className="text-gray-600">Como consultor:</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {user.consultant_assignments.slice(0, 2).map((assignment: any, index: number) => (
+                                  <span 
+                                    key={index}
+                                    className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs"
+                                    title={`${assignment.assignment_type} - ${assignment.student?.first_name} ${assignment.student?.last_name}`}
+                                  >
+                                    {assignment.assignment_type}
+                                  </span>
+                                ))}
+                                {user.consultant_assignments.length > 2 && (
+                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                                    +{user.consultant_assignments.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Show student assignments (as student) */}
+                          {user.student_assignments && user.student_assignments.length > 0 && (
+                            <div className="text-xs">
+                              <span className="text-gray-600">Como estudiante:</span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {user.student_assignments.slice(0, 2).map((assignment: any, index: number) => (
+                                  <span 
+                                    key={index}
+                                    className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
+                                    title={`${assignment.assignment_type} - ${assignment.consultant?.first_name} ${assignment.consultant?.last_name}`}
+                                  >
+                                    {assignment.assignment_type}
+                                  </span>
+                                ))}
+                                {user.student_assignments.length > 2 && (
+                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
+                                    +{user.student_assignments.length - 2}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Show assign button for docentes */}
+                          {(user.role === 'docente' || user.role === 'teacher') && (
+                            <button
+                              onClick={() => handleOpenConsultantModal(user)}
+                              className="flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs hover:bg-blue-200 transition-colors"
+                              title="Asignar consultor"
+                            >
+                              <Plus size={12} className="mr-1" />
+                              Asignar
+                            </button>
+                          )}
+                          
+                          {/* Show no assignments message */}
+                          {(!user.consultant_assignments || user.consultant_assignments.length === 0) && 
+                           (!user.student_assignments || user.student_assignments.length === 0) && (
+                            <span className="text-xs text-gray-500">Sin asignaciones</span>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                    {activeTab !== 'pending' && (
+                      <td className="px-4 py-3">
                         <button
                           onClick={() => handleOpenRoleModal(user)}
                           className="flex items-center px-3 py-1 bg-[#fdb933] text-white rounded text-sm hover:bg-[#e6a530] transition-colors"
@@ -813,6 +907,24 @@ export default function UserManagement() {
           userEmail={selectedUser.email}
           currentUserId={currentUser?.id || ''}
           onRoleUpdate={handleRoleUpdate}
+        />
+      )}
+
+      {/* Consultant Assignment Modal */}
+      {showConsultantModal && selectedUserForAssignment && (
+        <ConsultantAssignmentModal
+          isOpen={showConsultantModal}
+          onClose={handleCloseConsultantModal}
+          onAssignmentCreated={handleConsultantAssignmentCreated}
+          editingAssignment={{
+            student_id: selectedUserForAssignment.id,
+            student: {
+              id: selectedUserForAssignment.id,
+              first_name: selectedUserForAssignment.first_name,
+              last_name: selectedUserForAssignment.last_name,
+              email: selectedUserForAssignment.email
+            }
+          }}
         />
       )}
 

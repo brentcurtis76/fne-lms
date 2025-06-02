@@ -197,6 +197,23 @@ export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarU
                     </Link>
                   </>
                 )}
+                
+                {/* Reports link for all authenticated users (role filtering happens on the page) */}
+                <Link href="/reports" legacyBehavior>
+                  <a className={`relative px-6 py-3 text-sm font-medium transition-all duration-300 group ${
+                    isActive('/reports') 
+                      ? 'text-[#00365b]' 
+                      : 'text-[#fdb933]/90 hover:text-[#fdb933]'
+                  }`}>
+                    <span className="relative z-10">Reportes</span>
+                    {isActive('/reports') && (
+                      <div className="absolute inset-0 bg-[#fdb933] rounded-lg shadow-lg transform scale-105"></div>
+                    )}
+                    {!isActive('/reports') && (
+                      <div className="absolute inset-0 bg-[#fdb933]/20 rounded-lg opacity-0 group-hover:opacity-100 transform scale-95 group-hover:scale-100 transition-all duration-300"></div>
+                    )}
+                  </a>
+                </Link>
               </>
             )}
             </nav>

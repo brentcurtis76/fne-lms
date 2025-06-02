@@ -394,6 +394,14 @@ export default function Dashboard() {
                     </Link>
 
                     <Link
+                      href="/reports"
+                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
+                    >
+                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Reportes</h3>
+                      <p className="text-sm text-gray-600">Dashboard de progress y analytics</p>
+                    </Link>
+
+                    <Link
                       href="#todos-cursos"
                       className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
                       onClick={(e) => {
@@ -405,6 +413,19 @@ export default function Dashboard() {
                       <p className="text-sm text-gray-600">Ver todos los cursos ({allCourses.length})</p>
                     </Link>
                   </>
+                )}
+
+                {/* Leadership and Consultant reporting access */}
+                {!isAdmin && userRoles.some(role => 
+                  ['consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'].includes(role.role_type)
+                ) && (
+                  <Link
+                    href="/reports"
+                    className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
+                  >
+                    <h3 className="text-lg font-semibold mb-2 text-brand_blue">Reportes</h3>
+                    <p className="text-sm text-gray-600">Dashboard de progreso y analytics</p>
+                  </Link>
                 )}
 
                 {/* Teacher-specific actions */}

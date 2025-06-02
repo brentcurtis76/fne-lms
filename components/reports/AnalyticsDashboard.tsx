@@ -163,7 +163,7 @@ export default function AnalyticsDashboard({ userId, userRole, isAdmin, filters 
 
       // Check cache first
       const cacheKey = url.toString();
-      const cachedData = apiCache.get(cacheKey);
+      const cachedData = apiCache.get<AnalyticsData>(cacheKey);
       
       if (cachedData) {
         setAnalyticsData(cachedData);

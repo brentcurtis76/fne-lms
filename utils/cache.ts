@@ -58,12 +58,16 @@ class SimpleCache {
   // Clean up expired items
   cleanup(): void {
     const now = Date.now();
-    for (const [key, item] of this.cache.entries()) {
+    const keysToDelete: string[] = [];
+    
+    this.cache.forEach((item, key) => {
       const isExpired = (now - item.timestamp) > item.ttl;
       if (isExpired) {
-        this.cache.delete(key);
+        keysToDelete.push(key);
       }
-    }
+    });
+    
+    keysToDelete.forEach(key => this.cache.delete(key));
   }
 }
 

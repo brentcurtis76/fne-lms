@@ -14,13 +14,18 @@ We are working on TWO parallel systems:
 
 ### Technical Stack
 - **Location**: `~/Documents/fne-lms-v2`
-- **Technology**: Next.js 14.2.28 + Supabase
+- **Technology**: Next.js 14.2.28 + Supabase + Recharts (Analytics)
 - **Port**: 3000 (CRITICAL - Required for Supabase integration)
 - **Key Files**:
   - Supabase client: `/lib/supabase.ts`
   - Types: `/types/supabase.ts`, `/types/blocks.ts`
   - Lesson editor: `/pages/admin/course-builder/[courseId]/[moduleId]/[lessonId].tsx`
   - Block editors: `/components/blocks/*`
+  - **Analytics dashboard**: `/pages/reports.tsx` (Analytics tab)
+  - **Analytics API**: `/pages/api/reports/analytics-data.ts`
+  - **Chart visualization**: `/components/reports/AnalyticsVisualization.tsx`
+  - **Export utilities**: `/lib/exportUtils.ts`, `/lib/chartExport.ts`
+  - **Insight generation**: `/utils/insightGenerator.ts`
 
 ### Supabase Configuration
 - **Project URL**: `https://sxlogxqzmarhqsblxmtj.supabase.co`
@@ -45,6 +50,15 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhY
 - ✅ **Production-ready lesson editor** (all TypeScript errors fixed)
 
 ### Recent Session Updates (June 2025)
+- ✅ **COMPREHENSIVE VISUAL ANALYTICS DASHBOARD** - Implemented complete analytics visualization system with interactive charts, KPIs, and real-time insights
+  - **Interactive Charts**: Progress trends (LineChart), completion rates by organization (BarChart), performance distribution (BarChart), time spent trends (AreaChart), quiz performance analytics (ScatterChart)
+  - **Real-Time KPIs**: 3 key performance indicators with trend arrows - Active Users, Completion Rate, Total Time (removed fake certificates)
+  - **Automatic Insights**: Rule-based insight generation analyzing performance, trends, engagement, and organizational data with priority scoring
+  - **Advanced Filtering**: Multi-level filtering by schools, generations, and communities with role-based access control
+  - **Export Capabilities**: CSV, Excel, and PDF export functionality with FNE branding and comprehensive metadata
+  - **Real Data Integration**: Connected to actual Supabase lesson_progress table replacing mock data with live analytics
+  - **Responsive Design**: Mobile-optimized interface with FNE brand colors and professional UI patterns
+  - **Database Schema Alignment**: Updated API to use correct table names (lesson_progress vs user_progress) and handle non-existent tables
 - ✅ **Expense Number Field** - Added expense/invoice/receipt number field to expense reports for better tracking and auditing
 - ✅ **React Hooks Error Fix** - Fixed "Rendered more hooks than during the previous render" error by moving useEffect before early return in ContractDetailsModal
 - ✅ **Modal UX Improvements** - Added click-outside and Escape key functionality to close contract details modal

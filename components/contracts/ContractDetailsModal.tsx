@@ -89,6 +89,26 @@ export default function ContractDetailsModal({
   const [uploadingContract, setUploadingContract] = useState(false);
   const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
 
+  // Handle Escape key to close modal - MUST be before early return
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscapeKey);
+      // Prevent body scroll when modal is open
+      document.body.style.overflow = 'hidden';
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscapeKey);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const formatDate = (dateString: string) => {
@@ -145,26 +165,6 @@ export default function ContractDetailsModal({
       onClose();
     }
   };
-
-  // Handle Escape key to close modal
-  useEffect(() => {
-    const handleEscapeKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleEscapeKey);
-      // Prevent body scroll when modal is open
-      document.body.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscapeKey);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, onClose]);
 
   return (
     <div 

@@ -44,7 +44,16 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhY
 - ✅ **Professional Timeline Sidebar** (block navigation, no DnD conflicts)
 - ✅ **Production-ready lesson editor** (all TypeScript errors fixed)
 
-### Recent Session Updates (January 2025)
+### Recent Session Updates (June 2025)
+- ✅ **React Hooks Error Fix** - Fixed "Rendered more hooks than during the previous render" error by moving useEffect before early return in ContractDetailsModal
+- ✅ **Modal UX Improvements** - Added click-outside and Escape key functionality to close contract details modal
+- ✅ **Cash Flow Expansion** - Implemented expandable view for overdue installments showing all 9 instead of just 5 with "Ver todas"/"Ver menos" toggle
+- ✅ **Administrative Contact Fields** - Added administrative contact fields (name, phone, email) for billing/invoice management
+- ✅ **Project Manager Contact Fields** - Added project manager contact fields (name, phone, email) for project tracking
+- ✅ **User Management Multi-Role Fix** - Fixed display issues for users with multiple roles and assignments
+- ✅ **Database Migrations** - Created migration scripts for new contact fields ready for Supabase execution
+
+### Previous Session Updates (January 2025)
 - ✅ **Block System Standardization** - Centralized block configuration system in `/config/blockTypes.ts` with consistent naming, removed icons throughout interface
 - ✅ **Header Modernization** - Implemented floating button navigation with Option 3 (individual floating button effects with scale/opacity transitions)
 - ✅ **Dashboard Course Management** - Distinguished between admin-created courses ("Mis Cursos") and all courses with light blue/yellow color scheme

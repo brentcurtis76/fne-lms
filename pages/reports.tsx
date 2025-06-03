@@ -2,6 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import Header from '../components/layout/Header';
+import UserDetailModal from '../components/reports/UserDetailModal';
+import ExportDropdown from '../components/reports/ExportDropdown';
+import EnhancedTable from '../components/reports/EnhancedTable';
+import StatusBadge from '../components/reports/StatusBadge';
+import ConsultantIndicator from '../components/reports/ConsultantIndicator';
+import AnalyticsVisualization from '../components/reports/AnalyticsVisualization';
+import AdvancedFilters from '../components/reports/AdvancedFilters';
 import { supabase } from '../lib/supabase';
 
 interface User {
@@ -18,6 +25,12 @@ interface User {
   completed_courses?: number;
   completion_rate?: number;
   total_time_spent?: number;
+  consultant_info?: {
+    has_consultant: boolean;
+    consultant_name?: string;
+    assignment_type?: string;
+    is_active?: boolean;
+  };
 }
 
 interface OverviewData {
@@ -98,8 +111,14 @@ const ReportsPage: React.FC = () => {
   
   // Filter state
   const [dateRange, setDateRange] = useState('30');
+  const [groupBy, setGroupBy] = useState('week');
   const [selectedSchool, setSelectedSchool] = useState('');
   const [selectedGeneration, setSelectedGeneration] = useState('');
+  const [selectedCommunity, setSelectedCommunity] = useState('');
+  
+  // Modal state
+  const [userDetailModalOpen, setUserDetailModalOpen] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     initializeAuth();
@@ -109,7 +128,7 @@ const ReportsPage: React.FC = () => {
     if (user && userRole) {
       fetchReportingData();
     }
-  }, [user, userRole, activeTab, dateRange, selectedSchool, selectedGeneration]);
+  }, [user, userRole, activeTab, dateRange, groupBy, selectedSchool, selectedGeneration, selectedCommunity]);
 
   const initializeAuth = async () => {
     try {
@@ -238,6 +257,22 @@ const ReportsPage: React.FC = () => {
     return 'text-red-600 bg-red-100';
   };
 
+  const handleUserClick = (userId: string) => {
+    setSelectedUserId(userId);
+    setUserDetailModalOpen(true);
+  };
+
+  const handleFiltersChange = (filters: any) => {
+    setSelectedSchool(filters.school_id === 'all' ? '' : filters.school_id);
+    setSelectedGeneration(filters.generation_id === 'all' ? '' : filters.generation_id);
+    setSelectedCommunity(filters.community_id === 'all' ? '' : filters.community_id);
+  };
+
+  const handleCloseUserModal = () => {
+    setUserDetailModalOpen(false);
+    setSelectedUserId(null);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#e8e5e2] flex justify-center items-center">
@@ -284,6 +319,7 @@ const ReportsPage: React.FC = () => {
             <nav className="-mb-px flex space-x-8">
               {[
                 { id: 'overview', label: 'Resumen General', icon: '📊' },
+                { id: 'analytics', label: 'Analytics', icon: '📈' },
                 { id: 'community', label: 'Comunidades', icon: '👥' },
                 { id: 'school', label: 'Escuelas', icon: '🏫' },
                 { id: 'courses', label: 'Cursos', icon: '📚' }
@@ -343,60 +379,194 @@ const ReportsPage: React.FC = () => {
 
               {/* User Progress Table */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Progreso de Usuarios</h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left p-4 font-medium text-gray-700">Usuario</th>
-                        <th className="text-left p-4 font-medium text-gray-700">Rol</th>
-                        <th className="text-left p-4 font-medium text-gray-700">Cursos</th>
-                        <th className="text-left p-4 font-medium text-gray-700">Completados</th>
-                        <th className="text-left p-4 font-medium text-gray-700">Tasa</th>
-                        <th className="text-left p-4 font-medium text-gray-700">Tiempo</th>
-                        <th className="text-left p-4 font-medium text-gray-700">Última Actividad</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {overviewData.users.map((user) => (
-                        <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
-                          <td className="p-4">
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {user.first_name} {user.last_name}
-                              </div>
-                              <div className="text-sm text-gray-500">{user.email}</div>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs font-medium">
-                              {user.role}
-                            </span>
-                          </td>
-                          <td className="p-4">{user.total_courses || 0}</td>
-                          <td className="p-4">{user.completed_courses || 0}</td>
-                          <td className="p-4">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(user.completion_rate || 0)}`}>
-                              {formatPercentage(user.completion_rate || 0)}
-                            </span>
-                          </td>
-                          <td className="p-4">{formatTime(user.total_time_spent || 0)}</td>
-                          <td className="p-4 text-sm text-gray-500">
-                            {user.last_activity ? new Date(user.last_activity).toLocaleDateString('es-ES') : 'Nunca'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Progreso de Usuarios</h3>
+                  <ExportDropdown
+                    tabName="Progreso-Usuarios"
+                    data={overviewData.users}
+                    headers={['first_name', 'last_name', 'email', 'role', 'total_courses', 'completed_courses', 'completion_rate', 'total_time_spent', 'last_activity']}
+                    metadata={{
+                      dateRange: `Últimos ${dateRange} días`,
+                      filters: { selectedSchool, selectedGeneration }
+                    }}
+                  />
+                </div>
+                <EnhancedTable
+                  data={overviewData.users}
+                  columns={[
+                    {
+                      key: 'full_name',
+                      label: 'Usuario',
+                      render: (_, user) => (
+                        <div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleUserClick(user.id);
+                            }}
+                            className="font-medium text-[#00365b] hover:text-[#fdb933] cursor-pointer transition-colors text-left"
+                          >
+                            {user.first_name} {user.last_name}
+                          </button>
+                          <div className="text-sm text-gray-500">{user.email}</div>
+                        </div>
+                      )
+                    },
+                    {
+                      key: 'role',
+                      label: 'Rol',
+                      render: (role) => (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs font-medium">
+                          {role}
+                        </span>
+                      )
+                    },
+                    {
+                      key: 'total_courses',
+                      label: 'Cursos',
+                      render: (value) => value || 0
+                    },
+                    {
+                      key: 'completed_courses',
+                      label: 'Completados',
+                      render: (value) => value || 0
+                    },
+                    {
+                      key: 'completion_rate',
+                      label: 'Tasa',
+                      render: (rate) => (
+                        <StatusBadge 
+                          value={rate || 0} 
+                          type="completion" 
+                          showProgress={true}
+                        />
+                      )
+                    },
+                    {
+                      key: 'total_time_spent',
+                      label: 'Tiempo',
+                      render: (time) => formatTime(time || 0)
+                    },
+                    {
+                      key: 'last_activity',
+                      label: 'Última Actividad',
+                      render: (activity) => (
+                        <span className="text-sm text-gray-500">
+                          {activity ? new Date(activity).toLocaleDateString('es-ES') : 'Nunca'}
+                        </span>
+                      )
+                    },
+                    {
+                      key: 'consultant_info',
+                      label: 'Consultor',
+                      sortable: false,
+                      render: (consultantInfo) => (
+                        <ConsultantIndicator
+                          hasConsultant={consultantInfo?.has_consultant || false}
+                          consultantName={consultantInfo?.consultant_name}
+                          assignmentType={consultantInfo?.assignment_type}
+                          isActive={consultantInfo?.is_active}
+                          size="sm"
+                        />
+                      )
+                    }
+                  ]}
+                  searchable={true}
+                  searchPlaceholder="Buscar por nombre, email o rol..."
+                  pageSize={10}
+                  onRowClick={(user) => handleUserClick(user.id)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Analytics Tab */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-6">
+              {/* Analytics-specific Time Range Filter */}
+              <div className="bg-white rounded-lg shadow p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+                  <h3 className="text-lg font-semibold text-gray-900">Configuración de Analytics</h3>
+                  <div className="flex space-x-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Período de Tiempo
+                      </label>
+                      <select
+                        value={dateRange}
+                        onChange={(e) => setDateRange(e.target.value)}
+                        className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                      >
+                        <option value="7">Últimos 7 días</option>
+                        <option value="30">Últimos 30 días</option>
+                        <option value="90">Últimos 90 días</option>
+                        <option value="365">Último año</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Agrupar por
+                      </label>
+                      <select
+                        value={groupBy}
+                        onChange={(e) => setGroupBy(e.target.value)}
+                        className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                      >
+                        <option value="day">Día</option>
+                        <option value="week">Semana</option>
+                        <option value="month">Mes</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
+
+              {/* Organizational Filters */}
+              <AdvancedFilters
+                filters={{
+                  search: '',
+                  school_id: selectedSchool || 'all',
+                  generation_id: selectedGeneration || 'all',
+                  community_id: selectedCommunity || 'all',
+                  course_id: 'all',
+                  status: 'all',
+                  date_from: '',
+                  date_to: ''
+                }}
+                onFiltersChange={handleFiltersChange}
+                userRole={userRole}
+                isAdmin={isAdmin}
+              />
+
+              {/* Analytics Visualization */}
+              <AnalyticsVisualization
+                userId={user?.id || ''}
+                userRole={userRole}
+                filters={{
+                  timeRange: dateRange,
+                  groupBy: groupBy,
+                  school_id: selectedSchool || undefined,
+                  generation_id: selectedGeneration || undefined,
+                  community_id: selectedCommunity || undefined
+                }}
+              />
             </div>
           )}
 
           {/* Community Tab */}
           {activeTab === 'community' && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">Análisis por Comunidades</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Análisis por Comunidades</h3>
+                <ExportDropdown
+                  tabName="Analisis-Comunidades"
+                  data={communityData}
+                  headers={['community_name', 'total_users', 'active_users', 'avg_completion_rate', 'engagement_score', 'growth_trend']}
+                  metadata={{
+                    dateRange: `Últimos ${dateRange} días`
+                  }}
+                />
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {communityData.map((community) => (
                   <div key={community.community_id} className="bg-white border border-gray-200 rounded-lg p-6">
@@ -410,11 +580,13 @@ const ReportsPage: React.FC = () => {
                         <span className="text-sm text-gray-600">Usuarios Activos:</span>
                         <span className="font-medium">{community.active_users}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">Tasa Completación:</span>
-                        <span className={`font-medium ${getStatusColor(community.avg_completion_rate).split(' ')[0]}`}>
-                          {formatPercentage(community.avg_completion_rate)}
-                        </span>
+                        <StatusBadge 
+                          value={community.avg_completion_rate} 
+                          type="completion" 
+                          size="sm"
+                        />
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">Engagement:</span>
@@ -430,7 +602,17 @@ const ReportsPage: React.FC = () => {
           {/* School Tab */}
           {activeTab === 'school' && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">Análisis por Escuelas</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Análisis por Escuelas</h3>
+                <ExportDropdown
+                  tabName="Analisis-Escuelas"
+                  data={schoolData}
+                  headers={['school_name', 'total_teachers', 'active_teachers', 'avg_lesson_completion', 'avg_assessment_score']}
+                  metadata={{
+                    dateRange: `Últimos ${dateRange} días`
+                  }}
+                />
+              </div>
               <div className="space-y-4">
                 {schoolData.map((school) => (
                   <div key={school.school_id} className="bg-white border border-gray-200 rounded-lg p-6">
@@ -481,49 +663,83 @@ const ReportsPage: React.FC = () => {
           {/* Courses Tab */}
           {activeTab === 'courses' && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">Análisis de Cursos</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left p-4 font-medium text-gray-700">Curso</th>
-                      <th className="text-left p-4 font-medium text-gray-700">Categoría</th>
-                      <th className="text-left p-4 font-medium text-gray-700">Inscritos</th>
-                      <th className="text-left p-4 font-medium text-gray-700">Tasa Completación</th>
-                      <th className="text-left p-4 font-medium text-gray-700">Tiempo Promedio</th>
-                      <th className="text-left p-4 font-medium text-gray-700">Engagement</th>
-                      <th className="text-left p-4 font-medium text-gray-700">Ranking</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {courseAnalytics.map((course) => (
-                      <tr key={course.course_id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="p-4">
-                          <div className="font-medium text-gray-900">{course.course_title}</div>
-                        </td>
-                        <td className="p-4">
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                            {course.category}
-                          </span>
-                        </td>
-                        <td className="p-4">{course.total_enrollments}</td>
-                        <td className="p-4">
-                          <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(course.completion_rate)}`}>
-                            {formatPercentage(course.completion_rate)}
-                          </span>
-                        </td>
-                        <td className="p-4">{formatTime(course.avg_time_spent)}</td>
-                        <td className="p-4">{Math.round(course.engagement_score || 0)}/100</td>
-                        <td className="p-4">#{course.popularity_rank}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Análisis de Cursos</h3>
+                <ExportDropdown
+                  tabName="Analisis-Cursos"
+                  data={courseAnalytics}
+                  headers={['course_title', 'category', 'total_enrollments', 'completion_rate', 'avg_time_spent', 'engagement_score', 'popularity_rank']}
+                  metadata={{
+                    dateRange: `Últimos ${dateRange} días`
+                  }}
+                />
               </div>
+              <EnhancedTable
+                data={courseAnalytics}
+                columns={[
+                  {
+                    key: 'course_title',
+                    label: 'Curso',
+                    render: (title) => (
+                      <div className="font-medium text-gray-900">{title}</div>
+                    )
+                  },
+                  {
+                    key: 'category',
+                    label: 'Categoría',
+                    render: (category) => (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                        {category}
+                      </span>
+                    )
+                  },
+                  {
+                    key: 'total_enrollments',
+                    label: 'Inscritos'
+                  },
+                  {
+                    key: 'completion_rate',
+                    label: 'Tasa Completación',
+                    render: (rate) => (
+                      <StatusBadge 
+                        value={rate} 
+                        type="completion" 
+                        showProgress={true}
+                      />
+                    )
+                  },
+                  {
+                    key: 'avg_time_spent',
+                    label: 'Tiempo Promedio',
+                    render: (time) => formatTime(time)
+                  },
+                  {
+                    key: 'engagement_score',
+                    label: 'Engagement',
+                    render: (score) => `${Math.round(score || 0)}/100`
+                  },
+                  {
+                    key: 'popularity_rank',
+                    label: 'Ranking',
+                    render: (rank) => `#${rank}`
+                  }
+                ]}
+                searchable={true}
+                searchPlaceholder="Buscar por curso o categoría..."
+                pageSize={15}
+              />
             </div>
           )}
         </div>
       </div>
+
+      {/* User Detail Modal */}
+      <UserDetailModal
+        isOpen={userDetailModalOpen}
+        onClose={handleCloseUserModal}
+        userId={selectedUserId}
+        requestingUserId={user?.id}
+      />
     </div>
   );
 };

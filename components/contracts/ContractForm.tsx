@@ -170,7 +170,13 @@ export default function ContractForm({ programas, clientes, editingContract, onS
         rut_representante: cliente.rut_representante || '',
         fecha_escritura: cliente.fecha_escritura || '',
         nombre_notario: cliente.nombre_notario || '',
-        comuna_notaria: cliente.comuna_notaria || ''
+        comuna_notaria: cliente.comuna_notaria || '',
+        nombre_encargado_proyecto: cliente.nombre_encargado_proyecto || '',
+        telefono_encargado_proyecto: cliente.telefono_encargado_proyecto || '',
+        email_encargado_proyecto: cliente.email_encargado_proyecto || '',
+        nombre_contacto_administrativo: cliente.nombre_contacto_administrativo || '',
+        telefono_contacto_administrativo: cliente.telefono_contacto_administrativo || '',
+        email_contacto_administrativo: cliente.email_contacto_administrativo || ''
       });
     }
     setSelectedClienteId(clienteId);

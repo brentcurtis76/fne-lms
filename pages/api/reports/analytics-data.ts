@@ -264,7 +264,7 @@ async function getCompletionRatesByOrganization(userProfile: any, filters: any =
     const { data: generationData, error: generationError } = await generationQuery;
 
     if (!generationError && generationData) {
-      const generationStats = generationData.reduce((acc, item) => {
+      const generationStats = generationData.reduce((acc, item: any) => {
         const genName = item.generations?.name || 'Sin Generación';
         if (!acc[genName]) {
           acc[genName] = { count: 0, name: genName };

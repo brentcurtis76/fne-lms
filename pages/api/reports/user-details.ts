@@ -90,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ? quizResults.reduce((sum, q) => sum + (q.percentage_score || 0), 0) / quizResults.length 
           : 0,
         total_time_minutes: timeSpent.reduce((sum, t) => sum + (t.time_spent_minutes || 0), 0),
-        last_activity: recentActivity[0]?.created_at || null
+        last_activity: recentActivity[0]?.completed_at || null
       }
     };
 
@@ -258,17 +258,27 @@ async function getRecentActivity(userId: string) {
   ]);
 
   const activities = [
-    ...(lessons.data || []).map(item => ({
-      ...item,
+    ...(lessons.data || []).map((item: any) => ({
+      id: item.id,
+      completed_at: item.completed_at,
+      time_spent: item.time_spent,
+      lesson_id: item.lesson_id,
+      user_id: item.user_id,
+      lessons: item.lessons,
       activity_type: 'lesson_completion',
       description: `Completó la lección: ${item.lessons.title}`
     })),
-    ...(quizzes.data || []).map(item => ({
-      ...item,
+    ...(quizzes.data || []).map((item: any) => ({
+      id: item.id,
+      completed_at: item.completed_at,
+      time_spent: item.time_spent,
+      lesson_id: item.lesson_id,
+      user_id: item.user_id,
+      lessons: item.lessons,
       activity_type: 'quiz_attempt',
       description: `Realizó quiz en: ${item.lessons.title}`
     }))
-  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  ].sort((a, b) => new Date(b.completed_at || 0).getTime() - new Date(a.completed_at || 0).getTime());
 
   return activities.slice(0, 15);
 }

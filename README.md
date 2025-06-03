@@ -45,13 +45,14 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhY
 - ✅ **Production-ready lesson editor** (all TypeScript errors fixed)
 
 ### Recent Session Updates (June 2025)
+- ✅ **Expense Number Field** - Added expense/invoice/receipt number field to expense reports for better tracking and auditing
 - ✅ **React Hooks Error Fix** - Fixed "Rendered more hooks than during the previous render" error by moving useEffect before early return in ContractDetailsModal
 - ✅ **Modal UX Improvements** - Added click-outside and Escape key functionality to close contract details modal
 - ✅ **Cash Flow Expansion** - Implemented expandable view for overdue installments showing all 9 instead of just 5 with "Ver todas"/"Ver menos" toggle
 - ✅ **Administrative Contact Fields** - Added administrative contact fields (name, phone, email) for billing/invoice management
 - ✅ **Project Manager Contact Fields** - Added project manager contact fields (name, phone, email) for project tracking
 - ✅ **User Management Multi-Role Fix** - Fixed display issues for users with multiple roles and assignments
-- ✅ **Database Migrations** - Created migration scripts for new contact fields ready for Supabase execution
+- ✅ **Database Migrations** - Created migration scripts for new contact fields and expense number field ready for Supabase execution
 
 ### Previous Session Updates (January 2025)
 - ✅ **Block System Standardization** - Centralized block configuration system in `/config/blockTypes.ts` with consistent naming, removed icons throughout interface

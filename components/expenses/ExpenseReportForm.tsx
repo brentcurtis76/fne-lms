@@ -22,6 +22,7 @@ interface ExpenseItemForm {
   conversion_rate?: number;
   expense_date: string;
   vendor: string;
+  expense_number: string;
   notes: string;
   receipt_file?: File;
   receipt_url?: string;
@@ -55,6 +56,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
       currency: 'CLP',
       expense_date: '',
       vendor: '',
+      expense_number: '',
       notes: ''
     }
   ]);
@@ -80,6 +82,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
           conversion_rate: item.conversion_rate || 1.0,
           expense_date: item.expense_date || '',
           vendor: item.vendor || '',
+          expense_number: item.expense_number || '',
           notes: item.notes || '',
           receipt_url: item.receipt_url,
           receipt_filename: item.receipt_filename
@@ -107,6 +110,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
       currency: 'CLP',
       expense_date: '',
       vendor: '',
+      expense_number: '',
       notes: ''
     }]);
   };
@@ -304,6 +308,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
           conversion_date: new Date().toISOString().split('T')[0],
           expense_date: item.expense_date,
           vendor: item.vendor || null,
+          expense_number: item.expense_number || null,
           receipt_url: item.receipt_url || null,
           receipt_filename: item.receipt_filename || null,
           notes: item.notes || null
@@ -351,6 +356,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
           conversion_date: new Date().toISOString().split('T')[0],
           expense_date: item.expense_date,
           vendor: item.vendor || null,
+          expense_number: item.expense_number || null,
           receipt_url: item.receipt_url || null,
           receipt_filename: item.receipt_filename || null,
           notes: item.notes || null
@@ -478,7 +484,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">
                       Categoría *
@@ -582,6 +588,22 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Número de Factura/Boleta
+                    </label>
+                    <input
+                      type="text"
+                      value={item.expense_number}
+                      onChange={(e) => updateExpenseItem(index, 'expense_number', e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
+                      placeholder="Ej: 12345, B-001, F-4567"
+                    />
+                  </div>
+
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       📄 Boleta/Recibo
@@ -690,19 +712,19 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                       </label>
                     )}
                   </div>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Notas
-                  </label>
-                  <textarea
-                    value={item.notes}
-                    onChange={(e) => updateExpenseItem(index, 'notes', e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
-                    rows={2}
-                    placeholder="Notas adicionales sobre este gasto"
-                  />
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">
+                      Notas
+                    </label>
+                    <textarea
+                      value={item.notes}
+                      onChange={(e) => updateExpenseItem(index, 'notes', e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
+                      rows={6}
+                      placeholder="Notas adicionales sobre este gasto"
+                    />
+                  </div>
                 </div>
               </div>
             ))}

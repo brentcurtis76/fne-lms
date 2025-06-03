@@ -23,6 +23,7 @@ interface ExpenseItem {
   conversion_date?: string;
   expense_date: string;
   vendor?: string;
+  expense_number?: string;
   receipt_url?: string;
   receipt_filename?: string;
   notes?: string;
@@ -366,6 +367,7 @@ export default function ExpenseReportDetails({
                       <th className="text-left py-3 px-4 font-semibold text-brand_blue">Categoría</th>
                       <th className="text-left py-3 px-4 font-semibold text-brand_blue">Descripción</th>
                       <th className="text-left py-3 px-4 font-semibold text-brand_blue">Proveedor</th>
+                      <th className="text-left py-3 px-4 font-semibold text-brand_blue">N° Factura/Boleta</th>
                       <th className="text-right py-3 px-4 font-semibold text-brand_blue">Monto</th>
                       <th className="text-center py-3 px-4 font-semibold text-brand_blue">Boleta</th>
                     </tr>
@@ -396,6 +398,9 @@ export default function ExpenseReportDetails({
                         <td className="py-3 px-4 text-gray-900">
                           {item.vendor || '-'}
                         </td>
+                        <td className="py-3 px-4 text-gray-900">
+                          {item.expense_number || '-'}
+                        </td>
                         <td className="py-3 px-4 text-right font-semibold text-gray-900">
                           <div className="space-y-1">
                             {item.currency && item.currency !== 'CLP' && item.original_amount ? (
@@ -420,7 +425,7 @@ export default function ExpenseReportDetails({
                   </tbody>
                   <tfoot>
                     <tr className="bg-gray-50 border-t border-gray-200">
-                      <td colSpan={4} className="py-3 px-4 text-right font-semibold text-brand_blue">
+                      <td colSpan={5} className="py-3 px-4 text-right font-semibold text-brand_blue">
                         Total:
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-brand_blue">

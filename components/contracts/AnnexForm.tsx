@@ -26,6 +26,12 @@ interface Cliente {
   fecha_escritura?: string;
   nombre_notario?: string;
   comuna_notaria?: string;
+  nombre_encargado_proyecto?: string;
+  telefono_encargado_proyecto?: string;
+  email_encargado_proyecto?: string;
+  nombre_contacto_administrativo?: string;
+  telefono_contacto_administrativo?: string;
+  email_contacto_administrativo?: string;
 }
 
 interface Contrato {

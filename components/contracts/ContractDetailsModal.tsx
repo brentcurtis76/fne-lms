@@ -23,6 +23,12 @@ interface Cliente {
   fecha_escritura?: string;
   nombre_notario?: string;
   comuna_notaria?: string;
+  nombre_encargado_proyecto?: string;
+  telefono_encargado_proyecto?: string;
+  email_encargado_proyecto?: string;
+  nombre_contacto_administrativo?: string;
+  telefono_contacto_administrativo?: string;
+  email_contacto_administrativo?: string;
 }
 
 interface Cuota {
@@ -294,6 +300,101 @@ export default function ContractDetailsModal({
                     )}
                   </div>
                 </div>
+
+                {/* Encargado del Proyecto Section */}
+                {(contrato.clientes.nombre_encargado_proyecto || 
+                  contrato.clientes.telefono_encargado_proyecto || 
+                  contrato.clientes.email_encargado_proyecto) && (
+                  <div className="border-t pt-3 mt-3">
+                    <h4 className="text-sm font-semibold text-brand_blue mb-2">Encargado del Proyecto</h4>
+                    
+                    {contrato.clientes.nombre_encargado_proyecto && (
+                      <div className="flex items-center space-x-3 mb-2">
+                        <User className="text-brand_blue" size={18} />
+                        <div>
+                          <p className="text-xs text-gray-600">Nombre</p>
+                          <p className="font-medium text-sm">{contrato.clientes.nombre_encargado_proyecto}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-2">
+                      {contrato.clientes.telefono_encargado_proyecto && (
+                        <div className="flex items-center space-x-3">
+                          <div className="w-4 h-4 flex items-center justify-center">
+                            <span className="text-brand_blue text-xs">📞</span>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Teléfono</p>
+                            <p className="text-sm font-medium">{contrato.clientes.telefono_encargado_proyecto}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {contrato.clientes.email_encargado_proyecto && (
+                        <div className="flex items-center space-x-3">
+                          <div className="w-4 h-4 flex items-center justify-center">
+                            <span className="text-brand_blue text-xs">📧</span>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Email</p>
+                            <p className="text-sm font-medium">{contrato.clientes.email_encargado_proyecto}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Contacto Administrativo Section */}
+                {(contrato.clientes.nombre_contacto_administrativo || 
+                  contrato.clientes.telefono_contacto_administrativo || 
+                  contrato.clientes.email_contacto_administrativo) && (
+                  <div className="border-t pt-3 mt-3">
+                    <h4 className="text-sm font-semibold text-brand_blue mb-2">Contacto Administrativo</h4>
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-3">
+                      <p className="text-xs text-yellow-800">
+                        📧 <strong>Contacto para facturación:</strong> A esta persona se enviarán las facturas y documentos administrativos
+                      </p>
+                    </div>
+                    
+                    {contrato.clientes.nombre_contacto_administrativo && (
+                      <div className="flex items-center space-x-3 mb-2">
+                        <User className="text-brand_blue" size={18} />
+                        <div>
+                          <p className="text-xs text-gray-600">Nombre</p>
+                          <p className="font-medium text-sm">{contrato.clientes.nombre_contacto_administrativo}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-2">
+                      {contrato.clientes.telefono_contacto_administrativo && (
+                        <div className="flex items-center space-x-3">
+                          <div className="w-4 h-4 flex items-center justify-center">
+                            <span className="text-brand_blue text-xs">📞</span>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Teléfono</p>
+                            <p className="text-sm font-medium">{contrato.clientes.telefono_contacto_administrativo}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      {contrato.clientes.email_contacto_administrativo && (
+                        <div className="flex items-center space-x-3">
+                          <div className="w-4 h-4 flex items-center justify-center">
+                            <span className="text-brand_blue text-xs">📧</span>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-600">Email de Facturación</p>
+                            <p className="text-sm font-medium">{contrato.clientes.email_contacto_administrativo}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

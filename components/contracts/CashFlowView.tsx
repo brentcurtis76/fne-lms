@@ -64,6 +64,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   const [currentUFValue, setCurrentUFValue] = useState<number>(0);
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'due_unpaid' | 'due_paid'>('all');
   const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
+  const [showAllOverdue, setShowAllOverdue] = useState(false);
 
   useEffect(() => {
     loadUFValueAndGenerateCashFlow();
@@ -663,13 +664,31 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
       {/* Overdue Alerts */}
       {overdueCuotas.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center space-x-2 mb-3">
-            <AlertCircle className="text-red-600" size={20} />
-            <h3 className="font-semibold text-red-800">Cuotas Vencidas ({overdueCuotas.length})</h3>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <AlertCircle className="text-red-600" size={20} />
+              <h3 className="font-semibold text-red-800">Cuotas Vencidas ({overdueCuotas.length})</h3>
+            </div>
+            {overdueCuotas.length > 5 && (
+              <button
+                onClick={() => setShowAllOverdue(!showAllOverdue)}
+                className="flex items-center space-x-1 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg transition-colors text-sm font-medium"
+              >
+                <span>{showAllOverdue ? 'Ver menos' : 'Ver todas'}</span>
+                <svg 
+                  className={`w-4 h-4 transition-transform ${showAllOverdue ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            )}
           </div>
           <div className="space-y-2">
-            {overdueCuotas.slice(0, 5).map(({ contrato, cuota }, index) => (
-              <div key={index} className="flex items-center justify-between bg-white p-3 rounded border">
+            {(showAllOverdue ? overdueCuotas : overdueCuotas.slice(0, 5)).map(({ contrato, cuota }, index) => (
+              <div key={`${contrato.id}-${cuota.id}`} className="flex items-center justify-between bg-white p-3 rounded border">
                 <div>
                   <p className="font-medium text-gray-900">{contrato.clientes.nombre_fantasia}</p>
                   <p className="text-sm text-gray-600">
@@ -682,10 +701,15 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                 </div>
               </div>
             ))}
-            {overdueCuotas.length > 5 && (
-              <p className="text-sm text-gray-600 text-center">
-                ... y {overdueCuotas.length - 5} más
-              </p>
+            {!showAllOverdue && overdueCuotas.length > 5 && (
+              <div className="bg-gray-50 border border-gray-200 rounded p-3 text-center">
+                <p className="text-sm text-gray-600">
+                  ... y {overdueCuotas.length - 5} cuotas vencidas más
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Haz clic en "Ver todas" arriba para mostrar todas las cuotas vencidas
+                </p>
+              </div>
             )}
           </div>
         </div>

@@ -212,17 +212,8 @@ export default function UserManagement() {
         setAvatarUrl(fallbackAvatar);
       }
 
-      // Fetch all users
-      const { data: usersData, error } = await supabase
-        .from('profiles')
-        .select('id, email, first_name, last_name, role, school, created_at, approval_status')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching users:', error);
-      } else {
-        setUsers(usersData || []);
-      }
+      // Fetch all users with roles and assignments
+      await fetchUsers();
 
       setLoading(false);
     };
@@ -244,18 +235,42 @@ export default function UserManagement() {
         return;
       }
 
-      // Then get roles for each user
-      const usersWithRoles = await Promise.all(
+      // Then get roles and assignments for each user
+      const usersWithRolesAndAssignments = await Promise.all(
         (usersData || []).map(async (user) => {
+          // Get user roles
           const userRoles = await getUserRoles(user.id);
+          
+          // Get consultant assignments (where user is the consultant)
+          const { data: consultantAssignments } = await supabase
+            .from('consultant_assignments')
+            .select(`
+              *,
+              student:student_id(id, first_name, last_name, email)
+            `)
+            .eq('consultant_id', user.id)
+            .eq('is_active', true);
+
+          // Get student assignments (where user is the student)
+          const { data: studentAssignments } = await supabase
+            .from('consultant_assignments')
+            .select(`
+              *,
+              consultant:consultant_id(id, first_name, last_name, email)
+            `)
+            .eq('student_id', user.id)
+            .eq('is_active', true);
+
           return {
             ...user,
-            user_roles: userRoles
+            user_roles: userRoles,
+            consultant_assignments: consultantAssignments || [],
+            student_assignments: studentAssignments || []
           };
         })
       );
 
-      setUsers(usersWithRoles);
+      setUsers(usersWithRolesAndAssignments);
     } catch (error) {
       console.error('Unexpected error fetching users:', error);
       toast.error('Error inesperado al cargar usuarios');
@@ -746,7 +761,7 @@ export default function UserManagement() {
                         {user.user_roles && user.user_roles.length > 0 ? (
                           user.user_roles.map((userRole, index) => (
                             <span 
-                              key={index}
+                              key={`${userRole.id}-${index}`}
                               className={`px-2 py-1 rounded-full text-xs font-medium ${
                                 userRole.role_type === 'admin'
                                   ? 'bg-red-100 text-red-800'
@@ -760,14 +775,18 @@ export default function UserManagement() {
                                   ? 'bg-green-100 text-green-800'
                                   : 'bg-blue-100 text-blue-800'
                               }`}
-                              title={userRole.school?.name || 'Sin ámbito específico'}
+                              title={`${ROLE_NAMES[userRole.role_type] || userRole.role_type}${userRole.school?.name ? ` - ${userRole.school.name}` : ''}${userRole.generation?.name ? ` - ${userRole.generation.name}` : ''}${userRole.community?.name ? ` - ${userRole.community.name}` : ''}`}
                             >
                               {ROLE_NAMES[userRole.role_type] || userRole.role_type}
                             </span>
                           ))
+                        ) : user.role ? (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800" title="Rol heredado del sistema anterior">
+                            {user.role === 'admin' ? 'Administrador' : user.role === 'docente' ? 'Docente' : user.role}
+                          </span>
                         ) : (
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                            {user.role || 'Sin roles'}
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
+                            Sin roles asignados
                           </span>
                         )}
                       </div>
@@ -784,9 +803,13 @@ export default function UserManagement() {
                                   <span 
                                     key={index}
                                     className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs"
-                                    title={`${assignment.assignment_type} - ${assignment.student?.first_name} ${assignment.student?.last_name}`}
+                                    title={`${assignment.assignment_type} - Estudiante: ${assignment.student?.first_name || 'Sin nombre'} ${assignment.student?.last_name || ''}`}
                                   >
-                                    {assignment.assignment_type}
+                                    {assignment.assignment_type === 'monitoring' ? 'Monitoreo' : 
+                                     assignment.assignment_type === 'mentoring' ? 'Mentoría' :
+                                     assignment.assignment_type === 'evaluation' ? 'Evaluación' :
+                                     assignment.assignment_type === 'support' ? 'Apoyo' :
+                                     assignment.assignment_type}
                                   </span>
                                 ))}
                                 {user.consultant_assignments.length > 2 && (
@@ -807,9 +830,13 @@ export default function UserManagement() {
                                   <span 
                                     key={index}
                                     className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
-                                    title={`${assignment.assignment_type} - ${assignment.consultant?.first_name} ${assignment.consultant?.last_name}`}
+                                    title={`${assignment.assignment_type} - Consultor: ${assignment.consultant?.first_name || 'Sin nombre'} ${assignment.consultant?.last_name || ''}`}
                                   >
-                                    {assignment.assignment_type}
+                                    {assignment.assignment_type === 'monitoring' ? 'Monitoreo' : 
+                                     assignment.assignment_type === 'mentoring' ? 'Mentoría' :
+                                     assignment.assignment_type === 'evaluation' ? 'Evaluación' :
+                                     assignment.assignment_type === 'support' ? 'Apoyo' :
+                                     assignment.assignment_type}
                                   </span>
                                 ))}
                                 {user.student_assignments.length > 2 && (

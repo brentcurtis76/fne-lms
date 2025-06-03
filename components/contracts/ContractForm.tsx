@@ -25,6 +25,12 @@ interface Cliente {
   fecha_escritura?: string;
   nombre_notario?: string;
   comuna_notaria?: string;
+  nombre_encargado_proyecto?: string;
+  telefono_encargado_proyecto?: string;
+  email_encargado_proyecto?: string;
+  nombre_contacto_administrativo?: string;
+  telefono_contacto_administrativo?: string;
+  email_contacto_administrativo?: string;
 }
 
 interface CuotaForm {
@@ -59,7 +65,13 @@ export default function ContractForm({ programas, clientes, editingContract, onS
     rut_representante: '',
     fecha_escritura: '',
     nombre_notario: '',
-    comuna_notaria: ''
+    comuna_notaria: '',
+    nombre_encargado_proyecto: '',
+    telefono_encargado_proyecto: '',
+    email_encargado_proyecto: '',
+    nombre_contacto_administrativo: '',
+    telefono_contacto_administrativo: '',
+    email_contacto_administrativo: ''
   });
   
   // Contract form
@@ -92,7 +104,13 @@ export default function ContractForm({ programas, clientes, editingContract, onS
         rut_representante: editingContract.clientes.rut_representante || '',
         fecha_escritura: editingContract.clientes.fecha_escritura || '',
         nombre_notario: editingContract.clientes.nombre_notario || '',
-        comuna_notaria: editingContract.clientes.comuna_notaria || ''
+        comuna_notaria: editingContract.clientes.comuna_notaria || '',
+        nombre_encargado_proyecto: editingContract.clientes.nombre_encargado_proyecto || '',
+        telefono_encargado_proyecto: editingContract.clientes.telefono_encargado_proyecto || '',
+        email_encargado_proyecto: editingContract.clientes.email_encargado_proyecto || '',
+        nombre_contacto_administrativo: editingContract.clientes.nombre_contacto_administrativo || '',
+        telefono_contacto_administrativo: editingContract.clientes.telefono_contacto_administrativo || '',
+        email_contacto_administrativo: editingContract.clientes.email_contacto_administrativo || ''
       });
       
       // Populate contract form
@@ -740,6 +758,118 @@ export default function ContractForm({ programas, clientes, editingContract, onS
                     placeholder="Santiago, Providencia, etc."
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* Project Manager Information */}
+            <div className="border-t pt-6">
+              <h4 className="text-md font-semibold text-brand_blue mb-4">Encargado del Proyecto</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre del Encargado
+                  </label>
+                  <input
+                    type="text"
+                    value={clienteForm.nombre_encargado_proyecto}
+                    onChange={(e) => setClienteForm({ ...clienteForm, nombre_encargado_proyecto: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    placeholder="Nombre completo"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Teléfono
+                  </label>
+                  <input
+                    type="tel"
+                    value={clienteForm.telefono_encargado_proyecto}
+                    onChange={(e) => setClienteForm({ ...clienteForm, telefono_encargado_proyecto: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    placeholder="+56 9 1234 5678"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={clienteForm.email_encargado_proyecto}
+                    onChange={(e) => setClienteForm({ ...clienteForm, email_encargado_proyecto: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    placeholder="encargado@colegio.cl"
+                  />
+                </div>
+              </div>
+              <div className="mt-2">
+                <p className="text-sm text-gray-600">
+                  Esta información es necesaria para la gestión de facturación y seguimiento del proyecto.
+                </p>
+              </div>
+            </div>
+
+            {/* Administrative Contact Information */}
+            <div className="border-t pt-6">
+              <h4 className="text-md font-semibold text-brand_blue mb-4">Contacto Administrativo</h4>
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <span className="text-yellow-400 text-lg">📧</span>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Importante:</strong> Esta es la persona que recibirá todas las facturas y documentos administrativos del contrato.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nombre del Contacto Administrativo
+                  </label>
+                  <input
+                    type="text"
+                    value={clienteForm.nombre_contacto_administrativo}
+                    onChange={(e) => setClienteForm({ ...clienteForm, nombre_contacto_administrativo: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    placeholder="Nombre completo"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Teléfono de Facturación
+                  </label>
+                  <input
+                    type="tel"
+                    value={clienteForm.telefono_contacto_administrativo}
+                    onChange={(e) => setClienteForm({ ...clienteForm, telefono_contacto_administrativo: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    placeholder="+56 2 2345 6789"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email de Facturación
+                  </label>
+                  <input
+                    type="email"
+                    value={clienteForm.email_contacto_administrativo}
+                    onChange={(e) => setClienteForm({ ...clienteForm, email_contacto_administrativo: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    placeholder="administracion@colegio.cl"
+                  />
+                </div>
+              </div>
+              <div className="mt-2">
+                <p className="text-sm text-gray-600">
+                  <strong>Nota:</strong> Las facturas y documentos administrativos se enviarán a este contacto por email.
+                </p>
               </div>
             </div>
           </div>

@@ -86,3 +86,35 @@ export async function markMentionsAsRead(): Promise<any> {
   console.log('markMentionsAsRead: Función no implementada');
   return true;
 }
+
+// Additional functions needed by MessageComposer
+export function validateMessage(content: string, attachments: File[] = []): any {
+  return {
+    is_valid: content.trim().length > 0 || attachments.length > 0,
+    errors: [],
+    warnings: [],
+    content_length: content.length,
+    mention_count: 0,
+    attachment_count: attachments.length
+  };
+}
+
+export function extractMentionsFromContent(content: string): string[] {
+  const mentionRegex = /@(\w+)/g;
+  const mentions = [];
+  let match;
+  while ((match = mentionRegex.exec(content)) !== null) {
+    mentions.push(match[1]);
+  }
+  return mentions;
+}
+
+export function isValidAttachment(file: File): boolean {
+  const maxSize = 50 * 1024 * 1024; // 50MB
+  const allowedTypes = [
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    'application/pdf', 'text/plain'
+  ];
+  
+  return file.size <= maxSize && allowedTypes.includes(file.type);
+}

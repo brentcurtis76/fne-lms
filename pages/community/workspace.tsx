@@ -16,6 +16,10 @@ import DocumentGrid from '../../components/documents/DocumentGrid';
 import FolderNavigation from '../../components/documents/FolderNavigation';
 import DocumentPreview from '../../components/documents/DocumentPreview';
 import DocumentFilters from '../../components/documents/DocumentFilters';
+import MessageFilters from '../../components/messaging/MessageFilters';
+import MessageComposer from '../../components/messaging/MessageComposer';
+import MessageThread from '../../components/messaging/MessageThread';
+import AttachmentPreview from '../../components/messaging/AttachmentPreview';
 import { useAuth } from '../../hooks/useAuth';
 import { 
   getUserWorkspaceAccess, 
@@ -56,6 +60,22 @@ import {
   BreadcrumbItem,
   FolderCreateData
 } from '../../types/documents';
+import {
+  MessageFilters as MessageFiltersType,
+  ThreadFilters,
+  MessageWithDetails,
+  ThreadWithDetails,
+  MessageAttachment,
+  MessagingPermissions
+} from '../../types/messaging';
+import {
+  getWorkspaceMessages,
+  getWorkspaceThreads,
+  getUserMessagingPermissions,
+  createThread,
+  sendMessage,
+  subscribeToWorkspaceMessages
+} from '../../utils/messagingUtils-simple';
 import { 
   UsersIcon, 
   DocumentTextIcon, 
@@ -68,6 +88,7 @@ import {
   PlusIcon,
   ArrowsUpDownIcon
 } from '@heroicons/react/24/outline';
+import { X } from 'lucide-react';
 
 type TabType = 'meetings' | 'documents' | 'messaging' | 'feed';
 
@@ -288,6 +309,14 @@ const CommunityWorkspacePage: React.FC = () => {
 
     if (activeTab === 'documents') {
       return <DocumentsTabContent 
+        workspace={currentWorkspace} 
+        workspaceAccess={workspaceAccess} 
+        user={user} 
+      />;
+    }
+
+    if (activeTab === 'messaging') {
+      return <MessagingTabContent 
         workspace={currentWorkspace} 
         workspaceAccess={workspaceAccess} 
         user={user} 
@@ -1068,6 +1097,475 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
           document={previewDocument}
           onDownload={handleDownload}
           canEdit={permissions.can_edit}
+        />
+      )}
+    </div>
+  );
+};
+
+// Messaging Tab Content Component
+interface MessagingTabContentProps {
+  workspace: CommunityWorkspace | null;
+  workspaceAccess: WorkspaceAccess | null;
+  user: any;
+}
+
+const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, workspaceAccess, user }) => {
+  // Messaging state
+  const [messages, setMessages] = useState<MessageWithDetails[]>([]);
+  const [threads, setThreads] = useState<ThreadWithDetails[]>([]);
+  const [selectedThread, setSelectedThread] = useState<ThreadWithDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [permissions, setPermissions] = useState<MessagingPermissions>({
+    can_view_messages: false,
+    can_send_messages: false,
+    can_create_threads: false,
+    can_edit_own_messages: false,
+    can_delete_own_messages: false,
+    can_moderate_messages: false,
+    can_pin_threads: false,
+    can_archive_threads: false,
+    can_upload_attachments: false,
+    can_mention_all: false,
+    can_view_analytics: false,
+    can_manage_reactions: false,
+  });
+  
+  // UI state
+  const [activeView, setActiveView] = useState<'messages' | 'threads'>('threads');
+  const [showAttachmentPreview, setShowAttachmentPreview] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState<MessageAttachment | null>(null);
+  const [previewMessage, setPreviewMessage] = useState<MessageWithDetails | null>(null);
+  
+  // Filter state
+  const [messageFilters, setMessageFilters] = useState<MessageFiltersType>({
+    search: '',
+    mention_filter: 'all',
+    attachment_filter: 'all',
+    sort_by: 'created_at',
+    sort_order: 'desc',
+  });
+  
+  const [threadFilters, setThreadFilters] = useState<ThreadFilters>({
+    search: '',
+    status: 'all',
+    participant_filter: 'all',
+    sort_by: 'last_message_at',
+    sort_order: 'desc',
+  });
+
+  // Available data for filters
+  const [availableAuthors, setAvailableAuthors] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    if (workspace && user) {
+      loadMessagingData();
+      loadPermissions();
+      setupRealtimeSubscription();
+    }
+    
+    return () => {
+      // Cleanup realtime subscription
+    };
+  }, [workspace, user]);
+
+  useEffect(() => {
+    if (workspace && selectedThread) {
+      loadThreadMessages();
+    }
+  }, [workspace, selectedThread, messageFilters]);
+
+  useEffect(() => {
+    if (workspace) {
+      loadThreads();
+    }
+  }, [workspace, threadFilters]);
+
+  const loadMessagingData = async () => {
+    await Promise.all([
+      loadThreads(),
+      loadPermissions()
+    ]);
+  };
+
+  const loadThreads = async () => {
+    if (!workspace) return;
+
+    try {
+      setLoading(true);
+      const threadsData = await getWorkspaceThreads(workspace.id, threadFilters);
+      setThreads(threadsData);
+      
+      // Extract available authors from threads
+      const authors = Array.from(
+        new Map(threadsData.map(thread => [thread.created_by, { id: thread.created_by, name: thread.creator_name }]))
+          .values()
+      );
+      setAvailableAuthors(authors);
+      
+    } catch (error) {
+      console.error('Error loading threads:', error);
+      toast.error('Error al cargar los hilos de conversación');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadThreadMessages = async () => {
+    if (!workspace || !selectedThread) return;
+
+    try {
+      const messagesData = await getWorkspaceMessages(workspace.id, {
+        ...messageFilters,
+        thread_id: selectedThread.id
+      });
+      setMessages(messagesData);
+    } catch (error) {
+      console.error('Error loading messages:', error);
+      toast.error('Error al cargar los mensajes');
+    }
+  };
+
+  const loadPermissions = async () => {
+    if (!workspace || !user) return;
+
+    try {
+      const userPermissions = await getUserMessagingPermissions(user.id, workspace.id);
+      setPermissions(userPermissions);
+    } catch (error) {
+      console.error('Error loading permissions:', error);
+    }
+  };
+
+  const setupRealtimeSubscription = () => {
+    if (!workspace) return;
+
+    try {
+      const subscription = subscribeToWorkspaceMessages(workspace.id, {
+        onMessage: (message) => {
+          if (selectedThread && message.thread_id === selectedThread.id) {
+            setMessages(prev => [...prev, message]);
+          }
+          // Update thread last message
+          setThreads(prev => prev.map(thread => 
+            thread.id === message.thread_id 
+              ? { ...thread, latest_message: {
+                  id: message.id,
+                  content: message.content,
+                  author_name: message.author_name,
+                  created_at: message.created_at,
+                  attachment_count: message.attachments?.length || 0
+                }, last_message_at: message.created_at }
+              : thread
+          ));
+        },
+        onThread: (thread) => {
+          setThreads(prev => [thread, ...prev]);
+        },
+        onReaction: (reaction) => {
+          // Update message reactions
+          if (selectedThread && reaction.message_id) {
+            setMessages(prev => prev.map(msg => 
+              msg.id === reaction.message_id 
+                ? { ...msg, reactions: [...(msg.reactions || []), { 
+                    reaction_type: reaction.reaction_type,
+                    count: 1,
+                    users: [{ user_id: reaction.user_id, user_name: user.name }],
+                    user_reacted: true
+                  }] }
+                : msg
+            ));
+          }
+        }
+      });
+      
+      return subscription;
+    } catch (error) {
+      console.error('Error setting up realtime subscription:', error);
+    }
+  };
+
+  const handleThreadSelect = (thread: ThreadWithDetails) => {
+    setSelectedThread(thread);
+    setActiveView('messages');
+  };
+
+  const handleThreadCreate = async (threadData: any) => {
+    if (!workspace || !user) return;
+
+    try {
+      const newThread = await createThread(workspace.id, threadData, user.id);
+      setThreads(prev => [newThread, ...prev]);
+      setSelectedThread(newThread);
+      setActiveView('messages');
+      toast.success('Hilo de conversación creado exitosamente');
+    } catch (error) {
+      console.error('Error creating thread:', error);
+      toast.error('Error al crear el hilo de conversación');
+    }
+  };
+
+  const handleMessageSend = async (messageData: any) => {
+    if (!workspace || !user || !selectedThread) return;
+
+    try {
+      const newMessage = await sendMessage(workspace.id, {
+        ...messageData,
+        thread_id: selectedThread.id
+      }, user.id);
+      
+      setMessages(prev => [...prev, newMessage]);
+      toast.success('Mensaje enviado');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      toast.error('Error al enviar el mensaje');
+    }
+  };
+
+  const handleAttachmentPreview = (attachment: MessageAttachment, message?: MessageWithDetails) => {
+    setPreviewAttachment(attachment);
+    setPreviewMessage(message || null);
+    setShowAttachmentPreview(true);
+  };
+
+  const handleAttachmentDownload = (attachment: MessageAttachment) => {
+    if (attachment.storage_path) {
+      const link = window.document.createElement('a');
+      link.href = attachment.storage_path;
+      link.download = attachment.file_name;
+      link.click();
+      toast.success('Descarga iniciada');
+    }
+  };
+
+  const handleReplyToMessage = (message: MessageWithDetails) => {
+    // Focus on composer with reply context
+    toast(`Responder a mensaje de ${message.author_name}`, { icon: '💬' });
+  };
+
+  if (!workspace) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+        <ChatBubbleLeftRightIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          No hay espacio de trabajo seleccionado
+        </h3>
+        <p className="text-gray-500">
+          Selecciona una comunidad para acceder a la mensajería.
+        </p>
+      </div>
+    );
+  }
+
+  if (!permissions.can_view_messages) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+        <ChatBubbleLeftRightIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          Sin permisos de acceso
+        </h3>
+        <p className="text-gray-500">
+          No tienes permisos para ver los mensajes de esta comunidad.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-[#00365b]">
+            Mensajería de {workspace.community?.name}
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Comunicación en tiempo real con los miembros de la comunidad
+          </p>
+        </div>
+
+        {permissions.can_create_threads && (
+          <button
+            onClick={() => toast('Crear nuevo hilo próximamente', { icon: '💬' })}
+            className="inline-flex items-center px-4 py-2 bg-[#fdb933] text-[#00365b] font-medium rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200 shadow-sm"
+          >
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Nuevo Hilo
+          </button>
+        )}
+      </div>
+
+      {/* Message Filters */}
+      <MessageFilters
+        messageFilters={messageFilters}
+        threadFilters={threadFilters}
+        onMessageFiltersChange={setMessageFilters}
+        onThreadFiltersChange={setThreadFilters}
+        availableAuthors={availableAuthors}
+        activeView={activeView}
+        onViewChange={setActiveView}
+        loading={loading}
+      />
+
+      {/* Content Area */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        {activeView === 'threads' || !selectedThread ? (
+          // Threads View
+          <div className="p-6">
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="animate-pulse">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
+                    <div className="flex space-x-4">
+                      <div className="h-3 bg-gray-200 rounded w-24"></div>
+                      <div className="h-3 bg-gray-200 rounded w-20"></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : threads.length > 0 ? (
+              <div className="space-y-4">
+                {threads.map(thread => (
+                  <div
+                    key={thread.id}
+                    onClick={() => handleThreadSelect(thread)}
+                    className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium text-gray-900">{thread.thread_title}</h3>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        thread.category_config.color === '#f59e0b' ? 'bg-yellow-100 text-yellow-800' :
+                        thread.category_config.color === '#3b82f6' ? 'bg-blue-100 text-blue-800' :
+                        thread.category_config.color === '#10b981' ? 'bg-green-100 text-green-800' :
+                        thread.category_config.color === '#8b5cf6' ? 'bg-purple-100 text-purple-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {thread.category_config.label}
+                      </span>
+                    </div>
+                    
+                    {thread.description && (
+                      <p className="text-sm text-gray-600 mb-2">{thread.description}</p>
+                    )}
+                    
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>Por {thread.creator_name}</span>
+                      <div className="flex items-center space-x-3">
+                        <span>{thread.message_count} mensaje(s)</span>
+                        <span>{thread.participant_count} participante(s)</span>
+                        {thread.latest_message && (
+                          <span>Último: {new Date(thread.latest_message.created_at).toLocaleDateString()}</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {thread.latest_message && (
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-sm">
+                        <span className="font-medium">{thread.latest_message.author_name}:</span>
+                        <span className="ml-2">{thread.latest_message.content.slice(0, 100)}...</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <ChatBubbleLeftRightIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No hay hilos de conversación
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  {permissions.can_create_threads 
+                    ? 'Comienza creando el primer hilo de conversación.'
+                    : 'No se han creado hilos de conversación en esta comunidad.'}
+                </p>
+                {permissions.can_create_threads && (
+                  <button
+                    onClick={() => toast('Crear nuevo hilo próximamente', { icon: '💬' })}
+                    className="inline-flex items-center px-4 py-2 bg-[#fdb933] text-[#00365b] font-medium rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Crear Primer Hilo
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          // Messages View
+          <div className="h-[600px] flex flex-col">
+            {/* Thread Header */}
+            <div className="p-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium text-gray-900">{selectedThread.thread_title}</h3>
+                  <p className="text-sm text-gray-500">{selectedThread.message_count} mensaje(s)</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedThread(null);
+                    setActiveView('threads');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {messages.length > 0 ? (
+                messages.map(message => (
+                  <MessageThread
+                    key={message.id}
+                    messages={[message]}
+                    currentUserId={user?.id || ''}
+                    onReply={handleReplyToMessage}
+                    onReaction={() => {}}
+                    onAttachmentClick={handleAttachmentPreview}
+                    permissions={permissions}
+                  />
+                ))
+              ) : (
+                <div className="text-center py-8">
+                  <ChatBubbleLeftRightIcon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                  <p className="text-gray-500">No hay mensajes en este hilo</p>
+                </div>
+              )}
+            </div>
+
+            {/* Message Composer */}
+            {permissions.can_send_messages && (
+              <div className="border-t border-gray-200">
+                <MessageComposer
+                  workspaceId={workspace.id}
+                  threadId={selectedThread.id}
+                  onMessageSent={handleMessageSend}
+                  permissions={permissions}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Attachment Preview Modal */}
+      {showAttachmentPreview && previewAttachment && (
+        <AttachmentPreview
+          isOpen={showAttachmentPreview}
+          onClose={() => {
+            setShowAttachmentPreview(false);
+            setPreviewAttachment(null);
+            setPreviewMessage(null);
+          }}
+          attachment={previewAttachment}
+          message={previewMessage}
+          onDownload={handleAttachmentDownload}
+          onReply={previewMessage ? handleReplyToMessage : undefined}
+          canReply={permissions.can_send_messages}
         />
       )}
     </div>

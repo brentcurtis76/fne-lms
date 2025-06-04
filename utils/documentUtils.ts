@@ -5,6 +5,9 @@
 
 import { supabase } from '../lib/supabase';
 import { getUserWorkspaceAccess } from './workspaceUtils';
+
+// Storage bucket configuration
+const STORAGE_BUCKET = process.env.NEXT_PUBLIC_STORAGE_BUCKET || 'resources';
 import {
   CommunityDocument,
   DocumentWithDetails,
@@ -247,18 +250,18 @@ export async function uploadDocument(
       const timestamp = Date.now();
       const sanitizedFileName = sanitizeFileName(file.name);
       const folderPath = uploadData.folder_id ? `folder-${uploadData.folder_id}` : 'root';
-      const storagePath = `community-documents/${workspaceId}/${folderPath}/${timestamp}-${sanitizedFileName}`;
+      const storagePath = `documents/${workspaceId}/${folderPath}/${timestamp}-${sanitizedFileName}`;
 
       // Upload file to Supabase Storage
       const { data: uploadResult, error: uploadError } = await supabase.storage
-        .from('community-documents')
+        .from(STORAGE_BUCKET)
         .upload(storagePath, file);
 
       if (uploadError) throw uploadError;
 
       // Get public URL
       const { data: urlData } = supabase.storage
-        .from('community-documents')
+        .from(STORAGE_BUCKET)
         .getPublicUrl(storagePath);
 
       // Create document record

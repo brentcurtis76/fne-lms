@@ -109,7 +109,7 @@ export default function ResponsiveChart({
 
     const tickProps = {
       tick: { fontSize: isMobile ? 10 : 12 },
-      interval: isMobile ? 'preserveStartEnd' : 0
+      interval: (isMobile ? 'preserveStartEnd' : 0) as any
     };
 
     switch (type) {

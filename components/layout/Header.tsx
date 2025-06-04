@@ -214,6 +214,23 @@ export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarU
                     )}
                   </a>
                 </Link>
+                
+                {/* Collaborative Workspace link for community members, consultants, and admins */}
+                <Link href="/community/workspace" legacyBehavior>
+                  <a className={`relative px-6 py-3 text-sm font-medium transition-all duration-300 group ${
+                    isActive('/community/workspace') 
+                      ? 'text-[#00365b]' 
+                      : 'text-[#fdb933]/90 hover:text-[#fdb933]'
+                  }`}>
+                    <span className="relative z-10">Espacio Colaborativo</span>
+                    {isActive('/community/workspace') && (
+                      <div className="absolute inset-0 bg-[#fdb933] rounded-lg shadow-lg transform scale-105"></div>
+                    )}
+                    {!isActive('/community/workspace') && (
+                      <div className="absolute inset-0 bg-[#fdb933]/20 rounded-lg opacity-0 group-hover:opacity-100 transform scale-95 group-hover:scale-100 transition-all duration-300"></div>
+                    )}
+                  </a>
+                </Link>
               </>
             )}
             </nav>

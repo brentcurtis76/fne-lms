@@ -23,7 +23,7 @@ import {
   Eye,
 } from 'lucide-react';
 import {
-  MessageFilters,
+  MessageFilters as MessageFiltersType,
   ThreadFilters,
   ThreadCategory,
   MessageType,
@@ -32,9 +32,9 @@ import {
 } from '../../types/messaging';
 
 interface MessageFiltersProps {
-  messageFilters: MessageFilters;
+  messageFilters: MessageFiltersType;
   threadFilters: ThreadFilters;
-  onMessageFiltersChange: (filters: MessageFilters) => void;
+  onMessageFiltersChange: (filters: MessageFiltersType) => void;
   onThreadFiltersChange: (filters: ThreadFilters) => void;
   availableAuthors: Array<{ id: string; name: string }>;
   activeView: 'messages' | 'threads';
@@ -55,7 +55,7 @@ export default function MessageFilters({
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // Update message filters
-  const updateMessageFilters = (updates: Partial<MessageFilters>) => {
+  const updateMessageFilters = (updates: Partial<MessageFiltersType>) => {
     onMessageFiltersChange({ ...messageFilters, ...updates });
   };
 

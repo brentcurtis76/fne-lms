@@ -116,7 +116,10 @@ export interface MessageAttachment {
   mime_type: string;
   storage_path: string;
   thumbnail_path?: string;
+  description?: string;
   uploaded_by: string;
+  download_count?: number;
+  view_count?: number;
   is_active: boolean;
   created_at: string;
 }

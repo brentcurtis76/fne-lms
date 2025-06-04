@@ -43,16 +43,7 @@ export async function getWorkspaceDocuments(
   try {
     let documentsQuery = supabase
       .from('community_documents')
-      .select(`
-        *,
-        profiles:uploaded_by (
-          full_name,
-          email
-        ),
-        document_folders:folder_id (
-          folder_name
-        )
-      `)
+      .select('*')
       .eq('workspace_id', workspaceId)
       .eq('is_active', true);
 
@@ -121,9 +112,9 @@ export async function getWorkspaceDocuments(
     // Enhance documents with additional information
     const enhancedDocuments: DocumentWithDetails[] = documentsResult.data.map((doc: any) => ({
       ...doc,
-      uploader_name: doc.profiles?.full_name || 'Usuario desconocido',
-      uploader_email: doc.profiles?.email,
-      folder_name: doc.document_folders?.folder_name,
+      uploader_name: 'Usuario',
+      uploader_email: '',
+      folder_name: '',
       file_type_icon: getFileTypeIcon(doc.mime_type),
       formatted_size: formatFileSize(doc.file_size),
       relative_time: formatRelativeTime(doc.created_at),

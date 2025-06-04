@@ -21,6 +21,11 @@ import MessageComposer from '../../components/messaging/MessageComposer';
 import MessageThread from '../../components/messaging/MessageThread';
 import MessageCard from '../../components/messaging/MessageCard';
 import AttachmentPreview from '../../components/messaging/AttachmentPreview';
+import ActivityFeed from '../../components/activity/ActivityFeed';
+import ActivitySummary from '../../components/activity/ActivitySummary';
+import ActivityNotifications from '../../components/activity/ActivityNotifications';
+import ActivityFeedPlaceholder from '../../components/activity/ActivityFeedPlaceholder';
+import ErrorBoundary from '../../components/common/ErrorBoundary';
 import { useAuth } from '../../hooks/useAuth';
 import { 
   getUserWorkspaceAccess, 
@@ -77,6 +82,19 @@ import {
   sendMessage,
   subscribeToWorkspaceMessages
 } from '../../utils/messagingUtils-simple';
+import {
+  getActivityFeed,
+  getActivitySubscription,
+  updateActivitySubscription,
+  getActivityPermissions
+} from '../../utils/activityUtils';
+import {
+  ActivityFilters,
+  ActivitySubscription,
+  ActivityPermissions,
+  ActivityWithDetails,
+  DEFAULT_ACTIVITY_FILTERS
+} from '../../types/activity';
 import { 
   UsersIcon, 
   DocumentTextIcon, 
@@ -141,6 +159,11 @@ const CommunityWorkspacePage: React.FC = () => {
   
   // UI state
   const [showCommunitySelector, setShowCommunitySelector] = useState(false);
+  
+  // Activity Feed state
+  const [activityPermissions, setActivityPermissions] = useState<ActivityPermissions | null>(null);
+  const [activitySubscription, setActivitySubscription] = useState<ActivitySubscription | null>(null);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -324,6 +347,14 @@ const CommunityWorkspacePage: React.FC = () => {
       />;
     }
 
+    if (activeTab === 'feed') {
+      return <FeedTabContent 
+        workspace={currentWorkspace} 
+        workspaceAccess={workspaceAccess} 
+        user={user} 
+      />;
+    }
+
     // Other tabs - show coming soon message
     const currentTab = TABS.find(tab => tab.id === activeTab);
     
@@ -412,7 +443,7 @@ const CommunityWorkspacePage: React.FC = () => {
         avatarUrl={avatarUrl}
       />
       
-      <div className="pt-20 pb-12">
+      <div className="pt-32 pb-12">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Page Header */}
           <div className="mb-6 sm:mb-8">
@@ -1566,6 +1597,204 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
           onDownload={handleAttachmentDownload}
           onReply={previewMessage ? handleReplyToMessage : undefined}
           canReply={permissions.can_send_messages}
+        />
+      )}
+    </div>
+  );
+};
+
+// Feed Tab Content Component
+const FeedTabContent: React.FC<{
+  workspace: CommunityWorkspace | null;
+  workspaceAccess: WorkspaceAccess | null;
+  user: any;
+}> = ({ workspace, workspaceAccess, user }) => {
+  const [activityPermissions, setActivityPermissions] = useState<ActivityPermissions | null>(null);
+  const [activitySubscription, setActivitySubscription] = useState<ActivitySubscription | null>(null);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [hasActivityError, setHasActivityError] = useState(false);
+
+  // Load activity permissions and subscription on mount
+  useEffect(() => {
+    const loadActivityData = async () => {
+      if (!workspace || !user) return;
+
+      try {
+        setLoading(true);
+        
+        // Load permissions
+        const permissions = await getActivityPermissions(user.id, workspace.id);
+        setActivityPermissions(permissions);
+
+        // Load subscription
+        const subscription = await getActivitySubscription(user.id, workspace.id);
+        setActivitySubscription(subscription);
+
+      } catch (error) {
+        console.error('Error loading activity data:', error);
+        setHasActivityError(true);
+        // Don't show toast error for missing tables - this is expected during setup
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadActivityData();
+  }, [workspace, user]);
+
+  // Handle subscription update
+  const handleSubscriptionUpdate = async (updatedSubscription: Partial<ActivitySubscription>) => {
+    if (!workspace || !user) return;
+
+    try {
+      const newSubscription = await updateActivitySubscription(
+        user.id,
+        workspace.id,
+        updatedSubscription
+      );
+      setActivitySubscription(newSubscription);
+      toast.success('Preferencias de notificación actualizadas');
+    } catch (error) {
+      console.error('Error updating subscription:', error);
+      toast.error('Error al actualizar preferencias');
+    }
+  };
+
+  // Handle activity actions
+  const handleActivityAction = (action: string, activity: ActivityWithDetails) => {
+    switch (action) {
+      case 'view':
+        if (activity.entity_url) {
+          window.open(activity.entity_url, '_blank');
+        }
+        break;
+      case 'edit':
+        toast('Edición de actividades próximamente', { icon: '✏️' });
+        break;
+      case 'delete':
+        toast('Eliminación de actividades próximamente', { icon: '🗑️' });
+        break;
+      case 'bookmark':
+        toast('Marcadores próximamente', { icon: '⭐' });
+        break;
+      case 'share':
+        if (activity.entity_url && navigator.share) {
+          navigator.share({
+            title: activity.title,
+            text: activity.description || '',
+            url: activity.entity_url
+          });
+        } else if (activity.entity_url) {
+          navigator.clipboard.writeText(activity.entity_url);
+          toast.success('Enlace copiado al portapapeles');
+        }
+        break;
+      default:
+        console.log('Unknown action:', action);
+    }
+  };
+
+  if (!workspace) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        <div className="text-center">
+          <p className="text-gray-500">Selecciona un espacio para ver las actividades</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <LoadingSkeleton count={5} height="120px" />
+      </div>
+    );
+  }
+
+  // Show placeholder if workspace not available or activity system isn't ready
+  if (!workspace || hasActivityError) {
+    return <ActivityFeedPlaceholder />;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header with notification settings */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-[#00365b] mb-2">
+              Feed de Actividades
+            </h2>
+            <p className="text-gray-600">
+              Mantente al día con todas las actividades de tu comunidad
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Activity Summary */}
+            <button
+              onClick={() => toast('Resumen extendido próximamente', { icon: '📊' })}
+              className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              <span>📊</span>
+              <span className="hidden sm:inline">Resumen</span>
+            </button>
+
+            {/* Notification Settings */}
+            <button
+              onClick={() => setShowNotificationSettings(true)}
+              className="flex items-center gap-2 px-3 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors"
+            >
+              <span>🔔</span>
+              <span className="hidden sm:inline">Notificaciones</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Activity Summary */}
+      <ErrorBoundary fallback={<div className="p-4 text-center text-gray-500">Error cargando resumen de actividades</div>}>
+        <ActivitySummary
+          workspaceId={workspace.id}
+          period="today"
+          showComparison={true}
+          showTrends={true}
+        />
+      </ErrorBoundary>
+
+      {/* Activity Feed */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <ErrorBoundary fallback={<div className="p-6 text-center text-gray-500">Error cargando feed de actividades</div>}>
+          <ActivityFeed
+            workspaceId={workspace.id}
+            userId={user?.id}
+            realTimeEnabled={true}
+            showGrouping={true}
+            showFilters={true}
+            showStats={false}
+            pageSize={50}
+            className="p-6"
+          />
+        </ErrorBoundary>
+      </div>
+
+      {/* Notification Settings Modal */}
+      {showNotificationSettings && activitySubscription && (
+        <ActivityNotifications
+          subscription={activitySubscription}
+          onSubscriptionUpdate={handleSubscriptionUpdate}
+          availableTypes={[
+            'meeting_created', 'meeting_completed', 'task_assigned', 'task_completed',
+            'document_uploaded', 'folder_created', 'message_sent', 'thread_created',
+            'user_joined', 'workspace_updated'
+          ]}
+          availableEntities={[
+            'meeting', 'document', 'folder', 'message', 'thread', 'user', 'workspace'
+          ]}
+          isOpen={showNotificationSettings}
+          onClose={() => setShowNotificationSettings(false)}
         />
       )}
     </div>

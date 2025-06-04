@@ -104,7 +104,7 @@ export interface DocumentFilterOptions {
   uploaded_by?: string;
   date_from?: string;
   date_to?: string;
-  sort_by?: 'name' | 'date' | 'size' | 'downloads' | 'views';
+  sort_by?: 'name' | 'date' | 'created_at' | 'size' | 'downloads' | 'views';
   sort_order?: 'asc' | 'desc';
   view_mode?: 'grid' | 'list';
 }

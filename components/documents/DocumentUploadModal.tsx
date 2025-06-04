@@ -11,10 +11,13 @@ import {
   CommunityDocument,
   FileUploadProgress,
   SUPPORTED_FILE_TYPES,
+} from '../../types/documents';
+import {
+  uploadDocument,
+  createFolder,
   getFileTypeConfig,
   formatFileSize,
-} from '../../types/documents';
-import { uploadDocument, createFolder } from '../../utils/documentUtils';
+} from '../../utils/documentUtils';
 
 interface DocumentUploadModalProps {
   isOpen: boolean;

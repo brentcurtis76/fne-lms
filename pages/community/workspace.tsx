@@ -897,7 +897,7 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
           await incrementDocumentCounter(document.id, 'download', user.id);
           
           // Trigger download
-          const link = document.createElement('a');
+          const link = window.document.createElement('a');
           link.href = document.storage_path;
           link.download = document.file_name;
           link.click();

@@ -33,13 +33,15 @@ import {
   DocumentViewMode,
   DocumentAction,
   DocumentPermission,
+} from '../../types/documents';
+import {
   getFileTypeIcon,
   getFileTypeColor,
   formatFileSize,
   formatRelativeTime,
   canUserEditDocument,
   canUserDeleteDocument,
-} from '../../types/documents';
+} from '../../utils/documentUtils';
 
 interface DocumentGridProps {
   documents: DocumentWithDetails[];

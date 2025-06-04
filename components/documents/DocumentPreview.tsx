@@ -22,14 +22,14 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import { DocumentWithDetails } from '../../types/documents';
 import {
-  DocumentWithDetails,
   isPreviewSupported,
   getFileTypeIcon,
   getFileTypeColor,
   formatFileSize,
   formatRelativeTime,
-} from '../../types/documents';
+} from '../../utils/documentUtils';
 
 interface DocumentPreviewProps {
   isOpen: boolean;

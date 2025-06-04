@@ -4,7 +4,7 @@
 // Utility functions for document management following established patterns
 
 import { supabase } from '../lib/supabase';
-import { getUserWorkspaceRole } from './workspaceUtils';
+import { getUserWorkspaceAccess } from './workspaceUtils';
 import {
   CommunityDocument,
   DocumentWithDetails,
@@ -444,7 +444,7 @@ export async function getUserDocumentPermissions(
   workspaceId: string
 ): Promise<DocumentPermission> {
   try {
-    const userRole = await getUserWorkspaceRole(userId, workspaceId);
+    const { accessType: userRole } = await getUserWorkspaceAccess(userId);
 
     switch (userRole) {
       case 'admin':
@@ -458,7 +458,7 @@ export async function getUserDocumentPermissions(
           can_manage_folders: true,
         };
 
-      case 'lider_comunidad':
+      case 'community_member':
         return {
           can_view: true,
           can_download: true,
@@ -480,13 +480,13 @@ export async function getUserDocumentPermissions(
           can_manage_folders: false,
         };
 
-      case 'docente':
+      case 'none':
         return {
-          can_view: true,
-          can_download: true,
-          can_edit: false, // Can edit own documents (handled in component logic)
-          can_delete: false, // Can delete own documents (handled in component logic)
-          can_share: true,
+          can_view: false,
+          can_download: false,
+          can_edit: false,
+          can_delete: false,
+          can_share: false,
           can_create_folder: false,
           can_manage_folders: false,
         };

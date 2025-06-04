@@ -19,6 +19,7 @@ import DocumentFilters from '../../components/documents/DocumentFilters';
 import MessageFilters from '../../components/messaging/MessageFilters';
 import MessageComposer from '../../components/messaging/MessageComposer';
 import MessageThread from '../../components/messaging/MessageThread';
+import MessageCard from '../../components/messaging/MessageCard';
 import AttachmentPreview from '../../components/messaging/AttachmentPreview';
 import { useAuth } from '../../hooks/useAuth';
 import { 

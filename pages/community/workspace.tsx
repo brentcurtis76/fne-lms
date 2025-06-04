@@ -1519,14 +1519,15 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.length > 0 ? (
                 messages.map(message => (
-                  <MessageThread
+                  <MessageCard
                     key={message.id}
-                    messages={[message]}
+                    message={message}
                     currentUserId={user?.id || ''}
                     onReply={handleReplyToMessage}
                     onReaction={() => {}}
                     onAttachmentClick={handleAttachmentPreview}
                     permissions={permissions}
+                    workspaceId={workspace.id}
                   />
                 ))
               ) : (

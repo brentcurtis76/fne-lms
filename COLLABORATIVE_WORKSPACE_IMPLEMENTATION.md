@@ -16,7 +16,7 @@ Successfully implemented the foundation for a collaborative workspace system for
 **File:** `pages/community/workspace.tsx`
 - Complete tab-based interface with 4 tabs:
   - **Reuniones** (Meetings) - ✅ **FULLY IMPLEMENTED** with meeting documentation system
-  - **Documentos** (Documents) - Document icon  
+  - **Documentos** (Documents) - ✅ **FULLY IMPLEMENTED** with professional document repository
   - **Mensajería** (Messaging) - Chat icon
   - **Feed** (Feed) - RSS icon
 - Role-based access control implemented
@@ -34,7 +34,18 @@ Successfully implemented the foundation for a collaborative workspace system for
 - **Email Notifications:** Automated assignment notifications
 - **Mobile Optimization:** Touch-friendly interfaces
 
-### 4. Database Schema - Workspace Foundation
+### 4. Complete Document Repository System
+**Files:** Multiple components and utilities
+- **Database Schema:** Professional 4-table system with version control
+- **Document Upload:** Drag & drop interface with metadata and validation
+- **Folder Organization:** Hierarchical folder structure with breadcrumb navigation
+- **File Management:** Support for multiple file types (PDF, DOC, XLS, PPT, images, videos)
+- **Advanced Search:** Tag-based filtering, file type filters, and search capabilities
+- **Document Preview:** Modal preview for images, PDFs, and videos
+- **Access Control:** Role-based permissions with download/view tracking
+- **Version Control:** Complete file versioning system with history
+
+### 5. Database Schema - Workspace Foundation
 **File:** `database/community-workspaces.sql`
 - `community_workspaces` table with complete structure
 - `workspace_activities` table for activity logging
@@ -42,7 +53,7 @@ Successfully implemented the foundation for a collaborative workspace system for
 - Helper functions for workspace management
 - Proper indexing for performance
 
-### 5. Database Schema - Meeting System
+### 6. Database Schema - Meeting System
 **File:** `database/meeting-system.sql`
 - `community_meetings` table with full meeting metadata
 - `meeting_agreements` table for documented agreements
@@ -53,7 +64,18 @@ Successfully implemented the foundation for a collaborative workspace system for
 - Advanced RLS policies for role-based access
 - Helper functions for overdue tracking and statistics
 
-### 6. Access Control Logic
+### 7. Database Schema - Document Repository System
+**File:** `database/document-system.sql`
+- `document_folders` table with hierarchical organization
+- `community_documents` table with metadata and version control
+- `document_versions` table for complete file history tracking
+- `document_access_log` table for usage analytics
+- Helper functions for statistics, version management, and breadcrumb navigation
+- Advanced RLS policies for role-based document access
+- Storage integration for file management
+- Support for multiple file types with validation
+
+### 8. Access Control Logic
 **File:** `utils/workspaceUtils.ts`
 - `getUserWorkspaceAccess()` - Determines user access level
 - `getOrCreateWorkspace()` - Workspace management
@@ -63,36 +85,57 @@ Successfully implemented the foundation for a collaborative workspace system for
   - **Consultants**: Access to assigned school communities
 - Activity logging functionality
 
-### 5. Database Migration Scripts
+### 9. Document Components
+**Files:** `components/documents/`
+- **DocumentUploadModal**: Professional upload interface with drag & drop, metadata forms, and validation
+- **DocumentGrid**: Grid/list view with thumbnails, actions, and bulk operations
+- **FolderNavigation**: Breadcrumb navigation with folder creation and management
+- **DocumentPreview**: Modal preview for images, PDFs, and videos with zoom/rotate controls
+- **DocumentFilters**: Advanced filtering with search, tags, file types, and date ranges
+
+### 10. Document Utilities and Types
 **Files:** 
-- `scripts/apply-workspace-migration.js` - Migration runner
-- `scripts/test-workspace-access.js` - Access testing
+- `utils/documentUtils.ts` - Document management functions and permission handling
+- `types/documents.ts` - TypeScript definitions and supported file types configuration
+
+### 11. Database Migration Scripts
+**Files:** 
+- `scripts/apply-workspace-migration.js` - Workspace migration runner
+- `scripts/test-workspace-access.js` - Workspace access testing
+- `scripts/apply-document-migration.js` - Document system migration runner
+- `scripts/test-document-system.js` - Document system comprehensive testing
 
 ## 🔐 Access Control Implementation
 
 ### Admin Users (role_type = 'admin')
-- **Access Level**: Global access to all communities
+- **Workspace Access**: Global access to all communities
+- **Document Permissions**: Upload/download/delete documents in any community, create folders, manage all documents
 - **UI Features**: Community selector dropdown
 - **Default**: First available community workspace
-- **Permissions**: Can view/manage any workspace
 
-### Community Members (users with community_id)
-- **Access Level**: Direct access to their community workspace
+### Community Leaders (lider_comunidad)
+- **Workspace Access**: Full access to their assigned community
+- **Document Permissions**: Full document management within their community
+- **UI Features**: Auto-directed to their community workspace
+- **Default**: User's assigned community workspace
+
+### Community Members (docente)
+- **Workspace Access**: Access to their community workspace with participation permissions
+- **Document Permissions**: Upload/download documents, delete own files only
 - **UI Features**: No selector needed - auto-directed
 - **Default**: User's assigned community workspace
-- **Permissions**: Full access to their community workspace
 
 ### Consultants (role_type = 'consultor')
-- **Access Level**: Communities within assigned schools
+- **Workspace Access**: Communities where they have student assignments
+- **Document Permissions**: View/download documents for assigned communities, upload resources for students
 - **UI Features**: Community selector for assigned communities
 - **Default**: First assigned community workspace
-- **Permissions**: Access to workspaces in assigned schools
 
 ### Users Without Access
 - **Access Level**: None
 - **UI Features**: Error message with guidance
 - **Default**: Redirect to contact administrator
-- **Permissions**: No workspace access
+- **Permissions**: No workspace or document access
 
 ## 🎨 Mobile Responsiveness
 
@@ -110,6 +153,48 @@ Successfully implemented the foundation for a collaborative workspace system for
 - **Typography**: Consistent font weights and sizes
 - **Spacing**: Matches existing dashboard patterns
 - **Shadows**: Subtle shadows matching design system
+
+## 📁 Document Repository Features
+
+### File Upload & Management
+- **Drag & Drop Interface**: Professional upload area with progress indicators
+- **Supported File Types**: PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, images (JPG, PNG), videos (MP4)
+- **File Size Limits**: Configurable per file type (up to 50MB for videos, 10MB for images)
+- **Metadata Management**: Title, description, tags, and folder organization
+- **File Validation**: Type checking and size validation with user-friendly error messages
+
+### Folder Organization
+- **Hierarchical Structure**: Unlimited folder nesting with parent/child relationships
+- **Breadcrumb Navigation**: Visual path navigation with click-to-navigate
+- **Folder Management**: Create, rename, and delete folders with proper permissions
+- **Default Folders**: Automatic creation of standard folders (Presentaciones, Plantillas, etc.)
+
+### Search & Filtering
+- **Advanced Search**: Text search across titles, descriptions, and file names
+- **Tag-Based Filtering**: Multi-tag selection with visual tag management
+- **File Type Filters**: Filter by document type (PDF, Word, Excel, etc.)
+- **Date Range Filtering**: Filter by upload date with calendar pickers
+- **Uploader Filtering**: Filter by who uploaded the document
+- **Sort Options**: Sort by name, date, size, downloads, or views
+
+### Document Preview & Access
+- **Image Preview**: Full-screen preview with zoom, rotate, and reset controls
+- **PDF Preview**: Embedded PDF viewer with navigation
+- **Video Preview**: HTML5 video player with standard controls
+- **Download Tracking**: Track view and download counts for analytics
+- **Access Logging**: Detailed logs with IP address and user agent tracking
+
+### Version Control
+- **File Versioning**: Complete version history for all documents
+- **Version Navigation**: Browse and access previous versions
+- **Storage Optimization**: Efficient storage with version tracking
+- **Automatic Versioning**: New versions created when files are replaced
+
+### Bulk Operations
+- **Multi-Selection**: Select multiple documents for batch operations
+- **Bulk Download**: Download multiple files (planned feature)
+- **Bulk Move**: Move multiple documents to different folders (planned feature)
+- **Bulk Tagging**: Apply tags to multiple documents (planned feature)
 
 ## 🗄️ Database Structure
 

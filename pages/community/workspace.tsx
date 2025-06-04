@@ -11,6 +11,11 @@ import LoadingSkeleton from '../../components/common/LoadingSkeleton';
 import MeetingFilters from '../../components/meetings/MeetingFilters';
 import MeetingCard from '../../components/meetings/MeetingCard';
 import MeetingDocumentationModal from '../../components/meetings/MeetingDocumentationModal';
+import DocumentUploadModal from '../../components/documents/DocumentUploadModal';
+import DocumentGrid from '../../components/documents/DocumentGrid';
+import FolderNavigation from '../../components/documents/FolderNavigation';
+import DocumentPreview from '../../components/documents/DocumentPreview';
+import DocumentFilters from '../../components/documents/DocumentFilters';
 import { useAuth } from '../../hooks/useAuth';
 import { 
   getUserWorkspaceAccess, 
@@ -25,10 +30,32 @@ import {
   canUserManageMeetings
 } from '../../utils/meetingUtils';
 import {
+  getWorkspaceDocuments,
+  getUserDocumentPermissions,
+  uploadDocument,
+  createFolder,
+  incrementDocumentCounter,
+  getFolderBreadcrumb,
+  extractUniqueTags,
+  formatFileSize
+} from '../../utils/documentUtils';
+import {
   CommunityMeeting,
   MeetingFilters as MeetingFiltersType,
   MeetingSortOptions
 } from '../../types/meetings';
+import {
+  DocumentWithDetails,
+  FolderWithBreadcrumb,
+  DocumentFolder,
+  CommunityDocument,
+  DocumentFilterOptions,
+  DocumentViewMode,
+  DocumentAction,
+  DocumentPermission,
+  BreadcrumbItem,
+  FolderCreateData
+} from '../../types/documents';
 import { 
   UsersIcon, 
   DocumentTextIcon, 
@@ -80,7 +107,7 @@ const TABS: TabConfig[] = [
 
 const CommunityWorkspacePage: React.FC = () => {
   const router = useRouter();
-  const { user, loading: authLoading, logout } = useAuth();
+  const { user, loading: authLoading, logout, isAdmin, avatarUrl } = useAuth();
   
   // Workspace state
   const [workspaceAccess, setWorkspaceAccess] = useState<WorkspaceAccess | null>(null);
@@ -259,6 +286,14 @@ const CommunityWorkspacePage: React.FC = () => {
       />;
     }
 
+    if (activeTab === 'documents') {
+      return <DocumentsTabContent 
+        workspace={currentWorkspace} 
+        workspaceAccess={workspaceAccess} 
+        user={user} 
+      />;
+    }
+
     // Other tabs - show coming soon message
     const currentTab = TABS.find(tab => tab.id === activeTab);
     
@@ -287,7 +322,12 @@ const CommunityWorkspacePage: React.FC = () => {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header user={user} onLogout={logout} />
+        <Header 
+          user={user}
+          isAdmin={isAdmin}
+          onLogout={logout}
+          avatarUrl={avatarUrl}
+        />
         <div className="pt-20 pb-12">
           <LoadingSkeleton />
         </div>
@@ -298,7 +338,12 @@ const CommunityWorkspacePage: React.FC = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <Header user={user} onLogout={logout} />
+        <Header 
+          user={user}
+          isAdmin={isAdmin}
+          onLogout={logout}
+          avatarUrl={avatarUrl}
+        />
         <div className="pt-20 pb-12">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
@@ -330,7 +375,12 @@ const CommunityWorkspacePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header user={user} onLogout={logout} />
+      <Header 
+        user={user}
+        isAdmin={isAdmin}
+        onLogout={logout}
+        avatarUrl={avatarUrl}
+      />
       
       <div className="pt-20 pb-12">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -653,6 +703,371 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
           workspaceId={workspace.id}
           userId={user.id}
           onSuccess={handleMeetingCreated}
+        />
+      )}
+    </div>
+  );
+};
+
+// Documents Tab Content Component
+interface DocumentsTabContentProps {
+  workspace: CommunityWorkspace | null;
+  workspaceAccess: WorkspaceAccess | null;
+  user: any;
+}
+
+const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, workspaceAccess, user }) => {
+  // Document state
+  const [documents, setDocuments] = useState<DocumentWithDetails[]>([]);
+  const [folders, setFolders] = useState<FolderWithBreadcrumb[]>([]);
+  const [allFolders, setAllFolders] = useState<DocumentFolder[]>([]);
+  const [currentFolder, setCurrentFolder] = useState<FolderWithBreadcrumb | null>(null);
+  const [breadcrumb, setBreadcrumb] = useState<BreadcrumbItem[]>([]);
+  const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // UI state
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<DocumentWithDetails | null>(null);
+  const [viewMode, setViewMode] = useState<DocumentViewMode>('grid');
+  const [permissions, setPermissions] = useState<DocumentPermission>({
+    can_view: false,
+    can_download: false,
+    can_edit: false,
+    can_delete: false,
+    can_share: false,
+    can_create_folder: false,
+    can_manage_folders: false,
+  });
+  
+  // Filter state
+  const [filters, setFilters] = useState<DocumentFilterOptions>({
+    search: '',
+    tags: [],
+    mime_types: [],
+    uploaded_by: '',
+    date_from: '',
+    date_to: '',
+    sort_by: 'created_at',
+    sort_order: 'desc',
+  });
+
+  // Available data for filters
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [availableUploaders, setAvailableUploaders] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    if (workspace && user) {
+      loadDocuments();
+      loadPermissions();
+    }
+  }, [workspace, user, currentFolder, filters]);
+
+  const loadDocuments = async () => {
+    if (!workspace) return;
+
+    try {
+      setLoading(true);
+      const { documents: docs, folders: folderList } = await getWorkspaceDocuments(
+        workspace.id,
+        currentFolder?.id || null,
+        filters
+      );
+      
+      setDocuments(docs);
+      setFolders(folderList);
+      
+      // Update available filter options
+      setAvailableTags(extractUniqueTags(docs));
+      
+      // Extract unique uploaders
+      const uploaders = Array.from(
+        new Map(docs.map(doc => [doc.uploaded_by, { id: doc.uploaded_by, name: doc.uploader_name || 'Usuario desconocido' }]))
+          .values()
+      );
+      setAvailableUploaders(uploaders);
+      
+      // Load all folders for folder selector
+      if (!allFolders.length) {
+        loadAllFolders();
+      }
+      
+    } catch (error) {
+      console.error('Error loading documents:', error);
+      toast.error('Error al cargar los documentos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAllFolders = async () => {
+    if (!workspace) return;
+    
+    try {
+      // This would need to be implemented in documentUtils
+      // For now, we'll use the current folders
+      setAllFolders(folders.map(f => ({
+        id: f.id,
+        workspace_id: f.workspace_id,
+        folder_name: f.folder_name,
+        parent_folder_id: f.parent_folder_id,
+        created_by: f.created_by,
+        created_at: f.created_at,
+        updated_at: f.updated_at,
+      })));
+    } catch (error) {
+      console.error('Error loading all folders:', error);
+    }
+  };
+
+  const loadPermissions = async () => {
+    if (!workspace || !user) return;
+
+    try {
+      const userPermissions = await getUserDocumentPermissions(user.id, workspace.id);
+      setPermissions(userPermissions);
+    } catch (error) {
+      console.error('Error loading permissions:', error);
+    }
+  };
+
+  const loadBreadcrumb = async (folderId: string) => {
+    try {
+      const breadcrumbData = await getFolderBreadcrumb(folderId);
+      setBreadcrumb(breadcrumbData);
+    } catch (error) {
+      console.error('Error loading breadcrumb:', error);
+      setBreadcrumb([]);
+    }
+  };
+
+  const handleFolderNavigate = async (folderId: string | null) => {
+    if (folderId) {
+      const folder = folders.find(f => f.id === folderId);
+      setCurrentFolder(folder || null);
+      await loadBreadcrumb(folderId);
+    } else {
+      setCurrentFolder(null);
+      setBreadcrumb([]);
+    }
+    setSelectedDocuments([]);
+  };
+
+  const handleFolderClick = (folder: FolderWithBreadcrumb) => {
+    handleFolderNavigate(folder.id);
+  };
+
+  const handleCreateFolder = async (folderData: FolderCreateData) => {
+    if (!workspace || !user) return;
+
+    try {
+      await createFolder(workspace.id, folderData, user.id);
+      await loadDocuments();
+      toast.success('Carpeta creada exitosamente');
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      toast.error('Error al crear la carpeta');
+      throw error;
+    }
+  };
+
+  const handleDocumentClick = (document: DocumentWithDetails) => {
+    if (!user) return;
+    
+    // Track view
+    incrementDocumentCounter(document.id, 'view', user.id).catch(console.error);
+    
+    // Open preview
+    setPreviewDocument(document);
+    setShowPreviewModal(true);
+  };
+
+  const handleDocumentAction = async (action: DocumentAction, document: DocumentWithDetails) => {
+    if (!user) return;
+
+    switch (action) {
+      case 'view':
+        handleDocumentClick(document);
+        break;
+        
+      case 'download':
+        if (document.storage_path) {
+          // Track download
+          await incrementDocumentCounter(document.id, 'download', user.id);
+          
+          // Trigger download
+          const link = document.createElement('a');
+          link.href = document.storage_path;
+          link.download = document.file_name;
+          link.click();
+          
+          toast.success('Descarga iniciada');
+        }
+        break;
+        
+      case 'edit':
+        toast('Edición de documentos próximamente', { icon: 'ℹ️' });
+        break;
+        
+      case 'delete':
+        if (window.confirm('¿Estás seguro de que quieres eliminar este documento?')) {
+          toast('Eliminación de documentos próximamente', { icon: 'ℹ️' });
+        }
+        break;
+        
+      case 'move':
+        toast('Mover documentos próximamente', { icon: 'ℹ️' });
+        break;
+        
+      case 'share':
+        toast('Compartir documentos próximamente', { icon: 'ℹ️' });
+        break;
+        
+      default:
+        console.warn('Unknown document action:', action);
+    }
+  };
+
+  const handleUploadComplete = (uploadedDocuments: CommunityDocument[]) => {
+    loadDocuments();
+    setShowUploadModal(false);
+    toast.success(`${uploadedDocuments.length} documento(s) subido(s) exitosamente`);
+  };
+
+  const handleDownload = (document: DocumentWithDetails) => {
+    handleDocumentAction('download', document);
+  };
+
+  if (!workspace) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+        <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          No hay espacio de trabajo seleccionado
+        </h3>
+        <p className="text-gray-500">
+          Selecciona una comunidad para ver sus documentos.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Folder Navigation */}
+      <FolderNavigation
+        currentFolder={currentFolder}
+        breadcrumb={breadcrumb}
+        onFolderNavigate={handleFolderNavigate}
+        onCreateFolder={handleCreateFolder}
+        permissions={permissions}
+        loading={loading}
+      />
+
+      {/* Document Filters */}
+      <DocumentFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+        availableTags={availableTags}
+        availableUploaders={availableUploaders}
+        onViewModeChange={setViewMode}
+        viewMode={viewMode}
+        loading={loading}
+      />
+
+      {/* Header with Upload Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-[#00365b]">
+            {currentFolder ? `Documentos en ${currentFolder.folder_name}` : 'Documentos'}
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            {documents.length} documento(s) • {folders.length} carpeta(s)
+          </p>
+        </div>
+
+        {permissions.can_view && (
+          <button
+            onClick={() => setShowUploadModal(true)}
+            className="inline-flex items-center px-4 py-2 bg-[#fdb933] text-[#00365b] font-medium rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200 shadow-sm"
+          >
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Subir Documento
+          </button>
+        )}
+      </div>
+
+      {/* Bulk Actions */}
+      {selectedDocuments.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-blue-900">
+              {selectedDocuments.length} documento(s) seleccionados
+            </span>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => toast('Mover documentos próximamente', { icon: 'ℹ️' })}
+                className="text-sm bg-white border border-blue-300 text-blue-700 px-3 py-1 rounded hover:bg-blue-50 transition-colors"
+              >
+                Mover
+              </button>
+              <button
+                onClick={() => toast('Descargar múltiples próximamente', { icon: 'ℹ️' })}
+                className="text-sm bg-white border border-blue-300 text-blue-700 px-3 py-1 rounded hover:bg-blue-50 transition-colors"
+              >
+                Descargar
+              </button>
+              <button
+                onClick={() => setSelectedDocuments([])}
+                className="text-sm text-blue-600 hover:text-blue-800"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Document Grid */}
+      <DocumentGrid
+        documents={documents}
+        folders={folders}
+        viewMode={viewMode}
+        onDocumentClick={handleDocumentClick}
+        onFolderClick={handleFolderClick}
+        onDocumentAction={handleDocumentAction}
+        selectedDocuments={selectedDocuments}
+        onSelectionChange={setSelectedDocuments}
+        permissions={permissions}
+        loading={loading}
+        userId={user?.id || ''}
+      />
+
+      {/* Document Upload Modal */}
+      {showUploadModal && workspace && user && (
+        <DocumentUploadModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          workspaceId={workspace.id}
+          currentFolderId={currentFolder?.id}
+          folders={allFolders}
+          onUploadComplete={handleUploadComplete}
+          userId={user.id}
+        />
+      )}
+
+      {/* Document Preview Modal */}
+      {showPreviewModal && previewDocument && (
+        <DocumentPreview
+          isOpen={showPreviewModal}
+          onClose={() => {
+            setShowPreviewModal(false);
+            setPreviewDocument(null);
+          }}
+          document={previewDocument}
+          onDownload={handleDownload}
+          canEdit={permissions.can_edit}
         />
       )}
     </div>

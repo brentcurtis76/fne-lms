@@ -122,12 +122,7 @@ export async function getWorkspaceThreads(
             id,
             content,
             created_at,
-            author:auth.users!author_id(
-              id,
-              email,
-              raw_user_meta_data
-            ),
-            attachments:message_attachments(count)
+            profiles!community_messages_author_id_fkey(full_name, email)
           `)
           .eq('thread_id', thread.id)
           .eq('is_deleted', false)
@@ -148,9 +143,9 @@ export async function getWorkspaceThreads(
           latest_message: latestMessage ? {
             id: latestMessage.id,
             content: latestMessage.content,
-            author_name: latestMessage.author?.raw_user_meta_data?.full_name || latestMessage.author?.email || 'Usuario',
+            author_name: latestMessage.profiles?.full_name || 'Usuario',
             created_at: latestMessage.created_at,
-            attachment_count: latestMessage.attachments?.[0]?.count || 0,
+            attachment_count: 0,
           } : undefined,
           participants: participants || [],
           category_config: categoryConfig,

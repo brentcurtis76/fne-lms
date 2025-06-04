@@ -1526,9 +1526,8 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
                     currentUserId={user?.id || ''}
                     onReply={handleReplyToMessage}
                     onReaction={() => {}}
-                    onAttachmentClick={handleAttachmentPreview}
+                    onPreviewAttachment={handleAttachmentPreview}
                     permissions={permissions}
-                    workspaceId={workspace.id}
                   />
                 ))
               ) : (

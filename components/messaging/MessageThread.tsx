@@ -339,13 +339,19 @@ const MessageThread: React.FC<MessageThreadProps> = ({
                 <div className="flex items-center space-x-2">
                   <h2 className="font-semibold text-gray-900">{thread.thread_title}</h2>
                   {thread.is_pinned && (
-                    <Pin className="w-4 h-4 text-yellow-500" title="Hilo fijado" />
+                    <span title="Hilo fijado">
+                      <Pin className="w-4 h-4 text-yellow-500" />
+                    </span>
                   )}
                   {thread.is_locked && (
-                    <Lock className="w-4 h-4 text-red-500" title="Hilo bloqueado" />
+                    <span title="Hilo bloqueado">
+                      <Lock className="w-4 h-4 text-red-500" />
+                    </span>
                   )}
                   {thread.is_archived && (
-                    <Archive className="w-4 h-4 text-gray-500" title="Hilo archivado" />
+                    <span title="Hilo archivado">
+                      <Archive className="w-4 h-4 text-gray-500" />
+                    </span>
                   )}
                 </div>
                 {thread.description && (

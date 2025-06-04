@@ -1544,8 +1544,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
                 <MessageComposer
                   workspaceId={workspace.id}
                   threadId={selectedThread.id}
-                  onMessageSent={handleMessageSend}
-                  permissions={permissions}
+                  onSendMessage={handleMessageSend}
                 />
               </div>
             )}

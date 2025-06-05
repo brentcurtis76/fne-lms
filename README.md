@@ -1894,4 +1894,62 @@ Users now have complete control over their notification experience, ensuring the
 
 ---
 
+## 🕐 Understanding Cron Jobs in FNE LMS
+
+### What is a Cron Job?
+
+A **cron job** is a scheduled task that runs automatically at specific times or intervals. Think of it like setting an alarm clock for your computer to do certain tasks!
+
+### Our Cron Jobs
+
+The FNE LMS uses 2 cron jobs (Vercel free plan limit):
+
+1. **📅 Due Date Reminders** (`/api/cron/due-reminders`)
+   - **Schedule**: Daily at 9 AM
+   - **Purpose**: Checks for assignments due in 24 hours
+   - **Action**: Sends reminder notifications to students
+
+2. **📧 Smart Email Digest** (`/api/cron/email-digest`)
+   - **Schedule**: Daily at 9 AM
+   - **Smart Logic**:
+     - Monday: Sends weekly summary emails
+     - Tuesday-Sunday: Sends daily summary emails
+   - **Purpose**: Groups all notifications into organized emails
+   - **Note**: Single cron job handles both daily and weekly digests
+
+### How Cron Schedules Work
+
+The schedule `"0 9 * * *"` in our `vercel.json` means:
+```
+┌───────────── minute (0)
+│ ┌─────────── hour (9 = 9 AM)
+│ │ ┌───────── day of month (* = any)
+│ │ │ ┌─────── month (* = any)
+│ │ │ │ ┌───── day of week (* = any)
+│ │ │ │ │
+0 9 * * *  = "Run at 9:00 AM every day"
+```
+
+### Real-World Examples
+- **Banking**: Calculate interest daily at midnight
+- **News Sites**: Send morning newsletters
+- **Social Media**: Post scheduled content
+- **E-commerce**: Update inventory levels
+- **LMS Systems**: Send assignment reminders
+
+### Why Vercel Limits Cron Jobs
+- They consume server resources
+- Free plans get 2 cron jobs
+- Paid plans get more (up to 20)
+- Prevents abuse of free services
+
+### Our Smart Solution
+Instead of using 3 cron jobs (exceeding the limit), we use 1 smart cron job that:
+- Detects the current day of week
+- Sends weekly digest on Mondays
+- Sends daily digest on other days
+- Maximizes functionality within free tier limits
+
+---
+
 *Last Updated: 2025-01-06 by Claude Code (Phase 4: User Notification Preferences & Settings Implementation)*

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import MainLayout from '../../components/layout/MainLayout';
-import { Bell, Settings, Users, Palette, CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Bell, Settings, Users, Palette, CheckCircle, XCircle, Loader2, RefreshCw, UserCog } from 'lucide-react';
+import UserPreferences from '../../components/configuration/UserPreferences';
 
 interface NotificationType {
   id: string;
@@ -24,6 +25,7 @@ const tabs: TabItem[] = [
   { id: 'system', label: 'Sistema General', icon: <Settings className="w-5 h-5" /> },
   { id: 'users', label: 'Usuarios y Permisos', icon: <Users className="w-5 h-5" /> },
   { id: 'customization', label: 'Personalización', icon: <Palette className="w-5 h-5" /> },
+  { id: 'preferences', label: 'Preferencias de Usuario', icon: <UserCog className="w-5 h-5" /> },
 ];
 
 export default function Configuration() {
@@ -90,12 +92,9 @@ export default function Configuration() {
       // User is admin if either metadata or profile indicates admin
       const isAdminUser = adminFromMetadata || adminFromProfile;
       
-      if (!isAdminUser) {
-        router.push('/dashboard');
-        return;
-      }
-
-      setIsAdmin(true);
+      // Allow all authenticated users to access configuration for preferences tab
+      // Only restrict admin-only tabs
+      setIsAdmin(isAdminUser);
       
       // Load notification types after successful auth
       if (activeTab === 'notifications') {
@@ -221,6 +220,24 @@ export default function Configuration() {
         </p>
       </div>
     );
+
+    // Check if current tab requires admin access
+    const adminOnlyTabs = ['notifications', 'system', 'users', 'customization'];
+    if (adminOnlyTabs.includes(activeTab) && !isAdmin) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="bg-gray-50 rounded-full p-6 mb-4">
+            <Settings className="w-12 h-12 text-gray-400" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            Acceso Restringido
+          </h3>
+          <p className="text-gray-600 max-w-md">
+            Esta sección requiere permisos de administrador.
+          </p>
+        </div>
+      );
+    }
 
     switch (activeTab) {
       case 'notifications':
@@ -403,6 +420,8 @@ export default function Configuration() {
             {commonContent}
           </div>
         );
+      case 'preferences':
+        return <UserPreferences userId={currentUser?.id} />;
       default:
         return commonContent;
     }
@@ -423,27 +442,6 @@ export default function Configuration() {
     );
   }
 
-  if (!isAdmin) {
-    return (
-      <MainLayout 
-        user={currentUser} 
-        currentPage="configuration"
-        pageTitle="Configuración del Sistema"
-        isAdmin={isAdmin}
-      >
-        <div className="flex items-center justify-center min-h-96">
-          <div className="text-center">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
-              Acceso Denegado
-            </h2>
-            <p className="text-gray-600">
-              No tienes permisos para acceder a esta página.
-            </p>
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
 
   return (
     <MainLayout 

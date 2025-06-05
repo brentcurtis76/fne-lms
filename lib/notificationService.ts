@@ -263,28 +263,208 @@ class NotificationService {
    */
   async createNotification(notificationData) {
     try {
-      const { data, error } = await supabaseServiceRole
-        .from('user_notifications')
-        .insert({
-          user_id: notificationData.user_id,
-          title: notificationData.title,
-          description: notificationData.description,
-          category: notificationData.category,
-          related_url: notificationData.related_url,
-          importance: notificationData.importance || 'normal',
-          read_at: null,
-          created_at: new Date().toISOString()
-        });
+      // First check user preferences
+      const userPrefs = await this.getUserPreferences(notificationData.user_id);
+      const notificationType = notificationData.event_type || notificationData.category;
+      
+      // Check if notification should be sent
+      const shouldSend = await this.shouldSendNotification(
+        notificationData.user_id,
+        notificationType,
+        notificationData.importance || 'normal',
+        userPrefs
+      );
 
-      if (error) {
-        console.error('Database error creating notification:', error);
-        throw error;
+      if (!shouldSend.send_in_app && !shouldSend.send_email) {
+        console.log(`🔕 User ${notificationData.user_id} has disabled ${notificationType} notifications`);
+        return null;
+      }
+
+      // Check quiet hours
+      if (await this.isQuietHours(notificationData.user_id, userPrefs)) {
+        const priority = notificationData.importance || 'normal';
+        if (!userPrefs.priority_override || priority !== 'high') {
+          console.log(`🌙 Notification delayed due to quiet hours for user ${notificationData.user_id}`);
+          // Queue for later delivery
+          await this.queueForLater(notificationData);
+          return null;
+        }
+      }
+
+      // Create in-app notification if enabled
+      let createdNotification = null;
+      if (shouldSend.send_in_app) {
+        const { data, error } = await supabaseServiceRole
+          .from('user_notifications')
+          .insert({
+            user_id: notificationData.user_id,
+            title: notificationData.title,
+            description: notificationData.description,
+            category: notificationData.category,
+            related_url: notificationData.related_url,
+            importance: notificationData.importance || 'normal',
+            read_at: null,
+            created_at: new Date().toISOString()
+          })
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Database error creating notification:', error);
+          throw error;
+        }
+        
+        createdNotification = data;
+      }
+
+      // Handle email notifications based on frequency
+      if (shouldSend.send_email && createdNotification) {
+        await this.handleEmailNotification(
+          notificationData,
+          createdNotification.id,
+          shouldSend.email_frequency
+        );
+      }
+
+      return createdNotification;
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get user notification preferences
+   */
+  async getUserPreferences(userId) {
+    try {
+      const { data, error } = await supabaseServiceRole
+        .from('user_notification_preferences')
+        .select('*')
+        .eq('user_id', userId)
+        .single();
+
+      if (error || !data) {
+        // Return defaults
+        return {
+          do_not_disturb: false,
+          quiet_hours_start: '22:00',
+          quiet_hours_end: '07:00',
+          weekend_quiet: false,
+          priority_override: true,
+          notification_settings: {}
+        };
       }
 
       return data;
     } catch (error) {
-      console.error('Error creating notification:', error);
-      throw error;
+      console.error('Error fetching user preferences:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Check if notification should be sent based on preferences
+   */
+  async shouldSendNotification(userId, notificationType, priority, preferences) {
+    try {
+      // Use Supabase function to check
+      const { data, error } = await supabaseServiceRole.rpc('should_send_notification', {
+        p_user_id: userId,
+        p_notification_type: notificationType,
+        p_priority: priority
+      });
+
+      if (error || !data || data.length === 0) {
+        // Default to sending if function fails
+        return {
+          send_in_app: true,
+          send_email: true,
+          email_frequency: 'immediate'
+        };
+      }
+
+      return data[0];
+    } catch (error) {
+      console.error('Error checking notification preferences:', error);
+      return {
+        send_in_app: true,
+        send_email: true,
+        email_frequency: 'immediate'
+      };
+    }
+  }
+
+  /**
+   * Check if user is in quiet hours
+   */
+  async isQuietHours(userId, preferences) {
+    if (preferences.do_not_disturb) {
+      return true;
+    }
+
+    try {
+      const { data, error } = await supabaseServiceRole.rpc('is_quiet_hours', {
+        p_user_id: userId
+      });
+
+      return data === true;
+    } catch (error) {
+      console.error('Error checking quiet hours:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Queue notification for later delivery
+   */
+  async queueForLater(notificationData) {
+    try {
+      // Calculate next delivery time (after quiet hours)
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(7, 0, 0, 0); // Default to 7 AM next day
+
+      await supabaseServiceRole
+        .from('delayed_notifications')
+        .insert({
+          ...notificationData,
+          scheduled_for: tomorrow.toISOString(),
+          reason: 'quiet_hours'
+        });
+    } catch (error) {
+      console.error('Error queuing notification:', error);
+    }
+  }
+
+  /**
+   * Handle email notification based on frequency preference
+   */
+  async handleEmailNotification(notificationData, notificationId, frequency) {
+    try {
+      switch (frequency) {
+        case 'immediate':
+          // TODO: Send email immediately
+          console.log(`📧 Would send immediate email for: ${notificationData.title}`);
+          break;
+          
+        case 'daily':
+        case 'weekly':
+          // Add to digest queue
+          await supabaseServiceRole.rpc('add_to_digest_queue', {
+            p_user_id: notificationData.user_id,
+            p_notification_id: notificationId,
+            p_digest_type: frequency
+          });
+          console.log(`📋 Added to ${frequency} digest for user ${notificationData.user_id}`);
+          break;
+          
+        case 'never':
+          // Do nothing
+          break;
+      }
+    } catch (error) {
+      console.error('Error handling email notification:', error);
     }
   }
 

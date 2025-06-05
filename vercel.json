@@ -3,10 +3,21 @@
     {
       "path": "/api/cron/due-reminders",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/email-digest?type=daily",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/email-digest?type=weekly",
+      "schedule": "0 9 * * 1"
     }
   ],
   "functions": {
     "pages/api/cron/due-reminders.ts": {
+      "maxDuration": 60
+    },
+    "pages/api/cron/email-digest.ts": {
       "maxDuration": 60
     }
   }

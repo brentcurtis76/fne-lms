@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, DollarSign, Receipt, Eye, Download, Edit, Trash2 } from 'lucide-react';
+import { X, Calendar, DollarSign, Receipt, Eye, Download, Edit, Trash2, FileText, FileSpreadsheet } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency as formatCurrencyWithSymbol } from '../../lib/currency-service';
+import { ExpenseReportExporter } from '../../lib/expenseReportExport';
+import { toast } from 'react-hot-toast';
 
 interface ExpenseCategory {
   id: string;
@@ -265,6 +267,46 @@ export default function ExpenseReportDetails({
             </div>
 
             <div className="flex items-center space-x-2">
+              <button
+                onClick={async () => {
+                  try {
+                    console.log('ExpenseReportExporter:', ExpenseReportExporter);
+                    console.log('typeof ExpenseReportExporter:', typeof ExpenseReportExporter);
+                    console.log('ExpenseReportExporter methods:', Object.getOwnPropertyNames(ExpenseReportExporter));
+                    
+                    if (ExpenseReportExporter && typeof ExpenseReportExporter.exportToPDF === 'function') {
+                      await ExpenseReportExporter.exportToPDF(report);
+                      toast.success('Reporte exportado como PDF');
+                    } else {
+                      throw new Error('exportToPDF is not a function');
+                    }
+                  } catch (error) {
+                    toast.error('Error al exportar PDF');
+                    console.error('PDF export error:', error);
+                  }
+                }}
+                className="flex items-center px-3 py-1 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
+                title="Descargar como PDF"
+              >
+                <FileText size={14} className="mr-1" />
+                PDF
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await ExpenseReportExporter.exportToExcel(report);
+                    toast.success('Reporte exportado como Excel');
+                  } catch (error) {
+                    toast.error('Error al exportar Excel');
+                    console.error('Excel export error:', error);
+                  }
+                }}
+                className="flex items-center px-3 py-1 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
+                title="Descargar como Excel"
+              >
+                <FileSpreadsheet size={14} className="mr-1" />
+                Excel
+              </button>
               {/* Allow editing if: user is admin, user is author, or report is draft */}
               {(isAdmin || (currentUser && report.submitted_by === currentUser.id) || report.status === 'draft') && (
                 <button

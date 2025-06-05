@@ -60,7 +60,8 @@
     "react-window-infinite-loader": "^1.0.10",
     "recharts": "^2.15.3",
     "tailwind-merge": "^3.3.0",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@babel/core": "^7.27.1",

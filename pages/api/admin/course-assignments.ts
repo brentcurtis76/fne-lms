@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import NotificationService from '../../../lib/notificationService';
 
 // Create admin client with service role key for elevated permissions
 const supabaseAdmin = createClient(
@@ -72,6 +73,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (error) {
         console.error('Error creating course assignments:', error);
         return res.status(500).json({ error: 'Failed to create course assignments: ' + error.message });
+      }
+
+      // Get course details for notification
+      const { data: courseData } = await supabaseAdmin
+        .from('courses')
+        .select('title')
+        .eq('id', courseId)
+        .single();
+
+      // Trigger assignment notifications for each teacher
+      try {
+        await NotificationService.triggerNotification('assignment_created', {
+          assignment_id: courseId, // Using courseId as assignment reference
+          course_id: courseId,
+          assigned_users: teacherIds,
+          assignment_name: courseData?.title || 'Nuevo curso',
+          course_name: courseData?.title || 'Nuevo curso',
+          assigned_by: user.id
+        });
+        console.log(`✅ Assignment notifications triggered for ${teacherIds.length} teacher(s)`);
+      } catch (notificationError) {
+        console.error('❌ Failed to trigger assignment notifications:', notificationError);
+        // Don't fail the API call if notifications fail
       }
 
       return res.status(200).json({ 

@@ -5,10 +5,11 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../components/layout/MainLayout';
-import { ArrowLeft, FileText, Plus, Calendar, DollarSign, Receipt, Eye, Download, Trash2, Edit, Send, Check, X } from 'lucide-react';
+import { ArrowLeft, FileText, Plus, Calendar, DollarSign, Receipt, Eye, Download, Trash2, Edit, Send, Check, X, FileSpreadsheet } from 'lucide-react';
 import ExpenseReportForm from '../components/expenses/ExpenseReportForm';
 import ExpenseReportDetails from '../components/expenses/ExpenseReportDetails';
 import { sendEmail, generateExpenseReportSubmissionEmail, generateExpenseReportApprovalEmail } from '../utils/emailUtils';
+import { ExpenseReportExporter } from '../lib/expenseReportExport';
 
 interface ExpenseCategory {
   id: string;
@@ -410,34 +411,69 @@ export default function ExpenseReportsPage() {
           <div className="max-w-7xl mx-auto">
             {/* Conditional Header */}
             {activeTab === 'lista' && (
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-                <div className="flex items-center space-x-4 mb-4 md:mb-0">
+              <div className="mb-8">
+                {/* Top navigation bar */}
+                <div className="flex items-center justify-between mb-6">
                   <Link
                     href="/dashboard"
-                    className="inline-flex items-center text-brand_blue hover:text-brand_yellow transition-colors"
+                    className="inline-flex items-center text-brand_blue hover:text-brand_yellow transition-colors text-sm"
                   >
-                    <ArrowLeft className="mr-2" size={20} />
+                    <ArrowLeft className="mr-2" size={16} />
                     Volver al Panel
                   </Link>
-                  <div className="h-6 w-px bg-gray-300"></div>
-                  <h1 className="text-3xl font-bold text-brand_blue flex items-center">
-                    <Receipt className="mr-3" size={32} />
-                    Rendición de Gastos
-                  </h1>
+                  
+                  {/* Export buttons - only show when there are reports */}
+                  {expenseReports.length > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-500 mr-2">Exportar todo:</span>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await ExpenseReportExporter.exportMultipleReportsToPDF(expenseReports);
+                            toast.success('Resumen exportado como PDF');
+                          } catch (error) {
+                            toast.error('Error al exportar PDF');
+                            console.error('PDF export error:', error);
+                          }
+                        }}
+                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
+                        title="Exportar todos los reportes como PDF"
+                      >
+                        <FileText size={14} className="mr-1.5" />
+                        PDF
+                      </button>
+                      <button
+                        onClick={async () => {
+                          try {
+                            await ExpenseReportExporter.exportMultipleReportsToExcel(expenseReports);
+                            toast.success('Resumen exportado como Excel');
+                          } catch (error) {
+                            toast.error('Error al exportar Excel');
+                            console.error('Excel export error:', error);
+                          }
+                        }}
+                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-green-600 bg-green-50 hover:bg-green-100 transition-colors"
+                        title="Exportar todos los reportes como Excel"
+                      >
+                        <FileSpreadsheet size={14} className="mr-1.5" />
+                        Excel
+                      </button>
+                    </div>
+                  )}
                 </div>
                 
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setActiveTab('lista')}
-                    className="px-4 py-2 rounded-lg font-medium transition-colors bg-brand_blue text-white"
-                  >
-                    Lista de Reportes
-                  </button>
+                {/* Main header with title and primary action */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                  <h1 className="text-2xl font-bold text-brand_blue flex items-center mb-4 sm:mb-0">
+                    <Receipt className="mr-2" size={24} />
+                    Rendición de Gastos
+                  </h1>
+                  
                   <button
                     onClick={() => setActiveTab('nuevo')}
-                    className="px-4 py-2 rounded-lg font-medium transition-colors flex items-center bg-white text-brand_blue border border-brand_yellow hover:bg-brand_yellow hover:text-brand_blue"
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-brand_yellow hover:bg-brand_yellow/90 transition-colors shadow-sm"
                   >
-                    <Plus className="mr-2" size={16} />
+                    <Plus size={16} className="mr-2" />
                     Nuevo Reporte
                   </button>
                 </div>
@@ -466,11 +502,11 @@ export default function ExpenseReportsPage() {
 
             {/* Content based on active tab */}
             {activeTab === 'lista' && (
-              <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200">
-                  <h2 className="text-xl font-semibold text-brand_blue">
-                    Reportes de Gastos ({expenseReports.length})
-                  </h2>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="px-6 py-3 bg-gray-50 border-b border-gray-200">
+                  <p className="text-sm font-medium text-gray-700">
+                    {expenseReports.length} {expenseReports.length === 1 ? 'reporte' : 'reportes'}
+                  </p>
                 </div>
 
                 {expenseReports.length > 0 ? (
@@ -478,50 +514,50 @@ export default function ExpenseReportsPage() {
                     <table className="w-full border-collapse bg-white">
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Nombre</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Período</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Total</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Estado</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Enviado por</th>
-                          <th className="text-center py-4 px-4 font-semibold text-brand_blue">Acciones</th>
+                          <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                          <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Período</th>
+                          <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                          <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                          <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Enviado por</th>
+                          <th className="text-center py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                         </tr>
                       </thead>
                       <tbody>
                         {expenseReports.map((report) => (
                           <tr key={report.id} className="border-b border-gray-100 hover:bg-gray-50">
-                            <td className="py-4 px-4">
+                            <td className="py-3 px-4">
                               <div>
-                                <div className="font-medium text-brand_blue">{report.report_name}</div>
+                                <div className="text-sm font-medium text-gray-900">{report.report_name}</div>
                                 {report.description && (
-                                  <div className="text-sm text-gray-500">{report.description}</div>
+                                  <div className="text-xs text-gray-500 mt-0.5">{report.description}</div>
                                 )}
                               </div>
                             </td>
-                            <td className="py-4 px-4">
-                              <div className="text-sm text-gray-900">
+                            <td className="py-3 px-4">
+                              <div className="text-sm text-gray-600">
                                 {formatDate(report.start_date)} - {formatDate(report.end_date)}
                               </div>
                             </td>
-                            <td className="py-4 px-4">
-                              <div className="font-semibold text-brand_blue">
+                            <td className="py-3 px-4">
+                              <div className="text-sm font-medium text-gray-900">
                                 {formatCurrency(report.total_amount)}
                               </div>
                             </td>
-                            <td className="py-4 px-4">
-                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                            <td className="py-3 px-4">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
                                 {getStatusText(report.status)}
                               </span>
                             </td>
-                            <td className="py-4 px-4">
-                              <div className="text-sm text-gray-900">
+                            <td className="py-3 px-4">
+                              <div className="text-sm text-gray-600">
                                 {report.profiles?.first_name} {report.profiles?.last_name}
                               </div>
                             </td>
-                            <td className="py-4 px-4">
+                            <td className="py-3 px-4">
                               <div className="flex items-center justify-center space-x-2">
                                 <button
                                   onClick={() => setSelectedReport(report)}
-                                  className="p-2 text-brand_blue hover:bg-blue-50 rounded-lg transition-colors"
+                                  className="p-1.5 text-brand_blue hover:bg-blue-50 rounded transition-colors"
                                   title="Ver detalles"
                                 >
                                   <Eye size={16} />
@@ -534,14 +570,14 @@ export default function ExpenseReportsPage() {
                                         setEditingReport(report);
                                         setActiveTab('editar');
                                       }}
-                                      className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
+                                      className="p-1.5 text-gray-600 hover:bg-gray-50 rounded transition-colors"
                                       title="Editar reporte"
                                     >
                                       <Edit size={16} />
                                     </button>
                                     <button
                                       onClick={() => handleSubmitReport(report.id)}
-                                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                      className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
                                       title="Enviar para revisión"
                                     >
                                       <Send size={16} />
@@ -553,14 +589,14 @@ export default function ExpenseReportsPage() {
                                   <>
                                     <button
                                       onClick={() => handleApproveReport(report.id)}
-                                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                      className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
                                       title="Aprobar reporte"
                                     >
                                       <Check size={16} />
                                     </button>
                                     <button
                                       onClick={() => handleRejectReport(report.id)}
-                                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                      className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                                       title="Rechazar reporte"
                                     >
                                       <X size={16} />
@@ -568,10 +604,10 @@ export default function ExpenseReportsPage() {
                                   </>
                                 )}
 
-                                {(report.submitted_by === currentUser.id || isAdmin) && (
+                                {((report.submitted_by === currentUser.id && report.status === 'draft') || isAdmin) && (
                                   <button
                                     onClick={() => setDeleteModalReport(report)}
-                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
                                     title="Eliminar reporte"
                                   >
                                     <Trash2 size={16} />

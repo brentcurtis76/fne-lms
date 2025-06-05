@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import NotificationService from '../../../lib/notificationService';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -230,6 +231,33 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     if (error) {
       console.error('Database error:', error);
       return res.status(500).json({ error: 'Failed to create assignment' });
+    }
+
+    // Trigger consultant assignment notification
+    try {
+      const consultantName = consultantProfile ? 
+        `${consultantProfile.first_name} ${consultantProfile.last_name}`.trim() : 
+        'Un consultor';
+
+      await NotificationService.triggerNotification('consultant_assigned', {
+        assignment_id: newAssignment.id,
+        consultant_id,
+        student_id,
+        consultant_name: consultantName,
+        assignment_type,
+        starts_at: newAssignment.starts_at
+      });
+
+      // Mark notification as sent
+      await supabase
+        .from('consultant_assignments')
+        .update({ notification_sent: true })
+        .eq('id', newAssignment.id);
+
+      console.log(`✅ Consultant assignment notification triggered for student ${student_id}`);
+    } catch (notificationError) {
+      console.error('❌ Failed to trigger consultant assignment notification:', notificationError);
+      // Don't fail the API call if notifications fail
     }
 
     return res.status(201).json({ assignment: newAssignment });

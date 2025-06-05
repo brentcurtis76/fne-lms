@@ -1,0 +1,13 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/due-reminders",
+      "schedule": "0 9 * * *"
+    }
+  ],
+  "functions": {
+    "pages/api/cron/due-reminders.ts": {
+      "maxDuration": 60
+    }
+  }
+}

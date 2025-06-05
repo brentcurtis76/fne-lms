@@ -68,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('user_id', user.id)
       .eq('course_id', course_id)
       .eq('completion_type', completion_type)
-      .eq('module_id', module_id || 'null')
+      .eq('module_id', module_id || null)
       .single();
 
     if (existingCompletion.data) {

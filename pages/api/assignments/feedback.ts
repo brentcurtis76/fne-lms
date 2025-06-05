@@ -89,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .select(`
         title,
         course_id,
-        courses (title)
+        courses!inner (title)
       `)
       .eq('id', assignment_id)
       .single();
@@ -101,7 +101,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         course_id: assignmentData?.course_id,
         student_id,
         assignment_name: assignmentData?.title || 'Tarea',
-        course_name: assignmentData?.courses?.title || 'Curso',
+        course_name: (assignmentData?.courses as any)?.title || 'Curso',
         feedback_text: feedback_text.substring(0, 100),
         grade,
         instructor_id: user.id

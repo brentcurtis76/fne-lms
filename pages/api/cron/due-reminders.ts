@@ -63,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           course_id: assignment.course_id,
           student_id: assignment.student_id,
           assignment_name: assignment.title,
-          course_name: assignment.courses?.name || 'Curso',
+          course_name: (assignment.courses as any)?.name || 'Curso',
           due_time: dueTime,
           due_date: assignment.due_date
         });

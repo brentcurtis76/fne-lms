@@ -1857,11 +1857,13 @@ Use the included shell script to run all course-related tests:
 
 5. **Email Digest System**
    - ✅ Daily digest cron job (9 AM) - `/api/cron/email-digest?type=daily`
-   - ✅ Weekly digest cron job (Monday 9 AM) - `/api/cron/email-digest?type=weekly`
+   - ✅ Weekly digest cron job (Monday 9 AM) - `/api/cron/email-digest?type=weekly`*
    - ✅ Professional email templates with FNE branding
    - ✅ Responsive HTML emails with categorized notifications
    - Templates: `/lib/emailTemplates.ts`
    - Updated `vercel.json` with cron schedules
+   
+   *Note: Weekly digest cron job is commented out in vercel.json due to Vercel free plan limit of 2 cron jobs. Upgrade to enable.
 
 6. **Testing & Analytics**
    - ✅ Comprehensive test suite - `/api/test/notification-preferences`

@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/email-digest?type=daily",
       "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/email-digest?type=weekly",
-      "schedule": "0 9 * * 1"
     }
   ],
   "functions": {

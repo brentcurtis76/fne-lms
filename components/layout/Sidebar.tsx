@@ -169,7 +169,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     id: 'admin',
     label: 'Configuración',
     icon: CogIcon,
-    href: '/admin/settings',
+    href: '/admin/configuration',
     description: 'Configuración del sistema',
     adminOnly: true
   }

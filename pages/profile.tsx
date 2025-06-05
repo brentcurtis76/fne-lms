@@ -6,6 +6,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../components/layout/MainLayout';
+import { invalidateAvatarCache, updateAvatarCache } from '../hooks/useAvatar';
 
 type School = {
   id: number;
@@ -277,6 +278,11 @@ export default function ProfilePage() {
         console.error('Profile update failed:', updateError);
         toast.error(`Error actualizando perfil: ${updateError.message}`);
       } else {
+        // Update avatar cache with new URL
+        if (avatar_url && user) {
+          updateAvatarCache(user.id, avatar_url);
+        }
+        
         // Success message
         if (avatarUploadFailed) {
           toast.success('Perfil actualizado correctamente');

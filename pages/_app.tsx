@@ -1,4 +1,5 @@
 import '../styles/globals.css';
+import '../styles/notifications.css';
 import type { AppProps } from 'next/app';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
@@ -33,6 +34,9 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         {/* App metadata */}
         <meta name="description" content="Plataforma de aprendizaje de Fundación Nueva Educación" />
         <meta name="application-name" content="FNE LMS" />
+        
+        {/* PWA Support */}
+        <link rel="manifest" href="/manifest.json" />
         
         {/* Global fonts and stylesheets */}
         <link

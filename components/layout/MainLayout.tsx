@@ -8,6 +8,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { User } from '@supabase/supabase-js';
 import Sidebar from './Sidebar';
+import { useAvatar } from '../../hooks/useAvatar';
 
 interface Breadcrumb {
   label: string;
@@ -41,6 +42,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   
   // Sidebar state with localStorage persistence
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // Use the avatar hook for better performance
+  const { url: fetchedAvatarUrl } = useAvatar(user);
   
   // Initialize sidebar state from localStorage
   useEffect(() => {
@@ -105,7 +109,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           currentPage={currentPage}
           isCollapsed={sidebarCollapsed}
           isAdmin={isAdmin}
-          avatarUrl={avatarUrl}
+          avatarUrl={avatarUrl || fetchedAvatarUrl || undefined}
           onToggle={handleSidebarToggle}
           onLogout={handleLogout}
         />

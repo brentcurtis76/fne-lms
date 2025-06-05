@@ -26,6 +26,7 @@ import {
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
+import Avatar from '../common/Avatar';
 
 interface SidebarProps {
   user: User | null;
@@ -387,7 +388,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         ${className}
       `}>
         {/* Header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 bg-gradient-to-r from-[#00365b] to-[#004a7a]">
+        <div className="flex items-center justify-between h-20 px-4 border-b border-gray-200 bg-gradient-to-r from-[#00365b] to-[#004a7a]">
           {!isCollapsed ? (
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-[#fdb933] rounded-lg flex items-center justify-center p-0.5">
@@ -452,17 +453,12 @@ const Sidebar: React.FC<SidebarProps> = ({
             >
               {/* Avatar */}
               <div className={`flex-shrink-0 ${isCollapsed ? '' : 'mr-3'}`}>
-                {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt="Avatar"
-                    className="w-8 h-8 rounded-lg object-cover"
-                  />
-                ) : (
-                  <div className="w-8 h-8 bg-[#00365b] text-white rounded-lg flex items-center justify-center text-xs font-semibold">
-                    {getUserInitials()}
-                  </div>
-                )}
+                <Avatar 
+                  user={user}
+                  avatarUrl={avatarUrl}
+                  size="sm"
+                  className="rounded-lg"
+                />
               </div>
               
               {!isCollapsed && (

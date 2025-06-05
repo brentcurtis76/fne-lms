@@ -5,6 +5,7 @@ import Link from 'next/link';
 import MainLayout from '../components/layout/MainLayout';
 import { getUserRoles, getCommunityMembers } from '../utils/roleUtils';
 import { UserRole, UserProfile } from '../types/roles';
+import { updateAvatarCache } from '../hooks/useAvatar';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -62,6 +63,8 @@ export default function Dashboard() {
               
               if (profileData.avatar_url) {
                 setAvatarUrl(profileData.avatar_url);
+                // Update the avatar cache
+                updateAvatarCache(userData.user.id, profileData.avatar_url);
               }
 
               // Fetch user roles and community information

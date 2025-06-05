@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { User } from '@supabase/supabase-js';
+import Avatar from '../common/Avatar';
+import RealtimeNotificationBell from '../notifications/RealtimeNotificationBell';
 
 interface HeaderProps {
   user?: User | null;
@@ -59,7 +61,7 @@ export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarU
       <div className="absolute inset-0 bg-white/5 backdrop-blur-sm"></div>
       
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center py-4">
+        <div className="flex justify-between items-center py-6">
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" legacyBehavior>
@@ -240,6 +242,9 @@ export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarU
           <div className="hidden md:flex items-center space-x-3">
             {isLoggedIn ? (
               <>
+                {/* Notification Bell */}
+                <RealtimeNotificationBell className="mr-2" />
+                
                 {/* Admin Badge */}
                 {localIsAdmin && (
                   <div className="px-3 py-1 bg-[#fdb933] text-[#00365b] text-xs font-bold rounded-full animate-pulse shadow-lg">
@@ -249,19 +254,12 @@ export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarU
                 
                 {/* User Avatar */}
                 <div className="flex items-center">
-                  {avatarUrl ? (
-                    <img 
-                      src={avatarUrl} 
-                      alt="User Avatar" 
-                      className="h-10 w-10 rounded-full object-cover ring-2 ring-[#fdb933] shadow-lg hover:ring-4 transition-all duration-300"
-                    />
-                  ) : (
-                    <div className="h-10 w-10 rounded-full bg-[#fdb933] flex items-center justify-center shadow-lg hover:scale-110 transition-transform duration-300">
-                      <span className="text-[#00365b] font-bold text-lg">
-                        {localUser?.email?.charAt(0).toUpperCase() || 'U'}
-                      </span>
-                    </div>
-                  )}
+                  <Avatar 
+                    user={localUser} 
+                    avatarUrl={avatarUrl}
+                    size="md"
+                    className="ring-2 ring-[#fdb933] shadow-lg hover:ring-4 transition-all duration-300"
+                  />
                 </div>
                 
                 <button 

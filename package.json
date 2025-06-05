@@ -56,9 +56,11 @@
     "react-beautiful-dnd": "^13.1.1",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.5.2",
+    "react-swipeable": "^7.0.2",
     "react-window": "^1.8.11",
     "react-window-infinite-loader": "^1.0.10",
     "recharts": "^2.15.3",
+    "resend": "^3.2.0",
     "tailwind-merge": "^3.3.0",
     "uuid": "^11.1.0",
     "xlsx": "^0.18.5"

@@ -1856,14 +1856,15 @@ Use the included shell script to run all course-related tests:
    - Created `/lib/notificationServiceEnhanced.ts` for advanced features
 
 5. **Email Digest System**
-   - ✅ Daily digest cron job (9 AM) - `/api/cron/email-digest?type=daily`
-   - ✅ Weekly digest cron job (Monday 9 AM) - `/api/cron/email-digest?type=weekly`*
+   - ✅ Smart digest cron job (9 AM daily) - `/api/cron/email-digest`
+     - Automatically sends daily digests Tuesday-Sunday
+     - Automatically sends weekly digests on Mondays
    - ✅ Professional email templates with FNE branding
    - ✅ Responsive HTML emails with categorized notifications
    - Templates: `/lib/emailTemplates.ts`
-   - Updated `vercel.json` with cron schedules
+   - Updated `vercel.json` with smart cron schedule
    
-   *Note: Weekly digest cron job is commented out in vercel.json due to Vercel free plan limit of 2 cron jobs. Upgrade to enable.
+   *Note: Using a single cron job that intelligently determines digest type based on day of week to comply with Vercel's 2-cron limit.
 
 6. **Testing & Analytics**
    - ✅ Comprehensive test suite - `/api/test/notification-preferences`

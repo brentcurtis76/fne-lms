@@ -49,9 +49,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const digestType = req.query.type as 'daily' | 'weekly';
+  // Get digest type from query or determine based on day
+  let digestType = req.query.type as 'daily' | 'weekly';
   
-  if (!digestType || (digestType !== 'daily' && digestType !== 'weekly')) {
+  // If no type specified, determine based on day of week
+  if (!digestType) {
+    const today = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
+    digestType = today === 1 ? 'weekly' : 'daily'; // Monday = weekly, other days = daily
+  }
+  
+  if (digestType !== 'daily' && digestType !== 'weekly') {
     return res.status(400).json({ error: 'Invalid digest type. Must be "daily" or "weekly"' });
   }
 

@@ -3,7 +3,7 @@
  * Provides consistent navigation across all authenticated pages
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
@@ -25,6 +25,7 @@ import {
   DocumentTextIcon,
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
+import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 
 interface SidebarProps {
   user: User | null;
@@ -188,6 +189,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const router = useRouter();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [showUserMenu, setShowUserMenu] = useState(false);
+
 
   // Auto-expand parent items based on current page
   useEffect(() => {
@@ -416,17 +418,24 @@ const Sidebar: React.FC<SidebarProps> = ({
             </div>
           )}
           
-          <button
-            onClick={onToggle}
-            className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
-            title={isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
-          >
-            {isCollapsed ? (
-              <Bars3Icon className="h-5 w-5" />
-            ) : (
-              <XMarkIcon className="h-5 w-5" />
+          <div className="flex items-center space-x-2">
+            {/* Modern Notification Center */}
+            {!isCollapsed && user && (
+              <ModernNotificationCenter />
             )}
-          </button>
+            
+            <button
+              onClick={onToggle}
+              className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+              title={isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
+            >
+              {isCollapsed ? (
+                <Bars3Icon className="h-5 w-5" />
+              ) : (
+                <XMarkIcon className="h-5 w-5" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* User Profile Section */}

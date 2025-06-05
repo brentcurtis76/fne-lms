@@ -109,7 +109,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           currentPage={currentPage}
           isCollapsed={sidebarCollapsed}
           isAdmin={isAdmin}
-          avatarUrl={avatarUrl || fetchedAvatarUrl || undefined}
+          avatarUrl={avatarUrl !== null ? avatarUrl : fetchedAvatarUrl}
           onToggle={handleSidebarToggle}
           onLogout={handleLogout}
         />

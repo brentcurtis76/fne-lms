@@ -12,7 +12,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [profileName, setProfileName] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [profileData, setProfileData] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [allCourses, setAllCourses] = useState<any[]>([]);
@@ -185,7 +185,7 @@ export default function Dashboard() {
         pageTitle="Mi Panel"
         isAdmin={isAdmin}
         onLogout={handleLogout}
-        avatarUrl={avatarUrl}
+        avatarUrl={avatarUrl || undefined}
       >
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-center">

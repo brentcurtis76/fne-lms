@@ -71,7 +71,7 @@ export default function Avatar({ user, avatarUrl: propAvatarUrl, size = 'md', cl
     
     // Check cache first
     const cachedUrl = avatarCache.get(userId);
-    if (cachedUrl) {
+    if (cachedUrl && cachedUrl !== '') {
       setImageUrl(cachedUrl);
       setIsLoading(false);
       return;
@@ -98,6 +98,7 @@ export default function Avatar({ user, avatarUrl: propAvatarUrl, size = 'md', cl
       avatarCache.set(userId, propAvatarUrl);
     } else {
       // Don't use external service, just show initials
+      // Don't mark as error if we're still loading
       setHasError(true);
       setIsLoading(false);
     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
-import Header from '../components/layout/Header';
+import MainLayout from '../components/layout/MainLayout';
 import UserDetailModal from '../components/reports/UserDetailModal';
 import ExportDropdown from '../components/reports/ExportDropdown';
 import EnhancedTable from '../components/reports/EnhancedTable';
@@ -282,15 +282,16 @@ const ReportsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#e8e5e2]">
-      <Header 
-        user={user} 
-        isAdmin={isAdmin} 
-        avatarUrl={avatarUrl}
-        onLogout={handleLogout}
-      />
-      
-      <div className="container mx-auto px-4 pt-32 pb-8">
+    <MainLayout 
+      user={user} 
+      currentPage="reports"
+      pageTitle="Dashboard de Reportes"
+      breadcrumbs={[{label: 'Reportes'}]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="bg-white rounded-lg shadow-lg p-6">
           {/* Header */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
@@ -740,7 +741,7 @@ const ReportsPage: React.FC = () => {
         userId={selectedUserId}
         requestingUserId={user?.id}
       />
-    </div>
+    </MainLayout>
   );
 };
 

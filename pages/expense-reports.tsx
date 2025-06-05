@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import Header from '../components/layout/Header';
+import MainLayout from '../components/layout/MainLayout';
 import { ArrowLeft, FileText, Plus, Calendar, DollarSign, Receipt, Eye, Download, Trash2, Edit, Send, Check, X } from 'lucide-react';
 import ExpenseReportForm from '../components/expenses/ExpenseReportForm';
 import ExpenseReportDetails from '../components/expenses/ExpenseReportDetails';
@@ -397,20 +397,16 @@ export default function ExpenseReportsPage() {
   }
 
   return (
-    <>
-      <Head>
-        <title>Rendición de Gastos - FNE LMS</title>
-      </Head>
-      
-      <div className="min-h-screen bg-brand_beige">
-        <Header 
-          user={currentUser}
-          isAdmin={isAdmin}
-          onLogout={handleLogout}
-          avatarUrl={avatarUrl}
-        />
-        
-        <main className="container mx-auto pt-44 pb-10 px-4">
+    <MainLayout 
+      user={currentUser} 
+      currentPage="expense-reports"
+      pageTitle="Rendición de Gastos"
+      breadcrumbs={[{label: 'Rendición de Gastos'}]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="max-w-7xl mx-auto">
             {/* Conditional Header */}
             {activeTab === 'lista' && (
@@ -694,8 +690,7 @@ export default function ExpenseReportsPage() {
               isAdmin={isAdmin}
             />
           </div>
-        </main>
-      </div>
-    </>
+        </div>
+    </MainLayout>
   );
 }

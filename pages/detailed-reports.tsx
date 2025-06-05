@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import Header from '../components/layout/Header';
+import MainLayout from '../components/layout/MainLayout';
 import AdvancedFilters from '../components/reports/AdvancedFilters';
 import UserDetailModal from '../components/reports/UserDetailModal';
 import AnalyticsDashboard from '../components/reports/AnalyticsDashboard';
@@ -267,30 +267,39 @@ export default function DetailedReports() {
 
   if (loading && users.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} onLogout={handleLogout} />
-        <div className="pt-48 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <LoadingSkeleton variant="text" width="w-1/3" height="h-8" className="mb-4" />
-            <LoadingSkeleton variant="card" className="mb-6" />
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <LoadingSkeleton key={i} variant="card" />
-              ))}
-            </div>
-            <LoadingSkeleton variant="table" count={5} />
+      <MainLayout 
+        user={user} 
+        currentPage="reports"
+        pageTitle="Cargando..."
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <LoadingSkeleton variant="text" width="w-1/3" height="h-8" className="mb-4" />
+          <LoadingSkeleton variant="card" className="mb-6" />
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <LoadingSkeleton key={i} variant="card" />
+            ))}
           </div>
+          <LoadingSkeleton variant="table" count={5} />
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} onLogout={handleLogout} />
-      
-      <div className="pt-48 pb-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <MainLayout 
+      user={user} 
+      currentPage="reports"
+      pageTitle="Reportes Detallados de Progreso"
+      breadcrumbs={[{label: 'Reportes', href: '/reports'}, {label: 'Reportes Detallados'}]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Header */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -536,7 +545,6 @@ export default function DetailedReports() {
             </>
           )}
         </div>
-      </div>
 
       {/* User Detail Modal */}
       <UserDetailModal
@@ -548,6 +556,6 @@ export default function DetailedReports() {
         userId={selectedUserId}
         requestingUserId={user?.id}
       />
-    </div>
+    </MainLayout>
   );
 }

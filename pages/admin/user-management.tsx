@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
-import Head from 'next/head';
-import Header from '../../components/layout/Header';
+import MainLayout from '../../components/layout/MainLayout';
 import { Trash2, Plus, X, AlertTriangle, CheckCircle, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import RoleAssignmentModal from '../../components/RoleAssignmentModal';
@@ -513,50 +512,60 @@ export default function UserManagement() {
 
   if (loading) {
     return (
-      <>
-        <Header 
-          user={currentUser}
-          isAdmin={isAdmin}
-          onLogout={handleLogout}
-          avatarUrl={avatarUrl}
-        />
-        <div className="min-h-screen bg-gray-100 flex justify-center items-center pt-32">
-          <p className="text-xl text-[#00365b]">Cargando usuarios...</p>
+      <MainLayout 
+        user={currentUser} 
+        currentPage="users"
+        pageTitle="Gestión de Usuarios"
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b] mx-auto"></div>
+            <p className="mt-4 text-[#00365b] font-medium">Cargando usuarios...</p>
+          </div>
         </div>
-      </>
+      </MainLayout>
     );
   }
 
   if (!isAdmin) {
     return (
-      <>
-        <Header 
-          user={currentUser}
-          isAdmin={isAdmin}
-          onLogout={handleLogout}
-          avatarUrl={avatarUrl}
-        />
-        <div className="min-h-screen bg-gray-100 flex justify-center items-center pt-32">
-          <p className="text-xl text-red-600">Acceso denegado. Solo administradores.</p>
+      <MainLayout 
+        user={currentUser} 
+        currentPage="users"
+        pageTitle="Acceso Denegado"
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-red-600" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Acceso Denegado</h3>
+            <p className="text-red-600">Solo administradores pueden acceder a la gestión de usuarios.</p>
+          </div>
         </div>
-      </>
+      </MainLayout>
     );
   }
 
   return (
     <>
-      <Header 
-        user={currentUser}
+      <MainLayout 
+        user={currentUser} 
+        currentPage="users"
+        pageTitle="Gestión de Usuarios"
+        breadcrumbs={[{label: 'Usuarios'}]}
         isAdmin={isAdmin}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
-      />
-      <Head>
-        <title>Gestión de Usuarios | FNE LMS</title>
-      </Head>
-      
-      <div className="min-h-screen bg-gray-100 px-4 md:px-8 py-4 md:py-8 pt-16">
-        <div className="max-w-6xl mx-auto bg-white p-6 rounded-lg shadow-lg mt-48">
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
           
           <div className="mb-6 flex justify-between items-center">
             <div>
@@ -954,7 +963,8 @@ export default function UserManagement() {
           }}
         />
       )}
-
+      </MainLayout>
+      
       {/* Delete Confirmation Modal */}
       {showDeleteModal && userToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
-import Head from 'next/head';
 import Link from 'next/link';
-import Header from '../components/layout/Header';
+import MainLayout from '../components/layout/MainLayout';
 import { getUserRoles, getCommunityMembers } from '../utils/roleUtils';
 import { UserRole, UserProfile } from '../types/roles';
 
@@ -177,31 +176,35 @@ export default function Dashboard() {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand_beige flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand_blue mx-auto"></div>
-          <p className="mt-4 text-brand_blue font-medium">Cargando...</p>
+      <MainLayout 
+        user={user} 
+        currentPage="dashboard"
+        pageTitle="Mi Panel"
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b] mx-auto"></div>
+            <p className="mt-4 text-[#00365b] font-medium">Cargando...</p>
+          </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
   
   return (
-    <>
-      <Head>
-        <title>Panel - FNE LMS</title>
-      </Head>
-      
-      <div className="min-h-screen bg-brand_beige">
-        <Header 
-          user={user}
-          isAdmin={isAdmin}
-          onLogout={handleLogout}
-          avatarUrl={avatarUrl}
-        />
-        
-        <main className="container mx-auto pt-44 pb-10 px-4">
-          <div className="max-w-6xl mx-auto bg-white rounded-lg shadow-md p-8">
+    <MainLayout 
+      user={user} 
+      currentPage="dashboard"
+      pageTitle="Mi Panel"
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="bg-white rounded-lg shadow-md p-8">
             <h1 className="text-2xl font-bold mb-6 text-brand_blue">Bienvenido a tu Panel</h1>
             
             {/* User Info Section */}
@@ -778,9 +781,8 @@ export default function Dashboard() {
               )}
             </div>
             )}
-          </div>
-        </main>
+        </div>
       </div>
-    </>
+    </MainLayout>
   );
 }

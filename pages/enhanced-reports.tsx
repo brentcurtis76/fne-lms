@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
-import Header from '../components/layout/Header';
+import MainLayout from '../components/layout/MainLayout';
 import AdvancedFilters from '../components/reports/AdvancedFilters';
 import UserDetailModal from '../components/reports/UserDetailModal';
 import AnalyticsDashboard from '../components/reports/AnalyticsDashboard';
@@ -374,40 +374,53 @@ export default function EnhancedReports() {
 
   if (loading && !users.length) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} onLogout={handleLogout} />
-        <div className="pt-48 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <ReportLoadingSkeleton variant="dashboard" />
-          </div>
+      <MainLayout 
+        user={user} 
+        currentPage="reports"
+        pageTitle="Cargando..."
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <ReportLoadingSkeleton variant="dashboard" />
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} onLogout={handleLogout} />
-        <div className="pt-48 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <ErrorState
-              title={error.message}
-              actionLabel={isRetrying ? "Reintentando..." : "Reintentar"}
-              onAction={isRetrying ? undefined : handleRetry}
-            />
-          </div>
+      <MainLayout 
+        user={user} 
+        currentPage="reports"
+        pageTitle="Error"
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <ErrorState
+            title={error.message}
+            actionLabel={isRetrying ? "Reintentando..." : "Reintentar"}
+            onAction={isRetrying ? undefined : handleRetry}
+          />
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} onLogout={handleLogout} />
-      
-      <div className="pt-48 pb-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <MainLayout 
+      user={user} 
+      currentPage="reports"
+      pageTitle="Reportes Avanzados"
+      breadcrumbs={[{label: 'Reportes', href: '/reports'}, {label: 'Reportes Avanzados'}]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Header */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -595,7 +608,6 @@ export default function EnhancedReports() {
             </CollapsibleSection>
           )}
         </div>
-      </div>
 
       {/* User Detail Modal */}
       <UserDetailModal
@@ -607,6 +619,6 @@ export default function EnhancedReports() {
         userId={selectedUserId}
         requestingUserId={user?.id}
       />
-    </div>
+    </MainLayout>
   );
 }

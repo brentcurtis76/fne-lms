@@ -1,31 +1,99 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import Head from 'next/head';
 import CourseBuilderForm from '../src/components/CourseBuilderForm';
 import CourseList from '../src/components/CourseList';
-import Header from '../components/layout/Header';
+import MainLayout from '../components/layout/MainLayout';
+import { supabase } from '../lib/supabase';
 
 const CourseManagerPage: React.FC = () => {
+  const router = useRouter();
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  
+  // Authentication logic
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          router.push('/login');
+          return;
+        }
+        
+        setUser(session.user);
+        
+        // Get user profile
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('role, avatar_url')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (profileData) {
+          setIsAdmin(profileData.role === 'admin');
+          if (profileData.avatar_url) {
+            setAvatarUrl(profileData.avatar_url);
+          }
+        }
+      } catch (error) {
+        console.error('Auth error:', error);
+        router.push('/login');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkAuth();
+  }, [router]);
+  
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem('rememberMe');
+    sessionStorage.removeItem('sessionOnly');
+    router.push('/login');
+  };
   
   // Function to refresh the course list after a new course is added
   const handleCourseAdded = () => {
     // Increment the refresh trigger to force the CourseList to refetch
     setRefreshTrigger(prev => prev + 1);
   };
+  
+  if (loading) {
+    return (
+      <MainLayout 
+        user={user} 
+        currentPage="courses"
+        pageTitle="Cargando..."
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b] mx-auto"></div>
+            <p className="mt-4 text-[#00365b] font-medium">Cargando...</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
   return (
-    <>
-      <Head>
-        <title>Course Manager - FNE LMS</title>
-        <meta name="description" content="Manage courses in the FNE Learning Management System" />
-      </Head>
-
-      <div className="min-h-screen bg-brand_beige">
-        <Header user={user} isAdmin={isAdmin} />
-        
-        <main className="container mx-auto pt-32 pb-10 px-4">
+    <MainLayout 
+      user={user} 
+      currentPage="courses"
+      pageTitle="Gestor de Cursos"
+      breadcrumbs={[{label: 'Cursos', href: '/admin/course-builder'}, {label: 'Gestor de Cursos'}]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="max-w-6xl mx-auto">
             <h1 className="text-3xl font-bold text-brand_blue mb-8">Course Manager</h1>
             
@@ -63,9 +131,8 @@ const CourseManagerPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </main>
       </div>
-    </>
+    </MainLayout>
   );
 };
 

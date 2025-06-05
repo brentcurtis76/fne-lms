@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { supabase } from '../../../lib/supabase';
 import { toast } from 'react-hot-toast';
-import Header from '../../../components/layout/Header';
+import MainLayout from '../../../components/layout/MainLayout';
 import DeleteCourseModal from '../../../components/DeleteCourseModal';
 import AssignTeachersModal from '../../../components/AssignTeachersModal';
 
@@ -301,6 +301,13 @@ const CourseBuilder: React.FC = () => {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem('rememberMe');
+    sessionStorage.removeItem('sessionOnly');
+    router.push('/login');
+  };
+
   if (loading || user === undefined) { 
     return (
       <div className="min-h-screen bg-brand_beige flex justify-center items-center">
@@ -312,26 +319,40 @@ const CourseBuilder: React.FC = () => {
   // Only show access denied if we've determined the user role and they're not admin
   if (userRole !== null && userRole !== 'admin') {
     return (
-      <div className="min-h-screen bg-brand_beige flex flex-col justify-center items-center">
-        {user && <Header user={user} isAdmin={false} avatarUrl={avatarUrl} />}
-        <div className="text-center p-8">
-          <h1 className="text-2xl font-semibold text-brand_blue mb-4">Acceso Denegado</h1>
-          <p className="text-gray-700 mb-6">No tienes permiso para acceder a esta página.</p>
-          <Link href="/dashboard" legacyBehavior>
-            <a className="px-6 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
-              Ir al Panel
-            </a>
-          </Link>
+      <MainLayout 
+        user={user} 
+        currentPage="courses"
+        pageTitle="Acceso Denegado"
+        isAdmin={false}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex flex-col justify-center items-center min-h-[50vh]">
+          <div className="text-center p-8">
+            <h1 className="text-2xl font-semibold text-brand_blue mb-4">Acceso Denegado</h1>
+            <p className="text-gray-700 mb-6">No tienes permiso para acceder a esta página.</p>
+            <Link href="/dashboard" legacyBehavior>
+              <a className="px-6 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
+                Ir al Panel
+              </a>
+            </Link>
+          </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-brand_beige text-brand_blue">
-      <Header user={user} isAdmin={userRole === 'admin'} avatarUrl={avatarUrl} /> {/* Render Header */}
-      {/* Add padding-top to account for the fixed header's height */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12 pt-40 md:pt-44"> 
+    <MainLayout 
+      user={user} 
+      currentPage="courses"
+      pageTitle="Constructor de Cursos"
+      breadcrumbs={[{label: 'Cursos', href: '/admin/course-builder'}, {label: 'Constructor de Cursos'}]}
+      isAdmin={userRole === 'admin'}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6"> 
         <header className="mb-8 md:mb-12 flex flex-col sm:flex-row justify-between items-center gap-4">
           <h1 className="text-3xl sm:text-4xl font-bold text-brand_blue">
             Mis Cursos
@@ -450,7 +471,7 @@ const CourseBuilder: React.FC = () => {
           courseTitle={selectedCourseForAssignment.title}
         />
       )}
-    </div>
+    </MainLayout>
   );
 };
 

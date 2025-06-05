@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
-import Header from '../../components/layout/Header';
+import MainLayout from '../../components/layout/MainLayout';
 import LoadingSkeleton from '../../components/common/LoadingSkeleton';
 import MeetingFilters from '../../components/meetings/MeetingFilters';
 import MeetingCard from '../../components/meetings/MeetingCard';
@@ -105,45 +105,18 @@ import {
   BuildingOfficeIcon,
   AcademicCapIcon,
   PlusIcon,
-  ArrowsUpDownIcon
+  ArrowsUpDownIcon,
+  Bars3Icon
 } from '@heroicons/react/24/outline';
 import { X } from 'lucide-react';
 
-type TabType = 'meetings' | 'documents' | 'messaging' | 'feed';
+type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'feed';
 
-interface TabConfig {
-  id: TabType;
-  label: string;
-  icon: React.ComponentType<any>;
-  description: string;
+// Sidebar state management
+interface SidebarState {
+  isCollapsed: boolean;
+  activeSection: SectionType;
 }
-
-const TABS: TabConfig[] = [
-  {
-    id: 'meetings',
-    label: 'Reuniones',
-    icon: CalendarDaysIcon,
-    description: 'Programar y gestionar reuniones de la comunidad'
-  },
-  {
-    id: 'documents',
-    label: 'Documentos',
-    icon: DocumentTextIcon,
-    description: 'Compartir y organizar documentos del equipo'
-  },
-  {
-    id: 'messaging',
-    label: 'Mensajería',
-    icon: ChatBubbleLeftRightIcon,
-    description: 'Comunicación en tiempo real con los miembros'
-  },
-  {
-    id: 'feed',
-    label: 'Feed',
-    icon: RssIcon,
-    description: 'Actividades y actualizaciones de la comunidad'
-  }
-];
 
 const CommunityWorkspacePage: React.FC = () => {
   const router = useRouter();
@@ -153,9 +126,46 @@ const CommunityWorkspacePage: React.FC = () => {
   const [workspaceAccess, setWorkspaceAccess] = useState<WorkspaceAccess | null>(null);
   const [currentWorkspace, setCurrentWorkspace] = useState<CommunityWorkspace | null>(null);
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<TabType>('meetings');
+  const [activeSection, setActiveSection] = useState<SectionType>('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  
+  // Sidebar state
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  
+  // URL state management
+  const { query } = router;
+  
+  // Initialize sidebar state from localStorage and handle responsive behavior
+  useEffect(() => {
+    const savedCollapsed = localStorage.getItem('workspace-sidebar-collapsed');
+    const isLargeScreen = window.innerWidth >= 1024;
+    
+    if (savedCollapsed !== null) {
+      setSidebarCollapsed(JSON.parse(savedCollapsed));
+    } else {
+      // Default to collapsed on mobile/tablet, expanded on desktop
+      setSidebarCollapsed(!isLargeScreen);
+    }
+    
+    // Check URL for initial section
+    const urlSection = query.section as SectionType;
+    if (urlSection && ['overview', 'communities', 'meetings', 'documents', 'messaging', 'feed'].includes(urlSection)) {
+      setActiveSection(urlSection);
+    }
+    
+    // Handle window resize
+    const handleResize = () => {
+      const isLarge = window.innerWidth >= 1024;
+      if (!isLarge) {
+        // On mobile/tablet, always start collapsed
+        setSidebarCollapsed(true);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [query.section]);
   
   // UI state
   const [showCommunitySelector, setShowCommunitySelector] = useState(false);
@@ -225,7 +235,7 @@ const CommunityWorkspacePage: React.FC = () => {
           workspace.id,
           user.id,
           'workspace_accessed',
-          { tab: activeTab }
+          { section: activeSection }
         );
       } else {
         setError('No se pudo cargar el espacio de trabajo');
@@ -246,18 +256,39 @@ const CommunityWorkspacePage: React.FC = () => {
     setCurrentWorkspace(null);
   };
 
-  const handleTabChange = async (tab: TabType) => {
-    setActiveTab(tab);
+  const handleSectionChange = async (section: string) => {
+    const newSection = section as SectionType;
+    setActiveSection(newSection);
     
-    // Log tab change activity
+    // Update URL without page reload
+    router.push(
+      {
+        pathname: router.pathname,
+        query: { ...router.query, section: newSection }
+      },
+      undefined,
+      { shallow: true }
+    );
+    
+    // Log section change activity
     if (currentWorkspace && user) {
       await logWorkspaceActivity(
         currentWorkspace.id,
         user.id,
-        'tab_changed',
-        { tab, previous_tab: activeTab }
+        'section_changed',
+        { section: newSection, previous_section: activeSection }
       );
     }
+  };
+  
+  const handleToggleSidebar = () => {
+    const newCollapsed = !sidebarCollapsed;
+    setSidebarCollapsed(newCollapsed);
+    localStorage.setItem('workspace-sidebar-collapsed', JSON.stringify(newCollapsed));
+  };
+  
+  const handleWorkspaceChange = (workspaceId: string) => {
+    setSelectedCommunityId(workspaceId);
   };
 
   const renderCommunitySelector = () => {
@@ -322,8 +353,81 @@ const CommunityWorkspacePage: React.FC = () => {
     );
   };
 
-  const renderTabContent = () => {
-    if (activeTab === 'meetings') {
+  const renderMainContent = () => {
+    // Overview section
+    if (activeSection === 'overview') {
+      return (
+        <div className="space-y-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-2xl font-bold text-[#00365b] mb-4">
+              Vista General del Espacio Colaborativo
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Bienvenido al espacio colaborativo de tu comunidad. Aquí encontrarás todas las herramientas para trabajar en equipo.
+            </p>
+            
+            {currentWorkspace && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <CalendarDaysIcon className="h-8 w-8 text-blue-600 mb-2" />
+                  <h3 className="font-semibold text-blue-900">Reuniones</h3>
+                  <p className="text-sm text-blue-700">Gestión de reuniones</p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <DocumentTextIcon className="h-8 w-8 text-green-600 mb-2" />
+                  <h3 className="font-semibold text-green-900">Documentos</h3>
+                  <p className="text-sm text-green-700">Repositorio compartido</p>
+                </div>
+                <div className="bg-purple-50 p-4 rounded-lg">
+                  <ChatBubbleLeftRightIcon className="h-8 w-8 text-purple-600 mb-2" />
+                  <h3 className="font-semibold text-purple-900">Mensajería</h3>
+                  <p className="text-sm text-purple-700">Comunicación en tiempo real</p>
+                </div>
+                <div className="bg-orange-50 p-4 rounded-lg">
+                  <RssIcon className="h-8 w-8 text-orange-600 mb-2" />
+                  <h3 className="font-semibold text-orange-900">Feed</h3>
+                  <p className="text-sm text-orange-700">Actividades recientes</p>
+                </div>
+              </div>
+            )}
+            
+            {!currentWorkspace && workspaceAccess && workspaceAccess.availableCommunities.length > 0 && (
+              <div className="text-center py-8">
+                <UsersIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Selecciona una Comunidad
+                </h3>
+                <p className="text-gray-500">
+                  Elige una comunidad de crecimiento para acceder a su espacio colaborativo.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+    
+    // Communities management section
+    if (activeSection === 'communities') {
+      return (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <h2 className="text-2xl font-bold text-[#00365b] mb-4">
+            Gestión de Comunidades
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Administra las comunidades de crecimiento bajo tu supervisión.
+          </p>
+          <div className="bg-[#00365b]/5 border border-[#00365b]/10 rounded-lg p-4">
+            <p className="text-sm text-[#00365b]">
+              🚧 Gestión de comunidades en desarrollo. Próximamente podrás administrar múltiples comunidades desde aquí.
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Workspace-specific sections
+    if (activeSection === 'meetings') {
       return <MeetingsTabContent 
         workspace={currentWorkspace} 
         workspaceAccess={workspaceAccess} 
@@ -331,7 +435,7 @@ const CommunityWorkspacePage: React.FC = () => {
       />;
     }
 
-    if (activeTab === 'documents') {
+    if (activeSection === 'documents') {
       return <DocumentsTabContent 
         workspace={currentWorkspace} 
         workspaceAccess={workspaceAccess} 
@@ -339,7 +443,7 @@ const CommunityWorkspacePage: React.FC = () => {
       />;
     }
 
-    if (activeTab === 'messaging') {
+    if (activeSection === 'messaging') {
       return <MessagingTabContent 
         workspace={currentWorkspace} 
         workspaceAccess={workspaceAccess} 
@@ -347,7 +451,7 @@ const CommunityWorkspacePage: React.FC = () => {
       />;
     }
 
-    if (activeTab === 'feed') {
+    if (activeSection === 'feed') {
       return <FeedTabContent 
         workspace={currentWorkspace} 
         workspaceAccess={workspaceAccess} 
@@ -355,78 +459,56 @@ const CommunityWorkspacePage: React.FC = () => {
       />;
     }
 
-    // Other tabs - show coming soon message
-    const currentTab = TABS.find(tab => tab.id === activeTab);
-    
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-8">
-        <div className="text-center py-8 sm:py-12">
-          <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 bg-[#fdb933]/10 rounded-full flex items-center justify-center mb-4">
-            {currentTab && <currentTab.icon className="w-6 h-6 sm:w-8 sm:h-8 text-[#fdb933]" />}
-          </div>
-          <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
-            {currentTab?.label}
-          </h3>
-          <p className="text-sm sm:text-base text-gray-500 mb-4 sm:mb-6 max-w-md mx-auto px-4">
-            {currentTab?.description}
-          </p>
-          <div className="bg-[#00365b]/5 border border-[#00365b]/10 rounded-lg p-3 sm:p-4 max-w-lg mx-auto">
-            <p className="text-xs sm:text-sm text-[#00365b]">
-              🚧 Esta funcionalidad está en desarrollo. Próximamente podrás acceder a todas las herramientas colaborativas.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   };
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header 
-          user={user}
-          isAdmin={isAdmin}
-          onLogout={logout}
-          avatarUrl={avatarUrl}
-        />
-        <div className="pt-20 pb-12">
+      <MainLayout 
+        user={user} 
+        currentPage="workspace"
+        pageTitle="Cargando..."
+        isAdmin={isAdmin}
+        onLogout={logout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex items-center justify-center min-h-[50vh]">
           <LoadingSkeleton />
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <Header 
-          user={user}
-          isAdmin={isAdmin}
-          onLogout={logout}
-          avatarUrl={avatarUrl}
-        />
-        <div className="pt-20 pb-12">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <UsersIcon className="w-8 h-8 text-red-600" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Sin Acceso al Espacio Colaborativo
-              </h3>
-              <p className="text-gray-500 mb-6">
-                {error}
-              </p>
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="inline-flex items-center px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors duration-200"
-              >
-                Volver al Panel Principal
-              </button>
+      <MainLayout 
+        user={user} 
+        currentPage="workspace"
+        pageTitle="Error"
+        isAdmin={isAdmin}
+        onLogout={logout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <UsersIcon className="w-8 h-8 text-red-600" />
             </div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Sin Acceso al Espacio Colaborativo
+            </h3>
+            <p className="text-gray-500 mb-6">
+              {error}
+            </p>
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="inline-flex items-center px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors duration-200"
+            >
+              Volver al Panel Principal
+            </button>
           </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
@@ -434,104 +516,105 @@ const CommunityWorkspacePage: React.FC = () => {
     c => c.id === selectedCommunityId
   );
 
+  // Determine the current page based on active section
+  const getCurrentPage = () => {
+    if (activeSection === 'overview' || activeSection === 'communities') {
+      return 'workspace';
+    }
+    return 'workspace';
+  };
+
+  const getPageTitle = () => {
+    switch (activeSection) {
+      case 'overview': return 'Vista General - Espacio Colaborativo';
+      case 'communities': return 'Gestión de Comunidades';
+      case 'meetings': return 'Reuniones';
+      case 'documents': return 'Documentos';
+      case 'messaging': return 'Mensajería';
+      case 'feed': return 'Feed de Actividades';
+      default: return 'Espacio Colaborativo';
+    }
+  };
+
+  const getBreadcrumbs = (): { label: string; href?: string }[] => {
+    const breadcrumbs: { label: string; href?: string }[] = [{ label: 'Espacio Colaborativo', href: '/community/workspace?section=overview' }];
+    
+    if (activeSection !== 'overview') {
+      switch (activeSection) {
+        case 'communities':
+          breadcrumbs.push({ label: 'Gestión de Comunidades' });
+          break;
+        case 'meetings':
+          breadcrumbs.push({ label: 'Reuniones' });
+          break;
+        case 'documents':
+          breadcrumbs.push({ label: 'Documentos' });
+          break;
+        case 'messaging':
+          breadcrumbs.push({ label: 'Mensajería' });
+          break;
+        case 'feed':
+          breadcrumbs.push({ label: 'Feed de Actividades' });
+          break;
+      }
+    }
+    
+    return breadcrumbs;
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header 
-        user={user}
-        isAdmin={isAdmin}
-        onLogout={logout}
-        avatarUrl={avatarUrl}
-      />
-      
-      <div className="pt-32 pb-12">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Page Header */}
-          <div className="mb-6 sm:mb-8">
-            <div className="flex flex-col space-y-4 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-[#00365b] mb-2">
-                  Espacio Colaborativo
-                </h1>
-                <p className="text-sm sm:text-base text-gray-600">
-                  {workspaceAccess?.accessType === 'admin' && 'Gestión de espacios colaborativos (Vista Administrador)'}
-                  {workspaceAccess?.accessType === 'consultant' && 'Espacios colaborativos asignados (Vista Consultor)'}
-                  {workspaceAccess?.accessType === 'community_member' && 'Tu espacio colaborativo de comunidad'}
-                </p>
-              </div>
-              
-              {/* Community Selector */}
-              <div className="lg:flex-shrink-0">
-                {renderCommunitySelector()}
+    <MainLayout 
+      user={user} 
+      currentPage={getCurrentPage()}
+      pageTitle={getPageTitle()}
+      breadcrumbs={getBreadcrumbs()}
+      isAdmin={isAdmin}
+      onLogout={logout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Community Selector for multi-community users */}
+        {workspaceAccess && workspaceAccess.availableCommunities.length > 1 && (
+          <div className="mb-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">Comunidad Activa</h3>
+                  <p className="text-xs text-gray-500">Selecciona la comunidad para trabajar</p>
+                </div>
+                <div className="sm:flex-shrink-0">
+                  {renderCommunitySelector()}
+                </div>
               </div>
             </div>
           </div>
+        )}
 
-          {/* Workspace Info */}
-          {currentWorkspace && selectedCommunity && (
-            <div className="mb-4 sm:mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
-              <div className="flex items-center space-x-3 sm:space-x-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#fdb933]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <UsersIcon className="w-5 h-5 sm:w-6 sm:h-6 text-[#fdb933]" />
+        {/* Current Workspace Info */}
+        {currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && (
+          <div className="mb-6">
+            <div className="bg-white rounded-lg border border-gray-200 p-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-[#fdb933]/10 rounded-lg flex items-center justify-center">
+                  <UsersIcon className="w-5 h-5 text-[#fdb933]" />
                 </div>
-                <div className="min-w-0">
-                  <h2 className="text-lg sm:text-xl font-semibold text-[#00365b] truncate">
-                    {currentWorkspace.name}
-                  </h2>
-                  <p className="text-sm sm:text-base text-gray-600 truncate">
-                    {selectedCommunity.school_name} • {selectedCommunity.generation_name}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-900">{currentWorkspace.name}</h3>
+                  <p className="text-xs text-gray-500">
+                    {currentWorkspace.community?.school?.name} - {currentWorkspace.community?.generation?.name}
                   </p>
                 </div>
               </div>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Tabs Navigation */}
-          {currentWorkspace && (
-            <>
-              <div className="mb-4 sm:mb-6">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-1">
-                  <div className="flex space-x-1 overflow-x-auto scrollbar-hide">
-                    {TABS.map(tab => (
-                      <button
-                        key={tab.id}
-                        onClick={() => handleTabChange(tab.id)}
-                        className={`flex items-center space-x-2 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 whitespace-nowrap flex-shrink-0 ${
-                          activeTab === tab.id
-                            ? 'bg-[#fdb933] text-[#00365b] shadow-sm'
-                            : 'text-gray-600 hover:text-[#00365b] hover:bg-gray-50'
-                        }`}
-                      >
-                        <tab.icon className="w-4 h-4 flex-shrink-0" />
-                        <span className="hidden sm:inline">{tab.label}</span>
-                        <span className="sm:hidden">{tab.label.slice(0, 8)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Tab Content */}
-              {renderTabContent()}
-            </>
-          )}
-
-          {/* No Community Selected State */}
-          {!currentWorkspace && workspaceAccess && workspaceAccess.availableCommunities.length > 0 && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-              <div className="w-16 h-16 bg-[#fdb933]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <UsersIcon className="w-8 h-8 text-[#fdb933]" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                Selecciona una Comunidad
-              </h3>
-              <p className="text-gray-500">
-                Elige una comunidad de crecimiento para acceder a su espacio colaborativo.
-              </p>
-            </div>
-          )}
+        {/* Main Content */}
+        <div className="space-y-6">
+          {renderMainContent()}
         </div>
       </div>
-    </div>
+    </MainLayout>
   );
 };
 

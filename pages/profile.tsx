@@ -5,7 +5,7 @@ import { Session, User } from '@supabase/supabase-js';
 import Head from 'next/head';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import Header from '../components/layout/Header';
+import MainLayout from '../components/layout/MainLayout';
 
 type School = {
   id: number;
@@ -315,22 +315,16 @@ export default function ProfilePage() {
   }
 
   return (
-    <>
-      <Head>
-        <title>Perfil de Usuario | FNE LMS</title>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap"
-          rel="stylesheet"
-        />
-        <link
-          rel="stylesheet"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-        />
-      </Head>
-
-      <Header user={user} isAdmin={isAdmin} onLogout={handleLogout} />
-
-      <div id="profile-page" className="min-h-[800px] bg-[#e8e5e2] pt-32 pb-20 relative overflow-hidden">
+    <MainLayout 
+      user={user} 
+      currentPage="profile"
+      pageTitle="Mi Perfil"
+      breadcrumbs={[{label: 'Mi Perfil'}]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={profile?.avatar_url}
+    >
+      <div id="profile-page" className="min-h-[800px] py-6 relative overflow-hidden">
         {/* Success Alert */}
         {dataLoaded && (
           <div id="success-alert" className="fixed top-24 left-1/2 transform -translate-x-1/2 bg-white shadow-lg border-l-4 border-[#00365b] text-[#00365b] px-6 py-3 rounded-lg flex items-center z-50 animate-fadeIn">
@@ -547,6 +541,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-    </>
+    </MainLayout>
   );
 }

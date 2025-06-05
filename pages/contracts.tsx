@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import Header from '../components/layout/Header';
+import MainLayout from '../components/layout/MainLayout';
 import { ArrowLeft, FileText, Plus, Calendar, DollarSign, Users, Eye, Download, Trash2, CheckSquare, Square, Upload, TrendingUp, Edit } from 'lucide-react';
 import ContractForm from '../components/contracts/ContractForm';
 import AnnexForm from '../components/contracts/AnnexForm';
@@ -468,20 +468,16 @@ export default function ContractsPage() {
   }
 
   return (
-    <>
-      <Head>
-        <title>Gestión de Contratos - FNE LMS</title>
-      </Head>
-      
-      <div className="min-h-screen bg-brand_beige">
-        <Header 
-          user={currentUser}
-          isAdmin={isAdmin}
-          onLogout={handleLogout}
-          avatarUrl={avatarUrl}
-        />
-        
-        <main className="container mx-auto pt-44 pb-10 px-4">
+    <MainLayout 
+      user={currentUser} 
+      currentPage="contracts"
+      pageTitle="Gestión de Contratos"
+      breadcrumbs={[{label: 'Contratos'}]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="max-w-7xl mx-auto">
             {/* Conditional Header */}
             {(activeTab === 'lista' || activeTab === 'flujo') && (
@@ -820,8 +816,7 @@ export default function ContractsPage() {
               onTogglePaymentStatus={handleTogglePaymentStatus}
             />
           </div>
-        </main>
-      </div>
-    </>
+        </div>
+    </MainLayout>
   );
 }

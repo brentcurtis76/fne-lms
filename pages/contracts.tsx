@@ -199,7 +199,12 @@ export default function ContractsPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return `UF ${amount.toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    // Only show decimals if the amount has non-zero decimal places
+    const hasDecimals = amount % 1 !== 0;
+    return `UF ${amount.toLocaleString('es-CL', { 
+      minimumFractionDigits: hasDecimals ? 2 : 0, 
+      maximumFractionDigits: 2 
+    })}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -510,27 +515,24 @@ export default function ContractsPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab('nuevo')}
-                    className="px-4 py-2 rounded-lg font-medium transition-colors flex items-center bg-white text-brand_blue border border-brand_yellow hover:bg-brand_yellow hover:text-brand_blue"
+                    className="px-4 py-2 rounded-lg font-medium transition-colors bg-white text-brand_blue border border-brand_yellow hover:bg-brand_yellow hover:text-brand_blue"
                   >
-                    <Plus className="mr-2" size={16} />
                     Nuevo Contrato
                   </button>
                   <button
                     onClick={() => setActiveTab('nuevo-anexo')}
-                    className="px-4 py-2 rounded-lg font-medium transition-colors flex items-center bg-white text-brand_blue border border-brand_blue hover:bg-brand_blue hover:text-white"
+                    className="px-4 py-2 rounded-lg font-medium transition-colors bg-white text-brand_blue border border-brand_blue hover:bg-brand_blue hover:text-white"
                   >
-                    <FileText className="mr-2" size={16} />
                     Nuevo Anexo
                   </button>
                   <button
                     onClick={() => setActiveTab('flujo')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center ${
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                       activeTab === 'flujo' 
                         ? 'bg-green-600 text-white' 
                         : 'bg-white text-green-600 border border-green-600 hover:bg-green-600 hover:text-white'
                     }`}
                   >
-                    <DollarSign className="mr-2" size={16} />
                     Flujo de Caja
                   </button>
                 </div>
@@ -578,7 +580,7 @@ export default function ContractsPage() {
                           <th className="text-left py-4 px-4 font-semibold text-brand_blue">Fecha</th>
                           <th className="text-left py-4 px-4 font-semibold text-brand_blue">Valor Total</th>
                           <th className="text-left py-4 px-4 font-semibold text-brand_blue">Estado</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue text-center">Acciones</th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_blue"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -630,42 +632,13 @@ export default function ContractsPage() {
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              <div className="flex items-center justify-center space-x-2">
+                              <div className="flex items-center space-x-2">
                                 <button
                                   onClick={() => setSelectedContrato(contrato)}
                                   className="p-2 text-brand_blue hover:bg-blue-50 rounded-lg transition-colors"
                                   title="Ver detalles"
                                 >
                                   <Eye size={16} />
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    if (contrato.is_anexo) {
-                                      setEditingAnexo(contrato);
-                                      setActiveTab('editar-anexo');
-                                    } else {
-                                      setEditingContrato(contrato);
-                                      setActiveTab('editar');
-                                    }
-                                  }}
-                                  className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors"
-                                  title={contrato.is_anexo ? "Editar anexo" : "Editar contrato"}
-                                >
-                                  <Edit size={14} />
-                                </button>
-                                <button
-                                  onClick={() => window.open(`/contract-print/${contrato.id}`, '_blank')}
-                                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                  title="Ver contrato para imprimir"
-                                >
-                                  <Download size={14} />
-                                </button>
-                                <button
-                                  onClick={() => setDeleteModalContrato(contrato)}
-                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                  title="Eliminar contrato"
-                                >
-                                  <Trash2 size={14} />
                                 </button>
                               </div>
                             </td>

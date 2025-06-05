@@ -215,6 +215,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
                 id="email"
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
+                autoComplete="email"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-brand_blue ${
                   errors.email ? 'border-red-500' : 'border-gray-300'
                 }`}
@@ -264,6 +265,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
                 id="password"
                 value={formData.password}
                 onChange={(e) => handleInputChange('password', e.target.value)}
+                autoComplete="new-password"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-brand_blue ${
                   errors.password ? 'border-red-500' : 'border-gray-300'
                 }`}
@@ -285,6 +287,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
                 id="confirmPassword"
                 value={formData.confirmPassword}
                 onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                autoComplete="new-password"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-brand_blue ${
                   errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
                 }`}

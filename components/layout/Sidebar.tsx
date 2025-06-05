@@ -20,7 +20,10 @@ import {
   ChevronRightIcon,
   ArrowRightOnRectangleIcon,
   UserCircleIcon,
-  UserIcon
+  UserIcon,
+  ClipboardDocumentListIcon,
+  DocumentTextIcon,
+  CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 
 interface SidebarProps {
@@ -51,6 +54,7 @@ interface NavigationChild {
   href: string;
   description?: string;
   adminOnly?: boolean;
+  icon?: React.ComponentType<any>;
 }
 
 const NAVIGATION_ITEMS: NavigationItem[] = [
@@ -96,6 +100,29 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     href: '/admin/consultant-assignments',
     description: 'Asignación de consultores',
     adminOnly: true
+  },
+  {
+    id: 'gestion',
+    label: 'Gestión',
+    icon: ClipboardDocumentListIcon,
+    description: 'Gestión empresarial',
+    adminOnly: true,
+    children: [
+      {
+        id: 'contracts',
+        label: 'Contratos',
+        href: '/contracts',
+        description: 'Gestión de contratos',
+        icon: DocumentTextIcon
+      },
+      {
+        id: 'expense-reports',
+        label: 'Rendición de Gastos',
+        href: '/expense-reports',
+        description: 'Reportes de gastos',
+        icon: CurrencyDollarIcon
+      }
+    ]
   },
   {
     id: 'reports',
@@ -286,6 +313,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                 isExpanded ? 'rotate-180' : ''
               } ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#00365b]'}`} />
             )}
+            
+            {/* Badge count for collapsed state with children */}
+            {isCollapsed && hasChildren && filteredChildren.length > 0 && (
+              <div className="absolute -top-1 -right-1 bg-[#fdb933] text-[#00365b] text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-sm">
+                {filteredChildren.length}
+              </div>
+            )}
           </div>
         </button>
 
@@ -304,7 +338,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                   }
                 `}
               >
-                <ChevronRightIcon className="h-4 w-4 mr-2 text-gray-400 group-hover:text-[#00365b]" />
+                {child.icon ? (
+                  <child.icon className={`h-4 w-4 mr-2 ${
+                    isItemActive(child.href, router.pathname)
+                      ? 'text-[#00365b]'
+                      : 'text-gray-400 group-hover:text-[#00365b]'
+                  }`} />
+                ) : (
+                  <ChevronRightIcon className="h-4 w-4 mr-2 text-gray-400 group-hover:text-[#00365b]" />
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="truncate">{child.label}</div>
                   {child.description && (

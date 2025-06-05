@@ -8,6 +8,8 @@ const nextConfig = {
     // Reduce memory usage
     workerThreads: false,
     esmExternals: true,
+    // Improve hot reload stability
+    optimizePackageImports: ['@heroicons/react', 'lucide-react'],
   },
   
   // Better error handling

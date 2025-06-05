@@ -110,7 +110,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { X } from 'lucide-react';
 
-type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'feed';
+type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging';
 
 // Sidebar state management
 interface SidebarState {
@@ -150,7 +150,7 @@ const CommunityWorkspacePage: React.FC = () => {
     
     // Check URL for initial section
     const urlSection = query.section as SectionType;
-    if (urlSection && ['overview', 'communities', 'meetings', 'documents', 'messaging', 'feed'].includes(urlSection)) {
+    if (urlSection && ['overview', 'communities', 'meetings', 'documents', 'messaging'].includes(urlSection)) {
       setActiveSection(urlSection);
     }
     
@@ -179,7 +179,12 @@ const CommunityWorkspacePage: React.FC = () => {
     if (!authLoading && user) {
       initializeWorkspace();
     } else if (!authLoading && !user) {
-      router.push('/login');
+      // Add error handling for navigation
+      router.push('/login').catch((error) => {
+        console.warn('Navigation to login failed:', error);
+        // Fallback - try redirecting via window.location
+        window.location.href = '/login';
+      });
     }
   }, [user, authLoading, router]);
 
@@ -258,26 +263,40 @@ const CommunityWorkspacePage: React.FC = () => {
 
   const handleSectionChange = async (section: string) => {
     const newSection = section as SectionType;
+    
+    // Prevent unnecessary updates if section hasn't changed
+    if (newSection === activeSection) {
+      return;
+    }
+    
     setActiveSection(newSection);
     
-    // Update URL without page reload
-    router.push(
-      {
-        pathname: router.pathname,
-        query: { ...router.query, section: newSection }
-      },
-      undefined,
-      { shallow: true }
-    );
+    // Update URL without page reload - use replace to avoid navigation stack pollution
+    try {
+      await router.replace(
+        {
+          pathname: router.pathname,
+          query: { ...router.query, section: newSection }
+        },
+        undefined,
+        { shallow: true }
+      );
+    } catch (error) {
+      console.warn('Router navigation throttled, continuing without URL update');
+    }
     
     // Log section change activity
     if (currentWorkspace && user) {
-      await logWorkspaceActivity(
-        currentWorkspace.id,
-        user.id,
-        'section_changed',
-        { section: newSection, previous_section: activeSection }
-      );
+      try {
+        await logWorkspaceActivity(
+          currentWorkspace.id,
+          user.id,
+          'section_changed',
+          { section: newSection, previous_section: activeSection }
+        );
+      } catch (error) {
+        console.warn('Failed to log section change activity:', error);
+      }
     }
   };
   
@@ -367,27 +386,31 @@ const CommunityWorkspacePage: React.FC = () => {
             </p>
             
             {currentWorkspace && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <button
+                  onClick={() => handleSectionChange('meetings')}
+                  className="bg-blue-50 p-4 rounded-lg hover:bg-blue-100 transition-colors duration-200 text-left"
+                >
                   <CalendarDaysIcon className="h-8 w-8 text-blue-600 mb-2" />
                   <h3 className="font-semibold text-blue-900">Reuniones</h3>
                   <p className="text-sm text-blue-700">Gestión de reuniones</p>
-                </div>
-                <div className="bg-green-50 p-4 rounded-lg">
+                </button>
+                <button
+                  onClick={() => handleSectionChange('documents')}
+                  className="bg-green-50 p-4 rounded-lg hover:bg-green-100 transition-colors duration-200 text-left"
+                >
                   <DocumentTextIcon className="h-8 w-8 text-green-600 mb-2" />
                   <h3 className="font-semibold text-green-900">Documentos</h3>
                   <p className="text-sm text-green-700">Repositorio compartido</p>
-                </div>
-                <div className="bg-purple-50 p-4 rounded-lg">
+                </button>
+                <button
+                  onClick={() => handleSectionChange('messaging')}
+                  className="bg-purple-50 p-4 rounded-lg hover:bg-purple-100 transition-colors duration-200 text-left"
+                >
                   <ChatBubbleLeftRightIcon className="h-8 w-8 text-purple-600 mb-2" />
                   <h3 className="font-semibold text-purple-900">Mensajería</h3>
                   <p className="text-sm text-purple-700">Comunicación en tiempo real</p>
-                </div>
-                <div className="bg-orange-50 p-4 rounded-lg">
-                  <RssIcon className="h-8 w-8 text-orange-600 mb-2" />
-                  <h3 className="font-semibold text-orange-900">Feed</h3>
-                  <p className="text-sm text-orange-700">Actividades recientes</p>
-                </div>
+                </button>
               </div>
             )}
             
@@ -400,6 +423,47 @@ const CommunityWorkspacePage: React.FC = () => {
                 <p className="text-gray-500">
                   Elige una comunidad de crecimiento para acceder a su espacio colaborativo.
                 </p>
+              </div>
+            )}
+
+            {/* Activity Feed Section - Embedded in Overview */}
+            {currentWorkspace && (
+              <div className="mt-8">
+                <h3 className="text-xl font-semibold text-[#00365b] mb-4 flex items-center">
+                  <RssIcon className="h-6 w-6 text-orange-600 mr-2" />
+                  Feed de Actividades
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Mantente al día con todas las actividades recientes de tu comunidad
+                </p>
+                
+                {/* Activity Summary */}
+                <div className="mb-6">
+                  <ErrorBoundary fallback={<div className="text-gray-500">Error cargando resumen de actividades</div>}>
+                    <ActivitySummary
+                      workspaceId={currentWorkspace.id}
+                      period="today"
+                      showComparison={true}
+                      showTrends={true}
+                    />
+                  </ErrorBoundary>
+                </div>
+
+                {/* Activity Feed */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                  <ErrorBoundary fallback={<div className="p-6 text-center text-gray-500">Error cargando feed de actividades</div>}>
+                    <ActivityFeed
+                      workspaceId={currentWorkspace.id}
+                      userId={user?.id}
+                      realTimeEnabled={true}
+                      showGrouping={true}
+                      showFilters={true}
+                      showStats={false}
+                      pageSize={20}
+                      className="p-6"
+                    />
+                  </ErrorBoundary>
+                </div>
               </div>
             )}
           </div>
@@ -445,14 +509,6 @@ const CommunityWorkspacePage: React.FC = () => {
 
     if (activeSection === 'messaging') {
       return <MessagingTabContent 
-        workspace={currentWorkspace} 
-        workspaceAccess={workspaceAccess} 
-        user={user} 
-      />;
-    }
-
-    if (activeSection === 'feed') {
-      return <FeedTabContent 
         workspace={currentWorkspace} 
         workspaceAccess={workspaceAccess} 
         user={user} 
@@ -531,7 +587,6 @@ const CommunityWorkspacePage: React.FC = () => {
       case 'meetings': return 'Reuniones';
       case 'documents': return 'Documentos';
       case 'messaging': return 'Mensajería';
-      case 'feed': return 'Feed de Actividades';
       default: return 'Espacio Colaborativo';
     }
   };
@@ -552,9 +607,6 @@ const CommunityWorkspacePage: React.FC = () => {
           break;
         case 'messaging':
           breadcrumbs.push({ label: 'Mensajería' });
-          break;
-        case 'feed':
-          breadcrumbs.push({ label: 'Feed de Actividades' });
           break;
       }
     }
@@ -1686,202 +1738,5 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
   );
 };
 
-// Feed Tab Content Component
-const FeedTabContent: React.FC<{
-  workspace: CommunityWorkspace | null;
-  workspaceAccess: WorkspaceAccess | null;
-  user: any;
-}> = ({ workspace, workspaceAccess, user }) => {
-  const [activityPermissions, setActivityPermissions] = useState<ActivityPermissions | null>(null);
-  const [activitySubscription, setActivitySubscription] = useState<ActivitySubscription | null>(null);
-  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [hasActivityError, setHasActivityError] = useState(false);
-
-  // Load activity permissions and subscription on mount
-  useEffect(() => {
-    const loadActivityData = async () => {
-      if (!workspace || !user) return;
-
-      try {
-        setLoading(true);
-        
-        // Load permissions
-        const permissions = await getActivityPermissions(user.id, workspace.id);
-        setActivityPermissions(permissions);
-
-        // Load subscription
-        const subscription = await getActivitySubscription(user.id, workspace.id);
-        setActivitySubscription(subscription);
-
-      } catch (error) {
-        console.error('Error loading activity data:', error);
-        setHasActivityError(true);
-        // Don't show toast error for missing tables - this is expected during setup
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadActivityData();
-  }, [workspace, user]);
-
-  // Handle subscription update
-  const handleSubscriptionUpdate = async (updatedSubscription: Partial<ActivitySubscription>) => {
-    if (!workspace || !user) return;
-
-    try {
-      const newSubscription = await updateActivitySubscription(
-        user.id,
-        workspace.id,
-        updatedSubscription
-      );
-      setActivitySubscription(newSubscription);
-      toast.success('Preferencias de notificación actualizadas');
-    } catch (error) {
-      console.error('Error updating subscription:', error);
-      toast.error('Error al actualizar preferencias');
-    }
-  };
-
-  // Handle activity actions
-  const handleActivityAction = (action: string, activity: ActivityWithDetails) => {
-    switch (action) {
-      case 'view':
-        if (activity.entity_url) {
-          window.open(activity.entity_url, '_blank');
-        }
-        break;
-      case 'edit':
-        toast('Edición de actividades próximamente', { icon: '✏️' });
-        break;
-      case 'delete':
-        toast('Eliminación de actividades próximamente', { icon: '🗑️' });
-        break;
-      case 'bookmark':
-        toast('Marcadores próximamente', { icon: '⭐' });
-        break;
-      case 'share':
-        if (activity.entity_url && navigator.share) {
-          navigator.share({
-            title: activity.title,
-            text: activity.description || '',
-            url: activity.entity_url
-          });
-        } else if (activity.entity_url) {
-          navigator.clipboard.writeText(activity.entity_url);
-          toast.success('Enlace copiado al portapapeles');
-        }
-        break;
-      default:
-        console.log('Unknown action:', action);
-    }
-  };
-
-  if (!workspace) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-        <div className="text-center">
-          <p className="text-gray-500">Selecciona un espacio para ver las actividades</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <LoadingSkeleton count={5} height="120px" />
-      </div>
-    );
-  }
-
-  // Show placeholder if workspace not available or activity system isn't ready
-  if (!workspace || hasActivityError) {
-    return <ActivityFeedPlaceholder />;
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header with notification settings */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-[#00365b] mb-2">
-              Feed de Actividades
-            </h2>
-            <p className="text-gray-600">
-              Mantente al día con todas las actividades de tu comunidad
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {/* Activity Summary */}
-            <button
-              onClick={() => toast('Resumen extendido próximamente', { icon: '📊' })}
-              className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              <span>📊</span>
-              <span className="hidden sm:inline">Resumen</span>
-            </button>
-
-            {/* Notification Settings */}
-            <button
-              onClick={() => setShowNotificationSettings(true)}
-              className="flex items-center gap-2 px-3 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors"
-            >
-              <span>🔔</span>
-              <span className="hidden sm:inline">Notificaciones</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Activity Summary */}
-      <ErrorBoundary fallback={<div className="p-4 text-center text-gray-500">Error cargando resumen de actividades</div>}>
-        <ActivitySummary
-          workspaceId={workspace.id}
-          period="today"
-          showComparison={true}
-          showTrends={true}
-        />
-      </ErrorBoundary>
-
-      {/* Activity Feed */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <ErrorBoundary fallback={<div className="p-6 text-center text-gray-500">Error cargando feed de actividades</div>}>
-          <ActivityFeed
-            workspaceId={workspace.id}
-            userId={user?.id}
-            realTimeEnabled={true}
-            showGrouping={true}
-            showFilters={true}
-            showStats={false}
-            pageSize={50}
-            className="p-6"
-          />
-        </ErrorBoundary>
-      </div>
-
-      {/* Notification Settings Modal */}
-      {showNotificationSettings && activitySubscription && (
-        <ActivityNotifications
-          subscription={activitySubscription}
-          onSubscriptionUpdate={handleSubscriptionUpdate}
-          availableTypes={[
-            'meeting_created', 'meeting_completed', 'task_assigned', 'task_completed',
-            'document_uploaded', 'folder_created', 'message_sent', 'thread_created',
-            'user_joined', 'workspace_updated'
-          ]}
-          availableEntities={[
-            'meeting', 'document', 'folder', 'message', 'thread', 'user', 'workspace'
-          ]}
-          isOpen={showNotificationSettings}
-          onClose={() => setShowNotificationSettings(false)}
-        />
-      )}
-    </div>
-  );
-};
 
 export default CommunityWorkspacePage;

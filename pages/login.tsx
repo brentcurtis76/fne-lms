@@ -125,17 +125,6 @@ export default function LoginPage() {
     <>
       <Head>
         <title>Inicia sesión en tu cuenta | FNE LMS</title>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap"
-          rel="stylesheet"
-        />
-        <link 
-          rel="stylesheet" 
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
-          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
-          crossOrigin="anonymous" 
-          referrerPolicy="no-referrer" 
-        />
       </Head>
       
       <div className="min-h-screen flex flex-col items-center justify-center bg-brand_beige relative overflow-hidden">
@@ -163,6 +152,7 @@ export default function LoginPage() {
               placeholder="tu@email.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
+              autoComplete="email"
               className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-transparent"
             />
           </div>
@@ -181,6 +171,7 @@ export default function LoginPage() {
                 placeholder="••••••"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
+                autoComplete="current-password"
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-transparent"
               />
             </div>

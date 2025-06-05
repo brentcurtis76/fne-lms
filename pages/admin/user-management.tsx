@@ -658,6 +658,7 @@ export default function UserManagement() {
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
                     placeholder="Mínimo 6 caracteres"
                     minLength={6}
+                    autoComplete="new-password"
                     required
                   />
                 </div>

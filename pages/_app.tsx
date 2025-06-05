@@ -33,6 +33,19 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         {/* App metadata */}
         <meta name="description" content="Plataforma de aprendizaje de Fundación Nueva Educación" />
         <meta name="application-name" content="FNE LMS" />
+        
+        {/* Global fonts and stylesheets */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap"
+          rel="stylesheet"
+        />
+        <link 
+          rel="stylesheet" 
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+          integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+          crossOrigin="anonymous" 
+          referrerPolicy="no-referrer" 
+        />
       </Head>
       <Component {...pageProps} />
       <Toaster position="bottom-right" reverseOrder={false} />

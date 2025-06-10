@@ -5,7 +5,7 @@ import Head from 'next/head';
 import { ArrowLeft, ArrowRight, CheckCircle, Clock, Trophy, Star, BookOpen } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import StudentBlockRenderer from '../../../components/student/StudentBlockRenderer';
-import Header from '../../../components/layout/Header';
+import MainLayout from '../../../components/layout/MainLayout';
 
 // Types
 interface Block {
@@ -328,6 +328,13 @@ export default function StudentLessonViewer() {
     return getCompletedBlocksCount();
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem('rememberMe');
+    sessionStorage.removeItem('sessionOnly');
+    router.push('/login');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -387,24 +394,17 @@ export default function StudentLessonViewer() {
   }
 
   return (
-    <>
-      <Head>
-        <title>{lesson.title} | FNE LMS</title>
-      </Head>
-      
+    <MainLayout 
+      user={user} 
+      currentPage="courses"
+      pageTitle={lesson.title}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
       <div className="min-h-screen bg-gray-100">
-        <Header 
-          user={user} 
-          isAdmin={isAdmin} 
-          avatarUrl={avatarUrl}
-          onLogout={async () => {
-            await supabase.auth.signOut();
-            router.push('/login');
-          }}
-        />
-        
         {/* Lesson Sub-Header */}
-        <div className="bg-white shadow-sm border-b px-4 py-3 mt-24">
+        <div className="bg-white shadow-sm border-b px-4 py-3">
           <div className="max-w-4xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -644,6 +644,6 @@ export default function StudentLessonViewer() {
           </div>
         )}
       </div>
-    </>
+    </MainLayout>
   );
 }

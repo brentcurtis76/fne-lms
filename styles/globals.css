@@ -30,6 +30,17 @@ body {
   /* font-family: 'Eames Century Modern', serif; */ /* This was overriding Tailwind's font-sans */
 }
 
+/* Ensure proper rendering of Spanish characters in input fields */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+textarea,
+select {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 /* TipTap Editor Styles */
 .tiptap-editor {
   @apply p-4;

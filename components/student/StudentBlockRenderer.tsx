@@ -643,67 +643,25 @@ export default function StudentBlockRenderer({
         <div>
           <h3 className="text-lg font-semibold mb-4">{title}</h3>
           {description && (
-            <p className="text-gray-600 mb-4">{description}</p>
+            <div className="text-gray-600 mb-4 whitespace-pre-wrap">{description}</div>
           )}
           
           {links.length > 0 ? (
             <div className="space-y-3">
               {links.map((link: any, index: number) => (
                 <div key={link.id || index} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                  {/* Link Preview Thumbnail or Iframe */}
+                  {/* Link Preview - Always show iframe preview by default */}
                   <div className="aspect-video bg-gray-100 relative">
-                    {previewUrl === link.url ? (
-                      // Show iframe preview
-                      <iframe
-                        src={link.url}
-                        className="w-full h-full"
-                        frameBorder="0"
-                        title="Vista previa del enlace"
-                        sandbox="allow-scripts allow-same-origin allow-forms"
-                      />
-                    ) : (
-                      // Show thumbnail or placeholder
-                      <>
-                        {link.thumbnail ? (
-                          <img 
-                            src={link.thumbnail} 
-                            alt={link.title}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <div className="text-center">
-                              <ExternalLink className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                              <p className="text-gray-500 text-sm">{new URL(link.url).hostname}</p>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    )}
+                    {/* Always show iframe preview */}
+                    <iframe
+                      src={link.url}
+                      className="w-full h-full"
+                      frameBorder="0"
+                      title="Vista previa del enlace"
+                      sandbox="allow-scripts allow-same-origin allow-forms"
+                      onLoad={() => setHasVisited(true)}
+                    />
                     
-                    {/* Quick Preview Button */}
-                    <button
-                      onClick={() => {
-                        setPreviewUrl(previewUrl === link.url ? null : link.url);
-                        setHasVisited(true);
-                      }}
-                      className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-md hover:bg-white transition"
-                      title={previewUrl === link.url ? "Cerrar vista previa" : "Vista previa rápida"}
-                    >
-                      {previewUrl === link.url ? (
-                        <svg className="w-4 h-4 text-[#00365b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      ) : (
-                        <svg className="w-4 h-4 text-[#00365b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                        </svg>
-                      )}
-                    </button>
                   </div>
                   
                   {/* Link Content */}
@@ -716,35 +674,17 @@ export default function StudentBlockRenderer({
                     {/* URL Display */}
                     <p className="text-xs text-gray-500 mb-3 truncate">{link.url}</p>
                     
-                    <div className="flex gap-2">
-                      {/* Main Visit Button */}
-                      <a
-                        href={link.url}
-                        target={link.openInNewTab !== false ? '_blank' : '_self'}
-                        rel="noopener noreferrer"
-                        onClick={() => setHasVisited(true)}
-                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                        Visitar enlace
-                      </a>
-                      
-                      {/* Preview Button */}
-                      <button
-                        onClick={() => {
-                          setPreviewUrl(previewUrl === link.url ? null : link.url);
-                          setHasVisited(true);
-                        }}
-                        className={`px-4 py-2 border border-[#00365b] rounded-md transition ${
-                          previewUrl === link.url 
-                            ? 'bg-[#00365b] text-white' 
-                            : 'text-[#00365b] hover:bg-[#00365b] hover:text-white'
-                        }`}
-                        title={previewUrl === link.url ? "Cerrar vista previa" : "Ver vista previa"}
-                      >
-                        {previewUrl === link.url ? 'Cerrar' : 'Vista previa'}
-                      </button>
-                    </div>
+                    {/* Only Visit Button - No Preview Button */}
+                    <a
+                      href={link.url}
+                      target={link.openInNewTab !== false ? '_blank' : '_self'}
+                      rel="noopener noreferrer"
+                      onClick={() => setHasVisited(true)}
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Visitar enlace
+                    </a>
                   </div>
                 </div>
               ))}
@@ -809,7 +749,7 @@ export default function StudentBlockRenderer({
         <div>
           <h3 className="text-lg font-semibold mb-4">{title}</h3>
           {description && (
-            <p className="text-gray-600 mb-4">{description}</p>
+            <div className="text-gray-600 mb-4 whitespace-pre-wrap">{description}</div>
           )}
           
           {files.length > 0 ? (

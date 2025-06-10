@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import { supabase } from '../../../../lib/supabase';
-import Header from '../../../../components/layout/Header';
+import MainLayout from '../../../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 
 interface Course {
@@ -198,6 +198,13 @@ export default function EditCourse() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem('rememberMe');
+    sessionStorage.removeItem('sessionOnly');
+    router.push('/login');
+  };
+
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-brand_beige flex items-center justify-center">
@@ -211,9 +218,15 @@ export default function EditCourse() {
 
   if (!course) {
     return (
-      <>
-        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
-        <div className="min-h-screen bg-brand_beige flex flex-col items-center justify-center" style={{paddingTop: '120px'}}>
+      <MainLayout 
+        user={user} 
+        currentPage="courses"
+        pageTitle="Curso no encontrado"
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex flex-col items-center justify-center min-h-[50vh]">
           <p className="text-xl text-red-600 font-mont">Curso no encontrado</p>
           <Link href="/admin/course-builder" legacyBehavior>
             <a className="mt-4 px-4 py-2 bg-brand_blue text-white font-mont rounded hover:bg-brand_yellow hover:text-brand_blue transition">
@@ -221,21 +234,26 @@ export default function EditCourse() {
             </a>
           </Link>
         </div>
-      </>
+      </MainLayout>
     );
   }
 
   return (
-    <>
-      <Head>
-        <title>Editar Curso - {course.title} - FNE LMS</title>
-      </Head>
-      
-      <div className="min-h-screen bg-brand_beige">
-        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
-        
-        <main className="container mx-auto pt-32 pb-10 px-4">
-          <div className="max-w-2xl mx-auto">
+    <MainLayout 
+      user={user} 
+      currentPage="courses"
+      pageTitle={`Editar: ${course.title}`}
+      breadcrumbs={[
+        { label: 'Cursos', href: '/admin/course-builder' },
+        { label: course.title, href: `/admin/course-builder/${courseId}` },
+        { label: 'Editar' }
+      ]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto">
             
             {/* Header */}
             <div className="mb-8">
@@ -374,8 +392,7 @@ export default function EditCourse() {
               </form>
             </div>
           </div>
-        </main>
-      </div>
-    </>
+        </div>
+    </MainLayout>
   );
 }

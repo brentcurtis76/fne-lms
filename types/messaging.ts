@@ -9,7 +9,7 @@
 // =============================================================================
 
 export type MessageType = 'regular' | 'system' | 'announcement';
-export type ThreadCategory = 'general' | 'resources' | 'announcements' | 'questions' | 'projects';
+export type ThreadCategory = 'general' | 'resources' | 'questions' | 'projects' | 'ideas' | 'tasks' | 'custom';
 export type MentionType = 'user' | 'all' | 'role';
 export type ReactionType = 'thumbs_up' | 'heart' | 'lightbulb' | 'celebration' | 'eyes' | 'question';
 export type MessageActivityType = 'message_sent' | 'message_edited' | 'message_deleted' | 'thread_created' | 'reaction_added' | 'mention_created' | 'attachment_uploaded';
@@ -43,9 +43,10 @@ export interface ThreadCategoryConfig {
 export const THREAD_CATEGORIES: ThreadCategoryConfig[] = [
   { type: 'general', label: 'General', icon: 'MessageCircle', color: '#6b7280', description: 'Conversaciones generales' },
   { type: 'resources', label: 'Recursos', icon: 'BookOpen', color: '#3b82f6', description: 'Compartir recursos y materiales' },
-  { type: 'announcements', label: 'Anuncios', icon: 'Megaphone', color: '#f59e0b', description: 'Anuncios importantes' },
   { type: 'questions', label: 'Preguntas', icon: 'HelpCircle', color: '#8b5cf6', description: 'Preguntas y respuestas' },
   { type: 'projects', label: 'Proyectos', icon: 'Briefcase', color: '#10b981', description: 'Colaboración en proyectos' },
+  { type: 'ideas', label: 'Ideas', icon: 'Lightbulb', color: '#f59e0b', description: 'Compartir ideas y propuestas' },
+  { type: 'tasks', label: 'Tareas/Trabajos', icon: 'CheckSquare', color: '#ef4444', description: 'Tareas y trabajos asignados' },
 ];
 
 // =============================================================================
@@ -59,6 +60,7 @@ export interface MessageThread {
   thread_title: string;
   description?: string;
   category: ThreadCategory;
+  custom_category_name?: string; // For custom categories
   created_by: string;
   is_pinned: boolean;
   is_locked: boolean;
@@ -208,8 +210,9 @@ export interface ThreadCreationData {
   thread_title: string;
   description?: string;
   category: ThreadCategory;
+  custom_category_name?: string; // For custom categories
   initial_message: string;
-  workspace_id: string;
+  workspace_id?: string;
 }
 
 // Message composition data

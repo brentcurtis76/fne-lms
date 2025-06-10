@@ -31,6 +31,7 @@ import {
   formatFileSize,
   isValidAttachment,
 } from '../../utils/messagingUtils';
+import MentionPicker from './MentionPicker';
 
 interface MessageComposerProps {
   threadId: string;
@@ -78,6 +79,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
   const [mentionPosition, setMentionPosition] = useState<{ start: number; end: number } | null>(null);
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
   const [validation, setValidation] = useState<MessageValidation | null>(null);
+  const [mentionedUsers, setMentionedUsers] = useState<Map<string, string>>(new Map()); // Map of display_name -> user_id
 
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -168,6 +170,13 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     setShowMentionPicker(false);
     setMentionPosition(null);
     
+    // Track the mentioned user's ID
+    setMentionedUsers(prev => {
+      const newMap = new Map(prev);
+      newMap.set(mention.display_name, mention.id);
+      return newMap;
+    });
+    
     // Focus and position cursor
     if (textareaRef.current) {
       const newCursorPosition = mentionPosition.start + mentionText.length + 1;
@@ -230,12 +239,24 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     if (!content.trim() && attachments.length === 0) return;
     if (isSubmitting || disabled) return;
 
+    // Extract mentioned user IDs from content
+    const mentionedUserIds: string[] = [];
+    const mentionRegex = /@(\w+(?:\s+\w+)*)/g;
+    let match;
+    while ((match = mentionRegex.exec(content)) !== null) {
+      const displayName = match[1];
+      const userId = mentionedUsers.get(displayName);
+      if (userId) {
+        mentionedUserIds.push(userId);
+      }
+    }
+
     const messageData: MessageCompositionData = {
       content: content.trim(),
       thread_id: threadId,
       reply_to_id: replyToMessage?.id,
       attachments,
-      mentions: extractMentionsFromContent(content),
+      mentions: mentionedUserIds,
     };
 
     const validationResult = validateMessage(messageData);
@@ -257,6 +278,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
       setContent('');
       setAttachments([]);
       setValidation(null);
+      setMentionedUsers(new Map());
       if (onCancelReply) onCancelReply();
       if (onCancelEdit) onCancelEdit();
     } catch (error) {
@@ -265,7 +287,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [content, attachments, threadId, replyToMessage, editingMessage, isSubmitting, disabled, onSendMessage, onSaveEdit, onCancelReply, onCancelEdit]);
+  }, [content, attachments, threadId, replyToMessage, editingMessage, isSubmitting, disabled, onSendMessage, onSaveEdit, onCancelReply, onCancelEdit, mentionedUsers]);
 
   // Update textarea height when content changes
   useEffect(() => {
@@ -359,35 +381,33 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
         </button>
 
         {/* Mention picker */}
-        {showMentionPicker && mentionSuggestions.length > 0 && (
-          <div
-            ref={mentionPickerRef}
-            className="absolute bottom-full left-4 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto z-10"
-            style={{ minWidth: '250px' }}
-          >
-            {mentionSuggestions.map((suggestion, index) => (
-              <button
-                key={suggestion.id}
-                onClick={() => insertMention(suggestion)}
-                className={`w-full px-3 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 ${
-                  index === selectedMentionIndex ? 'bg-blue-50 border-l-2 border-blue-500' : ''
-                }`}
-              >
-                <AtSign className="w-4 h-4 text-gray-400" />
-                <div>
-                  <div className="font-medium text-sm">{suggestion.display_name}</div>
-                  {suggestion.email && (
-                    <div className="text-xs text-gray-500">{suggestion.email}</div>
-                  )}
-                </div>
-                {suggestion.role && (
-                  <span className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-600">
-                    {suggestion.role}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
+        {showMentionPicker && (
+          <MentionPicker
+            isVisible={showMentionPicker}
+            query={mentionQuery}
+            suggestions={mentionSuggestions}
+            selectedIndex={selectedMentionIndex}
+            position={{ x: 16, y: -8 }}
+            onSelect={insertMention}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSelectedMentionIndex(prev => Math.min(prev + 1, mentionSuggestions.length - 1));
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSelectedMentionIndex(prev => Math.max(prev - 1, 0));
+              } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (mentionSuggestions[selectedMentionIndex]) {
+                  insertMention(mentionSuggestions[selectedMentionIndex]);
+                }
+              } else if (e.key === 'Escape') {
+                setShowMentionPicker(false);
+              }
+            }}
+            onClose={() => setShowMentionPicker(false)}
+            className="absolute bottom-full left-4 mb-2"
+          />
         )}
       </div>
 

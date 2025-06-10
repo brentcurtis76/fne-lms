@@ -30,9 +30,27 @@ export async function getWorkspaceThreads(
   filters: ThreadFilters = {}
 ): Promise<ThreadWithDetails[]> {
   try {
+    console.log('Getting threads for workspace:', workspaceId);
+    
+    // First get the threads - be explicit about columns to avoid schema cache issues
     let query = supabase
       .from('message_threads')
-      .select('*')
+      .select(`
+        id,
+        workspace_id,
+        thread_title,
+        description,
+        category,
+        created_by,
+        is_pinned,
+        is_locked,
+        is_archived,
+        last_message_at,
+        message_count,
+        participant_count,
+        created_at,
+        updated_at
+      `)
       .eq('workspace_id', workspaceId)
       .eq('is_archived', false);
 
@@ -61,6 +79,14 @@ export async function getWorkspaceThreads(
     const { data, error } = await query;
 
     if (error) {
+      console.error('Error fetching threads:', error);
+      console.error('Error details:', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+        hint: error.hint
+      });
+      
       // Gracefully handle missing tables
       if (error?.code === '42P01' || error?.message?.includes('does not exist')) {
         console.warn('Message threads table not found - feature not yet implemented');
@@ -69,17 +95,51 @@ export async function getWorkspaceThreads(
       }
       return [];
     }
+    
+    console.log('Threads fetched:', data?.length || 0);
+
+    // Get creator information for all threads
+    const creatorIds = Array.from(new Set((data || []).map(thread => thread.created_by)));
+    let creators: Record<string, any> = {};
+    
+    if (creatorIds.length > 0) {
+      const { data: creatorData } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email')
+        .in('id', creatorIds);
+      
+      if (creatorData) {
+        creators = creatorData.reduce((acc, profile) => {
+          acc[profile.id] = profile;
+          return acc;
+        }, {} as Record<string, any>);
+      }
+    }
 
     // Transform to ThreadWithDetails format
-    return (data || []).map(thread => ({
-      ...thread,
-      creator_name: 'Usuario',
-      creator_email: '',
-      latest_message: null, // Will be populated separately if needed
-      participants: [],
-      unread_count: 0,
-      category_config: THREAD_CATEGORIES.find(cat => cat.type === thread.category) || THREAD_CATEGORIES[0]
-    }));
+    return (data || []).map(thread => {
+      const creator = creators[thread.created_by] || {};
+      const creatorName = creator.first_name && creator.last_name 
+        ? `${creator.first_name} ${creator.last_name}`
+        : creator.email || 'Usuario';
+      
+      // Handle custom category
+      let categoryConfig = THREAD_CATEGORIES.find(cat => cat.type === thread.category);
+      // For now, skip custom category handling until column is added
+      if (!categoryConfig) {
+        categoryConfig = THREAD_CATEGORIES[0]; // Default to general
+      }
+        
+      return {
+        ...thread,
+        creator_name: creatorName,
+        creator_email: creator.email || '',
+        latest_message: null, // Will be populated separately if needed
+        participants: [],
+        unread_count: 0,
+        category_config: categoryConfig
+      };
+    });
 
   } catch (error) {
     console.error('Error in getWorkspaceThreads:', error);
@@ -95,6 +155,7 @@ export async function getWorkspaceMessages(
   filters: MessageFilters = {}
 ): Promise<MessageWithDetails[]> {
   try {
+    // First get the messages
     let query = supabase
       .from('community_messages')
       .select('*')
@@ -143,19 +204,44 @@ export async function getWorkspaceMessages(
       return [];
     }
 
+    // Get author information for all messages
+    const authorIds = Array.from(new Set((data || []).map(message => message.author_id)));
+    let authors: Record<string, any> = {};
+    
+    if (authorIds.length > 0) {
+      const { data: authorData } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email, avatar_url')
+        .in('id', authorIds);
+      
+      if (authorData) {
+        authors = authorData.reduce((acc, profile) => {
+          acc[profile.id] = profile;
+          return acc;
+        }, {} as Record<string, any>);
+      }
+    }
+
     // Transform to MessageWithDetails format
-    return (data || []).map(message => ({
-      ...message,
-      author_name: 'Usuario',
-      author_email: '',
-      author_avatar: null,
-      reply_to_message: null,
-      reactions: [],
-      attachments: [],
-      mentions: [],
-      user_reaction: undefined,
-      is_mentioned: false
-    }));
+    return (data || []).map(message => {
+      const author = authors[message.author_id] || {};
+      const authorName = author.first_name && author.last_name 
+        ? `${author.first_name} ${author.last_name}`
+        : author.email || 'Usuario';
+        
+      return {
+        ...message,
+        author_name: authorName,
+        author_email: author.email || '',
+        author_avatar: author.avatar_url || null,
+        reply_to_message: null,
+        reactions: [],
+        attachments: [],
+        mentions: message.mentions || [],
+        user_reaction: undefined,
+        is_mentioned: false
+      };
+    });
 
   } catch (error) {
     console.error('Error in getWorkspaceMessages:', error);
@@ -172,7 +258,18 @@ export async function createThread(
   userId: string
 ): Promise<ThreadWithDetails> {
   try {
-    // Create the thread
+    // First get the user's profile to get their name
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, email')
+      .eq('id', userId)
+      .single();
+      
+    const creatorName = userProfile?.first_name && userProfile?.last_name 
+      ? `${userProfile.first_name} ${userProfile.last_name}`
+      : userProfile?.email || 'Usuario';
+
+    // Create the thread (without custom_category_name for now)
     const { data: thread, error: threadError } = await supabase
       .from('message_threads')
       .insert({
@@ -188,10 +285,18 @@ export async function createThread(
         message_count: 1,
         participant_count: 1
       })
-      .select()
+      .select('*')
       .single();
 
     if (threadError) {
+      console.error('Thread creation error:', threadError);
+      console.error('Error details:', {
+        code: threadError.code,
+        message: threadError.message,
+        details: threadError.details,
+        hint: threadError.hint
+      });
+      
       // Gracefully handle missing tables
       if (threadError?.code === '42P01' || threadError?.message?.includes('does not exist')) {
         console.warn('Message threads table not found - feature not yet implemented');
@@ -218,14 +323,21 @@ export async function createThread(
       console.error('Error creating initial message:', messageError);
     }
 
+    // Handle custom category
+    let categoryConfig = THREAD_CATEGORIES.find(cat => cat.type === thread.category);
+    // For now, skip custom category handling until column is added
+    if (!categoryConfig) {
+      categoryConfig = THREAD_CATEGORIES[0]; // Default to general
+    }
+
     return {
       ...thread,
-      creator_name: 'Usuario',
-      creator_email: '',
+      creator_name: creatorName,
+      creator_email: userProfile?.email || '',
       latest_message: null,
       participants: [],
       unread_count: 0,
-      category_config: THREAD_CATEGORIES.find(cat => cat.type === thread.category) || THREAD_CATEGORIES[0]
+      category_config: categoryConfig
     };
 
   } catch (error) {
@@ -243,6 +355,17 @@ export async function sendMessage(
   userId: string
 ): Promise<MessageWithDetails> {
   try {
+    // First get the user's profile to get their name
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, email, avatar_url')
+      .eq('id', userId)
+      .single();
+      
+    const authorName = userProfile?.first_name && userProfile?.last_name 
+      ? `${userProfile.first_name} ${userProfile.last_name}`
+      : userProfile?.email || 'Usuario';
+
     const { data: message, error } = await supabase
       .from('community_messages')
       .insert({
@@ -280,11 +403,19 @@ export async function sendMessage(
       })
       .eq('id', messageData.thread_id);
 
+    // Handle mentions and create notifications
+    if (messageData.mentions && messageData.mentions.length > 0) {
+      await handleMentions(message.id, messageData.mentions, userId, workspaceId, authorName, messageData.content, messageData.reply_to_id);
+    } else if (messageData.reply_to_id) {
+      // Even if no mentions, handle reply notification
+      await handleMentions(message.id, [], userId, workspaceId, authorName, messageData.content, messageData.reply_to_id);
+    }
+
     return {
       ...message,
-      author_name: 'Usuario',
-      author_email: '',
-      author_avatar: null,
+      author_name: authorName,
+      author_email: userProfile?.email || '',
+      author_avatar: userProfile?.avatar_url || null,
       reply_to_message: null,
       reactions: [],
       attachments: [],
@@ -431,5 +562,122 @@ export function subscribeToWorkspaceMessages(
     return {
       unsubscribe: () => {}
     };
+  }
+}
+
+/**
+ * Handle mentions and create notifications
+ */
+async function handleMentions(
+  messageId: string,
+  mentions: string[],
+  senderId: string,
+  workspaceId: string,
+  senderName: string,
+  messageContent: string,
+  replyToId?: string
+): Promise<void> {
+  try {
+    // Get workspace and thread information
+    const { data: messageData } = await supabase
+      .from('community_messages')
+      .select('thread_id')
+      .eq('id', messageId)
+      .single();
+
+    if (!messageData?.thread_id) return;
+
+    // Get thread information
+    const { data: threadData } = await supabase
+      .from('message_threads')
+      .select('thread_title, workspace_id')
+      .eq('id', messageData.thread_id)
+      .single();
+
+    if (!threadData) return;
+
+    const threadTitle = threadData.thread_title;
+    
+    // Get workspace name
+    const { data: workspaceData } = await supabase
+      .from('community_workspaces')
+      .select('name')
+      .eq('id', threadData.workspace_id)
+      .single();
+    
+    const communityName = workspaceData?.name || 'la comunidad';
+
+    // Process each mention
+    for (const mentionedUserId of mentions) {
+      // Skip if user is mentioning themselves
+      if (mentionedUserId === senderId) continue;
+
+      // Create notification for the mentioned user
+      const { error: notifError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: mentionedUserId,
+          type: 'mention_in_message',
+          title: `${senderName} te mencionó en un mensaje`,
+          message: `Te han mencionado en el hilo "${threadTitle}" en ${communityName}`,
+          metadata: {
+            message_id: messageId,
+            thread_id: messageData.thread_id,
+            workspace_id: workspaceId,
+            sender_id: senderId,
+            sender_name: senderName,
+            message_preview: messageContent.substring(0, 100) + (messageContent.length > 100 ? '...' : '')
+          },
+          priority: 'medium',
+          action_url: `/community/workspace?section=messaging&thread=${messageData.thread_id}&message=${messageId}`,
+          is_read: false,
+          created_at: new Date().toISOString()
+        });
+      
+      if (notifError) {
+        console.error('Error creating mention notification:', notifError);
+      }
+    }
+
+    // Also check if someone is replying to a message where the original author should be notified
+    if (replyToId) {
+      const { data: parentMessage } = await supabase
+        .from('community_messages')
+        .select('author_id, content')
+        .eq('id', replyToId)
+        .single();
+
+      if (parentMessage && parentMessage.author_id !== senderId) {
+        // Notify the original message author about the reply
+        const { error: replyNotifError } = await supabase
+          .from('notifications')
+          .insert({
+            user_id: parentMessage.author_id,
+            type: 'reply_to_message',
+            title: `${senderName} respondió a tu mensaje`,
+            message: `Nueva respuesta en el hilo "${threadTitle}" en ${communityName}`,
+            metadata: {
+              message_id: messageId,
+              thread_id: messageData.thread_id,
+              workspace_id: workspaceId,
+              sender_id: senderId,
+              sender_name: senderName,
+              original_message_preview: parentMessage.content.substring(0, 50) + '...',
+              reply_preview: messageContent.substring(0, 100) + (messageContent.length > 100 ? '...' : '')
+            },
+            priority: 'medium',
+            action_url: `/community/workspace?section=messaging&thread=${messageData.thread_id}&message=${messageId}`,
+            is_read: false,
+            created_at: new Date().toISOString()
+          });
+        
+        if (replyNotifError) {
+          console.error('Error creating reply notification:', replyNotifError);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error handling mentions:', error);
+    // Don't throw - we don't want mention errors to prevent message sending
   }
 }

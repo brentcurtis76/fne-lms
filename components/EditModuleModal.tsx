@@ -80,6 +80,9 @@ const EditModuleModal: React.FC<EditModuleModalProps> = ({
                 placeholder="Ingresa el título del módulo"
                 disabled={isUpdating}
                 autoFocus
+                autoComplete="off"
+                spellCheck="true"
+                lang="es"
               />
             </div>
             
@@ -95,6 +98,9 @@ const EditModuleModal: React.FC<EditModuleModalProps> = ({
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-brand_blue"
                 placeholder="Describe brevemente el contenido del módulo..."
                 disabled={isUpdating}
+                autoComplete="off"
+                spellCheck="true"
+                lang="es"
               />
             </div>
           </div>

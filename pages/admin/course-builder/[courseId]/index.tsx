@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { supabase } from '../../../../lib/supabase';
 import { toast } from 'react-hot-toast';
-import Header from '../../../../components/layout/Header';
+import MainLayout from '../../../../components/layout/MainLayout';
 import DeleteModuleModal from '../../../../components/DeleteModuleModal';
 import EditModuleModal from '../../../../components/EditModuleModal';
 
@@ -49,6 +49,12 @@ const CourseDetailPage = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedModuleForEdit, setSelectedModuleForEdit] = useState<Module | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Logout handler
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
 
   // Check authentication and admin status
   useEffect(() => {
@@ -323,17 +329,32 @@ const CourseDetailPage = () => {
 
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-brand_beige flex justify-center items-center">
-        <p className="text-xl text-brand_blue font-mont">Cargando...</p>
-      </div>
+      <MainLayout 
+        user={user} 
+        currentPage="courses"
+        pageTitle="Cargando..."
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex justify-center items-center min-h-[50vh]">
+          <p className="text-xl text-brand_blue font-mont">Cargando...</p>
+        </div>
+      </MainLayout>
     );
   }
 
   if (error) {
     return (
-      <>
-        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
-        <div className="min-h-screen bg-brand_beige flex flex-col items-center justify-center h-screen p-4" style={{paddingTop: '120px'}}>
+      <MainLayout 
+        user={user} 
+        currentPage="courses"
+        pageTitle="Error"
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
           <p className="text-xl text-red-600 font-mont">Error: {error}</p>
           <Link href="/admin/course-builder" legacyBehavior>
             <a className="mt-4 px-4 py-2 bg-brand_blue text-white font-mont rounded hover:bg-brand_yellow hover:text-brand_blue transition">
@@ -341,26 +362,42 @@ const CourseDetailPage = () => {
             </a>
           </Link>
         </div>
-      </>
+      </MainLayout>
     );
   }
 
   if (!course) {
     return (
-      <>
-        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
-        <div className="min-h-screen bg-brand_beige flex justify-center items-center" style={{paddingTop: '120px'}}>
+      <MainLayout 
+        user={user} 
+        currentPage="courses"
+        pageTitle="Curso no encontrado"
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex justify-center items-center min-h-[50vh]">
           <p className="text-xl text-brand_blue font-mont">Curso no encontrado.</p>
         </div>
-      </>
+      </MainLayout>
     );
   }
 
   return (
-    <>
-      <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
-      <div className="min-h-screen bg-brand_beige px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8" style={{marginTop: '120px'}}>
-      <div className="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-6 mt-8">
+    <MainLayout 
+      user={user} 
+      currentPage="courses"
+      pageTitle={course.title}
+      breadcrumbs={[
+        { label: 'Cursos', href: '/admin/course-builder' },
+        { label: course.title }
+      ]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+      <div className="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-6">
         <div className="mb-6 flex justify-between items-center">
           <Link href="/admin/course-builder" legacyBehavior>
             <a className="text-brand_blue hover:text-brand_yellow font-mont hover:underline">
@@ -393,7 +430,7 @@ const CourseDetailPage = () => {
         {showCreateModuleForm && (
           <div className="bg-white p-6 rounded-lg shadow-md mb-6 border border-brand_blue/30">
             <h3 className="text-xl font-semibold text-brand_blue font-mont mb-4">Crear Nuevo Módulo</h3>
-            <form onSubmit={handleModuleSubmit} className="space-y-4">
+            <form onSubmit={handleModuleSubmit} className="space-y-4" acceptCharset="UTF-8">
               <div>
                 <label htmlFor="newModuleTitle" className="block text-sm font-medium text-brand_blue mb-1">
                   Título del Módulo <span className="text-red-500">*</span>
@@ -402,10 +439,34 @@ const CourseDetailPage = () => {
                   type="text"
                   id="newModuleTitle"
                   value={newModuleTitle}
-                  onChange={(e) => setNewModuleTitle(e.target.value)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    console.log('Module title input:', value);
+                    // Ensure the value is properly encoded
+                    setNewModuleTitle(value);
+                  }}
+                  onKeyDown={(e) => {
+                    // Log key events to debug the issue
+                    console.log('Key pressed:', e.key, 'KeyCode:', e.keyCode, 'CharCode:', e.charCode);
+                  }}
+                  onInput={(e) => {
+                    // Additional handler for input events
+                    const target = e.target as HTMLInputElement;
+                    console.log('Input event value:', target.value);
+                  }}
+                  onCompositionStart={(e) => {
+                    console.log('Composition start');
+                  }}
+                  onCompositionEnd={(e) => {
+                    console.log('Composition end:', e.data);
+                  }}
                   className="w-full px-4 py-2 border border-brand_blue/50 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue"
-                  placeholder="Ej: Fundamentos de la IA"
+                  placeholder="Ej: ¿Qué es el plan personal?"
                   required
+                  // Explicitly set input attributes for better Spanish support
+                  autoComplete="off"
+                  spellCheck="true"
+                  lang="es"
                 />
               </div>
               <div>
@@ -419,6 +480,9 @@ const CourseDetailPage = () => {
                   rows={3}
                   className="w-full px-4 py-2 border border-brand_blue/50 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue"
                   placeholder="Describe brevemente el contenido del módulo..."
+                  autoComplete="off"
+                  spellCheck="true"
+                  lang="es"
                 ></textarea>
               </div>
               <div className="flex items-center justify-end space-x-3 pt-2">
@@ -509,7 +573,7 @@ const CourseDetailPage = () => {
         />
       )}
     </div>
-    </>
+    </MainLayout>
   );
 };
 

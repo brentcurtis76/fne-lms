@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { supabase } from '../../lib/supabase';
 import {
   XMarkIcon,
   ChevronLeftIcon,
@@ -59,14 +60,8 @@ const STEPS = [
   },
   {
     id: MeetingFormStep.AGREEMENTS,
-    title: 'Acuerdos',
-    description: 'Acuerdos alcanzados',
-    icon: ListBulletIcon
-  },
-  {
-    id: MeetingFormStep.COMMITMENTS,
-    title: 'Compromisos',
-    description: 'Tareas y compromisos',
+    title: 'Acuerdos y Compromisos',
+    description: 'Acuerdos, compromisos y tareas',
     icon: CheckCircleIcon
   }
 ];
@@ -114,13 +109,107 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const loadCommunityMembers = async () => {
     try {
       setLoadingUsers(true);
-      // Get community ID from workspace
-      // For now, we'll simulate this - in real implementation, get from workspace
-      const members = await getCommunityMembersForAssignment('dummy-community-id');
-      setAvailableUsers(members);
+      
+      // Get workspace details first
+      const { data: workspace, error: wsError } = await supabase
+        .from('community_workspaces')
+        .select('community_id')
+        .eq('id', workspaceId)
+        .single();
+
+      if (wsError || !workspace) {
+        // If workspace table doesn't exist, just get all users from profiles
+        const { data: allUsers, error: usersError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, email, avatar_url')
+          .order('first_name', { ascending: true });
+
+        if (!usersError && allUsers) {
+          const formattedUsers: AssignmentUser[] = allUsers.map(user => ({
+            id: user.id,
+            first_name: user.first_name || 'Usuario',
+            last_name: user.last_name || '',
+            email: user.email || '',
+            avatar_url: user.avatar_url,
+            role_type: 'docente'
+          }));
+          setAvailableUsers(formattedUsers);
+        }
+        return;
+      }
+
+      // Get community members
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('community_id', workspace.community_id)
+        .eq('is_active', true);
+
+      if (rolesError || !userRoles || userRoles.length === 0) {
+        // Fallback to all users if no community members found
+        const { data: allUsers, error: usersError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, email, avatar_url')
+          .order('first_name', { ascending: true });
+
+        if (!usersError && allUsers) {
+          const formattedUsers: AssignmentUser[] = allUsers.map(user => ({
+            id: user.id,
+            first_name: user.first_name || 'Usuario',
+            last_name: user.last_name || '',
+            email: user.email || '',
+            avatar_url: user.avatar_url,
+            role_type: 'docente'
+          }));
+          setAvailableUsers(formattedUsers);
+        }
+        return;
+      }
+
+      // Get user details for community members
+      const userIds = userRoles.map(role => role.user_id);
+      const { data: users, error: usersError } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email, avatar_url')
+        .in('id', userIds)
+        .order('first_name', { ascending: true });
+
+      if (!usersError && users) {
+        const formattedUsers: AssignmentUser[] = users.map(user => ({
+          id: user.id,
+          first_name: user.first_name || 'Usuario',
+          last_name: user.last_name || '',
+          email: user.email || '',
+          avatar_url: user.avatar_url,
+          role_type: 'docente'
+        }));
+        setAvailableUsers(formattedUsers);
+      }
+      
     } catch (error) {
       console.error('Error loading community members:', error);
-      toast.error('Error al cargar miembros de la comunidad');
+      // Fallback to loading all users if there's an error
+      try {
+        const { data: allUsers, error: usersError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, email, avatar_url')
+          .order('first_name', { ascending: true });
+
+        if (!usersError && allUsers) {
+          const formattedUsers: AssignmentUser[] = allUsers.map(user => ({
+            id: user.id,
+            first_name: user.first_name || 'Usuario',
+            last_name: user.last_name || '',
+            email: user.email || '',
+            avatar_url: user.avatar_url,
+            role_type: 'docente'
+          }));
+          setAvailableUsers(formattedUsers);
+        }
+      } catch (fallbackError) {
+        console.error('Error loading fallback users:', fallbackError);
+        toast.error('Error al cargar miembros de la comunidad');
+      }
     } finally {
       setLoadingUsers(false);
     }
@@ -160,9 +249,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       case MeetingFormStep.SUMMARY:
         return !!formData.summary_info.summary;
       case MeetingFormStep.AGREEMENTS:
-        return true; // Agreements are optional
-      case MeetingFormStep.COMMITMENTS:
-        return true; // Commitments and tasks are optional
+        return true; // Agreements, commitments and tasks are optional
       default:
         return false;
     }
@@ -174,7 +261,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       return;
     }
 
-    if (currentStep < MeetingFormStep.COMMITMENTS) {
+    if (currentStep < MeetingFormStep.AGREEMENTS) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -542,6 +629,9 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent resize-none"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Puedes incluir enlaces en el resumen. Los enlaces se mostrarán como texto clickeable.
+                  </p>
                 </div>
 
                 <div>
@@ -559,76 +649,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
               </div>
             )}
 
-            {/* Step 3: Agreements */}
+            {/* Step 3: Agreements, Commitments and Tasks */}
             {currentStep === MeetingFormStep.AGREEMENTS && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-gray-900">
-                    Acuerdos Alcanzados
-                  </h3>
-                  <button
-                    onClick={addAgreement}
-                    className="inline-flex items-center px-3 py-2 bg-[#fdb933] text-[#00365b] text-sm rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200"
-                  >
-                    <PlusIcon className="h-4 w-4 mr-1" />
-                    Agregar Acuerdo
-                  </button>
-                </div>
-
-                {formData.agreements.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <ListBulletIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                    <p>No se han agregado acuerdos.</p>
-                    <p className="text-sm">Los acuerdos son opcionales.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    {formData.agreements.map((agreement, index) => (
-                      <div key={index} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-3">
-                          <span className="inline-flex items-center justify-center w-6 h-6 bg-[#fdb933] text-[#00365b] text-sm font-bold rounded-full">
-                            {index + 1}
-                          </span>
-                          <button
-                            onClick={() => removeAgreement(index)}
-                            className="p-1 text-red-400 hover:text-red-600"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <textarea
-                            value={agreement.agreement_text}
-                            onChange={(e) => updateAgreement(index, 'agreement_text', e.target.value)}
-                            placeholder="Describe el acuerdo alcanzado..."
-                            rows={3}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent resize-none"
-                          />
-                          
-                          <input
-                            type="text"
-                            value={agreement.category}
-                            onChange={(e) => updateAgreement(index, 'category', e.target.value)}
-                            placeholder="Categoría (opcional): ej. Pedagógico, Administrativo"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Step 4: Commitments and Tasks */}
-            {currentStep === MeetingFormStep.COMMITMENTS && (
               <div className="space-y-8">
-                {/* Commitments Section */}
+                {/* Unified Agreements/Commitments Section */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-medium text-gray-900">
-                      Compromisos
+                      Acuerdos y Compromisos
                     </h3>
                     <button
                       onClick={addCommitment}
@@ -641,15 +669,17 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
                   {formData.commitments.length === 0 ? (
                     <div className="text-center py-6 text-gray-500">
-                      <p className="text-sm">No se han agregado compromisos.</p>
+                      <ListBulletIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <p>No se han agregado compromisos.</p>
+                      <p className="text-sm">Los compromisos son opcionales.</p>
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {formData.commitments.map((commitment, index) => (
                         <div key={index} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex items-start justify-between mb-3">
-                            <span className="inline-flex items-center justify-center w-6 h-6 bg-blue-500 text-white text-sm font-bold rounded-full">
-                              C{index + 1}
+                            <span className="inline-flex items-center justify-center w-6 h-6 bg-[#fdb933] text-[#00365b] text-sm font-bold rounded-full">
+                              {index + 1}
                             </span>
                             <button
                               onClick={() => removeCommitment(index)}
@@ -663,7 +693,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                             <textarea
                               value={commitment.commitment_text}
                               onChange={(e) => updateCommitment(index, 'commitment_text', e.target.value)}
-                              placeholder="Describe el compromiso..."
+                              placeholder="Describe el acuerdo o compromiso..."
                               rows={2}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent resize-none"
                             />
@@ -829,7 +859,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                 Cancelar
               </button>
 
-              {currentStep < MeetingFormStep.COMMITMENTS ? (
+              {currentStep < MeetingFormStep.AGREEMENTS ? (
                 <button
                   onClick={handleNext}
                   disabled={isSubmitting}

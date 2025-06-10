@@ -5,7 +5,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Play, CheckCircle, Clock, BookOpen, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import Header from '../../../components/layout/Header';
+import MainLayout from '../../../components/layout/MainLayout';
 
 interface Course {
   id: string;
@@ -270,6 +270,13 @@ export default function StudentCourseViewer() {
     return null; // All lessons completed
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem('rememberMe');
+    sessionStorage.removeItem('sessionOnly');
+    router.push('/login');
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -308,24 +315,17 @@ export default function StudentCourseViewer() {
   }
 
   return (
-    <>
-      <Head>
-        <title>{course.title} | FNE LMS</title>
-      </Head>
-      
+    <MainLayout 
+      user={user} 
+      currentPage="courses"
+      pageTitle={course.title}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
       <div className="min-h-screen bg-gray-100">
-        <Header 
-          user={user} 
-          isAdmin={isAdmin} 
-          avatarUrl={avatarUrl}
-          onLogout={async () => {
-            await supabase.auth.signOut();
-            router.push('/login');
-          }}
-        />
-
         {/* Course Content */}
-        <div className="max-w-6xl mx-auto p-6 pt-32">
+        <div className="max-w-6xl mx-auto p-6">
           {/* Course Header */}
           <div className="mb-12 bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
             <div className="flex items-center gap-4 mb-6">
@@ -499,6 +499,6 @@ export default function StudentCourseViewer() {
           )}
         </div>
       </div>
-    </>
+    </MainLayout>
   );
 }

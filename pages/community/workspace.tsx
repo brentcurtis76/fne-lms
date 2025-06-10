@@ -6,6 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
+import { supabase } from '../../lib/supabase';
 import MainLayout from '../../components/layout/MainLayout';
 import LoadingSkeleton from '../../components/common/LoadingSkeleton';
 import MeetingFilters from '../../components/meetings/MeetingFilters';
@@ -21,6 +22,7 @@ import MessageComposer from '../../components/messaging/MessageComposer';
 import MessageThread from '../../components/messaging/MessageThread';
 import MessageCard from '../../components/messaging/MessageCard';
 import AttachmentPreview from '../../components/messaging/AttachmentPreview';
+import ThreadCreationModal from '../../components/messaging/ThreadCreationModal';
 import ActivityFeed from '../../components/activity/ActivityFeed';
 import ActivitySummary from '../../components/activity/ActivitySummary';
 import ActivityNotifications from '../../components/activity/ActivityNotifications';
@@ -1298,11 +1300,16 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     can_manage_reactions: false,
   });
   
+  // Mention state
+  const [mentionSuggestions, setMentionSuggestions] = useState<any[]>([]);
+  const [communityMembers, setCommunityMembers] = useState<any[]>([]);
+  
   // UI state
   const [activeView, setActiveView] = useState<'messages' | 'threads'>('threads');
   const [showAttachmentPreview, setShowAttachmentPreview] = useState(false);
   const [previewAttachment, setPreviewAttachment] = useState<MessageAttachment | null>(null);
   const [previewMessage, setPreviewMessage] = useState<MessageWithDetails | null>(null);
+  const [showThreadCreationModal, setShowThreadCreationModal] = useState(false);
   
   // Filter state
   const [messageFilters, setMessageFilters] = useState<MessageFiltersType>({
@@ -1328,6 +1335,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     if (workspace && user) {
       loadMessagingData();
       loadPermissions();
+      loadCommunityMembers();
       setupRealtimeSubscription();
     }
     
@@ -1404,6 +1412,67 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     }
   };
 
+  const loadCommunityMembers = async () => {
+    if (!workspace || !workspace.community_id) return;
+
+    try {
+      // Load members of the current community
+      const { data: members, error } = await supabase
+        .from('growth_communities')
+        .select(`
+          id,
+          name,
+          members:user_roles(
+            user_id,
+            role,
+            user:profiles(
+              id,
+              first_name,
+              last_name,
+              email,
+              avatar_url
+            )
+          )
+        `)
+        .eq('id', workspace.community_id)
+        .single();
+
+      if (error) {
+        console.error('Error loading community members:', error);
+        return;
+      }
+
+      // Transform members into mention suggestions format
+      const suggestions = (members?.members || []).map((member: any) => ({
+        id: member.user_id,
+        type: 'user' as const,
+        display_name: member.user?.first_name && member.user?.last_name
+          ? `${member.user.first_name} ${member.user.last_name}`
+          : member.user?.email || 'Usuario',
+        email: member.user?.email || '',
+        role: member.role,
+        avatar: member.user?.avatar_url || null
+      }));
+
+      setCommunityMembers(suggestions);
+    } catch (error) {
+      console.error('Error loading community members:', error);
+    }
+  };
+
+  const handleMentionRequest = (query: string) => {
+    if (!communityMembers.length) return;
+
+    // Filter members based on query
+    const filtered = communityMembers.filter(member => {
+      const searchQuery = query.toLowerCase();
+      return member.display_name.toLowerCase().includes(searchQuery) ||
+             member.email.toLowerCase().includes(searchQuery);
+    });
+
+    setMentionSuggestions(filtered.slice(0, 10)); // Limit to 10 suggestions
+  };
+
   const setupRealtimeSubscription = () => {
     if (!workspace) return;
 
@@ -1461,14 +1530,20 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     if (!workspace || !user) return;
 
     try {
+      console.log('Creating thread with data:', threadData);
+      console.log('Workspace ID:', workspace.id);
+      console.log('User ID:', user.id);
+      
       const newThread = await createThread(workspace.id, threadData, user.id);
       setThreads(prev => [newThread, ...prev]);
       setSelectedThread(newThread);
       setActiveView('messages');
+      setShowThreadCreationModal(false);
       toast.success('Hilo de conversación creado exitosamente');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating thread:', error);
-      toast.error('Error al crear el hilo de conversación');
+      console.error('Error details:', error.message);
+      toast.error(`Error al crear el hilo: ${error.message || 'Error desconocido'}`);
     }
   };
 
@@ -1553,7 +1628,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
 
         {permissions.can_create_threads && (
           <button
-            onClick={() => toast('Crear nuevo hilo próximamente', { icon: '💬' })}
+            onClick={() => setShowThreadCreationModal(true)}
             className="inline-flex items-center px-4 py-2 bg-[#fdb933] text-[#00365b] font-medium rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200 shadow-sm"
           >
             <PlusIcon className="h-4 w-4 mr-2" />
@@ -1650,7 +1725,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
                 </p>
                 {permissions.can_create_threads && (
                   <button
-                    onClick={() => toast('Crear nuevo hilo próximamente', { icon: '💬' })}
+                    onClick={() => setShowThreadCreationModal(true)}
                     className="inline-flex items-center px-4 py-2 bg-[#fdb933] text-[#00365b] font-medium rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200"
                   >
                     <PlusIcon className="h-4 w-4 mr-2" />
@@ -1711,6 +1786,9 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
                   workspaceId={workspace.id}
                   threadId={selectedThread.id}
                   onSendMessage={handleMessageSend}
+                  mentionSuggestions={mentionSuggestions}
+                  onRequestMentions={handleMentionRequest}
+                  allowMentions={true}
                 />
               </div>
             )}
@@ -1732,6 +1810,16 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
           onDownload={handleAttachmentDownload}
           onReply={previewMessage ? handleReplyToMessage : undefined}
           canReply={permissions.can_send_messages}
+        />
+      )}
+
+      {/* Thread Creation Modal */}
+      {showThreadCreationModal && (
+        <ThreadCreationModal
+          isOpen={showThreadCreationModal}
+          onClose={() => setShowThreadCreationModal(false)}
+          onCreateThread={handleThreadCreate}
+          loading={loading}
         />
       )}
     </div>

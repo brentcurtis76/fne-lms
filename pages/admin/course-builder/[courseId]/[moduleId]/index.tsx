@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Head from 'next/head';
 import { ArrowLeftIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
 import { toast } from 'react-hot-toast';
-import Header from '../../../../../components/layout/Header';
+import MainLayout from '../../../../../components/layout/MainLayout';
 import DeleteLessonModal from '../../../../../components/DeleteLessonModal';
 import MoveLessonModal from '../../../../../components/MoveLessonModal';
 
@@ -54,6 +54,15 @@ const ModuleDetailPage = () => {
   const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
   const [selectedLessonForMove, setSelectedLessonForMove] = useState<Lesson | null>(null);
   const [isMoving, setIsMoving] = useState(false);
+
+  // Course title for breadcrumbs
+  const [courseTitle, setCourseTitle] = useState<string>('');
+
+  // Logout handler
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
 
   useEffect(() => {
     const fetchModuleAndLessons = async () => {
@@ -130,6 +139,17 @@ const ModuleDetailPage = () => {
       }
 
       try {
+        // Fetch course info for breadcrumbs
+        const { data: courseData, error: courseError } = await supabase
+          .from('courses')
+          .select('title')
+          .eq('id', courseIdStr)
+          .single();
+          
+        if (courseData) {
+          setCourseTitle(courseData.title);
+        }
+
         console.log(`[ModuleDetail] Attempting to fetch module with ID: ${moduleIdStr} for course ID: ${courseIdStr}`);
         const { data: moduleData, error: moduleError } = await supabase
           .from('modules')
@@ -408,15 +428,21 @@ const ModuleDetailPage = () => {
   // Loading state
   if (loading || !user) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-100">
-        <Head>
-          <title>Cargando Módulo...</title>
-        </Head>
-        <div className="text-center">
-          <div className="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-32 w-32 mb-4 mx-auto" style={{borderColor: '#e5e7eb', borderTopColor: '#3b82f6'}}></div>
-          <h2 className="text-xl font-semibold text-gray-700">Cargando...</h2>
+      <MainLayout 
+        user={user} 
+        currentPage="courses"
+        pageTitle="Cargando..."
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex justify-center items-center min-h-[50vh]">
+          <div className="text-center">
+            <div className="loader ease-linear rounded-full border-8 border-t-8 border-gray-200 h-32 w-32 mb-4 mx-auto" style={{borderColor: '#e5e7eb', borderTopColor: '#3b82f6'}}></div>
+            <h2 className="text-xl font-semibold text-gray-700">Cargando...</h2>
+          </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
@@ -424,26 +450,29 @@ const ModuleDetailPage = () => {
   if (error) {
     const courseIdForLink = Array.isArray(courseIdQuery) ? courseIdQuery[0] : courseIdQuery;
     return (
-      <>
-        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
-        <div className="flex flex-col justify-center items-center h-screen bg-red-50 p-4 pt-40">
-        <Head>
-          <title>Error</title>
-        </Head>
-        <div className="text-center max-w-md">
-          <h2 className="text-2xl font-bold text-red-700 mb-4">Oops! Algo salió mal.</h2>
-          <p className="text-red-600 bg-red-100 p-3 rounded-md mb-6 whitespace-pre-wrap">{error}</p>
-          {isValidUUID(courseIdForLink) && (
-            <Link href={`/admin/course-builder/${courseIdForLink}`} legacyBehavior>
-              <a className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-brand_blue hover:bg-brand_blue/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue">
-                <ArrowLeftIcon className="h-5 w-5 mr-2" />
-                Volver a los detalles del curso
-              </a>
-            </Link>
-          )}
+      <MainLayout 
+        user={user} 
+        currentPage="courses"
+        pageTitle="Error"
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex flex-col justify-center items-center min-h-[50vh] p-4">
+          <div className="text-center max-w-md">
+            <h2 className="text-2xl font-bold text-red-700 mb-4">Oops! Algo salió mal.</h2>
+            <p className="text-red-600 bg-red-100 p-3 rounded-md mb-6 whitespace-pre-wrap">{error}</p>
+            {isValidUUID(courseIdForLink) && (
+              <Link href={`/admin/course-builder/${courseIdForLink}`} legacyBehavior>
+                <a className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-brand_blue hover:bg-brand_blue/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue">
+                  <ArrowLeftIcon className="h-5 w-5 mr-2" />
+                  Volver a los detalles del curso
+                </a>
+              </Link>
+            )}
+          </div>
         </div>
-      </div>
-      </>
+      </MainLayout>
     );
   }
 
@@ -451,38 +480,51 @@ const ModuleDetailPage = () => {
   if (!module) {
     const courseIdForLink = Array.isArray(courseIdQuery) ? courseIdQuery[0] : courseIdQuery;
     return (
-      <>
-        <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
-        <div className="flex flex-col justify-center items-center h-screen bg-gray-100 p-4 pt-40">
-        <Head>
-          <title>Módulo no encontrado</title>
-        </Head>
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-700 mb-4">Módulo no disponible</h2>
-          <p className="text-gray-500 mb-6">No se pudo cargar la información del módulo. Es posible que no exista o haya sido eliminado.</p>
-          {isValidUUID(courseIdForLink) && (
-            <Link href={`/admin/course-builder/${courseIdForLink}`} legacyBehavior>
-              <a className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-brand_blue hover:bg-brand_blue/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue">
-                <ArrowLeftIcon className="h-5 w-5 mr-2" />
-                Volver a los detalles del curso
-              </a>
-            </Link>
-          )}
+      <MainLayout 
+        user={user} 
+        currentPage="courses"
+        pageTitle="Módulo no encontrado"
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex flex-col justify-center items-center min-h-[50vh] p-4">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-700 mb-4">Módulo no disponible</h2>
+            <p className="text-gray-500 mb-6">No se pudo cargar la información del módulo. Es posible que no exista o haya sido eliminado.</p>
+            {isValidUUID(courseIdForLink) && (
+              <Link href={`/admin/course-builder/${courseIdForLink}`} legacyBehavior>
+                <a className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-brand_blue hover:bg-brand_blue/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue">
+                  <ArrowLeftIcon className="h-5 w-5 mr-2" />
+                  Volver a los detalles del curso
+                </a>
+              </Link>
+            )}
+          </div>
         </div>
-      </div>
-      </>
+      </MainLayout>
     );
   }
 
   // Simplified success rendering: module title and description
+  const courseIdForLink = Array.isArray(courseIdQuery) ? courseIdQuery[0] : courseIdQuery;
+  
   return (
-    <>
-      <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
-      <div className="min-h-screen bg-gray-100 px-4 md:px-8 py-4 md:py-8 pt-16">
-      <Head>
-        <title>Módulo: {module.title || 'Detalle'}</title>
-      </Head>
-      <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg mt-48">
+    <MainLayout 
+      user={user} 
+      currentPage="courses"
+      pageTitle={module.title}
+      breadcrumbs={[
+        { label: 'Cursos', href: '/admin/course-builder' },
+        { label: courseTitle || 'Curso', href: `/admin/course-builder/${courseIdForLink}` },
+        { label: module.title }
+      ]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="px-4 md:px-8 py-4 md:py-8">
+      <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
         <div className="mb-6">
           <Link href={`/admin/course-builder/${module.course_id}`} legacyBehavior>
             <a className="inline-flex items-center text-brand_blue hover:text-brand_yellow font-mont text-sm">
@@ -601,7 +643,7 @@ const ModuleDetailPage = () => {
         />
       )}
     </div>
-    </>
+    </MainLayout>
   );
 };
 

@@ -45,7 +45,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   className = ''
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeSection, setActiveSection] = useState<'summary' | 'agreements' | 'tasks' | 'commitments'>('summary');
+  const [activeSection, setActiveSection] = useState<'summary' | 'agreements' | 'tasks'>('summary');
 
   const hasDetails = 'agreements' in meeting;
   const meetingWithDetails = hasDetails ? meeting as MeetingWithDetails : null;
@@ -73,18 +73,45 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
     }
   };
 
+  // Helper function to convert URLs in text to clickable links
+  const renderTextWithLinks = (text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const parts = text.split(urlRegex);
+    
+    return parts.map((part, index) => {
+      if (part.match(urlRegex)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#00365b] hover:text-[#fdb933] underline"
+          >
+            {part}
+          </a>
+        );
+      }
+      return part;
+    });
+  };
+
   const renderSummarySection = () => (
     <div className="space-y-3">
       {meeting.summary && (
         <div>
           <h4 className="text-sm font-medium text-gray-900 mb-2">Resumen</h4>
-          <p className="text-sm text-gray-700">{meeting.summary}</p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+            {renderTextWithLinks(meeting.summary)}
+          </p>
         </div>
       )}
       {meeting.notes && (
         <div>
           <h4 className="text-sm font-medium text-gray-900 mb-2">Notas</h4>
-          <p className="text-sm text-gray-700">{meeting.notes}</p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">
+            {renderTextWithLinks(meeting.notes)}
+          </p>
         </div>
       )}
       {!meeting.summary && !meeting.notes && (
@@ -94,27 +121,50 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   );
 
   const renderAgreementsSection = () => {
-    if (!meetingWithDetails?.agreements.length) {
-      return <p className="text-sm text-gray-500 italic">No se registraron acuerdos en esta reunión.</p>;
+    const hasAgreements = meetingWithDetails?.agreements.length > 0;
+    const hasCommitments = meetingWithDetails?.commitments.length > 0;
+
+    if (!hasAgreements && !hasCommitments) {
+      return <p className="text-sm text-gray-500 italic">No se registraron acuerdos o compromisos en esta reunión.</p>;
     }
 
     return (
-      <div className="space-y-3">
-        {meetingWithDetails.agreements.map((agreement, index) => (
-          <div key={agreement.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-            <div className="flex-shrink-0 w-6 h-6 bg-[#fdb933] rounded-full flex items-center justify-center text-xs font-bold text-[#00365b]">
-              {index + 1}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm text-gray-900">{agreement.agreement_text}</p>
-              {agreement.category && (
-                <span className="inline-block mt-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                  {agreement.category}
-                </span>
-              )}
-            </div>
+      <div className="space-y-6">
+        {/* Agreements as unified commitments */}
+        {hasAgreements && (
+          <div className="space-y-3">
+            {meetingWithDetails.agreements.map((agreement, index) => (
+              <div key={agreement.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
+                <div className="flex-shrink-0 w-6 h-6 bg-[#fdb933] rounded-full flex items-center justify-center text-xs font-bold text-[#00365b]">
+                  {index + 1}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-900">{agreement.agreement_text}</p>
+                  {agreement.category && (
+                    <span className="inline-block mt-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                      {agreement.category}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
+
+        {/* Commitments */}
+        {hasCommitments && (
+          <div className="space-y-3">
+            {meetingWithDetails.commitments.map(commitment => (
+              <TaskTracker
+                key={commitment.id}
+                item={commitment}
+                itemType="commitment"
+                canEdit={canEdit}
+                onStatusUpdate={onTaskUpdate}
+              />
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -139,25 +189,6 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
     );
   };
 
-  const renderCommitmentsSection = () => {
-    if (!meetingWithDetails?.commitments.length) {
-      return <p className="text-sm text-gray-500 italic">No se asignaron compromisos en esta reunión.</p>;
-    }
-
-    return (
-      <div className="space-y-3">
-        {meetingWithDetails.commitments.map(commitment => (
-          <TaskTracker
-            key={commitment.id}
-            item={commitment}
-            itemType="commitment"
-            canEdit={canEdit}
-            onStatusUpdate={onTaskUpdate}
-          />
-        ))}
-      </div>
-    );
-  };
 
   return (
     <div className={`bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 ${className}`}>
@@ -270,7 +301,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               Resumen
             </button>
 
-            {meetingWithDetails.agreements.length > 0 && (
+            {(meetingWithDetails.agreements.length > 0 || meetingWithDetails.commitments.length > 0) && (
               <button
                 onClick={() => toggleSection('agreements')}
                 className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
@@ -280,7 +311,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                 }`}
               >
                 <ListBulletIcon className="h-3 w-3 mr-1" />
-                Acuerdos ({meetingWithDetails.agreements.length})
+                Acuerdos y Compromisos ({meetingWithDetails.agreements.length + meetingWithDetails.commitments.length})
               </button>
             )}
 
@@ -298,19 +329,6 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               </button>
             )}
 
-            {meetingWithDetails.commitments.length > 0 && (
-              <button
-                onClick={() => toggleSection('commitments')}
-                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
-                  activeSection === 'commitments' && isExpanded
-                    ? 'bg-[#fdb933] text-[#00365b]'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                <UserIcon className="h-3 w-3 mr-1" />
-                Compromisos ({meetingWithDetails.commitments.length})
-              </button>
-            )}
           </div>
         )}
 
@@ -338,7 +356,6 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             {activeSection === 'summary' && renderSummarySection()}
             {activeSection === 'agreements' && renderAgreementsSection()}
             {activeSection === 'tasks' && renderTasksSection()}
-            {activeSection === 'commitments' && renderCommitmentsSection()}
           </div>
         </div>
       )}

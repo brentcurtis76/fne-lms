@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { supabase } from '../../../lib/supabase';
-import Header from '../../../components/layout/Header';
+import MainLayout from '../../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 
 export default function NewCourse() {
@@ -208,6 +208,13 @@ export default function NewCourse() {
       setThumbnail(e.target.files[0]);
     }
   };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem('rememberMe');
+    sessionStorage.removeItem('sessionOnly');
+    router.push('/login');
+  };
   
   if (loading) {
     return (
@@ -221,20 +228,20 @@ export default function NewCourse() {
   }
   
   return (
-    <>
-      <Head>
-        <title>Crear Nuevo Curso - FNE LMS</title>
-      </Head>
-      
-      <div className="min-h-screen bg-brand_beige">
-        <Header 
-          user={user} 
-          isAdmin={isAdmin}
-          avatarUrl={avatarUrl}
-        />
-        
-        <main className="container mx-auto pt-32 pb-10 px-4">
-          <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-lg">
+    <MainLayout 
+      user={user} 
+      currentPage="courses"
+      pageTitle="Crear Nuevo Curso"
+      breadcrumbs={[
+        { label: 'Cursos', href: '/admin/course-builder' },
+        { label: 'Crear Nuevo Curso' }
+      ]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-lg">
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl font-bold text-brand_blue font-mont">Crear Nuevo Curso</h1>
               <button
@@ -325,8 +332,7 @@ export default function NewCourse() {
               </div>
             </form>
           </div>
-        </main>
-      </div>
-    </>
+        </div>
+    </MainLayout>
   );
 }

@@ -25,7 +25,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Block, TextBlockPayload, VideoBlockPayload, ImageBlockPayload, QuizBlockPayload, DownloadBlockPayload, ExternalLinksBlockPayload } from '@/types/blocks';
 import { Database } from '@/types/supabase';
 import { BLOCK_TYPES, getBlockConfig, getBlockSubtitle } from '@/config/blockTypes';
-import Header from '@/components/layout/Header';
+import MainLayout from '@/components/layout/MainLayout';
 import TextBlockEditor from '@/components/blocks/TextBlockEditor';
 import VideoBlockEditor from '@/components/blocks/VideoBlockEditor';
 import ImageBlockEditor from '@/components/blocks/ImageBlockEditor';
@@ -65,6 +65,16 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
+  
+  // For breadcrumbs
+  const [courseTitle, setCourseTitle] = useState<string>('');
+  const [moduleTitle, setModuleTitle] = useState<string>('');
+  
+  // Logout handler
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
 
   // Fetch user authentication state and refetch blocks if needed
   useEffect(() => {
@@ -83,6 +93,27 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
           
         if (profileData?.avatar_url) {
           setAvatarUrl(profileData.avatar_url);
+        }
+        
+        // Fetch course and module titles for breadcrumbs
+        const { data: courseData } = await supabase
+          .from('courses')
+          .select('title')
+          .eq('id', courseId)
+          .single();
+          
+        if (courseData) {
+          setCourseTitle(courseData.title);
+        }
+        
+        const { data: moduleData } = await supabase
+          .from('modules')
+          .select('title')
+          .eq('id', moduleId)
+          .single();
+          
+        if (moduleData) {
+          setModuleTitle(moduleData.title);
         }
         
         // If no blocks were loaded initially, try to refetch them client-side
@@ -268,19 +299,48 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
 
   const handleDeleteBlock = async (blockId: string) => {
     const originalBlocks = [...blocks];
-    setBlocks(prevBlocks => prevBlocks.filter(b => b.id !== blockId));
-
     const blockToDelete = originalBlocks.find(b => b.id === blockId);
-    if (blockToDelete && !blockToDelete.id.startsWith('new-')) { 
-      const { error } = await supabase.from('blocks').delete().match({ id: blockId });
-      if (error) {
-        toast.error(`Failed to delete block: ${error.message}`);
-        setBlocks(originalBlocks); 
-      } else {
-        toast.success('Block deleted successfully.');
+    
+    if (!blockToDelete) return;
+    
+    // Remove block from UI immediately
+    const remainingBlocks = originalBlocks.filter(b => b.id !== blockId);
+    setBlocks(remainingBlocks);
+
+    try {
+      // If it's a saved block (not a new one), delete from database
+      if (!blockToDelete.id.startsWith('new-')) { 
+        const { error } = await supabase.from('blocks').delete().match({ id: blockId });
+        if (error) {
+          throw error;
+        }
+        
+        // Update positions for remaining blocks
+        const positionUpdates = remainingBlocks.map((block, index) => ({
+          id: block.id,
+          position: index,
+          lesson_id: lessonIdString
+        }));
+        
+        // Update positions in database for existing blocks
+        for (const update of positionUpdates) {
+          if (!update.id.startsWith('new-')) {
+            await supabase
+              .from('blocks')
+              .update({ position: update.position })
+              .eq('id', update.id);
+          }
+        }
       }
-    } else {
-      toast.success('Block removed.'); 
+      
+      toast.success('Bloque eliminado exitosamente.');
+      setHasUnsavedChanges(false); // Mark as saved since we updated the database
+      
+    } catch (error: any) {
+      console.error('Error deleting block:', error);
+      toast.error(`Error al eliminar el bloque: ${error.message}`);
+      // Restore original blocks on error
+      setBlocks(originalBlocks);
     }
   };
 
@@ -457,9 +517,21 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
   };
 
   return (
-    <div>
-      <Header user={user} isAdmin={isAdmin} avatarUrl={avatarUrl} />
-      <div className="min-h-screen bg-gray-100 px-4 py-8 pt-40">
+    <MainLayout 
+      user={user} 
+      currentPage="courses"
+      pageTitle={lessonTitle}
+      breadcrumbs={[
+        { label: 'Cursos', href: '/admin/course-builder' },
+        { label: courseTitle || 'Curso', href: `/admin/course-builder/${courseId}` },
+        { label: moduleTitle || 'Módulo', href: `/admin/course-builder/${courseId}/${moduleId}` },
+        { label: lessonTitle || 'Lección' }
+      ]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="px-4 py-8">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Simple Timeline Sidebar - NO DnD */}
           <div className="lg:col-span-1">
@@ -540,7 +612,17 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
             
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
-              <h1 className="text-3xl font-bold text-[#00365b]">Editor de Lección</h1>
+              <div>
+                <h1 className="text-3xl font-bold text-[#00365b]">Editor de Lección</h1>
+                {hasUnsavedChanges && (
+                  <div className="flex items-center gap-2 mt-2 text-amber-600">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span className="text-sm font-medium">Hay cambios sin guardar</span>
+                  </div>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => router.back()}
@@ -808,7 +890,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
           </div>
         </div>
       </div>
-    </div>
+    </MainLayout>
   );
 };
 

@@ -10,7 +10,8 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "apply:group-assignments": "node scripts/apply-group-assignments.js"
   },
   "keywords": [],
   "author": "",

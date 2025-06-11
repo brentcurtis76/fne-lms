@@ -17,7 +17,8 @@ import {
   ChevronRightIcon,
   HomeIcon,
   BuildingOfficeIcon,
-  ArrowLeftIcon
+  ArrowLeftIcon,
+  ClipboardDocumentCheckIcon
 } from '@heroicons/react/24/outline';
 import { CommunityWorkspace, WorkspaceAccess, CommunityInfo } from '../../utils/workspaceUtils';
 
@@ -25,7 +26,7 @@ interface WorkspaceSidebarProps {
   currentWorkspace: CommunityWorkspace | null;
   workspaceAccess: WorkspaceAccess | null;
   communities: CommunityInfo[];
-  activeSection: 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'feed';
+  activeSection: 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'feed' | 'group-assignments';
   onSectionChange: (section: string) => void;
   onWorkspaceChange: (workspaceId: string) => void;
   isCollapsed: boolean;
@@ -143,6 +144,13 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
           icon: ChatBubbleLeftRightIcon,
           section: 'messaging',
           description: 'Comunicación en tiempo real'
+        },
+        {
+          id: 'group-assignments',
+          label: 'Tareas Grupales',
+          icon: ClipboardDocumentCheckIcon,
+          section: 'group-assignments',
+          description: 'Trabajo colaborativo'
         },
         {
           id: 'feed',

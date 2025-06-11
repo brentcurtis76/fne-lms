@@ -1,10 +1,14 @@
 // Assignment types for FNE LMS
 
-export type AssignmentType = 'task' | 'quiz' | 'project' | 'essay' | 'presentation';
+export type AssignmentType = 'task' | 'quiz' | 'project' | 'essay' | 'presentation' | 'group';
+
+export type AssignmentFor = 'individual' | 'group';
 
 export type AssignmentStatus = 'draft' | 'published' | 'archived';
 
 export type SubmissionStatus = 'draft' | 'submitted' | 'graded' | 'returned';
+
+export type GroupMemberRole = 'leader' | 'member';
 
 export interface Assignment {
   id: string;
@@ -16,6 +20,7 @@ export interface Assignment {
   due_date?: string;
   points: number;
   assignment_type: AssignmentType;
+  assignment_for: AssignmentFor;
   instructions?: string;
   resources: AssignmentResource[];
   is_published: boolean;
@@ -23,6 +28,12 @@ export interface Assignment {
   max_attempts: number;
   created_at: string;
   updated_at: string;
+  // Group assignment specific fields
+  assigned_to_community_id?: string;
+  max_group_size?: number;
+  min_group_size?: number;
+  allow_self_grouping?: boolean;
+  require_all_members_submit?: boolean;
   // Joined data
   course?: {
     id: string;
@@ -36,6 +47,10 @@ export interface Assignment {
     id: string;
     name: string;
     email: string;
+  };
+  community?: {
+    id: string;
+    name: string;
   };
   submission_count?: number;
   graded_count?: number;
@@ -100,4 +115,65 @@ export interface AssignmentStats {
   graded_submissions: number;
   average_score: number;
   on_time_rate: number;
+}
+
+// Group assignment specific types
+export interface GroupAssignmentMember {
+  id: string;
+  assignment_id: string;
+  community_id: string;
+  group_id: string;
+  user_id: string;
+  role: GroupMemberRole;
+  joined_at: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    avatar_url?: string;
+  };
+}
+
+export interface GroupAssignmentSubmission {
+  id: string;
+  assignment_id: string;
+  group_id: string;
+  community_id: string;
+  submitted_by: string;
+  submission_content?: string;
+  file_urls?: string[];
+  status: SubmissionStatus;
+  score?: number;
+  feedback?: string;
+  graded_by?: string;
+  graded_at?: string;
+  submitted_at?: string;
+  created_at: string;
+  updated_at: string;
+  // Joined data
+  submitter?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  grader?: {
+    id: string;
+    name: string;
+  };
+  group_members?: GroupAssignmentMember[];
+}
+
+export interface GroupAssignmentDiscussion {
+  id: string;
+  assignment_id: string;
+  group_id: string;
+  thread_id: string;
+  created_at: string;
+}
+
+export interface GroupAssignmentWithStats extends Assignment {
+  group_count?: number;
+  total_members?: number;
+  submission_count?: number;
+  graded_count?: number;
 }

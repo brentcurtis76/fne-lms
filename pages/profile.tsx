@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../components/layout/MainLayout';
 import { invalidateAvatarCache, updateAvatarCache } from '../hooks/useAvatar';
+import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
+import { User as UserIcon, PencilIcon } from 'lucide-react';
 
 type School = {
   id: number;
@@ -324,12 +326,29 @@ export default function ProfilePage() {
     <MainLayout 
       user={user} 
       currentPage="profile"
-      pageTitle="Mi Perfil"
-      breadcrumbs={[{label: 'Mi Perfil'}]}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={profile?.avatar_url}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<UserIcon />}
+        title="Mi Perfil"
+        subtitle={isNewUser ? "Completa tu información personal para acceder a la plataforma" : "Actualiza tu información personal"}
+        primaryAction={{
+          label: "Editar Perfil",
+          onClick: () => {
+            // Scroll to form
+            const formElement = document.getElementById('profile-form');
+            if (formElement) {
+              formElement.scrollIntoView({ behavior: 'smooth' });
+            }
+          },
+          icon: <PencilIcon size={18} />
+        }}
+      />
+      
       <div id="profile-page" className="min-h-[800px] py-6 relative overflow-hidden">
         {/* Success Alert */}
         {dataLoaded && (
@@ -355,7 +374,6 @@ export default function ProfilePage() {
         <div className="container mx-auto px-6">
           <div className="max-w-3xl mx-auto">
             <div id="profile-form" className="bg-white rounded-2xl shadow-xl p-8 md:p-10">
-              <h1 className="text-[#00365b] text-2xl md:text-3xl font-bold mb-8">Tu perfil</h1>
 
               {/* Avatar Section */}
               <div className="mb-8 flex flex-col items-center">

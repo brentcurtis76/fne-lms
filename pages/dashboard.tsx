@@ -3,9 +3,12 @@ import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import Link from 'next/link';
 import MainLayout from '../components/layout/MainLayout';
+import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
+import Avatar from '../components/common/Avatar';
 import { getUserRoles, getCommunityMembers } from '../utils/roleUtils';
 import { UserRole, UserProfile } from '../types/roles';
 import { updateAvatarCache } from '../hooks/useAvatar';
+import { Home } from 'lucide-react';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -19,6 +22,7 @@ export default function Dashboard() {
   const [myCourses, setMyCourses] = useState<any[]>([]);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [communityMembers, setCommunityMembers] = useState<Record<string, UserProfile[]>>({});
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Try to load avatar from cache immediately on component mount
   useEffect(() => {
@@ -26,12 +30,15 @@ export default function Dashboard() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
+          // First check in-memory cache from useAvatar hook
           const cachedData = sessionStorage.getItem('fne-avatar-cache');
           if (cachedData) {
             const cache = JSON.parse(cachedData);
             const userCache = cache[session.user.id];
             if (userCache && userCache.url && Date.now() - userCache.timestamp < 1000 * 60 * 30) {
               setAvatarUrl(userCache.url);
+              // Also update the in-memory cache
+              updateAvatarCache(session.user.id, userCache.url);
             }
           }
         }
@@ -227,12 +234,36 @@ export default function Dashboard() {
     router.push('/login');
   };
   
+  const filterCoursesBySearch = (courses: any[]): any[] => {
+    if (!searchQuery.trim()) return courses;
+    
+    const query = searchQuery.toLowerCase();
+    return courses.filter(course => {
+      return (
+        course.title.toLowerCase().includes(query) ||
+        course.description.toLowerCase().includes(query) ||
+        course.instructor_name.toLowerCase().includes(query)
+      );
+    });
+  };
+  
+  const filterQuickActionsBySearch = (action: { title: string; description: string }): boolean => {
+    if (!searchQuery.trim()) return true;
+    
+    const query = searchQuery.toLowerCase();
+    return (
+      action.title.toLowerCase().includes(query) ||
+      action.description.toLowerCase().includes(query)
+    );
+  };
+  
   if (loading) {
     return (
       <MainLayout 
         user={user} 
         currentPage="dashboard"
-        pageTitle="Mi Panel"
+        pageTitle=""
+        breadcrumbs={[]}
         isAdmin={isAdmin}
         onLogout={handleLogout}
         avatarUrl={avatarUrl || undefined}
@@ -251,14 +282,23 @@ export default function Dashboard() {
     <MainLayout 
       user={user} 
       currentPage="dashboard"
-      pageTitle="Mi Panel"
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<Home />}
+        title="Mi Panel"
+        subtitle="Bienvenido a tu panel de control"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Buscar cursos, acciones..."
+      />
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="bg-white rounded-lg shadow-md p-8">
-            <h1 className="text-2xl font-bold mb-6 text-brand_blue">Bienvenido a tu Panel</h1>
             
             {/* User Info Section */}
             <div className="mb-8 p-6 bg-brand_blue rounded-lg shadow">
@@ -266,19 +306,12 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Profile Picture and Basic Info */}
                 <div className="flex items-start space-x-4">
-                  {avatarUrl ? (
-                    <img 
-                      src={avatarUrl} 
-                      alt="Foto de perfil" 
-                      className="w-20 h-20 rounded-full object-cover border-2 border-brand_yellow"
-                    />
-                  ) : (
-                    <div className="w-20 h-20 rounded-full bg-brand_yellow flex items-center justify-center">
-                      <span className="text-brand_blue font-bold text-xl">
-                        {profileName ? profileName.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                  )}
+                  <Avatar 
+                    user={user}
+                    avatarUrl={avatarUrl}
+                    size="lg"
+                    className="border-2 border-brand_yellow"
+                  />
                   <div className="space-y-2">
                     <p className="text-white"><span className="font-semibold text-brand_yellow">Nombre:</span> {profileName || 'No disponible'}</p>
                     <p className="text-white"><span className="font-semibold text-brand_yellow">Email:</span> {user?.email || 'No disponible'}</p>
@@ -402,79 +435,93 @@ export default function Dashboard() {
                 {/* Admin-only actions */}
                 {isAdmin && (
                   <>
-                    <Link
-                      href="/admin/course-builder/new"
-                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
-                    >
-                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Crear Curso</h3>
-                      <p className="text-sm text-gray-600">Crea nuevos cursos</p>
-                    </Link>
-                    
-                    {myCourses.length > 0 ? (
+                    {filterQuickActionsBySearch({ title: 'Crear Curso', description: 'Crea nuevos cursos' }) && (
                       <Link
-                        href={`/admin/course-builder/${myCourses[0].id}`}
-                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
+                        href="/admin/course-builder/new"
+                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
                       >
-                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Editor de Lecciones</h3>
-                        <p className="text-sm text-gray-600">Edita lecciones interactivas</p>
+                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Crear Curso</h3>
+                        <p className="text-sm text-gray-600">Crea nuevos cursos</p>
                       </Link>
-                    ) : (
-                      <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 opacity-60">
-                        <h3 className="text-lg font-semibold mb-2 text-gray-500">Editor de Lecciones</h3>
-                        <p className="text-sm text-gray-400">Crea un curso primero</p>
-                      </div>
+                    )}
+                    
+                    {filterQuickActionsBySearch({ title: 'Editor de Lecciones', description: 'Edita lecciones interactivas' }) && (
+                      myCourses.length > 0 ? (
+                        <Link
+                          href={`/admin/course-builder/${myCourses[0].id}`}
+                          className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
+                        >
+                          <h3 className="text-lg font-semibold mb-2 text-brand_blue">Editor de Lecciones</h3>
+                          <p className="text-sm text-gray-600">Edita lecciones interactivas</p>
+                        </Link>
+                      ) : (
+                        <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 opacity-60">
+                          <h3 className="text-lg font-semibold mb-2 text-gray-500">Editor de Lecciones</h3>
+                          <p className="text-sm text-gray-400">Crea un curso primero</p>
+                        </div>
+                      )
                     )}
 
-                    <Link
-                      href="/admin/course-builder"
-                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
-                    >
-                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Asigna Cursos</h3>
-                      <p className="text-sm text-gray-600">Asignar cursos a docentes</p>
-                    </Link>
+                    {filterQuickActionsBySearch({ title: 'Asigna Cursos', description: 'Asignar cursos a docentes' }) && (
+                      <Link
+                        href="/admin/course-builder"
+                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
+                      >
+                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Asigna Cursos</h3>
+                        <p className="text-sm text-gray-600">Asignar cursos a docentes</p>
+                      </Link>
+                    )}
 
-                    <Link
-                      href="/contracts"
-                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
-                    >
-                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Contratos</h3>
-                      <p className="text-sm text-gray-600">Generar y gestionar contratos</p>
-                    </Link>
+                    {filterQuickActionsBySearch({ title: 'Contratos', description: 'Generar y gestionar contratos' }) && (
+                      <Link
+                        href="/contracts"
+                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
+                      >
+                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Contratos</h3>
+                        <p className="text-sm text-gray-600">Generar y gestionar contratos</p>
+                      </Link>
+                    )}
 
-                    <Link
-                      href="/expense-reports"
-                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
-                    >
-                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Rendición de Gastos</h3>
-                      <p className="text-sm text-gray-600">Crear y gestionar reportes de gastos</p>
-                    </Link>
+                    {filterQuickActionsBySearch({ title: 'Rendición de Gastos', description: 'Crear y gestionar reportes de gastos' }) && (
+                      <Link
+                        href="/expense-reports"
+                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
+                      >
+                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Rendición de Gastos</h3>
+                        <p className="text-sm text-gray-600">Crear y gestionar reportes de gastos</p>
+                      </Link>
+                    )}
 
-                    <Link
-                      href="/reports"
-                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
-                    >
-                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Reportes</h3>
-                      <p className="text-sm text-gray-600">Dashboard de progress y analytics</p>
-                    </Link>
+                    {filterQuickActionsBySearch({ title: 'Reportes', description: 'Dashboard de progress y analytics' }) && (
+                      <Link
+                        href="/reports"
+                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
+                      >
+                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Reportes</h3>
+                        <p className="text-sm text-gray-600">Dashboard de progress y analytics</p>
+                      </Link>
+                    )}
 
-                    <Link
-                      href="#todos-cursos"
-                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        document.getElementById('todos-cursos')?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                    >
-                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Todos los Cursos</h3>
-                      <p className="text-sm text-gray-600">Ver todos los cursos ({allCourses.length})</p>
-                    </Link>
+                    {filterQuickActionsBySearch({ title: 'Todos los Cursos', description: 'Ver todos los cursos' }) && (
+                      <Link
+                        href="#todos-cursos"
+                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document.getElementById('todos-cursos')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
+                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Todos los Cursos</h3>
+                        <p className="text-sm text-gray-600">Ver todos los cursos ({allCourses.length})</p>
+                      </Link>
+                    )}
                   </>
                 )}
 
                 {/* Leadership and Consultant reporting access */}
                 {!isAdmin && userRoles.some(role => 
                   ['consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'].includes(role.role_type)
-                ) && (
+                ) && filterQuickActionsBySearch({ title: 'Reportes', description: 'Dashboard de progreso y analytics' }) && (
                   <Link
                     href="/reports"
                     className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
@@ -487,41 +534,47 @@ export default function Dashboard() {
                 {/* Teacher-specific actions */}
                 {!isAdmin && (
                   <>
-                    <Link
-                      href="#todos-mis-cursos"
-                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        document.getElementById('todos-mis-cursos')?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                    >
-                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Todos mis cursos</h3>
-                      <p className="text-sm text-gray-600">Ver todos los cursos ({allCourses.length})</p>
-                    </Link>
+                    {filterQuickActionsBySearch({ title: 'Todos mis cursos', description: 'Ver todos los cursos' }) && (
+                      <Link
+                        href="#todos-mis-cursos"
+                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document.getElementById('todos-mis-cursos')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
+                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Todos mis cursos</h3>
+                        <p className="text-sm text-gray-600">Ver todos los cursos ({allCourses.length})</p>
+                      </Link>
+                    )}
 
-                    <Link
-                      href="#cursos-abiertos"
-                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        document.getElementById('cursos-abiertos')?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                    >
-                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Cursos Abiertos</h3>
-                      <p className="text-sm text-gray-600">Cursos en progreso ({allCourses.length})</p>
-                    </Link>
+                    {filterQuickActionsBySearch({ title: 'Cursos Abiertos', description: 'Cursos en progreso' }) && (
+                      <Link
+                        href="#cursos-abiertos"
+                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document.getElementById('cursos-abiertos')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
+                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Cursos Abiertos</h3>
+                        <p className="text-sm text-gray-600">Cursos en progreso ({allCourses.length})</p>
+                      </Link>
+                    )}
 
-                    <Link
-                      href="#cursos-finalizados"
-                      className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-gray-300 transition-all duration-200"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        document.getElementById('cursos-finalizados')?.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                    >
-                      <h3 className="text-lg font-semibold mb-2 text-brand_blue">Cursos Finalizados</h3>
-                      <p className="text-sm text-gray-600">Cursos completados (0)</p>
-                    </Link>
+                    {filterQuickActionsBySearch({ title: 'Cursos Finalizados', description: 'Cursos completados' }) && (
+                      <Link
+                        href="#cursos-finalizados"
+                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-gray-300 transition-all duration-200"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document.getElementById('cursos-finalizados')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
+                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Cursos Finalizados</h3>
+                        <p className="text-sm text-gray-600">Cursos completados (0)</p>
+                      </Link>
+                    )}
                   </>
                 )}
               </div>
@@ -535,7 +588,7 @@ export default function Dashboard() {
               
               {myCourses.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                  {myCourses.map((course) => (
+                  {filterCoursesBySearch(myCourses).map((course) => (
                     <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
                       <Link href={`/admin/course-builder/${course.id}`} legacyBehavior>
                         <a className="block group">
@@ -612,7 +665,7 @@ export default function Dashboard() {
                   
                   {allCourses.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                      {allCourses.map((course) => (
+                      {filterCoursesBySearch(allCourses).map((course) => (
                         <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
                           <Link href={`/student/course/${course.id}`} legacyBehavior>
                             <a className="block group">
@@ -674,7 +727,7 @@ export default function Dashboard() {
                   
                   {allCourses.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                      {allCourses.map((course) => (
+                      {filterCoursesBySearch(allCourses).map((course) => (
                         <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl border-l-4 border-brand_yellow">
                           <Link href={`/student/course/${course.id}`} legacyBehavior>
                             <a className="block group">

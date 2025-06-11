@@ -17,6 +17,7 @@ function useFiltersUrlState<T extends Record<string, FilterValue>>(
   const { debounceMs = 500, replace = true } = options;
   const [filters, setFilters] = useState<T>(initialFilters);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // Debounce the filters to avoid too many URL updates
   const debouncedFilters = useDebounce(filters, debounceMs);
@@ -59,34 +60,48 @@ function useFiltersUrlState<T extends Record<string, FilterValue>>(
 
   // Update URL when debounced filters change (but not on initial load)
   useEffect(() => {
-    if (!isInitialized || !router.isReady) return;
+    if (!isInitialized || !router.isReady || isUpdating) return;
 
-    const query = { ...router.query };
-    
-    // Update only the filter keys
-    Object.keys(debouncedFilters).forEach((key) => {
-      const value = debouncedFilters[key as keyof T];
-      const initialValue = initialFilters[key as keyof T];
+    const updateUrl = async () => {
+      setIsUpdating(true);
       
-      if (value === null || value === undefined || value === '' || value === initialValue) {
-        // Remove parameter if it's null, undefined, empty, or equals initial value
-        delete query[key];
-      } else {
-        // Convert value to string for URL
-        query[key] = String(value);
+      const query = { ...router.query };
+      
+      // Update only the filter keys
+      Object.keys(debouncedFilters).forEach((key) => {
+        const value = debouncedFilters[key as keyof T];
+        const initialValue = initialFilters[key as keyof T];
+        
+        if (value === null || value === undefined || value === '' || value === initialValue) {
+          // Remove parameter if it's null, undefined, empty, or equals initial value
+          delete query[key];
+        } else {
+          // Convert value to string for URL
+          query[key] = String(value);
+        }
+      });
+
+      const url = {
+        pathname: router.pathname,
+        query
+      };
+
+      // Wrap in try-catch to handle navigation throttling
+      try {
+        if (replace) {
+          await router.replace(url, undefined, { shallow: true });
+        } else {
+          await router.push(url, undefined, { shallow: true });
+        }
+      } catch (err) {
+        console.warn('URL update throttled:', err);
+      } finally {
+        // Reset updating state after a delay
+        setTimeout(() => setIsUpdating(false), 500);
       }
-    });
-
-    const url = {
-      pathname: router.pathname,
-      query
     };
-
-    if (replace) {
-      router.replace(url, undefined, { shallow: true });
-    } else {
-      router.push(url, undefined, { shallow: true });
-    }
+    
+    updateUrl();
   }, [debouncedFilters, router, initialFilters, replace, isInitialized]);
 
   // Update filters function

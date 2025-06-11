@@ -10,6 +10,7 @@ import ContractForm from '../components/contracts/ContractForm';
 import AnnexForm from '../components/contracts/AnnexForm';
 import CashFlowView from '../components/contracts/CashFlowView';
 import ContractDetailsModal from '../components/contracts/ContractDetailsModal';
+import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 
 interface Programa {
   id: string;
@@ -89,6 +90,7 @@ export default function ContractsPage() {
   const [contratos, setContratos] = useState<Contrato[]>([]);
   const [programas, setProgramas] = useState<Programa[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // View states
   const [activeTab, setActiveTab] = useState<'lista' | 'nuevo' | 'editar' | 'flujo' | 'nuevo-anexo' | 'editar-anexo'>('lista');
@@ -476,68 +478,50 @@ export default function ContractsPage() {
     <MainLayout 
       user={currentUser} 
       currentPage="contracts"
-      pageTitle="Gestión de Contratos"
-      breadcrumbs={[{label: 'Contratos'}]}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      {(activeTab === 'lista' || activeTab === 'flujo') && (
+        <ResponsiveFunctionalPageHeader
+          icon={<FileText />}
+          title="Contratos"
+          subtitle="Gestión de contratos, anexos y flujo de caja"
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Buscar por número, cliente..."
+          primaryAction={{
+            label: "Nuevo Contrato",
+            onClick: () => setActiveTab('nuevo'),
+            icon: <Plus size={20} />
+          }}
+        >
+          {/* Additional action buttons */}
+          <button
+            onClick={() => setActiveTab('nuevo-anexo')}
+            className="inline-flex items-center px-4 py-2 border border-[#00365b] text-sm font-medium rounded-md text-[#00365b] bg-white hover:bg-gray-50"
+          >
+            <Plus size={16} className="mr-2" />
+            Nuevo Anexo
+          </button>
+          <button
+            onClick={() => setActiveTab('flujo')}
+            className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'flujo' 
+                ? 'bg-green-600 text-white border-green-600' 
+                : 'border-green-600 text-green-600 bg-white hover:bg-green-50'
+            }`}
+          >
+            <TrendingUp size={16} className="mr-2" />
+            Flujo de Caja
+          </button>
+        </ResponsiveFunctionalPageHeader>
+      )}
+      
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="max-w-7xl mx-auto">
-            {/* Conditional Header */}
-            {(activeTab === 'lista' || activeTab === 'flujo') && (
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-                <div className="flex items-center space-x-4 mb-4 md:mb-0">
-                  <Link
-                    href="/dashboard"
-                    className="inline-flex items-center text-brand_blue hover:text-brand_yellow transition-colors"
-                  >
-                    <ArrowLeft className="mr-2" size={20} />
-                    Volver al Panel
-                  </Link>
-                  <div className="h-6 w-px bg-gray-300"></div>
-                  <h1 className="text-3xl font-bold text-brand_blue flex items-center">
-                    <FileText className="mr-3" size={32} />
-                    Gestión de Contratos
-                  </h1>
-                </div>
-                
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setActiveTab('lista')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      activeTab === 'lista' 
-                        ? 'bg-brand_blue text-white' 
-                        : 'bg-white text-brand_blue border border-brand_blue hover:bg-brand_blue hover:text-white'
-                    }`}
-                  >
-                    Lista de Contratos
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('nuevo')}
-                    className="px-4 py-2 rounded-lg font-medium transition-colors bg-white text-brand_blue border border-brand_yellow hover:bg-brand_yellow hover:text-brand_blue"
-                  >
-                    Nuevo Contrato
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('nuevo-anexo')}
-                    className="px-4 py-2 rounded-lg font-medium transition-colors bg-white text-brand_blue border border-brand_blue hover:bg-brand_blue hover:text-white"
-                  >
-                    Nuevo Anexo
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('flujo')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      activeTab === 'flujo' 
-                        ? 'bg-green-600 text-white' 
-                        : 'bg-white text-green-600 border border-green-600 hover:bg-green-600 hover:text-white'
-                    }`}
-                  >
-                    Flujo de Caja
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Form Header for nuevo/editar modes */}
             {(activeTab === 'nuevo' || activeTab === 'editar' || activeTab === 'nuevo-anexo' || activeTab === 'editar-anexo') && (
@@ -584,7 +568,18 @@ export default function ContractsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {contratos.map((contrato) => (
+                        {contratos
+                          .filter(contrato => {
+                            if (!searchQuery.trim()) return true;
+                            const query = searchQuery.toLowerCase();
+                            return (
+                              contrato.numero_contrato.toLowerCase().includes(query) ||
+                              contrato.clientes.nombre_legal.toLowerCase().includes(query) ||
+                              contrato.clientes.nombre_fantasia?.toLowerCase().includes(query) ||
+                              contrato.programas.nombre.toLowerCase().includes(query)
+                            );
+                          })
+                          .map((contrato) => (
                           <tr key={contrato.id} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
                             <td className="py-4 px-4">
                               <button 

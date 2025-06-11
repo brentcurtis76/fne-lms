@@ -4,6 +4,8 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import ConsultantAssignmentModal from '../../components/ConsultantAssignmentModal';
 import { supabase } from '../../lib/supabase';
+import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
+import { GraduationCap, Plus } from 'lucide-react';
 
 interface Assignment {
   id: string;
@@ -303,42 +305,30 @@ const ConsultantAssignmentsPage: React.FC = () => {
     <MainLayout 
       user={user} 
       currentPage="consultants"
-      pageTitle="Asignaciones de Consultores"
-      breadcrumbs={[{label: 'Consultorías'}]}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<GraduationCap />}
+        title="Consultorías"
+        subtitle="Gestión de asignaciones consultor-estudiante para seguimiento y mentorías"
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        searchPlaceholder="Buscar por nombre o email..."
+        primaryAction={{
+          label: "Nueva Asignación",
+          onClick: handleCreateAssignment,
+          icon: <Plus size={20} />
+        }}
+      />
+      
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="bg-white rounded-lg shadow-lg p-6">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-[#00365b] mb-2">Asignaciones de Consultores</h1>
-              <p className="text-gray-600">Gestión de asignaciones consultor-estudiante para seguimiento y mentorías</p>
-            </div>
-            <button
-              onClick={handleCreateAssignment}
-              className="mt-4 md:mt-0 bg-[#fdb933] text-white px-6 py-3 rounded-lg hover:bg-[#e6a42e] transition-colors flex items-center"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Nueva Asignación
-            </button>
-          </div>
-
-          {/* Filters and Search */}
+          {/* Filters */}
           <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Buscar por nombre o email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
-              />
-            </div>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}

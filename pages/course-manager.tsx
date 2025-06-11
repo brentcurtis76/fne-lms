@@ -4,7 +4,9 @@ import Head from 'next/head';
 import CourseBuilderForm from '../src/components/CourseBuilderForm';
 import CourseList from '../src/components/CourseList';
 import MainLayout from '../components/layout/MainLayout';
+import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { supabase } from '../lib/supabase';
+import { FolderOpen } from 'lucide-react';
 
 const CourseManagerPage: React.FC = () => {
   const router = useRouter();
@@ -13,6 +15,7 @@ const CourseManagerPage: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Authentication logic
   useEffect(() => {
@@ -68,7 +71,8 @@ const CourseManagerPage: React.FC = () => {
       <MainLayout 
         user={user} 
         currentPage="courses"
-        pageTitle="Cargando..."
+        pageTitle=""
+        breadcrumbs={[]}
         isAdmin={isAdmin}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
@@ -87,22 +91,30 @@ const CourseManagerPage: React.FC = () => {
     <MainLayout 
       user={user} 
       currentPage="courses"
-      pageTitle="Gestor de Cursos"
-      breadcrumbs={[{label: 'Cursos', href: '/admin/course-builder'}, {label: 'Gestor de Cursos'}]}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<FolderOpen />}
+        title="Gestor de Cursos"
+        subtitle="Administra y organiza todos los cursos del sistema"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Buscar cursos por título o instructor..."
+      />
+      
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="max-w-6xl mx-auto">
-            <h1 className="text-3xl font-bold text-brand_blue mb-8">Course Manager</h1>
             
             {/* Course Builder Form Section */}
             <div className="mb-12 bg-white rounded-lg shadow-md">
               <div className="p-6 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-brand_blue">Add New Course</h2>
+                <h2 className="text-xl font-semibold text-brand_blue">Agregar Nuevo Curso</h2>
                 <p className="text-gray-500 text-sm mt-1">
-                  Fill out the form below to create a new course
+                  Completa el formulario para crear un nuevo curso
                 </p>
               </div>
               
@@ -116,9 +128,9 @@ const CourseManagerPage: React.FC = () => {
             {/* Course List Section */}
             <div className="bg-white rounded-lg shadow-md">
               <div className="p-6 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-brand_blue">Your Courses</h2>
+                <h2 className="text-xl font-semibold text-brand_blue">Tus Cursos</h2>
                 <p className="text-gray-500 text-sm mt-1">
-                  Manage your existing courses
+                  Gestiona tus cursos existentes
                 </p>
               </div>
               

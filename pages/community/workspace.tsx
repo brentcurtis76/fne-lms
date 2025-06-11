@@ -9,6 +9,7 @@ import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import MainLayout from '../../components/layout/MainLayout';
 import LoadingSkeleton from '../../components/common/LoadingSkeleton';
+import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 import MeetingFilters from '../../components/meetings/MeetingFilters';
 import MeetingCard from '../../components/meetings/MeetingCard';
 import MeetingDocumentationModal from '../../components/meetings/MeetingDocumentationModal';
@@ -110,7 +111,8 @@ import {
   ArrowsUpDownIcon,
   Bars3Icon
 } from '@heroicons/react/24/outline';
-import { X } from 'lucide-react';
+import { X, Users } from 'lucide-react';
+import { navigationManager } from '../../utils/navigationManager';
 
 type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging';
 
@@ -131,6 +133,9 @@ const CommunityWorkspacePage: React.FC = () => {
   const [activeSection, setActiveSection] = useState<SectionType>('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -181,8 +186,10 @@ const CommunityWorkspacePage: React.FC = () => {
     if (!authLoading && user) {
       initializeWorkspace();
     } else if (!authLoading && !user) {
-      // Add error handling for navigation
-      router.push('/login').catch((error) => {
+      // Use navigation manager to prevent concurrent navigation
+      navigationManager.navigate(async () => {
+        await router.push('/login');
+      }).catch((error) => {
         console.warn('Navigation to login failed:', error);
         // Fallback - try redirecting via window.location
         window.location.href = '/login';
@@ -310,6 +317,63 @@ const CommunityWorkspacePage: React.FC = () => {
   
   const handleWorkspaceChange = (workspaceId: string) => {
     setSelectedCommunityId(workspaceId);
+  };
+
+  // Search filtering functions
+  const filterMeetingsBySearch = (meetings: CommunityMeeting[]): CommunityMeeting[] => {
+    if (!searchQuery.trim()) return meetings;
+    
+    const query = searchQuery.toLowerCase();
+    return meetings.filter(meeting => {
+      return (
+        meeting.title.toLowerCase().includes(query) ||
+        (meeting.description && meeting.description.toLowerCase().includes(query)) ||
+        (meeting.location && meeting.location.toLowerCase().includes(query)) ||
+        meeting.status.toLowerCase().includes(query)
+      );
+    });
+  };
+
+  const filterDocumentsBySearch = (docs: DocumentWithDetails[]): DocumentWithDetails[] => {
+    if (!searchQuery.trim()) return docs;
+    
+    const query = searchQuery.toLowerCase();
+    return docs.filter(doc => {
+      return (
+        doc.file_name.toLowerCase().includes(query) ||
+        (doc.description && doc.description.toLowerCase().includes(query)) ||
+        (doc.tags && doc.tags.some(tag => tag.toLowerCase().includes(query))) ||
+        (doc.uploader_name && doc.uploader_name.toLowerCase().includes(query))
+      );
+    });
+  };
+
+  const filterThreadsBySearch = (threads: ThreadWithDetails[]): ThreadWithDetails[] => {
+    if (!searchQuery.trim()) return threads;
+    
+    const query = searchQuery.toLowerCase();
+    return threads.filter(thread => {
+      return (
+        thread.thread_title.toLowerCase().includes(query) ||
+        (thread.description && thread.description.toLowerCase().includes(query)) ||
+        thread.creator_name.toLowerCase().includes(query) ||
+        thread.category_config.label.toLowerCase().includes(query)
+      );
+    });
+  };
+
+  const filterActivitiesBySearch = (activities: ActivityWithDetails[]): ActivityWithDetails[] => {
+    if (!searchQuery.trim()) return activities;
+    
+    const query = searchQuery.toLowerCase();
+    return activities.filter(activity => {
+      return (
+        (activity.description && activity.description.toLowerCase().includes(query)) ||
+        activity.title.toLowerCase().includes(query) ||
+        (activity.user_name && activity.user_name.toLowerCase().includes(query)) ||
+        activity.activity_type.toLowerCase().includes(query)
+      );
+    });
   };
 
   const renderCommunitySelector = () => {
@@ -463,6 +527,7 @@ const CommunityWorkspacePage: React.FC = () => {
                       showStats={false}
                       pageSize={20}
                       className="p-6"
+                      filters={{ search_query: searchQuery }}
                     />
                   </ErrorBoundary>
                 </div>
@@ -498,6 +563,8 @@ const CommunityWorkspacePage: React.FC = () => {
         workspace={currentWorkspace} 
         workspaceAccess={workspaceAccess} 
         user={user} 
+        searchQuery={searchQuery}
+        filterMeetingsBySearch={filterMeetingsBySearch}
       />;
     }
 
@@ -506,6 +573,8 @@ const CommunityWorkspacePage: React.FC = () => {
         workspace={currentWorkspace} 
         workspaceAccess={workspaceAccess} 
         user={user} 
+        searchQuery={searchQuery}
+        filterDocumentsBySearch={filterDocumentsBySearch}
       />;
     }
 
@@ -514,6 +583,8 @@ const CommunityWorkspacePage: React.FC = () => {
         workspace={currentWorkspace} 
         workspaceAccess={workspaceAccess} 
         user={user} 
+        searchQuery={searchQuery}
+        filterThreadsBySearch={filterThreadsBySearch}
       />;
     }
 
@@ -525,7 +596,8 @@ const CommunityWorkspacePage: React.FC = () => {
       <MainLayout 
         user={user} 
         currentPage="workspace"
-        pageTitle="Cargando..."
+        pageTitle=""
+        breadcrumbs={[]}
         isAdmin={isAdmin}
         onLogout={logout}
         avatarUrl={avatarUrl}
@@ -542,7 +614,8 @@ const CommunityWorkspacePage: React.FC = () => {
       <MainLayout 
         user={user} 
         currentPage="workspace"
-        pageTitle="Error"
+        pageTitle=""
+        breadcrumbs={[]}
         isAdmin={isAdmin}
         onLogout={logout}
         avatarUrl={avatarUrl}
@@ -620,12 +693,21 @@ const CommunityWorkspacePage: React.FC = () => {
     <MainLayout 
       user={user} 
       currentPage={getCurrentPage()}
-      pageTitle={getPageTitle()}
-      breadcrumbs={getBreadcrumbs()}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={logout}
       avatarUrl={avatarUrl}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<Users />}
+        title="Espacio Colaborativo"
+        subtitle={selectedCommunity ? `${selectedCommunity.name} • ${selectedCommunity.school_name}` : 'Herramientas de colaboración para comunidades'}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Buscar en documentos, mensajes, reuniones..."
+      />
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Community Selector for multi-community users */}
         {workspaceAccess && workspaceAccess.availableCommunities.length > 1 && (
@@ -677,9 +759,11 @@ interface MeetingsTabContentProps {
   workspace: CommunityWorkspace | null;
   workspaceAccess: WorkspaceAccess | null;
   user: any;
+  searchQuery: string;
+  filterMeetingsBySearch: (meetings: CommunityMeeting[]) => CommunityMeeting[];
 }
 
-const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, workspaceAccess, user }) => {
+const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, workspaceAccess, user, searchQuery, filterMeetingsBySearch }) => {
   const [meetings, setMeetings] = useState<CommunityMeeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [canManage, setCanManage] = useState(false);
@@ -859,7 +943,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
         </div>
       ) : meetings.length > 0 ? (
         <div className="space-y-4">
-          {meetings.map(meeting => (
+          {filterMeetingsBySearch(meetings).map(meeting => (
             <MeetingCard
               key={meeting.id}
               meeting={meeting}
@@ -912,9 +996,11 @@ interface DocumentsTabContentProps {
   workspace: CommunityWorkspace | null;
   workspaceAccess: WorkspaceAccess | null;
   user: any;
+  searchQuery: string;
+  filterDocumentsBySearch: (docs: DocumentWithDetails[]) => DocumentWithDetails[];
 }
 
-const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, workspaceAccess, user }) => {
+const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, workspaceAccess, user, searchQuery, filterDocumentsBySearch }) => {
   // Document state
   const [documents, setDocuments] = useState<DocumentWithDetails[]>([]);
   const [folders, setFolders] = useState<FolderWithBreadcrumb[]>([]);
@@ -1229,7 +1315,7 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
 
       {/* Document Grid */}
       <DocumentGrid
-        documents={documents}
+        documents={filterDocumentsBySearch(documents)}
         folders={folders}
         viewMode={viewMode}
         onDocumentClick={handleDocumentClick}
@@ -1277,9 +1363,11 @@ interface MessagingTabContentProps {
   workspace: CommunityWorkspace | null;
   workspaceAccess: WorkspaceAccess | null;
   user: any;
+  searchQuery: string;
+  filterThreadsBySearch: (threads: ThreadWithDetails[]) => ThreadWithDetails[];
 }
 
-const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, workspaceAccess, user }) => {
+const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, workspaceAccess, user, searchQuery, filterThreadsBySearch }) => {
   // Messaging state
   const [messages, setMessages] = useState<MessageWithDetails[]>([]);
   const [threads, setThreads] = useState<ThreadWithDetails[]>([]);
@@ -1669,7 +1757,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
               </div>
             ) : threads.length > 0 ? (
               <div className="space-y-4">
-                {threads.map(thread => (
+                {filterThreadsBySearch(threads).map(thread => (
                   <div
                     key={thread.id}
                     onClick={() => handleThreadSelect(thread)}

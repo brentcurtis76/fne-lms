@@ -13,7 +13,7 @@ interface AvatarProps {
 const avatarCache = new Map<string, string>();
 
 export default function Avatar({ user, avatarUrl: propAvatarUrl, size = 'md', className = '' }: AvatarProps) {
-  const [imageUrl, setImageUrl] = useState<string>('');
+  const [imageUrl, setImageUrl] = useState<string>(propAvatarUrl || '');
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
@@ -21,13 +21,13 @@ export default function Avatar({ user, avatarUrl: propAvatarUrl, size = 'md', cl
   const sizeClasses = {
     sm: 'h-8 w-8',
     md: 'h-10 w-10',
-    lg: 'h-12 w-12'
+    lg: 'h-20 w-20'
   };
 
   const textSizeClasses = {
     sm: 'text-sm',
     md: 'text-lg',
-    lg: 'text-xl'
+    lg: 'text-2xl'
   };
 
   // Get user initials for fallback
@@ -65,6 +65,12 @@ export default function Avatar({ user, avatarUrl: propAvatarUrl, size = 'md', cl
     if (!user) {
       setIsLoading(false);
       return;
+    }
+
+    // If propAvatarUrl changes and we have it, update immediately
+    if (propAvatarUrl && propAvatarUrl !== imageUrl) {
+      setImageUrl(propAvatarUrl);
+      setHasError(false);
     }
 
     const userId = user.id;
@@ -127,9 +133,7 @@ export default function Avatar({ user, avatarUrl: propAvatarUrl, size = 'md', cl
         // Ignore session storage errors
       }
     } else {
-      // Don't use external service, just show initials
-      // Don't mark as error if we're still loading
-      setHasError(true);
+      // No avatar URL yet, keep loading state
       setIsLoading(false);
     }
   }, [user, propAvatarUrl]);
@@ -143,8 +147,8 @@ export default function Avatar({ user, avatarUrl: propAvatarUrl, size = 'md', cl
     setIsLoading(false);
   };
 
-  // Show initials-based avatar
-  if (!user || hasError || !imageUrl) {
+  // Show initials-based avatar only if we have an error or finished loading without an image
+  if (!user || (hasError && !isLoading) || (!imageUrl && !isLoading && !propAvatarUrl)) {
     const { initials, backgroundColor } = generateLocalAvatar();
     
     return (
@@ -154,6 +158,13 @@ export default function Avatar({ user, avatarUrl: propAvatarUrl, size = 'md', cl
       >
         <span className={textSizeClasses[size]}>{initials}</span>
       </div>
+    );
+  }
+
+  // Show loading skeleton while we're loading
+  if (isLoading && !imageUrl) {
+    return (
+      <div className={`${sizeClasses[size]} rounded-full bg-gray-200 animate-pulse ${className}`} />
     );
   }
 

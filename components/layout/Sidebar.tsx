@@ -26,6 +26,7 @@ import {
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
+import { navigationManager } from '../../utils/navigationManager';
 
 interface SidebarProps {
   user: User | null;
@@ -253,11 +254,18 @@ const Sidebar: React.FC<SidebarProps> = ({
       !child.adminOnly || isAdmin
     ) || [];
 
-    const handleClick = () => {
+    const handleClick = async () => {
       if (hasChildren) {
         toggleExpanded(item.id);
       } else if (item.href) {
-        router.push(item.href);
+        // Use navigation manager to prevent concurrent navigation
+        try {
+          await navigationManager.navigate(async () => {
+            await router.push(item.href);
+          });
+        } catch (err) {
+          console.error('Navigation error in sidebar:', err);
+        }
       }
     };
 

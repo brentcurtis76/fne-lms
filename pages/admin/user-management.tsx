@@ -2,12 +2,13 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import MainLayout from '../../components/layout/MainLayout';
-import { Trash2, Plus, X, AlertTriangle, CheckCircle, Settings } from 'lucide-react';
+import { Trash2, Plus, X, AlertTriangle, CheckCircle, Settings, Users } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import RoleAssignmentModal from '../../components/RoleAssignmentModal';
 import ConsultantAssignmentModal from '../../components/ConsultantAssignmentModal';
 import { getUserRoles } from '../../utils/roleUtils';
 import { ROLE_NAMES } from '../../types/roles';
+import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 
 type User = {
   id: string;
@@ -31,6 +32,7 @@ export default function UserManagement() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'all'>('pending');
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Add user form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -558,32 +560,28 @@ export default function UserManagement() {
       <MainLayout 
         user={currentUser} 
         currentPage="users"
-        pageTitle="Gestión de Usuarios"
-        breadcrumbs={[{label: 'Usuarios'}]}
+        pageTitle=""
+        breadcrumbs={[]}
         isAdmin={isAdmin}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
       >
+        <ResponsiveFunctionalPageHeader
+          icon={<Users />}
+          title="Usuarios"
+          subtitle="Administra los roles de usuarios del sistema"
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Buscar por nombre o email..."
+          primaryAction={{
+            label: "Agregar Usuario",
+            onClick: () => setShowAddForm(true),
+            icon: <Plus size={20} />
+          }}
+        />
+        
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="bg-white p-6 rounded-lg shadow-lg">
-          
-          <div className="mb-6 flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-[#00365b] mb-2">
-                Gestión de Usuarios
-              </h1>
-              <p className="text-gray-600">
-                Administra los roles de los usuarios del sistema
-              </p>
-            </div>
-            <button
-              onClick={() => setShowAddForm(true)}
-              className="bg-[#00365b] hover:bg-[#fdb933] hover:text-[#00365b] text-white px-4 py-2 rounded-md flex items-center gap-2 transition"
-            >
-              <Plus size={20} />
-              Agregar Usuario
-            </button>
-          </div>
 
           {/* Approval Tabs */}
           <div className="mb-6 border-b border-gray-200">
@@ -740,9 +738,19 @@ export default function UserManagement() {
               <tbody>
                 {users
                   .filter(user => {
-                    if (activeTab === 'pending') return user.approval_status === 'pending';
-                    if (activeTab === 'approved') return user.approval_status === 'approved';
-                    return true; // 'all' tab shows everyone
+                    // First filter by tab
+                    const tabFilter = activeTab === 'pending' ? user.approval_status === 'pending' :
+                                    activeTab === 'approved' ? user.approval_status === 'approved' :
+                                    true;
+                    
+                    // Then filter by search query
+                    if (!searchQuery.trim()) return tabFilter;
+                    
+                    const searchLower = searchQuery.toLowerCase();
+                    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase();
+                    const email = (user.email || '').toLowerCase();
+                    
+                    return tabFilter && (fullName.includes(searchLower) || email.includes(searchLower));
                   })
                   .map((user) => (
                   <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50">

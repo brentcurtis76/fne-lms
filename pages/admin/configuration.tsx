@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import MainLayout from '../../components/layout/MainLayout';
+import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 import { Bell, Settings, Users, Palette, CheckCircle, XCircle, Loader2, RefreshCw, UserCog } from 'lucide-react';
 import UserPreferences from '../../components/configuration/UserPreferences';
 
@@ -34,6 +35,7 @@ export default function Configuration() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('notifications');
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Notification types state
   const [notificationTypes, setNotificationTypes] = useState<NotificationType[]>([]);
@@ -205,6 +207,20 @@ export default function Configuration() {
     }
   };
 
+  const filterNotificationsBySearch = (types: NotificationType[]): NotificationType[] => {
+    if (!searchQuery.trim()) return types;
+    
+    const query = searchQuery.toLowerCase();
+    return types.filter(type => {
+      return (
+        type.name.toLowerCase().includes(query) ||
+        type.description.toLowerCase().includes(query) ||
+        getCategoryLabel(type.category).toLowerCase().includes(query) ||
+        type.id.toLowerCase().includes(query)
+      );
+    });
+  };
+
   const renderTabContent = () => {
     const commonContent = (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -285,7 +301,7 @@ export default function Configuration() {
               <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                 <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
                   <h4 className="text-sm font-medium text-gray-900">
-                    Tipos de Notificación ({notificationTypes.length})
+                    Tipos de Notificación ({filterNotificationsBySearch(notificationTypes).length})
                   </h4>
                 </div>
                 
@@ -293,6 +309,11 @@ export default function Configuration() {
                   <div className="px-6 py-8 text-center">
                     <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                     <p className="text-gray-500">No se encontraron tipos de notificación</p>
+                  </div>
+                ) : filterNotificationsBySearch(notificationTypes).length === 0 ? (
+                  <div className="px-6 py-8 text-center">
+                    <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <p className="text-gray-500">No se encontraron tipos de notificación que coincidan con la búsqueda</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -314,7 +335,7 @@ export default function Configuration() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {notificationTypes.map((type) => (
+                        {filterNotificationsBySearch(notificationTypes).map((type) => (
                           <tr key={type.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
@@ -432,7 +453,8 @@ export default function Configuration() {
       <MainLayout 
         user={currentUser} 
         currentPage="configuration"
-        pageTitle="Configuración del Sistema"
+        pageTitle=""
+        breadcrumbs={[]}
         isAdmin={isAdmin}
       >
         <div className="flex items-center justify-center min-h-96">
@@ -447,16 +469,20 @@ export default function Configuration() {
     <MainLayout 
       user={currentUser} 
       currentPage="configuration"
-      pageTitle="Configuración del Sistema"
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<Settings />}
+        title="Configuración del Sistema"
+        subtitle="Administra la configuración general de la plataforma FNE"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Buscar configuraciones..."
+      />
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-12">
-          <p className="text-gray-600 text-lg leading-relaxed">
-            Administra la configuración general de la plataforma FNE.
-          </p>
-        </div>
 
         {/* Tab Navigation */}
         <div className="border-b border-gray-200 mb-10">

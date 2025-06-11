@@ -10,6 +10,7 @@ import ExpenseReportForm from '../components/expenses/ExpenseReportForm';
 import ExpenseReportDetails from '../components/expenses/ExpenseReportDetails';
 import { sendEmail, generateExpenseReportSubmissionEmail, generateExpenseReportApprovalEmail } from '../utils/emailUtils';
 import { ExpenseReportExporter } from '../lib/expenseReportExport';
+import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 
 interface ExpenseCategory {
   id: string;
@@ -66,6 +67,7 @@ export default function ExpenseReportsPage() {
   // Data states
   const [expenseReports, setExpenseReports] = useState<ExpenseReport[]>([]);
   const [categories, setCategories] = useState<ExpenseCategory[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   
   // View states
   const [activeTab, setActiveTab] = useState<'lista' | 'nuevo' | 'editar'>('lista');
@@ -401,84 +403,68 @@ export default function ExpenseReportsPage() {
     <MainLayout 
       user={currentUser} 
       currentPage="expense-reports"
-      pageTitle="Rendición de Gastos"
-      breadcrumbs={[{label: 'Rendición de Gastos'}]}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      {activeTab === 'lista' && (
+        <ResponsiveFunctionalPageHeader
+          icon={<Receipt />}
+          title="Rendición de Gastos"
+          subtitle="Gestión de reportes de gastos y reembolsos"
+          searchValue={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Buscar por nombre, descripción..."
+          primaryAction={{
+            label: "Nuevo Reporte",
+            onClick: () => setActiveTab('nuevo'),
+            icon: <Plus size={20} />
+          }}
+        >
+          {/* Export buttons - only show when there are reports */}
+          {expenseReports.length > 0 && (
+            <>
+              <button
+                onClick={async () => {
+                  try {
+                    await ExpenseReportExporter.exportMultipleReportsToPDF(expenseReports);
+                    toast.success('Resumen exportado como PDF');
+                  } catch (error) {
+                    toast.error('Error al exportar PDF');
+                    console.error('PDF export error:', error);
+                  }
+                }}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                title="Exportar todos los reportes como PDF"
+              >
+                <FileText size={16} className="mr-2" />
+                PDF
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await ExpenseReportExporter.exportMultipleReportsToExcel(expenseReports);
+                    toast.success('Resumen exportado como Excel');
+                  } catch (error) {
+                    toast.error('Error al exportar Excel');
+                    console.error('Excel export error:', error);
+                  }
+                }}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                title="Exportar todos los reportes como Excel"
+              >
+                <FileSpreadsheet size={16} className="mr-2" />
+                Excel
+              </button>
+            </>
+          )}
+        </ResponsiveFunctionalPageHeader>
+      )}
+      
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="max-w-7xl mx-auto">
-            {/* Conditional Header */}
-            {activeTab === 'lista' && (
-              <div className="mb-8">
-                {/* Top navigation bar */}
-                <div className="flex items-center justify-between mb-6">
-                  <Link
-                    href="/dashboard"
-                    className="inline-flex items-center text-brand_blue hover:text-brand_yellow transition-colors text-sm"
-                  >
-                    <ArrowLeft className="mr-2" size={16} />
-                    Volver al Panel
-                  </Link>
-                  
-                  {/* Export buttons - only show when there are reports */}
-                  {expenseReports.length > 0 && (
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500 mr-2">Exportar todo:</span>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await ExpenseReportExporter.exportMultipleReportsToPDF(expenseReports);
-                            toast.success('Resumen exportado como PDF');
-                          } catch (error) {
-                            toast.error('Error al exportar PDF');
-                            console.error('PDF export error:', error);
-                          }
-                        }}
-                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
-                        title="Exportar todos los reportes como PDF"
-                      >
-                        <FileText size={14} className="mr-1.5" />
-                        PDF
-                      </button>
-                      <button
-                        onClick={async () => {
-                          try {
-                            await ExpenseReportExporter.exportMultipleReportsToExcel(expenseReports);
-                            toast.success('Resumen exportado como Excel');
-                          } catch (error) {
-                            toast.error('Error al exportar Excel');
-                            console.error('Excel export error:', error);
-                          }
-                        }}
-                        className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-green-600 bg-green-50 hover:bg-green-100 transition-colors"
-                        title="Exportar todos los reportes como Excel"
-                      >
-                        <FileSpreadsheet size={14} className="mr-1.5" />
-                        Excel
-                      </button>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Main header with title and primary action */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                  <h1 className="text-2xl font-bold text-brand_blue flex items-center mb-4 sm:mb-0">
-                    <Receipt className="mr-2" size={24} />
-                    Rendición de Gastos
-                  </h1>
-                  
-                  <button
-                    onClick={() => setActiveTab('nuevo')}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg text-white bg-brand_yellow hover:bg-brand_yellow/90 transition-colors shadow-sm"
-                  >
-                    <Plus size={16} className="mr-2" />
-                    Nuevo Reporte
-                  </button>
-                </div>
-              </div>
-            )}
 
             {/* Form Header for nuevo/editar modes */}
             {(activeTab === 'nuevo' || activeTab === 'editar') && (
@@ -523,7 +509,18 @@ export default function ExpenseReportsPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {expenseReports.map((report) => (
+                        {expenseReports
+                          .filter(report => {
+                            if (!searchQuery.trim()) return true;
+                            const query = searchQuery.toLowerCase();
+                            const fullName = `${report.profiles?.first_name || ''} ${report.profiles?.last_name || ''}`.toLowerCase();
+                            return (
+                              report.report_name.toLowerCase().includes(query) ||
+                              report.description?.toLowerCase().includes(query) ||
+                              fullName.includes(query)
+                            );
+                          })
+                          .map((report) => (
                           <tr key={report.id} className="border-b border-gray-100 hover:bg-gray-50">
                             <td className="py-3 px-4">
                               <div>

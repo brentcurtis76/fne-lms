@@ -10,11 +10,14 @@ import CollapsibleSection from '../components/reports/CollapsibleSection';
 import ResponsiveChart from '../components/reports/ResponsiveChart';
 import ReportLoadingSkeleton from '../components/reports/ReportLoadingSkeleton';
 import { NoData, NoResults, ErrorState } from '../components/reports/EmptyStates';
+import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
+import { TrendingUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { apiCache, setupCacheCleanup, invalidateReportCache } from '../utils/cache';
 import useFiltersUrlState from '../hooks/useFiltersUrlState';
 import useDebounce from '../hooks/useDebounce';
 import toast from 'react-hot-toast';
+import { navigationManager } from '../utils/navigationManager';
 
 interface ProgressUser {
   user_id: string;
@@ -91,8 +94,22 @@ export default function EnhancedReports() {
   const [isMobile, setIsMobile] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
 
-  // URL-managed filter state
-  const [filters, updateFilters, resetFilters, filtersInitialized] = useFiltersUrlState(INITIAL_FILTERS);
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // URL-managed filter state - DISABLED to prevent navigation conflicts
+  // const [filters, updateFilters, resetFilters, filtersInitialized] = useFiltersUrlState(INITIAL_FILTERS, { debounceMs: 1000 });
+  // const debouncedFilters = useDebounce(filters, 300);
+  
+  // Use local state instead to avoid URL updates that cause navigation throttling
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const updateFilters = (newFilters: Partial<typeof INITIAL_FILTERS>) => {
+    setFilters(prev => ({ ...prev, ...newFilters }));
+  };
+  const resetFilters = () => {
+    setFilters(INITIAL_FILTERS);
+  };
+  const filtersInitialized = true;
   const debouncedFilters = useDebounce(filters, 300);
 
   // Modal states
@@ -139,7 +156,23 @@ export default function EnhancedReports() {
 
   // Authentication initialization
   useEffect(() => {
-    initializeAuth();
+    let mounted = true;
+    let hasInitialized = false;
+    
+    const init = async () => {
+      if (mounted && !hasInitialized) {
+        hasInitialized = true;
+        await initializeAuth();
+      }
+    };
+    
+    init();
+    
+    return () => {
+      mounted = false;
+      // Clear any pending navigations when component unmounts
+      navigationManager.clearQueue();
+    };
   }, []);
 
   // Data fetching when filters change
@@ -155,7 +188,9 @@ export default function EnhancedReports() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.user) {
-        router.push('/login');
+        await navigationManager.navigate(async () => {
+          await router.replace('/login');
+        });
         return;
       }
       
@@ -177,6 +212,12 @@ export default function EnhancedReports() {
             type: 'permission',
             message: 'No tienes permisos para acceder a los reportes.'
           });
+          // Redirect non-authorized users back to dashboard
+          setTimeout(async () => {
+            await navigationManager.navigate(async () => {
+              await router.replace('/dashboard');
+            });
+          }, 2000);
           return;
         }
 
@@ -289,10 +330,19 @@ export default function EnhancedReports() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    localStorage.removeItem('rememberMe');
-    sessionStorage.removeItem('sessionOnly');
-    router.push('/login');
+    try {
+      await supabase.auth.signOut();
+      localStorage.removeItem('rememberMe');
+      sessionStorage.removeItem('sessionOnly');
+      
+      await navigationManager.navigate(async () => {
+        await router.replace('/login');
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force redirect if router fails
+      window.location.href = '/login';
+    }
   };
 
   const handleRetry = useCallback(() => {
@@ -326,13 +376,32 @@ export default function EnhancedReports() {
     return new Date(dateString).toLocaleDateString('es-CL');
   };
 
+  // Filter users based on search query
+  const filterUsersBySearch = (usersList: ProgressUser[]): ProgressUser[] => {
+    if (!searchQuery.trim()) return usersList;
+    
+    const query = searchQuery.toLowerCase();
+    return usersList.filter(user => {
+      return (
+        user.user_name.toLowerCase().includes(query) ||
+        user.user_email.toLowerCase().includes(query) ||
+        user.user_role.toLowerCase().includes(query) ||
+        (user.school_name && user.school_name.toLowerCase().includes(query)) ||
+        (user.generation_name && user.generation_name.toLowerCase().includes(query)) ||
+        (user.community_name && user.community_name.toLowerCase().includes(query))
+      );
+    });
+  };
+
   // Memoized components for performance
   const MemoizedMobileCards = useMemo(() => {
     if (!isMobile || activeTab !== 'detailed') return null;
     
+    const filteredUsers = filterUsersBySearch(users);
+    
     return (
       <div className="space-y-4">
-        {users.map((userData) => (
+        {filteredUsers.map((userData) => (
           <EnhancedMobileUserCard
             key={userData.user_id}
             user={userData}
@@ -343,12 +412,13 @@ export default function EnhancedReports() {
         ))}
       </div>
     );
-  }, [isMobile, activeTab, users]);
+  }, [isMobile, activeTab, users, searchQuery]);
 
   const MemoizedVirtualizedTable = useMemo(() => {
     if (isMobile || activeTab !== 'detailed') return null;
 
-    const tableData = users.map(user => ({
+    const filteredUsers = filterUsersBySearch(users);
+    const tableData = filteredUsers.map(user => ({
       ...user,
       actions: (
         <button
@@ -370,14 +440,15 @@ export default function EnhancedReports() {
         className="shadow-sm"
       />
     );
-  }, [isMobile, activeTab, users, loading]);
+  }, [isMobile, activeTab, users, loading, searchQuery]);
 
   if (loading && !users.length) {
     return (
       <MainLayout 
         user={user} 
         currentPage="reports"
-        pageTitle="Cargando..."
+        pageTitle=""
+        breadcrumbs={[]}
         isAdmin={isAdmin}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
@@ -394,7 +465,8 @@ export default function EnhancedReports() {
       <MainLayout 
         user={user} 
         currentPage="reports"
-        pageTitle="Error"
+        pageTitle=""
+        breadcrumbs={[]}
         isAdmin={isAdmin}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
@@ -405,6 +477,20 @@ export default function EnhancedReports() {
             actionLabel={isRetrying ? "Reintentando..." : "Reintentar"}
             onAction={isRetrying ? undefined : handleRetry}
           />
+          {error.type === 'permission' && (
+            <div className="mt-4 text-center">
+              <button
+                onClick={async () => {
+                  await navigationManager.navigate(async () => {
+                    await router.replace('/dashboard');
+                  });
+                }}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Volver al Dashboard
+              </button>
+            </div>
+          )}
         </div>
       </MainLayout>
     );
@@ -414,24 +500,22 @@ export default function EnhancedReports() {
     <MainLayout 
       user={user} 
       currentPage="reports"
-      pageTitle="Reportes Avanzados"
-      breadcrumbs={[{label: 'Reportes', href: '/reports'}, {label: 'Reportes Avanzados'}]}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<TrendingUp />}
+        title="Reportes Optimizados"
+        subtitle={ROLE_DESCRIPTIONS[userRole as keyof typeof ROLE_DESCRIPTIONS] || 'Análisis detallado del progreso'}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Buscar usuarios, escuelas, comunidades..."
+      />
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Reportes Optimizados</h1>
-                <p className="text-gray-600 mt-2">
-                  {ROLE_DESCRIPTIONS[userRole as keyof typeof ROLE_DESCRIPTIONS] || 'Análisis detallado del progreso'}
-                </p>
-              </div>
-            </div>
-          </div>
 
           {/* Tabs Navigation */}
           <div className="mb-6">

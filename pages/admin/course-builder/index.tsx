@@ -6,6 +6,8 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import DeleteCourseModal from '../../../components/DeleteCourseModal';
 import AssignTeachersModal from '../../../components/AssignTeachersModal';
+import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
+import { BookOpen, Plus } from 'lucide-react';
 
 interface CourseFromDB {
   id: string;
@@ -28,7 +30,7 @@ const CourseBuilder: React.FC = () => {
   const [courses, setCourses] = useState<FormattedCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string>('');
 
   // State for delete confirmation modal
@@ -308,6 +310,20 @@ const CourseBuilder: React.FC = () => {
     router.push('/login');
   };
 
+  // Filter courses based on search query
+  const filterCoursesBySearch = (coursesList: FormattedCourse[]): FormattedCourse[] => {
+    if (!searchQuery.trim()) return coursesList;
+    
+    const query = searchQuery.toLowerCase();
+    return coursesList.filter(course => {
+      return (
+        course.title.toLowerCase().includes(query) ||
+        course.description.toLowerCase().includes(query) ||
+        course.instructor_name.toLowerCase().includes(query)
+      );
+    });
+  };
+
   if (loading || user === undefined) { 
     return (
       <div className="min-h-screen bg-brand_beige flex justify-center items-center">
@@ -322,7 +338,8 @@ const CourseBuilder: React.FC = () => {
       <MainLayout 
         user={user} 
         currentPage="courses"
-        pageTitle="Acceso Denegado"
+        pageTitle=""
+        breadcrumbs={[]}
         isAdmin={false}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
@@ -346,23 +363,27 @@ const CourseBuilder: React.FC = () => {
     <MainLayout 
       user={user} 
       currentPage="courses"
-      pageTitle="Constructor de Cursos"
-      breadcrumbs={[{label: 'Cursos', href: '/admin/course-builder'}, {label: 'Constructor de Cursos'}]}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={userRole === 'admin'}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6"> 
-        <header className="mb-8 md:mb-12 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <h1 className="text-3xl sm:text-4xl font-bold text-brand_blue">
-            Mis Cursos
-          </h1>
-          <Link href="/admin/course-builder/new" legacyBehavior>
-            <a className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-md text-white bg-brand_blue hover:bg-brand_yellow hover:text-brand_blue focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue transition-colors duration-150">
-              Crear Nuevo Curso
-            </a>
-          </Link>
-        </header>
+      <ResponsiveFunctionalPageHeader
+        icon={<BookOpen />}
+        title="Constructor de Cursos"
+        subtitle={`${courses.length} curso${courses.length !== 1 ? 's' : ''} creado${courses.length !== 1 ? 's' : ''}`}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Buscar cursos..."
+        primaryAction={{
+          label: "Crear Nuevo Curso",
+          onClick: () => router.push('/admin/course-builder/new'),
+          icon: <Plus size={20} />
+        }}
+      />
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
 
         {courses.length === 0 ? (
           <div className="text-center bg-white p-12 rounded-xl shadow-lg">
@@ -379,9 +400,23 @@ const CourseBuilder: React.FC = () => {
               </Link>
             </div>
           </div>
+        ) : filterCoursesBySearch(courses).length === 0 ? (
+          <div className="text-center bg-white p-12 rounded-xl shadow-lg">
+            <svg className="mx-auto h-16 w-16 text-brand_blue/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <h3 className="mt-4 text-xl font-semibold text-brand_blue">No se encontraron cursos</h3>
+            <p className="mt-2 text-sm text-gray-600">Intenta con otros términos de búsqueda</p>
+            <button
+              onClick={() => setSearchQuery('')}
+              className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-brand_blue bg-brand_yellow hover:bg-brand_yellow/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue transition-colors"
+            >
+              Limpiar búsqueda
+            </button>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {courses.map((course) => (
+            {filterCoursesBySearch(courses).map((course) => (
               <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
                 <Link href={`/admin/course-builder/${course.id}`} legacyBehavior>
                   <a className="block group">

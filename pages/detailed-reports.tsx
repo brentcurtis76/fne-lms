@@ -6,6 +6,8 @@ import UserDetailModal from '../components/reports/UserDetailModal';
 import AnalyticsDashboard from '../components/reports/AnalyticsDashboard';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import MobileUserCard from '../components/reports/MobileUserCard';
+import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
+import { FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
@@ -64,6 +66,9 @@ export default function DetailedReports() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -265,12 +270,30 @@ export default function DetailedReports() {
     return new Date(dateString).toLocaleDateString('es-CL');
   };
 
+  // Filter users based on search query
+  const filterUsersBySearch = (usersList: ProgressUser[]): ProgressUser[] => {
+    if (!searchQuery.trim()) return usersList;
+    
+    const query = searchQuery.toLowerCase();
+    return usersList.filter(user => {
+      return (
+        user.user_name.toLowerCase().includes(query) ||
+        user.user_email.toLowerCase().includes(query) ||
+        user.user_role.toLowerCase().includes(query) ||
+        (user.school_name && user.school_name.toLowerCase().includes(query)) ||
+        (user.generation_name && user.generation_name.toLowerCase().includes(query)) ||
+        (user.community_name && user.community_name.toLowerCase().includes(query))
+      );
+    });
+  };
+
   if (loading && users.length === 0) {
     return (
       <MainLayout 
         user={user} 
         currentPage="reports"
-        pageTitle="Cargando..."
+        pageTitle=""
+        breadcrumbs={[]}
         isAdmin={isAdmin}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
@@ -293,24 +316,22 @@ export default function DetailedReports() {
     <MainLayout 
       user={user} 
       currentPage="reports"
-      pageTitle="Reportes Detallados de Progreso"
-      breadcrumbs={[{label: 'Reportes', href: '/reports'}, {label: 'Reportes Detallados'}]}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<FileText />}
+        title="Reportes Detallados de Progreso"
+        subtitle={ROLE_DESCRIPTIONS[userRole as keyof typeof ROLE_DESCRIPTIONS] || 'Análisis detallado del progreso'}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Buscar usuarios, escuelas, comunidades..."
+      />
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Reportes Detallados de Progreso</h1>
-                <p className="text-gray-600 mt-2">
-                  {ROLE_DESCRIPTIONS[userRole as keyof typeof ROLE_DESCRIPTIONS] || 'Análisis detallado del progreso'}
-                </p>
-              </div>
-            </div>
-          </div>
 
           {/* Notice Banner */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -427,7 +448,7 @@ export default function DetailedReports() {
               {/* Mobile View */}
               {isMobile ? (
                 <div className="space-y-4">
-                  {users.map((userData) => (
+                  {filterUsersBySearch(users).map((userData) => (
                     <MobileUserCard
                       key={userData.user_id}
                       user={userData}
@@ -474,7 +495,7 @@ export default function DetailedReports() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {users.map((userData) => (
+                        {filterUsersBySearch(users).map((userData) => (
                           <tr key={userData.user_id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div>

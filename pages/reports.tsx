@@ -9,6 +9,8 @@ import StatusBadge from '../components/reports/StatusBadge';
 import ConsultantIndicator from '../components/reports/ConsultantIndicator';
 import AnalyticsVisualization from '../components/reports/AnalyticsVisualization';
 import AdvancedFilters from '../components/reports/AdvancedFilters';
+import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
+import { BarChart3, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface User {
@@ -108,6 +110,9 @@ const ReportsPage: React.FC = () => {
   const [communityData, setCommunityData] = useState<CommunityData[]>([]);
   const [schoolData, setSchoolData] = useState<SchoolData[]>([]);
   const [courseAnalytics, setCourseAnalytics] = useState<CourseAnalytics[]>([]);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
   
   // Filter state
   const [dateRange, setDateRange] = useState('30');
@@ -273,6 +278,25 @@ const ReportsPage: React.FC = () => {
     setSelectedUserId(null);
   };
 
+  // Filter data based on search query
+  const filterDataBySearch = <T extends any>(data: T[], searchFields: (keyof T)[]): T[] => {
+    if (!searchQuery.trim()) return data;
+    
+    const query = searchQuery.toLowerCase();
+    return data.filter(item => {
+      return searchFields.some(field => {
+        const value = item[field];
+        if (typeof value === 'string') {
+          return value.toLowerCase().includes(query);
+        }
+        if (typeof value === 'number') {
+          return value.toString().includes(query);
+        }
+        return false;
+      });
+    });
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#e8e5e2] flex justify-center items-center">
@@ -285,35 +309,38 @@ const ReportsPage: React.FC = () => {
     <MainLayout 
       user={user} 
       currentPage="reports"
-      pageTitle="Dashboard de Reportes"
-      breadcrumbs={[{label: 'Reportes'}]}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<BarChart3 />}
+        title="Dashboard de Reportes"
+        subtitle={`Reportes de progreso y analytics • ${userScope}`}
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Buscar usuarios, cursos, comunidades..."
+      >
+        {/* Date range selector as additional action */}
+        <div className="flex items-center space-x-2">
+          <Calendar size={16} className="text-gray-500" />
+          <select
+            value={dateRange}
+            onChange={(e) => setDateRange(e.target.value)}
+            className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent text-sm"
+          >
+            <option value="7">Últimos 7 días</option>
+            <option value="30">Últimos 30 días</option>
+            <option value="90">Últimos 90 días</option>
+            <option value="365">Último año</option>
+          </select>
+        </div>
+      </ResponsiveFunctionalPageHeader>
+      
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="bg-white rounded-lg shadow-lg p-6">
-          {/* Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-[#00365b] mb-2">Dashboard de Reportes</h1>
-              <p className="text-gray-600">
-                Reportes de progreso y analytics • {userScope}
-              </p>
-            </div>
-            <div className="mt-4 md:mt-0 flex flex-col md:flex-row gap-4">
-              <select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
-              >
-                <option value="7">Últimos 7 días</option>
-                <option value="30">Últimos 30 días</option>
-                <option value="90">Últimos 90 días</option>
-                <option value="365">Último año</option>
-              </select>
-            </div>
-          </div>
 
           {/* Tab Navigation */}
           <div className="border-b border-gray-200 mb-6">
@@ -393,7 +420,7 @@ const ReportsPage: React.FC = () => {
                   />
                 </div>
                 <EnhancedTable
-                  data={overviewData.users}
+                  data={filterDataBySearch(overviewData.users, ['first_name', 'last_name', 'email', 'role'])}
                   columns={[
                     {
                       key: 'full_name',
@@ -569,7 +596,7 @@ const ReportsPage: React.FC = () => {
                 />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {communityData.map((community) => (
+                {filterDataBySearch(communityData, ['community_name']).map((community) => (
                   <div key={community.community_id} className="bg-white border border-gray-200 rounded-lg p-6">
                     <h4 className="font-semibold text-gray-900 mb-4">{community.community_name}</h4>
                     <div className="space-y-3">
@@ -615,7 +642,7 @@ const ReportsPage: React.FC = () => {
                 />
               </div>
               <div className="space-y-4">
-                {schoolData.map((school) => (
+                {filterDataBySearch(schoolData, ['school_name']).map((school) => (
                   <div key={school.school_id} className="bg-white border border-gray-200 rounded-lg p-6">
                     <h4 className="font-semibold text-gray-900 mb-4">{school.school_name}</h4>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
@@ -676,7 +703,7 @@ const ReportsPage: React.FC = () => {
                 />
               </div>
               <EnhancedTable
-                data={courseAnalytics}
+                data={filterDataBySearch(courseAnalytics, ['course_title', 'category'])}
                 columns={[
                   {
                     key: 'course_title',

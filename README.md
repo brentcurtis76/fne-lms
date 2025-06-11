@@ -1972,4 +1972,140 @@ Instead of using 3 cron jobs (exceeding the limit), we use 1 smart cron job that
 
 ---
 
-*Last Updated: 2025-01-06 by Claude Code (Phase 4: User Notification Preferences & Settings Implementation)*
+#### Session 2025-01-07 - Collaborative Messaging System Fixes & @Mention Implementation
+
+**🎯 Mission: Fixed critical messaging system errors and implemented @mention functionality**
+
+**✅ Completed Features:**
+
+1. **Fixed Client-Side Environment Variable Error**
+   - **Issue**: `supabaseKey is required` error when accessing messaging
+   - **Root Cause**: Server-side notification service being imported in client components
+   - **Solution**: Removed notification service imports from client-side messaging utilities
+   - **Result**: Messaging page now loads without environment variable errors
+
+2. **Fixed Database Foreign Key Relationships**
+   - **Issue**: "Could not find relationship between message_threads and profiles" error
+   - **Root Cause**: Complex joins in queries causing Supabase errors
+   - **Solution**: Simplified queries to fetch user profiles separately instead of using joins
+   - **Files Updated**: `/utils/messagingUtils-simple.ts` - removed all complex joins
+
+3. **Fixed Thread Creation Errors**
+   - **Issue**: "invalid input value for enum thread_category: 'ideas'" error
+   - **Root Cause**: Database enum constraint missing new category values
+   - **Solution**: Created SQL migration to add missing enum values (ideas, tasks, questions)
+   - **Migration Files**: 
+     - `/database/update-thread-categories-enum.sql`
+     - `/database/fix-thread-categories-quick.sql`
+   - **Result**: All thread categories now working properly
+
+4. **Implemented @Mention Functionality**
+   - ✅ **Mention Detection**: Parse @mentions from message content
+   - ✅ **User ID Extraction**: Track mentioned users with their IDs in MessageComposer
+   - ✅ **Notification Creation**: Send notifications when users are mentioned
+   - ✅ **Reply Notifications**: Notify original authors when someone replies
+   - ✅ **Database Integration**: Store mentions and create proper notification records
+   - **Files Updated**:
+     - `/utils/messagingUtils-simple.ts` - added handleMentions function
+     - `/components/messaging/MessageComposer.tsx` - track mentioned users
+
+5. **Fixed Data Inconsistencies**
+   - **Issue**: Threads showing wrong creator names (e.g., "Por Alice Example")
+   - **Solution**: Created diagnostic scripts to identify and fix mismatches
+   - **Scripts Created**:
+     - `/scripts/fix-thread-data.js` - analyze thread/message author mismatches
+     - `/scripts/quick-fix-thread.js` - fix specific thread issues
+     - `/scripts/test-thread-creation.js` - verify thread creation works
+
+6. **Fixed Schema Cache Issues**
+   - **Issue**: "Could not find the 'custom_category_name' column" error
+   - **Solution**: Updated queries to be explicit about columns and temporarily removed custom category handling
+   - **Migration**: `/database/add-custom-category-column.sql` (for future use)
+
+**🔧 Technical Changes:**
+- Refactored messaging utilities to avoid server-side dependencies in client code
+- Simplified database queries to avoid complex foreign key joins
+- Added proper error handling for missing database tables/columns
+- Implemented direct Supabase notification creation instead of using service imports
+- Created comprehensive test scripts for debugging and verification
+
+**📊 Testing Results:**
+- ✅ All thread categories (general, ideas, tasks, questions) working
+- ✅ Thread creation successful without errors
+- ✅ Messages sending properly
+- ✅ @mentions creating notifications
+- ✅ Reply notifications working
+
+**🚀 Ready for Production:**
+The messaging system is now fully functional with @mention support, proper notifications, and all database issues resolved!
+
+---
+
+#### Session 2025-01-11 - Avatar Performance & UI Navigation Improvements
+
+**🎯 Mission: Enhanced user experience with avatar performance optimization and improved navigation**
+
+**✅ Completed Features:**
+
+1. **Fixed Avatar Loading on Initial Dashboard Login**
+   - **Issue**: Avatar wouldn't load on first dashboard visit after login
+   - **Root Cause**: Race condition between authentication and avatar data fetching
+   - **Solution**: Implemented comprehensive multi-level caching strategy
+   - **Implementation**:
+     - In-memory cache for instant avatar access
+     - SessionStorage persistence across page reloads
+     - 30-minute cache duration with automatic refresh
+     - Fallback to user initials with consistent color generation
+   - **Files Updated**:
+     - `/components/common/Avatar.tsx` - Enhanced with caching logic
+     - `/hooks/useAvatar.ts` - New hook for centralized avatar management
+     - `/contexts/AvatarContext.tsx` - Global avatar state management
+     - `/utils/avatarPreloader.ts` - Background preloading system
+
+2. **Added Logout Button to Header**
+   - **Location**: Top right corner of header for better visibility
+   - **Design**: Clean button with logout icon and hover effects
+   - **Benefit**: Users no longer need to access profile dropdown to logout
+   - **Implementation**: Integrated with existing authentication flow
+
+3. **Removed Redundant User Profile Section from Sidebar**
+   - **Issue**: User profile was displayed in both header and sidebar
+   - **Solution**: Removed sidebar profile section to reduce UI clutter
+   - **Result**: Cleaner sidebar with more focus on navigation items
+
+4. **Added "Mi Perfil" Navigation Item**
+   - **Location**: Added as dedicated sidebar navigation item
+   - **Icon**: User icon for clear identification
+   - **Purpose**: Direct access to profile page from main navigation
+   - **Consistency**: Follows existing navigation pattern
+
+5. **Made Header Avatar and Name Clickable**
+   - **Feature**: Clicking avatar or user name in header navigates to profile page
+   - **Implementation**: Added click handler with router navigation
+   - **Visual Feedback**: Cursor pointer and hover effects
+   - **User Experience**: Intuitive navigation to profile settings
+
+**🔧 Technical Improvements:**
+- Eliminated external dependencies (ui-avatars.com) for better performance
+- Implemented smart caching to prevent redundant API calls
+- Added loading skeletons during avatar fetch operations
+- Ensured consistent color generation for user initials
+- Maintained avatar state across navigation without refetching
+
+**📊 Performance Gains:**
+- ✅ Avatar loads instantly on dashboard after login
+- ✅ No duplicate network requests for avatar data
+- ✅ Smooth transitions between pages with cached avatars
+- ✅ Reduced external API dependencies
+- ✅ Better perceived performance with loading states
+
+**🚀 User Experience Enhancements:**
+- More intuitive logout access in header
+- Cleaner sidebar without redundant information
+- Direct profile navigation from multiple touchpoints
+- Consistent avatar display across all pages
+- Professional loading states during data fetching
+
+---
+
+*Last Updated: 2025-01-11 by Claude Code (Avatar Performance & UI Navigation Improvements)*

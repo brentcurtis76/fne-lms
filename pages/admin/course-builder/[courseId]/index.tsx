@@ -4,8 +4,10 @@ import Link from 'next/link';
 import { supabase } from '../../../../lib/supabase';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../../components/layout/MainLayout';
+import { ResponsiveFunctionalPageHeader } from '../../../../components/layout/FunctionalPageHeader';
 import DeleteModuleModal from '../../../../components/DeleteModuleModal';
 import EditModuleModal from '../../../../components/EditModuleModal';
+import { Book, Plus, Edit, ArrowLeft } from 'lucide-react';
 
 interface Course {
   id: string;
@@ -387,43 +389,39 @@ const CourseDetailPage = () => {
     <MainLayout 
       user={user} 
       currentPage="courses"
-      pageTitle={course.title}
-      breadcrumbs={[
-        { label: 'Cursos', href: '/admin/course-builder' },
-        { label: course.title }
-      ]}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<Book />}
+        title={course.title}
+        subtitle={course.description}
+        primaryAction={{
+          label: 'Crear Módulo',
+          onClick: () => setShowCreateModuleForm(true),
+          icon: <Plus className="w-4 h-4" />
+        }}
+      >
+        <button
+          onClick={() => router.push('/admin/course-builder')}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+        >
+          <ArrowLeft className="w-4 h-4 inline mr-1" />
+          Volver a Cursos
+        </button>
+        <Link href={`/admin/course-builder/${courseId}/edit`} legacyBehavior>
+          <a className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]">
+            <Edit className="w-4 h-4 inline mr-1" />
+            Editar Información
+          </a>
+        </Link>
+      </ResponsiveFunctionalPageHeader>
+      
       <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
       <div className="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-6">
-        <div className="mb-6 flex justify-between items-center">
-          <Link href="/admin/course-builder" legacyBehavior>
-            <a className="text-brand_blue hover:text-brand_yellow font-mont hover:underline">
-              &larr; Volver a Cursos
-            </a>
-          </Link>
-          <div className="flex gap-3">
-            <Link href={`/admin/course-builder/${courseId}/edit`} legacyBehavior>
-              <a className="px-4 py-2 bg-gray-600 text-white font-mont rounded-md hover:bg-gray-700 transition duration-150">
-                Editar Información
-              </a>
-            </Link>
-            <button 
-              onClick={() => setShowCreateModuleForm(true)} 
-              className="px-4 py-2 bg-brand_blue text-white font-mont rounded-md hover:bg-brand_yellow hover:text-brand_blue transition duration-150"
-            >
-              Crear Módulo
-            </button>
-          </div>
-        </div>
-
-        <div className="mb-8 border-b border-brand_blue/20 pb-4">
-          <h1 className="text-3xl font-bold text-brand_blue font-mont mb-2">{course.title}</h1>
-          <p className="text-brand_blue text-md">{course.description}</p>
-        </div>
-
         <h2 className="text-2xl font-semibold text-brand_blue font-mont mb-4">Módulos del Curso</h2>
         
         {/* Form to create a new module (inline) */}

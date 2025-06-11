@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { ArrowLeft, Play, CheckCircle, Clock, BookOpen, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
+import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
+import { GraduationCap, ChevronLeft } from 'lucide-react';
 
 interface Course {
   id: string;
@@ -318,46 +320,45 @@ export default function StudentCourseViewer() {
     <MainLayout 
       user={user} 
       currentPage="courses"
-      pageTitle={course.title}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<GraduationCap />}
+        title={course.title}
+        subtitle={course.description}
+      >
+        <button
+          onClick={() => router.back()}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+        >
+          <ChevronLeft className="w-4 h-4 inline mr-1" />
+          Volver
+        </button>
+        <div className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md">
+          <div className="flex items-center gap-2">
+            <span>📊 Progreso:</span>
+            <div className="flex items-center gap-2">
+              <div className="w-24 bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-[#10B981] to-[#059669] h-2 rounded-full transition-all duration-500"
+                  style={{ width: `${getCourseProgressPercentage()}%` }}
+                ></div>
+              </div>
+              <span className="font-bold text-[#10B981]">
+                {getCourseProgressPercentage()}%
+              </span>
+            </div>
+          </div>
+        </div>
+      </ResponsiveFunctionalPageHeader>
+      
       <div className="min-h-screen bg-gray-100">
         {/* Course Content */}
         <div className="max-w-6xl mx-auto p-6">
-          {/* Course Header */}
-          <div className="mb-12 bg-white rounded-2xl shadow-lg p-8 border border-gray-100">
-            <div className="flex items-center gap-4 mb-6">
-              <button
-                onClick={() => router.back()}
-                className="p-3 rounded-full bg-gray-100 text-[#00365b] hover:text-[#fdb933] hover:bg-gray-200 transition-all duration-200"
-              >
-                <ArrowLeft size={20} />
-              </button>
-              <div className="flex-1">
-                <h1 className="text-4xl font-bold text-[#00365b] mb-2">{course.title}</h1>
-                <p className="text-gray-600 text-lg leading-relaxed">{course.description}</p>
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4 pt-4 border-t border-gray-100">
-              <div className="text-gray-600 font-medium">
-                📊 Progreso del curso: <span className="text-[#00365b] font-bold">{getCompletedLessons()}/{getTotalLessons()}</span> lecciones
-              </div>
-              <div className="flex items-center gap-3 flex-1">
-                <div className="flex-1 max-w-xs bg-gray-200 rounded-full h-4 shadow-inner">
-                  <div 
-                    className="bg-gradient-to-r from-[#10B981] to-[#059669] h-4 rounded-full transition-all duration-500 shadow-sm"
-                    style={{ width: `${getCourseProgressPercentage()}%` }}
-                  ></div>
-                </div>
-                <span className="text-2xl font-bold text-[#10B981] min-w-[4rem] text-right">
-                  {getCourseProgressPercentage()}%
-                </span>
-              </div>
-            </div>
-          </div>
           {/* Continue Learning Section */}
           {nextLesson && (
             <div className="bg-gradient-to-r from-[#00365b] to-[#004080] text-white rounded-lg p-6 mb-8">

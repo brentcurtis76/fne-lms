@@ -523,7 +523,7 @@ class NotificationService {
       cutoffTime.setHours(cutoffTime.getHours() + hoursAhead);
 
       const { data: assignments, error } = await supabaseServiceRole
-        .from('assignments')
+        .from('lesson_assignments')
         .select(`
           id,
           title,
@@ -556,7 +556,7 @@ class NotificationService {
   async markReminderSent(assignmentId) {
     try {
       const { error } = await supabaseServiceRole
-        .from('assignments')
+        .from('lesson_assignments')
         .update({ due_reminder_sent: true })
         .eq('id', assignmentId);
 

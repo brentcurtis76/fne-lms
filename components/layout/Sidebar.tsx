@@ -23,7 +23,8 @@ import {
   UserIcon,
   ClipboardDocumentListIcon,
   DocumentTextIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  ClipboardDocumentCheckIcon
 } from '@heroicons/react/24/outline';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
@@ -73,6 +74,13 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: UserCircleIcon,
     href: '/profile',
     description: 'Información personal'
+  },
+  {
+    id: 'assignments',
+    label: 'Mis Tareas',
+    icon: ClipboardDocumentCheckIcon,
+    href: '/assignments',
+    description: 'Gestión de tareas'
   },
   {
     id: 'courses',

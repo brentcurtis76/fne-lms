@@ -6,8 +6,10 @@ import Head from 'next/head';
 import { ArrowLeftIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../../../components/layout/MainLayout';
+import { ResponsiveFunctionalPageHeader } from '../../../../../components/layout/FunctionalPageHeader';
 import DeleteLessonModal from '../../../../../components/DeleteLessonModal';
 import MoveLessonModal from '../../../../../components/MoveLessonModal';
+import { BookOpen, Plus, Edit as EditIcon, ChevronLeft } from 'lucide-react';
 
 interface Module {
   id: string;
@@ -513,33 +515,41 @@ const ModuleDetailPage = () => {
     <MainLayout 
       user={user} 
       currentPage="courses"
-      pageTitle={module.title}
-      breadcrumbs={[
-        { label: 'Cursos', href: '/admin/course-builder' },
-        { label: courseTitle || 'Curso', href: `/admin/course-builder/${courseIdForLink}` },
-        { label: module.title }
-      ]}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<BookOpen />}
+        title={module.title}
+        subtitle={module.description || `${courseTitle} > Módulo ${module.order_number}`}
+        primaryAction={{
+          label: lessons.length === 0 ? 'Crear Primera Lección' : 'Crear Nueva Lección',
+          onClick: lessons.length === 0 ? handleCreateFirstLesson : handleCreateNewLesson,
+          icon: <Plus className="w-4 h-4" />
+        }}
+      >
+        <button
+          onClick={() => router.push(`/admin/course-builder/${module.course_id}`)}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+        >
+          <ChevronLeft className="w-4 h-4 inline mr-1" />
+          Volver al Curso
+        </button>
+        <button
+          onClick={() => router.push(`/admin/course-builder/${module.course_id}/${module.id}/edit`)}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+        >
+          <EditIcon className="w-4 h-4 inline mr-1" />
+          Editar Módulo
+        </button>
+      </ResponsiveFunctionalPageHeader>
+      
       <div className="px-4 md:px-8 py-4 md:py-8">
       <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-        <div className="mb-6">
-          <Link href={`/admin/course-builder/${module.course_id}`} legacyBehavior>
-            <a className="inline-flex items-center text-brand_blue hover:text-brand_yellow font-mont text-sm">
-              <ArrowLeftIcon className="h-5 w-5 mr-1" />
-              Volver a los detalles del curso
-            </a>
-          </Link>
-        </div>
-        <h1 className="text-3xl font-bold text-brand_blue mb-2 font-mont">
-          Módulo: {module.title}
-        </h1>
-        {module.description && (
-          <p className="text-gray-700 mb-6 text-md">{module.description}</p>
-        )}
-        <div className="mt-8 border-t pt-6">
+        <div className="mt-8">
           <h2 className="text-2xl font-semibold text-brand_blue mb-4 font-mont">Lecciones</h2>
           {lessons.length === 0 ? (
             <div className="text-center py-10 px-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">

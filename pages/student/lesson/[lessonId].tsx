@@ -6,6 +6,8 @@ import { ArrowLeft, ArrowRight, CheckCircle, Clock, Trophy, Star, BookOpen } fro
 import { toast } from 'react-hot-toast';
 import StudentBlockRenderer from '../../../components/student/StudentBlockRenderer';
 import MainLayout from '../../../components/layout/MainLayout';
+import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
+import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Types
 interface Block {
@@ -397,78 +399,91 @@ export default function StudentLessonViewer() {
     <MainLayout 
       user={user} 
       currentPage="courses"
-      pageTitle={lesson.title}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
-      <div className="min-h-screen bg-gray-100">
-        {/* Lesson Sub-Header */}
-        <div className="bg-white shadow-sm border-b px-4 py-3">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => {
-                  // If admin and we have complete lesson module info, go back to editor
-                  if (isAdmin && lesson?.module?.course_id && lesson?.module?.id) {
-                    router.push(`/admin/course-builder/${lesson.module.course_id}/${lesson.module.id}/${lessonId}`);
-                  } else if (isAdmin && lesson?.module_id && lesson?.module?.course_id) {
-                    // Fallback using module_id directly
-                    router.push(`/admin/course-builder/${lesson.module.course_id}/${lesson.module_id}/${lessonId}`);
-                  } else {
-                    // Fallback to browser back
-                    router.back();
-                  }
-                }}
-                className="text-[#00365b] hover:text-[#fdb933] transition"
-                title={isAdmin ? "Volver al Editor de Lección" : "Volver"}
-              >
-                <ArrowLeft size={24} />
-              </button>
-              <div>
-                <h1 className="text-xl font-bold text-[#00365b]">{lesson.title}</h1>
-                <p className="text-sm text-gray-600">
-                  {showCompletionPage ? (
-                    <>
-                      Lección completada
-                      {isAdmin && <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">ADMIN</span>}
-                    </>
-                  ) : (
-                    <>
-                      Bloque {currentBlockIndex + 1} de {blocks.length}
-                      {isAdmin && <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">ADMIN</span>}
-                    </>
-                  )}
-                </p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              {!showCompletionPage && isAdmin && (
-                <select
-                  value={currentBlockIndex}
-                  onChange={(e) => setCurrentBlockIndex(parseInt(e.target.value))}
-                  className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white"
-                >
-                  {blocks.map((block, index) => (
-                    <option key={block.id} value={index}>
-                      Bloque {index + 1}: {block.type}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <div className="text-sm text-gray-600">
-                Progreso: {showCompletionPage ? blocks.length : getEffectiveCompletedCount()}/{blocks.length} ({showCompletionPage ? 100 : getProgressPercentage()}%)
-              </div>
-              <div className="w-32 bg-gray-200 rounded-full h-2">
+      <ResponsiveFunctionalPageHeader
+        icon={<FileText />}
+        title={lesson.title}
+        subtitle={showCompletionPage ? "Lección completada" : `Bloque ${currentBlockIndex + 1} de ${blocks.length}`}
+      >
+        <button
+          onClick={() => {
+            if (isAdmin && lesson?.module?.course_id && lesson?.module?.id) {
+              router.push(`/admin/course-builder/${lesson.module.course_id}/${lesson.module.id}/${lessonId}`);
+            } else if (isAdmin && lesson?.module_id && lesson?.module?.course_id) {
+              router.push(`/admin/course-builder/${lesson.module.course_id}/${lesson.module_id}/${lessonId}`);
+            } else {
+              router.back();
+            }
+          }}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+        >
+          <ChevronLeft className="w-4 h-4 inline mr-1" />
+          {isAdmin ? "Volver al Editor" : "Volver"}
+        </button>
+        
+        <div className="flex items-center gap-3">
+          {!showCompletionPage && isAdmin && (
+            <select
+              value={currentBlockIndex}
+              onChange={(e) => setCurrentBlockIndex(parseInt(e.target.value))}
+              className="text-sm border border-gray-300 rounded-md px-2 py-1 bg-white"
+            >
+              {blocks.map((block, index) => (
+                <option key={block.id} value={index}>
+                  Bloque {index + 1}: {block.type}
+                </option>
+              ))}
+            </select>
+          )}
+          
+          <div className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md">
+            <span>Progreso:</span>
+            <div className="flex items-center gap-2">
+              <div className="w-24 bg-gray-200 rounded-full h-2">
                 <div 
                   className="bg-[#fdb933] h-2 rounded-full transition-all duration-300"
                   style={{ width: `${showCompletionPage ? 100 : getProgressPercentage()}%` }}
                 ></div>
               </div>
+              <span className="font-bold text-[#10B981]">
+                {showCompletionPage ? 100 : getProgressPercentage()}%
+              </span>
             </div>
           </div>
+          
+          {!showCompletionPage && (
+            <div className="flex gap-2">
+              <button
+                onClick={goToPreviousBlock}
+                disabled={currentBlockIndex === 0}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Bloque anterior"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={goToNextBlock}
+                disabled={!canProceedToNext()}
+                className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Siguiente bloque"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
+        
+        {isAdmin && (
+          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">ADMIN</span>
+        )}
+      </ResponsiveFunctionalPageHeader>
+      
+      <div className="min-h-screen bg-gray-100">
 
         {/* Main Content */}
         {showCompletionPage ? (

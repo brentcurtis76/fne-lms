@@ -85,7 +85,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Get assignment and course details for notification
     const { data: assignmentData } = await supabaseAdmin
-      .from('assignments')
+      .from('lesson_assignments')
       .select(`
         title,
         course_id,

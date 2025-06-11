@@ -26,6 +26,8 @@ import { Block, TextBlockPayload, VideoBlockPayload, ImageBlockPayload, QuizBloc
 import { Database } from '@/types/supabase';
 import { BLOCK_TYPES, getBlockConfig, getBlockSubtitle } from '@/config/blockTypes';
 import MainLayout from '@/components/layout/MainLayout';
+import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPageHeader';
+import { Pencil, Save, Eye, ChevronLeft } from 'lucide-react';
 import TextBlockEditor from '@/components/blocks/TextBlockEditor';
 import VideoBlockEditor from '@/components/blocks/VideoBlockEditor';
 import ImageBlockEditor from '@/components/blocks/ImageBlockEditor';
@@ -520,17 +522,47 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
     <MainLayout 
       user={user} 
       currentPage="courses"
-      pageTitle={lessonTitle}
-      breadcrumbs={[
-        { label: 'Cursos', href: '/admin/course-builder' },
-        { label: courseTitle || 'Curso', href: `/admin/course-builder/${courseId}` },
-        { label: moduleTitle || 'Módulo', href: `/admin/course-builder/${courseId}/${moduleId}` },
-        { label: lessonTitle || 'Lección' }
-      ]}
+      pageTitle=""
+      breadcrumbs={[]}
       isAdmin={isAdmin}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
+      <ResponsiveFunctionalPageHeader
+        icon={<Pencil />}
+        title={`Editor de Lección: ${lessonTitle}`}
+        subtitle={`${courseTitle} > ${moduleTitle}`}
+        primaryAction={{
+          label: hasUnsavedChanges ? 'Guardar Cambios' : 'Guardado',
+          onClick: handleSave,
+          icon: <Save className="w-4 h-4" />
+        }}
+      >
+        <button
+          onClick={() => router.push(`/admin/course-builder/${courseId}/${moduleId}`)}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+        >
+          <ChevronLeft className="w-4 h-4 inline mr-1" />
+          Volver al Módulo
+        </button>
+        <button
+          onClick={async () => {
+            if (hasUnsavedChanges) {
+              await handleSave();
+              setTimeout(() => {
+                window.open(`/student/lesson/${lessonIdString}`, '_blank');
+              }, 500);
+            } else {
+              window.open(`/student/lesson/${lessonIdString}`, '_blank');
+            }
+          }}
+          className="px-4 py-2 text-sm font-medium text-white bg-[#fdb933] rounded-md hover:bg-[#e5a52e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#fdb933]"
+        >
+          <Eye className="w-4 h-4 inline mr-1" />
+          Vista Previa
+        </button>
+      </ResponsiveFunctionalPageHeader>
+      
       <div className="px-4 py-8">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Simple Timeline Sidebar - NO DnD */}
@@ -611,70 +643,16 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
             <div className="bg-white p-8 rounded-lg shadow-lg">
             
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h1 className="text-3xl font-bold text-[#00365b]">Editor de Lección</h1>
-                {hasUnsavedChanges && (
-                  <div className="flex items-center gap-2 mt-2 text-amber-600">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                    <span className="text-sm font-medium">Hay cambios sin guardar</span>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => router.back()}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  ← Volver
-                </button>
-                <button
-                  onClick={async () => {
-                    if (hasUnsavedChanges) {
-                      await handleSave();
-                      // Small delay to ensure save completes
-                      setTimeout(() => {
-                        window.open(`/student/lesson/${lessonIdString}`, '_blank');
-                      }, 500);
-                    } else {
-                      window.open(`/student/lesson/${lessonIdString}`, '_blank');
-                    }
-                  }}
-                  className="px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors bg-[#fdb933] text-[#00365b] hover:bg-[#00365b] hover:text-white"
-                >
+            {hasUnsavedChanges && (
+              <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div className="flex items-center gap-2 text-amber-600">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
-                  Vista Previa
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={isLoading || !hasUnsavedChanges}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 font-medium transition-colors ${
-                    hasUnsavedChanges && !isLoading
-                      ? 'bg-[#00365b] text-white hover:bg-[#fdb933] hover:text-[#00365b]'
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                      Guardando...
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3-3m0 0l-3 3m3-3v12" />
-                      </svg>
-                      {hasUnsavedChanges ? 'Guardar Cambios' : 'Guardado'}
-                    </>
-                  )}
-                </button>
+                  <span className="text-sm font-medium">Hay cambios sin guardar</span>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Lesson Title */}
             <div className="mb-6">

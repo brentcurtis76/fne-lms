@@ -5,10 +5,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import Head from 'next/head';
 import { User } from '@supabase/supabase-js';
 import Sidebar from './Sidebar';
+import Avatar from '../common/Avatar';
 import { useAvatar } from '../../hooks/useAvatar';
+import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
 
 interface Breadcrumb {
   label: string;
@@ -45,6 +48,26 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   
   // Use the avatar hook for better performance
   const { url: fetchedAvatarUrl } = useAvatar(user);
+  
+  // Try to get avatar from cache immediately if not provided
+  const [cachedAvatarUrl, setCachedAvatarUrl] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (!avatarUrl && user) {
+      try {
+        const sessionCacheData = sessionStorage.getItem('fne-avatar-cache');
+        if (sessionCacheData) {
+          const sessionCache = JSON.parse(sessionCacheData);
+          const userCache = sessionCache[user.id];
+          if (userCache && userCache.url && Date.now() - userCache.timestamp < 1000 * 60 * 30) {
+            setCachedAvatarUrl(userCache.url);
+          }
+        }
+      } catch (e) {
+        // Ignore session storage errors
+      }
+    }
+  }, [user, avatarUrl]);
   
   // Initialize sidebar state from localStorage
   useEffect(() => {
@@ -109,7 +132,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           currentPage={currentPage}
           isCollapsed={sidebarCollapsed}
           isAdmin={isAdmin}
-          avatarUrl={avatarUrl !== null ? avatarUrl : fetchedAvatarUrl}
+          avatarUrl={avatarUrl || cachedAvatarUrl || fetchedAvatarUrl}
           onToggle={handleSidebarToggle}
           onLogout={handleLogout}
         />
@@ -118,6 +141,54 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         <div className={`min-h-screen transition-all duration-300 ${
           sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-80'
         }`}>
+          {/* Top Header Bar with Logout */}
+          <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
+            <div className="px-4 sm:px-6 lg:px-8 py-3">
+              <div className="flex items-center justify-between">
+                {/* Left side - can be empty or add page title here */}
+                <div className="flex-1">
+                  {/* Empty for now */}
+                </div>
+                
+                {/* Right side - User info and logout */}
+                <div className="flex items-center space-x-4">
+                  {/* User info with avatar - clickable */}
+                  {user && (
+                    <Link
+                      href="/profile"
+                      className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
+                    >
+                      <Avatar 
+                        user={user}
+                        avatarUrl={avatarUrl || cachedAvatarUrl || fetchedAvatarUrl}
+                        size="sm"
+                      />
+                      <div className="hidden sm:block">
+                        <p className="text-sm font-medium text-gray-900">
+                          {user.user_metadata?.first_name && user.user_metadata?.last_name
+                            ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+                            : user.email?.split('@')[0] || 'Usuario'
+                          }
+                        </p>
+                        <p className="text-xs text-gray-500">{isAdmin ? 'Administrador' : 'Usuario'}</p>
+                      </div>
+                    </Link>
+                  )}
+                  
+                  {/* Logout button */}
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 hover:text-[#ef4044] rounded-lg transition-all duration-200 group"
+                  >
+                    <ArrowRightOnRectangleIcon className="h-4 w-4 group-hover:text-[#ef4044]" />
+                    <span className="hidden sm:inline">Cerrar Sesión</span>
+                    <span className="sm:hidden">Salir</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
           {/* Content wrapper */}
           <div className="min-h-screen w-full">
             {/* Page Header with Breadcrumbs */}

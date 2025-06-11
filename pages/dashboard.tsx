@@ -20,6 +20,29 @@ export default function Dashboard() {
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [communityMembers, setCommunityMembers] = useState<Record<string, UserProfile[]>>({});
   
+  // Try to load avatar from cache immediately on component mount
+  useEffect(() => {
+    const loadCachedAvatar = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const cachedData = sessionStorage.getItem('fne-avatar-cache');
+          if (cachedData) {
+            const cache = JSON.parse(cachedData);
+            const userCache = cache[session.user.id];
+            if (userCache && userCache.url && Date.now() - userCache.timestamp < 1000 * 60 * 30) {
+              setAvatarUrl(userCache.url);
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore cache errors
+      }
+    };
+    
+    loadCachedAvatar();
+  }, []);
+  
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -44,6 +67,20 @@ export default function Dashboard() {
           
           // Always fetch profile data for all users (admin and non-admin)
           if (userData?.user) {
+            // First, try to get avatar from session storage cache
+            try {
+              const cachedData = sessionStorage.getItem('fne-avatar-cache');
+              if (cachedData) {
+                const cache = JSON.parse(cachedData);
+                const userCache = cache[userData.user.id];
+                if (userCache && userCache.url && Date.now() - userCache.timestamp < 1000 * 60 * 30) {
+                  setAvatarUrl(userCache.url);
+                }
+              }
+            } catch (e) {
+              // Ignore cache errors
+            }
+            
             const { data: profileData, error: profileError } = await supabase
               .from('profiles')
               .select('role, first_name, last_name, avatar_url, school, description')
@@ -65,6 +102,19 @@ export default function Dashboard() {
                 setAvatarUrl(profileData.avatar_url);
                 // Update the avatar cache
                 updateAvatarCache(userData.user.id, profileData.avatar_url);
+                
+                // Also update session storage cache
+                try {
+                  const cacheData = sessionStorage.getItem('fne-avatar-cache') || '{}';
+                  const cache = JSON.parse(cacheData);
+                  cache[userData.user.id] = {
+                    url: profileData.avatar_url,
+                    timestamp: Date.now()
+                  };
+                  sessionStorage.setItem('fne-avatar-cache', JSON.stringify(cache));
+                } catch (e) {
+                  // Ignore cache errors
+                }
               }
 
               // Fetch user roles and community information

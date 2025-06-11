@@ -26,7 +26,6 @@ import {
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
-import Avatar from '../common/Avatar';
 
 interface SidebarProps {
   user: User | null;
@@ -66,6 +65,13 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: HomeIcon,
     href: '/dashboard',
     description: 'Panel principal'
+  },
+  {
+    id: 'profile',
+    label: 'Mi Perfil',
+    icon: UserCircleIcon,
+    href: '/profile',
+    description: 'Información personal'
   },
   {
     id: 'courses',
@@ -189,7 +195,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const router = useRouter();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const [showUserMenu, setShowUserMenu] = useState(false);
 
 
   // Auto-expand parent items based on current page
@@ -237,22 +242,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   const filteredNavigationItems = NAVIGATION_ITEMS.filter(item => 
     !item.adminOnly || isAdmin
   );
-
-  const getUserInitials = (): string => {
-    if (!user?.email) return 'U';
-    const email = user.email.split('@')[0];
-    return email.slice(0, 2).toUpperCase();
-  };
-
-  const getUserDisplayName = (): string => {
-    if (user?.user_metadata?.first_name && user?.user_metadata?.last_name) {
-      const firstName = user.user_metadata.first_name.charAt(0).toUpperCase() + user.user_metadata.first_name.slice(1).toLowerCase();
-      const lastName = user.user_metadata.last_name.charAt(0).toUpperCase() + user.user_metadata.last_name.slice(1).toLowerCase();
-      return `${firstName} ${lastName}`;
-    }
-    const emailName = user?.email?.split('@')[0] || 'Usuario';
-    return emailName.charAt(0).toUpperCase() + emailName.slice(1).toLowerCase();
-  };
 
   const SidebarItem: React.FC<{ item: NavigationItem }> = ({ item }) => {
     const isExpanded = expandedItems.has(item.id);
@@ -439,76 +428,8 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* User Profile Section */}
-        <div className="border-b border-gray-200 p-2">
-          <div className="relative">
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className={`
-                group flex items-center w-full text-left transition-all duration-200 rounded-lg
-                ${isCollapsed ? 'px-3 py-3 justify-center' : 'px-3 py-3'}
-                text-gray-700 hover:bg-gray-100 hover:text-[#00365b]
-              `}
-              title={isCollapsed ? getUserDisplayName() : undefined}
-            >
-              {/* Avatar */}
-              <div className={`flex-shrink-0 ${isCollapsed ? '' : 'mr-3'}`}>
-                <Avatar 
-                  user={user}
-                  avatarUrl={avatarUrl}
-                  size="sm"
-                  className="rounded-lg"
-                />
-              </div>
-              
-              {!isCollapsed && (
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-gray-900 truncate">
-                    {getUserDisplayName()}
-                  </div>
-                  <div className="text-xs text-gray-500 truncate">
-                    {isAdmin ? 'Administrador' : 'Usuario'}
-                  </div>
-                </div>
-              )}
-              
-              {!isCollapsed && (
-                <ChevronDownIcon className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
-                  showUserMenu ? 'rotate-180' : ''
-                }`} />
-              )}
-            </button>
-
-            {/* User Menu Dropdown */}
-            {showUserMenu && !isCollapsed && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                <div className="py-1">
-                  <Link
-                    href="/profile"
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    <UserCircleIcon className="h-4 w-4 mr-2" />
-                    Mi Perfil
-                  </Link>
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onLogout();
-                    }}
-                    className="flex items-center w-full px-4 py-2 text-sm text-red-700 hover:bg-red-50"
-                  >
-                    <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
-                    Cerrar Sesión
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
         {/* Navigation Content */}
-        <div className="flex-1 overflow-y-auto py-4 px-2 space-y-1 max-h-[calc(100vh-12rem)]">
+        <div className="flex-1 overflow-y-auto py-4 px-2 space-y-1 max-h-[calc(100vh-8rem)]">
           {filteredNavigationItems.map(item => (
             <SidebarItem key={item.id} item={item} />
           ))}

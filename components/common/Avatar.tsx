@@ -69,12 +69,29 @@ export default function Avatar({ user, avatarUrl: propAvatarUrl, size = 'md', cl
 
     const userId = user.id;
     
-    // Check cache first
+    // Check in-memory cache first
     const cachedUrl = avatarCache.get(userId);
     if (cachedUrl && cachedUrl !== '') {
       setImageUrl(cachedUrl);
       setIsLoading(false);
       return;
+    }
+    
+    // Check session storage cache
+    try {
+      const sessionCacheData = sessionStorage.getItem('fne-avatar-cache');
+      if (sessionCacheData) {
+        const sessionCache = JSON.parse(sessionCacheData);
+        const userCache = sessionCache[userId];
+        if (userCache && userCache.url && Date.now() - userCache.timestamp < 1000 * 60 * 30) {
+          setImageUrl(userCache.url);
+          setIsLoading(false);
+          avatarCache.set(userId, userCache.url);
+          return;
+        }
+      }
+    } catch (e) {
+      // Ignore session storage errors
     }
 
     // Use provided avatar URL or generate fallback
@@ -96,6 +113,19 @@ export default function Avatar({ user, avatarUrl: propAvatarUrl, size = 'md', cl
           });
       }
       avatarCache.set(userId, propAvatarUrl);
+      
+      // Also update session storage cache
+      try {
+        const sessionCacheData = sessionStorage.getItem('fne-avatar-cache') || '{}';
+        const sessionCache = JSON.parse(sessionCacheData);
+        sessionCache[userId] = {
+          url: propAvatarUrl,
+          timestamp: Date.now()
+        };
+        sessionStorage.setItem('fne-avatar-cache', JSON.stringify(sessionCache));
+      } catch (e) {
+        // Ignore session storage errors
+      }
     } else {
       // Don't use external service, just show initials
       // Don't mark as error if we're still loading

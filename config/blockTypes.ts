@@ -4,7 +4,8 @@ import {
   Image, 
   HelpCircle, 
   FolderDown, 
-  ExternalLink 
+  ExternalLink,
+  Users
 } from 'lucide-react';
 
 export interface BlockTypeConfig {
@@ -71,6 +72,15 @@ export const BLOCK_TYPES: Record<string, BlockTypeConfig> = {
     icon: ExternalLink,
     iconColor: 'text-red-600',
     category: 'resources'
+  },
+  'group-assignment': {
+    type: 'group-assignment',
+    label: 'Tarea Grupal',
+    subtitle: 'Asignación colaborativa',
+    description: 'Tarea para grupos de estudiantes con entrega conjunta',
+    icon: Users,
+    iconColor: 'text-teal-600',
+    category: 'interactive'
   }
 } as const;
 
@@ -123,6 +133,8 @@ export const getBlockSubtitle = (block: any): string => {
       return `${block.payload?.files?.length || 0} archivo${(block.payload?.files?.length || 0) !== 1 ? 's' : ''}`;
     case 'external-links':
       return `${block.payload?.links?.length || 0} enlace${(block.payload?.links?.length || 0) !== 1 ? 's' : ''}`;
+    case 'group-assignment':
+      return `${block.payload?.groups?.length || 0} grupo${(block.payload?.groups?.length || 0) !== 1 ? 's' : ''}`;
     default:
       return config.subtitle;
   }

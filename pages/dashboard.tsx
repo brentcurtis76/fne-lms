@@ -90,11 +90,17 @@ export default function Dashboard() {
             
             const { data: profileData, error: profileError } = await supabase
               .from('profiles')
-              .select('role, first_name, last_name, avatar_url, school, description')
+              .select('role, first_name, last_name, avatar_url, school, description, must_change_password')
               .eq('id', userData.user.id)
               .single();
               
             if (profileData) {
+              // Check if user must change password
+              if (profileData.must_change_password) {
+                router.push('/change-password');
+                return;
+              }
+              
               setProfileData(profileData);
               
               // Check if user is admin from either metadata or profile
@@ -310,7 +316,7 @@ export default function Dashboard() {
                     user={user}
                     avatarUrl={avatarUrl}
                     size="lg"
-                    className="border-2 border-brand_yellow"
+                    className="ring-4 ring-[#fdb933] shadow-lg"
                   />
                   <div className="space-y-2">
                     <p className="text-white"><span className="font-semibold text-brand_yellow">Nombre:</span> {profileName || 'No disponible'}</p>

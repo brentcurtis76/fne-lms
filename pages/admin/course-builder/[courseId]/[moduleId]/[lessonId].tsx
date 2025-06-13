@@ -22,7 +22,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Block, TextBlockPayload, VideoBlockPayload, ImageBlockPayload, QuizBlockPayload, DownloadBlockPayload, ExternalLinksBlockPayload } from '@/types/blocks';
+import { Block, TextBlockPayload, VideoBlockPayload, ImageBlockPayload, QuizBlockPayload, DownloadBlockPayload, ExternalLinksBlockPayload, GroupAssignmentBlockPayload, GroupAssignmentBlock } from '@/types/blocks';
 import { Database } from '@/types/supabase';
 import { BLOCK_TYPES, getBlockConfig, getBlockSubtitle } from '@/config/blockTypes';
 import MainLayout from '@/components/layout/MainLayout';
@@ -34,6 +34,8 @@ import ImageBlockEditor from '@/components/blocks/ImageBlockEditor';
 import QuizBlockEditor from '@/components/blocks/QuizBlockEditor';
 import FileDownloadBlockEditor from '@/components/blocks/FileDownloadBlockEditor';
 import ExternalLinkBlockEditor from '@/components/blocks/ExternalLinkBlockEditor';
+import GroupAssignmentBlockEditor from '@/components/blocks/GroupAssignmentBlockEditor';
+import { createGroupAssignmentFromBlock } from '@/lib/services/simpleGroupAssignments';
 
 type Lesson = Database['public']['Tables']['lessons']['Row'] & {
   blocks?: Block[];
@@ -207,7 +209,32 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
         });
 
         if (!saveError) {
-          setBlocks(newBlocks); 
+          setBlocks(newBlocks);
+          
+          // Create group assignments for any group-assignment blocks
+          const groupAssignmentPromises = newBlocks
+            .filter(block => block.type === 'group-assignment')
+            .map(async (block) => {
+              return createGroupAssignmentFromBlock(block, lessonIdString, courseId);
+            });
+          
+          if (groupAssignmentPromises.length > 0) {
+            try {
+              const assignmentResults = await Promise.all(groupAssignmentPromises);
+              const failedAssignments = assignmentResults.filter(result => result.error);
+              
+              if (failedAssignments.length > 0) {
+                console.error('Failed to create some group assignments:', failedAssignments);
+                toast.error('Algunas tareas grupales no se pudieron crear correctamente');
+              } else if (assignmentResults.length > 0) {
+                toast.success(`${assignmentResults.length} tarea(s) grupal(es) creada(s) exitosamente`);
+              }
+            } catch (error) {
+              console.error('Error creating group assignments:', error);
+              toast.error('Error al crear las tareas grupales');
+            }
+          }
+          
           setHasUnsavedChanges(false);
           toast.success('Lesson saved successfully!');
         }
@@ -224,7 +251,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
     }
   }, [lessonIdString, lessonTitle, blocks, courseId, supabase]);
 
-  const handleAddBlock = (type: 'text' | 'video' | 'image' | 'quiz' | 'download' | 'external-links') => {
+  const handleAddBlock = (type: 'text' | 'video' | 'image' | 'quiz' | 'download' | 'external-links' | 'group-assignment') => {
     let payload: any;
     switch (type) {
       case 'text':
@@ -267,6 +294,16 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
           showThumbnails: true,
           showDescriptions: true,
         } as ExternalLinksBlockPayload;
+        break;
+      case 'group-assignment':
+        payload = {
+          title: '',
+          description: '',
+          instructions: '',
+          due_date: '',
+          points: 0,
+          groups: []
+        } as GroupAssignmentBlockPayload;
         break;
     }
     const newBlockId = `new-${Date.now()}`;
@@ -809,6 +846,20 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                             onDelete={handleDeleteBlock}
                             isCollapsed={collapsedBlocks.has(block.id)}
                             onToggleCollapse={() => toggleBlockCollapse(block.id)}
+                          />
+                        )}
+                        {block.type === 'group-assignment' && (
+                          <GroupAssignmentBlockEditor
+                            block={block as GroupAssignmentBlock}
+                            onChange={(payload) => {
+                              setBlocks(blocks.map(b => 
+                                b.id === block.id ? { ...b, payload } : b
+                              ) as Block[]);
+                              setHasUnsavedChanges(true);
+                            }}
+                            onDelete={() => handleDeleteBlock(block.id)}
+                            mode={collapsedBlocks.has(block.id) ? 'preview' : 'edit'}
+                            courseId={courseId}
                           />
                         )}
                       </div>

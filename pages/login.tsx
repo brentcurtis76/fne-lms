@@ -15,11 +15,29 @@ export default function LoginPage() {
 
   // Debug Supabase configuration
   useEffect(() => {
-    console.log('Supabase config check:', {
+    console.log('[Login Page] Supabase config check:', {
       url: process.env.NEXT_PUBLIC_SUPABASE_URL,
       keyExists: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      supabaseInstance: !!supabase
+      keyLength: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.length,
+      supabaseInstance: !!supabase,
+      timestamp: new Date().toISOString()
     });
+    
+    // Test the connection immediately
+    const testConnection = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        console.log('[Login Page] Session check:', {
+          hasSession: !!data?.session,
+          error: error?.message,
+          errorStatus: error?.status
+        });
+      } catch (e) {
+        console.error('[Login Page] Session check exception:', e);
+      }
+    };
+    
+    testConnection();
   }, []);
 
   useEffect(() => {
@@ -70,21 +88,40 @@ export default function LoginPage() {
       }
 
       if (error) {
+        console.error('[Login Page] Auth error details:', {
+          message: error.message,
+          status: error.status,
+          name: error.name,
+          details: error
+        });
         setMessage('Login failed: ' + error.message);
       } else {
         setMessage('Login successful!');
         
-        // Check if profile is complete and redirect accordingly
+        // Check if profile is complete and if password change is required
         const userId = data.user?.id;
         if (userId) {
-          const isProfileComplete = await checkProfileCompletion(userId);
+          // First check if user must change password
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('must_change_password')
+            .eq('id', userId)
+            .single();
           
-          if (isProfileComplete) {
-            // If profile is complete, redirect to dashboard
-            router.push('/dashboard');
+          if (profile?.must_change_password) {
+            // Redirect to password change page
+            router.push('/change-password');
           } else {
-            // If profile is incomplete, redirect to profile page
-            router.push('/profile');
+            // Check if profile is complete
+            const isProfileComplete = await checkProfileCompletion(userId);
+            
+            if (isProfileComplete) {
+              // If profile is complete, redirect to dashboard
+              router.push('/dashboard');
+            } else {
+              // If profile is incomplete, redirect to profile page
+              router.push('/profile');
+            }
           }
         } else {
           // Fallback if user ID is not available

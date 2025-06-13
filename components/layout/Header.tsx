@@ -258,7 +258,7 @@ export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarU
                     user={localUser} 
                     avatarUrl={avatarUrl}
                     size="md"
-                    className="ring-2 ring-[#fdb933] shadow-lg hover:ring-4 transition-all duration-300"
+                    className="ring-2 ring-[#fdb933] ring-offset-2 ring-offset-[#00365b] shadow-lg hover:ring-4 transition-all duration-300"
                   />
                 </div>
                 

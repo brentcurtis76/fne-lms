@@ -57,9 +57,37 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
   };
 
   const updateQuestion = (questionId: string, field: keyof QuizQuestion, value: any) => {
-    const updatedQuestions = block.payload.questions.map(q =>
-      q.id === questionId ? { ...q, [field]: value } : q
-    );
+    const updatedQuestions = block.payload.questions.map(q => {
+      if (q.id === questionId) {
+        const updated = { ...q, [field]: value };
+        
+        // Handle type changes
+        if (field === 'type') {
+          if (value === 'true-false') {
+            // Set up true/false options
+            updated.options = [
+              { id: generateId(), text: 'Verdadero', isCorrect: false },
+              { id: generateId(), text: 'Falso', isCorrect: false }
+            ];
+          } else if (value === 'multiple-choice' && q.type !== 'multiple-choice') {
+            // Set up default multiple choice options
+            updated.options = [
+              { id: generateId(), text: '', isCorrect: false },
+              { id: generateId(), text: '', isCorrect: false },
+              { id: generateId(), text: '', isCorrect: false },
+              { id: generateId(), text: '', isCorrect: false }
+            ];
+          } else if (value === 'open-ended') {
+            // Clear options for open-ended questions
+            updated.options = [];
+          }
+        }
+        
+        return updated;
+      }
+      return q;
+    });
+    
     onUpdate(block.id, 'questions', updatedQuestions);
     if (field === 'points') {
       updateTotalPoints(updatedQuestions);
@@ -311,6 +339,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                           >
                             <option value="multiple-choice">Opción múltiple</option>
                             <option value="true-false">Verdadero/Falso</option>
+                            <option value="open-ended">Pregunta abierta</option>
                           </select>
                         </div>
                         <div>
@@ -329,57 +358,105 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                         </div>
                       </div>
 
-                      {/* Options */}
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <label className="block text-sm font-medium text-gray-700">
-                            Opciones de respuesta
-                          </label>
-                          {question.type === 'multiple-choice' && question.options.length < 6 && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => addOption(question.id)}
-                            >
-                              <Plus size={14} className="mr-1" />
-                              Agregar opción
-                            </Button>
-                          )}
+                      {/* Options for multiple choice and true/false */}
+                      {question.type !== 'open-ended' && (
+                        <div>
+                          <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                              Opciones de respuesta
+                            </label>
+                            {question.type === 'multiple-choice' && question.options.length < 6 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => addOption(question.id)}
+                              >
+                                <Plus size={14} className="mr-1" />
+                                Agregar opción
+                              </Button>
+                            )}
+                          </div>
+                          <div className="space-y-2">
+                            {question.options.map((option, optionIndex) => (
+                              <div key={option.id} className="flex items-center gap-2">
+                                <span className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium">
+                                  {String.fromCharCode(65 + optionIndex)}
+                                </span>
+                                <input
+                                  type="text"
+                                  value={option.text}
+                                  onChange={(e) => updateOption(question.id, option.id, 'text', e.target.value)}
+                                  placeholder={`Opción ${String.fromCharCode(65 + optionIndex)}`}
+                                  className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                                />
+                                <input
+                                  type="radio"
+                                  name={`correct-${question.id}`}
+                                  checked={option.isCorrect}
+                                  onChange={() => setCorrectAnswer(question.id, option.id)}
+                                  className="form-radio text-[#00365b]"
+                                />
+                                <label className="text-xs text-gray-500">Correcta</label>
+                                {question.options.length > 2 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeOption(question.id, option.id)}
+                                  >
+                                    <Trash2 size={14} className="text-[#ef4044]" />
+                                  </Button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          {question.options.map((option, optionIndex) => (
-                            <div key={option.id} className="flex items-center gap-2">
-                              <span className="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-xs font-medium">
-                                {String.fromCharCode(65 + optionIndex)}
-                              </span>
-                              <input
-                                type="text"
-                                value={option.text}
-                                onChange={(e) => updateOption(question.id, option.id, 'text', e.target.value)}
-                                placeholder={`Opción ${String.fromCharCode(65 + optionIndex)}`}
-                                className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                              />
-                              <input
-                                type="radio"
-                                name={`correct-${question.id}`}
-                                checked={option.isCorrect}
-                                onChange={() => setCorrectAnswer(question.id, option.id)}
-                                className="form-radio text-[#00365b]"
-                              />
-                              <label className="text-xs text-gray-500">Correcta</label>
-                              {question.options.length > 2 && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeOption(question.id, option.id)}
-                                >
-                                  <Trash2 size={14} className="text-[#ef4044]" />
-                                </Button>
-                              )}
-                            </div>
-                          ))}
+                      )}
+
+                      {/* Open-ended specific fields */}
+                      {question.type === 'open-ended' && (
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Límite de caracteres (opcional)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="50"
+                              value={question.characterLimit || ''}
+                              onChange={(e) => updateQuestion(question.id, 'characterLimit', e.target.value ? parseInt(e.target.value) : undefined)}
+                              placeholder="Sin límite"
+                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Respuesta esperada (referencia para el consultor)
+                            </label>
+                            <textarea
+                              value={question.expectedAnswer || ''}
+                              onChange={(e) => updateQuestion(question.id, 'expectedAnswer', e.target.value)}
+                              placeholder="Escriba aquí la respuesta modelo o puntos clave esperados..."
+                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                              rows={3}
+                            />
+                          </div>
+                          
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Guía de calificación (instrucciones para el consultor)
+                            </label>
+                            <textarea
+                              value={question.gradingGuidelines || ''}
+                              onChange={(e) => updateQuestion(question.id, 'gradingGuidelines', e.target.value)}
+                              placeholder="Ej: Asignar puntos completos si menciona X, Y y Z. Deducir 50% si falta algún elemento clave..."
+                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                              rows={2}
+                            />
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">

@@ -47,6 +47,7 @@ interface NavigationItem {
   href?: string;
   description?: string;
   adminOnly?: boolean;
+  consultantOnly?: boolean;
   children?: NavigationChild[];
   isExpanded?: boolean;
 }
@@ -83,6 +84,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     description: 'Gestión de tareas'
   },
   {
+    id: 'quiz-reviews',
+    label: 'Revisión de Quizzes',
+    icon: ClipboardDocumentCheckIcon,
+    href: '/quiz-reviews',
+    description: 'Calificar preguntas abiertas',
+    consultantOnly: true
+  },
+  {
     id: 'courses',
     label: 'Cursos',
     icon: BookOpenIcon,
@@ -92,13 +101,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         id: 'course-builder',
         label: 'Constructor de Cursos',
         href: '/admin/course-builder',
-        description: 'Crear y editar cursos'
+        description: 'Crear y editar cursos',
+        adminOnly: true
       },
       {
         id: 'course-manager',
-        label: 'Gestor de Cursos',
+        label: 'Mis Cursos',
         href: '/course-manager',
-        description: 'Administrar cursos existentes'
+        description: 'Ver cursos asignados'
       }
     ]
   },
@@ -248,19 +258,22 @@ const Sidebar: React.FC<SidebarProps> = ({
     setExpandedItems(newExpanded);
   };
 
-  const filteredNavigationItems = NAVIGATION_ITEMS.filter(item => 
-    !item.adminOnly || isAdmin
-  );
+  const filteredNavigationItems = NAVIGATION_ITEMS.filter(item => {
+    if (item.adminOnly && !isAdmin) return false;
+    if (item.consultantOnly && !['admin', 'consultor', 'equipo_directivo'].includes(user?.role || '')) return false;
+    return true;
+  });
 
   const SidebarItem: React.FC<{ item: NavigationItem }> = ({ item }) => {
     const isExpanded = expandedItems.has(item.id);
-    const hasChildren = item.children && item.children.length > 0;
-    const isActive = item.href ? isItemActive(item.href, router.pathname) : false;
     
     // Filter children based on admin status
     const filteredChildren = item.children?.filter(child => 
       !child.adminOnly || isAdmin
     ) || [];
+    
+    const hasChildren = filteredChildren.length > 0;
+    const isActive = item.href ? isItemActive(item.href, router.pathname) : false;
 
     const handleClick = async () => {
       if (hasChildren) {

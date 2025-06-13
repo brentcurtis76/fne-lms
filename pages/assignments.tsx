@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../components/layout/MainLayout';
-import { ClipboardDocumentCheckIcon, PlusIcon } from '@heroicons/react/24/outline';
+import { ClipboardDocumentCheckIcon } from '@heroicons/react/24/outline';
 import { useAvatar } from '../hooks/useAvatar';
 import { assignmentService } from '../lib/services/assignments';
 
@@ -22,11 +22,9 @@ export default function AssignmentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [workStats, setWorkStats] = useState<any>(null);
-  const [courses, setCourses] = useState<any[]>([]);
   
   // View states
-  const [activeTab, setActiveTab] = useState<'list' | 'new' | 'edit'>('list');
-  const [editingAssignment, setEditingAssignment] = useState<any | null>(null);
+  const [activeTab] = useState<'list'>('list');
   
   // Use avatar hook for performance
   const { url: avatarUrl } = useAvatar(user);
@@ -104,12 +102,6 @@ export default function AssignmentsPage() {
           published: activeAssignments.length
         });
         
-        // Load courses for assignment creation
-        const { data: coursesData } = await supabase
-          .from('courses')
-          .select('id, title')
-          .order('title');
-        setCourses(coursesData || []);
       } else {
         // Students see assignments from enrolled courses
         const data = await assignmentService.getStudentAssignments(userId);
@@ -157,41 +149,7 @@ export default function AssignmentsPage() {
     }
   };
 
-  const handleCreateAssignment = async (data: any) => {
-    try {
-      await assignmentService.create({
-        ...data,
-        created_by: user.id
-      });
-      
-      toast.success('Tarea creada exitosamente');
-      await loadAssignments(user.id, userRole);
-      setActiveTab('list');
-    } catch (error) {
-      console.error('Error creating assignment:', error);
-      toast.error('Error al crear la tarea');
-    }
-  };
 
-  const handleUpdateAssignment = async (data: any) => {
-    if (!editingAssignment) return;
-    
-    try {
-      const { error } = await supabase
-        .from('lesson_assignments')
-        .update(data)
-        .eq('id', editingAssignment.id);
-      
-      if (error) throw error;
-      toast.success('Tarea actualizada exitosamente');
-      await loadAssignments(user.id, userRole);
-      setActiveTab('list');
-      setEditingAssignment(null);
-    } catch (error) {
-      console.error('Error updating assignment:', error);
-      toast.error('Error al actualizar la tarea');
-    }
-  };
 
   const handleDeleteAssignment = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar esta tarea?')) return;
@@ -265,15 +223,6 @@ export default function AssignmentsPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue"
                 />
               </div>
-              {isTeacher && (
-                <button
-                  onClick={() => setActiveTab('new')}
-                  className="flex items-center px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700 transition"
-                >
-                  <PlusIcon className="w-5 h-5 mr-2" />
-                  Nueva Tarea
-                </button>
-              )}
             </div>
           </div>
 
@@ -395,7 +344,7 @@ export default function AssignmentsPage() {
                     {searchQuery 
                       ? 'No se encontraron tareas que coincidan con tu búsqueda'
                       : isTeacher 
-                        ? 'No has creado ninguna tarea aún' 
+                        ? 'No hay tareas creadas en las lecciones aún' 
                         : 'No tienes tareas asignadas en tus cursos activos'
                     }
                   </p>
@@ -403,14 +352,6 @@ export default function AssignmentsPage() {
                     <p className="text-sm text-gray-400 mt-2">
                       Las tareas aparecerán aquí cuando tus profesores las publiquen en los cursos donde estás inscrito
                     </p>
-                  )}
-                  {isTeacher && !searchQuery && (
-                    <button
-                      onClick={() => setActiveTab('new')}
-                      className="mt-4 px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-brand_yellow hover:text-brand_blue transition"
-                    >
-                      Crear primera tarea
-                    </button>
                   )}
                 </div>
               ) : (
@@ -434,7 +375,24 @@ export default function AssignmentsPage() {
                       </div>
                       
                       <div className="flex justify-between items-start mb-4">
-                        <h3 className="text-lg font-semibold text-gray-900">{assignment.title}</h3>
+                        <div>
+                          <h3 className="text-lg font-semibold text-gray-900">{assignment.title}</h3>
+                          {assignment.assignment_type === 'group' && (
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-teal-100 text-teal-800">
+                                <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                                </svg>
+                                Tarea Grupal
+                              </span>
+                              {assignment.student_group && (
+                                <span className="text-xs text-gray-600">
+                                  {assignment.student_group.group_name}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         {isTeacher ? (
                           assignment.is_published ? (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -461,6 +419,37 @@ export default function AssignmentsPage() {
                       </div>
                       
                       <p className="text-gray-600 mb-4 line-clamp-2">{assignment.description}</p>
+                      
+                      {/* Group Members Display for Students */}
+                      {assignment.assignment_type === 'group' && assignment.student_group && isStudent && (
+                        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs font-medium text-gray-700 mb-2">Tu grupo:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {assignment.group_members?.map((member: any) => (
+                              <span key={member.user_id} className="text-xs px-2 py-1 bg-white rounded border border-gray-200">
+                                {member.full_name}
+                              </span>
+                            ))}
+                          </div>
+                          {assignment.has_group_submission && (
+                            <div className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                              Trabajo grupal entregado
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Show message if student is not in a group */}
+                      {assignment.assignment_type === 'group' && !assignment.student_group && isStudent && (
+                        <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                          <p className="text-xs text-yellow-800">
+                            ⚠️ No estás asignado a ningún grupo para esta tarea. Contacta a tu profesor.
+                          </p>
+                        </div>
+                      )}
                       
                       <div className="flex flex-col gap-2">
                         <div className="flex justify-between items-center text-sm">
@@ -510,122 +499,6 @@ export default function AssignmentsPage() {
             </div>
           )}
 
-          {activeTab === 'new' && isTeacher && (
-            <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
-              <h2 className="text-xl font-bold mb-4">Crear Nueva Tarea</h2>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                handleCreateAssignment({
-                  title: formData.get('title') as string,
-                  description: formData.get('description') as string,
-                  course_id: formData.get('course_id') as string,
-                  points: parseInt(formData.get('points') as string) || 0,
-                  due_date: formData.get('due_date') as string,
-                  assignment_type: formData.get('assignment_type') as string,
-                  is_published: formData.get('is_published') === 'on'
-                });
-              }}>
-                <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Curso *</label>
-                  <select
-                    name="course_id"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue"
-                  >
-                    <option value="">Seleccionar curso</option>
-                    {courses.map(course => (
-                      <option key={course.id} value={course.id}>
-                        {course.title}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                
-                <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Título *</label>
-                  <input
-                    name="title"
-                    type="text"
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue"
-                  />
-                </div>
-                
-                <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Descripción</label>
-                  <textarea
-                    name="description"
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 mb-4">
-                  <div>
-                    <label className="block text-gray-700 mb-2">Tipo de tarea</label>
-                    <select
-                      name="assignment_type"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue"
-                    >
-                      <option value="task">Tarea</option>
-                      <option value="quiz">Cuestionario</option>
-                      <option value="project">Proyecto</option>
-                      <option value="essay">Ensayo</option>
-                      <option value="presentation">Presentación</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-gray-700 mb-2">Puntos</label>
-                    <input
-                      name="points"
-                      type="number"
-                      defaultValue={100}
-                      min={0}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue"
-                    />
-                  </div>
-                </div>
-                
-                <div className="mb-4">
-                  <label className="block text-gray-700 mb-2">Fecha límite</label>
-                  <input
-                    name="due_date"
-                    type="datetime-local"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue"
-                  />
-                </div>
-                
-                <div className="mb-6">
-                  <label className="flex items-center">
-                    <input
-                      name="is_published"
-                      type="checkbox"
-                      className="mr-2 rounded"
-                    />
-                    <span className="text-gray-700">Publicar inmediatamente</span>
-                  </label>
-                </div>
-                
-                <div className="flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('list')}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 transition"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700 transition"
-                  >
-                    Crear Tarea
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
         </div>
       </MainLayout>
     </>

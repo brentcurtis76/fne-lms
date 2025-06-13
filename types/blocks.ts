@@ -68,7 +68,7 @@ export interface ExternalLinksBlockPayload {
 export interface QuizQuestion {
   id: string;
   question: string;
-  type: 'multiple-choice' | 'true-false';
+  type: 'multiple-choice' | 'true-false' | 'open-ended';
   options: Array<{
     id: string;
     text: string;
@@ -77,6 +77,10 @@ export interface QuizQuestion {
   points: number;
   explanation?: string;
   timeLimit?: number; // seconds
+  // Open-ended specific fields
+  characterLimit?: number;
+  gradingGuidelines?: string; // Instructions for the consultant on how to grade
+  expectedAnswer?: string; // Reference answer for consultants
 }
 
 export interface QuizBlockPayload {
@@ -92,8 +96,33 @@ export interface QuizBlockPayload {
   randomizeAnswers: boolean;
 }
 
+export interface GroupMember {
+  user_id: string;
+  full_name: string;
+  email?: string;
+}
+
+export interface GroupData {
+  group_id: string;
+  group_name: string;
+  members: GroupMember[];
+  submission?: {
+    file_url: string;
+    submitted_at: string;
+    submitted_by: string;
+  };
+}
+
+export interface GroupAssignmentBlockPayload {
+  title: string;
+  description?: string;
+  instructions?: string;
+  due_date?: string; // ISO date string
+  groups: GroupData[];
+}
+
 // Base Block Structure
-export type BlockType = 'text' | 'image' | 'video' | 'quiz' | 'download' | 'external-links';
+export type BlockType = 'text' | 'image' | 'video' | 'quiz' | 'download' | 'external-links' | 'group-assignment';
 
 export interface BaseBlock {
   id: string; // UUID
@@ -135,5 +164,10 @@ export interface QuizBlock extends BaseBlock {
   payload: QuizBlockPayload;
 }
 
+export interface GroupAssignmentBlock extends BaseBlock {
+  type: 'group-assignment';
+  payload: GroupAssignmentBlockPayload;
+}
+
 // Union type for all possible blocks
-export type Block = TextBlock | ImageBlock | VideoBlock | DownloadBlock | ExternalLinksBlock | QuizBlock;
+export type Block = TextBlock | ImageBlock | VideoBlock | DownloadBlock | ExternalLinksBlock | QuizBlock | GroupAssignmentBlock;

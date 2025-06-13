@@ -13,9 +13,11 @@ const CourseManagerPage: React.FC = () => {
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [userRole, setUserRole] = useState<string>('');
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [assignedCourses, setAssignedCourses] = useState<any[]>([]);
   
   // Authentication logic
   useEffect(() => {
@@ -37,9 +39,33 @@ const CourseManagerPage: React.FC = () => {
           .single();
         
         if (profileData) {
+          setUserRole(profileData.role);
           setIsAdmin(profileData.role === 'admin');
           if (profileData.avatar_url) {
             setAvatarUrl(profileData.avatar_url);
+          }
+          
+          // If not admin, fetch only assigned courses
+          if (profileData.role !== 'admin') {
+            const { data: assignments } = await supabase
+              .from('course_assignments')
+              .select(`
+                course_id,
+                courses (
+                  id,
+                  title,
+                  description,
+                  thumbnail_url,
+                  instructor_id,
+                  created_at
+                )
+              `)
+              .eq('teacher_id', session.user.id);
+              
+            if (assignments) {
+              const courses = assignments.map(a => a.courses).filter(Boolean);
+              setAssignedCourses(courses);
+            }
           }
         }
       } catch (error) {
@@ -100,46 +126,90 @@ const CourseManagerPage: React.FC = () => {
       <ResponsiveFunctionalPageHeader
         icon={<FolderOpen />}
         title="Gestor de Cursos"
-        subtitle="Administra y organiza todos los cursos del sistema"
+        subtitle={isAdmin ? "Administra y organiza todos los cursos del sistema" : "Cursos asignados a ti"}
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Buscar cursos por título o instructor..."
+        searchPlaceholder="Buscar cursos por título..."
       />
       
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="max-w-6xl mx-auto">
             
-            {/* Course Builder Form Section */}
-            <div className="mb-12 bg-white rounded-lg shadow-md">
-              <div className="p-6 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-brand_blue">Agregar Nuevo Curso</h2>
-                <p className="text-gray-500 text-sm mt-1">
-                  Completa el formulario para crear un nuevo curso
-                </p>
+            {/* Course Builder Form Section - Only for Admins */}
+            {isAdmin && (
+              <div className="mb-12 bg-white rounded-lg shadow-md">
+                <div className="p-6 border-b border-gray-200">
+                  <h2 className="text-xl font-semibold text-brand_blue">Agregar Nuevo Curso</h2>
+                  <p className="text-gray-500 text-sm mt-1">
+                    Completa el formulario para crear un nuevo curso
+                  </p>
+                </div>
+                
+                <div className="p-6">
+                  <CourseBuilderForm 
+                    onSuccess={handleCourseAdded} 
+                  />
+                </div>
               </div>
-              
-              <div className="p-6">
-                <CourseBuilderForm 
-                  onSuccess={handleCourseAdded} 
-                />
-              </div>
-            </div>
+            )}
             
             {/* Course List Section */}
             <div className="bg-white rounded-lg shadow-md">
               <div className="p-6 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-brand_blue">Tus Cursos</h2>
+                <h2 className="text-xl font-semibold text-brand_blue">
+                  {isAdmin ? 'Todos los Cursos' : 'Mis Cursos Asignados'}
+                </h2>
                 <p className="text-gray-500 text-sm mt-1">
-                  Gestiona tus cursos existentes
+                  {isAdmin ? 'Gestiona todos los cursos del sistema' : 'Cursos en los que eres instructor'}
                 </p>
               </div>
               
               <div className="p-6">
-                <CourseList 
-                  key={refreshTrigger}
-                  showInstructor={true}
-                  limit={20}
-                />
+                {isAdmin ? (
+                  <CourseList 
+                    key={refreshTrigger}
+                    showInstructor={true}
+                    limit={20}
+                  />
+                ) : (
+                  <div className="space-y-4">
+                    {assignedCourses.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-500">No tienes cursos asignados aún.</p>
+                        <p className="text-sm text-gray-400 mt-2">
+                          Los administradores pueden asignarte cursos para que puedas gestionarlos.
+                        </p>
+                      </div>
+                    ) : (
+                      assignedCourses
+                        .filter(course => 
+                          !searchQuery || 
+                          course.title.toLowerCase().includes(searchQuery.toLowerCase())
+                        )
+                        .map(course => (
+                          <div key={course.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <h3 className="text-lg font-semibold text-gray-900">{course.title}</h3>
+                                <p className="text-gray-600 mt-1">{course.description}</p>
+                                <p className="text-sm text-gray-500 mt-2">
+                                  Creado: {new Date(course.created_at).toLocaleDateString('es-ES')}
+                                </p>
+                              </div>
+                              <div className="ml-4">
+                                <a
+                                  href={`/admin/course-builder/${course.id}`}
+                                  className="inline-flex items-center px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700 transition"
+                                >
+                                  Gestionar
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

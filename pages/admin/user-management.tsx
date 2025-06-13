@@ -414,6 +414,9 @@ export default function UserManagement() {
   const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prevent double submission
+    if (isCreating) return;
+    
     if (!newUserEmail.trim() || !newUserPassword.trim()) {
       toast.error('Email y contraseña son obligatorios', {
         duration: 4000,
@@ -429,40 +432,42 @@ export default function UserManagement() {
 
     setIsCreating(true);
     try {
-      // Create user with Supabase Auth
-      const { data, error } = await supabase.auth.signUp({
-        email: newUserEmail,
-        password: newUserPassword,
-        options: {
-          data: {
-            role: newUserRole
-          }
-        }
+      // Get the current user's auth token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session');
+      }
+
+      // Call the API endpoint to create user with admin privileges
+      const response = await fetch('/api/admin/create-user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          email: newUserEmail,
+          password: newUserPassword,
+          firstName: newUserFirstName,
+          lastName: newUserLastName,
+          role: newUserRole
+        })
       });
 
-      if (error) throw error;
+      const result = await response.json();
 
-      if (data.user) {
-        // Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            email: newUserEmail,
-            first_name: newUserFirstName,
-            last_name: newUserLastName,
-            role: newUserRole
-          });
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create user');
+      }
 
-        if (profileError) throw profileError;
-
+      if (result.success && result.user) {
         // Add to local state
         const newUser: User = {
-          id: data.user.id,
-          email: newUserEmail,
-          first_name: newUserFirstName,
-          last_name: newUserLastName,
-          role: newUserRole,
+          id: result.user.id,
+          email: result.user.email,
+          first_name: result.user.firstName,
+          last_name: result.user.lastName,
+          role: result.user.role,
           school: '',
           created_at: new Date().toISOString(),
           approval_status: 'approved' // Admin-created users are auto-approved
@@ -478,8 +483,8 @@ export default function UserManagement() {
         setNewUserRole('docente');
         setShowAddForm(false);
         
-        toast.success('Usuario creado correctamente', {
-          duration: 4000,
+        toast.success('Usuario creado correctamente. El usuario deberá cambiar su contraseña en el primer inicio de sesión.', {
+          duration: 5000,
           position: 'top-right',
           style: {
             background: '#10B981',
@@ -490,7 +495,16 @@ export default function UserManagement() {
       }
     } catch (error: any) {
       console.error('Error creating user:', error);
-      toast.error(`Error al crear usuario: ${error.message}`, {
+      
+      // Check for specific error types
+      let errorMessage = error.message;
+      if (error.message?.includes('duplicate key') || error.message?.includes('already registered')) {
+        errorMessage = 'Este email ya está registrado en el sistema';
+      } else if (error.code === '23505') {
+        errorMessage = 'El usuario ya existe';
+      }
+      
+      toast.error(`Error al crear usuario: ${errorMessage}`, {
         duration: 5000,
         position: 'top-right',
         style: {

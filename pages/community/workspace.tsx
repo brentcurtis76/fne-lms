@@ -99,11 +99,6 @@ import {
   DEFAULT_ACTIVITY_FILTERS
 } from '../../types/activity';
 import { 
-  GroupAssignmentMember,
-  GroupAssignmentSubmission,
-  GroupAssignmentWithStats
-} from '../../types/assignments';
-import { 
   UsersIcon, 
   DocumentTextIcon, 
   ChatBubbleLeftRightIcon, 
@@ -119,11 +114,8 @@ import {
 } from '@heroicons/react/24/outline';
 import { X, Users } from 'lucide-react';
 import { navigationManager } from '../../utils/navigationManager';
-import { groupAssignmentService } from '../../lib/services/groupAssignments';
-import { GroupSubmissionModal } from '../../components/assignments/GroupSubmissionModal';
-import { CreateGroupModal } from '../../components/assignments/CreateGroupModal';
 
-type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'group-assignments';
+type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging';
 
 // Sidebar state management
 interface SidebarState {
@@ -166,7 +158,7 @@ const CommunityWorkspacePage: React.FC = () => {
     
     // Check URL for initial section
     const urlSection = query.section as SectionType;
-    if (urlSection && ['overview', 'communities', 'meetings', 'documents', 'messaging', 'group-assignments'].includes(urlSection)) {
+    if (urlSection && ['overview', 'communities', 'meetings', 'documents', 'messaging'].includes(urlSection)) {
       setActiveSection(urlSection);
     }
     
@@ -486,14 +478,6 @@ const CommunityWorkspacePage: React.FC = () => {
                   <h3 className="font-semibold text-purple-900">Mensajería</h3>
                   <p className="text-sm text-purple-700">Comunicación en tiempo real</p>
                 </button>
-                <button
-                  onClick={() => handleSectionChange('group-assignments')}
-                  className="bg-orange-50 p-4 rounded-lg hover:bg-orange-100 transition-colors duration-200 text-left"
-                >
-                  <ClipboardDocumentCheckIcon className="h-8 w-8 text-orange-600 mb-2" />
-                  <h3 className="font-semibold text-orange-900">Tareas Grupales</h3>
-                  <p className="text-sm text-orange-700">Trabajo colaborativo</p>
-                </button>
               </div>
             )}
             
@@ -605,14 +589,6 @@ const CommunityWorkspacePage: React.FC = () => {
       />;
     }
 
-    if (activeSection === 'group-assignments') {
-      return <GroupAssignmentsTabContent 
-        workspace={currentWorkspace} 
-        workspaceAccess={workspaceAccess} 
-        user={user} 
-        searchQuery={searchQuery}
-      />;
-    }
 
     return null;
   };
@@ -1939,362 +1915,5 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     </div>
   );
 };
-
-// Group Assignments Tab Content Component
-interface GroupAssignmentsTabContentProps {
-  workspace: CommunityWorkspace | null;
-  workspaceAccess: WorkspaceAccess | null;
-  user: any;
-  searchQuery: string;
-}
-
-const GroupAssignmentsTabContent: React.FC<GroupAssignmentsTabContentProps> = ({ 
-  workspace, 
-  workspaceAccess, 
-  user, 
-  searchQuery 
-}) => {
-  const router = useRouter();
-  
-  // State for group assignments
-  const [groupAssignments, setGroupAssignments] = useState<any[]>([]);
-  const [userGroups, setUserGroups] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
-  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
-  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
-  
-  useEffect(() => {
-    if (workspace && user) {
-      loadGroupAssignments();
-    }
-  }, [workspace, user]);
-
-  const loadGroupAssignments = async () => {
-    if (!workspace || !workspace.community_id) return;
-
-    try {
-      setLoading(true);
-      
-      // Load group assignments for this community
-      const { data: assignments, error: assignmentsError } = await supabase
-        .from('lesson_assignments')
-        .select(`
-          *,
-          courses (
-            id,
-            title
-          ),
-          lessons (
-            id,
-            title
-          ),
-          creator:profiles!created_by (
-            id,
-            name
-          )
-        `)
-        .eq('assignment_for', 'group')
-        .eq('assigned_to_community_id', workspace.community_id)
-        .eq('is_published', true)
-        .order('due_date', { ascending: true });
-
-      if (assignmentsError) throw assignmentsError;
-
-      // Load user's groups for these assignments
-      if (assignments && assignments.length > 0) {
-        const assignmentIds = assignments.map(a => a.id);
-        
-        const { data: groups, error: groupsError } = await supabase
-          .from('group_assignment_members')
-          .select(`
-            *,
-            assignment:lesson_assignments (
-              id,
-              title
-            )
-          `)
-          .eq('user_id', user.id)
-          .in('assignment_id', assignmentIds);
-
-        if (groupsError) throw groupsError;
-        
-        setUserGroups(groups || []);
-      }
-
-      setGroupAssignments(assignments || []);
-    } catch (error) {
-      console.error('Error loading group assignments:', error);
-      toast.error('Error al cargar las tareas grupales');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateGroup = async (assignmentId: string) => {
-    // Implementation for creating a group
-    setSelectedAssignment(groupAssignments.find(a => a.id === assignmentId));
-    setShowCreateGroupModal(true);
-  };
-
-  const handleJoinGroup = async (assignmentId: string, groupId: string) => {
-    try {
-      const { error } = await supabase
-        .from('group_assignment_members')
-        .insert({
-          assignment_id: assignmentId,
-          community_id: workspace?.community_id,
-          group_id: groupId,
-          user_id: user.id,
-          role: 'member'
-        });
-
-      if (error) throw error;
-
-      toast.success('Te has unido al grupo exitosamente');
-      await loadGroupAssignments();
-    } catch (error) {
-      console.error('Error joining group:', error);
-      toast.error('Error al unirse al grupo');
-    }
-  };
-
-  const handleSubmitGroupWork = async (submissionData: any) => {
-    if (!selectedAssignment || !workspace || !user) return;
-    
-    const userGroup = userGroups.find(g => g.assignment_id === selectedAssignment.id);
-    if (!userGroup) return;
-
-    try {
-      await groupAssignmentService.submitGroupWork(
-        selectedAssignment.id,
-        userGroup.group_id,
-        workspace.community_id,
-        user.id,
-        submissionData
-      );
-      
-      setShowSubmissionModal(false);
-      setSelectedAssignment(null);
-      await loadGroupAssignments();
-    } catch (error) {
-      console.error('Error submitting group work:', error);
-      throw error;
-    }
-  };
-  
-  const openSubmissionModal = (assignmentId: string) => {
-    setSelectedAssignment(groupAssignments.find(a => a.id === assignmentId));
-    setShowSubmissionModal(true);
-  };
-
-  const filterAssignmentsBySearch = (assignments: any[]) => {
-    if (!searchQuery) return assignments;
-    
-    const query = searchQuery.toLowerCase();
-    return assignments.filter(assignment => 
-      assignment.title.toLowerCase().includes(query) ||
-      assignment.description?.toLowerCase().includes(query) ||
-      assignment.courses?.title.toLowerCase().includes(query) ||
-      assignment.lessons?.title.toLowerCase().includes(query)
-    );
-  };
-
-  if (!workspace) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-        <ClipboardDocumentCheckIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
-          No hay espacio de trabajo seleccionado
-        </h3>
-        <p className="text-gray-500">
-          Selecciona una comunidad para ver las tareas grupales.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-[#00365b]">
-            Tareas Grupales de {workspace.community?.name}
-          </h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Trabajo colaborativo con tu comunidad de crecimiento
-          </p>
-        </div>
-      </div>
-
-      {/* Group Assignments List */}
-      {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="bg-white rounded-lg border border-gray-200 p-6">
-              <div className="animate-pulse">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
-                <div className="flex space-x-4">
-                  <div className="h-3 bg-gray-200 rounded w-24"></div>
-                  <div className="h-3 bg-gray-200 rounded w-20"></div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : groupAssignments.length > 0 ? (
-        <div className="grid grid-cols-1 gap-6">
-          {filterAssignmentsBySearch(groupAssignments).map(assignment => {
-            const userGroup = userGroups.find(g => g.assignment_id === assignment.id);
-            const isOverdue = assignment.due_date && new Date(assignment.due_date) < new Date();
-            
-            return (
-              <div 
-                key={assignment.id} 
-                className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition"
-              >
-                {/* Assignment Header */}
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{assignment.title}</h3>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {assignment.courses?.title} - {assignment.lessons?.title}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    {userGroup ? (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                        En grupo
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
-                        Sin grupo
-                      </span>
-                    )}
-                    {isOverdue && !userGroup && (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
-                        Vencido
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Assignment Details */}
-                {assignment.description && (
-                  <p className="text-gray-600 mb-4">{assignment.description}</p>
-                )}
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 text-sm">
-                  <div>
-                    <span className="text-gray-500">Fecha límite:</span>
-                    <p className={`font-medium ${isOverdue ? 'text-red-600' : 'text-gray-900'}`}>
-                      {assignment.due_date 
-                        ? new Date(assignment.due_date).toLocaleDateString('es-ES', {
-                            day: 'numeric',
-                            month: 'long',
-                            year: 'numeric'
-                          })
-                        : 'Sin fecha límite'
-                      }
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Puntos:</span>
-                    <p className="font-medium text-gray-900">{assignment.points} puntos</p>
-                  </div>
-                  <div>
-                    <span className="text-gray-500">Tamaño del grupo:</span>
-                    <p className="font-medium text-gray-900">
-                      {assignment.min_group_size} - {assignment.max_group_size} miembros
-                    </p>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex justify-end space-x-3 pt-4 border-t">
-                  {userGroup ? (
-                    <>
-                      <button
-                        onClick={() => router.push(`/community/workspace/assignments/${assignment.id}/discussion`)}
-                        className="px-4 py-2 text-brand_blue hover:text-brand_yellow transition"
-                      >
-                        Ver Discusión
-                      </button>
-                      <button
-                        onClick={() => openSubmissionModal(assignment.id)}
-                        className="px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-brand_yellow hover:text-brand_blue transition"
-                      >
-                        Entregar Trabajo
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      {assignment.allow_self_grouping && (
-                        <button
-                          onClick={() => handleCreateGroup(assignment.id)}
-                          className="px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-brand_yellow hover:text-brand_blue transition"
-                        >
-                          Crear Grupo
-                        </button>
-                      )}
-                      <button
-                        onClick={() => router.push(`/community/workspace/assignments/${assignment.id}/groups`)}
-                        className="px-4 py-2 text-brand_blue border border-brand_blue rounded-md hover:bg-brand_blue hover:text-white transition"
-                      >
-                        Ver Grupos
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-          <ClipboardDocumentCheckIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No hay tareas grupales
-          </h3>
-          <p className="text-gray-500">
-            No se han asignado tareas grupales a esta comunidad.
-          </p>
-        </div>
-      )}
-
-      {/* Group Creation Modal */}
-      {showCreateGroupModal && selectedAssignment && (
-        <CreateGroupModal
-          isOpen={showCreateGroupModal}
-          onClose={() => {
-            setShowCreateGroupModal(false);
-            setSelectedAssignment(null);
-          }}
-          assignment={selectedAssignment}
-          communityId={workspace.community_id}
-          currentUserId={user.id}
-          onGroupCreated={loadGroupAssignments}
-        />
-      )}
-
-      {/* Group Submission Modal */}
-      {showSubmissionModal && selectedAssignment && (
-        <GroupSubmissionModal
-          isOpen={showSubmissionModal}
-          onClose={() => {
-            setShowSubmissionModal(false);
-            setSelectedAssignment(null);
-          }}
-          assignment={selectedAssignment}
-          groupId={userGroups.find(g => g.assignment_id === selectedAssignment.id)?.group_id || ''}
-          onSubmit={handleSubmitGroupWork}
-        />
-      )}
-    </div>
-  );
-};
-
 
 export default CommunityWorkspacePage;

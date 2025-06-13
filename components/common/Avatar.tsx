@@ -169,7 +169,7 @@ export default function Avatar({ user, avatarUrl: propAvatarUrl, size = 'md', cl
   }
 
   return (
-    <div className={`relative ${sizeClasses[size]} ${className}`}>
+    <div className={`relative ${sizeClasses[size]} rounded-full ${className}`}>
       {/* Loading skeleton */}
       {isLoading && (
         <div className={`absolute inset-0 ${sizeClasses[size]} rounded-full bg-gray-200 animate-pulse`} />

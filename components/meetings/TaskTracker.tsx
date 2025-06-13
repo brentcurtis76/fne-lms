@@ -8,14 +8,14 @@ import { toast } from 'react-hot-toast';
 import {
   CheckCircleIcon,
   ClockIcon,
-  ExclamationTriangleIcon,
+  ExclamationIcon,
   PlayIcon,
-  ArrowPathIcon,
-  ChatBubbleLeftRightIcon,
-  CalendarDaysIcon,
+  RefreshIcon,
+  ChatAlt2Icon,
+  CalendarIcon,
   UserIcon
-} from '@heroicons/react/24/outline';
-import { CheckCircleIcon as CheckCircleIconSolid } from '@heroicons/react/24/solid';
+} from '@heroicons/react/outline';
+import { CheckCircleIcon as CheckCircleIconSolid } from '@heroicons/react/solid';
 import { 
   MeetingTask, 
   MeetingCommitment, 
@@ -149,7 +149,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
       case 'en_progreso':
         return <PlayIcon className="h-5 w-5 text-blue-600" />;
       case 'vencido':
-        return <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />;
+        return <ExclamationIcon className="h-5 w-5 text-red-600" />;
       default:
         return <ClockIcon className="h-5 w-5 text-gray-400" />;
     }
@@ -204,7 +204,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
         {/* Due Date */}
         {item.due_date && (
           <div className={`flex items-center space-x-1 ${isItemOverdue ? 'text-red-600' : ''}`}>
-            <CalendarDaysIcon className="h-3 w-3" />
+            <CalendarIcon className="h-3 w-3" />
             <span>
               {new Date(item.due_date).toLocaleDateString('es-CL')}
               {daysUntilDue !== null && (
@@ -288,7 +288,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
                 disabled={isUpdating}
                 className="inline-flex items-center px-3 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full hover:bg-yellow-200 transition-colors duration-200 disabled:opacity-50"
               >
-                <ArrowPathIcon className="h-3 w-3 mr-1" />
+                <RefreshIcon className="h-3 w-3 mr-1" />
                 Reabrir
               </button>
             )}
@@ -297,7 +297,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
               onClick={() => setShowNotes(!showNotes)}
               className="inline-flex items-center px-3 py-1 bg-gray-100 text-gray-600 text-xs rounded-full hover:bg-gray-200 transition-colors duration-200"
             >
-              <ChatBubbleLeftRightIcon className="h-3 w-3 mr-1" />
+              <ChatAlt2Icon className="h-3 w-3 mr-1" />
               Notas
             </button>
           </div>
@@ -365,7 +365,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
       {/* Loading Overlay */}
       {isUpdating && (
         <div className="absolute inset-0 bg-white/50 rounded-lg flex items-center justify-center">
-          <ArrowPathIcon className="h-5 w-5 text-[#fdb933] animate-spin" />
+          <RefreshIcon className="h-5 w-5 text-[#fdb933] animate-spin" />
         </div>
       )}
     </div>

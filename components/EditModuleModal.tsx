@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, PencilIcon } from '@heroicons/react/24/outline';
+import { XIcon, PencilIcon } from '@heroicons/react/outline';
 
 interface EditModuleModalProps {
   moduleId: string;
@@ -60,7 +60,7 @@ const EditModuleModal: React.FC<EditModuleModalProps> = ({
             disabled={isUpdating}
             className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
           >
-            <XMarkIcon className="h-6 w-6" />
+            <XIcon className="h-6 w-6" />
           </button>
         </div>
         

@@ -11,7 +11,7 @@ import { User } from '@supabase/supabase-js';
 import Sidebar from './Sidebar';
 import Avatar from '../common/Avatar';
 import { useAvatar } from '../../hooks/useAvatar';
-import { ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { LogoutIcon } from '@heroicons/react/outline';
 
 interface Breadcrumb {
   label: string;
@@ -25,6 +25,7 @@ interface MainLayoutProps {
   pageTitle?: string;
   breadcrumbs?: Breadcrumb[];
   isAdmin?: boolean;
+  userRole?: string;
   onLogout?: () => void;
   avatarUrl?: string;
   className?: string;
@@ -37,6 +38,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   pageTitle,
   breadcrumbs = [],
   isAdmin = false,
+  userRole,
   onLogout,
   avatarUrl,
   className = ''
@@ -132,6 +134,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           currentPage={currentPage}
           isCollapsed={sidebarCollapsed}
           isAdmin={isAdmin}
+          userRole={userRole}
           avatarUrl={avatarUrl || cachedAvatarUrl || fetchedAvatarUrl}
           onToggle={handleSidebarToggle}
           onLogout={handleLogout}
@@ -180,7 +183,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                     onClick={handleLogout}
                     className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 hover:text-[#ef4044] rounded-lg transition-all duration-200 group"
                   >
-                    <ArrowRightOnRectangleIcon className="h-4 w-4 group-hover:text-[#ef4044]" />
+                    <LogoutIcon className="h-4 w-4 group-hover:text-[#ef4044]" />
                     <span className="hidden sm:inline">Cerrar Sesión</span>
                     <span className="sm:hidden">Salir</span>
                   </button>

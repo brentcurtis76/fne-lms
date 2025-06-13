@@ -4,17 +4,17 @@ import {
   ShieldCheckIcon,
   CheckIcon as CheckSquareIcon,
   BookOpenIcon,
-  ChatBubbleLeftRightIcon,
+  ChatAlt2Icon,
   CogIcon,
   DocumentIcon,
   CalendarIcon,
   UserGroupIcon,
-  ExclamationTriangleIcon,
+  ExclamationIcon,
   CheckIcon,
-  ArrowPathIcon,
+  RefreshIcon,
   EyeIcon
-} from '@heroicons/react/24/outline';
-import { Bars3BottomLeftIcon as LoaderIcon } from '@heroicons/react/24/outline';
+} from '@heroicons/react/outline';
+import { MenuIcon as LoaderIcon } from '@heroicons/react/outline';
 import { UserNotification } from '../../pages/api/notifications/index';
 
 interface NotificationDropdownProps {
@@ -50,11 +50,11 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
       case 'courses':
         return BookOpenIcon;
       case 'messaging':
-        return ChatBubbleLeftRightIcon;
+        return ChatAlt2Icon;
       case 'social':
         return UserGroupIcon;
       case 'feedback':
-        return ChatBubbleLeftRightIcon;
+        return ChatAlt2Icon;
       case 'system':
         return CogIcon;
       case 'workspace':
@@ -121,7 +121,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
               className="p-1 text-gray-500 hover:text-[#00365b] transition-colors duration-200"
               title="Actualizar"
             >
-              <ArrowPathIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             </button>
             
             {/* Mark All Read Button */}
@@ -150,7 +150,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         {/* Loading State */}
         {loading && notifications.length === 0 && (
           <div className="flex items-center justify-center py-8">
-            <ArrowPathIcon className="h-6 w-6 animate-spin text-[#00365b]" />
+            <RefreshIcon className="h-6 w-6 animate-spin text-[#00365b]" />
             <span className="ml-2 text-gray-600">Cargando notificaciones...</span>
           </div>
         )}
@@ -158,7 +158,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         {/* Error State */}
         {error && (
           <div className="px-4 py-6 text-center">
-            <ExclamationTriangleIcon className="h-8 w-8 text-red-500 mx-auto mb-2" />
+            <ExclamationIcon className="h-8 w-8 text-red-500 mx-auto mb-2" />
             <p className="text-sm text-red-600 mb-3">{error}</p>
             <button
               onClick={onRefresh}

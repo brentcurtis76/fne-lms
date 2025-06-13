@@ -10,7 +10,7 @@ import { SubmissionForm } from '../../../components/assignments/SubmissionForm';
 import { assignmentService, submissionService, assignmentUtils } from '../../../lib/services/assignments';
 import { Assignment, AssignmentSubmission } from '../../../types/assignments';
 import { ArrowLeft, Calendar, FileText, Link as LinkIcon } from 'lucide-react';
-import { ClipboardDocumentCheckIcon } from '@heroicons/react/24/outline';
+import { ClipboardCheckIcon } from '@heroicons/react/outline';
 
 export default function AssignmentDetailPage() {
   const router = useRouter();
@@ -171,7 +171,7 @@ export default function AssignmentDetailPage() {
 
           {/* Page Header */}
           <ResponsiveFunctionalPageHeader
-            icon={<ClipboardDocumentCheckIcon className="w-7 h-7" />}
+            icon={<ClipboardCheckIcon className="w-7 h-7" />}
             title={assignment.title}
             subtitle={`${assignmentUtils.getTypeLabel(assignment.assignment_type)} - ${assignment.course?.title || 'Sin curso'}`}
           />

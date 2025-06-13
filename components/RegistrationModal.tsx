@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, UserPlusIcon } from '@heroicons/react/24/outline';
+import { XIcon, UserAddIcon } from '@heroicons/react/outline';
 import { supabase } from '../lib/supabase';
 
 interface RegistrationModalProps {
@@ -147,7 +147,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center">
-            <UserPlusIcon className="h-6 w-6 text-brand_blue mr-3" />
+            <UserAddIcon className="h-6 w-6 text-brand_blue mr-3" />
             <h3 className="text-lg font-semibold text-gray-900">
               Registro de Usuario
             </h3>
@@ -157,7 +157,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
             disabled={isSubmitting}
             className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
           >
-            <XMarkIcon className="h-6 w-6" />
+            <XIcon className="h-6 w-6" />
           </button>
         </div>
         
@@ -303,7 +303,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
           {showSuccess && (
             <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mt-6">
               <div className="flex">
-                <UserPlusIcon className="h-5 w-5 text-blue-400 mt-0.5 mr-3 flex-shrink-0" />
+                <UserAddIcon className="h-5 w-5 text-blue-400 mt-0.5 mr-3 flex-shrink-0" />
                 <div>
                   <h4 className="text-sm font-medium text-blue-800 mb-1">
                     Proceso de Registro

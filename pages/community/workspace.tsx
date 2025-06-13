@@ -101,17 +101,17 @@ import {
 import { 
   UsersIcon, 
   DocumentTextIcon, 
-  ChatBubbleLeftRightIcon, 
+  ChatAlt2Icon, 
   RssIcon,
-  CalendarDaysIcon,
+  CalendarIcon,
   ChevronDownIcon,
-  BuildingOfficeIcon,
+  OfficeBuildingIcon,
   AcademicCapIcon,
   PlusIcon,
-  ArrowsUpDownIcon,
-  Bars3Icon,
-  ClipboardDocumentCheckIcon
-} from '@heroicons/react/24/outline';
+  SwitchVerticalIcon,
+  MenuIcon,
+  ClipboardCheckIcon
+} from '@heroicons/react/outline';
 import { X, Users } from 'lucide-react';
 import { navigationManager } from '../../utils/navigationManager';
 
@@ -125,7 +125,7 @@ interface SidebarState {
 
 const CommunityWorkspacePage: React.FC = () => {
   const router = useRouter();
-  const { user, loading: authLoading, logout, isAdmin, avatarUrl } = useAuth();
+  const { user, profile, loading: authLoading, logout, isAdmin, avatarUrl } = useAuth();
   
   // Workspace state
   const [workspaceAccess, setWorkspaceAccess] = useState<WorkspaceAccess | null>(null);
@@ -393,7 +393,7 @@ const CommunityWorkspacePage: React.FC = () => {
           className="flex items-center justify-between w-full sm:w-auto space-x-3 px-4 py-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-colors duration-200 min-w-0"
         >
           <div className="flex items-center space-x-2 min-w-0">
-            <BuildingOfficeIcon className="h-5 w-5 text-[#00365b] flex-shrink-0" />
+            <OfficeBuildingIcon className="h-5 w-5 text-[#00365b] flex-shrink-0" />
             <div className="text-left min-w-0">
               <div className="text-sm font-medium text-gray-900 truncate">
                 {selectedCommunity?.name || 'Seleccionar Comunidad'}
@@ -458,7 +458,7 @@ const CommunityWorkspacePage: React.FC = () => {
                   onClick={() => handleSectionChange('meetings')}
                   className="bg-blue-50 p-4 rounded-lg hover:bg-blue-100 transition-colors duration-200 text-left"
                 >
-                  <CalendarDaysIcon className="h-8 w-8 text-blue-600 mb-2" />
+                  <CalendarIcon className="h-8 w-8 text-blue-600 mb-2" />
                   <h3 className="font-semibold text-blue-900">Reuniones</h3>
                   <p className="text-sm text-blue-700">Gestión de reuniones</p>
                 </button>
@@ -474,7 +474,7 @@ const CommunityWorkspacePage: React.FC = () => {
                   onClick={() => handleSectionChange('messaging')}
                   className="bg-purple-50 p-4 rounded-lg hover:bg-purple-100 transition-colors duration-200 text-left"
                 >
-                  <ChatBubbleLeftRightIcon className="h-8 w-8 text-purple-600 mb-2" />
+                  <ChatAlt2Icon className="h-8 w-8 text-purple-600 mb-2" />
                   <h3 className="font-semibold text-purple-900">Mensajería</h3>
                   <p className="text-sm text-purple-700">Comunicación en tiempo real</p>
                 </button>
@@ -601,6 +601,7 @@ const CommunityWorkspacePage: React.FC = () => {
         pageTitle=""
         breadcrumbs={[]}
         isAdmin={isAdmin}
+        userRole={profile?.role}
         onLogout={logout}
         avatarUrl={avatarUrl}
       >
@@ -619,6 +620,7 @@ const CommunityWorkspacePage: React.FC = () => {
         pageTitle=""
         breadcrumbs={[]}
         isAdmin={isAdmin}
+        userRole={profile?.role}
         onLogout={logout}
         avatarUrl={avatarUrl}
       >
@@ -856,7 +858,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
   if (!workspace) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-        <CalendarDaysIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <CalendarIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">
           No hay espacio de trabajo seleccionado
         </h3>
@@ -919,7 +921,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
             >
               {label}
               {sort.field === field && (
-                <ArrowsUpDownIcon className="h-3 w-3 ml-1" />
+                <SwitchVerticalIcon className="h-3 w-3 ml-1" />
               )}
             </button>
           ))}
@@ -958,7 +960,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-          <CalendarDaysIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <CalendarIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             No hay reuniones
           </h3>
@@ -1678,7 +1680,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
   if (!workspace) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-        <ChatBubbleLeftRightIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <ChatAlt2Icon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">
           No hay espacio de trabajo seleccionado
         </h3>
@@ -1692,7 +1694,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
   if (!permissions.can_view_messages) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-        <ChatBubbleLeftRightIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <ChatAlt2Icon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">
           Sin permisos de acceso
         </h3>
@@ -1804,7 +1806,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
               </div>
             ) : (
               <div className="text-center py-12">
-                <ChatBubbleLeftRightIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <ChatAlt2Icon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">
                   No hay hilos de conversación
                 </h3>
@@ -1863,7 +1865,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
                 ))
               ) : (
                 <div className="text-center py-8">
-                  <ChatBubbleLeftRightIcon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                  <ChatAlt2Icon className="mx-auto h-8 w-8 text-gray-400 mb-2" />
                   <p className="text-gray-500">No hay mensajes en este hilo</p>
                 </div>
               )}

@@ -35,7 +35,6 @@ import QuizBlockEditor from '@/components/blocks/QuizBlockEditor';
 import FileDownloadBlockEditor from '@/components/blocks/FileDownloadBlockEditor';
 import ExternalLinkBlockEditor from '@/components/blocks/ExternalLinkBlockEditor';
 import GroupAssignmentBlockEditor from '@/components/blocks/GroupAssignmentBlockEditor';
-import { createGroupAssignmentFromBlock } from '@/lib/services/simpleGroupAssignments';
 
 type Lesson = Database['public']['Tables']['lessons']['Row'] & {
   blocks?: Block[];
@@ -157,6 +156,36 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
     }
 
     try {
+      // Validate quiz blocks before saving
+      for (const block of blocks) {
+        if (block.type === 'quiz') {
+          if (!block.payload.questions || block.payload.questions.length === 0) {
+            toast.error('Los bloques de quiz deben tener al menos una pregunta');
+            setIsLoading(false);
+            return;
+          }
+          
+          // Validate each question
+          for (const question of block.payload.questions) {
+            if (!question.question || question.question.trim() === '') {
+              toast.error('Todas las preguntas del quiz deben tener texto');
+              setIsLoading(false);
+              return;
+            }
+            
+            // For non-open-ended questions, ensure at least one correct answer
+            if (question.type !== 'open-ended' && question.options) {
+              const hasCorrectAnswer = question.options.some(opt => opt.isCorrect);
+              if (!hasCorrectAnswer) {
+                toast.error(`La pregunta "${question.question}" debe tener al menos una respuesta correcta`);
+                setIsLoading(false);
+                return;
+              }
+            }
+          }
+        }
+      }
+
       const updatedLesson = {
         title: lessonTitle,
         module_id: initialLessonData.module_id,
@@ -175,12 +204,31 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
 
       const blockPromises = blocks.map(async (block, index) => {
         const cleanBlock = { ...block };
+        
+        // Special handling for quiz blocks to ensure proper payload structure
+        let payload = block.payload;
+        if (block.type === 'quiz' && 'questions' in payload) {
+          const quizPayload = payload as QuizBlockPayload;
+          // Ensure all questions have proper structure
+          payload = {
+            ...quizPayload,
+            questions: quizPayload.questions.map((q: any) => ({
+              ...q,
+              // Ensure options is always an array (empty for open-ended questions)
+              options: q.options || [],
+              // Ensure required fields have defaults
+              points: q.points || 1,
+              type: q.type || 'multiple-choice'
+            }))
+          };
+        }
+        
         const blockDataToSave = {
           ...cleanBlock,
           course_id: courseId,
           lesson_id: lessonIdString,
           position: index,
-          payload: block.payload,
+          payload: payload,
         };
 
         if (block.id.startsWith('new-')) { 
@@ -196,10 +244,12 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
         const newBlocks: Block[] = [];
         let saveError = false;
 
-        results.forEach(result => {
+        results.forEach((result, idx) => {
           if (result.error) {
-            console.error('Error saving block:', result.error);
-            toast.error(`Failed to save a block: ${result.error.message}`);
+            const blockType = blocks[idx]?.type || 'unknown';
+            console.error(`Error saving ${blockType} block:`, result.error);
+            console.error('Block payload:', blocks[idx]?.payload);
+            toast.error(`Failed to save ${blockType} block: ${result.error.message}`);
             saveError = true;
           }
           if (result.data) {
@@ -211,11 +261,19 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
         if (!saveError) {
           setBlocks(newBlocks);
           
-          // Create group assignments for any group-assignment blocks
+          // Create assignment templates for any group-assignment blocks
           const groupAssignmentPromises = newBlocks
             .filter(block => block.type === 'group-assignment')
             .map(async (block) => {
-              return createGroupAssignmentFromBlock(block, lessonIdString, courseId);
+              // Call the database function to create/update assignment template
+              const { data, error } = await supabase.rpc('create_assignment_template_from_block', {
+                p_lesson_id: lessonIdString,
+                p_block_id: block.id,
+                p_block_data: block,
+                p_created_by: user?.id
+              });
+              
+              return { data, error };
             });
           
           if (groupAssignmentPromises.length > 0) {
@@ -224,14 +282,14 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
               const failedAssignments = assignmentResults.filter(result => result.error);
               
               if (failedAssignments.length > 0) {
-                console.error('Failed to create some group assignments:', failedAssignments);
-                toast.error('Algunas tareas grupales no se pudieron crear correctamente');
+                console.error('Failed to create some assignment templates:', failedAssignments);
+                toast.error('Algunas plantillas de tareas no se pudieron crear correctamente');
               } else if (assignmentResults.length > 0) {
-                toast.success(`${assignmentResults.length} tarea(s) grupal(es) creada(s) exitosamente`);
+                toast.success(`${assignmentResults.length} plantilla(s) de tarea creada(s) exitosamente`);
               }
             } catch (error) {
-              console.error('Error creating group assignments:', error);
-              toast.error('Error al crear las tareas grupales');
+              console.error('Error creating assignment templates:', error);
+              toast.error('Error al crear las plantillas de tareas');
             }
           }
           
@@ -299,10 +357,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
         payload = {
           title: '',
           description: '',
-          instructions: '',
-          due_date: '',
-          points: 0,
-          groups: []
+          instructions: ''
         } as GroupAssignmentBlockPayload;
         break;
     }

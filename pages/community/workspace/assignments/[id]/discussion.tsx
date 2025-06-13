@@ -8,7 +8,7 @@ import { useAuth } from '../../../../../hooks/useAuth';
 import { groupAssignmentService } from '../../../../../lib/services/groupAssignments';
 import MessageComposer from '../../../../../components/messaging/MessageComposer';
 import MessageCard from '../../../../../components/messaging/MessageCard';
-import { ClipboardDocumentCheckIcon, ChatBubbleLeftRightIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ClipboardCheckIcon, ChatAlt2Icon, ArrowLeftIcon } from '@heroicons/react/outline';
 import { sendMessage, subscribeToWorkspaceMessages } from '../../../../../utils/messagingUtils-simple';
 
 export default function GroupDiscussionPage() {
@@ -258,7 +258,7 @@ export default function GroupDiscussionPage() {
                   {assignment.courses?.title} - {assignment.lessons?.title}
                 </p>
               </div>
-              <ChatBubbleLeftRightIcon className="w-8 h-8 text-gray-400" />
+              <ChatAlt2Icon className="w-8 h-8 text-gray-400" />
             </div>
           </div>
 
@@ -299,7 +299,7 @@ export default function GroupDiscussionPage() {
             <div className="h-[500px] overflow-y-auto p-6 space-y-4">
               {messages.length === 0 ? (
                 <div className="text-center py-12">
-                  <ChatBubbleLeftRightIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <ChatAlt2Icon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                   <p className="text-gray-500">
                     No hay mensajes aún. ¡Inicia la conversación!
                   </p>

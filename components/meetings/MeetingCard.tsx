@@ -7,17 +7,17 @@ import React, { useState } from 'react';
 import { 
   ChevronDownIcon,
   ChevronUpIcon,
-  CalendarDaysIcon,
+  CalendarIcon,
   ClockIcon,
-  MapPinIcon,
+  LocationMarkerIcon,
   UserIcon,
   DocumentTextIcon,
-  ListBulletIcon,
+  MenuIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon,
+  ExclamationIcon,
   EyeIcon,
   PencilIcon
-} from '@heroicons/react/24/outline';
+} from '@heroicons/react/outline';
 import { 
   CommunityMeeting,
   MeetingWithDetails,
@@ -214,7 +214,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             {/* Meeting Metadata */}
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
               <div className="flex items-center space-x-1">
-                <CalendarDaysIcon className="h-4 w-4" />
+                <CalendarIcon className="h-4 w-4" />
                 <span>{formatMeetingDate(meeting.meeting_date)}</span>
               </div>
               
@@ -225,7 +225,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
 
               {meeting.location && (
                 <div className="flex items-center space-x-1">
-                  <MapPinIcon className="h-4 w-4" />
+                  <LocationMarkerIcon className="h-4 w-4" />
                   <span className="truncate max-w-32">{meeting.location}</span>
                 </div>
               )}
@@ -277,7 +277,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             
             {taskStats.overdueTasks > 0 && (
               <div className="flex items-center space-x-1">
-                <ExclamationTriangleIcon className="h-4 w-4 text-red-600" />
+                <ExclamationIcon className="h-4 w-4 text-red-600" />
                 <span className="text-red-600">
                   {taskStats.overdueTasks} vencidas
                 </span>
@@ -310,7 +310,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                <ListBulletIcon className="h-3 w-3 mr-1" />
+                <MenuIcon className="h-3 w-3 mr-1" />
                 Acuerdos y Compromisos ({meetingWithDetails.agreements.length + meetingWithDetails.commitments.length})
               </button>
             )}

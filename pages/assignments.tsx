@@ -4,9 +4,10 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../components/layout/MainLayout';
-import { ClipboardDocumentCheckIcon } from '@heroicons/react/24/outline';
+import { ClipboardCheckIcon as ClipboardDocumentCheckIcon } from '@heroicons/react/outline';
 import { useAvatar } from '../hooks/useAvatar';
 import { assignmentService } from '../lib/services/assignments';
+import { getStudentAssignmentInstances } from '../lib/services/assignmentInstances';
 
 export default function AssignmentsPage() {
   const router = useRouter();
@@ -103,41 +104,72 @@ export default function AssignmentsPage() {
         });
         
       } else {
-        // Students see assignments from enrolled courses
-        const data = await assignmentService.getStudentAssignments(userId);
-        setAssignments(data || []);
+        // Students see assignments from enrolled courses AND group assignment instances
+        const [regularAssignments, groupInstances] = await Promise.all([
+          assignmentService.getStudentAssignments(userId),
+          getStudentAssignmentInstances(userId)
+        ]);
         
-        // Submissions are already included in the response
-        if (data && data.length > 0) {
-          const submissionMap: Record<string, any> = {};
-          data.forEach((assignment: any) => {
-            if (assignment.submissions && assignment.submissions.length > 0) {
-              submissionMap[assignment.id] = assignment.submissions[0];
-            }
-          });
-          setSubmissions(submissionMap);
-          
-          // Calculate student work stats
-          const completedCount = data.filter((a: any) => 
-            a.submissions?.[0]?.status === 'graded'
-          ).length;
-          
-          const inProgressCount = data.filter((a: any) => 
-            a.submissions?.[0]?.status === 'submitted'
-          ).length;
-          
-          const newCount = data.filter((a: any) => 
-            !a.submissions || a.submissions.length === 0
-          ).length;
-          
-          setWorkStats({
-            total: data.length,
-            completed: completedCount,
-            inProgress: inProgressCount,
-            new: newCount,
-            active: data.length - completedCount
-          });
-        }
+        // Transform group instances to match assignment format
+        const transformedGroupInstances = groupInstances?.data?.map((instance: any) => ({
+          id: `instance-${instance.id}`,
+          title: instance.title,
+          description: instance.description || instance.assignment_templates?.description,
+          instructions: instance.instructions || instance.assignment_templates?.instructions,
+          due_date: instance.due_date,
+          assignment_type: 'group',
+          is_published: true,
+          is_instance: true,
+          instance_id: instance.id,
+          courses: {
+            id: instance.assignment_templates?.lessons?.modules?.courses?.id,
+            title: instance.assignment_templates?.lessons?.modules?.courses?.title
+          },
+          lessons: {
+            id: instance.assignment_templates?.lessons?.id,
+            title: instance.assignment_templates?.lessons?.title
+          },
+          submissions: instance.submission ? [{
+            id: instance.submission.id,
+            status: instance.submission.status,
+            submitted_at: instance.submission.submitted_at,
+            score: instance.submission.grade
+          }] : []
+        })) || [];
+        
+        // Combine both types of assignments
+        const allAssignments = [...(regularAssignments || []), ...transformedGroupInstances];
+        setAssignments(allAssignments);
+        
+        // Build submission map
+        const submissionMap: Record<string, any> = {};
+        allAssignments.forEach((assignment: any) => {
+          if (assignment.submissions && assignment.submissions.length > 0) {
+            submissionMap[assignment.id] = assignment.submissions[0];
+          }
+        });
+        setSubmissions(submissionMap);
+        
+        // Calculate student work stats
+        const completedCount = allAssignments.filter((a: any) => 
+          a.submissions?.[0]?.status === 'graded'
+        ).length;
+        
+        const inProgressCount = allAssignments.filter((a: any) => 
+          a.submissions?.[0]?.status === 'submitted'
+        ).length;
+        
+        const newCount = allAssignments.filter((a: any) => 
+          !a.submissions || a.submissions.length === 0
+        ).length;
+        
+        setWorkStats({
+          total: allAssignments.length,
+          completed: completedCount,
+          inProgress: inProgressCount,
+          new: newCount,
+          active: allAssignments.length - completedCount
+        });
       }
     } catch (error: any) {
       console.error('Error loading assignments:', error);
@@ -364,7 +396,13 @@ export default function AssignmentsPage() {
                     <div 
                       key={assignment.id} 
                       className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition cursor-pointer relative overflow-hidden"
-                      onClick={() => router.push(`/assignments/${assignment.id}`)}
+                      onClick={() => {
+                        if (assignment.is_instance) {
+                          router.push(`/assignments/instance/${assignment.instance_id}`);
+                        } else {
+                          router.push(`/assignments/${assignment.id}`);
+                        }
+                      }}
                     >
                       {/* Course and Lesson Info */}
                       <div className="mb-3">

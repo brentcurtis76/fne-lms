@@ -7,20 +7,20 @@ import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import {
-  XMarkIcon,
+  XIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
   CheckIcon,
   PlusIcon,
   TrashIcon,
-  CalendarDaysIcon,
+  CalendarIcon,
   ClockIcon,
-  MapPinIcon,
+  LocationMarkerIcon,
   UserIcon,
   DocumentTextIcon,
-  ListBulletIcon,
+  MenuIcon,
   CheckCircleIcon
-} from '@heroicons/react/24/outline';
+} from '@heroicons/react/outline';
 import {
   MeetingDocumentationInput,
   MeetingFormStep,
@@ -50,7 +50,7 @@ const STEPS = [
     id: MeetingFormStep.INFORMATION,
     title: 'Información',
     description: 'Datos básicos de la reunión',
-    icon: CalendarDaysIcon
+    icon: CalendarIcon
   },
   {
     id: MeetingFormStep.SUMMARY,
@@ -437,7 +437,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
               disabled={isSubmitting}
               className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
             >
-              <XMarkIcon className="h-5 w-5" />
+              <XIcon className="h-5 w-5" />
             </button>
           </div>
 
@@ -669,7 +669,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
                   {formData.commitments.length === 0 ? (
                     <div className="text-center py-6 text-gray-500">
-                      <ListBulletIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <MenuIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                       <p>No se han agregado compromisos.</p>
                       <p className="text-sm">Los compromisos son opcionales.</p>
                     </div>

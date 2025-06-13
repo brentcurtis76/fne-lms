@@ -6,20 +6,20 @@
 import React from 'react';
 import { useRouter } from 'next/router';
 import { 
-  CalendarDaysIcon,
+  CalendarIcon,
   DocumentTextIcon,
-  ChatBubbleLeftRightIcon,
+  ChatAlt2Icon,
   RssIcon,
   ChartBarIcon,
   UsersIcon,
-  Bars3Icon,
-  XMarkIcon,
+  MenuIcon,
+  XIcon,
   ChevronRightIcon,
   HomeIcon,
-  BuildingOfficeIcon,
+  OfficeBuildingIcon,
   ArrowLeftIcon,
-  ClipboardDocumentCheckIcon
-} from '@heroicons/react/24/outline';
+  ClipboardCheckIcon
+} from '@heroicons/react/outline';
 import { CommunityWorkspace, WorkspaceAccess, CommunityInfo } from '../../utils/workspaceUtils';
 
 interface WorkspaceSidebarProps {
@@ -108,7 +108,7 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
       items.push({
         id: 'workspace-divider',
         label: '',
-        icon: BuildingOfficeIcon,
+        icon: OfficeBuildingIcon,
         section: 'divider',
         isHeader: true
       });
@@ -116,7 +116,7 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
       items.push({
         id: 'workspace-header',
         label: workspaceName,
-        icon: BuildingOfficeIcon,
+        icon: OfficeBuildingIcon,
         section: 'workspace-header',
         description: workspaceDescription,
         isHeader: true
@@ -127,7 +127,7 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
         {
           id: 'meetings',
           label: 'Reuniones',
-          icon: CalendarDaysIcon,
+          icon: CalendarIcon,
           section: 'meetings',
           description: 'Gestión de reuniones'
         },
@@ -141,14 +141,14 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
         {
           id: 'messaging',
           label: 'Mensajería',
-          icon: ChatBubbleLeftRightIcon,
+          icon: ChatAlt2Icon,
           section: 'messaging',
           description: 'Comunicación en tiempo real'
         },
         {
           id: 'group-assignments',
           label: 'Tareas Grupales',
-          icon: ClipboardDocumentCheckIcon,
+          icon: ClipboardCheckIcon,
           section: 'group-assignments',
           description: 'Trabajo colaborativo'
         },
@@ -327,9 +327,9 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
             title={isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
           >
             {isCollapsed ? (
-              <Bars3Icon className="h-5 w-5" />
+              <MenuIcon className="h-5 w-5" />
             ) : (
-              <XMarkIcon className="h-5 w-5" />
+              <XIcon className="h-5 w-5" />
             )}
           </button>
         </div>

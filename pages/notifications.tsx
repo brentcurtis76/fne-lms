@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../lib/supabase';
 import MainLayout from '../components/layout/MainLayout';
-import { BellIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { BellIcon, ArrowLeftIcon } from '@heroicons/react/outline';
 
 export default function NotificationsPage() {
   const router = useRouter();

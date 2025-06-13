@@ -1,5 +1,5 @@
 import React from 'react';
-import { XMarkIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
+import { XIcon, ExclamationIcon } from '@heroicons/react/outline';
 
 interface DeleteLessonModalProps {
   lessonTitle: string;
@@ -23,7 +23,7 @@ const DeleteLessonModal: React.FC<DeleteLessonModalProps> = ({
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center">
-            <ExclamationTriangleIcon className="h-6 w-6 text-red-600 mr-3" />
+            <ExclamationIcon className="h-6 w-6 text-red-600 mr-3" />
             <h3 className="text-lg font-semibold text-gray-900">
               Confirmar Eliminación
             </h3>
@@ -33,14 +33,14 @@ const DeleteLessonModal: React.FC<DeleteLessonModalProps> = ({
             disabled={isDeleting}
             className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
           >
-            <XMarkIcon className="h-6 w-6" />
+            <XIcon className="h-6 w-6" />
           </button>
         </div>
         
         <div className="p-6">
           <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-6">
             <div className="flex">
-              <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" />
+              <ExclamationIcon className="h-5 w-5 text-red-400 mt-0.5 mr-3 flex-shrink-0" />
               <div>
                 <h4 className="text-sm font-medium text-red-800 mb-1">
                   Esta acción no se puede deshacer

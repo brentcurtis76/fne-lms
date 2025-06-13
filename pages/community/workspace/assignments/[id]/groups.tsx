@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../../../../components/layout/MainLayout';
 import { useAuth } from '../../../../../hooks/useAuth';
 import { groupAssignmentService } from '../../../../../lib/services/groupAssignments';
-import { ClipboardDocumentCheckIcon, UsersIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { ClipboardCheckIcon, UsersIcon, ArrowLeftIcon } from '@heroicons/react/outline';
 
 export default function AssignmentGroupsPage() {
   const router = useRouter();
@@ -181,7 +181,7 @@ export default function AssignmentGroupsPage() {
                   <span>Grupos: {assignment.min_group_size} - {assignment.max_group_size} miembros</span>
                 </div>
               </div>
-              <ClipboardDocumentCheckIcon className="w-8 h-8 text-gray-400" />
+              <ClipboardCheckIcon className="w-8 h-8 text-gray-400" />
             </div>
           </div>
 

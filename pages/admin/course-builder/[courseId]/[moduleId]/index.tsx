@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../../../../lib/supabase';
 import Link from 'next/link';
 import Head from 'next/head';
-import { ArrowLeftIcon, PlusCircleIcon } from '@heroicons/react/24/solid';
+import { ArrowLeftIcon, PlusCircleIcon } from '@heroicons/react/solid';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../../../components/layout/FunctionalPageHeader';

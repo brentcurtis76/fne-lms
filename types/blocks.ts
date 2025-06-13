@@ -96,29 +96,10 @@ export interface QuizBlockPayload {
   randomizeAnswers: boolean;
 }
 
-export interface GroupMember {
-  user_id: string;
-  full_name: string;
-  email?: string;
-}
-
-export interface GroupData {
-  group_id: string;
-  group_name: string;
-  members: GroupMember[];
-  submission?: {
-    file_url: string;
-    submitted_at: string;
-    submitted_by: string;
-  };
-}
-
 export interface GroupAssignmentBlockPayload {
   title: string;
   description?: string;
   instructions?: string;
-  due_date?: string; // ISO date string
-  groups: GroupData[];
 }
 
 // Base Block Structure

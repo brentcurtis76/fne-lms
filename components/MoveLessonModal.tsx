@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { XMarkIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import { XIcon, ArrowRightIcon } from '@heroicons/react/outline';
 import { supabase } from '../lib/supabase';
 
 interface Module {
@@ -81,7 +81,7 @@ const MoveLessonModal: React.FC<MoveLessonModalProps> = ({
             disabled={isMoving}
             className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
           >
-            <XMarkIcon className="h-6 w-6" />
+            <XIcon className="h-6 w-6" />
           </button>
         </div>
         

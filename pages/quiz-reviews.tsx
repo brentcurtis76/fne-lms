@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../components/layout/MainLayout';
-import { ClipboardDocumentCheckIcon, ClockIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { ClipboardCheckIcon, ClockIcon, UserGroupIcon } from '@heroicons/react/outline';
 import { useAvatar } from '../hooks/useAvatar';
 import { getPendingQuizReviews } from '../lib/services/quizSubmissions';
 import Link from 'next/link';
@@ -113,6 +113,7 @@ export default function QuizReviewsPage() {
         currentPage="quiz-reviews"
         pageTitle="Revisión de Quizzes"
         isAdmin={isAdmin}
+        userRole={userRole}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
       >
@@ -135,7 +136,7 @@ export default function QuizReviewsPage() {
                   <p className="text-sm text-gray-600">Tiempo promedio</p>
                   <p className="text-2xl font-bold text-blue-600">~15 min</p>
                 </div>
-                <ClipboardDocumentCheckIcon className="w-8 h-8 text-blue-600 opacity-50" />
+                <ClipboardCheckIcon className="w-8 h-8 text-blue-600 opacity-50" />
               </div>
             </div>
             
@@ -188,7 +189,7 @@ export default function QuizReviewsPage() {
             <div className="divide-y divide-gray-200">
               {pendingReviews.length === 0 ? (
                 <div className="px-6 py-12 text-center">
-                  <ClipboardDocumentCheckIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                  <ClipboardCheckIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
                   <p className="text-gray-500">No hay quizzes pendientes de revisión</p>
                   <p className="text-sm text-gray-400 mt-2">
                     Los quizzes con preguntas abiertas aparecerán aquí cuando los estudiantes los completen

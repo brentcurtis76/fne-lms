@@ -41,7 +41,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
       explanation: '',
     };
 
-    const updatedQuestions = [...block.payload.questions, newQuestion];
+    const updatedQuestions = [...(block.payload.questions || []), newQuestion];
     onUpdate(block.id, 'questions', updatedQuestions);
     updateTotalPoints(updatedQuestions);
     setActiveQuestionId(newQuestion.id);
@@ -80,6 +80,10 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
           } else if (value === 'open-ended') {
             // Clear options for open-ended questions
             updated.options = [];
+            // Ensure open-ended specific fields are initialized
+            if (!updated.characterLimit) updated.characterLimit = undefined;
+            if (!updated.expectedAnswer) updated.expectedAnswer = '';
+            if (!updated.gradingGuidelines) updated.gradingGuidelines = '';
           }
         }
         

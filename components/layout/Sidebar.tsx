@@ -14,18 +14,18 @@ import {
   ChartBarIcon,
   UserGroupIcon,
   CogIcon,
-  Bars3Icon,
-  XMarkIcon,
+  MenuIcon as Bars3Icon,
+  XIcon as XMarkIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  ArrowRightOnRectangleIcon,
+  LogoutIcon as ArrowRightOnRectangleIcon,
   UserCircleIcon,
   UserIcon,
-  ClipboardDocumentListIcon,
+  ClipboardListIcon as ClipboardDocumentListIcon,
   DocumentTextIcon,
   CurrencyDollarIcon,
-  ClipboardDocumentCheckIcon
-} from '@heroicons/react/24/outline';
+  ClipboardCheckIcon as ClipboardDocumentCheckIcon
+} from '@heroicons/react/outline';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
 
@@ -34,6 +34,7 @@ interface SidebarProps {
   currentPage: string;
   isCollapsed: boolean;
   isAdmin: boolean;
+  userRole?: string;
   avatarUrl?: string;
   onToggle: () => void;
   onLogout: () => void;
@@ -89,6 +90,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: ClipboardDocumentCheckIcon,
     href: '/quiz-reviews',
     description: 'Calificar preguntas abiertas',
+    consultantOnly: true
+  },
+  {
+    id: 'group-assignments',
+    label: 'Gestión de Tareas Grupales',
+    icon: UserGroupIcon,
+    href: '/group-assignments',
+    description: 'Administrar tareas grupales',
     consultantOnly: true
   },
   {
@@ -207,6 +216,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   currentPage,
   isCollapsed,
   isAdmin,
+  userRole,
   avatarUrl,
   onToggle,
   onLogout,
@@ -259,8 +269,20 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const filteredNavigationItems = NAVIGATION_ITEMS.filter(item => {
+    // Debug logging
+    if (item.id === 'group-assignments') {
+      console.log('Group Assignments item check:', {
+        itemId: item.id,
+        consultantOnly: item.consultantOnly,
+        userRole,
+        isAdmin,
+        isIncluded: ['admin', 'consultor'].includes(userRole || ''),
+        willShow: !item.consultantOnly || ['admin', 'consultor'].includes(userRole || '')
+      });
+    }
+    
     if (item.adminOnly && !isAdmin) return false;
-    if (item.consultantOnly && !['admin', 'consultor', 'equipo_directivo'].includes(user?.role || '')) return false;
+    if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) return false;
     return true;
   });
 

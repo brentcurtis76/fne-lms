@@ -4,15 +4,15 @@ import {
   BellIcon, 
   CheckIcon,
   ArrowRightIcon,
-  ArrowPathIcon,
+  RefreshIcon,
   ShieldCheckIcon,
   BookOpenIcon,
-  ChatBubbleLeftRightIcon,
+  ChatAlt2Icon,
   CogIcon,
   DocumentIcon,
   UserGroupIcon
-} from '@heroicons/react/24/outline';
-import { BellIcon as BellSolidIcon } from '@heroicons/react/24/solid';
+} from '@heroicons/react/outline';
+import { BellIcon as BellSolidIcon } from '@heroicons/react/solid';
 import { supabase } from '../../lib/supabase';
 
 interface NotificationItem {
@@ -146,7 +146,7 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
       case 'courses':
         return { Icon: BookOpenIcon, color: 'text-blue-500', bg: 'bg-blue-50' };
       case 'messaging':
-        return { Icon: ChatBubbleLeftRightIcon, color: 'text-purple-500', bg: 'bg-purple-50' };
+        return { Icon: ChatAlt2Icon, color: 'text-purple-500', bg: 'bg-purple-50' };
       case 'system':
         return { Icon: CogIcon, color: 'text-gray-500', bg: 'bg-gray-50' };
       default:
@@ -340,7 +340,7 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
                   className="flex items-center space-x-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-200 disabled:opacity-50"
                 >
                   {markingAllRead ? (
-                    <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                    <RefreshIcon className="h-4 w-4 animate-spin" />
                   ) : (
                     <CheckIcon className="h-4 w-4" />
                   )}
@@ -356,7 +356,7 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
               // Error State
               <div className="flex flex-col items-center justify-center py-8 px-6 text-center">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
-                  <ArrowPathIcon className="h-6 w-6 text-red-500" />
+                  <RefreshIcon className="h-6 w-6 text-red-500" />
                 </div>
                 <h4 className="text-sm font-medium text-red-900 mb-2">Error al cargar</h4>
                 <p className="text-xs text-red-600 mb-3">{error}</p>
@@ -373,7 +373,7 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
               // Loading State
               <div className="flex items-center justify-center py-12">
                 <div className="flex flex-col items-center space-y-3">
-                  <ArrowPathIcon className="h-8 w-8 animate-spin text-blue-500" />
+                  <RefreshIcon className="h-8 w-8 animate-spin text-blue-500" />
                   <span className="text-sm text-slate-600">Cargando notificaciones...</span>
                 </div>
               </div>

@@ -5,13 +5,13 @@
 
 import React, { useState } from 'react';
 import { 
-  CalendarDaysIcon, 
-  FunnelIcon, 
-  MagnifyingGlassIcon,
-  XMarkIcon,
+  CalendarIcon, 
+  FilterIcon, 
+  SearchIcon,
+  XIcon,
   UserIcon,
   ClockIcon
-} from '@heroicons/react/24/outline';
+} from '@heroicons/react/outline';
 import { 
   MeetingFilters as MeetingFiltersType, 
   MeetingStatus, 
@@ -104,7 +104,7 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
       {/* Search Bar */}
       <div className="p-4 border-b border-gray-200">
         <div className="relative">
-          <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
             type="text"
             placeholder="Buscar reuniones..."
@@ -121,7 +121,7 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-[#00365b]"
         >
-          <FunnelIcon className="h-4 w-4" />
+          <FilterIcon className="h-4 w-4" />
           <span>Filtros</span>
           {hasActiveFilters() && (
             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#fdb933] text-[#00365b]">
@@ -135,7 +135,7 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
             onClick={onClearFilters}
             className="flex items-center space-x-1 text-xs text-gray-500 hover:text-red-600"
           >
-            <XMarkIcon className="h-3 w-3" />
+            <XIcon className="h-3 w-3" />
             <span>Limpiar</span>
           </button>
         )}
@@ -147,7 +147,7 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
           {/* Date Range */}
           <div>
             <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-3">
-              <CalendarDaysIcon className="h-4 w-4" />
+              <CalendarIcon className="h-4 w-4" />
               <span>Rango de Fechas</span>
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

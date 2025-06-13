@@ -10,7 +10,7 @@ import { SubmissionList } from '../../../components/assignments/SubmissionList';
 import { assignmentService, submissionService } from '../../../lib/services/assignments';
 import { Assignment, AssignmentSubmission } from '../../../types/assignments';
 import { ArrowLeft, Download, FileSpreadsheet } from 'lucide-react';
-import { ClipboardDocumentCheckIcon } from '@heroicons/react/24/outline';
+import { ClipboardCheckIcon } from '@heroicons/react/outline';
 
 interface GradeModalProps {
   submission: AssignmentSubmission;
@@ -329,7 +329,7 @@ export default function SubmissionsPage() {
 
           {/* Page Header */}
           <ResponsiveFunctionalPageHeader
-            icon={<ClipboardDocumentCheckIcon className="w-7 h-7" />}
+            icon={<ClipboardCheckIcon className="w-7 h-7" />}
             title={`Entregas: ${assignment.title}`}
             subtitle={`${submissions.length} entrega(s) recibida(s)`}
             searchValue={searchQuery}

@@ -3,10 +3,11 @@ import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
-import Header from '../../components/layout/Header';
+import MainLayout from '../../components/layout/MainLayout';
+import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 import { getUserRoles } from '../../utils/roleUtils';
 import { UserRole, UserProfile } from '../../types/roles';
-import { ArrowLeft, Book, Calendar } from 'lucide-react';
+import { ArrowLeft, Book, Calendar, User } from 'lucide-react';
 
 export default function UserProfileView() {
   const router = useRouter();
@@ -129,31 +130,38 @@ export default function UserProfileView() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand_beige">
-        <Header 
-          user={currentUser}
-          isAdmin={isAdmin}
-          onLogout={handleLogout}
-          avatarUrl={avatarUrl}
-        />
-        <main className="container mx-auto pt-44 pb-10 px-4 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-brand_blue"></div>
-        </main>
-      </div>
+      <MainLayout 
+        user={currentUser} 
+        currentPage="profile"
+        pageTitle=""
+        breadcrumbs={[]}
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b] mx-auto"></div>
+            <p className="mt-4 text-[#00365b] font-medium">Cargando...</p>
+          </div>
+        </div>
+      </MainLayout>
     );
   }
 
   if (!profileData) {
     return (
-      <div className="min-h-screen bg-brand_beige">
-        <Header 
-          user={currentUser}
-          isAdmin={isAdmin}
-          onLogout={handleLogout}
-          avatarUrl={avatarUrl}
-        />
-        <main className="container mx-auto pt-44 pb-10 px-4">
-          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-8 text-center">
+      <MainLayout 
+        user={currentUser} 
+        currentPage="profile"
+        pageTitle=""
+        breadcrumbs={[]}
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="max-w-4xl mx-auto py-8">
+          <div className="bg-white rounded-lg shadow-md p-8 text-center">
             <h1 className="text-2xl font-bold mb-4 text-brand_blue">Usuario no encontrado</h1>
             <p className="text-gray-600 mb-6">El perfil que buscas no existe o no tienes permisos para verlo.</p>
             <Link
@@ -164,37 +172,41 @@ export default function UserProfileView() {
               Volver al Panel
             </Link>
           </div>
-        </main>
-      </div>
+        </div>
+      </MainLayout>
     );
   }
 
   return (
-    <>
+    <MainLayout 
+      user={currentUser} 
+      currentPage="profile"
+      pageTitle=""
+      breadcrumbs={[]}
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
       <Head>
         <title>{profileData.first_name} {profileData.last_name} - FNE LMS</title>
       </Head>
       
-      <div className="min-h-screen bg-brand_beige">
-        <Header 
-          user={currentUser}
-          isAdmin={isAdmin}
-          onLogout={handleLogout}
-          avatarUrl={avatarUrl}
-        />
-        
-        <main className="container mx-auto pt-44 pb-10 px-4">
-          <div className="max-w-4xl mx-auto">
-            {/* Back Navigation */}
-            <div className="mb-6">
-              <Link
-                href="/dashboard"
-                className="inline-flex items-center text-brand_blue hover:text-brand_yellow transition-colors"
-              >
-                <ArrowLeft className="mr-2" size={20} />
-                Volver al Panel
-              </Link>
-            </div>
+      <ResponsiveFunctionalPageHeader
+        icon={<User />}
+        title={`${profileData.first_name} ${profileData.last_name}`}
+        subtitle="Perfil de usuario"
+      />
+      
+      <div className="max-w-4xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="mb-6">
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center text-brand_blue hover:text-brand_yellow transition-colors"
+          >
+            <ArrowLeft className="mr-2" size={20} />
+            Volver al Panel
+          </Link>
+        </div>
 
             {/* User Profile Card */}
             <div className="bg-white rounded-lg shadow-md p-8 mb-8">
@@ -305,9 +317,7 @@ export default function UserProfileView() {
                 </div>
               )}
             </div>
-          </div>
-        </main>
       </div>
-    </>
+    </MainLayout>
   );
 }

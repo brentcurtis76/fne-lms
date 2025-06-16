@@ -29,7 +29,9 @@ import ActivitySummary from '../../components/activity/ActivitySummary';
 import ActivityNotifications from '../../components/activity/ActivityNotifications';
 import ActivityFeedPlaceholder from '../../components/activity/ActivityFeedPlaceholder';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
+import GroupSubmissionModalV2 from '../../components/assignments/GroupSubmissionModalV2';
 import { useAuth } from '../../hooks/useAuth';
+import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
 import { 
   getUserWorkspaceAccess, 
   getOrCreateWorkspace, 
@@ -112,10 +114,10 @@ import {
   MenuIcon,
   ClipboardCheckIcon
 } from '@heroicons/react/outline';
-import { X, Users } from 'lucide-react';
+import { X, Users, CheckCircle } from 'lucide-react';
 import { navigationManager } from '../../utils/navigationManager';
 
-type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging';
+type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'group-assignments';
 
 // Sidebar state management
 interface SidebarState {
@@ -589,6 +591,14 @@ const CommunityWorkspacePage: React.FC = () => {
       />;
     }
 
+    if (activeSection === 'group-assignments') {
+      return <GroupAssignmentsContent 
+        workspace={currentWorkspace} 
+        workspaceAccess={workspaceAccess} 
+        user={user} 
+        searchQuery={searchQuery}
+      />;
+    }
 
     return null;
   };
@@ -1912,6 +1922,231 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
           onClose={() => setShowThreadCreationModal(false)}
           onCreateThread={handleThreadCreate}
           loading={loading}
+        />
+      )}
+    </div>
+  );
+};
+
+// Group Assignments Tab Content Component
+interface GroupAssignmentsContentProps {
+  workspace: CommunityWorkspace | null;
+  workspaceAccess: WorkspaceAccess | null;
+  user: any;
+  searchQuery: string;
+}
+
+const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({ 
+  workspace, 
+  workspaceAccess, 
+  user, 
+  searchQuery 
+}) => {
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
+  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
+  const [userGroups, setUserGroups] = useState<Map<string, any>>(new Map());
+
+  useEffect(() => {
+    if (workspace && user) {
+      loadGroupAssignments();
+    }
+  }, [workspace, user]);
+
+  const loadGroupAssignments = async () => {
+    if (!user?.id) return;
+
+    try {
+      setLoading(true);
+      
+      // Get all group assignments from enrolled courses
+      const { assignments: fetchedAssignments, error } = await groupAssignmentsV2Service.getGroupAssignmentsForUser(user.id);
+      
+      if (error) {
+        console.error('Error loading group assignments:', error);
+        toast.error('Error al cargar las tareas grupales');
+        return;
+      }
+
+      setAssignments(fetchedAssignments || []);
+
+      // Load user's groups for each assignment
+      const groupsMap = new Map();
+      for (const assignment of fetchedAssignments || []) {
+        const { group } = await groupAssignmentsV2Service.getOrCreateGroup(assignment.id, user.id);
+        if (group) {
+          groupsMap.set(assignment.id, group);
+        }
+      }
+      setUserGroups(groupsMap);
+    } catch (error) {
+      console.error('Error loading group assignments:', error);
+      toast.error('Error al cargar las tareas grupales');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAssignmentClick = async (assignment: any) => {
+    setSelectedAssignment(assignment);
+    setShowSubmissionModal(true);
+  };
+
+  const handleSubmitAssignment = async (submissionData: any) => {
+    if (!selectedAssignment || !user?.id) return;
+
+    try {
+      const group = userGroups.get(selectedAssignment.id);
+      if (!group) {
+        toast.error('No se encontró tu grupo para esta tarea');
+        return;
+      }
+
+      const { success, error } = await groupAssignmentsV2Service.submitGroupAssignment(
+        selectedAssignment.id,
+        group.id,
+        submissionData
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success('Tarea grupal entregada exitosamente');
+      setShowSubmissionModal(false);
+      loadGroupAssignments(); // Reload to update status
+    } catch (error) {
+      console.error('Error submitting assignment:', error);
+      toast.error('Error al entregar la tarea');
+    }
+  };
+
+  // Filter assignments by search query
+  const filteredAssignments = assignments.filter(assignment => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      assignment.title?.toLowerCase().includes(query) ||
+      assignment.course_title?.toLowerCase().includes(query) ||
+      assignment.lesson_title?.toLowerCase().includes(query)
+    );
+  });
+
+  if (!workspace) {
+    return (
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+        <ClipboardCheckIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          No hay espacio de trabajo seleccionado
+        </h3>
+        <p className="text-gray-500">
+          Selecciona una comunidad para ver sus tareas grupales.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-[#00365b]">
+            Tareas Grupales
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            {filteredAssignments.length} tarea{filteredAssignments.length !== 1 ? 's' : ''} disponible{filteredAssignments.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
+              <div className="h-3 bg-gray-200 rounded w-full"></div>
+            </div>
+          ))}
+        </div>
+      ) : filteredAssignments.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredAssignments.map((assignment) => {
+            const group = userGroups.get(assignment.id);
+            const isSubmitted = assignment.status === 'submitted' || assignment.status === 'graded';
+            
+            return (
+              <div
+                key={assignment.id}
+                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => handleAssignmentClick(assignment)}
+              >
+                <h3 className="text-lg font-semibold text-[#00365b] mb-2">
+                  {assignment.title}
+                </h3>
+                <p className="text-sm text-gray-600 mb-3">
+                  {assignment.course_title} - {assignment.lesson_title}
+                </p>
+                
+                {assignment.description && (
+                  <p className="text-sm text-gray-700 mb-4 line-clamp-2">
+                    {assignment.description}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UsersIcon className="h-4 w-4 text-gray-500" />
+                    <span className="text-sm text-gray-600">
+                      {group ? `Grupo: ${group.name}` : 'Sin grupo asignado'}
+                    </span>
+                  </div>
+                  
+                  {isSubmitted ? (
+                    <span className="text-sm font-medium text-green-600 flex items-center gap-1">
+                      <CheckCircle className="h-4 w-4" />
+                      Entregado
+                    </span>
+                  ) : (
+                    <span className="text-sm font-medium text-yellow-600">
+                      Pendiente
+                    </span>
+                  )}
+                </div>
+
+                {assignment.grade && (
+                  <div className="mt-3 pt-3 border-t border-gray-100">
+                    <span className="text-sm text-gray-600">
+                      Calificación: <span className="font-medium text-[#00365b]">{assignment.grade}%</span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-gray-50 rounded-lg p-8 text-center">
+          <ClipboardCheckIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No hay tareas grupales disponibles
+          </h3>
+          <p className="text-gray-500">
+            Las tareas grupales aparecerán aquí cuando sean asignadas en tus cursos.
+          </p>
+        </div>
+      )}
+
+      {/* Submission Modal */}
+      {showSubmissionModal && selectedAssignment && (
+        <GroupSubmissionModalV2
+          assignment={selectedAssignment}
+          group={userGroups.get(selectedAssignment.id)}
+          onClose={() => setShowSubmissionModal(false)}
+          onSubmit={handleSubmitAssignment}
         />
       )}
     </div>

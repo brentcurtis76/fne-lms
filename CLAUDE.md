@@ -110,16 +110,18 @@ npm run dev  # MUST be port 3000
 - User notification preferences
 - Assignment system complete with enrolled courses integration
 - Assignment stats simplified to show work status (Active, Completed, In Progress, New)
-- **GROUP ASSIGNMENTS (Phase 2) - COMPLETED WITH ROLE CORRECTIONS**:
-  - Added to Collaborative Space under "Tareas Grupales" section
-  - CONSULTORES (teachers) create assignments and manage groups
-  - DOCENTES (students) can only view and submit assignments
-  - Manual group assignment by consultores (self-grouping removed)
-  - Integrated discussion threads per group using messaging system
-  - Collaborative submission with PDF support
-  - Database migration applied with corrected RLS policies
-  - New tables: group_assignment_members, group_assignment_submissions, group_assignment_discussions
-  - Modified lesson_assignments table for group support
+- **GROUP ASSIGNMENTS V2 - SIMPLIFIED IMPLEMENTATION (January 2025)**:
+  - Complete re-engineering based on consultant feedback
+  - Group assignments now created directly in lesson blocks
+  - Automatically appear in collaborative workspace when courses assigned to communities
+  - Students see informational message in lessons directing to collaborative space
+  - No blocking of lesson progression
+  - Simplified database schema: group_assignment_groups, group_assignment_members, group_assignment_submissions
+  - Automatic group creation and assignment
+  - Consultant notifications on submission
+  - New service: groupAssignmentsV2Service
+  - New component: GroupSubmissionModalV2
+  - Migration: Run `/database/MANUAL_MIGRATION_group_assignments_v2.sql` in Supabase
 - **QUIZ SYSTEM ENHANCEMENTS (January 2025)**:
   - Added open-ended question type to quiz blocks
   - New quiz submission tracking system
@@ -162,29 +164,30 @@ npm run dev  # MUST be port 3000
 - ⏳ Test grading workflow in `/quiz-reviews` page
 - ⏳ Verify student receives graded results
 
-## Group Assignments (Phase 2) - ROLE CORRECTIONS APPLIED
-- ✅ Database schema created with corrected RLS policies
-- ✅ UI components updated (consultores create, docentes submit)
-- ✅ Service layer implemented with role checks
-- ✅ Workspace navigation updated
-- ✅ Database migration applied
-- ✅ Role correction SQL created: `/database/fix-group-assignments-roles.sql`
-- ⏳ **NEXT STEP**: Apply role correction SQL in Supabase
-- ⏳ Test assignment creation by CONSULTORES
-- ⏳ Test group management by CONSULTORES
-- ⏳ Test submission by DOCENTES (students)
-- ⏳ Verify grading workflow by CONSULTORES
+## Group Assignments V2 - SIMPLIFIED IMPLEMENTATION
+- ✅ Complete re-engineering based on consultant feedback
+- ✅ Group assignments now part of lesson blocks (no separate creation)
+- ✅ Automatic display in collaborative workspace
+- ✅ Student-facing informational block in lessons
+- ✅ Simplified database schema implemented
+- ✅ New service layer (groupAssignmentsV2Service)
+- ✅ Updated UI components (GroupSubmissionModalV2)
+- ✅ Consultant notification system
+- ⏳ **NEXT STEP**: Run `/database/MANUAL_MIGRATION_group_assignments_v2.sql` in Supabase
+- ⏳ Test complete flow from lesson to submission
+- ⏳ Verify consultant notifications
+- ⏳ Test with different user roles
 
-## Implementation Details
+## Implementation Details - Group Assignments V2
 - **Location**: Group assignments integrated into `/pages/community/workspace.tsx`
 - **New Section**: "Tareas Grupales" in collaborative space sidebar
 - **Key Files**:
-  - `/lib/services/groupAssignments.js` - Service layer
-  - `/pages/community/workspace/assignments/[id]/groups.tsx` - Group management
-  - `/pages/community/workspace/assignments/[id]/discussion.tsx` - Group chat
-  - `/database/add-group-assignments.sql` - Database schema
-  - `/scripts/apply-group-assignments.js` - Migration script
-- **Documentation**: See `GROUP_ASSIGNMENTS_IMPLEMENTATION.md` for full details
+  - `/lib/services/groupAssignmentsV2.js` - Simplified service layer
+  - `/components/assignments/GroupSubmissionModalV2.tsx` - Submission interface
+  - `/components/student/StudentBlockRenderer.tsx` - Updated with group assignment block
+  - `/database/MANUAL_MIGRATION_group_assignments_v2.sql` - Database schema
+  - `/scripts/apply-group-assignments-v2.js` - Migration script (use manual SQL if fails)
+- **Documentation**: See `GROUP_ASSIGNMENTS_V2_CHANGES.md` for full details
 
 # DEVELOPMENT CONTACTS
 **Technical Support**: Brent Curtis  

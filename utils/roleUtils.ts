@@ -215,11 +215,11 @@ export async function assignRole(
     let finalCommunityId = organizationalScope.communityId;
 
     // Auto-create community for lider_comunidad role
-    if (roleType === 'lider_comunidad' && organizationalScope.generationId && !organizationalScope.communityId) {
+    if (roleType === 'lider_comunidad' && organizationalScope.schoolId && !organizationalScope.communityId) {
       const communityResult = await createCommunityForLeader(
         targetUserId,
         organizationalScope.schoolId!,
-        organizationalScope.generationId
+        organizationalScope.generationId // Can be undefined for schools without generations
       );
       
       if (communityResult.success) {
@@ -263,7 +263,7 @@ export async function assignRole(
 async function createCommunityForLeader(
   leaderId: string,
   schoolId: string,
-  generationId: string
+  generationId?: string
 ): Promise<{ success: boolean; communityId?: string; error?: string }> {
   try {
     // Get leader's name for community naming
@@ -277,30 +277,32 @@ async function createCommunityForLeader(
       return { success: false, error: 'Error al obtener datos del líder' };
     }
 
-    // Get generation info for community naming
-    const { data: generation, error: genError } = await supabase
-      .from('generations')
-      .select('name')
-      .eq('id', generationId)
-      .single();
-
-    if (genError) {
-      return { success: false, error: 'Error al obtener datos de la generación' };
-    }
-
     // Create community name
     const leaderName = leaderProfile.first_name && leaderProfile.last_name
       ? `${leaderProfile.first_name} ${leaderProfile.last_name}`
       : 'Líder';
     
-    const communityName = `Comunidad de ${leaderName} - ${generation.name}`;
+    let communityName = `Comunidad de ${leaderName}`;
+
+    // If generation is provided, add it to the name
+    if (generationId) {
+      const { data: generation, error: genError } = await supabase
+        .from('generations')
+        .select('name')
+        .eq('id', generationId)
+        .single();
+
+      if (!genError && generation) {
+        communityName += ` - ${generation.name}`;
+      }
+    }
 
     // Create the growth community
     const { data: newCommunity, error: createError } = await supabase
       .from('growth_communities')
       .insert({
         school_id: parseInt(schoolId), // Convert to integer for existing school table
-        generation_id: generationId,
+        generation_id: generationId || null, // Allow null for schools without generations
         name: communityName,
         max_teachers: 16
       })

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { AlertTriangle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface User {
@@ -16,6 +17,12 @@ interface User {
   community?: { id: string; name: string };
 }
 
+interface School {
+  id: string;
+  name: string;
+  has_generations?: boolean;
+}
+
 interface OrganizationalUnit {
   id: string;
   name: string;
@@ -30,6 +37,7 @@ interface ConsultantAssignmentModalProps {
   onClose: () => void;
   onAssignmentCreated: () => void;
   editingAssignment?: any;
+  preselectedUser?: User; // Add this for when opened from user row
 }
 
 const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
@@ -38,56 +46,32 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
   onAssignmentCreated,
   editingAssignment
 }) => {
+  // Check if we're in user context (opened from user row)
+  const isUserContext = editingAssignment?.student_id && editingAssignment?.student;
+  const fixedUser = isUserContext ? editingAssignment.student : null;
   // Form state
   const [formData, setFormData] = useState({
     consultant_id: '',
+    assignment_scope: 'individual', // 'individual', 'community', 'generation', 'school'
     student_id: '',
-    assignment_type: 'monitoring',
-    can_view_progress: true,
-    can_assign_courses: false,
-    can_message_student: true,
     school_id: '',
     generation_id: '',
     community_id: '',
-    starts_at: '',
-    ends_at: '',
-    assignment_data: {}
+    can_assign_courses: false,
+    has_end_date: false,
+    ends_at: ''
   });
 
   // Data options
   const [consultants, setConsultants] = useState<User[]>([]);
   const [students, setStudents] = useState<User[]>([]);
-  const [schools, setSchools] = useState<OrganizationalUnit[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
   const [generations, setGenerations] = useState<OrganizationalUnit[]>([]);
   const [communities, setCommunities] = useState<OrganizationalUnit[]>([]);
 
   // UI state
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
-
-  // Assignment type descriptions
-  const assignmentTypes = [
-    {
-      value: 'monitoring',
-      label: 'Monitoreo',
-      description: 'Seguimiento regular del progreso del estudiante'
-    },
-    {
-      value: 'mentoring',
-      label: 'Mentoría',
-      description: 'Relación directa de mentoría y guía personalizada'
-    },
-    {
-      value: 'evaluation',
-      label: 'Evaluación',
-      description: 'Supervisión y evaluación del rendimiento'
-    },
-    {
-      value: 'support',
-      label: 'Apoyo',
-      description: 'Soporte académico y profesional específico'
-    }
-  ];
 
   useEffect(() => {
     if (isOpen) {
@@ -99,6 +83,13 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
       }
     }
   }, [isOpen, editingAssignment]);
+  
+  // Debug effect to log formData changes
+  useEffect(() => {
+    console.log('FormData changed:', formData);
+    console.log('Current schools list:', schools);
+    console.log('Current communities list:', communities);
+  }, [formData, schools, communities]);
 
   const fetchData = async () => {
     setDataLoading(true);
@@ -138,71 +129,264 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
 
   const populateFormForEditing = () => {
     if (editingAssignment) {
+      // If we have a student_id, this was opened from a user row
+      const isUserContext = !!editingAssignment.student_id;
+      
+      // Determine assignment scope based on what fields are populated
+      let scope = 'individual';
+      if (editingAssignment.community_id) scope = 'community';
+      else if (editingAssignment.generation_id) scope = 'generation';
+      else if (editingAssignment.school_id && !editingAssignment.student_id) scope = 'school';
+
       setFormData({
         consultant_id: editingAssignment.consultant_id || '',
-        student_id: editingAssignment.student_id || '',
-        assignment_type: editingAssignment.assignment_type || 'monitoring',
-        can_view_progress: editingAssignment.can_view_progress ?? true,
-        can_assign_courses: editingAssignment.can_assign_courses ?? false,
-        can_message_student: editingAssignment.can_message_student ?? true,
+        assignment_scope: scope,
+        student_id: editingAssignment.student_id || editingAssignment.student?.id || '',
         school_id: editingAssignment.school_id || '',
         generation_id: editingAssignment.generation_id || '',
         community_id: editingAssignment.community_id || '',
-        starts_at: editingAssignment.starts_at ? 
-          new Date(editingAssignment.starts_at).toISOString().slice(0, 16) : '',
+        can_assign_courses: editingAssignment.can_assign_courses ?? false,
+        has_end_date: !!editingAssignment.ends_at,
         ends_at: editingAssignment.ends_at ? 
-          new Date(editingAssignment.ends_at).toISOString().slice(0, 16) : '',
-        assignment_data: editingAssignment.assignment_data || {}
+          new Date(editingAssignment.ends_at).toISOString().slice(0, 16) : ''
       });
+      
+      // If we have a user context, populate their school and community
+      if (isUserContext && editingAssignment.student_id) {
+        const student = students.find(s => s.id === editingAssignment.student_id);
+        if (student) {
+          handleInputChange('student_id', student.id);
+        }
+      }
     }
   };
 
   const resetForm = () => {
     setFormData({
       consultant_id: '',
+      assignment_scope: 'individual',
       student_id: '',
-      assignment_type: 'monitoring',
-      can_view_progress: true,
-      can_assign_courses: false,
-      can_message_student: true,
       school_id: '',
       generation_id: '',
       community_id: '',
-      starts_at: new Date().toISOString().slice(0, 16),
-      ends_at: '',
-      assignment_data: {}
+      can_assign_courses: false,
+      has_end_date: false,
+      ends_at: ''
     });
   };
 
   const handleInputChange = (field: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-
+    // Handle scope changes intelligently
+    if (field === 'assignment_scope') {
+      console.log('Changing assignment scope from', formData.assignment_scope, 'to', value);
+      
+      // If we have a fixed user, always keep their data and populate accordingly
+      if (fixedUser) {
+        const student = students.find(s => s.id === fixedUser.id) || fixedUser;
+        let schoolId = student.school_id || student.school?.id;
+        let communityId = student.community_id || student.community?.id;
+        
+        // Ensure school and community exist in lists
+        if (schoolId) {
+          const schoolExists = schools.some(s => String(s.id) === String(schoolId));
+          if (!schoolExists && student.school) {
+            setSchools(prev => [...prev, {
+              id: String(schoolId),
+              name: student.school.name || 'Escuela del usuario',
+              has_generations: false
+            }]);
+          }
+        }
+        
+        if (communityId) {
+          const communityExists = communities.some(c => String(c.id) === String(communityId));
+          if (!communityExists) {
+            console.warn('Community ID exists on fixed user but not in database:', communityId);
+            // Don't set the community_id if it doesn't exist in the database
+            communityId = null;
+          }
+        }
+        
+        // Update form based on scope but always keep user data
+        setFormData(prev => ({
+          ...prev,
+          [field]: value,
+          student_id: fixedUser.id,
+          school_id: schoolId ? String(schoolId) : '',
+          community_id: communityId ? String(communityId) : '',
+          generation_id: student.generation_id ? String(student.generation_id) : ''
+        }));
+        return;
+      }
+      
+      // Original logic for when there's no fixed user
+      if (value === 'individual') {
+        setFormData(prev => ({
+          ...prev,
+          [field]: value,
+          school_id: '',
+          generation_id: '',
+          community_id: ''
+        }));
+      } else if (value === 'school') {
+        setFormData(prev => ({
+          ...prev,
+          [field]: value,
+          student_id: '',
+          generation_id: '',
+          community_id: ''
+        }));
+      } else if (value === 'generation') {
+        setFormData(prev => ({
+          ...prev,
+          [field]: value,
+          student_id: '',
+          community_id: ''
+        }));
+      } else if (value === 'community') {
+        setFormData(prev => ({
+          ...prev,
+          [field]: value,
+          student_id: ''
+        }));
+      }
+      return;
+    }
+    
+    // When selecting a student, auto-populate their school and community
+    if (field === 'student_id' && value) {
+      const selectedStudent = students.find(s => s.id === value);
+      console.log('Selected student:', selectedStudent);
+      console.log('All student data:', JSON.stringify(selectedStudent, null, 2));
+      
+      if (selectedStudent) {
+        // Get school_id from either direct field or from school object
+        let schoolId = selectedStudent.school_id || selectedStudent.school?.id;
+        let communityId = selectedStudent.community_id || selectedStudent.community?.id;
+        
+        console.log('Found school_id:', schoolId);
+        console.log('Found community_id:', communityId);
+        console.log('Schools list:', schools);
+        console.log('Communities list:', communities);
+        
+        // Check if the school exists in our schools list
+        const schoolExists = schools.some(s => s.id === schoolId || s.id === String(schoolId));
+        const communityExists = communities.some(c => c.id === communityId || c.id === String(communityId));
+        
+        console.log('School exists in dropdown:', schoolExists);
+        console.log('Community exists in dropdown:', communityExists);
+        
+        // If school doesn't exist in the list, add it temporarily
+        if (schoolId && !schoolExists && selectedStudent.school) {
+          const tempSchool = {
+            id: String(schoolId),
+            name: selectedStudent.school.name || 'Escuela del usuario',
+            has_generations: false // Los Pellines doesn't have generations
+          };
+          setSchools(prev => [...prev, tempSchool]);
+          console.log('Added temporary school to list:', tempSchool);
+        }
+        
+        // If community doesn't exist in the list, DO NOT add it
+        // This prevents sending invalid community IDs to the API
+        if (communityId && !communityExists) {
+          console.warn('Community ID exists on user but not in database:', communityId);
+          // Don't set the community_id if it doesn't exist in the database
+          communityId = null;
+        }
+        
+        // Update form data with school and community
+        const newFormData = {
+          ...formData,
+          [field]: value,
+          school_id: schoolId ? String(schoolId) : '',
+          community_id: communityId ? String(communityId) : ''
+        };
+        
+        console.log('Setting formData to:', newFormData);
+        setFormData(newFormData);
+        
+        return;
+      }
+    }
+    
     // Clear dependent fields when parent changes
     if (field === 'school_id') {
       setFormData(prev => ({
         ...prev,
+        [field]: value,
         generation_id: '',
         community_id: ''
       }));
-    } else if (field === 'generation_id') {
+      
+      // If the selected school doesn't have generations, clear generation_id
+      const selectedSchool = schools.find(s => s.id === value);
+      if (selectedSchool && selectedSchool.has_generations === false) {
+        setFormData(prev => ({
+          ...prev,
+          generation_id: ''
+        }));
+      }
+      return;
+    } 
+    
+    if (field === 'generation_id') {
       setFormData(prev => ({
         ...prev,
+        [field]: value,
         community_id: ''
       }));
+      return;
     }
+    
+    // Default case - just update the field
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const getFilteredGenerations = () => {
-    if (!formData.school_id) return generations;
-    return generations.filter(g => g.school_id?.toString() === formData.school_id);
+    if (!formData.school_id) return [];
+    return generations.filter(g => 
+      String(g.school_id) === String(formData.school_id)
+    );
   };
 
   const getFilteredCommunities = () => {
-    if (!formData.generation_id) return communities;
-    return communities.filter(c => c.generation_id === formData.generation_id);
+    // If we have a specific community selected (from user selection), just return all communities
+    // so the selected one can be displayed
+    if (formData.community_id && formData.student_id) {
+      return communities;
+    }
+    
+    // Otherwise filter by school/generation
+    if (!formData.school_id) return [];
+    
+    const selectedSchool = schools.find(s => 
+      String(s.id) === String(formData.school_id)
+    );
+    
+    if (selectedSchool && selectedSchool.has_generations !== true) {
+      // School doesn't use generations, show all communities for this school
+      return communities.filter(c => 
+        String(c.school_id) === String(formData.school_id)
+      );
+    } else {
+      // School uses generations, filter by generation
+      if (!formData.generation_id) return [];
+      return communities.filter(c => 
+        String(c.generation_id) === String(formData.generation_id)
+      );
+    }
+  };
+  
+  const shouldShowGenerationField = () => {
+    if (!formData.school_id) return false;
+    const selectedSchool = schools.find(s => 
+      String(s.id) === String(formData.school_id)
+    );
+    return selectedSchool?.has_generations === true;
   };
 
   const validateForm = () => {
@@ -210,18 +394,55 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
       toast.error('Debe seleccionar un consultor');
       return false;
     }
-    if (!formData.student_id) {
-      toast.error('Debe seleccionar un estudiante');
+    
+    switch (formData.assignment_scope) {
+      case 'individual':
+        if (!formData.student_id) {
+          toast.error('Debe seleccionar un usuario');
+          return false;
+        }
+        if (formData.consultant_id === formData.student_id) {
+          toast.error('El consultor no puede asignarse a sí mismo');
+          return false;
+        }
+        break;
+      case 'school':
+        if (!formData.school_id) {
+          toast.error('Debe seleccionar una escuela');
+          return false;
+        }
+        break;
+      case 'generation':
+        if (!formData.school_id) {
+          toast.error('Debe seleccionar una escuela');
+          return false;
+        }
+        if (shouldShowGenerationField() && !formData.generation_id) {
+          toast.error('Debe seleccionar una generación');
+          return false;
+        }
+        break;
+      case 'community':
+        if (!formData.school_id) {
+          toast.error('Debe seleccionar una escuela');
+          return false;
+        }
+        if (shouldShowGenerationField() && !formData.generation_id) {
+          toast.error('Debe seleccionar una generación');
+          return false;
+        }
+        if (!formData.community_id) {
+          toast.error('Debe seleccionar una comunidad');
+          return false;
+        }
+        break;
+    }
+    
+    if (formData.has_end_date && !formData.ends_at) {
+      toast.error('Debe especificar una fecha de finalización');
       return false;
     }
-    if (formData.consultant_id === formData.student_id) {
-      toast.error('El consultor no puede asignarse a sí mismo');
-      return false;
-    }
-    if (formData.ends_at && formData.starts_at && formData.ends_at <= formData.starts_at) {
-      toast.error('La fecha de finalización debe ser posterior a la fecha de inicio');
-      return false;
-    }
+    
     return true;
   };
 
@@ -229,6 +450,90 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
     e.preventDefault();
     
     if (!validateForm()) return;
+    
+    // Variables for bulk assignment tracking
+    let affectedCount = 0;
+    let entityName = '';
+    
+    // Check for bulk assignment and show warning
+    if (formData.assignment_scope !== 'individual') {
+      switch (formData.assignment_scope) {
+        case 'school':
+          const schoolStudents = students.filter(s => 
+            s.school_id?.toString() === formData.school_id?.toString()
+          );
+          affectedCount = schoolStudents.length;
+          entityName = schools.find(s => s.id === formData.school_id)?.name || 'la escuela';
+          break;
+          
+        case 'generation':
+          const genStudents = students.filter(s => 
+            s.school_id?.toString() === formData.school_id?.toString() &&
+            s.generation_id === formData.generation_id
+          );
+          affectedCount = genStudents.length;
+          entityName = generations.find(g => g.id === formData.generation_id)?.name || 'la generación';
+          break;
+          
+        case 'community':
+          const commStudents = students.filter(s => 
+            s.community_id === formData.community_id
+          );
+          affectedCount = commStudents.length;
+          entityName = communities.find(c => c.id === formData.community_id)?.name || 'la comunidad';
+          break;
+      }
+      
+      if (affectedCount > 0) {
+        // Show confirmation toast with custom styling
+        const confirmed = await new Promise<boolean>((resolve) => {
+          const toastId = toast(
+            (t) => (
+              <div>
+                <p className="font-medium mb-2">¿Está seguro de que desea asignar el consultor a TODOS los {affectedCount} usuarios de {entityName}?</p>
+                <p className="text-sm text-gray-600 mb-4">Esta acción asignará el consultor a todos los usuarios actuales y futuros de {entityName}.</p>
+                <div className="flex gap-2 justify-end">
+                  <button
+                    onClick={() => {
+                      toast.dismiss(t.id);
+                      resolve(false);
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      toast.dismiss(t.id);
+                      resolve(true);
+                    }}
+                    className="px-4 py-2 text-sm font-medium text-white bg-[#00365b] rounded-md hover:bg-[#002a47]"
+                  >
+                    Confirmar
+                  </button>
+                </div>
+              </div>
+            ),
+            {
+              duration: Infinity,
+              position: 'top-center',
+              style: {
+                maxWidth: '500px',
+                padding: '16px',
+                background: 'white',
+                color: '#111827'
+              }
+            }
+          );
+        });
+        
+        if (!confirmed) {
+          return;
+        }
+        
+        // Don't show success here - wait until after the API call succeeds
+      }
+    }
 
     setLoading(true);
     try {
@@ -240,14 +545,52 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
         return;
       }
 
-      const url = editingAssignment 
-        ? '/api/admin/consultant-assignments'
-        : '/api/admin/consultant-assignments';
-      
-      const method = editingAssignment ? 'PUT' : 'POST';
-      const payload = editingAssignment 
-        ? { ...formData, id: editingAssignment.id }
-        : formData;
+      // Prepare payload based on assignment scope
+      const payload: any = {
+        consultant_id: formData.consultant_id,
+        can_view_progress: true, // Always true
+        can_message_student: true, // Always true
+        can_assign_courses: formData.can_assign_courses,
+        starts_at: new Date().toISOString(), // Always today
+        ends_at: formData.has_end_date ? formData.ends_at : null,
+        assignment_type: 'comprehensive' // Tipo: Completa - Todos los permisos
+      };
+
+      // Set scope-specific fields
+      switch (formData.assignment_scope) {
+        case 'individual':
+          payload.student_id = formData.student_id;
+          break;
+        case 'school':
+          payload.school_id = formData.school_id;
+          payload.assignment_scope = 'school';
+          break;
+        case 'generation':
+          payload.school_id = formData.school_id;
+          payload.generation_id = formData.generation_id;
+          payload.assignment_scope = 'generation';
+          break;
+        case 'community':
+          payload.school_id = formData.school_id;
+          payload.generation_id = formData.generation_id || null; // Send null if no generation
+          payload.community_id = formData.community_id;
+          payload.assignment_scope = 'community';
+          // For individual assignment with community scope, include student_id
+          if (formData.student_id) {
+            payload.student_id = formData.student_id;
+          }
+          break;
+      }
+
+      // Only add ID if we're truly editing an existing assignment
+      if (editingAssignment && editingAssignment.id && !editingAssignment.student) {
+        payload.id = editingAssignment.id;
+      }
+
+      const url = '/api/admin/consultant-assignments';
+      const method = (editingAssignment && editingAssignment.id && !editingAssignment.student) ? 'PUT' : 'POST';
+
+      console.log('Sending assignment request:', { method, url, payload });
 
       const response = await fetch(url, {
         method,
@@ -255,28 +598,67 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          ...payload,
-          starts_at: payload.starts_at || null,
-          ends_at: payload.ends_at || null,
-          school_id: payload.school_id || null,
-          generation_id: payload.generation_id || null,
-          community_id: payload.community_id || null,
-        })
+        body: JSON.stringify(payload)
       });
 
-      const result = await response.json();
+      console.log('Response status:', response.status);
+      console.log('Response headers:', response.headers);
+      
+      let result;
+      try {
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+        result = responseText ? JSON.parse(responseText) : {};
+      } catch (parseError) {
+        console.error('Failed to parse response:', parseError);
+        result = {};
+      }
+      
+      console.log('Assignment API response:', { status: response.status, result });
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to save assignment');
+        console.error('Assignment API error:', result);
+        const errorMessage = result.details ? 
+          `${result.error}: ${result.details}` : 
+          result.error || 'Error al guardar la asignación';
+        toast.error(errorMessage);
+        return; // Don't throw, just return early
       }
 
-      toast.success(editingAssignment ? 'Asignación actualizada exitosamente' : 'Asignación creada exitosamente');
-      onAssignmentCreated();
+      // Show success message based on scope
+      let successMessage = 'Asignación creada exitosamente';
+      if (editingAssignment && editingAssignment.id && !editingAssignment.student) {
+        successMessage = 'Asignación actualizada exitosamente';
+      } else if (formData.assignment_scope !== 'individual' && affectedCount > 0 && entityName) {
+        successMessage = `Consultor asignado exitosamente a ${affectedCount} usuarios de ${entityName}`;
+      }
+      
+      toast.success(successMessage);
+      
+      // Close modal first, then call the callback
       onClose();
-    } catch (error) {
-      console.error('Error saving assignment:', error);
-      toast.error('Error al guardar la asignación');
+      
+      // Give modal time to close before refreshing data
+      setTimeout(() => {
+        try {
+          onAssignmentCreated();
+        } catch (callbackError) {
+          console.error('Error in assignment created callback:', callbackError);
+        }
+      }, 500);
+    } catch (error: any) {
+      console.error('Full error object:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error stack:', error?.stack);
+      
+      // Check if this is actually an error or just a rejected promise
+      if (error instanceof Error) {
+        toast.error(`Error: ${error.message}`);
+      } else if (typeof error === 'string') {
+        toast.error(error);
+      } else {
+        toast.error('Error al guardar la asignación');
+      }
     } finally {
       setLoading(false);
     }
@@ -286,7 +668,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-[#00365b]">
@@ -309,30 +691,99 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Consultant and Student Selection */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Consultor *
-                  </label>
-                  <select
-                    value={formData.consultant_id}
-                    onChange={(e) => handleInputChange('consultant_id', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
-                    required
-                  >
-                    <option value="">Seleccionar consultor...</option>
-                    {consultants.map(consultant => (
-                      <option key={consultant.id} value={consultant.id}>
-                        {consultant.first_name} {consultant.last_name} ({consultant.email})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* Consultant Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Consultor *
+                </label>
+                <select
+                  value={formData.consultant_id}
+                  onChange={(e) => handleInputChange('consultant_id', e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  required
+                >
+                  <option value="">Seleccionar consultor...</option>
+                  {consultants.map(consultant => (
+                    <option key={consultant.id} value={consultant.id}>
+                      {consultant.first_name} {consultant.last_name} ({consultant.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
+              {/* Assignment Scope Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Tipo de Asignación *
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="assignment_scope"
+                      value="individual"
+                      checked={formData.assignment_scope === 'individual'}
+                      onChange={(e) => handleInputChange('assignment_scope', e.target.value)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Individual</span>
+                  </label>
+                  <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="assignment_scope"
+                      value="community"
+                      checked={formData.assignment_scope === 'community'}
+                      onChange={(e) => handleInputChange('assignment_scope', e.target.value)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Comunidad</span>
+                  </label>
+                  <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="assignment_scope"
+                      value="generation"
+                      checked={formData.assignment_scope === 'generation'}
+                      onChange={(e) => handleInputChange('assignment_scope', e.target.value)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Generación</span>
+                  </label>
+                  <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="assignment_scope"
+                      value="school"
+                      checked={formData.assignment_scope === 'school'}
+                      onChange={(e) => handleInputChange('assignment_scope', e.target.value)}
+                      className="mr-2"
+                    />
+                    <span className="text-sm">Escuela</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Show fixed user when opened from user row */}
+              {fixedUser && (
+                <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Usuario Seleccionado
+                  </label>
+                  <div className="text-lg font-medium">
+                    {fixedUser.first_name} {fixedUser.last_name} ({fixedUser.email})
+                  </div>
+                  <div className="text-sm text-gray-600 mt-1">
+                    La asignación se aplicará según el tipo seleccionado arriba
+                  </div>
+                </div>
+              )}
+
+              {/* Dynamic Selection Based on Scope - Only show if no fixed user */}
+              {!fixedUser && formData.assignment_scope === 'individual' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Estudiante/Docente *
+                    Usuario a Asignar *
                   </label>
                   <select
                     value={formData.student_id}
@@ -340,171 +791,203 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
                     required
                   >
-                    <option value="">Seleccionar estudiante...</option>
+                    <option value="">Seleccionar usuario...</option>
                     {students.map(student => (
                       <option key={student.id} value={student.id}>
-                        {student.first_name} {student.last_name} ({student.email})
+                        {student.first_name} {student.last_name} ({student.email}) - {student.role}
                       </option>
                     ))}
                   </select>
                 </div>
-              </div>
+              )}
 
-              {/* Assignment Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo de Asignación *
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {assignmentTypes.map(type => (
-                    <div
-                      key={type.value}
-                      className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                        formData.assignment_type === type.value
-                          ? 'border-[#fdb933] bg-[#fdb933]/10'
-                          : 'border-gray-300 hover:border-[#fdb933]/50'
-                      }`}
-                      onClick={() => handleInputChange('assignment_type', type.value)}
-                    >
-                      <div className="flex items-center mb-2">
-                        <input
-                          type="radio"
-                          name="assignment_type"
-                          value={type.value}
-                          checked={formData.assignment_type === type.value}
-                          onChange={() => handleInputChange('assignment_type', type.value)}
-                          className="mr-2"
-                        />
-                        <span className="font-medium">{type.label}</span>
-                      </div>
-                      <p className="text-sm text-gray-600">{type.description}</p>
+              {(formData.assignment_scope === 'school' || 
+                formData.assignment_scope === 'generation' || 
+                formData.assignment_scope === 'community') && (
+                <div className="space-y-4">
+                  {/* Allow user selection for community assignment - only if no fixed user */}
+                  {!fixedUser && formData.assignment_scope === 'community' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Usuario (Opcional - para asignar a la comunidad de un usuario específico)
+                      </label>
+                      <select
+                        value={formData.student_id}
+                        onChange={(e) => handleInputChange('student_id', e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                      >
+                        <option value="">Seleccionar usuario...</option>
+                        {students.map(student => (
+                          <option key={student.id} value={student.id}>
+                            {student.first_name} {student.last_name} ({student.email}) - {student.role}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Permissions */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Permisos de Asignación
-                </label>
-                <div className="space-y-3">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.can_view_progress}
-                      onChange={(e) => handleInputChange('can_view_progress', e.target.checked)}
-                      className="mr-3 h-4 w-4 text-[#fdb933] focus:ring-[#fdb933] border-gray-300 rounded"
-                    />
-                    <span className="text-sm">Puede ver progreso del estudiante</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.can_assign_courses}
-                      onChange={(e) => handleInputChange('can_assign_courses', e.target.checked)}
-                      className="mr-3 h-4 w-4 text-[#fdb933] focus:ring-[#fdb933] border-gray-300 rounded"
-                    />
-                    <span className="text-sm">Puede asignar cursos al estudiante</span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.can_message_student}
-                      onChange={(e) => handleInputChange('can_message_student', e.target.checked)}
-                      className="mr-3 h-4 w-4 text-[#fdb933] focus:ring-[#fdb933] border-gray-300 rounded"
-                    />
-                    <span className="text-sm">Puede enviar mensajes al estudiante</span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Time Bounds */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Duración de la Asignación
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  )}
+                  
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">Fecha de inicio</label>
-                    <input
-                      type="datetime-local"
-                      value={formData.starts_at}
-                      onChange={(e) => handleInputChange('starts_at', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Escuela *
+                    </label>
+                    {formData.assignment_scope === 'community' && formData.student_id && formData.school_id ? (
+                      // Show school as read-only when assigning to a specific student's community
+                      <div className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50">
+                        {schools.find(s => s.id === formData.school_id || s.id.toString() === formData.school_id)?.name || 'Escuela del usuario'}
+                      </div>
+                    ) : (
+                      // Show dropdown for other assignment types
+                      <select
+                        value={formData.school_id || ''}
+                        onChange={(e) => handleInputChange('school_id', e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                        required
+                      >
+                        <option value="">Seleccionar escuela...</option>
+                        {schools.map(school => {
+                          const optionValue = String(school.id);
+                          const isSelected = optionValue === String(formData.school_id);
+                          console.log(`School option: ${school.name} (${optionValue}) - Selected: ${isSelected}`);
+                          return (
+                            <option key={school.id} value={optionValue}>
+                              {school.name}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    )}
                   </div>
+
+                  {(formData.assignment_scope === 'generation' || 
+                    formData.assignment_scope === 'community') && shouldShowGenerationField() && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Generación *
+                      </label>
+                      <select
+                        value={formData.generation_id || ''}
+                        onChange={(e) => handleInputChange('generation_id', e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                        required
+                        disabled={!formData.school_id}
+                      >
+                        <option value="">Seleccionar generación...</option>
+                        {getFilteredGenerations().length === 0 ? (
+                          <option value="" disabled>Esta escuela no tiene generaciones</option>
+                        ) : (
+                          getFilteredGenerations().map(generation => (
+                            <option key={generation.id} value={String(generation.id)}>
+                              {generation.name}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                  )}
+
+                  {formData.assignment_scope === 'community' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Comunidad de Crecimiento *
+                      </label>
+                      {formData.student_id && formData.community_id ? (
+                        // If we selected a user with a community, show it as read-only
+                        <div className="w-full p-3 border border-gray-200 rounded-lg bg-gray-50">
+                          {communities.find(c => c.id === formData.community_id)?.name || 'Comunidad del usuario'}
+                        </div>
+                      ) : (
+                        // Otherwise show the dropdown
+                        <select
+                          value={formData.community_id || ''}
+                          onChange={(e) => handleInputChange('community_id', e.target.value)}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                          required
+                          disabled={!formData.school_id || (shouldShowGenerationField() && !formData.generation_id)}
+                        >
+                          <option value="">Seleccionar comunidad...</option>
+                          {getFilteredCommunities().length === 0 ? (
+                            <option value="" disabled>No hay comunidades disponibles</option>
+                          ) : (
+                            getFilteredCommunities().map(community => (
+                              <option key={community.id} value={String(community.id)}>
+                                {community.name}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Bulk Assignment Warning */}
+              {formData.assignment_scope !== 'individual' && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-start">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-medium text-yellow-800 mb-1">
+                        Advertencia: Asignación Masiva
+                      </p>
+                      <p className="text-yellow-700">
+                        {formData.assignment_scope === 'school' && 'Esta asignación se aplicará a TODOS los usuarios de la escuela seleccionada.'}
+                        {formData.assignment_scope === 'generation' && 'Esta asignación se aplicará a TODOS los usuarios de la generación seleccionada.'}
+                        {formData.assignment_scope === 'community' && 'Esta asignación se aplicará a TODOS los usuarios de la comunidad seleccionada.'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Permission - Only Course Assignment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Permisos
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={formData.can_assign_courses}
+                    onChange={(e) => handleInputChange('can_assign_courses', e.target.checked)}
+                    className="mr-3 h-4 w-4 text-[#fdb933] focus:ring-[#fdb933] border-gray-300 rounded"
+                  />
+                  <span className="text-sm">Puede asignar cursos</span>
+                </label>
+              </div>
+
+              {/* End Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Duración
+                </label>
+                <label className="flex items-center mb-3">
+                  <input
+                    type="checkbox"
+                    checked={formData.has_end_date}
+                    onChange={(e) => handleInputChange('has_end_date', e.target.checked)}
+                    className="mr-3 h-4 w-4 text-[#fdb933] focus:ring-[#fdb933] border-gray-300 rounded"
+                  />
+                  <span className="text-sm">Establecer fecha de finalización</span>
+                </label>
+                {formData.has_end_date && (
                   <div>
-                    <label className="block text-sm text-gray-600 mb-1">Fecha de finalización (opcional)</label>
+                    <label className="block text-sm text-gray-600 mb-1">Fecha de finalización</label>
                     <input
                       type="datetime-local"
                       value={formData.ends_at}
                       onChange={(e) => handleInputChange('ends_at', e.target.value)}
+                      min={new Date().toISOString().slice(0, 16)}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                      required
                     />
                   </div>
-                </div>
-              </div>
-
-              {/* Organizational Scope */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Alcance Organizacional (Opcional)
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Escuela</label>
-                    <select
-                      value={formData.school_id}
-                      onChange={(e) => handleInputChange('school_id', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
-                    >
-                      <option value="">Todas las escuelas</option>
-                      {schools.map(school => (
-                        <option key={school.id} value={school.id}>
-                          {school.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Generación</label>
-                    <select
-                      value={formData.generation_id}
-                      onChange={(e) => handleInputChange('generation_id', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
-                      disabled={!formData.school_id}
-                    >
-                      <option value="">Todas las generaciones</option>
-                      {getFilteredGenerations().map(generation => (
-                        <option key={generation.id} value={generation.id}>
-                          {generation.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Comunidad</label>
-                    <select
-                      value={formData.community_id}
-                      onChange={(e) => handleInputChange('community_id', e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
-                      disabled={!formData.generation_id}
-                    >
-                      <option value="">Todas las comunidades</option>
-                      {getFilteredCommunities().map(community => (
-                        <option key={community.id} value={community.id}>
-                          {community.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">
-                  El alcance organizacional limita qué datos puede ver el consultor para este estudiante específico.
-                </p>
+                )}
+                {!formData.has_end_date && (
+                  <p className="text-sm text-gray-500">
+                    La asignación será indefinida hasta que se elimine manualmente.
+                  </p>
+                )}
               </div>
 
               {/* Submit Buttons */}

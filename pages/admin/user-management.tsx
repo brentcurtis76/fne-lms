@@ -134,6 +134,26 @@ export default function UserManagement() {
     }
   };
 
+  // Helper function to get primary school from user roles
+  const getUserPrimarySchool = (user: any) => {
+    // First check if user has roles with schools
+    if (user.user_roles && user.user_roles.length > 0) {
+      // Find the first role with a school
+      const roleWithSchool = user.user_roles.find((role: any) => role.school?.name);
+      if (roleWithSchool) {
+        return roleWithSchool.school.name;
+      }
+    }
+    
+    // Fallback to school_relation if available
+    if (user.school_relation?.name) {
+      return user.school_relation.name;
+    }
+    
+    // Fallback to old text field
+    return user.school || 'Sin escuela';
+  };
+
   const handleRejectUser = async (userId: string) => {
     try {
       console.log('Attempting to reject user via admin API:', userId);
@@ -224,10 +244,21 @@ export default function UserManagement() {
 
   const fetchUsers = async () => {
     try {
-      // First get all users
+      // First get all users with their school relationships
       const { data: usersData, error } = await supabase
         .from('profiles')
-        .select('id, email, first_name, last_name, role, school, created_at, approval_status')
+        .select(`
+          id, 
+          email, 
+          first_name, 
+          last_name, 
+          role, 
+          school,
+          school_id,
+          created_at, 
+          approval_status,
+          school_relation:schools!school_id(id, name)
+        `)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -252,8 +283,9 @@ export default function UserManagement() {
             .eq('consultant_id', user.id)
             .eq('is_active', true);
 
-          // Get student assignments (where user is the student)
-          const { data: studentAssignments } = await supabase
+          // Get student assignments (where user is the student - including community assignments)
+          // First get direct assignments
+          const { data: directAssignments } = await supabase
             .from('consultant_assignments')
             .select(`
               *,
@@ -261,6 +293,29 @@ export default function UserManagement() {
             `)
             .eq('student_id', user.id)
             .eq('is_active', true);
+          
+          // Then check if user belongs to any communities with assignments
+          let communityAssignments = [];
+          if (userRoles.some(role => role.community_id)) {
+            const userCommunityIds = userRoles
+              .filter(role => role.community_id)
+              .map(role => role.community_id);
+            
+            const { data: commAssignments } = await supabase
+              .from('consultant_assignments')
+              .select(`
+                *,
+                consultant:consultant_id(id, first_name, last_name, email)
+              `)
+              .in('community_id', userCommunityIds)
+              .is('student_id', null) // Community assignments have null student_id
+              .eq('is_active', true);
+            
+            communityAssignments = commAssignments || [];
+          }
+          
+          // Combine both types of assignments
+          const studentAssignments = [...(directAssignments || []), ...communityAssignments];
 
           return {
             ...user,
@@ -775,7 +830,7 @@ export default function UserManagement() {
                       }
                     </td>
                     <td className="px-4 py-3">{user.email || 'Sin email'}</td>
-                    <td className="px-4 py-3">{user.school || 'Sin escuela'}</td>
+                    <td className="px-4 py-3">{getUserPrimarySchool(user)}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         user.approval_status === 'pending' 
@@ -841,6 +896,7 @@ export default function UserManagement() {
                                      assignment.assignment_type === 'mentoring' ? 'Mentoría' :
                                      assignment.assignment_type === 'evaluation' ? 'Evaluación' :
                                      assignment.assignment_type === 'support' ? 'Apoyo' :
+                                     assignment.assignment_type === 'comprehensive' ? 'Completa' :
                                      assignment.assignment_type}
                                   </span>
                                 ))}
@@ -862,13 +918,9 @@ export default function UserManagement() {
                                   <span 
                                     key={index}
                                     className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
-                                    title={`${assignment.assignment_type} - Consultor: ${assignment.consultant?.first_name || 'Sin nombre'} ${assignment.consultant?.last_name || ''}`}
+                                    title={`Tipo: ${assignment.assignment_type === 'comprehensive' ? 'Completa' : assignment.assignment_type} - ${assignment.can_view_progress ? 'Puede ver progreso' : ''} ${assignment.can_assign_courses ? 'Puede asignar cursos' : ''} ${assignment.can_message_student ? 'Puede enviar mensajes' : ''}`}
                                   >
-                                    {assignment.assignment_type === 'monitoring' ? 'Monitoreo' : 
-                                     assignment.assignment_type === 'mentoring' ? 'Mentoría' :
-                                     assignment.assignment_type === 'evaluation' ? 'Evaluación' :
-                                     assignment.assignment_type === 'support' ? 'Apoyo' :
-                                     assignment.assignment_type}
+                                    {assignment.consultant?.first_name || 'Sin nombre'} {assignment.consultant?.last_name || ''}
                                   </span>
                                 ))}
                                 {user.student_assignments.length > 2 && (
@@ -880,17 +932,15 @@ export default function UserManagement() {
                             </div>
                           )}
                           
-                          {/* Show assign button for docentes */}
-                          {(user.role === 'docente' || user.role === 'teacher') && (
-                            <button
-                              onClick={() => handleOpenConsultantModal(user)}
-                              className="flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs hover:bg-blue-200 transition-colors"
-                              title="Asignar consultor"
-                            >
-                              <Plus size={12} className="mr-1" />
-                              Asignar
-                            </button>
-                          )}
+                          {/* Show assign button for all users */}
+                          <button
+                            onClick={() => handleOpenConsultantModal(user)}
+                            className="flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs hover:bg-blue-200 transition-colors"
+                            title="Asignar consultor"
+                          >
+                            <Plus size={12} className="mr-1" />
+                            Asignar
+                          </button>
                           
                           {/* Show no assignments message */}
                           {(!user.consultant_assignments || user.consultant_assignments.length === 0) && 

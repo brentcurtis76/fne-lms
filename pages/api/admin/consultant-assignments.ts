@@ -55,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       case 'GET':
         return await handleGet(req, res);
       case 'POST':
-        return await handlePost(req, res);
+        return await handlePost(req, res, user.id);
       case 'PUT':
         return await handlePut(req, res);
       case 'DELETE':
@@ -133,11 +133,12 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
   }
 }
 
-async function handlePost(req: NextApiRequest, res: NextApiResponse) {
+async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: string) {
   const {
     consultant_id,
     student_id,
-    assignment_type = 'monitoring',
+    assignment_scope = 'individual',
+    assignment_type = 'comprehensive',
     can_view_progress = true,
     can_assign_courses = false,
     can_message_student = true,
@@ -150,114 +151,234 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
   } = req.body;
 
   // Validation
-  if (!consultant_id || !student_id) {
-    return res.status(400).json({ error: 'consultant_id and student_id are required' });
+  if (!consultant_id) {
+    return res.status(400).json({ error: 'consultant_id is required' });
   }
 
-  if (consultant_id === student_id) {
+  // For individual assignments, student_id is required
+  if (assignment_scope === 'individual' && !student_id) {
+    return res.status(400).json({ error: 'student_id is required for individual assignments' });
+  }
+
+  // Validate assignment scope
+  const validScopes = ['individual', 'school', 'generation', 'community'];
+  if (!validScopes.includes(assignment_scope)) {
+    return res.status(400).json({ error: 'Invalid assignment_scope' });
+  }
+
+  // Validate scope-specific requirements
+  if (assignment_scope === 'school' && !school_id) {
+    return res.status(400).json({ error: 'school_id is required for school-wide assignments' });
+  }
+  if (assignment_scope === 'generation' && (!school_id || !generation_id)) {
+    return res.status(400).json({ error: 'school_id and generation_id are required for generation assignments' });
+  }
+  if (assignment_scope === 'community' && (!school_id || !community_id)) {
+    return res.status(400).json({ error: 'school_id and community_id are required for community assignments' });
+  }
+  
+  // Validate community_id exists if provided
+  if (community_id) {
+    console.log('Validating community_id:', community_id);
+    const { data: community, error: communityError } = await supabase
+      .from('growth_communities')
+      .select('id')
+      .eq('id', community_id)
+      .single();
+    
+    if (communityError || !community) {
+      console.error('Invalid community_id:', community_id, communityError);
+      return res.status(400).json({ 
+        error: 'Invalid community_id', 
+        details: `Community with ID ${community_id} not found` 
+      });
+    }
+  }
+
+  if (assignment_scope === 'individual' && consultant_id === student_id) {
     return res.status(400).json({ error: 'Consultant cannot be assigned to themselves' });
   }
 
-  const validAssignmentTypes = ['monitoring', 'mentoring', 'evaluation', 'support'];
-  if (!validAssignmentTypes.includes(assignment_type)) {
-    return res.status(400).json({ error: 'Invalid assignment_type' });
-  }
-
   try {
-    // Verify consultant has consultor role (or equivalent)
+    console.log('Creating assignment with data:', {
+      consultant_id,
+      student_id,
+      assignment_scope,
+      school_id,
+      generation_id,
+      community_id,
+      user_id: userId
+    });
+
+    // Verify consultant exists (no role restriction - any user can be a consultant)
     const { data: consultantProfile } = await supabase
       .from('profiles')
-      .select('role, first_name, last_name')
+      .select('id, first_name, last_name')
       .eq('id', consultant_id)
       .single();
 
-    if (!consultantProfile || (consultantProfile.role !== 'consultor' && consultantProfile.role !== 'admin')) {
-      return res.status(400).json({ error: 'Selected user is not a consultant' });
+    if (!consultantProfile) {
+      return res.status(400).json({ error: 'Consultant not found' });
     }
 
-    // Verify student exists and has appropriate role
-    const { data: studentProfile } = await supabase
-      .from('profiles')
-      .select('role, first_name, last_name')
-      .eq('id', student_id)
-      .single();
+    // For individual assignments, verify student exists (no role restriction)
+    let studentProfile = null;
+    if (assignment_scope === 'individual' && student_id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .eq('id', student_id)
+        .single();
 
-    if (!studentProfile || (studentProfile.role !== 'docente' && studentProfile.role !== 'teacher')) {
-      return res.status(400).json({ error: 'Selected user is not a teacher/student' });
+      if (!profile) {
+        return res.status(400).json({ error: 'User not found' });
+      }
+      studentProfile = profile;
     }
 
     // Check for existing active assignment
-    const { data: existingAssignment } = await supabase
-      .from('consultant_assignments')
-      .select('id')
-      .eq('consultant_id', consultant_id)
-      .eq('student_id', student_id)
-      .eq('is_active', true)
-      .single();
+    if (assignment_scope === 'individual') {
+      const { data: existingAssignment } = await supabase
+        .from('consultant_assignments')
+        .select('id')
+        .eq('consultant_id', consultant_id)
+        .eq('student_id', student_id)
+        .eq('is_active', true)
+        .single();
 
-    if (existingAssignment) {
-      return res.status(400).json({ error: 'Active assignment already exists between this consultant and student' });
+      if (existingAssignment) {
+        return res.status(400).json({ error: 'Active assignment already exists between this consultant and user' });
+      }
+    } else {
+      // For group assignments, check for existing assignment with same scope
+      let query = supabase
+        .from('consultant_assignments')
+        .select('id')
+        .eq('consultant_id', consultant_id)
+        .eq('is_active', true)
+        .is('student_id', null); // Group assignments have null student_id
+
+      if (assignment_scope === 'school') {
+        query = query.eq('school_id', school_id)
+          .is('generation_id', null)
+          .is('community_id', null);
+      } else if (assignment_scope === 'generation') {
+        query = query.eq('school_id', school_id)
+          .eq('generation_id', generation_id)
+          .is('community_id', null);
+      } else if (assignment_scope === 'community') {
+        query = query.eq('school_id', school_id)
+          .eq('generation_id', generation_id)
+          .eq('community_id', community_id);
+      }
+
+      const { data: existingAssignment } = await query.single();
+
+      if (existingAssignment) {
+        return res.status(400).json({ error: 'Active assignment already exists for this scope' });
+      }
     }
 
     // Create the assignment
+    const assignmentData: any = {
+      consultant_id,
+      assignment_type,
+      can_view_progress,
+      can_assign_courses,
+      can_message_student,
+      starts_at: starts_at || new Date().toISOString(),
+      ends_at: ends_at || null,
+      is_active: true,
+      assigned_by: userId, // Use the actual admin user's ID
+      assignment_data: {
+        ...assignment_data,
+        assignment_scope
+      }
+    };
+
+    // Set scope-specific fields
+    if (assignment_scope === 'individual') {
+      assignmentData.student_id = student_id;
+    } else {
+      assignmentData.student_id = null; // Group assignments don't have individual student
+      assignmentData.school_id = school_id || null;
+      assignmentData.generation_id = generation_id || null;
+      assignmentData.community_id = community_id || null;
+    }
+
+    console.log('Final assignment data to insert:', JSON.stringify(assignmentData, null, 2));
+
     const { data: newAssignment, error } = await supabase
       .from('consultant_assignments')
-      .insert({
-        consultant_id,
-        student_id,
-        assignment_type,
-        can_view_progress,
-        can_assign_courses,
-        can_message_student,
-        school_id: school_id || null,
-        generation_id: generation_id || null,
-        community_id: community_id || null,
-        starts_at: starts_at || new Date().toISOString(),
-        ends_at: ends_at || null,
-        is_active: true,
-        assigned_by: consultant_id, // Will be replaced with actual admin user in real implementation
-        assignment_data
-      })
-      .select(`
-        *,
-        consultant:consultant_id(id, first_name, last_name, email),
-        student:student_id(id, first_name, last_name, email),
-        school:school_id(id, name),
-        generation:generation_id(id, name),
-        community:community_id(id, name)
-      `)
+      .insert(assignmentData)
+      .select('*')
       .single();
 
     if (error) {
       console.error('Database error:', error);
-      return res.status(500).json({ error: 'Failed to create assignment' });
+      console.error('Database error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        assignmentData: assignmentData
+      });
+      
+      // Check for specific foreign key violations
+      if (error.code === '23503') {
+        if (error.message.includes('community_id')) {
+          return res.status(400).json({ 
+            error: 'Invalid community reference',
+            details: `The community ID ${assignmentData.community_id} does not exist in the database`
+          });
+        } else if (error.message.includes('school_id')) {
+          return res.status(400).json({ 
+            error: 'Invalid school reference',
+            details: `The school ID ${assignmentData.school_id} does not exist in the database`
+          });
+        } else if (error.message.includes('generation_id')) {
+          return res.status(400).json({ 
+            error: 'Invalid generation reference',
+            details: `The generation ID ${assignmentData.generation_id} does not exist in the database`
+          });
+        }
+      }
+      
+      return res.status(500).json({ 
+        error: 'Failed to create assignment',
+        details: error.message,
+        hint: error.hint,
+        code: error.code
+      });
     }
 
-    // Trigger consultant assignment notification
-    try {
-      const consultantName = consultantProfile ? 
-        `${consultantProfile.first_name} ${consultantProfile.last_name}`.trim() : 
-        'Un consultor';
+    // Trigger consultant assignment notification for individual assignments
+    if (assignment_scope === 'individual' && student_id) {
+      try {
+        const consultantName = consultantProfile ? 
+          `${consultantProfile.first_name} ${consultantProfile.last_name}`.trim() : 
+          'Un consultor';
 
-      await NotificationService.triggerNotification('consultant_assigned', {
-        assignment_id: newAssignment.id,
-        consultant_id,
-        student_id,
-        consultant_name: consultantName,
-        assignment_type,
-        starts_at: newAssignment.starts_at
-      });
+        await NotificationService.triggerNotification('consultant_assigned', {
+          assignment_id: newAssignment.id,
+          consultant_id,
+          student_id,
+          consultant_name: consultantName,
+          assignment_type,
+          starts_at: newAssignment.starts_at
+        });
 
-      // Mark notification as sent
-      await supabase
-        .from('consultant_assignments')
-        .update({ notification_sent: true })
-        .eq('id', newAssignment.id);
+        // Mark notification as sent
+        await supabase
+          .from('consultant_assignments')
+          .update({ notification_sent: true })
+          .eq('id', newAssignment.id);
 
-      console.log(`✅ Consultant assignment notification triggered for student ${student_id}`);
-    } catch (notificationError) {
-      console.error('❌ Failed to trigger consultant assignment notification:', notificationError);
-      // Don't fail the API call if notifications fail
+        console.log(`✅ Consultant assignment notification triggered for user ${student_id}`);
+      } catch (notificationError) {
+        console.error('❌ Failed to trigger consultant assignment notification:', notificationError);
+        // Don't fail the API call if notifications fail
+      }
     }
 
     return res.status(201).json({ assignment: newAssignment });
@@ -321,10 +442,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
       .select(`
         *,
         consultant:consultant_id(id, first_name, last_name, email),
-        student:student_id(id, first_name, last_name, email),
-        school:school_id(id, name),
-        generation:generation_id(id, name),
-        community:community_id(id, name)
+        student:student_id(id, first_name, last_name, email)
       `)
       .single();
 

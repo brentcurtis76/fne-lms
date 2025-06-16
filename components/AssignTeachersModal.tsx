@@ -3,13 +3,14 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'react-hot-toast';
 import { X, Search, User } from 'lucide-react';
 
-interface Teacher {
+interface User {
   id: string;
   email: string;
   first_name: string;
   last_name: string;
   school: string;
   approval_status: string;
+  role?: string;
 }
 
 interface AssignTeachersModalProps {
@@ -20,9 +21,9 @@ interface AssignTeachersModalProps {
 }
 
 export default function AssignTeachersModal({ isOpen, onClose, courseId, courseTitle }: AssignTeachersModalProps) {
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
-  const [assignedTeachers, setAssignedTeachers] = useState<Set<string>>(new Set());
-  const [selectedTeachers, setSelectedTeachers] = useState<Set<string>>(new Set());
+  const [teachers, setTeachers] = useState<User[]>([]);
+  const [assignedUsers, setAssignedUsers] = useState<Set<string>>(new Set());
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
@@ -40,7 +41,6 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
       const { data, error } = await supabase
         .from('profiles')
         .select('id, email, first_name, last_name, school, approval_status, role')
-        .eq('role', 'docente')
         .eq('approval_status', 'approved')
         .order('first_name');
 
@@ -48,7 +48,7 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
       setTeachers(data || []);
     } catch (error) {
       console.error('Error fetching teachers:', error);
-      toast.error('Error al cargar docentes');
+      toast.error('Error al cargar usuarios');
     } finally {
       setLoading(false);
     }
@@ -75,25 +75,25 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
       }
 
       const assignedIds = new Set<string>(result.assignments?.map((a: any) => a.teacher_id as string) || []);
-      setAssignedTeachers(assignedIds);
+      setAssignedUsers(assignedIds);
     } catch (error) {
       console.error('Error fetching assigned teachers:', error);
     }
   };
 
-  const handleTeacherToggle = (teacherId: string) => {
-    const newSelected = new Set(selectedTeachers);
-    if (newSelected.has(teacherId)) {
-      newSelected.delete(teacherId);
+  const handleTeacherToggle = (userId: string) => {
+    const newSelected = new Set(selectedUsers);
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId);
     } else {
-      newSelected.add(teacherId);
+      newSelected.add(userId);
     }
-    setSelectedTeachers(newSelected);
+    setSelectedUsers(newSelected);
   };
 
   const handleAssignTeachers = async () => {
-    if (selectedTeachers.size === 0) {
-      toast.error('Selecciona al menos un docente');
+    if (selectedUsers.size === 0) {
+      toast.error('Selecciona al menos un usuario');
       return;
     }
 
@@ -114,7 +114,7 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
         },
         body: JSON.stringify({
           courseId: courseId,
-          teacherIds: Array.from(selectedTeachers)
+          teacherIds: Array.from(selectedUsers)
         })
       });
 
@@ -123,13 +123,13 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
         throw new Error(result.error || 'Failed to assign teachers');
       }
 
-      toast.success(`Curso asignado a ${selectedTeachers.size} docente(s)`);
+      toast.success(`Curso asignado a ${selectedUsers.size} usuario(s)`);
       
-      // Update assigned teachers and clear selection
-      const newAssigned = new Set(assignedTeachers);
-      selectedTeachers.forEach(teacherId => newAssigned.add(teacherId));
-      setAssignedTeachers(newAssigned);
-      setSelectedTeachers(new Set());
+      // Update assigned users and clear selection
+      const newAssigned = new Set(assignedUsers);
+      selectedUsers.forEach(userId => newAssigned.add(userId));
+      setAssignedUsers(newAssigned);
+      setSelectedUsers(new Set());
       
     } catch (error: any) {
       console.error('Error assigning teachers:', error);
@@ -165,16 +165,16 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
         throw new Error(result.error || 'Failed to unassign teacher');
       }
 
-      toast.success('Docente desasignado del curso');
+      toast.success('Usuario desasignado del curso');
       
-      // Update assigned teachers
-      const newAssigned = new Set(assignedTeachers);
+      // Update assigned users
+      const newAssigned = new Set(assignedUsers);
       newAssigned.delete(teacherId);
-      setAssignedTeachers(newAssigned);
+      setAssignedUsers(newAssigned);
       
     } catch (error: any) {
       console.error('Error unassigning teacher:', error);
-      toast.error('Error al desasignar docente: ' + error.message);
+      toast.error('Error al desasignar usuario: ' + error.message);
     }
   };
 
@@ -197,7 +197,7 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
         <div className="p-6 border-b border-gray-200">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Asignar Docentes</h2>
+              <h2 className="text-xl font-semibold text-gray-900">Asignar Usuarios</h2>
               <p className="text-sm text-gray-600 mt-1">Curso: {courseTitle}</p>
             </div>
             <button
@@ -216,7 +216,7 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
             <input
               type="text"
-              placeholder="Buscar docentes..."
+              placeholder="Buscar usuarios..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -225,17 +225,17 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
 
           {loading ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">Cargando docentes...</p>
+              <p className="text-gray-500">Cargando usuarios...</p>
             </div>
           ) : filteredTeachers.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-gray-500">No se encontraron docentes</p>
+              <p className="text-gray-500">No se encontraron usuarios</p>
             </div>
           ) : (
             <div className="space-y-2">
               {filteredTeachers.map((teacher) => {
-                const isAssigned = assignedTeachers.has(teacher.id);
-                const isSelected = selectedTeachers.has(teacher.id);
+                const isAssigned = assignedUsers.has(teacher.id);
+                const isSelected = selectedUsers.has(teacher.id);
                 
                 return (
                   <div key={teacher.id} className={`p-3 border rounded-lg ${isAssigned ? 'bg-green-50 border-green-200' : 'border-gray-200'}`}>
@@ -249,7 +249,14 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
                             {teacher.first_name} {teacher.last_name}
                           </p>
                           <p className="text-sm text-gray-600">{teacher.email}</p>
-                          <p className="text-xs text-gray-500">{teacher.school}</p>
+                          <p className="text-xs text-gray-500">
+                            {teacher.school} • {teacher.role === 'admin' ? 'Administrador' : 
+                             teacher.role === 'consultor' ? 'Consultor' :
+                             teacher.role === 'docente' ? 'Docente' :
+                             teacher.role === 'equipo_directivo' ? 'Equipo Directivo' :
+                             teacher.role === 'lider_generacion' ? 'Líder Generación' :
+                             teacher.role === 'lider_comunidad' ? 'Líder Comunidad' : teacher.role}
+                          </p>
                         </div>
                       </div>
                       
@@ -288,7 +295,7 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
         <div className="p-6 border-t border-gray-200 bg-gray-50">
           <div className="flex justify-between items-center">
             <p className="text-sm text-gray-600">
-              {selectedTeachers.size} docente(s) seleccionado(s)
+              {selectedUsers.size} usuario(s) seleccionado(s)
             </p>
             <div className="flex space-x-3">
               <button
@@ -299,10 +306,10 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
               </button>
               <button
                 onClick={handleAssignTeachers}
-                disabled={selectedTeachers.size === 0 || assigning}
+                disabled={selectedUsers.size === 0 || assigning}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {assigning ? 'Asignando...' : `Asignar (${selectedTeachers.size})`}
+                {assigning ? 'Asignando...' : `Asignar (${selectedUsers.size})`}
               </button>
             </div>
           </div>

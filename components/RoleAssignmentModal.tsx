@@ -53,6 +53,7 @@ export default function RoleAssignmentModal({
   const [isViewing, setIsViewing] = useState(false);
   const [roleToDelete, setRoleToDelete] = useState<UserRole | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showNewRoleForm, setShowNewRoleForm] = useState(false);
 
   // Available role types
   const availableRoles: UserRoleType[] = [
@@ -67,6 +68,11 @@ export default function RoleAssignmentModal({
   useEffect(() => {
     if (isOpen) {
       loadData();
+      // Reset to default state when opening
+      setShowNewRoleForm(false);
+      setIsViewing(false);
+      setIsEditing(false);
+      setSelectedRoleForView(null);
     }
   }, [isOpen, userId]);
 
@@ -76,6 +82,12 @@ export default function RoleAssignmentModal({
       // Load user's current roles
       const roles = await getUserRoles(userId);
       setUserRoles(roles);
+      
+      // If user has roles, select the first one by default
+      if (roles.length > 0) {
+        setSelectedRoleForView(roles[0]);
+        setIsViewing(true);
+      }
 
       // Load organizational data
       const [schoolsResult, generationsResult, communitiesResult] = await Promise.all([
@@ -91,6 +103,7 @@ export default function RoleAssignmentModal({
       // Load available communities for assignment
       const availableComms = await getAvailableCommunitiesForAssignment();
       setAvailableCommunities(availableComms);
+      console.log('Available communities:', availableComms);
 
       // Set default school if available
       if (schoolsResult.data && schoolsResult.data.length > 0) {
@@ -130,6 +143,7 @@ export default function RoleAssignmentModal({
         setSelectedRole('docente');
         setSelectedGeneration('');
         setSelectedCommunity('');
+        setShowNewRoleForm(false);
       } else {
         toast.error(result.error || 'Error al asignar rol');
       }
@@ -207,6 +221,7 @@ export default function RoleAssignmentModal({
     setSelectedSchool('');
     setSelectedGeneration('');
     setSelectedCommunity('');
+    setShowNewRoleForm(true);
   };
 
   const handleUpdateRole = async () => {
@@ -380,240 +395,275 @@ export default function RoleAssignmentModal({
 
               {/* View Role, Edit Role, or Assign New Role */}
               <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-[#00365b] flex items-center">
-                    {isViewing ? (
-                      <>
-                        <Users className="mr-2" size={20} />
-                        Detalles del Rol
-                      </>
-                    ) : isEditing ? (
-                      <>
-                        <Edit className="mr-2" size={20} />
-                        Editar Rol
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="mr-2" size={20} />
-                        Asignar Nuevo Rol
-                      </>
-                    )}
-                  </h3>
-                  {(isViewing || isEditing) && (
+                {userRoles.length === 0 && !showNewRoleForm ? (
+                  // Empty state when user has no roles
+                  <div className="text-center py-8">
+                    <Users className="mx-auto text-gray-400 mb-4" size={48} />
+                    <p className="text-gray-600 mb-4">Este usuario no tiene roles asignados</p>
                     <button
                       onClick={handleStartNewRole}
-                      className="text-sm bg-[#fdb933] text-white px-3 py-1 rounded-lg hover:bg-[#e6a530] transition-colors"
+                      className="bg-[#fdb933] text-white px-4 py-2 rounded-lg hover:bg-[#e6a530] transition-colors"
                     >
-                      + Nuevo Rol
+                      + Asignar Primer Rol
                     </button>
-                  )}
-                </div>
-
-                <div className="space-y-4">
-                  {/* View Mode - Show role details */}
-                  {isViewing && selectedRoleForView && (
-                    <div className="space-y-4">
-                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="font-semibold text-blue-900">
-                            {ROLE_NAMES[selectedRoleForView.role_type]}
-                          </h4>
-                          <button
-                            onClick={() => handleEditRole(selectedRoleForView)}
-                            className="text-sm bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-colors"
-                          >
-                            Editar
-                          </button>
-                        </div>
-                        <p className="text-sm text-blue-800 mb-4">
-                          {ROLE_DESCRIPTIONS[selectedRoleForView.role_type]}
-                        </p>
-                        
-                        <div className="space-y-3">
-                          {selectedRoleForView.school && (
-                            <div className="flex items-center text-sm">
-                              <Building className="mr-2" size={16} />
-                              <span className="font-medium">Colegio:</span>
-                              <span className="ml-2 text-gray-700">{selectedRoleForView.school.name}</span>
-                            </div>
-                          )}
-                          
-                          {selectedRoleForView.generation && (
-                            <div className="flex items-center text-sm">
-                              <Team className="mr-2" size={16} />
-                              <span className="font-medium">Generación:</span>
-                              <span className="ml-2 text-gray-700">
-                                {selectedRoleForView.generation.name} ({selectedRoleForView.generation.grade_range})
-                              </span>
-                            </div>
-                          )}
-                          
-                          {selectedRoleForView.community && (
-                            <div className="flex items-center text-sm">
-                              <Users className="mr-2" size={16} />
-                              <span className="font-medium">Comunidad:</span>
-                              <span className="ml-2 text-gray-700">{selectedRoleForView.community.name}</span>
-                            </div>
-                          )}
-                          
-                          {!selectedRoleForView.school && !selectedRoleForView.generation && !selectedRoleForView.community && (
-                            <div className="text-sm text-gray-600 italic">
-                              Sin ámbito organizacional específico
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Edit/New Role Mode - Show form fields */}
-                  {(isEditing || (!isViewing && !isEditing)) && (
-                    <>
-                      {/* Role Selection */}
-                      <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Tipo de Rol
-                    </label>
-                    <select
-                      value={selectedRole}
-                      onChange={(e) => setSelectedRole(e.target.value as UserRoleType)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                    >
-                      {availableRoles.map((roleType) => (
-                        <option key={roleType} value={roleType}>
-                          {ROLE_NAMES[roleType]}
-                        </option>
-                      ))}
-                    </select>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {ROLE_DESCRIPTIONS[selectedRole]}
-                    </p>
                   </div>
-
-                  {/* Organizational Scope (now available for ALL roles) */}
+                ) : (
                   <>
-                    {/* School Selection */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <Building className="inline mr-1" size={16} />
-                        Colegio {selectedRole === 'admin' ? '(Opcional)' : ''}
-                      </label>
-                      <select
-                        value={selectedSchool}
-                        onChange={(e) => setSelectedSchool(e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                      >
-                        <option value="">{selectedRole === 'admin' ? 'Sin colegio específico' : 'Seleccionar colegio'}</option>
-                        {schools.map((school) => (
-                          <option key={school.id} value={school.id}>
-                            {school.name}
-                          </option>
-                        ))}
-                      </select>
-                      {selectedRole === 'admin' && (
-                        <p className="text-xs text-gray-600 mt-1">
-                          Los administradores pueden opcionalmente asociarse a un colegio específico
-                        </p>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold text-[#00365b] flex items-center">
+                        {isViewing ? (
+                          <>
+                            <Users className="mr-2" size={20} />
+                            Detalles del Rol
+                          </>
+                        ) : isEditing ? (
+                          <>
+                            <Edit className="mr-2" size={20} />
+                            Editar Rol
+                          </>
+                        ) : showNewRoleForm ? (
+                          <>
+                            <Plus className="mr-2" size={20} />
+                            Asignar Nuevo Rol
+                          </>
+                        ) : null}
+                      </h3>
+                      {(isViewing || isEditing) && (
+                        <button
+                          onClick={handleStartNewRole}
+                          className="text-sm bg-[#fdb933] text-white px-3 py-1 rounded-lg hover:bg-[#e6a530] transition-colors"
+                        >
+                          + Nuevo Rol
+                        </button>
                       )}
                     </div>
 
-                    {/* Generation Selection (for generation/community roles) */}
-                    {(['lider_generacion', 'lider_comunidad'].includes(selectedRole)) && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          <Team className="inline mr-1" size={16} />
-                          Generación
-                        </label>
-                        <select
-                          value={selectedGeneration}
-                          onChange={(e) => setSelectedGeneration(e.target.value)}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                        >
-                          <option value="">Seleccionar generación</option>
-                          {generations
-                            .filter(gen => !selectedSchool || gen.school_id === selectedSchool)
-                            .map((generation) => (
-                              <option key={generation.id} value={generation.id}>
-                                {generation.name} ({generation.grade_range})
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {/* Community Selection - Now available for ALL roles */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        <Users className="inline mr-1" size={16} />
-                        {selectedRole === 'lider_comunidad' ? 'Nueva Comunidad (se creará automáticamente)' : 'Comunidad de Crecimiento (Opcional)'}
-                      </label>
-                      {selectedRole === 'lider_comunidad' ? (
-                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                          <p className="text-sm text-blue-800">
-                            Se creará automáticamente una nueva comunidad con el nombre del líder
-                          </p>
+                    <div className="space-y-4">
+                      {/* View Mode - Show role details */}
+                      {isViewing && selectedRoleForView && (
+                        <div className="space-y-4">
+                          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="font-semibold text-blue-900">
+                                {ROLE_NAMES[selectedRoleForView.role_type]}
+                              </h4>
+                              <button
+                                onClick={() => handleEditRole(selectedRoleForView)}
+                                className="text-sm bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700 transition-colors"
+                              >
+                                Editar
+                              </button>
+                            </div>
+                            <p className="text-sm text-blue-800 mb-4">
+                              {ROLE_DESCRIPTIONS[selectedRoleForView.role_type]}
+                            </p>
+                            
+                            <div className="space-y-3">
+                              {selectedRoleForView.school && (
+                                <div className="flex items-center text-sm">
+                                  <Building className="mr-2" size={16} />
+                                  <span className="font-medium">Colegio:</span>
+                                  <span className="ml-2 text-gray-700">{selectedRoleForView.school.name}</span>
+                                </div>
+                              )}
+                              
+                              {selectedRoleForView.generation && (
+                                <div className="flex items-center text-sm">
+                                  <Team className="mr-2" size={16} />
+                                  <span className="font-medium">Generación:</span>
+                                  <span className="ml-2 text-gray-700">
+                                    {selectedRoleForView.generation.name} ({selectedRoleForView.generation.grade_range})
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {selectedRoleForView.community && (
+                                <div className="flex items-center text-sm">
+                                  <Users className="mr-2" size={16} />
+                                  <span className="font-medium">Comunidad:</span>
+                                  <span className="ml-2 text-gray-700">{selectedRoleForView.community.name}</span>
+                                </div>
+                              )}
+                              
+                              {!selectedRoleForView.school && !selectedRoleForView.generation && !selectedRoleForView.community && (
+                                <div className="text-sm text-gray-600 italic">
+                                  Sin ámbito organizacional específico
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      ) : (
+                      )}
+
+                      {/* Edit/New Role Mode - Show form fields */}
+                      {(isEditing || showNewRoleForm) && (
                         <>
-                          <select
-                            value={selectedCommunity}
-                            onChange={(e) => setSelectedCommunity(e.target.value)}
-                            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                          >
-                            <option value="">Sin asignar a comunidad específica</option>
-                            {availableCommunities
-                              .filter(comm => {
-                                const schoolMatch = !selectedSchool || 
-                                  comm.school_id === selectedSchool || 
-                                  comm.school_id?.toString() === selectedSchool;
-                                const generationMatch = !selectedGeneration || 
-                                  comm.generation_id === selectedGeneration;
-                                return schoolMatch && generationMatch;
-                              })
-                              .map((community) => (
-                                <option key={community.id} value={community.id}>
-                                  {community.name}
+                          {/* Role Selection */}
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                              Tipo de Rol
+                            </label>
+                            <select
+                              value={selectedRole}
+                              onChange={(e) => setSelectedRole(e.target.value as UserRoleType)}
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                            >
+                              {availableRoles.map((roleType) => (
+                                <option key={roleType} value={roleType}>
+                                  {ROLE_NAMES[roleType]}
                                 </option>
                               ))}
-                          </select>
-                          <p className="text-xs text-gray-600 mt-1">
-                            Todos los roles pueden pertenecer a una comunidad de crecimiento para colaboración y reportes
-                          </p>
+                            </select>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {ROLE_DESCRIPTIONS[selectedRole]}
+                            </p>
+                          </div>
+
+                          {/* Organizational Scope (now available for ALL roles) */}
+                          <>
+                            {/* School Selection */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <Building className="inline mr-1" size={16} />
+                                Colegio {selectedRole === 'admin' ? '(Opcional)' : ''}
+                              </label>
+                              <select
+                                value={selectedSchool}
+                                onChange={(e) => setSelectedSchool(e.target.value)}
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                              >
+                                <option value="">{selectedRole === 'admin' ? 'Sin colegio específico' : 'Seleccionar colegio'}</option>
+                                {schools.map((school) => (
+                                  <option key={school.id} value={school.id}>
+                                    {school.name}
+                                  </option>
+                                ))}
+                              </select>
+                              {selectedRole === 'admin' && (
+                                <p className="text-xs text-gray-600 mt-1">
+                                  Los administradores pueden opcionalmente asociarse a un colegio específico
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Generation Selection (for generation/community roles - only show if school has generations) */}
+                            {(['lider_generacion', 'lider_comunidad'].includes(selectedRole)) && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  <Team className="inline mr-1" size={16} />
+                                  Generación
+                                </label>
+                                {/* Check if selected school has generations */}
+                                {selectedSchool && schools.find(s => s.id === selectedSchool)?.has_generations === false ? (
+                                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                                    <p className="text-sm text-gray-600">
+                                      Esta escuela no utiliza generaciones
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <select
+                                    value={selectedGeneration}
+                                    onChange={(e) => setSelectedGeneration(e.target.value)}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                                  >
+                                    <option value="">Seleccionar generación</option>
+                                    {generations
+                                      .filter(gen => !selectedSchool || gen.school_id === selectedSchool)
+                                      .map((generation) => (
+                                        <option key={generation.id} value={generation.id}>
+                                          {generation.name} ({generation.grade_range})
+                                        </option>
+                                      ))}
+                                  </select>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Community Selection - Now available for ALL roles */}
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <Users className="inline mr-1" size={16} />
+                                {selectedRole === 'lider_comunidad' ? 'Nueva Comunidad (se creará automáticamente)' : 'Comunidad de Crecimiento (Opcional)'}
+                              </label>
+                              {selectedRole === 'lider_comunidad' ? (
+                                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                  <p className="text-sm text-blue-800">
+                                    Se creará automáticamente una nueva comunidad con el nombre del líder
+                                  </p>
+                                </div>
+                              ) : (
+                                <>
+                                  <select
+                                    value={selectedCommunity}
+                                    onChange={(e) => setSelectedCommunity(e.target.value)}
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                                  >
+                                    <option value="">Sin asignar a comunidad específica</option>
+                                    {availableCommunities
+                                      .filter(comm => {
+                                        // If a school is selected, filter by school
+                                        if (selectedSchool) {
+                                          const schoolMatch = comm.school_id === selectedSchool || 
+                                            comm.school_id?.toString() === selectedSchool;
+                                          if (!schoolMatch) return false;
+                                        }
+                                        
+                                        // If a generation is selected AND the school has generations, filter by generation
+                                        if (selectedGeneration) {
+                                          const generationMatch = comm.generation_id === selectedGeneration;
+                                          if (!generationMatch) return false;
+                                        }
+                                        
+                                        // If no generation is selected but school is selected, 
+                                        // show all communities for that school (including those without generations)
+                                        return true;
+                                      })
+                                      .map((community) => (
+                                        <option key={community.id} value={community.id}>
+                                          {community.name}
+                                        </option>
+                                      ))}
+                                  </select>
+                                  <p className="text-xs text-gray-600 mt-1">
+                                    Todos los roles pueden pertenecer a una comunidad de crecimiento para colaboración y reportes
+                                  </p>
+                                </>
+                              )}
+                            </div>
+                          </>
+
+                          {/* Action Buttons */}
+                          {isEditing ? (
+                            <div className="space-y-3">
+                              <button
+                                onClick={handleUpdateRole}
+                                disabled={loading}
+                                className="w-full bg-[#fdb933] text-white py-3 px-4 rounded-lg hover:bg-[#e6a530] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                              >
+                                {loading ? 'Actualizando...' : 'Actualizar Rol'}
+                              </button>
+                              <button
+                                onClick={handleCancelEdit}
+                                disabled={loading}
+                                className="w-full bg-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                              >
+                                Cancelar
+                              </button>
+                            </div>
+                          ) : showNewRoleForm ? (
+                            <button
+                              onClick={handleAssignRole}
+                              disabled={loading}
+                              className="w-full bg-[#fdb933] text-white py-3 px-4 rounded-lg hover:bg-[#e6a530] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                            >
+                              {loading ? 'Asignando...' : 'Asignar Rol'}
+                            </button>
+                          ) : null}
                         </>
                       )}
                     </div>
                   </>
-
-                  {/* Action Buttons */}
-                  {isEditing ? (
-                    <div className="space-y-3">
-                      <button
-                        onClick={handleUpdateRole}
-                        disabled={loading}
-                        className="w-full bg-[#fdb933] text-white py-3 px-4 rounded-lg hover:bg-[#e6a530] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                      >
-                        {loading ? 'Actualizando...' : 'Actualizar Rol'}
-                      </button>
-                      <button
-                        onClick={handleCancelEdit}
-                        disabled={loading}
-                        className="w-full bg-gray-300 text-gray-700 py-3 px-4 rounded-lg hover:bg-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={handleAssignRole}
-                      disabled={loading}
-                      className="w-full bg-[#fdb933] text-white py-3 px-4 rounded-lg hover:bg-[#e6a530] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                    >
-                      {loading ? 'Asignando...' : 'Asignar Rol'}
-                    </button>
-                  )}
-                    </>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           )}

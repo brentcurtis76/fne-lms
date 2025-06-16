@@ -24,7 +24,8 @@ import {
   ClipboardListIcon as ClipboardDocumentListIcon,
   DocumentTextIcon,
   CurrencyDollarIcon,
-  ClipboardCheckIcon as ClipboardDocumentCheckIcon
+  ClipboardCheckIcon as ClipboardDocumentCheckIcon,
+  OfficeBuildingIcon
 } from '@heroicons/react/outline';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
@@ -127,6 +128,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: UsersIcon,
     href: '/admin/user-management',
     description: 'Administrar usuarios',
+    adminOnly: true
+  },
+  {
+    id: 'schools',
+    label: 'Escuelas',
+    icon: OfficeBuildingIcon,
+    href: '/admin/schools',
+    description: 'Gestión de escuelas y generaciones',
     adminOnly: true
   },
   {

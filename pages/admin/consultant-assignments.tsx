@@ -10,7 +10,7 @@ import { GraduationCap, Plus } from 'lucide-react';
 interface Assignment {
   id: string;
   consultant_id: string;
-  student_id: string;
+  student_id: string | null;
   assignment_type: string;
   can_view_progress: boolean;
   can_assign_courses: boolean;
@@ -22,6 +22,7 @@ interface Assignment {
   ends_at?: string;
   is_active: boolean;
   created_at: string;
+  assignment_data?: any;
   consultant?: {
     id: string;
     first_name: string;
@@ -46,6 +47,9 @@ interface Assignment {
     id: string;
     name: string;
   };
+  // Additional fields for expanded view
+  affected_students_count?: number;
+  assignment_scope?: string;
 }
 
 const ConsultantAssignmentsPage: React.FC = () => {
@@ -72,7 +76,8 @@ const ConsultantAssignmentsPage: React.FC = () => {
     monitoring: 'Monitoreo',
     mentoring: 'Mentoría',
     evaluation: 'Evaluación',
-    support: 'Apoyo'
+    support: 'Apoyo',
+    comprehensive: 'Completa'
   };
 
   // Assignment type colors
@@ -80,7 +85,8 @@ const ConsultantAssignmentsPage: React.FC = () => {
     monitoring: 'bg-blue-100 text-blue-800',
     mentoring: 'bg-green-100 text-green-800',
     evaluation: 'bg-purple-100 text-purple-800',
-    support: 'bg-orange-100 text-orange-800'
+    support: 'bg-orange-100 text-orange-800',
+    comprehensive: 'bg-indigo-100 text-indigo-800'
   };
 
   useEffect(() => {
@@ -146,7 +152,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
         return;
       }
 
-      const response = await fetch('/api/admin/consultant-assignments', {
+      const response = await fetch('/api/admin/consultant-assignments?include_inactive=true', {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
@@ -158,7 +164,78 @@ const ConsultantAssignmentsPage: React.FC = () => {
       }
 
       const data = await response.json();
-      setAssignments(data.assignments || []);
+      
+      // Enrich assignments with additional data
+      const enrichedAssignments = await Promise.all((data.assignments || []).map(async (assignment: Assignment) => {
+        // Determine assignment scope
+        let scope = 'individual';
+        let affectedCount = 1;
+        
+        if (!assignment.student_id && assignment.community_id) {
+          scope = 'community';
+          // Count students in the community
+          const { count } = await supabase
+            .from('user_roles')
+            .select('*', { count: 'exact', head: true })
+            .eq('community_id', assignment.community_id)
+            .eq('is_active', true);
+          affectedCount = count || 0;
+        } else if (!assignment.student_id && assignment.generation_id) {
+          scope = 'generation';
+          // Count students in the generation
+          const { count } = await supabase
+            .from('user_roles')
+            .select('*', { count: 'exact', head: true })
+            .eq('generation_id', assignment.generation_id)
+            .eq('is_active', true);
+          affectedCount = count || 0;
+        } else if (!assignment.student_id && assignment.school_id) {
+          scope = 'school';
+          // Count students in the school
+          const { count } = await supabase
+            .from('user_roles')
+            .select('*', { count: 'exact', head: true })
+            .eq('school_id', assignment.school_id)
+            .eq('is_active', true);
+          affectedCount = count || 0;
+        }
+        
+        // Get community, school, generation names if not already present
+        if (assignment.community_id && !assignment.community) {
+          const { data: community } = await supabase
+            .from('growth_communities')
+            .select('id, name')
+            .eq('id', assignment.community_id)
+            .single();
+          assignment.community = community;
+        }
+        
+        if (assignment.school_id && !assignment.school) {
+          const { data: school } = await supabase
+            .from('schools')
+            .select('id, name')
+            .eq('id', assignment.school_id)
+            .single();
+          assignment.school = school;
+        }
+        
+        if (assignment.generation_id && !assignment.generation) {
+          const { data: generation } = await supabase
+            .from('generations')
+            .select('id, name')
+            .eq('id', assignment.generation_id)
+            .single();
+          assignment.generation = generation;
+        }
+        
+        return {
+          ...assignment,
+          assignment_scope: scope,
+          affected_students_count: affectedCount
+        };
+      }));
+      
+      setAssignments(enrichedAssignments);
     } catch (error) {
       console.error('Error fetching assignments:', error);
       toast.error('Error al cargar asignaciones');
@@ -335,6 +412,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
               className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
             >
               <option value="all">Todos los tipos</option>
+              <option value="comprehensive">Completa</option>
               <option value="monitoring">Monitoreo</option>
               <option value="mentoring">Mentoría</option>
               <option value="evaluation">Evaluación</option>
@@ -361,9 +439,9 @@ const ConsultantAssignmentsPage: React.FC = () => {
             </div>
             <div className="bg-green-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-green-600">
-                {assignments.filter(a => a.assignment_type === 'mentoring').length}
+                {assignments.filter(a => a.assignment_type === 'comprehensive').length}
               </div>
-              <div className="text-sm text-green-800">Mentorías</div>
+              <div className="text-sm text-green-800">Completas</div>
             </div>
             <div className="bg-purple-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-purple-600">
@@ -373,9 +451,9 @@ const ConsultantAssignmentsPage: React.FC = () => {
             </div>
             <div className="bg-orange-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-orange-600">
-                {new Set(assignments.map(a => a.student_id)).size}
+                {assignments.reduce((total, a) => total + (a.affected_students_count || 1), 0)}
               </div>
-              <div className="text-sm text-orange-800">Estudiantes Únicos</div>
+              <div className="text-sm text-orange-800">Estudiantes Afectados</div>
             </div>
           </div>
 
@@ -416,17 +494,36 @@ const ConsultantAssignmentsPage: React.FC = () => {
                       </td>
                       <td className="p-4">
                         <div>
-                          <div className="font-medium text-gray-900">
-                            {assignment.student?.first_name} {assignment.student?.last_name}
-                          </div>
-                          <div className="text-sm text-gray-500">{assignment.student?.email}</div>
+                          {assignment.student ? (
+                            <>
+                              <div className="font-medium text-gray-900">
+                                {assignment.student.first_name} {assignment.student.last_name}
+                              </div>
+                              <div className="text-sm text-gray-500">{assignment.student.email}</div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="font-medium text-gray-900 flex items-center gap-2">
+                                <svg className="w-4 h-4 text-[#fdb933]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                {assignment.community ? `Comunidad: ${assignment.community.name}` :
+                                 assignment.generation ? `Generación: ${assignment.generation.name}` :
+                                 assignment.school ? `Escuela: ${assignment.school.name}` :
+                                 'Asignación Grupal'}
+                              </div>
+                              <div className="text-sm text-gray-500 ml-6">
+                                {assignment.affected_students_count} estudiante{assignment.affected_students_count !== 1 ? 's' : ''} afectado{assignment.affected_students_count !== 1 ? 's' : ''}
+                              </div>
+                            </>
+                          )}
                         </div>
                       </td>
                       <td className="p-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          assignmentTypeColors[assignment.assignment_type as keyof typeof assignmentTypeColors]
+                          assignmentTypeColors[assignment.assignment_type as keyof typeof assignmentTypeColors] || 'bg-gray-100 text-gray-800'
                         }`}>
-                          {assignmentTypeLabels[assignment.assignment_type as keyof typeof assignmentTypeLabels]}
+                          {assignmentTypeLabels[assignment.assignment_type as keyof typeof assignmentTypeLabels] || assignment.assignment_type}
                         </span>
                       </td>
                       <td className="p-4">

@@ -79,7 +79,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Failed to fetch consultants' });
     }
 
-    // Fetch students/teachers (users with docente/teacher role)
+    // Fetch all users that can be assigned to consultants (all roles)
     const { data: students, error: studentsError } = await supabase
       .from('profiles')
       .select(`
@@ -91,11 +91,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         school_id,
         generation_id,
         community_id,
-        school:school_id(id, name),
-        generation:generation_id(id, name),
-        community:community_id(id, name)
+        school:schools(id, name),
+        generation:generations(id, name),
+        community:growth_communities(id, name)
       `)
-      .in('role', ['docente', 'teacher'])
       .eq('approval_status', 'approved')
       .order('last_name', { ascending: true });
 
@@ -107,7 +106,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch organizational options
     const { data: schools, error: schoolsError } = await supabase
       .from('schools')
-      .select('id, name')
+      .select('id, name, has_generations')
       .order('name', { ascending: true });
 
     if (schoolsError) {
@@ -138,19 +137,59 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name,
         school_id,
         generation_id,
-        school:school_id(id, name),
-        generation:generation_id(id, name)
+        school:schools(id, name),
+        generation:generations(id, name)
       `)
       .order('name', { ascending: true });
 
+    console.log('Communities query result:', { data: communities, error: communitiesError });
+
     if (communitiesError) {
       console.error('Error fetching communities:', communitiesError);
-      return res.status(500).json({ error: 'Failed to fetch communities' });
+      return res.status(500).json({ error: 'Failed to fetch communities', details: communitiesError.message });
     }
+
+    // For each student, get their primary school and community from roles if not set
+    const studentsWithSchools = await Promise.all((students || []).map(async (student) => {
+      // Always check user_roles for the most up-to-date school and community info
+      const { data: userRoles } = await supabase
+        .from('user_roles')
+        .select(`
+          school_id,
+          community_id,
+          school:schools(id, name),
+          community:growth_communities(id, name)
+        `)
+        .eq('user_id', student.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      if (userRoles && userRoles.length > 0) {
+        // Override with data from user_roles if available
+        if (userRoles[0].school_id) {
+          student.school_id = userRoles[0].school_id;
+          student.school = userRoles[0].school;
+        }
+        if (userRoles[0].community_id) {
+          student.community_id = userRoles[0].community_id;
+          student.community = userRoles[0].community;
+        }
+      }
+      return student;
+    }));
+
+    console.log('Students with schools and communities:', studentsWithSchools.map((s: any) => ({ 
+      name: `${s.first_name} ${s.last_name}`, 
+      school_id: s.school_id,
+      school: s.school?.name,
+      community_id: s.community_id,
+      community: s.community?.name
+    })));
 
     return res.status(200).json({
       consultants: consultants || [],
-      students: students || [],
+      students: studentsWithSchools || [],
       schools: schools || [],
       generations: generations || [],
       communities: communities || []

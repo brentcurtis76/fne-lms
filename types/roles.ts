@@ -17,6 +17,7 @@ export interface School {
   id: string;
   name: string;
   code?: string;
+  has_generations?: boolean;
   created_at?: string;
 }
 

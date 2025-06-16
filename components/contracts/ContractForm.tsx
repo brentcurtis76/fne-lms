@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download } from 'lucide-react';
+import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download, Building } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { toast } from 'react-hot-toast';
 
@@ -31,6 +31,17 @@ interface Cliente {
   nombre_contacto_administrativo?: string;
   telefono_contacto_administrativo?: string;
   email_contacto_administrativo?: string;
+  school_id?: number | null; // Changed to number to match schools table
+}
+
+interface School {
+  id: number; // Changed from string to number
+  name: string;
+  code?: string | null;
+  address?: string | null;
+  region?: string | null;
+  has_generations: boolean;
+  cliente_id?: string | null;
 }
 
 interface CuotaForm {
@@ -43,17 +54,28 @@ interface ContractFormProps {
   programas: Programa[];
   clientes: Cliente[];
   editingContract?: any; // Contract being edited
+  preSelectedClientId?: string;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export default function ContractForm({ programas, clientes, editingContract, onSuccess, onCancel }: ContractFormProps) {
+export default function ContractForm({ programas, clientes, editingContract, preSelectedClientId, onSuccess, onCancel }: ContractFormProps) {
   // Form states
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'cliente' | 'contrato' | 'cuotas'>('cliente');
   
   // Client form
-  const [selectedClienteId, setSelectedClienteId] = useState('');
+  const [selectedClienteId, setSelectedClienteId] = useState(preSelectedClientId || '');
+  const [schools, setSchools] = useState<School[]>([]);
+  const [selectedSchoolId, setSelectedSchoolId] = useState<number | ''>('');
+  const [showNewSchoolForm, setShowNewSchoolForm] = useState(false);
+  const [newSchoolForm, setNewSchoolForm] = useState({
+    name: '',
+    code: '',
+    address: '',
+    region: '',
+    has_generations: true
+  });
   const [clienteForm, setClienteForm] = useState({
     nombre_legal: '',
     nombre_fantasia: '',
@@ -88,6 +110,55 @@ export default function ContractForm({ programas, clientes, editingContract, onS
   const [cuotas, setCuotas] = useState<CuotaForm[]>([
     { numero_cuota: 1, fecha_vencimiento: '', monto: 0 }
   ]);
+
+  // Fetch schools on component mount
+  useEffect(() => {
+    fetchSchools();
+  }, []);
+
+  const fetchSchools = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('schools')
+        .select('*')
+        .order('name');
+      
+      if (error) throw error;
+      setSchools(data || []);
+    } catch (error) {
+      console.error('Error fetching schools:', error);
+    }
+  };
+
+  // Handle pre-selected client
+  useEffect(() => {
+    if (preSelectedClientId && clientes.length > 0) {
+      const selectedClient = clientes.find(c => c.id === preSelectedClientId);
+      if (selectedClient) {
+        setSelectedClienteId(preSelectedClientId);
+        setSelectedSchoolId(selectedClient.school_id || '');
+        setClienteForm({
+          nombre_legal: selectedClient.nombre_legal || '',
+          nombre_fantasia: selectedClient.nombre_fantasia || '',
+          rut: selectedClient.rut || '',
+          direccion: selectedClient.direccion || '',
+          comuna: selectedClient.comuna || '',
+          ciudad: selectedClient.ciudad || '',
+          nombre_representante: selectedClient.nombre_representante || '',
+          rut_representante: selectedClient.rut_representante || '',
+          fecha_escritura: selectedClient.fecha_escritura || '',
+          nombre_notario: selectedClient.nombre_notario || '',
+          comuna_notaria: selectedClient.comuna_notaria || '',
+          nombre_encargado_proyecto: selectedClient.nombre_encargado_proyecto || '',
+          telefono_encargado_proyecto: selectedClient.telefono_encargado_proyecto || '',
+          email_encargado_proyecto: selectedClient.email_encargado_proyecto || '',
+          nombre_contacto_administrativo: selectedClient.nombre_contacto_administrativo || '',
+          telefono_contacto_administrativo: selectedClient.telefono_contacto_administrativo || '',
+          email_contacto_administrativo: selectedClient.email_contacto_administrativo || ''
+        });
+      }
+    }
+  }, [preSelectedClientId, clientes]);
 
   // Populate form when editing
   useEffect(() => {
@@ -159,6 +230,7 @@ export default function ContractForm({ programas, clientes, editingContract, onS
   const handleClienteSelection = (clienteId: string) => {
     const cliente = clientes.find(c => c.id === clienteId);
     if (cliente) {
+      setSelectedSchoolId(cliente.school_id || '');
       setClienteForm({
         nombre_legal: cliente.nombre_legal,
         nombre_fantasia: cliente.nombre_fantasia,
@@ -225,6 +297,70 @@ export default function ContractForm({ programas, clientes, editingContract, onS
     setCuotas(updatedCuotas);
   };
 
+  // Create new school
+  const handleCreateSchool = async () => {
+    if (!newSchoolForm.name.trim()) {
+      toast.error('El nombre de la escuela es requerido');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Get the current user's token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No authenticated session');
+      }
+
+      const response = await fetch('/api/admin/schools', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify(newSchoolForm)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error creating school');
+      }
+
+      const newSchool = await response.json();
+      
+      // Update schools list
+      await fetchSchools();
+      
+      // Select the newly created school
+      setSelectedSchoolId(newSchool.id);
+      
+      // Pre-fill client form with school data
+      setClienteForm(prev => ({
+        ...prev,
+        nombre_fantasia: newSchool.name,
+        direccion: newSchool.address || prev.direccion,
+        ciudad: newSchool.region || prev.ciudad
+      }));
+      
+      setShowNewSchoolForm(false);
+      setNewSchoolForm({
+        name: '',
+        code: '',
+        address: '',
+        region: '',
+        has_generations: true
+      });
+      
+      toast.success('Escuela creada exitosamente');
+    } catch (error) {
+      console.error('Error creating school:', error);
+      toast.error('Error al crear la escuela: ' + (error as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Save contract
   const handleSaveContract = async () => {
     setLoading(true);
@@ -234,14 +370,31 @@ export default function ContractForm({ programas, clientes, editingContract, onS
       if (editingContract) {
         // EDITING MODE
         
-        // Update client data
+        // Update client data with school_id
+        const clientUpdateData = {
+          ...clienteForm,
+          school_id: selectedSchoolId || null
+        };
+        
         const { error: clienteError } = await supabase
           .from('clientes')
-          .update(clienteForm)
+          .update(clientUpdateData)
           .eq('id', editingContract.cliente_id);
           
         if (clienteError) throw clienteError;
         clienteId = editingContract.cliente_id;
+        
+        // Update school link if changed
+        if (selectedSchoolId) {
+          const { error: schoolUpdateError } = await supabase
+            .from('schools')
+            .update({ cliente_id: editingContract.cliente_id })
+            .eq('id', selectedSchoolId);
+            
+          if (schoolUpdateError) {
+            console.error('Error updating school link:', schoolUpdateError);
+          }
+        }
         
         // Update contract
         const { error: contratoError } = await supabase
@@ -286,6 +439,12 @@ export default function ContractForm({ programas, clientes, editingContract, onS
         
         // First, save or update client
         if (!selectedClienteId) {
+          // Prepare client data with school_id if selected
+          const clientData = {
+            ...clienteForm,
+            school_id: selectedSchoolId || null
+          };
+          
           // Check if client with this RUT already exists
           const { data: existingCliente, error: checkError } = await supabase
             .from('clientes')
@@ -322,12 +481,25 @@ export default function ContractForm({ programas, clientes, editingContract, onS
             // Create new client
             const { data: newCliente, error: clienteError } = await supabase
               .from('clientes')
-              .insert([clienteForm])
+              .insert([clientData])
               .select()
               .single();
               
             if (clienteError) throw clienteError;
             clienteId = newCliente.id;
+            
+            // If a school was selected, update the school with the client reference
+            if (selectedSchoolId && newCliente.id) {
+              const { error: schoolUpdateError } = await supabase
+                .from('schools')
+                .update({ cliente_id: newCliente.id })
+                .eq('id', selectedSchoolId);
+                
+              if (schoolUpdateError) {
+                console.error('Error linking school to client:', schoolUpdateError);
+                // Non-critical error, continue with contract creation
+              }
+            }
           }
         }
 
@@ -614,6 +786,118 @@ export default function ContractForm({ programas, clientes, editingContract, onS
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* School Selection */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  <Building className="inline mr-2" size={16} />
+                  Escuela Asociada
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowNewSchoolForm(!showNewSchoolForm)}
+                  className="text-sm text-brand_blue hover:text-brand_blue/80 font-medium"
+                >
+                  {showNewSchoolForm ? 'Cancelar' : '+ Nueva Escuela'}
+                </button>
+              </div>
+              
+              {!showNewSchoolForm ? (
+                <select
+                  value={selectedSchoolId}
+                  onChange={(e) => {
+                    const schoolId = e.target.value ? parseInt(e.target.value) : '';
+                    setSelectedSchoolId(schoolId);
+                    
+                    // If a school is selected, update client form with school data
+                    if (schoolId && typeof schoolId === 'number') {
+                      const school = schools.find(s => s.id === schoolId);
+                      if (school && !selectedClienteId) {
+                        setClienteForm(prev => ({
+                          ...prev,
+                          nombre_fantasia: school.name,
+                          direccion: school.address || prev.direccion,
+                          ciudad: school.region || prev.ciudad
+                        }));
+                      }
+                    }
+                  }}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                >
+                  <option value="">-- Sin escuela asociada --</option>
+                  {schools.filter(school => !school.cliente_id || school.cliente_id === selectedClienteId).map(school => (
+                    <option key={school.id} value={school.id}>
+                      {school.name} {school.code ? `(${school.code})` : ''}
+                      {school.cliente_id && school.cliente_id !== selectedClienteId ? ' (Vinculada a otro cliente)' : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <input
+                      type="text"
+                      value={newSchoolForm.name}
+                      onChange={(e) => setNewSchoolForm({ ...newSchoolForm, name: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                      placeholder="Nombre de la escuela *"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      value={newSchoolForm.code}
+                      onChange={(e) => setNewSchoolForm({ ...newSchoolForm, code: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                      placeholder="Código"
+                    />
+                    <input
+                      type="text"
+                      value={newSchoolForm.region}
+                      onChange={(e) => setNewSchoolForm({ ...newSchoolForm, region: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                      placeholder="Región"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={newSchoolForm.address}
+                      onChange={(e) => setNewSchoolForm({ ...newSchoolForm, address: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                      placeholder="Dirección"
+                    />
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="has_generations"
+                      checked={newSchoolForm.has_generations}
+                      onChange={(e) => setNewSchoolForm({ ...newSchoolForm, has_generations: e.target.checked })}
+                      className="mr-2 h-4 w-4 text-brand_blue focus:ring-brand_blue border-gray-300 rounded"
+                    />
+                    <label htmlFor="has_generations" className="text-sm text-gray-700">
+                      Esta escuela maneja generaciones
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCreateSchool}
+                    disabled={loading || !newSchoolForm.name.trim()}
+                    className="w-full px-4 py-2 bg-brand_blue text-white rounded-lg hover:bg-brand_blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Creando...' : 'Crear Escuela'}
+                  </button>
+                </div>
+              )}
+              
+              {selectedSchoolId && (
+                <p className="text-xs text-gray-500 mt-2">
+                  La escuela y el cliente quedarán vinculados automáticamente
+                </p>
+              )}
             </div>
 
             {/* Client Form */}

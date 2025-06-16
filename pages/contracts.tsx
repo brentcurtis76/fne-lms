@@ -98,6 +98,7 @@ export default function ContractsPage() {
   const [editingContrato, setEditingContrato] = useState<Contrato | null>(null);
   const [editingAnexo, setEditingAnexo] = useState<Contrato | null>(null);
   const [deleteModalContrato, setDeleteModalContrato] = useState<Contrato | null>(null);
+  const [preSelectedClientId, setPreSelectedClientId] = useState<string | null>(null);
   const [uploadingContrato, setUploadingContrato] = useState<string | null>(null);
 
   useEffect(() => {
@@ -134,6 +135,16 @@ export default function ContractsPage() {
           loadProgramas(),
           loadClientes()
         ]);
+        
+        // Check if coming from schools page with pre-selected client
+        const { cliente_id, school_name } = router.query;
+        if (cliente_id && typeof cliente_id === 'string') {
+          setActiveTab('nuevo');
+          setPreSelectedClientId(cliente_id);
+          if (school_name && typeof school_name === 'string') {
+            toast.success(`Creando contrato para: ${decodeURIComponent(school_name)}`);
+          }
+        }
         
         setLoading(false);
       } catch (error) {
@@ -183,7 +194,7 @@ export default function ContractsPage() {
     try {
       const { data, error } = await supabase
         .from('clientes')
-        .select('*')
+        .select('*, school_id')
         .order('nombre_legal');
 
       if (error) throw error;
@@ -663,11 +674,16 @@ export default function ContractsPage() {
               <ContractForm
                 programas={programas}
                 clientes={clientes}
+                preSelectedClientId={preSelectedClientId}
                 onSuccess={() => {
                   setActiveTab('lista');
+                  setPreSelectedClientId(null);
                   loadContratos();
                 }}
-                onCancel={() => setActiveTab('lista')}
+                onCancel={() => {
+                  setActiveTab('lista');
+                  setPreSelectedClientId(null);
+                }}
               />
             )}
 

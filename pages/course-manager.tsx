@@ -45,7 +45,7 @@ const CourseManagerPage: React.FC = () => {
             setAvatarUrl(profileData.avatar_url);
           }
           
-          // If not admin, fetch only assigned courses
+          // Fetch assigned courses for all non-admin users
           if (profileData.role !== 'admin') {
             const { data: assignments } = await supabase
               .from('course_assignments')
@@ -160,7 +160,7 @@ const CourseManagerPage: React.FC = () => {
                   {isAdmin ? 'Todos los Cursos' : 'Mis Cursos Asignados'}
                 </h2>
                 <p className="text-gray-500 text-sm mt-1">
-                  {isAdmin ? 'Gestiona todos los cursos del sistema' : 'Cursos en los que eres instructor'}
+                  {isAdmin ? 'Gestiona todos los cursos del sistema' : 'Cursos que te han sido asignados'}
                 </p>
               </div>
               
@@ -177,7 +177,7 @@ const CourseManagerPage: React.FC = () => {
                       <div className="text-center py-8">
                         <p className="text-gray-500">No tienes cursos asignados aún.</p>
                         <p className="text-sm text-gray-400 mt-2">
-                          Los administradores pueden asignarte cursos para que puedas gestionarlos.
+                          Los administradores pueden asignarte cursos para que puedas acceder a ellos.
                         </p>
                       </div>
                     ) : (

@@ -383,6 +383,10 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
     
     if (!blockToDelete) return;
     
+    // Show confirmation dialog
+    const confirmDelete = window.confirm('¿Estás seguro de que deseas eliminar este bloque? Esta acción no se puede deshacer.');
+    if (!confirmDelete) return;
+    
     // Remove block from UI immediately
     const remainingBlocks = originalBlocks.filter(b => b.id !== blockId);
     setBlocks(remainingBlocks);
@@ -390,9 +394,50 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
     try {
       // If it's a saved block (not a new one), delete from database
       if (!blockToDelete.id.startsWith('new-')) { 
-        const { error } = await supabase.from('blocks').delete().eq('id', blockId);
-        if (error) {
-          throw error;
+        console.log(`[DeleteBlock] Deleting block ${blockId} from database...`);
+        
+        // First, verify the block exists in the database
+        const { data: existingBlock, error: checkError } = await supabase
+          .from('blocks')
+          .select('id')
+          .eq('id', blockId)
+          .single();
+          
+        if (checkError && checkError.code !== 'PGRST116') {
+          console.error('[DeleteBlock] Error checking block existence:', checkError);
+          throw checkError;
+        }
+        
+        if (!existingBlock) {
+          console.log('[DeleteBlock] Block not found in database, skipping deletion');
+          toast.success('Bloque eliminado exitosamente.');
+          setHasUnsavedChanges(true);
+          return;
+        }
+        
+        // Delete the block
+        const { error: deleteError } = await supabase
+          .from('blocks')
+          .delete()
+          .eq('id', blockId);
+          
+        if (deleteError) {
+          console.error('[DeleteBlock] Error deleting block:', deleteError);
+          throw deleteError;
+        }
+        
+        console.log(`[DeleteBlock] Successfully deleted block ${blockId}`);
+        
+        // Verify deletion
+        const { data: verifyBlock, error: verifyError } = await supabase
+          .from('blocks')
+          .select('id')
+          .eq('id', blockId)
+          .single();
+          
+        if (verifyBlock) {
+          console.error('[DeleteBlock] Block still exists after deletion!');
+          throw new Error('El bloque no se eliminó correctamente de la base de datos');
         }
         
         // Update positions for remaining blocks
@@ -405,19 +450,30 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
         // Update positions in database for existing blocks
         for (const update of positionUpdates) {
           if (!update.id.startsWith('new-')) {
-            await supabase
+            const { error: updateError } = await supabase
               .from('blocks')
               .update({ position: update.position })
               .eq('id', update.id);
+              
+            if (updateError) {
+              console.error(`[DeleteBlock] Error updating position for block ${update.id}:`, updateError);
+            }
           }
         }
       }
       
+      // Remove from collapsed blocks set if it was there
+      setCollapsedBlocks(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(blockId);
+        return newSet;
+      });
+      
       toast.success('Bloque eliminado exitosamente.');
-      setHasUnsavedChanges(false); // Mark as saved since we updated the database
+      setHasUnsavedChanges(true); // Mark as having changes to prompt save
       
     } catch (error: any) {
-      console.error('Error deleting block:', error);
+      console.error('[DeleteBlock] Error in deletion process:', error);
       toast.error(`Error al eliminar el bloque: ${error.message}`);
       // Restore original blocks on error
       setBlocks(originalBlocks);

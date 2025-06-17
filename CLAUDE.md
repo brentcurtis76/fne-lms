@@ -175,6 +175,16 @@ npm run dev  # MUST be port 3000
 - **LESSON COMPLETION UI UPDATE (January 2025)**:
   - Changed completion icon from trophy to thumbs up per user request
   - Updated in `/pages/student/lesson/[lessonId].tsx`
+- **GROWTH COMMUNITIES CUSTOMIZATION (January 2025)**:
+  - Communities can now rename themselves and add a group image (like WhatsApp)
+  - Only community leaders (lider_comunidad) and admins can edit settings
+  - New fields: custom_name, image_url, image_storage_path in community_workspaces
+  - New component: WorkspaceSettingsModal for editing community settings
+  - New service: communityWorkspaceService for handling updates
+  - Image upload support with 5MB limit (JPEG, PNG, WebP)
+  - Migration: `/database/add-community-customization.sql`
+  - Apply script: `/scripts/apply-community-customization.js`
+  - Storage bucket "community-images" needs to be created in Supabase
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)

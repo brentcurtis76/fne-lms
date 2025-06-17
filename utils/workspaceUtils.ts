@@ -27,6 +27,9 @@ export interface CommunityWorkspace {
   id: string;
   community_id: string;
   name: string;
+  custom_name?: string;
+  image_url?: string;
+  image_storage_path?: string;
   description?: string;
   settings: Record<string, any>;
   is_active: boolean;

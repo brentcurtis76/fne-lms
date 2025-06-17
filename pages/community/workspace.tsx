@@ -30,8 +30,10 @@ import ActivityNotifications from '../../components/activity/ActivityNotificatio
 import ActivityFeedPlaceholder from '../../components/activity/ActivityFeedPlaceholder';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 import GroupSubmissionModalV2 from '../../components/assignments/GroupSubmissionModalV2';
+import WorkspaceSettingsModal from '../../components/community/WorkspaceSettingsModal';
 import { useAuth } from '../../hooks/useAuth';
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
+import { communityWorkspaceService } from '../../lib/services/communityWorkspace';
 import { 
   getUserWorkspaceAccess, 
   getOrCreateWorkspace, 
@@ -179,6 +181,8 @@ const CommunityWorkspacePage: React.FC = () => {
   
   // UI state
   const [showCommunitySelector, setShowCommunitySelector] = useState(false);
+  const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
+  const [canEditWorkspace, setCanEditWorkspace] = useState(false);
   
   // Activity Feed state
   const [activityPermissions, setActivityPermissions] = useState<ActivityPermissions | null>(null);
@@ -246,6 +250,10 @@ const CommunityWorkspacePage: React.FC = () => {
       const workspace = await getOrCreateWorkspace(communityId);
       if (workspace) {
         setCurrentWorkspace(workspace);
+        
+        // Check if user can edit workspace settings
+        const { canEdit } = await communityWorkspaceService.canEditWorkspace(user.id, workspace.id);
+        setCanEditWorkspace(canEdit);
         
         // Log workspace access
         await logWorkspaceActivity(
@@ -715,7 +723,7 @@ const CommunityWorkspacePage: React.FC = () => {
     >
       <ResponsiveFunctionalPageHeader
         icon={<Users />}
-        title="Espacio Colaborativo"
+        title={currentWorkspace?.custom_name || "Espacio Colaborativo"}
         subtitle={selectedCommunity ? `${selectedCommunity.name} • ${selectedCommunity.school_name}` : 'Herramientas de colaboración para comunidades'}
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
@@ -744,16 +752,40 @@ const CommunityWorkspacePage: React.FC = () => {
         {currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && (
           <div className="mb-6">
             <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-[#fdb933]/10 rounded-lg flex items-center justify-center">
-                  <UsersIcon className="w-5 h-5 text-[#fdb933]" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  {currentWorkspace.image_url ? (
+                    <img 
+                      src={currentWorkspace.image_url} 
+                      alt={currentWorkspace.custom_name || currentWorkspace.name}
+                      className="w-10 h-10 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 bg-[#fdb933]/10 rounded-lg flex items-center justify-center">
+                      <UsersIcon className="w-5 h-5 text-[#fdb933]" />
+                    </div>
+                  )}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900">
+                      {currentWorkspace.custom_name || currentWorkspace.name}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      {currentWorkspace.community?.school?.name} - {currentWorkspace.community?.generation?.name}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900">{currentWorkspace.name}</h3>
-                  <p className="text-xs text-gray-500">
-                    {currentWorkspace.community?.school?.name} - {currentWorkspace.community?.generation?.name}
-                  </p>
-                </div>
+                {canEditWorkspace && (
+                  <button
+                    onClick={() => setShowWorkspaceSettings(true)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    title="Configuración de la comunidad"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -764,6 +796,26 @@ const CommunityWorkspacePage: React.FC = () => {
           {renderMainContent()}
         </div>
       </div>
+
+      {/* Workspace Settings Modal */}
+      {currentWorkspace && (
+        <WorkspaceSettingsModal
+          isOpen={showWorkspaceSettings}
+          onClose={() => setShowWorkspaceSettings(false)}
+          workspaceId={currentWorkspace.id}
+          currentName={currentWorkspace.custom_name || currentWorkspace.name}
+          currentImageUrl={currentWorkspace.image_url}
+          onUpdate={(updates) => {
+            // Update local state
+            setCurrentWorkspace({
+              ...currentWorkspace,
+              custom_name: updates.customName,
+              image_url: updates.imageUrl
+            });
+            toast.success('Configuración actualizada');
+          }}
+        />
+      )}
     </MainLayout>
   );
 };

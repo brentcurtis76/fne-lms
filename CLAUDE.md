@@ -207,6 +207,7 @@ npm run dev  # MUST be port 3000
   - This ensures newly created communities appear immediately in dropdowns
   - Migration: `/database/fix-school-id-type-consistency.sql` (for verification)
   - Fix prevents the bug from recurring for all future community assignments
+  - **Important**: Communities are filtered by selected school. To see all communities, clear school selection first.
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)

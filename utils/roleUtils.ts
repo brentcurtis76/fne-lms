@@ -455,7 +455,11 @@ export async function getAvailableCommunitiesForAssignment(
     if (schoolId) {
       // Convert schoolId to integer to match database type
       // This fixes the bug where newly created communities don't appear
-      query = query.eq('school_id', parseInt(schoolId));
+      const schoolIdInt = parseInt(schoolId);
+      if (!isNaN(schoolIdInt)) {
+        query = query.eq('school_id', schoolIdInt);
+        console.log('Filtering communities by school_id:', schoolIdInt);
+      }
     }
     if (generationId) {
       query = query.eq('generation_id', generationId);
@@ -468,6 +472,7 @@ export async function getAvailableCommunitiesForAssignment(
       return [];
     }
 
+    console.log('Communities fetched:', data?.length || 0, 'communities');
     return data || [];
   } catch (error) {
     console.error('Error in getAvailableCommunitiesForAssignment:', error);

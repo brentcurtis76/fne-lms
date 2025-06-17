@@ -183,8 +183,8 @@ npm run dev  # MUST be port 3000
   - New service: communityWorkspaceService for handling updates
   - Image upload support with 5MB limit (JPEG, PNG, WebP)
   - Migration: `/database/add-community-customization.sql`
-  - Apply script: `/scripts/apply-community-customization.js`
-  - Storage bucket "community-images" needs to be created in Supabase
+  - Storage bucket "community-images" created with public access
+  - ✅ DEPLOYED: Database migration and storage policies applied
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)

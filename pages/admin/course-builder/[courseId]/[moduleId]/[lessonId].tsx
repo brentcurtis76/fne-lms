@@ -58,7 +58,10 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
   const [blocks, setBlocks] = useState<Block[]>(initialLessonData.blocks || []);
   const [collapsedBlocks, setCollapsedBlocks] = useState<Set<string>>(() => {
     if (initialLessonData.blocks && Array.isArray(initialLessonData.blocks)) {
-      return new Set(initialLessonData.blocks.filter(block => block.id).map(block => block.id));
+      // Initialize collapsed state based on is_visible field from database
+      return new Set(initialLessonData.blocks
+        .filter(block => block.id && block.is_visible === false)
+        .map(block => block.id));
     }
     return new Set();
   });
@@ -229,6 +232,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
           lesson_id: lessonIdString,
           position: index,
           payload: payload,
+          is_visible: !collapsedBlocks.has(block.id), // Save visibility state
         };
 
         if (block.id.startsWith('new-')) { 
@@ -404,7 +408,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
     try {
       // If it's a saved block (not a new one), delete from database
       if (!blockToDelete.id.startsWith('new-')) { 
-        const { error } = await supabase.from('blocks').delete().match({ id: blockId });
+        const { error } = await supabase.from('blocks').delete().eq('id', blockId);
         if (error) {
           throw error;
         }
@@ -474,6 +478,18 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
       }
       return newSet;
     });
+    
+    // Update the block's visibility in the blocks array
+    setBlocks(prevBlocks => 
+      prevBlocks.map(block => 
+        block.id === blockId 
+          ? { ...block, is_visible: collapsedBlocks.has(blockId) }
+          : block
+      )
+    );
+    
+    // Mark as having unsaved changes
+    setHasUnsavedChanges(true);
   };
 
   const moveBlockUp = (index: number) => {

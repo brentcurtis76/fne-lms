@@ -110,6 +110,12 @@ npm run dev  # MUST be port 3000
 - User notification preferences
 - Assignment system complete with enrolled courses integration
 - Assignment stats simplified to show work status (Active, Completed, In Progress, New)
+- **BLOCK DELETION AND VISIBILITY FIX (January 2025)**:
+  - Fixed block deletion using correct Supabase syntax (.eq instead of .match)
+  - Added persistent visibility state with is_visible database field
+  - Blocks now properly delete and stay deleted
+  - Collapse/expand state persists across page refreshes
+  - Database migration: `/database/add_visibility_to_blocks.sql`
 - **GROUP ASSIGNMENTS V2 - SIMPLIFIED IMPLEMENTATION (January 2025)**:
   - Complete re-engineering based on consultant feedback
   - Group assignments now created directly in lesson blocks
@@ -155,6 +161,7 @@ npm run dev  # MUST be port 3000
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)
 - ✅ FIXED: Authentication edge cases with RLS policies (enhanced auth system)
+- ✅ FIXED: Block deletion and visibility persistence in course builder (January 2025)
 
 # PENDING TASKS
 ## Quiz Review System Testing

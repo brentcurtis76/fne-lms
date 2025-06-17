@@ -112,6 +112,7 @@ export interface BaseBlock {
   course_id?: string; // UUID, optional if block is not yet saved
   lesson_id?: string; // UUID, optional if block is not yet saved
   payload?: any; // Block content - structure depends on block type
+  is_visible?: boolean; // Controls whether the block is visible or collapsed
 }
 
 // Specific Block Types

@@ -116,7 +116,7 @@ import {
   MenuIcon,
   ClipboardCheckIcon
 } from '@heroicons/react/outline';
-import { X, Users, CheckCircle } from 'lucide-react';
+import { X, Users, CheckCircle, Settings } from 'lucide-react';
 import { navigationManager } from '../../utils/navigationManager';
 
 type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'group-assignments';
@@ -731,25 +731,53 @@ const CommunityWorkspacePage: React.FC = () => {
       />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Community Selector for multi-community users */}
-        {workspaceAccess && workspaceAccess.availableCommunities.length > 1 && (
+        {/* Prominent Community Header */}
+        {currentWorkspace && (
           <div className="mb-6">
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-900">Comunidad Activa</h3>
-                  <p className="text-xs text-gray-500">Selecciona la comunidad para trabajar</p>
+            <div className="bg-gradient-to-r from-[#00365b] to-[#00486b] rounded-lg shadow-lg p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-4">
+                  {currentWorkspace.image_url ? (
+                    <img 
+                      src={currentWorkspace.image_url} 
+                      alt={currentWorkspace.custom_name || currentWorkspace.name}
+                      className="w-20 h-20 rounded-lg object-cover border-2 border-white/20"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 bg-white/10 rounded-lg flex items-center justify-center border-2 border-white/20">
+                      <Users className="w-10 h-10 text-white" />
+                    </div>
+                  )}
+                  <div>
+                    <h1 className="text-2xl font-bold text-white">
+                      {currentWorkspace.custom_name || currentWorkspace.name}
+                    </h1>
+                    <p className="text-white/80 mt-1">
+                      {selectedCommunity?.school_name} • {selectedCommunity?.generation_name}
+                    </p>
+                    {workspaceAccess && workspaceAccess.availableCommunities.length > 1 && (
+                      <div className="mt-2">
+                        {renderCommunitySelector()}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="sm:flex-shrink-0">
-                  {renderCommunitySelector()}
-                </div>
+                {canEditWorkspace && (
+                  <button
+                    onClick={() => setShowWorkspaceSettings(true)}
+                    className="p-3 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                    title="Editar nombre e imagen de la comunidad"
+                  >
+                    <Settings className="w-6 h-6 text-white" />
+                  </button>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* Current Workspace Info */}
-        {currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && (
+        {/* Current Workspace Info (for sections that need it) */}
+        {currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false && (
           <div className="mb-6">
             <div className="bg-white rounded-lg border border-gray-200 p-4">
               <div className="flex items-center justify-between">

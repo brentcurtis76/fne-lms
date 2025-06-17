@@ -8,7 +8,10 @@ import Avatar from '../components/common/Avatar';
 import { getUserRoles, getCommunityMembers } from '../utils/roleUtils';
 import { UserRole, UserProfile } from '../types/roles';
 import { updateAvatarCache } from '../hooks/useAvatar';
-import { Home } from 'lucide-react';
+import { Home, Settings, Users } from 'lucide-react';
+import WorkspaceSettingsModal from '../components/community/WorkspaceSettingsModal';
+import { communityWorkspaceService } from '../lib/services/communityWorkspace';
+import { getOrCreateWorkspace } from '../utils/workspaceUtils';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -23,6 +26,9 @@ export default function Dashboard() {
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [communityMembers, setCommunityMembers] = useState<Record<string, UserProfile[]>>({});
   const [searchQuery, setSearchQuery] = useState('');
+  const [communityWorkspaces, setCommunityWorkspaces] = useState<Record<string, any>>({});
+  const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
+  const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
   
   // Try to load avatar from cache immediately on component mount
   useEffect(() => {
@@ -134,19 +140,27 @@ export default function Dashboard() {
               const roles = await getUserRoles(userData.user.id);
               setUserRoles(roles);
 
-              // Get community members for each community the user belongs to
+              // Get community members and workspaces for each community the user belongs to
               const communityMembersData: Record<string, UserProfile[]> = {};
+              const communityWorkspacesData: Record<string, any> = {};
               for (const role of roles) {
                 if (role.community_id) {
                   try {
                     const members = await getCommunityMembers(role.community_id);
                     communityMembersData[role.community_id] = members;
+                    
+                    // Get or create workspace for this community
+                    const workspace = await getOrCreateWorkspace(role.community_id);
+                    if (workspace) {
+                      communityWorkspacesData[role.community_id] = workspace;
+                    }
                   } catch (error) {
-                    console.error('Error fetching community members:', error);
+                    console.error('Error fetching community data:', error);
                   }
                 }
               }
               setCommunityMembers(communityMembersData);
+              setCommunityWorkspaces(communityWorkspacesData);
 
               // Fetch courses based on user role
               if (isAdminUser) {
@@ -366,17 +380,46 @@ export default function Dashboard() {
                   
                   const members = communityMembers[role.community_id] || [];
                   
+                  const workspace = communityWorkspaces[role.community_id];
+                  
                   return (
                     <div key={role.id} className="bg-white rounded-lg shadow-md p-6 mb-4">
                       <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h3 className="text-lg font-semibold text-brand_blue">{role.community.name}</h3>
-                          <p className="text-sm text-gray-600">
-                            {role.school?.name} • {role.generation?.name}
-                          </p>
+                        <div className="flex items-center space-x-4">
+                          {workspace?.image_url ? (
+                            <img 
+                              src={workspace.image_url} 
+                              alt={workspace.custom_name || role.community.name}
+                              className="w-16 h-16 rounded-lg object-cover"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 bg-[#fdb933]/10 rounded-lg flex items-center justify-center">
+                              <Users className="w-8 h-8 text-[#fdb933]" />
+                            </div>
+                          )}
+                          <div>
+                            <h3 className="text-lg font-semibold text-brand_blue">
+                              {workspace?.custom_name || role.community.name}
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              {role.school?.name} • {role.generation?.name}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {members.length} {members.length === 1 ? 'miembro' : 'miembros'}
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => {
+                              setSelectedWorkspace(workspace);
+                              setShowWorkspaceSettings(true);
+                            }}
+                            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                            title="Configuración de la comunidad"
+                          >
+                            <Settings className="w-5 h-5" />
+                          </button>
+                          <div className="text-sm text-gray-500">
+                            {members.length} {members.length === 1 ? 'miembro' : 'miembros'}
+                          </div>
                         </div>
                       </div>
                       
@@ -895,6 +938,30 @@ export default function Dashboard() {
             )}
         </div>
       </div>
+
+      {/* Workspace Settings Modal */}
+      {selectedWorkspace && (
+        <WorkspaceSettingsModal
+          isOpen={showWorkspaceSettings}
+          onClose={() => {
+            setShowWorkspaceSettings(false);
+            setSelectedWorkspace(null);
+          }}
+          workspaceId={selectedWorkspace.id}
+          currentName={selectedWorkspace.custom_name || selectedWorkspace.name}
+          currentImageUrl={selectedWorkspace.image_url}
+          onUpdate={async (updates) => {
+            // Update local state
+            const updatedWorkspaces = { ...communityWorkspaces };
+            updatedWorkspaces[selectedWorkspace.community_id] = {
+              ...selectedWorkspace,
+              custom_name: updates.customName,
+              image_url: updates.imageUrl
+            };
+            setCommunityWorkspaces(updatedWorkspaces);
+          }}
+        />
+      )}
     </MainLayout>
   );
 }

@@ -185,6 +185,8 @@ npm run dev  # MUST be port 3000
   - Migration: `/database/add-community-customization.sql`
   - Storage bucket "community-images" created with public access
   - ✅ DEPLOYED: Database migration and storage policies applied
+  - Access points: Dashboard (Mi Panel) and Collaborative Space header
+  - Prominent display with gradient header in collaborative space
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)

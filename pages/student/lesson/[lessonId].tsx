@@ -613,6 +613,9 @@ export default function StudentLessonViewer() {
                     // Update progress tracking in real-time if needed
                   }}
                   isAdmin={isAdmin}
+                  lessonId={lessonId as string}
+                  courseId={lesson?.module?.course_id}
+                  studentId={user?.id}
                 />
               </div>
             ) : (

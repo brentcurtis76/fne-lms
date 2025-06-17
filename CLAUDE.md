@@ -135,6 +135,14 @@ npm run dev  # MUST be port 3000
   - Real-time notifications for pending reviews
   - New page: `/quiz-reviews` for consultants to grade open questions
   - Enhanced quiz types: multiple choice, true/false, open-ended
+- **QUIZ LEARNING-FOCUSED UPDATE (January 2025)**:
+  - Removed all score/grade displays from student view
+  - Implemented 2-tier feedback system for MC/TF questions
+  - Tier 1: General encouragement to review answers
+  - Tier 2: Specific questions marked for attention
+  - Quiz submissions now save to database properly
+  - New component: `LearningQuizTaker` replaces inline quiz rendering
+  - Focus on learning, not grades
 - **USER MANAGEMENT IMPROVEMENTS (January 2025)**:
   - Fixed duplicate profile creation issue
   - Added forced password change for admin-created users

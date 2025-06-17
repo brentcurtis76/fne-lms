@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Play, Pause, Download, ExternalLink } from 'lucide-react';
+import LearningQuizTaker from '@/components/quiz/LearningQuizTaker';
+import { supabase } from '@/lib/supabase';
 
 interface StudentBlockRendererProps {
   block: {
@@ -11,6 +13,9 @@ interface StudentBlockRendererProps {
   onComplete: (completionData?: any) => void;
   onProgressUpdate?: (data: any) => void;
   isAdmin?: boolean;
+  lessonId?: string;
+  courseId?: string;
+  studentId?: string;
 }
 
 // TipTap JSON to HTML conversion function
@@ -77,7 +82,10 @@ export default function StudentBlockRenderer({
   isCompleted, 
   onComplete, 
   onProgressUpdate,
-  isAdmin = false
+  isAdmin = false,
+  lessonId,
+  courseId,
+  studentId
 }: StudentBlockRendererProps) {
   const [hasRead, setHasRead] = useState(false);
   const [timeSpent, setTimeSpent] = useState(0);
@@ -89,11 +97,6 @@ export default function StudentBlockRenderer({
   // Image block state
   const [hasViewed, setHasViewed] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  
-  // Quiz block state
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [submitted, setSubmitted] = useState(false);
-  const [score, setScore] = useState(0);
   
   // External links state
   const [hasVisited, setHasVisited] = useState(false);
@@ -502,134 +505,37 @@ export default function StudentBlockRenderer({
   };
 
   const renderQuizBlock = () => {
-    const questions = block.payload?.questions || [];
-    const passingScore = block.payload?.settings?.passingScore || 70;
-
-    const handleSubmitQuiz = () => {
-      let correctAnswers = 0;
-      
-      console.log('=== QUIZ GRADING DEBUG ===');
-      console.log('Questions:', questions);
-      console.log('User answers:', answers);
-      
-      questions.forEach((question: any) => {
-        const userAnswer = answers[question.id];
-        let correctAnswer = question.correctAnswerId;
-        
-        // If correctAnswerId is not set, find it from options
-        if (!correctAnswer) {
-          const correctOption = question.options?.find((opt: any) => opt.isCorrect);
-          correctAnswer = correctOption?.id;
-        }
-        
-        const isCorrect = userAnswer === correctAnswer;
-        
-        console.log(`Question ${question.id}:`);
-        console.log(`  User answer: ${userAnswer}`);
-        console.log(`  Correct answer: ${correctAnswer}`);
-        console.log(`  Correct option from isCorrect:`, question.options?.find((opt: any) => opt.isCorrect));
-        console.log(`  Is correct: ${isCorrect}`);
-        
-        if (isCorrect) {
-          correctAnswers++;
-        }
-      });
-      
-      const finalScore = Math.round((correctAnswers / questions.length) * 100);
-      
-      console.log(`Final score: ${correctAnswers}/${questions.length} = ${finalScore}%`);
-      console.log('=== END DEBUG ===');
-      
-      setScore(finalScore);
-      setSubmitted(true);
-      
-      if (finalScore >= passingScore || isAdmin) {
-        onComplete({ 
-          score: finalScore, 
-          correctAnswers, 
-          totalQuestions: questions.length,
-          answers,
-          timeSpent,
-          adminBypass: isAdmin && finalScore < passingScore
-        });
-      }
-    };
-
-    return (
-      <div className="space-y-6">
-        <div>
-          <h3 className="text-lg font-semibold mb-4">
+    // Check if we have the required props for the new quiz system
+    if (!lessonId || !courseId || !studentId) {
+      // Fallback message for missing data
+      return (
+        <div className="p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <h3 className="text-lg font-semibold mb-2 text-yellow-900">
             {block.payload?.title || 'Quiz Interactivo'}
           </h3>
-          
-          {questions.map((question: any, index: number) => (
-            <div key={question.id} className="mb-6 p-4 border border-gray-200 rounded-lg">
-              <h4 className="font-medium mb-3">
-                {index + 1}. {question.question}
-              </h4>
-              
-              <div className="space-y-2">
-                {question.options?.map((option: any) => (
-                  <label key={option.id} className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name={question.id}
-                      value={option.id}
-                      checked={answers[question.id] === option.id}
-                      onChange={(e) => setAnswers({ ...answers, [question.id]: e.target.value })}
-                      disabled={submitted}
-                      className="w-4 h-4 text-[#00365b] focus:ring-[#00365b]"
-                    />
-                    <span className={submitted && option.isCorrect ? 'text-green-600 font-medium' : ''}>
-                      {option.text}
-                    </span>
-                  </label>
-                ))}
-              </div>
-              
-              {submitted && question.explanation && (
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                  <p className="text-sm text-blue-800">
-                    <strong>Explicación:</strong> {question.explanation}
-                  </p>
-                </div>
-              )}
-            </div>
-          ))}
+          <p className="text-yellow-800">
+            El sistema de quiz está siendo actualizado. Por favor, contacta a tu profesor si necesitas completar este quiz.
+          </p>
         </div>
+      );
+    }
 
-        {!submitted && (Object.keys(answers).length === questions.length || isAdmin) && (
-          <button
-            onClick={handleSubmitQuiz}
-            className="w-full px-4 py-3 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition"
-          >
-            {isAdmin ? 'Enviar Respuestas (Admin)' : 'Enviar Respuestas'}
-          </button>
-        )}
-
-        {submitted && (
-          <div className={`p-4 rounded-lg ${score >= passingScore ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-            <div className="flex items-center gap-2">
-              <CheckCircle className={`w-5 h-5 ${score >= passingScore ? 'text-green-600' : 'text-red-600'}`} />
-              <span className={`font-medium ${score >= passingScore ? 'text-green-600' : 'text-red-600'}`}>
-                Puntuación: {score}% ({score >= passingScore ? 'Aprobado' : 'No aprobado'})
-              </span>
-            </div>
-            {score < passingScore && (
-              <p className="text-red-600 text-sm mt-2">
-                Necesitas al menos {passingScore}% para continuar. Repasa el contenido e inténtalo de nuevo.
-              </p>
-            )}
-          </div>
-        )}
-
-        {isCompleted && (
-          <div className="flex items-center gap-2 text-green-600 p-3 bg-green-50 rounded-lg">
-            <CheckCircle className="w-5 h-5" />
-            <span className="text-sm font-medium">Quiz completado exitosamente</span>
-          </div>
-        )}
-      </div>
+    return (
+      <LearningQuizTaker
+        quiz={block.payload}
+        blockId={block.id}
+        lessonId={lessonId}
+        courseId={courseId}
+        studentId={studentId}
+        onComplete={(submission) => {
+          // Mark block as completed without passing score data
+          onComplete({
+            quizCompleted: true,
+            submissionId: submission.id,
+            hasOpenEndedQuestions: submission.manual_gradable_points > 0
+          });
+        }}
+      />
     );
   };
 

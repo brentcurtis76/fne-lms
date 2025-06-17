@@ -22,7 +22,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Block, TextBlockPayload, VideoBlockPayload, ImageBlockPayload, QuizBlockPayload, DownloadBlockPayload, ExternalLinksBlockPayload, GroupAssignmentBlockPayload, GroupAssignmentBlock } from '@/types/blocks';
+import { Block, TextBlockPayload, VideoBlockPayload, ImageBlockPayload, QuizBlockPayload, DownloadBlockPayload, ExternalLinksBlockPayload, GroupAssignmentBlockPayload, GroupAssignmentBlock, BibliographyBlockPayload, BibliographyBlock } from '@/types/blocks';
 import { Database } from '@/types/supabase';
 import { BLOCK_TYPES, getBlockConfig, getBlockSubtitle } from '@/config/blockTypes';
 import MainLayout from '@/components/layout/MainLayout';
@@ -35,6 +35,7 @@ import QuizBlockEditor from '@/components/blocks/QuizBlockEditor';
 import FileDownloadBlockEditor from '@/components/blocks/FileDownloadBlockEditor';
 import ExternalLinkBlockEditor from '@/components/blocks/ExternalLinkBlockEditor';
 import GroupAssignmentBlockEditor from '@/components/blocks/GroupAssignmentBlockEditor';
+import BibliographyBlockEditor from '@/components/blocks/BibliographyBlockEditor';
 
 type Lesson = Database['public']['Tables']['lessons']['Row'] & {
   blocks?: Block[];
@@ -265,37 +266,9 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
         if (!saveError) {
           setBlocks(newBlocks);
           
-          // Create assignment templates for any group-assignment blocks
-          const groupAssignmentPromises = newBlocks
-            .filter(block => block.type === 'group-assignment')
-            .map(async (block) => {
-              // Call the database function to create/update assignment template
-              const { data, error } = await supabase.rpc('create_assignment_template_from_block', {
-                p_lesson_id: lessonIdString,
-                p_block_id: block.id,
-                p_block_data: block,
-                p_created_by: user?.id
-              });
-              
-              return { data, error };
-            });
-          
-          if (groupAssignmentPromises.length > 0) {
-            try {
-              const assignmentResults = await Promise.all(groupAssignmentPromises);
-              const failedAssignments = assignmentResults.filter(result => result.error);
-              
-              if (failedAssignments.length > 0) {
-                console.error('Failed to create some assignment templates:', failedAssignments);
-                toast.error('Algunas plantillas de tareas no se pudieron crear correctamente');
-              } else if (assignmentResults.length > 0) {
-                toast.success(`${assignmentResults.length} plantilla(s) de tarea creada(s) exitosamente`);
-              }
-            } catch (error) {
-              console.error('Error creating assignment templates:', error);
-              toast.error('Error al crear las plantillas de tareas');
-            }
-          }
+          // V2 Implementation: Group assignments are now stored directly in lesson blocks
+          // No need to create separate assignment templates
+          // The groupAssignmentsV2Service will read assignments directly from lesson content
           
           setHasUnsavedChanges(false);
           toast.success('Lesson saved successfully!');
@@ -313,7 +286,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
     }
   }, [lessonIdString, lessonTitle, blocks, courseId, supabase]);
 
-  const handleAddBlock = (type: 'text' | 'video' | 'image' | 'quiz' | 'download' | 'external-links' | 'group-assignment') => {
+  const handleAddBlock = (type: 'text' | 'video' | 'image' | 'quiz' | 'download' | 'external-links' | 'group-assignment' | 'bibliography') => {
     let payload: any;
     switch (type) {
       case 'text':
@@ -363,6 +336,15 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
           description: '',
           instructions: ''
         } as GroupAssignmentBlockPayload;
+        break;
+      case 'bibliography':
+        payload = {
+          title: 'Bibliografía & Recursos',
+          description: '',
+          items: [],
+          showCategories: false,
+          sortBy: 'manual'
+        } as BibliographyBlockPayload;
         break;
     }
     const newBlockId = `new-${Date.now()}`;
@@ -922,6 +904,20 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                         {block.type === 'group-assignment' && (
                           <GroupAssignmentBlockEditor
                             block={block as GroupAssignmentBlock}
+                            onChange={(payload) => {
+                              setBlocks(blocks.map(b => 
+                                b.id === block.id ? { ...b, payload } : b
+                              ) as Block[]);
+                              setHasUnsavedChanges(true);
+                            }}
+                            onDelete={() => handleDeleteBlock(block.id)}
+                            mode={collapsedBlocks.has(block.id) ? 'preview' : 'edit'}
+                            courseId={courseId}
+                          />
+                        )}
+                        {block.type === 'bibliography' && (
+                          <BibliographyBlockEditor
+                            block={block as BibliographyBlock}
                             onChange={(payload) => {
                               setBlocks(blocks.map(b => 
                                 b.id === block.id ? { ...b, payload } : b

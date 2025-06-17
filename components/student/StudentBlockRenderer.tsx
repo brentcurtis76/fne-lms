@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, Play, Pause, Download, ExternalLink } from 'lucide-react';
+import { CheckCircle, Play, Pause, Download, ExternalLink, BookOpen, FileText } from 'lucide-react';
 import LearningQuizTaker from '@/components/quiz/LearningQuizTaker';
 import { supabase } from '@/lib/supabase';
 
@@ -623,27 +623,34 @@ export default function StudentBlockRenderer({
     );
   };
 
-  const renderDefaultBlock = () => (
-    <div className="space-y-6">
-      <div className="bg-gray-100 p-6 rounded-lg">
-        <h3 className="text-lg font-semibold mb-2">Bloque {block.type}</h3>
-        <p className="text-gray-600 mb-4">Tipo de bloque no implementado en vista de estudiante</p>
-        <pre className="text-xs bg-white p-3 rounded overflow-x-auto">
-          {JSON.stringify(block.payload, null, 2)}
-        </pre>
+  const renderDefaultBlock = () => {
+    // Special handling for group-assignment blocks that might have different type strings
+    if (block.type && block.type.toLowerCase().includes('group') && block.type.toLowerCase().includes('assignment')) {
+      return renderGroupAssignmentBlock();
+    }
+    
+    return (
+      <div className="space-y-6">
+        <div className="bg-gray-100 p-6 rounded-lg">
+          <h3 className="text-lg font-semibold mb-2">Bloque {block.type}</h3>
+          <p className="text-gray-600 mb-4">Tipo de bloque no implementado en vista de estudiante</p>
+          <pre className="text-xs bg-white p-3 rounded overflow-x-auto">
+            {JSON.stringify(block.payload, null, 2)}
+          </pre>
+        </div>
+        
+        {!isCompleted && (
+          <button
+            onClick={() => onComplete({ timeSpent })}
+            className="w-full px-4 py-3 bg-[#10B981] text-white rounded-md hover:bg-green-700 transition flex items-center justify-center gap-2"
+          >
+            <CheckCircle className="w-5 h-5" />
+            Marcar como completado
+          </button>
+        )}
       </div>
-      
-      {!isCompleted && (
-        <button
-          onClick={() => onComplete({ timeSpent })}
-          className="w-full px-4 py-3 bg-[#10B981] text-white rounded-md hover:bg-green-700 transition flex items-center justify-center gap-2"
-        >
-          <CheckCircle className="w-5 h-5" />
-          Marcar como completado
-        </button>
-      )}
-    </div>
-  );
+    );
+  };
 
   const renderDownloadBlock = () => {
     const files = block.payload?.files || [];
@@ -715,14 +722,34 @@ export default function StudentBlockRenderer({
   };
 
   const renderGroupAssignmentBlock = () => {
-    const { title, description } = block.payload || {};
+    // Handle both possible payload structures
+    let title = '';
+    let description = '';
+    let instructions = '';
+    
+    if (block.payload) {
+      title = block.payload.title || '';
+      description = block.payload.description || '';
+      instructions = block.payload.instructions || '';
+    }
     
     return (
       <div className="space-y-6">
         <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-[#00365b] mb-3">
-            Tarea Grupal: {title || 'Sin título'}
+            {title ? `Tarea Grupal: ${title}` : 'Tarea Grupal'}
           </h3>
+          
+          {description && (
+            <p className="text-gray-700 mb-4">{description}</p>
+          )}
+          
+          {instructions && (
+            <div className="bg-white p-4 rounded-md border border-blue-100 mb-4">
+              <h4 className="font-medium text-gray-800 mb-2">Instrucciones:</h4>
+              <p className="text-gray-700 whitespace-pre-wrap">{instructions}</p>
+            </div>
+          )}
           
           <div className="space-y-4">
             <div className="flex items-start gap-3">
@@ -786,6 +813,147 @@ export default function StudentBlockRenderer({
     );
   };
 
+  const renderBibliographyBlock = () => {
+    const title = block.payload?.title || 'Bibliografía & Recursos';
+    const description = block.payload?.description || '';
+    const items = block.payload?.items || [];
+    const showCategories = block.payload?.showCategories || false;
+    const sortBy = block.payload?.sortBy || 'manual';
+
+    // Sort items if needed
+    let sortedItems = [...items];
+    if (sortBy !== 'manual') {
+      sortedItems.sort((a, b) => {
+        switch (sortBy) {
+          case 'title':
+            return (a.title || '').localeCompare(b.title || '');
+          case 'author':
+            return (a.author || '').localeCompare(b.author || '');
+          case 'year':
+            return (b.year || '').localeCompare(a.year || '');
+          case 'type':
+            return a.type.localeCompare(b.type);
+          default:
+            return 0;
+        }
+      });
+    }
+
+    // Group by category if needed
+    let groupedItems: { category: string; items: typeof sortedItems }[] = [];
+    if (showCategories) {
+      const categories = new Map<string, typeof sortedItems>();
+      sortedItems.forEach(item => {
+        const category = item.category || 'Sin categoría';
+        if (!categories.has(category)) {
+          categories.set(category, []);
+        }
+        categories.get(category)!.push(item);
+      });
+      groupedItems = Array.from(categories).map(([category, items]) => ({ category, items }));
+    } else {
+      groupedItems = [{ category: '', items: sortedItems }];
+    }
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-[#00365b] mb-2">{title}</h2>
+          {description && (
+            <p className="text-gray-700 mb-4">{description}</p>
+          )}
+        </div>
+
+        {groupedItems.map((group, groupIndex) => (
+          <div key={groupIndex} className="space-y-4">
+            {group.category && (
+              <h3 className="text-lg font-semibold text-gray-800 border-b pb-2">
+                {group.category}
+              </h3>
+            )}
+            
+            <div className="space-y-3">
+              {group.items.map((item) => (
+                <div key={item.id} className="border rounded-lg hover:shadow-md transition-shadow">
+                  <a
+                    href={item.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block p-4 hover:bg-gray-50"
+                  >
+                    <div className="flex items-start gap-4">
+                      {item.type === 'pdf' ? (
+                        <FileText className="w-6 h-6 text-red-600 flex-shrink-0 mt-1" />
+                      ) : (
+                        <ExternalLink className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                      )}
+                      
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 hover:text-[#00365b]">
+                          {item.title || 'Sin título'}
+                        </h4>
+                        
+                        {(item.author || item.year) && (
+                          <p className="text-sm text-gray-600 mt-1">
+                            {item.author && <span>{item.author}</span>}
+                            {item.author && item.year && <span> • </span>}
+                            {item.year && <span>{item.year}</span>}
+                          </p>
+                        )}
+                        
+                        {item.description && (
+                          <p className="text-sm text-gray-700 mt-2">
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <div className="flex-shrink-0">
+                        {item.type === 'pdf' ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            PDF
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            Enlace
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        {items.length === 0 && (
+          <div className="text-center py-8 bg-gray-50 rounded-lg">
+            <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-600">No hay recursos disponibles</p>
+          </div>
+        )}
+
+        {!isCompleted && (
+          <button
+            onClick={() => onComplete({ timeSpent, resourcesViewed: items.length })}
+            className="w-full px-4 py-3 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition flex items-center justify-center gap-2"
+          >
+            <CheckCircle className="w-5 h-5" />
+            He revisado los recursos - Continuar
+          </button>
+        )}
+
+        {isCompleted && (
+          <div className="flex items-center gap-2 text-green-600 p-3 bg-green-50 rounded-lg">
+            <CheckCircle className="w-5 h-5" />
+            <span className="text-sm font-medium">Recursos bibliográficos revisados</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // Route to appropriate renderer based on block type
   switch (block.type) {
     case 'text':
@@ -804,6 +972,8 @@ export default function StudentBlockRenderer({
     case 'group-assignment':
     case 'group_assignment':
       return renderGroupAssignmentBlock();
+    case 'bibliography':
+      return renderBibliographyBlock();
     default:
       return renderDefaultBlock();
   }

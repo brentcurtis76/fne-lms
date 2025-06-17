@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Users, FileText, CheckCircle } from 'lucide-react';
+import { X, Upload, Users, FileText, CheckCircle, ExternalLink, File } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
@@ -151,6 +151,38 @@ export default function GroupSubmissionModalV2({
                   <div className="mt-3">
                     <h4 className="font-medium text-gray-900 text-sm mb-1">Instrucciones:</h4>
                     <p className="text-sm text-gray-700">{assignment.instructions}</p>
+                  </div>
+                )}
+                {assignment.resources && assignment.resources.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-gray-200">
+                    <h4 className="font-medium text-gray-900 text-sm mb-2">Recursos:</h4>
+                    <div className="space-y-2">
+                      {assignment.resources.map((resource: any) => (
+                        <a
+                          key={resource.id}
+                          href={resource.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md transition-colors"
+                        >
+                          {resource.type === 'link' ? (
+                            <ExternalLink className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                          ) : (
+                            <File className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {resource.title || 'Sin título'}
+                            </p>
+                            {resource.description && (
+                              <p className="text-xs text-gray-500 truncate">
+                                {resource.description}
+                              </p>
+                            )}
+                          </div>
+                        </a>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

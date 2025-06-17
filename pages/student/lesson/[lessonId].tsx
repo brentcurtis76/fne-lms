@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../../lib/supabase';
 import Head from 'next/head';
-import { ArrowLeft, ArrowRight, CheckCircle, Clock, Trophy, Star, BookOpen } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Clock, ThumbsUp, Star, BookOpen } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import StudentBlockRenderer from '../../../components/student/StudentBlockRenderer';
 import MainLayout from '../../../components/layout/MainLayout';
@@ -510,7 +510,7 @@ export default function StudentLessonViewer() {
               <div className="relative z-10">
                 <div className="flex justify-center mb-6">
                   <div className="bg-[#fdb933] rounded-full p-4">
-                    <Trophy className="w-12 h-12 text-[#00365b]" />
+                    <ThumbsUp className="w-12 h-12 text-[#00365b]" />
                   </div>
                 </div>
                 
@@ -562,7 +562,7 @@ export default function StudentLessonViewer() {
                     </button>
                   ) : courseCompleted ? (
                     <div className="px-6 py-3 bg-[#fdb933] text-[#00365b] rounded-lg font-medium flex items-center gap-2">
-                      <Trophy className="w-4 h-4" />
+                      <ThumbsUp className="w-4 h-4" />
                       Curso Completado
                     </div>
                   ) : (

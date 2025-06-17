@@ -5,7 +5,8 @@ import {
   HelpCircle, 
   FolderDown, 
   ExternalLink,
-  Users
+  Users,
+  BookOpen
 } from 'lucide-react';
 
 export interface BlockTypeConfig {
@@ -81,6 +82,15 @@ export const BLOCK_TYPES: Record<string, BlockTypeConfig> = {
     icon: Users,
     iconColor: 'text-teal-600',
     category: 'interactive'
+  },
+  'bibliography': {
+    type: 'bibliography',
+    label: 'Bibliografía',
+    subtitle: 'Referencias y recursos',
+    description: 'Colección de PDFs y enlaces externos organizados',
+    icon: BookOpen,
+    iconColor: 'text-purple-600',
+    category: 'resources'
   }
 } as const;
 
@@ -135,6 +145,9 @@ export const getBlockSubtitle = (block: any): string => {
       return `${block.payload?.links?.length || 0} enlace${(block.payload?.links?.length || 0) !== 1 ? 's' : ''}`;
     case 'group-assignment':
       return `${block.payload?.groups?.length || 0} grupo${(block.payload?.groups?.length || 0) !== 1 ? 's' : ''}`;
+    case 'bibliography':
+      const itemCount = block.payload?.items?.length || 0;
+      return `${itemCount} recurso${itemCount !== 1 ? 's' : ''}`;
     default:
       return config.subtitle;
   }

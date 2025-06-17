@@ -96,14 +96,42 @@ export interface QuizBlockPayload {
   randomizeAnswers: boolean;
 }
 
+export interface GroupAssignmentResource {
+  id: string;
+  type: 'link' | 'document';
+  title: string;
+  url: string;
+  description?: string;
+}
+
 export interface GroupAssignmentBlockPayload {
   title: string;
   description?: string;
   instructions?: string;
+  resources?: GroupAssignmentResource[];
+}
+
+export interface BibliographyItem {
+  id: string;
+  type: 'pdf' | 'link';
+  title: string;
+  description?: string;
+  url: string;
+  author?: string;
+  year?: string;
+  category?: string;
+}
+
+export interface BibliographyBlockPayload {
+  title: string;
+  description?: string;
+  items: BibliographyItem[];
+  showCategories: boolean;
+  sortBy: 'manual' | 'title' | 'author' | 'year' | 'type';
 }
 
 // Base Block Structure
-export type BlockType = 'text' | 'image' | 'video' | 'quiz' | 'download' | 'external-links' | 'group-assignment';
+export type BlockType = 'text' | 'image' | 'video' | 'quiz' | 'download' | 'external-links' | 'group-assignment' | 'bibliography';
 
 export interface BaseBlock {
   id: string; // UUID
@@ -151,5 +179,10 @@ export interface GroupAssignmentBlock extends BaseBlock {
   payload: GroupAssignmentBlockPayload;
 }
 
+export interface BibliographyBlock extends BaseBlock {
+  type: 'bibliography';
+  payload: BibliographyBlockPayload;
+}
+
 // Union type for all possible blocks
-export type Block = TextBlock | ImageBlock | VideoBlock | DownloadBlock | ExternalLinksBlock | QuizBlock | GroupAssignmentBlock;
+export type Block = TextBlock | ImageBlock | VideoBlock | DownloadBlock | ExternalLinksBlock | QuizBlock | GroupAssignmentBlock | BibliographyBlock;

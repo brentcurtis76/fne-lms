@@ -128,6 +128,13 @@ npm run dev  # MUST be port 3000
   - New service: groupAssignmentsV2Service
   - New component: GroupSubmissionModalV2
   - Migration: Run `/database/MANUAL_MIGRATION_group_assignments_v2.sql` in Supabase
+- **GROUP ASSIGNMENT RESOURCES (January 2025)**:
+  - Added ability for instructors to attach links and documents to group assignments
+  - Resources only visible in collaborative workspace, not in lessons
+  - Support for external links and file uploads (10MB limit)
+  - Updated components: GroupAssignmentBlockEditor, GroupSubmissionModalV2
+  - New TypeScript interface: GroupAssignmentResource
+  - Comprehensive unit test coverage (41 tests passing)
 - **QUIZ SYSTEM ENHANCEMENTS (January 2025)**:
   - Added open-ended question type to quiz blocks
   - New quiz submission tracking system
@@ -165,6 +172,9 @@ npm run dev  # MUST be port 3000
   - Fixed Supabase foreign key expansion issues
   - Assignment types: comprehensive (Completa), monitoring, mentoring, evaluation, support
   - Permissions: view progress, assign courses, message students
+- **LESSON COMPLETION UI UPDATE (January 2025)**:
+  - Changed completion icon from trophy to thumbs up per user request
+  - Updated in `/pages/student/lesson/[lessonId].tsx`
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)

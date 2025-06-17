@@ -194,6 +194,13 @@ npm run dev  # MUST be port 3000
   - Prevents assigning "Líder de Generación" to schools without generations
   - Migration: `/database/fix-community-leader-without-generation.sql`
   - Apply script: `/scripts/apply-community-leader-fix.js`
+- **GENERATION DELETION BUG FIX (January 2025)**:
+  - Fixed root cause: has_generations flag not updating when generations deleted
+  - Added database triggers to automatically maintain flag consistency
+  - Triggers update has_generations when generations are added/deleted
+  - Retroactively fixes existing data inconsistencies
+  - Migration: `/database/fix-generation-deletion-bug.sql`
+  - No code changes needed - triggers handle it automatically
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)

@@ -177,7 +177,7 @@ npm run dev  # MUST be port 3000
   - Updated in `/pages/student/lesson/[lessonId].tsx`
 - **GROWTH COMMUNITIES CUSTOMIZATION (January 2025)**:
   - Communities can now rename themselves and add a group image (like WhatsApp)
-  - Only community leaders (lider_comunidad) and admins can edit settings
+  - DEMOCRATIC: Any community member can edit settings (not just leaders)
   - New fields: custom_name, image_url, image_storage_path in community_workspaces
   - New component: WorkspaceSettingsModal for editing community settings
   - New service: communityWorkspaceService for handling updates

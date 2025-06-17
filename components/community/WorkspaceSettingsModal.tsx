@@ -152,7 +152,7 @@ export default function WorkspaceSettingsModal({
               maxLength={100}
             />
             <p className="mt-1 text-xs text-gray-500">
-              Este nombre aparecerá en el espacio colaborativo
+              Cualquier miembro puede cambiar el nombre del grupo
             </p>
           </div>
 

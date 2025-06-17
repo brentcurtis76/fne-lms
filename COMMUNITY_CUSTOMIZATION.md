@@ -1,12 +1,12 @@
 # Growth Communities Customization Feature
 
 ## Overview
-This feature allows Growth Communities to customize their workspace with a custom name and group image, similar to WhatsApp group functionality.
+This feature allows Growth Communities to customize their workspace with a custom name and group image, similar to WhatsApp group functionality. It follows a democratic approach where ANY member can make changes.
 
 ## Features
 - **Custom Name**: Communities can set their own display name
 - **Group Image**: Upload a custom image for the community (max 5MB)
-- **Permission-based**: Only community leaders and admins can edit settings
+- **Democratic**: ANY community member can edit settings (not just leaders)
 - **Real-time Updates**: Changes reflect immediately across the workspace
 
 ## Implementation Details
@@ -83,16 +83,18 @@ USING (bucket_id = 'community-images');
 
 ## Usage
 
-### For Community Leaders
+### For All Community Members
 1. Navigate to Collaborative Space
 2. Look for the settings icon (gear) next to the community name
 3. Click to open settings modal
 4. Enter a custom name and/or upload an image
 5. Click "Guardar cambios" to save
 
-### For Administrators
-- Admins can edit any community's settings
-- Access through the same interface as community leaders
+### Democratic Approach
+- ANY member of the community can change the name or image
+- No special permissions required beyond being a community member
+- Changes are visible to all members immediately
+- This encourages community participation and ownership
 
 ## Technical Notes
 
@@ -103,7 +105,7 @@ USING (bucket_id = 'community-images');
 
 ### Permissions
 - **Can Edit**: 
-  - Community leaders (`lider_comunidad`) for their community
+  - ANY community member (democratic approach)
   - Global administrators (`admin`)
 - **Can View**: All community members
 

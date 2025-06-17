@@ -34,18 +34,17 @@ COMMENT ON COLUMN community_workspaces.custom_name IS 'User-defined name for the
 COMMENT ON COLUMN community_workspaces.image_url IS 'Public URL for the community group image';
 COMMENT ON COLUMN community_workspaces.image_storage_path IS 'Supabase storage path for the uploaded image';
 
--- Update RLS policy to allow community leaders to update these fields
+-- Update RLS policy to allow any community member to update these fields (democratic approach)
 DROP POLICY IF EXISTS "Community leaders and admins can update workspaces" ON community_workspaces;
 
-CREATE POLICY "Community leaders and admins can update workspaces" ON community_workspaces
+CREATE POLICY "Community members can update workspace settings" ON community_workspaces
   FOR UPDATE
   USING (
-    -- Allow if user is community leader for this community
+    -- Allow if user is ANY member of this community
     EXISTS (
       SELECT 1 FROM user_roles ur
       WHERE ur.user_id = auth.uid()
       AND ur.community_id = community_workspaces.community_id
-      AND ur.role_type = 'lider_comunidad'
       AND ur.is_active = TRUE
     )
     OR
@@ -63,7 +62,6 @@ CREATE POLICY "Community leaders and admins can update workspaces" ON community_
       SELECT 1 FROM user_roles ur
       WHERE ur.user_id = auth.uid()
       AND ur.community_id = community_workspaces.community_id
-      AND ur.role_type = 'lider_comunidad'
       AND ur.is_active = TRUE
     )
     OR

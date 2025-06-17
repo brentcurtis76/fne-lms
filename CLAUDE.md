@@ -187,11 +187,19 @@ npm run dev  # MUST be port 3000
   - ✅ DEPLOYED: Database migration and storage policies applied
   - Access points: Dashboard (Mi Panel) and Collaborative Space header
   - Prominent display with gradient header in collaborative space
+- **COMMUNITY LEADER ROLE FIX (January 2025)**:
+  - Fixed error when assigning "Líder de Comunidad" role to schools without generations
+  - Database constraint now allows NULL generation_id for schools with has_generations=false
+  - Frontend shows clear messages about generation requirements
+  - Prevents assigning "Líder de Generación" to schools without generations
+  - Migration: `/database/fix-community-leader-without-generation.sql`
+  - Apply script: `/scripts/apply-community-leader-fix.js`
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)
 - ✅ FIXED: Authentication edge cases with RLS policies (enhanced auth system)
 - ✅ FIXED: Block deletion and visibility persistence in course builder (January 2025)
+- ✅ FIXED: Community leader role assignment for schools without generations (January 2025)
 
 # PENDING TASKS
 ## Quiz Review System Testing

@@ -122,6 +122,16 @@ export default function RoleAssignmentModal({
     try {
       setLoading(true);
 
+      // Validation: Don't allow generation leader role for schools without generations
+      if (selectedRole === 'lider_generacion' && selectedSchool) {
+        const school = schools.find(s => s.id === selectedSchool);
+        if (school?.has_generations === false) {
+          toast.error('No se puede asignar Líder de Generación en escuelas sin generaciones');
+          setLoading(false);
+          return;
+        }
+      }
+
       const organizationalScope = {
         schoolId: selectedSchool || undefined,
         generationId: selectedGeneration || undefined,
@@ -551,15 +561,25 @@ export default function RoleAssignmentModal({
                               <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                   <Team className="inline mr-1" size={16} />
-                                  Generación
+                                  Generación {selectedRole === 'lider_comunidad' && selectedSchool && schools.find(s => s.id === selectedSchool)?.has_generations === false ? '(Opcional)' : ''}
                                 </label>
                                 {/* Check if selected school has generations */}
                                 {selectedSchool && schools.find(s => s.id === selectedSchool)?.has_generations === false ? (
-                                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                                    <p className="text-sm text-gray-600">
-                                      Esta escuela no utiliza generaciones
-                                    </p>
-                                  </div>
+                                  <>
+                                    {selectedRole === 'lider_generacion' ? (
+                                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                        <p className="text-sm text-yellow-800">
+                                          Esta escuela no utiliza generaciones. No se puede asignar el rol de Líder de Generación.
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                        <p className="text-sm text-blue-800">
+                                          Esta escuela no utiliza generaciones. La comunidad se creará directamente bajo la escuela.
+                                        </p>
+                                      </div>
+                                    )}
+                                  </>
                                 ) : (
                                   <select
                                     value={selectedGeneration}

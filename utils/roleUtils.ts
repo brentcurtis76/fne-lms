@@ -453,7 +453,9 @@ export async function getAvailableCommunitiesForAssignment(
       `);
 
     if (schoolId) {
-      query = query.eq('school_id', schoolId);
+      // Convert schoolId to integer to match database type
+      // This fixes the bug where newly created communities don't appear
+      query = query.eq('school_id', parseInt(schoolId));
     }
     if (generationId) {
       query = query.eq('generation_id', generationId);

@@ -201,6 +201,12 @@ npm run dev  # MUST be port 3000
   - Retroactively fixes existing data inconsistencies
   - Migration: `/database/fix-generation-deletion-bug.sql`
   - No code changes needed - triggers handle it automatically
+- **COMMUNITY DROPDOWN BUG FIX (January 2025)**:
+  - Fixed root cause: school_id type mismatch (string vs integer)
+  - Updated `getAvailableCommunitiesForAssignment` to use parseInt() for school_id
+  - This ensures newly created communities appear immediately in dropdowns
+  - Migration: `/database/fix-school-id-type-consistency.sql` (for verification)
+  - Fix prevents the bug from recurring for all future community assignments
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)

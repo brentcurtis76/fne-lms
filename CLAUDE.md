@@ -110,6 +110,15 @@ npm run dev  # MUST be port 3000
 - User notification preferences
 - Assignment system complete with enrolled courses integration
 - Assignment stats simplified to show work status (Active, Completed, In Progress, New)
+- **INSTAGRAM-STYLE FEED (January 2025)**:
+  - Replaced activity feed in "Mi Resumen" with Instagram/LinkedIn-style social feed
+  - Post types: text, images (carousel), documents, links
+  - Interactions: likes, comments, saves, view counts
+  - Custom confirmation modals instead of browser dialogs
+  - Edit/delete functionality for own posts
+  - Database tables created: community_posts, post_reactions, post_comments, etc.
+  - Storage bucket created: post-media
+  - **PENDING**: Fix RLS policies for post creation (see `/database/fix-post-creation-simple.sql`)
 - **BLOCK DELETION AND VISIBILITY FIX (January 2025)**:
   - Fixed block deletion using correct Supabase syntax (.eq instead of .match)
   - Added persistent visibility state with is_visible database field
@@ -208,6 +217,27 @@ npm run dev  # MUST be port 3000
   - Migration: `/database/fix-school-id-type-consistency.sql` (for verification)
   - Fix prevents the bug from recurring for all future community assignments
   - **Important**: Communities are filtered by selected school. To see all communities, clear school selection first.
+- **COLLABORATIVE WORKSPACE FIXES (January 2025)**:
+  - Fixed missing tab navigation in collaborative workspace
+  - Created WorkspaceTabNavigation component for consistent tab UI
+  - Fixed component unmounting issue - components now stay mounted using CSS display
+  - Implemented consultant view for group assignments (read-only access)
+  - Added comprehensive unit tests for groupAssignmentsV2 service
+  - Set up workspace access for consultant users with proper role entries
+  - Fixed group assignments not displaying due to table reference errors
+- **REPORTING ACCESS CONTROL (January 2025)**:
+  - Implemented strict role-based access control for reporting system
+  - Docentes (teachers) have NO ACCESS to reports - immediate redirect
+  - Reports section completely hidden from Docente sidebar navigation
+  - Role-specific data filtering:
+    - Admins: See all platform data
+    - Consultants: See only assigned students
+    - Equipo Directivo: See their school's data
+    - Líder de Generación: See their generation's data
+    - Líder de Comunidad: See their community's data
+  - Added visual indicators showing data access scope
+  - Created report filtering service and utilities
+  - Documentation: See `REPORTING_ACCESS_CONTROL.md`
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)
@@ -223,19 +253,25 @@ npm run dev  # MUST be port 3000
 - ⏳ Test grading workflow in `/quiz-reviews` page
 - ⏳ Verify student receives graded results
 
-## Group Assignments V2 - SIMPLIFIED IMPLEMENTATION
-- ✅ Complete re-engineering based on consultant feedback
-- ✅ Group assignments now part of lesson blocks (no separate creation)
-- ✅ Automatic display in collaborative workspace
-- ✅ Student-facing informational block in lessons
-- ✅ Simplified database schema implemented
-- ✅ New service layer (groupAssignmentsV2Service)
-- ✅ Updated UI components (GroupSubmissionModalV2)
-- ✅ Consultant notification system
-- ⏳ **NEXT STEP**: Run `/database/MANUAL_MIGRATION_group_assignments_v2.sql` in Supabase
-- ⏳ Test complete flow from lesson to submission
-- ⏳ Verify consultant notifications
-- ⏳ Test with different user roles
+## Group Assignments V2 - Testing & Verification
+- ✅ Database migration applied (MANUAL_MIGRATION_group_assignments_v2_corrected.sql)
+- ✅ Fixed missing tab navigation in collaborative workspace
+- ✅ Fixed component state persistence issues
+- ✅ Implemented consultant view for group assignments
+- ✅ Created comprehensive unit tests (9 tests passing)
+- ✅ Set up consultant workspace access
+- ⏳ Create storage bucket 'assignments' in Supabase dashboard
+- ⏳ Test complete flow from lesson to submission with real users
+- ⏳ Verify consultant notifications on submission
+- ⏳ Test file upload functionality in group submissions
+
+## Reporting System Enhancements
+- ✅ Implemented role-based access control
+- ✅ Blocked Docente access completely
+- ⏳ Create database views for aggregated report data
+- ⏳ Implement RLS policies for report tables
+- ⏳ Add performance indexes for role-based queries
+- ⏳ Test with production data volumes
 
 ## Implementation Details - Group Assignments V2
 - **Location**: Group assignments integrated into `/pages/community/workspace.tsx`

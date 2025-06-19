@@ -3,6 +3,18 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   
+  // Image optimization configuration
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'sxlogxqzmarhqsblmtj.supabase.co',
+        port: '',
+        pathname: '/**',
+      },
+    ],
+  },
+  
   // Optimize for development stability
   experimental: {
     // Reduce memory usage

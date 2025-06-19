@@ -50,6 +50,7 @@ interface NavigationItem {
   description?: string;
   adminOnly?: boolean;
   consultantOnly?: boolean;
+  restrictedRoles?: string[];
   children?: NavigationChild[];
   isExpanded?: boolean;
 }
@@ -174,6 +175,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Reportes',
     icon: ChartBarIcon,
     description: 'Análisis y reportes',
+    restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'],
     children: [
       {
         id: 'detailed-reports',
@@ -290,8 +292,20 @@ const Sidebar: React.FC<SidebarProps> = ({
       });
     }
     
+    // Check admin-only items
     if (item.adminOnly && !isAdmin) return false;
+    
+    // Check consultant-only items
     if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) return false;
+    
+    // Check restricted roles
+    if (item.restrictedRoles && item.restrictedRoles.length > 0) {
+      // If user role is not in the restricted roles list, hide the item
+      if (!item.restrictedRoles.includes(userRole || '') && !isAdmin) {
+        return false;
+      }
+    }
+    
     return true;
   });
 

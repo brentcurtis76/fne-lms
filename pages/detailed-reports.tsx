@@ -10,6 +10,8 @@ import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalP
 import { FileText } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
+import reportsService from '../lib/services/reports';
+import { getReportScopeDescription } from '../utils/reportFilters';
 
 interface ProgressUser {
   user_id: string;
@@ -47,17 +49,12 @@ interface Pagination {
   has_prev: boolean;
 }
 
-const ROLE_DESCRIPTIONS = {
-  admin: 'Vista Global del Sistema',
-  'equipo_directivo': 'Reporte de Escuela',
-  'lider_generacion': 'Reporte de Generación',
-  'lider_comunidad': 'Reporte de Comunidad',
-  consultor: 'Estudiantes Asignados'
-};
+// Role descriptions are now handled by getReportScopeDescription function
 
 export default function DetailedReports() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -108,10 +105,10 @@ export default function DetailedReports() {
   }, []);
 
   useEffect(() => {
-    if (user && hasReportingAccess(userRole)) {
+    if (userProfile && hasReportingAccess(userRole)) {
       fetchDetailedProgress();
     }
-  }, [user, userRole, filters, sortBy, sortOrder, currentPage, pageSize]);
+  }, [userProfile, userRole, filters, sortBy, sortOrder, currentPage, pageSize]);
 
   const initializeAuth = async () => {
     try {
@@ -133,20 +130,30 @@ export default function DetailedReports() {
         setUserRole(role);
         setIsAdmin(role === 'admin');
 
+        // Immediately redirect docentes without showing any UI
+        if (role === 'docente') {
+          router.push('/dashboard');
+          return;
+        }
+
         if (!hasReportingAccess(role)) {
-          if (role === 'docente') {
-            router.push('/profile');
-            return;
-          } else {
-            toast.error('No tienes permisos para acceder a los reportes.');
-            router.push('/dashboard');
-            return;
-          }
+          toast.error('No tienes permisos para acceder a los reportes.');
+          router.push('/dashboard');
+          return;
         }
 
         if (profileData.avatar_url) {
           setAvatarUrl(profileData.avatar_url);
         }
+
+        // Store full profile for role-based filtering
+        setUserProfile({
+          id: session.user.id,
+          role: profileData.role,
+          school_id: profileData.school_id,
+          generation_id: profileData.generation_id,
+          community_id: profileData.community_id
+        });
       }
     } catch (error) {
       console.error('Auth initialization error:', error);
@@ -159,18 +166,43 @@ export default function DetailedReports() {
   };
 
   const fetchDetailedProgress = async () => {
+    if (!userProfile) return;
+
     try {
       setLoading(true);
       
-      // Mock data for demonstration
-      setTimeout(() => {
-        const mockUsers: ProgressUser[] = [
+      // Fetch real data using the reports service
+      const [progressResult, summaryResult] = await Promise.all([
+        reportsService.getUserProgress(userProfile, filters),
+        reportsService.getSummaryStats(userProfile)
+      ]);
+
+      if (progressResult.error || summaryResult.error) {
+        throw new Error('Error fetching report data');
+      }
+
+      // For now, use mock data until the database views are created
+      // In production, this would use progressResult.data and summaryResult.data
+      let mockUsers: ProgressUser[] = [];
+      let mockSummary: Summary = {
+        total_users: 0,
+        active_users: 0,
+        completed_users: 0,
+        average_completion: 0,
+        total_time_spent: 0,
+        average_quiz_score: 0
+      };
+
+      // Generate role-specific mock data
+      if (userRole === 'admin') {
+        // Admins see all users
+        mockUsers = [
           {
             user_id: '1',
             user_name: 'María González',
             user_email: 'maria@example.com',
-            user_role: 'estudiante',
-            school_name: 'Escuela Ejemplo',
+            user_role: 'docente',
+            school_name: 'Escuela Norte',
             generation_name: 'Generación 2024',
             community_name: 'Comunidad Alpha',
             total_courses_enrolled: 3,
@@ -186,8 +218,8 @@ export default function DetailedReports() {
             user_id: '2',
             user_name: 'Carlos Rodríguez',
             user_email: 'carlos@example.com',
-            user_role: 'estudiante',
-            school_name: 'Escuela Ejemplo',
+            user_role: 'docente',
+            school_name: 'Escuela Sur',
             generation_name: 'Generación 2024',
             community_name: 'Comunidad Beta',
             total_courses_enrolled: 2,
@@ -200,8 +232,7 @@ export default function DetailedReports() {
             last_activity_date: '2024-06-02'
           }
         ];
-
-        const mockSummary: Summary = {
+        mockSummary = {
           total_users: 50,
           active_users: 35,
           completed_users: 12,
@@ -209,25 +240,83 @@ export default function DetailedReports() {
           total_time_spent: 15000,
           average_quiz_score: 87
         };
-
-        const mockPagination: Pagination = {
-          current_page: 1,
-          total_pages: 3,
-          total_count: 50,
-          limit: 20,
-          has_next: true,
-          has_prev: false
+      } else if (userRole === 'consultor') {
+        // Consultants see only their assigned students
+        mockUsers = [
+          {
+            user_id: '3',
+            user_name: 'Ana Martínez',
+            user_email: 'ana@example.com',
+            user_role: 'docente',
+            school_name: 'Escuela Norte',
+            generation_name: 'Generación 2024',
+            community_name: 'Comunidad Alpha',
+            total_courses_enrolled: 2,
+            completed_courses: 1,
+            courses_in_progress: 1,
+            total_lessons_completed: 12,
+            completion_percentage: 50,
+            total_time_spent_minutes: 480,
+            average_quiz_score: 78,
+            last_activity_date: '2024-06-03'
+          }
+        ];
+        mockSummary = {
+          total_users: 5,
+          active_users: 4,
+          completed_users: 1,
+          average_completion: 60,
+          total_time_spent: 2400,
+          average_quiz_score: 82
         };
+      } else if (userRole === 'equipo_directivo') {
+        // School leaders see only their school
+        mockUsers = [
+          {
+            user_id: '1',
+            user_name: 'María González',
+            user_email: 'maria@example.com',
+            user_role: 'docente',
+            school_name: 'Escuela Norte',
+            generation_name: 'Generación 2024',
+            community_name: 'Comunidad Alpha',
+            total_courses_enrolled: 3,
+            completed_courses: 1,
+            courses_in_progress: 2,
+            total_lessons_completed: 15,
+            completion_percentage: 65,
+            total_time_spent_minutes: 720,
+            average_quiz_score: 85,
+            last_activity_date: '2024-06-01'
+          }
+        ];
+        mockSummary = {
+          total_users: 15,
+          active_users: 12,
+          completed_users: 4,
+          average_completion: 68,
+          total_time_spent: 4500,
+          average_quiz_score: 85
+        };
+      }
 
-        setUsers(mockUsers);
-        setSummary(mockSummary);
-        setPagination(mockPagination);
-        setLoading(false);
-      }, 1000);
+      const mockPagination: Pagination = {
+        current_page: currentPage,
+        total_pages: Math.ceil(mockUsers.length / pageSize),
+        total_count: mockUsers.length,
+        limit: pageSize,
+        has_next: currentPage < Math.ceil(mockUsers.length / pageSize),
+        has_prev: currentPage > 1
+      };
+
+      setUsers(mockUsers);
+      setSummary(mockSummary);
+      setPagination(mockPagination);
       
     } catch (error) {
       console.error('Error fetching detailed progress:', error);
       toast.error('Error cargando datos de progreso');
+    } finally {
       setLoading(false);
     }
   };
@@ -325,15 +414,39 @@ export default function DetailedReports() {
       <ResponsiveFunctionalPageHeader
         icon={<FileText />}
         title="Reportes Detallados de Progreso"
-        subtitle={ROLE_DESCRIPTIONS[userRole as keyof typeof ROLE_DESCRIPTIONS] || 'Análisis detallado del progreso'}
+        subtitle={getReportScopeDescription(userRole)}
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Buscar usuarios, escuelas, comunidades..."
       />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Role-based Access Notice */}
+          {userRole && userRole !== 'admin' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    Datos Filtrados por Rol
+                  </h3>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <p>Como <strong>{userRole === 'consultor' ? 'Consultor' : 
+                                    userRole === 'equipo_directivo' ? 'Equipo Directivo' :
+                                    userRole === 'lider_generacion' ? 'Líder de Generación' :
+                                    userRole === 'lider_comunidad' ? 'Líder de Comunidad' : userRole}</strong>, 
+                       solo puedes ver datos de {getReportScopeDescription(userRole).toLowerCase()}.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
-          {/* Notice Banner */}
+          {/* Notice Banner - Development Mode */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <div className="flex">
               <div className="flex-shrink-0">
@@ -397,6 +510,7 @@ export default function DetailedReports() {
               onFiltersChange={handleFiltersChange}
               userRole={userRole}
               isAdmin={isAdmin}
+              userProfile={userProfile}
             />
           )}
 

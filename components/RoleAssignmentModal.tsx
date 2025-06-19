@@ -648,10 +648,16 @@ export default function RoleAssignmentModal({
                                     {availableCommunities
                                       .filter(comm => {
                                         // If a school is selected, filter by school
-                                        // Convert both to strings for comparison since school_id in DB is integer
+                                        // Convert selectedSchool to integer to match database type
                                         if (selectedSchool) {
-                                          const schoolMatch = comm.school_id?.toString() === selectedSchool;
-                                          if (!schoolMatch) return false;
+                                          const schoolIdInt = parseInt(selectedSchool);
+                                          if (!isNaN(schoolIdInt)) {
+                                            const schoolMatch = comm.school_id === String(schoolIdInt);
+                                            if (!schoolMatch) return false;
+                                          } else {
+                                            // If selectedSchool is not a valid integer, no match
+                                            return false;
+                                          }
                                         }
                                         
                                         // If a generation is selected AND the school has generations, filter by generation

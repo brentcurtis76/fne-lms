@@ -18,6 +18,8 @@ import useFiltersUrlState from '../hooks/useFiltersUrlState';
 import useDebounce from '../hooks/useDebounce';
 import toast from 'react-hot-toast';
 import { navigationManager } from '../utils/navigationManager';
+import reportsService from '../lib/services/reports';
+import { getReportScopeDescription } from '../utils/reportFilters';
 
 interface ProgressUser {
   user_id: string;
@@ -51,13 +53,7 @@ interface ReportError {
   message: string;
 }
 
-const ROLE_DESCRIPTIONS = {
-  admin: 'Vista Global del Sistema',
-  'equipo_directivo': 'Reporte de Escuela',
-  'lider_generacion': 'Reporte de Generación',
-  'lider_comunidad': 'Reporte de Comunidad',
-  consultor: 'Estudiantes Asignados'
-};
+// Role descriptions are now handled by getReportScopeDescription function
 
 const INITIAL_FILTERS = {
   search: '',
@@ -84,6 +80,7 @@ const TABLE_COLUMNS = [
 export default function EnhancedReports() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -177,10 +174,10 @@ export default function EnhancedReports() {
 
   // Data fetching when filters change
   useEffect(() => {
-    if (user && hasReportingAccess(userRole) && filtersInitialized) {
+    if (userProfile && hasReportingAccess(userRole) && filtersInitialized) {
       fetchDetailedProgress();
     }
-  }, [user, userRole, debouncedFilters, filtersInitialized]);
+  }, [userProfile, userRole, debouncedFilters, filtersInitialized]);
 
   const initializeAuth = async () => {
     try {
@@ -207,6 +204,14 @@ export default function EnhancedReports() {
         setUserRole(role);
         setIsAdmin(role === 'admin');
 
+        // Immediately redirect docentes without showing any UI
+        if (role === 'docente') {
+          await navigationManager.navigate(async () => {
+            await router.replace('/dashboard');
+          });
+          return;
+        }
+
         if (!hasReportingAccess(role)) {
           setError({
             type: 'permission',
@@ -224,6 +229,15 @@ export default function EnhancedReports() {
         if (profileData.avatar_url) {
           setAvatarUrl(profileData.avatar_url);
         }
+
+        // Store full profile for role-based filtering
+        setUserProfile({
+          id: session.user.id,
+          role: profileData.role,
+          school_id: profileData.school_id,
+          generation_id: profileData.generation_id,
+          community_id: profileData.community_id
+        });
       }
     } catch (err) {
       console.error('Auth initialization error:', err);
@@ -241,14 +255,14 @@ export default function EnhancedReports() {
   };
 
   const fetchDetailedProgress = async () => {
-    if (!user) return;
+    if (!userProfile) return;
 
     try {
       setLoading(true);
       setError(null);
 
-      // Create cache key based on filters
-      const cacheKey = `reports_detailed_${user.id}_${JSON.stringify(debouncedFilters)}`;
+      // Create cache key based on filters and user role
+      const cacheKey = `reports_detailed_${userProfile.id}_${userProfile.role}_${JSON.stringify(debouncedFilters)}`;
       
       // Check cache first
       const cachedData = apiCache.get<{ users: ProgressUser[]; summary: Summary }>(cacheKey);
@@ -259,17 +273,41 @@ export default function EnhancedReports() {
         return;
       }
 
-      // Simulate API call with mock data for now
-      // In real implementation, this would call the actual API endpoints
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Fetch real data using the reports service
+      const [progressResult, summaryResult] = await Promise.all([
+        reportsService.getUserProgress(userProfile, debouncedFilters),
+        reportsService.getSummaryStats(userProfile)
+      ]);
 
-      const mockUsers: ProgressUser[] = generateMockUsers(50);
-      const mockSummary: Summary = calculateSummary(mockUsers);
+      if (progressResult.error || summaryResult.error) {
+        throw new Error('Error fetching report data');
+      }
+
+      // For now, use mock data until the database views are created
+      // In production, this would use progressResult.data and summaryResult.data
+      const mockUsers: ProgressUser[] = generateMockUsers(20);
+      const mockSummary: Summary = summaryResult.data || calculateSummary(mockUsers);
+
+      // Apply role-based filtering to mock data
+      let filteredMockUsers = mockUsers;
+      if (userRole === 'consultor') {
+        // Consultants see fewer users
+        filteredMockUsers = mockUsers.slice(0, 5);
+      } else if (userRole === 'equipo_directivo') {
+        // School leaders see users from their school
+        filteredMockUsers = mockUsers.slice(0, 15);
+      } else if (userRole === 'lider_generacion') {
+        // Generation leaders see users from their generation
+        filteredMockUsers = mockUsers.slice(0, 10);
+      } else if (userRole === 'lider_comunidad') {
+        // Community leaders see users from their community
+        filteredMockUsers = mockUsers.slice(0, 8);
+      }
 
       // Cache the results
-      apiCache.set(cacheKey, { users: mockUsers, summary: mockSummary }, 3 * 60 * 1000); // 3 minutes
+      apiCache.set(cacheKey, { users: filteredMockUsers, summary: mockSummary }, 3 * 60 * 1000); // 3 minutes
 
-      setUsers(mockUsers);
+      setUsers(filteredMockUsers);
       setSummary(mockSummary);
       
     } catch (err) {
@@ -509,13 +547,45 @@ export default function EnhancedReports() {
       <ResponsiveFunctionalPageHeader
         icon={<TrendingUp />}
         title="Reportes Optimizados"
-        subtitle={ROLE_DESCRIPTIONS[userRole as keyof typeof ROLE_DESCRIPTIONS] || 'Análisis detallado del progreso'}
+        subtitle={getReportScopeDescription(userRole)}
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Buscar usuarios, escuelas, comunidades..."
       />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Role-based Access Notice */}
+          {userRole && userRole !== 'admin' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-blue-800">
+                    Alcance de Datos
+                  </h3>
+                  <div className="mt-2 text-sm text-blue-700">
+                    <p>Estás viendo: <strong>{getReportScopeDescription(userRole)}</strong></p>
+                    {userRole === 'consultor' && (
+                      <p className="mt-1">Los datos mostrados corresponden únicamente a los estudiantes bajo tu supervisión.</p>
+                    )}
+                    {userRole === 'equipo_directivo' && (
+                      <p className="mt-1">Los datos mostrados corresponden a todos los usuarios de tu escuela.</p>
+                    )}
+                    {userRole === 'lider_generacion' && (
+                      <p className="mt-1">Los datos mostrados corresponden a los usuarios de tu generación.</p>
+                    )}
+                    {userRole === 'lider_comunidad' && (
+                      <p className="mt-1">Los datos mostrados corresponden a los miembros de tu comunidad de crecimiento.</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Tabs Navigation */}
           <div className="mb-6">
@@ -573,6 +643,7 @@ export default function EnhancedReports() {
                 onFiltersChange={updateFilters}
                 userRole={userRole}
                 isAdmin={isAdmin}
+                userProfile={userProfile}
               />
             </CollapsibleSection>
           )}

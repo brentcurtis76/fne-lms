@@ -31,6 +31,8 @@ import ActivityFeedPlaceholder from '../../components/activity/ActivityFeedPlace
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 import GroupSubmissionModalV2 from '../../components/assignments/GroupSubmissionModalV2';
 import WorkspaceSettingsModal from '../../components/community/WorkspaceSettingsModal';
+import FeedContainer from '../../components/feed/FeedContainer';
+import WorkspaceTabNavigation from '../../components/workspace/WorkspaceTabNavigation';
 import { useAuth } from '../../hooks/useAuth';
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
 import { communityWorkspaceService } from '../../lib/services/communityWorkspace';
@@ -114,7 +116,8 @@ import {
   PlusIcon,
   SwitchVerticalIcon,
   MenuIcon,
-  ClipboardCheckIcon
+  ClipboardCheckIcon,
+  UserGroupIcon
 } from '@heroicons/react/outline';
 import { X, Users, CheckCircle, Settings } from 'lucide-react';
 import { navigationManager } from '../../utils/navigationManager';
@@ -450,165 +453,90 @@ const CommunityWorkspacePage: React.FC = () => {
   };
 
   const renderMainContent = () => {
-    // Overview section
-    if (activeSection === 'overview') {
-      return (
-        <div className="space-y-6">
+    return (
+      <>
+        {/* Overview section - Instagram-style feed */}
+        <div style={{ display: activeSection === 'overview' ? 'block' : 'none' }}>
+          {!currentWorkspace ? (
+            <div className="text-center py-12">
+              <UsersIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Selecciona una Comunidad
+              </h3>
+              <p className="text-gray-500">
+                Elige una comunidad de crecimiento para acceder a su espacio colaborativo.
+              </p>
+            </div>
+          ) : (
+            <div className="min-h-screen bg-gray-50">
+              {/* Instagram-style Feed */}
+              <FeedContainer
+                workspaceId={currentWorkspace.id}
+                userName={profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : 'Usuario'}
+                userAvatar={avatarUrl}
+              />
+            </div>
+          )}
+        </div>
+        
+        {/* Communities management section */}
+        <div style={{ display: activeSection === 'communities' ? 'block' : 'none' }}>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-2xl font-bold text-[#00365b] mb-4">
-              Vista General del Espacio Colaborativo
+              Gestión de Comunidades
             </h2>
             <p className="text-gray-600 mb-6">
-              Bienvenido al espacio colaborativo de tu comunidad. Aquí encontrarás todas las herramientas para trabajar en equipo.
+              Administra las comunidades de crecimiento bajo tu supervisión.
             </p>
-            
-            {currentWorkspace && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <button
-                  onClick={() => handleSectionChange('meetings')}
-                  className="bg-blue-50 p-4 rounded-lg hover:bg-blue-100 transition-colors duration-200 text-left"
-                >
-                  <CalendarIcon className="h-8 w-8 text-blue-600 mb-2" />
-                  <h3 className="font-semibold text-blue-900">Reuniones</h3>
-                  <p className="text-sm text-blue-700">Gestión de reuniones</p>
-                </button>
-                <button
-                  onClick={() => handleSectionChange('documents')}
-                  className="bg-green-50 p-4 rounded-lg hover:bg-green-100 transition-colors duration-200 text-left"
-                >
-                  <DocumentTextIcon className="h-8 w-8 text-green-600 mb-2" />
-                  <h3 className="font-semibold text-green-900">Documentos</h3>
-                  <p className="text-sm text-green-700">Repositorio compartido</p>
-                </button>
-                <button
-                  onClick={() => handleSectionChange('messaging')}
-                  className="bg-purple-50 p-4 rounded-lg hover:bg-purple-100 transition-colors duration-200 text-left"
-                >
-                  <ChatAlt2Icon className="h-8 w-8 text-purple-600 mb-2" />
-                  <h3 className="font-semibold text-purple-900">Mensajería</h3>
-                  <p className="text-sm text-purple-700">Comunicación en tiempo real</p>
-                </button>
-              </div>
-            )}
-            
-            {!currentWorkspace && workspaceAccess && workspaceAccess.availableCommunities.length > 0 && (
-              <div className="text-center py-8">
-                <UsersIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Selecciona una Comunidad
-                </h3>
-                <p className="text-gray-500">
-                  Elige una comunidad de crecimiento para acceder a su espacio colaborativo.
-                </p>
-              </div>
-            )}
-
-            {/* Activity Feed Section - Embedded in Overview */}
-            {currentWorkspace && (
-              <div className="mt-8">
-                <h3 className="text-xl font-semibold text-[#00365b] mb-4 flex items-center">
-                  <RssIcon className="h-6 w-6 text-orange-600 mr-2" />
-                  Feed de Actividades
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  Mantente al día con todas las actividades recientes de tu comunidad
-                </p>
-                
-                {/* Activity Summary */}
-                <div className="mb-6">
-                  <ErrorBoundary fallback={<div className="text-gray-500">Error cargando resumen de actividades</div>}>
-                    <ActivitySummary
-                      workspaceId={currentWorkspace.id}
-                      period="today"
-                      showComparison={true}
-                      showTrends={true}
-                    />
-                  </ErrorBoundary>
-                </div>
-
-                {/* Activity Feed */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                  <ErrorBoundary fallback={<div className="p-6 text-center text-gray-500">Error cargando feed de actividades</div>}>
-                    <ActivityFeed
-                      workspaceId={currentWorkspace.id}
-                      userId={user?.id}
-                      realTimeEnabled={true}
-                      showGrouping={true}
-                      showFilters={true}
-                      showStats={false}
-                      pageSize={20}
-                      className="p-6"
-                      filters={{ search_query: searchQuery }}
-                    />
-                  </ErrorBoundary>
-                </div>
-              </div>
-            )}
+            <div className="bg-[#00365b]/5 border border-[#00365b]/10 rounded-lg p-4">
+              <p className="text-sm text-[#00365b]">
+                🚧 Gestión de comunidades en desarrollo. Próximamente podrás administrar múltiples comunidades desde aquí.
+              </p>
+            </div>
           </div>
         </div>
-      );
-    }
-    
-    // Communities management section
-    if (activeSection === 'communities') {
-      return (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h2 className="text-2xl font-bold text-[#00365b] mb-4">
-            Gestión de Comunidades
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Administra las comunidades de crecimiento bajo tu supervisión.
-          </p>
-          <div className="bg-[#00365b]/5 border border-[#00365b]/10 rounded-lg p-4">
-            <p className="text-sm text-[#00365b]">
-              🚧 Gestión de comunidades en desarrollo. Próximamente podrás administrar múltiples comunidades desde aquí.
-            </p>
-          </div>
+
+        {/* Workspace-specific sections */}
+        <div style={{ display: activeSection === 'meetings' ? 'block' : 'none' }}>
+          <MeetingsTabContent 
+            workspace={currentWorkspace} 
+            workspaceAccess={workspaceAccess} 
+            user={user} 
+            searchQuery={searchQuery}
+            filterMeetingsBySearch={filterMeetingsBySearch}
+          />
         </div>
-      );
-    }
 
-    // Workspace-specific sections
-    if (activeSection === 'meetings') {
-      return <MeetingsTabContent 
-        workspace={currentWorkspace} 
-        workspaceAccess={workspaceAccess} 
-        user={user} 
-        searchQuery={searchQuery}
-        filterMeetingsBySearch={filterMeetingsBySearch}
-      />;
-    }
+        <div style={{ display: activeSection === 'documents' ? 'block' : 'none' }}>
+          <DocumentsTabContent 
+            workspace={currentWorkspace} 
+            workspaceAccess={workspaceAccess} 
+            user={user} 
+            searchQuery={searchQuery}
+            filterDocumentsBySearch={filterDocumentsBySearch}
+          />
+        </div>
 
-    if (activeSection === 'documents') {
-      return <DocumentsTabContent 
-        workspace={currentWorkspace} 
-        workspaceAccess={workspaceAccess} 
-        user={user} 
-        searchQuery={searchQuery}
-        filterDocumentsBySearch={filterDocumentsBySearch}
-      />;
-    }
+        <div style={{ display: activeSection === 'messaging' ? 'block' : 'none' }}>
+          <MessagingTabContent 
+            workspace={currentWorkspace} 
+            workspaceAccess={workspaceAccess} 
+            user={user} 
+            searchQuery={searchQuery}
+            filterThreadsBySearch={filterThreadsBySearch}
+          />
+        </div>
 
-    if (activeSection === 'messaging') {
-      return <MessagingTabContent 
-        workspace={currentWorkspace} 
-        workspaceAccess={workspaceAccess} 
-        user={user} 
-        searchQuery={searchQuery}
-        filterThreadsBySearch={filterThreadsBySearch}
-      />;
-    }
-
-    if (activeSection === 'group-assignments') {
-      return <GroupAssignmentsContent 
-        workspace={currentWorkspace} 
-        workspaceAccess={workspaceAccess} 
-        user={user} 
-        searchQuery={searchQuery}
-      />;
-    }
-
-    return null;
+        <div style={{ display: activeSection === 'group-assignments' ? 'block' : 'none' }}>
+          <GroupAssignmentsContent 
+            workspace={currentWorkspace} 
+            workspaceAccess={workspaceAccess} 
+            user={user} 
+            searchQuery={searchQuery}
+          />
+        </div>
+      </>
+    );
   };
 
   if (authLoading || loading) {
@@ -775,6 +703,13 @@ const CommunityWorkspacePage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Tab Navigation */}
+        <WorkspaceTabNavigation
+          activeSection={activeSection}
+          onSectionChange={handleSectionChange}
+          isAdmin={isAdmin}
+        />
 
         {/* Current Workspace Info (for sections that need it) */}
         {currentWorkspace && activeSection !== 'overview' && activeSection !== 'communities' && false && (
@@ -2027,12 +1962,14 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
   const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
   const [showSubmissionModal, setShowSubmissionModal] = useState(false);
   const [userGroups, setUserGroups] = useState<Map<string, any>>(new Map());
+  const [isConsultantView, setIsConsultantView] = useState(false);
+  const [students, setStudents] = useState<any[]>([]);
 
   useEffect(() => {
-    if (workspace && user) {
+    if (user) {
       loadGroupAssignments();
     }
-  }, [workspace, user]);
+  }, [user]);
 
   const loadGroupAssignments = async () => {
     if (!user?.id) return;
@@ -2040,26 +1977,53 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
     try {
       setLoading(true);
       
-      // Get all group assignments from enrolled courses
-      const { assignments: fetchedAssignments, error } = await groupAssignmentsV2Service.getGroupAssignmentsForUser(user.id);
+      // Check if user is a consultant
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
       
-      if (error) {
-        console.error('Error loading group assignments:', error);
-        toast.error('Error al cargar las tareas grupales');
-        return;
-      }
-
-      setAssignments(fetchedAssignments || []);
-
-      // Load user's groups for each assignment
-      const groupsMap = new Map();
-      for (const assignment of fetchedAssignments || []) {
-        const { group } = await groupAssignmentsV2Service.getOrCreateGroup(assignment.id, user.id);
-        if (group) {
-          groupsMap.set(assignment.id, group);
+      if (profile?.role === 'consultor') {
+        // Load consultant view - assignments for their students
+        setIsConsultantView(true);
+        const { assignments: consultantAssignments, students: assignedStudents, error } = 
+          await groupAssignmentsV2Service.getGroupAssignmentsForConsultant(user.id);
+        
+        if (error) {
+          console.error('Error loading consultant assignments:', error);
+          toast.error('Error al cargar las tareas de tus estudiantes');
+          return;
         }
+        
+        setAssignments(consultantAssignments || []);
+        setStudents(assignedStudents || []);
+      } else {
+        // Load student/regular view
+        setIsConsultantView(false);
+        const { assignments: fetchedAssignments, error } = 
+          await groupAssignmentsV2Service.getGroupAssignmentsForUser(user.id);
+        
+        if (error) {
+          console.error('Error loading group assignments:', error);
+          toast.error('Error al cargar las tareas grupales');
+          return;
+        }
+
+        // Ensure we're getting an array
+        const assignmentsArray = Array.isArray(fetchedAssignments) ? fetchedAssignments : [];
+        setAssignments(assignmentsArray);
+
+        // Load user's groups for each assignment
+        const groupsMap = new Map();
+        for (const assignment of fetchedAssignments || []) {
+          const { group } = await groupAssignmentsV2Service.getOrCreateGroup(assignment.id, user.id);
+          if (group) {
+            groupsMap.set(assignment.id, group);
+          }
+        }
+        setUserGroups(groupsMap);
       }
-      setUserGroups(groupsMap);
     } catch (error) {
       console.error('Error loading group assignments:', error);
       toast.error('Error al cargar las tareas grupales');
@@ -2133,10 +2097,19 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold text-[#00365b]">
-            Tareas Grupales
+            {isConsultantView ? 'Tareas Grupales de Mis Estudiantes' : 'Tareas Grupales'}
           </h2>
           <p className="text-sm text-gray-600 mt-1">
-            {filteredAssignments.length} tarea{filteredAssignments.length !== 1 ? 's' : ''} disponible{filteredAssignments.length !== 1 ? 's' : ''}
+            {isConsultantView ? (
+              <>
+                {filteredAssignments.length} tarea{filteredAssignments.length !== 1 ? 's' : ''} • 
+                {students.length} estudiante{students.length !== 1 ? 's' : ''} asignado{students.length !== 1 ? 's' : ''}
+              </>
+            ) : (
+              <>
+                {filteredAssignments.length} tarea{filteredAssignments.length !== 1 ? 's' : ''} disponible{filteredAssignments.length !== 1 ? 's' : ''}
+              </>
+            )}
           </p>
         </div>
       </div>
@@ -2161,8 +2134,8 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
             return (
               <div
                 key={assignment.id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => handleAssignmentClick(assignment)}
+                className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${!isConsultantView ? 'hover:shadow-md cursor-pointer' : ''} transition-shadow`}
+                onClick={() => !isConsultantView && handleAssignmentClick(assignment)}
               >
                 <h3 className="text-lg font-semibold text-[#00365b] mb-2">
                   {assignment.title}
@@ -2177,32 +2150,77 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
                   </p>
                 )}
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <UsersIcon className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">
-                      {group ? `Grupo: ${group.name}` : 'Sin grupo asignado'}
-                    </span>
-                  </div>
-                  
-                  {isSubmitted ? (
-                    <span className="text-sm font-medium text-green-600 flex items-center gap-1">
-                      <CheckCircle className="h-4 w-4" />
-                      Entregado
-                    </span>
-                  ) : (
-                    <span className="text-sm font-medium text-yellow-600">
-                      Pendiente
-                    </span>
-                  )}
-                </div>
+                {isConsultantView ? (
+                  // Consultant view - show student progress
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <UsersIcon className="h-4 w-4" />
+                      <span>{assignment.students_count || 0} estudiantes asignados</span>
+                    </div>
+                    
+                    {assignment.groups_count > 0 && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <UserGroupIcon className="h-4 w-4" />
+                        <span>{assignment.groups_count} grupos formados</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">
+                        Entregas: {assignment.submitted_count || 0} de {assignment.students_count || 0}
+                      </span>
+                      {assignment.submitted_count > 0 && (
+                        <span className="text-sm font-medium text-green-600">
+                          {Math.round((assignment.submitted_count / assignment.students_count) * 100)}% completado
+                        </span>
+                      )}
+                    </div>
 
-                {assignment.grade && (
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    <span className="text-sm text-gray-600">
-                      Calificación: <span className="font-medium text-[#00365b]">{assignment.grade}%</span>
-                    </span>
+                    {/* Show list of students if small number */}
+                    {assignment.students_with_access && assignment.students_with_access.length <= 5 && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <p className="text-xs text-gray-500 mb-1">Estudiantes:</p>
+                        <div className="space-y-1">
+                          {assignment.students_with_access.map((student: any) => (
+                            <div key={student.id} className="text-xs text-gray-600">
+                              {student.first_name} {student.last_name}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                ) : (
+                  // Student view - show their own status
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <UsersIcon className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm text-gray-600">
+                          {group ? `Grupo: ${group.name}` : 'Sin grupo asignado'}
+                        </span>
+                      </div>
+                      
+                      {isSubmitted ? (
+                        <span className="text-sm font-medium text-green-600 flex items-center gap-1">
+                          <CheckCircle className="h-4 w-4" />
+                          Entregado
+                        </span>
+                      ) : (
+                        <span className="text-sm font-medium text-yellow-600">
+                          Pendiente
+                        </span>
+                      )}
+                    </div>
+
+                    {assignment.grade && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <span className="text-sm text-gray-600">
+                          Calificación: <span className="font-medium text-[#00365b]">{assignment.grade}%</span>
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             );
@@ -2212,10 +2230,12 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
         <div className="bg-gray-50 rounded-lg p-8 text-center">
           <ClipboardCheckIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No hay tareas grupales disponibles
+            {isConsultantView ? 'No hay tareas grupales para tus estudiantes' : 'No hay tareas grupales disponibles'}
           </h3>
           <p className="text-gray-500">
-            Las tareas grupales aparecerán aquí cuando sean asignadas en tus cursos.
+            {isConsultantView 
+              ? 'Las tareas grupales de tus estudiantes aparecerán aquí cuando estén asignadas en sus cursos.'
+              : 'Las tareas grupales aparecerán aquí cuando sean asignadas en tus cursos.'}
           </p>
         </div>
       )}

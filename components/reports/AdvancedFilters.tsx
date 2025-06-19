@@ -16,13 +16,15 @@ interface AdvancedFiltersProps {
   onFiltersChange: (filters: any) => void;
   userRole: string;
   isAdmin: boolean;
+  userProfile?: any;
 }
 
 export default function AdvancedFilters({ 
   filters, 
   onFiltersChange, 
   userRole, 
-  isAdmin 
+  isAdmin,
+  userProfile 
 }: AdvancedFiltersProps) {
   const [schools, setSchools] = useState<any[]>([]);
   const [generations, setGenerations] = useState<any[]>([]);
@@ -45,7 +47,7 @@ export default function AdvancedFilters({
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  }, [userProfile]);
 
   // Update search filter when debounced value changes
   useEffect(() => {
@@ -56,17 +58,127 @@ export default function AdvancedFilters({
 
   const fetchFilterData = async () => {
     try {
-      const [schoolsRes, generationsRes, communitiesRes, coursesRes] = await Promise.all([
-        supabase.from('schools').select('id, name').order('name'),
-        supabase.from('generations').select('id, name, school_id').order('name'),
-        supabase.from('growth_communities').select('id, name, generation_id, school_id').order('name'),
-        supabase.from('courses').select('id, title').order('title')
-      ]);
+      // Fetch data based on user role
+      if (isAdmin || userRole === 'admin') {
+        // Admins see all options
+        const [schoolsRes, generationsRes, communitiesRes, coursesRes] = await Promise.all([
+          supabase.from('schools').select('id, name').order('name'),
+          supabase.from('generations').select('id, name, school_id').order('name'),
+          supabase.from('growth_communities').select('id, name, generation_id, school_id').order('name'),
+          supabase.from('courses').select('id, title').eq('is_published', true).order('title')
+        ]);
 
-      setSchools(schoolsRes.data || []);
-      setGenerations(generationsRes.data || []);
-      setCommunities(communitiesRes.data || []);
-      setCourses(coursesRes.data || []);
+        setSchools(schoolsRes.data || []);
+        setGenerations(generationsRes.data || []);
+        setCommunities(communitiesRes.data || []);
+        setCourses(coursesRes.data || []);
+      } else if (userProfile) {
+        // Role-based filtering
+        let schoolsData = [];
+        let generationsData = [];
+        let communitiesData = [];
+        let coursesData = [];
+
+        // Fetch courses (all published for now)
+        const coursesRes = await supabase
+          .from('courses')
+          .select('id, title')
+          .eq('is_published', true)
+          .order('title');
+        coursesData = coursesRes.data || [];
+
+        if (userRole === 'consultor') {
+          // Consultants see schools/generations/communities of their assigned students
+          // For now, show all options but the service will filter the actual data
+          const [schoolsRes, generationsRes, communitiesRes] = await Promise.all([
+            supabase.from('schools').select('id, name').order('name'),
+            supabase.from('generations').select('id, name, school_id').order('name'),
+            supabase.from('growth_communities').select('id, name, generation_id, school_id').order('name')
+          ]);
+          schoolsData = schoolsRes.data || [];
+          generationsData = generationsRes.data || [];
+          communitiesData = communitiesRes.data || [];
+        } else if (userRole === 'equipo_directivo' && userProfile.school_id) {
+          // School leaders see only their school and its related data
+          const schoolRes = await supabase
+            .from('schools')
+            .select('id, name')
+            .eq('id', userProfile.school_id)
+            .single();
+          if (schoolRes.data) schoolsData = [schoolRes.data];
+
+          const [generationsRes, communitiesRes] = await Promise.all([
+            supabase
+              .from('generations')
+              .select('id, name, school_id')
+              .eq('school_id', userProfile.school_id)
+              .order('name'),
+            supabase
+              .from('growth_communities')
+              .select('id, name, generation_id, school_id')
+              .eq('school_id', userProfile.school_id)
+              .order('name')
+          ]);
+          generationsData = generationsRes.data || [];
+          communitiesData = communitiesRes.data || [];
+        } else if (userRole === 'lider_generacion' && userProfile.school_id && userProfile.generation_id) {
+          // Generation leaders see their school and generation
+          const schoolRes = await supabase
+            .from('schools')
+            .select('id, name')
+            .eq('id', userProfile.school_id)
+            .single();
+          if (schoolRes.data) schoolsData = [schoolRes.data];
+
+          const generationRes = await supabase
+            .from('generations')
+            .select('id, name, school_id')
+            .eq('id', userProfile.generation_id)
+            .single();
+          if (generationRes.data) generationsData = [generationRes.data];
+
+          const communitiesRes = await supabase
+            .from('growth_communities')
+            .select('id, name, generation_id, school_id')
+            .eq('generation_id', userProfile.generation_id)
+            .order('name');
+          communitiesData = communitiesRes.data || [];
+        } else if (userRole === 'lider_comunidad' && userProfile.community_id) {
+          // Community leaders see only their community
+          const communityRes = await supabase
+            .from('growth_communities')
+            .select('id, name, generation_id, school_id')
+            .eq('id', userProfile.community_id)
+            .single();
+          if (communityRes.data) {
+            communitiesData = [communityRes.data];
+            
+            // Get the related school and generation
+            if (communityRes.data.school_id) {
+              const schoolRes = await supabase
+                .from('schools')
+                .select('id, name')
+                .eq('id', communityRes.data.school_id)
+                .single();
+              if (schoolRes.data) schoolsData = [schoolRes.data];
+            }
+            
+            if (communityRes.data.generation_id) {
+              const generationRes = await supabase
+                .from('generations')
+                .select('id, name, school_id')
+                .eq('id', communityRes.data.generation_id)
+                .single();
+              if (generationRes.data) generationsData = [generationRes.data];
+            }
+          }
+        }
+
+        setSchools(schoolsData);
+        setGenerations(generationsData);
+        setCommunities(communitiesData);
+        setCourses(coursesData);
+      }
     } catch (error) {
       console.error('Error fetching filter data:', error);
     }

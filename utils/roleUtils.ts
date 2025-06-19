@@ -259,6 +259,7 @@ export async function assignRole(
 
 /**
  * Auto-create a growth community when assigning a community leader
+ * Updated to use the database function that prevents duplicates
  */
 async function createCommunityForLeader(
   leaderId: string,
@@ -266,55 +267,47 @@ async function createCommunityForLeader(
   generationId?: string
 ): Promise<{ success: boolean; communityId?: string; error?: string }> {
   try {
-    // Get leader's name for community naming
-    const { data: leaderProfile, error: profileError } = await supabase
-      .from('profiles')
-      .select('first_name, last_name')
-      .eq('id', leaderId)
-      .single();
-
-    if (profileError) {
-      return { success: false, error: 'Error al obtener datos del líder' };
+    // Convert schoolId to integer for the database function
+    const schoolIdInt = parseInt(schoolId);
+    if (isNaN(schoolIdInt)) {
+      return { success: false, error: 'ID de escuela inválido' };
     }
 
-    // Create community name
-    const leaderName = leaderProfile.first_name && leaderProfile.last_name
-      ? `${leaderProfile.first_name} ${leaderProfile.last_name}`
-      : 'Líder';
-    
-    let communityName = `Comunidad de ${leaderName}`;
+    // Call the database function that safely gets or creates a community
+    const { data, error } = await supabase
+      .rpc('get_or_create_community_for_leader', {
+        p_leader_id: leaderId,
+        p_school_id: schoolId, // The function will handle the UUID
+        p_generation_id: generationId || null
+      });
 
-    // If generation is provided, add it to the name
-    if (generationId) {
-      const { data: generation, error: genError } = await supabase
-        .from('generations')
-        .select('name')
-        .eq('id', generationId)
-        .single();
-
-      if (!genError && generation) {
-        communityName += ` - ${generation.name}`;
+    if (error) {
+      console.error('Error getting/creating community:', error);
+      
+      // Check if it's a unique constraint violation (shouldn't happen with our function, but just in case)
+      if (error.code === '23505') {
+        // Try to find the existing community
+        const { data: existingCommunity } = await supabase
+          .from('growth_communities')
+          .select('id')
+          .eq('school_id', schoolIdInt)
+          .eq('generation_id', generationId || null)
+          .like('name', `Comunidad de %`)
+          .single();
+        
+        if (existingCommunity) {
+          return { success: true, communityId: existingCommunity.id };
+        }
       }
+      
+      return { success: false, error: 'Error al crear comunidad: ' + error.message };
     }
 
-    // Create the growth community
-    const { data: newCommunity, error: createError } = await supabase
-      .from('growth_communities')
-      .insert({
-        school_id: parseInt(schoolId), // Convert to integer for existing school table
-        generation_id: generationId || null, // Allow null for schools without generations
-        name: communityName,
-        max_teachers: 16
-      })
-      .select('id')
-      .single();
-
-    if (createError) {
-      console.error('Error creating community:', createError);
-      return { success: false, error: 'Error al crear comunidad: ' + createError.message };
+    if (!data) {
+      return { success: false, error: 'No se pudo crear la comunidad' };
     }
 
-    return { success: true, communityId: newCommunity.id };
+    return { success: true, communityId: data };
   } catch (error) {
     console.error('Error in createCommunityForLeader:', error);
     return { success: false, error: 'Error inesperado al crear comunidad' };

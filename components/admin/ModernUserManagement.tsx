@@ -563,7 +563,7 @@ export default function ModernUserManagement({
                               <button
                                 onClick={() => {
                                   if (confirm(`¿Estás seguro de que deseas eliminar a ${getUserName(user)}?`)) {
-                                    onDelete(user);
+                                    onDelete(user.id);
                                   }
                                   setOpenMenuId(null);
                                 }}

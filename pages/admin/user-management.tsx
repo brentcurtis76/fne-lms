@@ -14,15 +14,16 @@ import { ROLE_NAMES } from '../../types/roles';
 type User = {
   id: string;
   email: string;
-  first_name: string;
-  last_name: string;
-  role: string;
-  school: string;
-  created_at: string;
+  first_name?: string;
+  last_name?: string;
+  role?: string;
+  school?: string;
+  created_at?: string;
   approval_status: 'pending' | 'approved' | 'rejected';
   user_roles?: any[];
   consultant_assignments?: any[];
   student_assignments?: any[];
+  school_relation?: any;
 };
 
 export default function UserManagement() {
@@ -524,12 +525,12 @@ export default function UserManagement() {
         const newUser: User = {
           id: result.user.id,
           email: result.user.email,
-          first_name: result.user.firstName,
-          last_name: result.user.lastName,
-          role: result.user.role,
-          school: '',
+          first_name: result.user.firstName || undefined,
+          last_name: result.user.lastName || undefined,
+          role: result.user.role || undefined,
+          school: undefined,
           created_at: new Date().toISOString(),
-          approval_status: 'approved' // Admin-created users are auto-approved
+          approval_status: 'approved' as const // Admin-created users are auto-approved
         };
 
         setUsers([newUser, ...users]);

@@ -19,7 +19,7 @@ type User = {
   role: string;
   school: string;
   created_at: string;
-  approval_status: string;
+  approval_status: 'pending' | 'approved' | 'rejected';
   user_roles?: any[];
   consultant_assignments?: any[];
   student_assignments?: any[];
@@ -322,6 +322,7 @@ export default function UserManagement() {
 
           return {
             ...user,
+            approval_status: (user.approval_status as 'pending' | 'approved' | 'rejected') || 'pending',
             user_roles: userRoles,
             consultant_assignments: consultantAssignments || [],
             student_assignments: studentAssignments || []

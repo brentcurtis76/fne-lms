@@ -17,6 +17,8 @@ export interface WorkspaceAccess {
 export interface CommunityInfo {
   id: string;
   name: string;
+  custom_name?: string;
+  display_name: string; // This will be custom_name || name
   school_name: string;
   generation_name: string;
   member_count?: number;
@@ -132,6 +134,7 @@ export async function getUserWorkspaceAccess(userId: string): Promise<WorkspaceA
  */
 async function getAllCommunitiesForAdmin(): Promise<CommunityInfo[]> {
   try {
+    // First get all communities with basic info
     const { data: communities, error } = await supabase
       .from('growth_communities')
       .select(`
@@ -147,12 +150,36 @@ async function getAllCommunitiesForAdmin(): Promise<CommunityInfo[]> {
       return [];
     }
 
-    return communities?.map(community => ({
-      id: community.id,
-      name: community.name,
-      school_name: (community.school as any)?.name || 'Sin escuela',
-      generation_name: (community.generation as any)?.name || 'Sin generación'
-    })) || [];
+    // Then get workspace info separately
+    const { data: workspaces, error: wsError } = await supabase
+      .from('community_workspaces')
+      .select('community_id, id, custom_name');
+
+    if (wsError) {
+      console.error('Error fetching workspaces:', wsError);
+    }
+
+    // Create a map of community_id to workspace info
+    const workspaceMap = new Map();
+    workspaces?.forEach(ws => {
+      workspaceMap.set(ws.community_id, {
+        workspace_id: ws.id,
+        custom_name: ws.custom_name
+      });
+    });
+
+    return communities?.map(community => {
+      const workspaceInfo = workspaceMap.get(community.id);
+      return {
+        id: community.id,
+        name: community.name,
+        custom_name: workspaceInfo?.custom_name,
+        display_name: workspaceInfo?.custom_name || community.name,
+        school_name: (community.school as any)?.name || 'Sin escuela',
+        generation_name: (community.generation as any)?.name || 'Sin generación',
+        workspace_id: workspaceInfo?.workspace_id
+      };
+    }) || [];
 
   } catch (error) {
     console.error('Error in getAllCommunitiesForAdmin:', error);
@@ -189,12 +216,38 @@ async function getCommunitiesForConsultant(consultantRoles: UserRole[]): Promise
       return [];
     }
 
-    return communities?.map(community => ({
-      id: community.id,
-      name: community.name,
-      school_name: (community.school as any)?.name || 'Sin escuela',
-      generation_name: (community.generation as any)?.name || 'Sin generación'
-    })) || [];
+    // Get workspace info separately
+    const communityIds = communities?.map(c => c.id) || [];
+    const { data: workspaces, error: wsError } = await supabase
+      .from('community_workspaces')
+      .select('community_id, id, custom_name')
+      .in('community_id', communityIds);
+
+    if (wsError) {
+      console.error('Error fetching workspaces:', wsError);
+    }
+
+    // Create a map of community_id to workspace info
+    const workspaceMap = new Map();
+    workspaces?.forEach(ws => {
+      workspaceMap.set(ws.community_id, {
+        workspace_id: ws.id,
+        custom_name: ws.custom_name
+      });
+    });
+
+    return communities?.map(community => {
+      const workspaceInfo = workspaceMap.get(community.id);
+      return {
+        id: community.id,
+        name: community.name,
+        custom_name: workspaceInfo?.custom_name,
+        display_name: workspaceInfo?.custom_name || community.name,
+        school_name: (community.school as any)?.name || 'Sin escuela',
+        generation_name: (community.generation as any)?.name || 'Sin generación',
+        workspace_id: workspaceInfo?.workspace_id
+      };
+    }) || [];
 
   } catch (error) {
     console.error('Error in getCommunitiesForConsultant:', error);
@@ -231,12 +284,37 @@ async function getCommunitiesForMember(communityRoles: UserRole[]): Promise<Comm
       return [];
     }
 
-    return communities?.map(community => ({
-      id: community.id,
-      name: community.name,
-      school_name: (community.school as any)?.name || 'Sin escuela',
-      generation_name: (community.generation as any)?.name || 'Sin generación'
-    })) || [];
+    // Get workspace info separately
+    const { data: workspaces, error: wsError } = await supabase
+      .from('community_workspaces')
+      .select('community_id, id, custom_name')
+      .in('community_id', communityIds);
+
+    if (wsError) {
+      console.error('Error fetching workspaces:', wsError);
+    }
+
+    // Create a map of community_id to workspace info
+    const workspaceMap = new Map();
+    workspaces?.forEach(ws => {
+      workspaceMap.set(ws.community_id, {
+        workspace_id: ws.id,
+        custom_name: ws.custom_name
+      });
+    });
+
+    return communities?.map(community => {
+      const workspaceInfo = workspaceMap.get(community.id);
+      return {
+        id: community.id,
+        name: community.name,
+        custom_name: workspaceInfo?.custom_name,
+        display_name: workspaceInfo?.custom_name || community.name,
+        school_name: (community.school as any)?.name || 'Sin escuela',
+        generation_name: (community.generation as any)?.name || 'Sin generación',
+        workspace_id: workspaceInfo?.workspace_id
+      };
+    }) || [];
 
   } catch (error) {
     console.error('Error in getCommunitiesForMember:', error);

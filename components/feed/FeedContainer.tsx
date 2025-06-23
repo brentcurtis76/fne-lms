@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { PlusIcon } from '@heroicons/react/outline';
 import PostCard from './PostCard';
 import CreatePostModal from './CreatePostModal';
+import CommentModal from './CommentModal';
 import FeedSkeleton from './FeedSkeleton';
 import { FeedService } from '@/lib/services/feedService';
 import type { CommunityPost, CreatePostInput } from '@/types/feed';
@@ -18,6 +19,8 @@ export default function FeedContainer({ workspaceId, userName, userAvatar }: Fee
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const limit = 10;
 
@@ -85,8 +88,11 @@ export default function FeedContainer({ workspaceId, userName, userAvatar }: Fee
   };
 
   const handleComment = (postId: string) => {
-    // TODO: Implement comment modal
-    console.log('Open comments for post:', postId);
+    const post = posts.find(p => p.id === postId);
+    if (post) {
+      setSelectedPost(post);
+      setShowCommentModal(true);
+    }
   };
 
   const handlePostUpdate = (updatedPost: CommunityPost) => {
@@ -219,6 +225,20 @@ export default function FeedContainer({ workspaceId, userName, userAvatar }: Fee
         authorName={userName}
         authorAvatar={userAvatar}
       />
+
+      {/* Comment Modal */}
+      {selectedPost && (
+        <CommentModal
+          isOpen={showCommentModal}
+          onClose={() => {
+            setShowCommentModal(false);
+            setSelectedPost(null);
+            // Reload posts to update comment count
+            loadPosts(true);
+          }}
+          post={selectedPost}
+        />
+      )}
     </div>
   );
 }

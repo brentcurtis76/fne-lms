@@ -14,6 +14,7 @@ export default function ChangePasswordPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPasswords, setShowPasswords] = useState(false);
+  const [isAdminReset, setIsAdminReset] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -33,14 +34,20 @@ export default function ChangePasswordPage() {
       // Check if user actually needs to change password
       const { data: profile } = await supabase
         .from('profiles')
-        .select('must_change_password')
+        .select('must_change_password, password_change_required')
         .eq('id', session.user.id)
         .single();
 
-      if (!profile?.must_change_password) {
+      if (!profile?.must_change_password && !profile?.password_change_required) {
         // User doesn't need to change password, redirect to dashboard
         router.push('/dashboard');
         return;
+      }
+
+      // Check if this is an admin password reset
+      const metadata = session.user.user_metadata;
+      if (metadata?.password_reset_by_admin) {
+        setIsAdminReset(true);
       }
 
       setLoading(false);
@@ -90,13 +97,26 @@ export default function ChangePasswordPage() {
 
       if (updateError) throw updateError;
 
-      // Update the must_change_password flag
+      // Update the must_change_password and password_change_required flags
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ must_change_password: false })
+        .update({ 
+          must_change_password: false,
+          password_change_required: false 
+        })
         .eq('id', user.id);
 
       if (profileError) throw profileError;
+
+      // Clear the admin reset metadata
+      if (isAdminReset) {
+        await supabase.auth.updateUser({
+          data: { 
+            password_reset_by_admin: null,
+            password_reset_at: null
+          }
+        });
+      }
 
       // Check if profile is complete before redirecting
       const { data: profile } = await supabase
@@ -157,7 +177,10 @@ export default function ChangePasswordPage() {
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 inline-flex items-center gap-2">
               <ExclamationIcon className="w-5 h-5 text-yellow-600" />
               <p className="text-sm text-yellow-800">
-                Por seguridad, debes cambiar tu contraseña en el primer inicio de sesión
+                {isAdminReset 
+                  ? 'El administrador ha restablecido tu contraseña. Por seguridad, debes crear una nueva.'
+                  : 'Por seguridad, debes cambiar tu contraseña en el primer inicio de sesión'
+                }
               </p>
             </div>
           </div>

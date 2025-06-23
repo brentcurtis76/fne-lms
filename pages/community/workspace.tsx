@@ -409,7 +409,7 @@ const CommunityWorkspacePage: React.FC = () => {
             <OfficeBuildingIcon className="h-5 w-5 text-[#00365b] flex-shrink-0" />
             <div className="text-left min-w-0">
               <div className="text-sm font-medium text-gray-900 truncate">
-                {selectedCommunity?.name || 'Seleccionar Comunidad'}
+                {selectedCommunity?.display_name || selectedCommunity?.name || 'Seleccionar Comunidad'}
               </div>
               {selectedCommunity && (
                 <div className="text-xs text-gray-500 truncate">
@@ -437,7 +437,7 @@ const CommunityWorkspacePage: React.FC = () => {
                   <AcademicCapIcon className="h-4 w-4 text-[#00365b] flex-shrink-0" />
                   <div>
                     <div className="text-sm font-medium text-gray-900">
-                      {community.name}
+                      {community.display_name || community.name}
                     </div>
                     <div className="text-xs text-gray-500">
                       {community.school_name} - {community.generation_name}

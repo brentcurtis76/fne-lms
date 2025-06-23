@@ -104,11 +104,11 @@ export default function LoginPage() {
           // First check if user must change password
           const { data: profile } = await supabase
             .from('profiles')
-            .select('must_change_password')
+            .select('must_change_password, password_change_required')
             .eq('id', userId)
             .single();
           
-          if (profile?.must_change_password) {
+          if (profile?.must_change_password || profile?.password_change_required) {
             // Redirect to password change page
             router.push('/change-password');
           } else {

@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 import MainLayout from '../../components/layout/MainLayout';
-import { Trash2, Plus, X, AlertTriangle, CheckCircle, Settings, Users } from 'lucide-react';
+import { Trash2, Plus, X, AlertTriangle, CheckCircle, Settings, Users, Key } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import RoleAssignmentModal from '../../components/RoleAssignmentModal';
 import ConsultantAssignmentModal from '../../components/ConsultantAssignmentModal';
+import PasswordResetModal from '../../components/PasswordResetModal';
+import UnifiedUserManagement from '../../components/admin/UnifiedUserManagement';
 import { getUserRoles } from '../../utils/roleUtils';
 import { ROLE_NAMES } from '../../types/roles';
-import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 
 type User = {
   id: string;
@@ -31,8 +32,6 @@ export default function UserManagement() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [avatarUrl, setAvatarUrl] = useState('');
-  const [activeTab, setActiveTab] = useState<'pending' | 'approved' | 'all'>('pending');
-  const [searchQuery, setSearchQuery] = useState('');
   
   // Add user form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -41,6 +40,10 @@ export default function UserManagement() {
   const [newUserFirstName, setNewUserFirstName] = useState('');
   const [newUserLastName, setNewUserLastName] = useState('');
   const [newUserRole, setNewUserRole] = useState('docente');
+  
+  // Password reset modal state
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [userToReset, setUserToReset] = useState<{ id: string; email: string; name: string } | null>(null);
   
   const handleOpenRoleModal = (user: User) => {
     const userName = user.first_name && user.last_name 
@@ -581,6 +584,32 @@ export default function UserManagement() {
     router.push('/login');
   };
 
+  const handlePasswordReset = async (userId: string, temporaryPassword: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('No session found');
+    }
+
+    const response = await fetch('/api/admin/reset-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      },
+      body: JSON.stringify({
+        userId,
+        temporaryPassword
+      })
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to reset password');
+    }
+
+    return response.json();
+  };
+
   if (loading) {
     return (
       <MainLayout 
@@ -624,6 +653,8 @@ export default function UserManagement() {
     );
   }
 
+
+
   return (
     <>
       <MainLayout 
@@ -635,377 +666,125 @@ export default function UserManagement() {
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
       >
-        <ResponsiveFunctionalPageHeader
-          icon={<Users />}
-          title="Usuarios"
-          subtitle="Administra los roles de usuarios del sistema"
-          searchValue={searchQuery}
-          onSearchChange={setSearchQuery}
-          searchPlaceholder="Buscar por nombre o email..."
-          primaryAction={{
-            label: "Agregar Usuario",
-            onClick: () => setShowAddForm(true),
-            icon: <Plus size={20} />
+        <UnifiedUserManagement
+          users={users}
+          onApprove={handleApproveUser}
+          onReject={handleRejectUser}
+          onDelete={(user) => handleDeleteClick(user.id, user.email)}
+          onRoleChange={(user) => handleOpenRoleModal(user)}
+          onAssign={(user) => handleOpenConsultantModal(user)}
+          onPasswordReset={(user) => {
+            setUserToReset({
+              id: user.id,
+              email: user.email,
+              name: user.first_name && user.last_name 
+                ? `${user.first_name} ${user.last_name}`
+                : 'Sin nombre'
+            });
+            setShowPasswordResetModal(true);
           }}
+          onAddUser={() => setShowAddForm(true)}
         />
         
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="bg-white p-6 rounded-lg shadow-lg">
-
-          {/* Approval Tabs */}
-          <div className="mb-6 border-b border-gray-200">
-            <nav className="-mb-px flex space-x-8">
-              <button
-                onClick={() => setActiveTab('pending')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'pending'
-                    ? 'border-yellow-500 text-yellow-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Pendientes de Aprobación ({users.filter(u => u.approval_status === 'pending').length})
-              </button>
-              <button
-                onClick={() => setActiveTab('approved')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'approved'
-                    ? 'border-green-500 text-green-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Usuarios Aprobados ({users.filter(u => u.approval_status === 'approved').length})
-              </button>
-              <button
-                onClick={() => setActiveTab('all')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'all'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                Todos los Usuarios ({users.length})
-              </button>
-            </nav>
-          </div>
-
-          {/* Add User Form */}
-          {showAddForm && (
-            <div className="mb-6 bg-gray-50 p-6 rounded-lg border">
-              <div className="flex justify-between items-center mb-4">
+        {/* Add User Form Modal */}
+        {showAddForm && (
+          <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-semibold text-[#00365b]">Crear Nuevo Usuario</h3>
                 <button
                   onClick={() => setShowAddForm(false)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-gray-400 hover:text-gray-500"
                 >
-                  <X size={20} />
+                  <X size={24} />
                 </button>
               </div>
-              <form onSubmit={handleAddUser} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    value={newUserEmail}
-                    onChange={(e) => setNewUserEmail(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                    placeholder="usuario@ejemplo.com"
-                    required
-                  />
+              <form onSubmit={handleAddUser} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      value={newUserEmail}
+                      onChange={(e) => setNewUserEmail(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                      placeholder="usuario@ejemplo.com"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Contraseña *
+                    </label>
+                    <input
+                      type="password"
+                      value={newUserPassword}
+                      onChange={(e) => setNewUserPassword(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                      placeholder="Mínimo 6 caracteres"
+                      minLength={6}
+                      autoComplete="new-password"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Nombre
+                    </label>
+                    <input
+                      type="text"
+                      value={newUserFirstName}
+                      onChange={(e) => setNewUserFirstName(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                      placeholder="Nombre"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Apellido
+                    </label>
+                    <input
+                      type="text"
+                      value={newUserLastName}
+                      onChange={(e) => setNewUserLastName(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                      placeholder="Apellido"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contraseña *
-                  </label>
-                  <input
-                    type="password"
-                    value={newUserPassword}
-                    onChange={(e) => setNewUserPassword(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                    placeholder="Mínimo 6 caracteres"
-                    minLength={6}
-                    autoComplete="new-password"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Nombre
-                  </label>
-                  <input
-                    type="text"
-                    value={newUserFirstName}
-                    onChange={(e) => setNewUserFirstName(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                    placeholder="Nombre"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Apellido
-                  </label>
-                  <input
-                    type="text"
-                    value={newUserLastName}
-                    onChange={(e) => setNewUserLastName(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                    placeholder="Apellido"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Rol
-                  </label>
-                  <select
-                    value={newUserRole}
-                    onChange={(e) => setNewUserRole(e.target.value)}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                  >
-                    <option value="docente">Docente</option>
-                    <option value="admin">Administrador</option>
-                  </select>
-                </div>
-                <div className="flex items-end gap-2">
+                <div className="flex justify-end gap-3 mt-6">
                   <button
                     type="button"
                     onClick={() => setShowAddForm(false)}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md"
+                    className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition"
                   >
                     Cancelar
                   </button>
                   <button
                     type="submit"
                     disabled={isCreating}
-                    className="px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] disabled:opacity-50 transition"
+                    className="px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#002844] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
-                    {isCreating ? 'Creando...' : 'Crear Usuario'}
+                    {isCreating ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Creando...
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={16} />
+                        Crear Usuario
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
             </div>
-          )}
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full table-auto">
-              <thead>
-                <tr className="bg-gray-50">
-                  <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Nombre</th>
-                  <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Email</th>
-                  <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Escuela</th>
-                  <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Estado</th>
-                  <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Rol</th>
-                  {activeTab !== 'pending' && (
-                    <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Asignaciones</th>
-                  )}
-                  {activeTab !== 'pending' && (
-                    <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Cambiar Rol</th>
-                  )}
-                  <th className="px-4 py-2 text-left text-[#00365b] font-semibold">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users
-                  .filter(user => {
-                    // First filter by tab
-                    const tabFilter = activeTab === 'pending' ? user.approval_status === 'pending' :
-                                    activeTab === 'approved' ? user.approval_status === 'approved' :
-                                    true;
-                    
-                    // Then filter by search query
-                    if (!searchQuery.trim()) return tabFilter;
-                    
-                    const searchLower = searchQuery.toLowerCase();
-                    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase();
-                    const email = (user.email || '').toLowerCase();
-                    
-                    return tabFilter && (fullName.includes(searchLower) || email.includes(searchLower));
-                  })
-                  .map((user) => (
-                  <tr key={user.id} className="border-b border-gray-200 hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      {user.first_name && user.last_name 
-                        ? `${user.first_name} ${user.last_name}`
-                        : 'Sin nombre'
-                      }
-                    </td>
-                    <td className="px-4 py-3">{user.email || 'Sin email'}</td>
-                    <td className="px-4 py-3">{getUserPrimarySchool(user)}</td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        user.approval_status === 'pending' 
-                          ? 'bg-yellow-100 text-yellow-800' 
-                          : user.approval_status === 'approved'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {user.approval_status === 'pending' ? 'Pendiente' : 
-                         user.approval_status === 'approved' ? 'Aprobado' : 'Rechazado'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {user.user_roles && user.user_roles.length > 0 ? (
-                          user.user_roles.map((userRole, index) => (
-                            <span 
-                              key={`${userRole.id}-${index}`}
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                userRole.role_type === 'admin'
-                                  ? 'bg-red-100 text-red-800'
-                                  : userRole.role_type === 'lider_comunidad'
-                                  ? 'bg-purple-100 text-purple-800'
-                                  : userRole.role_type === 'lider_generacion'
-                                  ? 'bg-indigo-100 text-indigo-800'
-                                  : userRole.role_type === 'equipo_directivo'
-                                  ? 'bg-orange-100 text-orange-800'
-                                  : userRole.role_type === 'consultor'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-blue-100 text-blue-800'
-                              }`}
-                              title={`${ROLE_NAMES[userRole.role_type] || userRole.role_type}${userRole.school?.name ? ` - ${userRole.school.name}` : ''}${userRole.generation?.name ? ` - ${userRole.generation.name}` : ''}${userRole.community?.name ? ` - ${userRole.community.name}` : ''}`}
-                            >
-                              {ROLE_NAMES[userRole.role_type] || userRole.role_type}
-                            </span>
-                          ))
-                        ) : user.role ? (
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800" title="Rol heredado del sistema anterior">
-                            {user.role === 'admin' ? 'Administrador' : user.role === 'docente' ? 'Docente' : user.role}
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
-                            Sin roles asignados
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    {activeTab !== 'pending' && (
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col space-y-1">
-                          {/* Show consultant assignments (as consultant) */}
-                          {user.consultant_assignments && user.consultant_assignments.length > 0 && (
-                            <div className="text-xs">
-                              <span className="text-gray-600">Como consultor:</span>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {user.consultant_assignments.slice(0, 2).map((assignment: any, index: number) => (
-                                  <span 
-                                    key={index}
-                                    className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs"
-                                    title={`${assignment.assignment_type} - Estudiante: ${assignment.student?.first_name || 'Sin nombre'} ${assignment.student?.last_name || ''}`}
-                                  >
-                                    {assignment.assignment_type === 'monitoring' ? 'Monitoreo' : 
-                                     assignment.assignment_type === 'mentoring' ? 'Mentoría' :
-                                     assignment.assignment_type === 'evaluation' ? 'Evaluación' :
-                                     assignment.assignment_type === 'support' ? 'Apoyo' :
-                                     assignment.assignment_type === 'comprehensive' ? 'Completa' :
-                                     assignment.assignment_type}
-                                  </span>
-                                ))}
-                                {user.consultant_assignments.length > 2 && (
-                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                                    +{user.consultant_assignments.length - 2}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Show student assignments (as student) */}
-                          {user.student_assignments && user.student_assignments.length > 0 && (
-                            <div className="text-xs">
-                              <span className="text-gray-600">Como estudiante:</span>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {user.student_assignments.slice(0, 2).map((assignment: any, index: number) => (
-                                  <span 
-                                    key={index}
-                                    className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
-                                    title={`Tipo: ${assignment.assignment_type === 'comprehensive' ? 'Completa' : assignment.assignment_type} - ${assignment.can_view_progress ? 'Puede ver progreso' : ''} ${assignment.can_assign_courses ? 'Puede asignar cursos' : ''} ${assignment.can_message_student ? 'Puede enviar mensajes' : ''}`}
-                                  >
-                                    {assignment.consultant?.first_name || 'Sin nombre'} {assignment.consultant?.last_name || ''}
-                                  </span>
-                                ))}
-                                {user.student_assignments.length > 2 && (
-                                  <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded text-xs">
-                                    +{user.student_assignments.length - 2}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          
-                          {/* Show assign button for all users */}
-                          <button
-                            onClick={() => handleOpenConsultantModal(user)}
-                            className="flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs hover:bg-blue-200 transition-colors"
-                            title="Asignar consultor"
-                          >
-                            <Plus size={12} className="mr-1" />
-                            Asignar
-                          </button>
-                          
-                          {/* Show no assignments message */}
-                          {(!user.consultant_assignments || user.consultant_assignments.length === 0) && 
-                           (!user.student_assignments || user.student_assignments.length === 0) && (
-                            <span className="text-xs text-gray-500">Sin asignaciones</span>
-                          )}
-                        </div>
-                      </td>
-                    )}
-                    {activeTab !== 'pending' && (
-                      <td className="px-4 py-3">
-                        <button
-                          onClick={() => handleOpenRoleModal(user)}
-                          className="flex items-center px-3 py-1 bg-[#fdb933] text-white rounded text-sm hover:bg-[#e6a530] transition-colors"
-                          title="Gestionar roles"
-                        >
-                          <Settings size={14} className="mr-1" />
-                          Gestionar Roles
-                        </button>
-                      </td>
-                    )}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {user.approval_status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleApproveUser(user.id)}
-                              className="text-green-600 hover:text-green-800 p-1 rounded transition"
-                              title="Aprobar usuario"
-                            >
-                              <CheckCircle size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleRejectUser(user.id)}
-                              className="text-red-600 hover:text-red-800 p-1 rounded transition"
-                              title="Rechazar usuario"
-                            >
-                              <X size={16} />
-                            </button>
-                          </>
-                        )}
-                        <button
-                          onClick={() => handleDeleteClick(user.id, user.email)}
-                          className="text-red-600 hover:text-red-800 p-1 rounded transition"
-                          title="Eliminar usuario"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
+        )}
 
-          {users.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-gray-500">No se encontraron usuarios</p>
-            </div>
-          )}
-
-        </div>
-      </div>
-      
       {/* Role Assignment Modal */}
       {showRoleModal && selectedUser && (
         <RoleAssignmentModal
@@ -1084,6 +863,17 @@ export default function UserManagement() {
           </div>
         </div>
       )}
+
+      {/* Password Reset Modal */}
+      <PasswordResetModal
+        isOpen={showPasswordResetModal}
+        onClose={() => {
+          setShowPasswordResetModal(false);
+          setUserToReset(null);
+        }}
+        user={userToReset}
+        onPasswordReset={handlePasswordReset}
+      />
     </>
   );
 }

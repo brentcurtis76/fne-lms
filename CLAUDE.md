@@ -110,15 +110,27 @@ npm run dev  # MUST be port 3000
 - User notification preferences
 - Assignment system complete with enrolled courses integration
 - Assignment stats simplified to show work status (Active, Completed, In Progress, New)
-- **INSTAGRAM-STYLE FEED (January 2025)**:
+- **INSTAGRAM-STYLE FEED (January 2025) - PHASE 1 COMPLETE**:
   - Replaced activity feed in "Mi Resumen" with Instagram/LinkedIn-style social feed
   - Post types: text, images (carousel), documents, links
-  - Interactions: likes, comments, saves, view counts
+  - Interactions: likes, comments (with nested replies), saves, view counts
   - Custom confirmation modals instead of browser dialogs
   - Edit/delete functionality for own posts
   - Database tables created: community_posts, post_reactions, post_comments, etc.
-  - Storage bucket created: post-media
-  - **PENDING**: Fix RLS policies for post creation (see `/database/fix-post-creation-simple.sql`)
+  - Storage bucket created: post-media with proper RLS policies
+  - **COMPLETED FEATURES**:
+    - ✅ Comment thread UI with nested replies, pagination, and delete functionality
+    - ✅ Community-based post visibility (users only see posts from their communities)
+    - ✅ Custom community names display throughout the interface
+    - ✅ Role-based access control (admins see all, consultants see assigned schools, others see own community)
+    - ✅ Storage policies fixed for image uploads
+  - **LOCATION**: Collaborative Space → "Mi Resumen" tab
+  - **NEXT STEPS** (Phase 2):
+    1. Add real-time updates via Supabase subscriptions
+    2. Implement poll and question post types
+    3. Enhanced reactions beyond like/save
+    4. Hashtags and @mentions support
+  - **PHASE 3 FEATURES** (Future): Stories, AI feed algorithm, analytics
 - **BLOCK DELETION AND VISIBILITY FIX (January 2025)**:
   - Fixed block deletion using correct Supabase syntax (.eq instead of .match)
   - Added persistent visibility state with is_visible database field
@@ -238,6 +250,29 @@ npm run dev  # MUST be port 3000
   - Added visual indicators showing data access scope
   - Created report filtering service and utilities
   - Documentation: See `REPORTING_ACCESS_CONTROL.md`
+- **ADMIN PASSWORD RESET SYSTEM (January 2025)**:
+  - Administrators can reset any user's password to a temporary password
+  - Password reset button (key icon) added to user management page
+  - Clean modal interface for setting temporary passwords
+  - Random secure password generator included
+  - Users forced to change password on next login after admin reset
+  - Different messaging for admin-reset vs first-time login
+  - Strong password requirements enforced (8+ chars, uppercase, lowercase, number)
+  - All password resets logged in audit_logs table for security
+  - Database migration: `/database/add-password-reset-tracking.sql`
+  - Documentation: See `ADMIN_PASSWORD_RESET.md`
+- **USER MANAGEMENT UI REDESIGN (January 2025)**:
+  - Complete redesign of user management interface for better UX
+  - Single unified interface (removed confusing toggle between classic/modern views)
+  - Expandable rows - click any user to see details and actions
+  - Clean stats cards for filtering by status (Pending, Approved, All)
+  - Organized actions section within expanded view
+  - Better information hierarchy with avatars, role badges, and assignment counts
+  - All actions accessible with single click - no more hunting for features
+  - New component: `UnifiedUserManagement.tsx`
+  - Removed over 370 lines of redundant Classic UI code
+  - Mobile responsive with proper touch targets
+  - Documentation: See `USER_MANAGEMENT_REDESIGN.md`
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)
@@ -245,7 +280,24 @@ npm run dev  # MUST be port 3000
 - ✅ FIXED: Block deletion and visibility persistence in course builder (January 2025)
 - ✅ FIXED: Community leader role assignment for schools without generations (January 2025)
 
+# SUPABASE MCP CONFIGURATION (January 23, 2025)
+- **MCP Server Added**: Full read/write access to FNE LMS Supabase project
+- **Token**: Configured in user scope (available across all projects)
+- **Project Ref**: sxlogxqzmarhqsblxmtj
+- **Capabilities**: Direct database queries, schema modifications, data management, RLS policies
+- **Documentation**: See `SUPABASE_MCP_SETUP.md` and `SUPABASE_MCP_QUICK_REFERENCE.md`
+
 # PENDING TASKS
+
+## Instagram Feed - Phase 1 Completion (PRIORITY)
+- ✅ Database tables and RLS policies working
+- ✅ Storage bucket configured
+- ✅ Basic post creation and interactions functional
+- ⏳ **IMMEDIATE**: Build comment thread UI component
+- ⏳ Add real-time subscriptions for live updates
+- ⏳ Implement poll and question post types
+- ⏳ Multi-user testing and verification
+
 ## Quiz Review System Testing
 - ⏳ Test open-ended question creation in quiz blocks
 - ⏳ Test quiz submission with mixed question types

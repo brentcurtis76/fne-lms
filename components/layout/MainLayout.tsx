@@ -12,6 +12,7 @@ import Sidebar from './Sidebar';
 import Avatar from '../common/Avatar';
 import { useAvatar } from '../../hooks/useAvatar';
 import { LogoutIcon } from '@heroicons/react/outline';
+import FeedbackButton from '../feedback/FeedbackButton';
 
 interface Breadcrumb {
   label: string;
@@ -244,6 +245,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           </div>
         </div>
       </div>
+      
+      {/* Feedback Button - Always visible */}
+      <FeedbackButton />
     </>
   );
 };

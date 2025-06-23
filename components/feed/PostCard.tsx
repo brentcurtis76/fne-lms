@@ -39,9 +39,9 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
   const [isOwnPost, setIsOwnPost] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Increment view count on mount and check if own post
+  // Check if own post
   useEffect(() => {
-    FeedService.incrementViewCount(post.id);
+    // Removed automatic view counting - it was creating fake inflated numbers
     
     // Check if this is the current user's post
     const checkOwnPost = async () => {
@@ -169,6 +169,33 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
             {post.content.text && (
               <p className="text-gray-800 mb-3">{post.content.text}</p>
             )}
+            {/* Handle documents from media array */}
+            {post.media && post.media.length > 0 && (
+              <div className="space-y-2">
+                {post.media.map((media, index) => (
+                  <a
+                    key={index}
+                    href={media.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <DocumentIcon className="h-10 w-10 text-[#00365b] mr-3" />
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">
+                        {media.metadata?.name || 'Documento'}
+                      </p>
+                      {media.metadata?.size && (
+                        <p className="text-xs text-gray-500">
+                          {(media.metadata.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      )}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            )}
+            {/* Legacy support for content.document */}
             {post.content.document && (
               <a
                 href={post.content.document.url}
@@ -324,12 +351,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
             <span>{post.comment_count} comentarios</span>
           )}
         </div>
-        {post.view_count > 0 && (
-          <span className="flex items-center">
-            <EyeIcon className="h-4 w-4 mr-1" />
-            {post.view_count}
-          </span>
-        )}
+        {/* View count removed - it was showing fake inflated numbers */}
       </div>
 
       {/* Actions */}

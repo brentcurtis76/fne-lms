@@ -22,6 +22,7 @@ export default function CreatePostModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [linkUrl, setLinkUrl] = useState('');
+  const [fileInputType, setFileInputType] = useState<'image' | 'document'>('image');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -35,7 +36,7 @@ export default function CreatePostModal({
         content: {
           text: content.trim(),
         },
-        media: selectedFiles,
+        media: postType === 'image' ? selectedFiles : [],
       };
 
       if (postType === 'link' && linkUrl) {
@@ -44,6 +45,13 @@ export default function CreatePostModal({
           title: 'Cargando...', // Will be fetched server-side
           domain: new URL(linkUrl).hostname,
         };
+      }
+      
+      // Handle documents differently - they go in content.document
+      if (postType === 'document' && selectedFiles.length > 0) {
+        // For now, we'll store documents in the media array
+        // but the backend will need to be updated to handle this properly
+        postData.media = selectedFiles;
       }
 
       await onSubmit(postData);
@@ -83,8 +91,17 @@ export default function CreatePostModal({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
+    console.log('Selected files:', files);
+    console.log('File input type:', fileInputType);
+    
     setSelectedFiles(prev => [...prev, ...files]);
-    setPostType('image');
+    
+    // Set post type based on the file type selected
+    if (fileInputType === 'document') {
+      setPostType('document');
+    } else {
+      setPostType('image');
+    }
   };
 
   const removeFile = (index: number) => {
@@ -210,7 +227,11 @@ export default function CreatePostModal({
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => {
+                    setFileInputType('image');
+                    setPostType('image');
+                    setTimeout(() => fileInputRef.current?.click(), 100);
+                  }}
                   className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
                   title="Agregar imagen"
                 >
@@ -218,8 +239,9 @@ export default function CreatePostModal({
                 </button>
                 <button
                   onClick={() => {
+                    setFileInputType('document');
                     setPostType('document');
-                    fileInputRef.current?.click();
+                    setTimeout(() => fileInputRef.current?.click(), 100);
                   }}
                   className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
                   title="Agregar documento"
@@ -266,7 +288,7 @@ export default function CreatePostModal({
             ref={fileInputRef}
             type="file"
             multiple
-            accept={postType === 'document' ? '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx' : 'image/*,video/*'}
+            accept={fileInputType === 'document' ? '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf' : 'image/*,video/*'}
             onChange={handleFileSelect}
             className="hidden"
           />

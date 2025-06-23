@@ -167,15 +167,24 @@ export class FeedService {
             .from('post-media')
             .getPublicUrl(fileName);
 
+          // Determine media type
+          let mediaType: 'image' | 'video' | 'document' = 'document';
+          if (file.type.startsWith('image/')) {
+            mediaType = 'image';
+          } else if (file.type.startsWith('video/')) {
+            mediaType = 'video';
+          }
+
           return {
             post_id: post.id,
-            type: file.type.startsWith('image/') ? 'image' : 'video',
+            type: mediaType,
             url: publicUrl,
             storage_path: uploadData.path,
             order_index: index,
             metadata: {
               size: file.size,
               type: file.type,
+              name: file.name,
             },
           };
         });

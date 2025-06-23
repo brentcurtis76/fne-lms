@@ -11,6 +11,11 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
+    "test:watch": "vitest",
+    "test:feedback": "vitest run __tests__/components/feedback __tests__/pages/admin/feedback.test.tsx",
+    "test:feedback:watch": "vitest __tests__/components/feedback __tests__/pages/admin/feedback.test.tsx",
+    "test:integration": "vitest run __tests__/integration",
+    "test:integration:watch": "vitest __tests__/integration",
     "apply:group-assignments": "node scripts/apply-group-assignments.js"
   },
   "keywords": [],

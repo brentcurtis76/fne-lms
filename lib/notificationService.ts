@@ -6,10 +6,28 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Use service role key for bypassing RLS when creating notifications
-const supabaseServiceRole = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseUrl) {
+  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL environment variable');
+}
+
+if (!supabaseServiceKey) {
+  console.error('❌ Missing SUPABASE_SERVICE_ROLE_KEY environment variable');
+  console.error('Available env vars:', Object.keys(process.env).filter(key => key.includes('SUPABASE')));
+  console.error('Current NODE_ENV:', process.env.NODE_ENV);
+  throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable. Please ensure it is set in your .env.local file.');
+}
+
+let supabaseServiceRole: any;
+try {
+  supabaseServiceRole = createClient(supabaseUrl, supabaseServiceKey);
+  console.log('✅ Supabase service role client initialized successfully');
+} catch (error) {
+  console.error('❌ Failed to initialize Supabase service role client:', error);
+  throw error;
+}
 
 class NotificationService {
   
@@ -199,6 +217,15 @@ class NotificationService {
           }
           break;
 
+        case 'new_feedback':
+          // Recipients are assigned users (admins)
+          if (eventData.assigned_users && Array.isArray(eventData.assigned_users)) {
+            for (const userId of eventData.assigned_users) {
+              recipients.push({ id: userId });
+            }
+          }
+          break;
+
         default:
           console.warn(`⚠️ Unknown event type for recipient determination: ${eventType}`);
       }
@@ -263,6 +290,8 @@ class NotificationService {
    */
   async createNotification(notificationData) {
     try {
+      console.log('📧 Creating notification:', notificationData);
+      
       // First check user preferences
       const userPrefs = await this.getUserPreferences(notificationData.user_id);
       const notificationType = notificationData.event_type || notificationData.category;

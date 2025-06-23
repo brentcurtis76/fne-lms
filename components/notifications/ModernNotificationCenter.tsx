@@ -44,48 +44,77 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
   // Auto-refresh interval (30 seconds)
   const REFRESH_INTERVAL = 30000;
 
-  // Fetch notifications from API
+  // Fetch notifications directly from Supabase
   const fetchNotifications = async (showLoading = false) => {
     try {
       if (showLoading) setLoading(true);
       setError(null);
 
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch('/api/notifications?limit=10', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch notifications: ${response.status}`);
+      if (!session?.user) {
+        console.log('No session found');
+        return;
       }
 
-      const result = await response.json();
-      
-      if (result.success) {
-        // Transform API data to match our interface
-        const transformedNotifications = (result.data || []).map((item: any) => ({
-          id: item.id,
-          title: item.title,
-          description: item.description || '',
-          category: item.notification_type?.category || 'system',
-          is_read: item.is_read,
-          created_at: item.created_at,
-          related_url: item.related_url
-        }));
+      console.log('Fetching notifications for user:', session.user.id);
 
-        setNotifications(transformedNotifications);
-        setUnreadCount(result.unreadCount || 0);
-      } else {
-        throw new Error(result.error || 'Failed to load notifications');
+      // Fetch user's notifications directly
+      const { data: notifications, error: notifError } = await supabase
+        .from('user_notifications')
+        .select(`
+          id,
+          title,
+          description,
+          category,
+          importance,
+          read_at,
+          related_url,
+          created_at
+        `)
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (notifError) {
+        console.error('Error fetching notifications:', notifError);
+        throw new Error('Failed to fetch notifications');
       }
+
+      console.log('Notifications found:', notifications?.length || 0);
+
+      // Count unread notifications
+      const { count: unreadCount, error: countError } = await supabase
+        .from('user_notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', session.user.id)
+        .is('read_at', null);
+
+      if (countError) {
+        console.error('Error counting unread notifications:', countError);
+      }
+
+      // Transform to match our interface
+      const transformedNotifications = (notifications || []).map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        description: item.description || '',
+        category: item.category || 'system',
+        is_read: item.read_at !== null,
+        created_at: item.created_at,
+        related_url: item.related_url
+      }));
+
+      setNotifications(transformedNotifications);
+      setUnreadCount(unreadCount || 0);
+      console.log('Set notifications:', transformedNotifications.length, 'unread:', unreadCount);
     } catch (err) {
       console.error('Error fetching notifications:', err);
       setError(err instanceof Error ? err.message : 'Failed to load notifications');
+      
+      // Don't use mock data - show real error
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
       
       // Fall back to mock data if API fails
       const mockNotifications: NotificationItem[] = [
@@ -184,17 +213,15 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
       ));
       setUnreadCount(prev => Math.max(0, prev - 1));
 
-      // Make API call to mark as read
+      // Mark as read in database
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-          await fetch(`/api/notifications/${notification.id}/read`, {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${session.access_token}`,
-              'Content-Type': 'application/json',
-            },
-          });
+        const { error } = await supabase
+          .from('user_notifications')
+          .update({ read_at: new Date().toISOString() })
+          .eq('id', notification.id);
+
+        if (error) {
+          throw error;
         }
       } catch (error) {
         console.error('Error marking notification as read:', error);
@@ -229,18 +256,19 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const response = await fetch('/api/notifications/mark-all-read', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        });
+      if (!session?.user) {
+        throw new Error('No session');
+      }
 
-        if (!response.ok) {
-          throw new Error('Failed to mark all as read');
-        }
+      // Mark all unread notifications as read
+      const { error } = await supabase
+        .from('user_notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('user_id', session.user.id)
+        .is('read_at', null);
+
+      if (error) {
+        throw error;
       }
       
       setMarkingAllRead(false);

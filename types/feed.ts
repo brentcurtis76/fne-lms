@@ -14,7 +14,7 @@ export interface PostAuthor {
 
 export interface PostMedia {
   id: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'document';
   url: string;
   thumbnail_url?: string;
   caption?: string;
@@ -23,6 +23,9 @@ export interface PostMedia {
     width?: number;
     height?: number;
     duration?: number;
+    size?: number;
+    type?: string;
+    name?: string;
   };
 }
 

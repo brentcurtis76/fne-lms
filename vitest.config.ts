@@ -7,6 +7,14 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
+    include: ['__tests__/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['node_modules', '.next', '__tests__/utils/**'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: ['components/feedback/**', 'pages/admin/feedback.tsx'],
+      exclude: ['node_modules', '__tests__/**', '**/*.d.ts']
+    },
   },
   resolve: {
     alias: {

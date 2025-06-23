@@ -541,6 +541,22 @@ export default function Dashboard() {
                       </Link>
                     )}
 
+                    {filterQuickActionsBySearch({ title: 'Soporte Técnico', description: 'Gestión de feedback y errores' }) && (
+                      <Link
+                        href="/admin/feedback"
+                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-red-200/30 transition-all duration-200 relative"
+                      >
+                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Soporte Técnico</h3>
+                        <p className="text-sm text-gray-600">Gestión de feedback y errores</p>
+                        {/* Add a small badge if there are new feedback items */}
+                        <div className="absolute top-4 right-4">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                      </Link>
+                    )}
+
                     {filterQuickActionsBySearch({ title: 'Reportes', description: 'Dashboard de progress y analytics' }) && (
                       <Link
                         href="/reports"

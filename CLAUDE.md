@@ -273,6 +273,32 @@ npm run dev  # MUST be port 3000
   - Removed over 370 lines of redundant Classic UI code
   - Mobile responsive with proper touch targets
   - Documentation: See `USER_MANAGEMENT_REDESIGN.md`
+- **FEEDBACK SYSTEM IMPROVEMENTS (January 2025)**:
+  - Fixed authentication error by moving service role key usage to server-side
+  - Created `/api/feedback/notify-admins` endpoint for secure notification handling
+  - Fixed storage upload errors by adding proper RLS policies
+  - Added "Copy for Claude Code" feature for easy error reporting
+  - Fixed course deletion foreign key constraints
+  - Fixed missing sidebar items on feedback page
+  - Added "Soporte Técnico" quick action to admin dashboard
+  - Updated feedback detail modal to show user avatars
+  - Fixed "Cerrar" button confusion - now clearly labeled "Cerrar ticket" vs "Cerrar ventana"
+  - Fixed feedback status transitions (new → seen → in_progress → resolved → closed)
+  - Database migration: `/database/add-closed-at-to-feedback.sql`
+- **NOTIFICATION SYSTEM FIXES (January 2025)**:
+  - Created missing `/api/notifications` and `/api/notifications/mark-read` endpoints
+  - Fixed table name mismatch (notifications vs user_notifications)
+  - Updated ModernNotificationCenter to fetch directly from Supabase
+  - Fixed field mapping (is_read → read_at)
+  - Notifications from feedback system now properly appear in notification center
+- **COLLABORATIVE WORKSPACE FEED ENHANCEMENTS (January 2025)**:
+  - Fixed document upload in feed - was only accepting images
+  - Added support for PDF, Word, Excel, PowerPoint, and text files
+  - Updated PostMedia type to include 'document' type
+  - Fixed file input accept attribute race condition
+  - Documents now display with proper icons, names, and file sizes
+  - Removed fake view counts that were auto-incrementing
+  - View count feature completely removed as it provided no real value
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)

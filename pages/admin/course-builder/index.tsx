@@ -208,7 +208,57 @@ const CourseBuilder: React.FC = () => {
     const loadingToastId = toast.loading('Eliminando curso...');
 
     try {
-      // Simplified deletion approach - delete in dependency order without complex backup logic
+      // Delete in reverse dependency order to avoid foreign key violations
+      
+      // 1. First delete any lesson_assignments that reference lessons in this course
+      console.log('[DeleteCourse] Deleting lesson assignments...');
+      try {
+        // Get all lessons for this course (both direct and through modules)
+        const { data: allLessons } = await supabase
+          .from('lessons')
+          .select('id')
+          .eq('course_id', courseIdToDelete);
+        
+        const { data: modules } = await supabase
+          .from('modules')
+          .select('id')
+          .eq('course_id', courseIdToDelete);
+        
+        let lessonIds: string[] = [];
+        if (allLessons) {
+          lessonIds = allLessons.map(l => l.id);
+        }
+        
+        if (modules && modules.length > 0) {
+          const moduleIds = modules.map(m => m.id);
+          const { data: moduleLessons } = await supabase
+            .from('lessons')
+            .select('id')
+            .in('module_id', moduleIds);
+          
+          if (moduleLessons) {
+            lessonIds = [...lessonIds, ...moduleLessons.map(l => l.id)];
+          }
+        }
+        
+        // Remove duplicates
+        lessonIds = Array.from(new Set(lessonIds));
+        
+        if (lessonIds.length > 0) {
+          const { error: deleteAssignmentsError } = await supabase
+            .from('lesson_assignments')
+            .delete()
+            .in('lesson_id', lessonIds);
+          
+          if (deleteAssignmentsError) {
+            console.log('[DeleteCourse] Assignment deletion failed:', deleteAssignmentsError.message);
+          }
+        }
+      } catch (assignmentError) {
+        console.log('[DeleteCourse] Assignment deletion failed:', assignmentError);
+      }
+      
+      // 2. Delete blocks
       console.log('[DeleteCourse] Deleting blocks...');
       try {
         // Try to delete blocks by course_id first
@@ -240,11 +290,21 @@ const CourseBuilder: React.FC = () => {
         }
       } catch (blockError) {
         console.log('[DeleteCourse] Block deletion failed, continuing anyway:', blockError);
-        // Continue with course deletion even if blocks fail
       }
 
       console.log('[DeleteCourse] Deleting lessons...');
       try {
+        // First, delete lessons that have direct course_id reference
+        const { error: directLessonError } = await supabase
+          .from('lessons')
+          .delete()
+          .eq('course_id', courseIdToDelete);
+        
+        if (directLessonError) {
+          console.log('[DeleteCourse] Direct lesson deletion failed:', directLessonError.message);
+        }
+        
+        // Then, delete lessons through modules
         const { data: modules } = await supabase
           .from('modules')
           .select('id')
@@ -258,7 +318,7 @@ const CourseBuilder: React.FC = () => {
             .in('module_id', moduleIds);
           
           if (deleteLessonsError) {
-            console.log('[DeleteCourse] Lesson deletion failed:', deleteLessonsError.message);
+            console.log('[DeleteCourse] Module-based lesson deletion failed:', deleteLessonsError.message);
           }
         }
       } catch (lessonError) {

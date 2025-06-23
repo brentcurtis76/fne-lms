@@ -25,7 +25,8 @@ import {
   DocumentTextIcon,
   CurrencyDollarIcon,
   ClipboardCheckIcon as ClipboardDocumentCheckIcon,
-  OfficeBuildingIcon
+  OfficeBuildingIcon,
+  ExclamationCircleIcon as BugIcon
 } from '@heroicons/react/outline';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
@@ -167,6 +168,13 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/expense-reports',
         description: 'Reportes de gastos',
         icon: CurrencyDollarIcon
+      },
+      {
+        id: 'feedback',
+        label: 'Soporte Técnico',
+        href: '/admin/feedback',
+        description: 'Gestión de errores y solicitudes',
+        icon: BugIcon
       }
     ]
   },
@@ -235,7 +243,33 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const router = useRouter();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [newFeedbackCount, setNewFeedbackCount] = useState(0);
 
+  // Fetch new feedback count for admins
+  useEffect(() => {
+    if (isAdmin) {
+      fetchNewFeedbackCount();
+      // Refresh count every 30 seconds
+      const interval = setInterval(fetchNewFeedbackCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [isAdmin]);
+
+  const fetchNewFeedbackCount = async () => {
+    try {
+      const { supabase } = await import('../../lib/supabase');
+      const { count, error } = await supabase
+        .from('platform_feedback')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'new');
+      
+      if (!error && count !== null) {
+        setNewFeedbackCount(count);
+      }
+    } catch (error) {
+      console.error('Error fetching feedback count:', error);
+    }
+  };
 
   // Auto-expand parent items based on current page
   useEffect(() => {
@@ -361,8 +395,16 @@ const Sidebar: React.FC<SidebarProps> = ({
             
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate">
-                  {item.label}
+                <div className="flex items-center gap-2">
+                  <div className="text-sm font-medium truncate">
+                    {item.label}
+                  </div>
+                  {/* Show badge for feedback item if there are new items */}
+                  {item.id === 'feedback' && newFeedbackCount > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                      {newFeedbackCount}
+                    </span>
+                  )}
                 </div>
                 {item.description && (
                   <div className={`text-xs truncate mt-0.5 ${
@@ -414,7 +456,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                   <ChevronRightIcon className="h-4 w-4 mr-2 text-gray-400 group-hover:text-[#00365b]" />
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="truncate">{child.label}</div>
+                  <div className="flex items-center gap-2">
+                    <div className="truncate">{child.label}</div>
+                    {/* Show badge for feedback child item if there are new items */}
+                    {child.id === 'feedback' && newFeedbackCount > 0 && (
+                      <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                        {newFeedbackCount}
+                      </span>
+                    )}
+                  </div>
                   {child.description && (
                     <div className="text-xs text-gray-500 truncate">
                       {child.description}

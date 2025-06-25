@@ -253,3 +253,43 @@ export interface CourseAssignment {
     community_id?: string;
   };
 }
+
+// Dev user record
+export interface DevUser {
+  id: string;
+  user_id: string;
+  is_active: boolean;
+  assigned_at: string;
+  assigned_by?: string;
+  created_at: string;
+}
+
+// Dev role impersonation session
+export interface DevRoleSession {
+  id: string;
+  dev_user_id: string;
+  impersonated_role: UserRoleType;
+  impersonated_user_id?: string;
+  school_id?: string | number;  // Can be string or number due to schema
+  generation_id?: string;
+  community_id?: string;
+  session_token: string;
+  is_active: boolean;
+  started_at: string;
+  expires_at: string;
+  ended_at?: string;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: string;
+}
+
+// Dev audit log entry
+export interface DevAuditLog {
+  id: string;
+  dev_user_id: string;
+  action: string;
+  details: Record<string, any>;
+  ip_address?: string;
+  user_agent?: string;
+  created_at: string;
+}

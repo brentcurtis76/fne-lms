@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import FeedbackDetail from '../../components/feedback/FeedbackDetail';
+import { getEffectiveRoleAndStatus } from '../../utils/roleUtils';
 
 interface Feedback {
   id: string;
@@ -45,6 +46,7 @@ export default function FeedbackDashboard() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [feedbackList, setFeedbackList] = useState<Feedback[]>([]);
   const [filteredList, setFilteredList] = useState<Feedback[]>([]);
@@ -86,19 +88,17 @@ export default function FeedbackDashboard() {
 
       setUser(session.user);
 
-      // Check admin status
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', session.user.id)
-        .single();
+      // Get effective role and admin status (handles dev impersonation)
+      const { effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(session.user.id);
+      
+      setUserRole(effectiveRole);
+      setIsAdmin(isAdminUser);
 
-      if (profile?.role !== 'admin') {
+      // Check if user has admin access
+      if (!isAdminUser) {
         router.push('/dashboard');
         return;
       }
-
-      setIsAdmin(true);
       
       // Fetch avatar URL
       const { data: profileData } = await supabase
@@ -322,7 +322,7 @@ export default function FeedbackDashboard() {
         user={user} 
         currentPage="feedback"
         isAdmin={isAdmin}
-        userRole="admin"
+        userRole={userRole}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
       >
@@ -347,7 +347,7 @@ export default function FeedbackDashboard() {
           { label: 'Feedback' }
         ]}
         isAdmin={isAdmin}
-        userRole="admin"
+        userRole={userRole}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
       >

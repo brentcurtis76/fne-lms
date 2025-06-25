@@ -4,19 +4,14 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import LearningQuizTaker from '../components/quiz/LearningQuizTaker';
 import { submitQuiz } from '../lib/services/quizSubmissions';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 
 // Mock dependencies
 vi.mock('../lib/services/quizSubmissions', () => ({
   submitQuiz: vi.fn()
 }));
 
-vi.mock('react-hot-toast', () => ({
-  default: {
-    success: vi.fn(),
-    error: vi.fn()
-  }
-}));
+// react-hot-toast is already mocked globally in vitest.setup.ts
 
 describe('LearningQuizTaker', () => {
   const mockQuiz = {

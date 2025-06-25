@@ -12,8 +12,29 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
-      include: ['components/feedback/**', 'pages/admin/feedback.tsx'],
-      exclude: ['node_modules', '__tests__/**', '**/*.d.ts']
+      include: [
+        'components/**/*.{ts,tsx}',
+        'pages/**/*.{ts,tsx}',
+        'lib/**/*.{ts,tsx}',
+        'utils/**/*.{ts,tsx}'
+      ],
+      exclude: [
+        'node_modules',
+        '__tests__/**',
+        'e2e/**',
+        '**/*.d.ts',
+        '**/*.config.{ts,js}',
+        '**/coverage/**',
+        '**/.next/**'
+      ],
+      thresholds: {
+        global: {
+          branches: 70,
+          functions: 70,
+          lines: 80,
+          statements: 80
+        }
+      }
     },
   },
   resolve: {

@@ -6,6 +6,7 @@ import { useRouter } from 'next/router';
 import { vi } from 'vitest';
 import FeedbackDashboard from '../../../pages/admin/feedback';
 import { renderWithAct, flushPromises, createMockFeedback } from '../../utils/test-utils';
+import { supabase } from '../../../lib/supabase';
 
 // Using global vitest mocks from vitest.setup.ts
 
@@ -89,7 +90,34 @@ const mockStats = {
 describe('FeedbackDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (useRouter as any).mockReturnValue(mockRouter);
+    // Update the global router mock
+    vi.mocked(useRouter).mockReturnValue(mockRouter as any);
+    
+    // Mock admin user session
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: {
+        session: {
+          user: { id: 'admin-123', email: 'admin@example.com' }
+        }
+      },
+      error: null
+    });
+    
+    // Mock admin profile
+    const mockFromChain = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
+        data: { role: 'admin' },
+        error: null
+      }),
+      in: vi.fn().mockResolvedValue({
+        data: mockFeedbackList,
+        error: null
+      }),
+      order: vi.fn().mockReturnThis()
+    };
+    vi.mocked(supabase.from).mockReturnValue(mockFromChain);
   });
 
   it('renders loading state initially', async () => {

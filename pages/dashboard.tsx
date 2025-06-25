@@ -5,7 +5,7 @@ import Link from 'next/link';
 import MainLayout from '../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import Avatar from '../components/common/Avatar';
-import { getUserRoles, getCommunityMembers } from '../utils/roleUtils';
+import { getUserRoles, getCommunityMembers, getEffectiveRoleAndStatus } from '../utils/roleUtils';
 import { UserRole, UserProfile } from '../types/roles';
 import { updateAvatarCache } from '../hooks/useAvatar';
 import { Home, Settings, Users } from 'lucide-react';
@@ -21,6 +21,7 @@ export default function Dashboard() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [profileData, setProfileData] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<string>('');
   const [allCourses, setAllCourses] = useState<any[]>([]);
   const [myCourses, setMyCourses] = useState<any[]>([]);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
@@ -109,8 +110,9 @@ export default function Dashboard() {
               
               setProfileData(profileData);
               
-              // Check if user is admin from either metadata or profile
-              const isAdminUser = profileData.role === 'admin' || adminRole;
+              // Get effective role and admin status (handles dev impersonation)
+              const { effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(userData.user.id);
+              setUserRole(effectiveRole);
               setIsAdmin(isAdminUser);
               
               if (profileData.first_name && profileData.last_name) {
@@ -285,6 +287,7 @@ export default function Dashboard() {
         pageTitle=""
         breadcrumbs={[]}
         isAdmin={isAdmin}
+        userRole={userRole}
         onLogout={handleLogout}
         avatarUrl={avatarUrl || undefined}
       >
@@ -305,6 +308,7 @@ export default function Dashboard() {
       pageTitle=""
       breadcrumbs={[]}
       isAdmin={isAdmin}
+      userRole={userRole}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >

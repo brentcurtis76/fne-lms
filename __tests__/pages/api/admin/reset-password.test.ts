@@ -1,11 +1,11 @@
 import { createMocks } from 'node-mocks-http';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import handler from '../reset-password';
+import handler from '../../../../pages/api/admin/reset-password';
 import { createClient } from '@supabase/supabase-js';
 
-// Mock Supabase
+// Mock createClient for API tests
 vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(),
+  createClient: vi.fn()
 }));
 
 describe('/api/admin/reset-password', () => {
@@ -55,7 +55,7 @@ describe('/api/admin/reset-password', () => {
     };
 
     // Make createClient return our mock
-    (createClient as any).mockReturnValue(mockSupabaseClient);
+    vi.mocked(createClient).mockReturnValue(mockSupabaseClient);
   });
 
   it('should reject non-POST requests', async () => {

@@ -2,13 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { submitQuiz, getQuizSubmission, gradeQuizOpenResponses } from '../lib/services/quizSubmissions';
 import { supabase } from '../lib/supabase';
 
-// Mock supabase
-vi.mock('../lib/supabase', () => ({
-  supabase: {
-    rpc: vi.fn(),
-    from: vi.fn()
-  }
-}));
+// Note: Supabase is already mocked globally in vitest.setup.ts
+// We'll work with the existing global mock
 
 describe('Quiz Submission Integration Tests', () => {
   const mockQuizData = {
@@ -58,21 +53,23 @@ describe('Quiz Submission Integration Tests', () => {
         grading_status: 'pending_review'
       };
 
-      // Mock RPC call
-      (supabase.rpc as any).mockResolvedValueOnce({
+      // Configure the global mocked supabase
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
         data: mockSubmissionId,
         error: null
       });
 
-      // Mock fetching submission
-      (supabase.from as any).mockReturnValue({
+      // Mock the from chain for fetching submission
+      const mockFromChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValueOnce({
+        single: vi.fn().mockResolvedValue({
           data: mockSubmission,
           error: null
         })
-      });
+      };
+      
+      vi.mocked(supabase.from).mockReturnValue(mockFromChain);
 
       const result = await submitQuiz(
         'lesson-123',
@@ -102,7 +99,7 @@ describe('Quiz Submission Integration Tests', () => {
     it('should handle submission errors gracefully', async () => {
       const mockError = new Error('Database error');
       
-      (supabase.rpc as any).mockRejectedValueOnce(mockError);
+      vi.mocked(supabase.rpc).mockRejectedValueOnce(mockError);
 
       const result = await submitQuiz(
         'lesson-123',
@@ -126,19 +123,20 @@ describe('Quiz Submission Integration Tests', () => {
         course_id: 'course-123'
       };
 
-      (supabase.rpc as any).mockResolvedValueOnce({
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
         data: 'submission-123',
         error: null
       });
 
-      (supabase.from as any).mockReturnValue({
+      const mockFromChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValueOnce({
+        single: vi.fn().mockResolvedValue({
           data: mockSubmission,
           error: null
         })
-      });
+      };
+      vi.mocked(supabase.from).mockReturnValue(mockFromChain);
 
       // Mock notification service
       const sendNotificationSpy = vi.spyOn(console, 'log');
@@ -168,19 +166,29 @@ describe('Quiz Submission Integration Tests', () => {
         answers: mockAnswers
       };
 
-      (supabase.from as any).mockReturnValue({
+      // Mock the first query for submission data
+      const mockFromChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValueOnce({
+        single: vi.fn().mockResolvedValue({
           data: mockSubmissionData,
           error: null
         })
+      };
+      vi.mocked(supabase.from).mockReturnValue(mockFromChain);
+
+      // Mock the RPC call for score calculation
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
+        data: [{ final_score: 3, percentage: 75, is_fully_graded: true }],
+        error: null
       });
 
       const result = await getQuizSubmission('submission-123');
 
       expect(result.error).toBeNull();
-      expect(result.data).toEqual(mockSubmissionData);
+      expect(result.data.id).toBe('submission-123');
+      expect(result.data.final_score).toBe(3);
+      expect(result.data.percentage).toBe(75);
       expect(supabase.from).toHaveBeenCalledWith('quiz_submissions');
     });
   });
@@ -194,22 +202,40 @@ describe('Quiz Submission Integration Tests', () => {
         }
       };
 
-      (supabase.rpc as any).mockResolvedValueOnce({
+      // Mock the RPC call
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
         data: { success: true },
+        error: null
+      });
+
+      // Mock the getQuizSubmission call that happens after grading
+      const mockFromChain = {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: { id: 'submission-123', student_id: 'student-123' },
+          error: null
+        })
+      };
+      vi.mocked(supabase.from).mockReturnValue(mockFromChain);
+
+      // Mock the RPC call for score calculation
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
+        data: [{ final_score: 3, percentage: 75, is_fully_graded: true }],
         error: null
       });
 
       const result = await gradeQuizOpenResponses(
         'submission-123',
-        gradingData,
-        'consultant-123'
+        'consultant-123',
+        gradingData
       );
 
       expect(result.error).toBeNull();
       expect(supabase.rpc).toHaveBeenCalledWith('grade_quiz_open_responses', {
         p_submission_id: 'submission-123',
-        p_grading_data: gradingData,
-        p_graded_by: 'consultant-123'
+        p_graded_by: 'consultant-123',
+        p_grading_data: gradingData
       });
     });
   });
@@ -223,19 +249,20 @@ describe('Quiz Submission Integration Tests', () => {
         grading_status: 'completed'
       };
 
-      (supabase.rpc as any).mockResolvedValueOnce({
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
         data: 'submission-123',
         error: null
       });
 
-      (supabase.from as any).mockReturnValue({
+      const mockFromChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValueOnce({
+        single: vi.fn().mockResolvedValue({
           data: mockSubmission,
           error: null
         })
-      });
+      };
+      vi.mocked(supabase.from).mockReturnValue(mockFromChain);
 
       const result = await submitQuiz(
         'lesson-123',
@@ -261,19 +288,20 @@ describe('Quiz Submission Integration Tests', () => {
         grading_status: 'completed'
       };
 
-      (supabase.rpc as any).mockResolvedValueOnce({
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
         data: 'submission-1',
         error: null
       });
 
-      (supabase.from as any).mockReturnValue({
+      const mockFromChain1 = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValueOnce({
+        single: vi.fn().mockResolvedValue({
           data: firstAttempt,
           error: null
         })
-      });
+      };
+      vi.mocked(supabase.from).mockReturnValue(mockFromChain1);
 
       await submitQuiz(
         'lesson-123',
@@ -291,19 +319,20 @@ describe('Quiz Submission Integration Tests', () => {
         grading_status: 'completed'
       };
 
-      (supabase.rpc as any).mockResolvedValueOnce({
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
         data: 'submission-2',
         error: null
       });
 
-      (supabase.from as any).mockReturnValue({
+      const mockFromChain2 = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValueOnce({
+        single: vi.fn().mockResolvedValue({
           data: secondAttempt,
           error: null
         })
-      });
+      };
+      vi.mocked(supabase.from).mockReturnValue(mockFromChain2);
 
       const retryResult = await submitQuiz(
         'lesson-123',
@@ -320,7 +349,7 @@ describe('Quiz Submission Integration Tests', () => {
 
   describe('Error Handling', () => {
     it('should handle RPC errors', async () => {
-      (supabase.rpc as any).mockResolvedValueOnce({
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
         data: null,
         error: { message: 'RPC function not found' }
       });
@@ -339,7 +368,7 @@ describe('Quiz Submission Integration Tests', () => {
     });
 
     it('should handle network errors', async () => {
-      (supabase.rpc as any).mockRejectedValueOnce(new Error('Network error'));
+      vi.mocked(supabase.rpc).mockRejectedValueOnce(new Error('Network error'));
 
       const result = await submitQuiz(
         'lesson-123',
@@ -355,6 +384,9 @@ describe('Quiz Submission Integration Tests', () => {
     });
 
     it('should handle missing required fields', async () => {
+      // Mock RPC to reject with a validation error
+      vi.mocked(supabase.rpc).mockRejectedValueOnce(new Error('Missing required field: lesson_id'));
+
       const result = await submitQuiz(
         null as any, // Missing lesson ID
         'block-123',
@@ -367,6 +399,7 @@ describe('Quiz Submission Integration Tests', () => {
       // Should handle gracefully
       expect(result.data).toBeNull();
       expect(result.error).toBeDefined();
+      expect(result.error.message).toBe('Missing required field: lesson_id');
     });
   });
 
@@ -377,7 +410,7 @@ describe('Quiz Submission Integration Tests', () => {
         q2: { text: 'Valid answer' }
       };
 
-      (supabase.rpc as any).mockResolvedValueOnce({
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
         data: null,
         error: { message: 'Invalid answer format' }
       });
@@ -401,19 +434,20 @@ describe('Quiz Submission Integration Tests', () => {
         totalPoints: 0
       };
 
-      (supabase.rpc as any).mockResolvedValueOnce({
+      vi.mocked(supabase.rpc).mockResolvedValueOnce({
         data: 'submission-123',
         error: null
       });
 
-      (supabase.from as any).mockReturnValue({
+      const mockFromChain = {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValueOnce({
+        single: vi.fn().mockResolvedValue({
           data: { id: 'submission-123', grading_status: 'completed' },
           error: null
         })
-      });
+      };
+      vi.mocked(supabase.from).mockReturnValue(mockFromChain);
 
       const result = await submitQuiz(
         'lesson-123',

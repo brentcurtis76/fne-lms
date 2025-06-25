@@ -23,13 +23,19 @@ vi.mock('next/router', () => ({
 }));
 
 // Mock react-hot-toast
+const toastMock = {
+  success: vi.fn(),
+  error: vi.fn(),
+  loading: vi.fn(),
+  dismiss: vi.fn(),
+  promise: vi.fn(),
+  custom: vi.fn()
+};
+
 vi.mock('react-hot-toast', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-    loading: vi.fn(),
-    dismiss: vi.fn()
-  }
+  default: toastMock,
+  toast: toastMock,
+  Toaster: () => null
 }));
 
 // Mock window.location and other browser APIs
@@ -95,6 +101,9 @@ Object.defineProperty(document, 'referrer', {
 // Mock fetch globally
 global.fetch = vi.fn();
 
+// Import enhanced test utilities
+import { createSupabaseMock } from './__tests__/utils/supabase-mock-builder';
+
 // Enhanced Supabase client mock with sophisticated async handling
 vi.mock('./lib/supabase', () => {
   // Create a more realistic mock that handles complex async operations
@@ -120,7 +129,10 @@ vi.mock('./lib/supabase', () => {
         single: vi.fn().mockImplementation(() => 
           Promise.resolve({ data: { id: 'test-id-123', ...defaultData }, error: defaultError })
         )
-      })
+      }),
+      then: vi.fn().mockImplementation(() => 
+        Promise.resolve({ data: { id: 'test-id-123', ...defaultData }, error: defaultError })
+      )
     }),
     update: vi.fn().mockReturnValue({
       eq: vi.fn().mockImplementation(() => 
@@ -238,6 +250,31 @@ vi.mock('./lib/notificationService', () => ({
     })
   }
 }));
+
+// Mock dev role service - but allow test files to override with their own mocks
+vi.mock('./lib/services/devRoleService', async () => {
+  const actual = await vi.importActual('./lib/services/devRoleService');
+  return {
+    ...actual,
+    devRoleService: {
+      isDevUser: vi.fn().mockResolvedValue(false),
+      getActiveImpersonation: vi.fn().mockResolvedValue(null),
+      startImpersonation: vi.fn().mockResolvedValue({ success: true, sessionToken: 'test-token' }),
+      endImpersonation: vi.fn().mockResolvedValue({ success: true }),
+      getEffectiveRole: vi.fn().mockResolvedValue('admin'),
+      getAvailableRoles: vi.fn().mockReturnValue([
+        { value: 'admin', label: 'Administrador Global', description: 'Control total de la plataforma' },
+        { value: 'consultor', label: 'Consultor FNE', description: 'Instructor asignado a colegios' }
+      ]),
+      getAvailableSchools: vi.fn().mockResolvedValue([]),
+      getAvailableGenerations: vi.fn().mockResolvedValue([]),
+      getAvailableCommunities: vi.fn().mockResolvedValue([]),
+      getAuditLog: vi.fn().mockResolvedValue([]),
+      getSampleUsers: vi.fn().mockResolvedValue([]),
+      initialize: vi.fn().mockResolvedValue(undefined)
+    }
+  };
+});
 
 // Advanced test utilities
 import { act, render } from '@testing-library/react';

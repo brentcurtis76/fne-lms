@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 import GroupSubmissionModalV2 from '@/components/assignments/GroupSubmissionModalV2';
@@ -105,14 +105,16 @@ describe('GroupSubmissionModalV2', () => {
 
   describe('Basic Rendering', () => {
     it('renders modal with assignment details', async () => {
-      render(
-        <GroupSubmissionModalV2
-          assignment={mockAssignment}
-          group={mockGroup}
-          onClose={mockOnClose}
-          onSubmit={mockOnSubmit}
-        />
-      );
+      await act(async () => {
+        render(
+          <GroupSubmissionModalV2
+            assignment={mockAssignment}
+            group={mockGroup}
+            onClose={mockOnClose}
+            onSubmit={mockOnSubmit}
+          />
+        );
+      });
 
       await waitFor(() => {
         expect(screen.getByText('Test Group Assignment')).toBeInTheDocument();
@@ -121,15 +123,17 @@ describe('GroupSubmissionModalV2', () => {
       });
     });
 
-    it('shows loading state initially', () => {
-      render(
-        <GroupSubmissionModalV2
-          assignment={mockAssignment}
-          group={mockGroup}
-          onClose={mockOnClose}
-          onSubmit={mockOnSubmit}
-        />
-      );
+    it('shows loading state initially', async () => {
+      await act(async () => {
+        render(
+          <GroupSubmissionModalV2
+            assignment={mockAssignment}
+            group={mockGroup}
+            onClose={mockOnClose}
+            onSubmit={mockOnSubmit}
+          />
+        );
+      });
 
       // Component shows loading animation, not text
       expect(screen.getByText('Entregar Tarea Grupal')).toBeInTheDocument();
@@ -140,14 +144,16 @@ describe('GroupSubmissionModalV2', () => {
     });
 
     it('displays group members after loading', async () => {
-      render(
-        <GroupSubmissionModalV2
-          assignment={mockAssignment}
-          group={mockGroup}
-          onClose={mockOnClose}
-          onSubmit={mockOnSubmit}
-        />
-      );
+      await act(async () => {
+        render(
+          <GroupSubmissionModalV2
+            assignment={mockAssignment}
+            group={mockGroup}
+            onClose={mockOnClose}
+            onSubmit={mockOnSubmit}
+          />
+        );
+      });
 
       await waitFor(() => {
         expect(screen.getByText('Student 1')).toBeInTheDocument();

@@ -2,7 +2,9 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 import { toast } from 'react-hot-toast';
+import { supabase } from '../../../lib/supabase';
 import FeedbackDetail from '../../../components/feedback/FeedbackDetail';
 import { renderWithAct, waitForStateUpdate, createMockFeedback, flushPromises } from '../../utils/test-utils';
 
@@ -15,9 +17,9 @@ const mockToast = toast as any;
 const mockFeedback = createMockFeedback();
 
 describe('FeedbackDetail', () => {
-  const mockOnClose = jest.fn();
-  const mockOnStatusUpdate = jest.fn();
-  const mockOnRefresh = jest.fn();
+  const mockOnClose = vi.fn();
+  const mockOnStatusUpdate = vi.fn();
+  const mockOnRefresh = vi.fn();
   
   beforeEach(() => {
     vi.clearAllMocks();
@@ -220,6 +222,28 @@ describe('FeedbackDetail', () => {
 
   it('can add comments', async () => {
     const user = userEvent.setup();
+    
+    // Mock successful insert for feedback activity
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      if (table === 'feedback_activity') {
+        return {
+          insert: vi.fn().mockImplementation(() => 
+            Promise.resolve({ 
+              data: { id: 'activity-123' }, 
+              error: null 
+            })
+          ),
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          order: vi.fn().mockReturnThis(),
+        } as any;
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      } as any;
+    });
     
     await renderWithAct(
       <FeedbackDetail

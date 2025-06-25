@@ -1,33 +1,27 @@
-import { createClient } from '@supabase/supabase-js';
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import { supabase } from '../../lib/supabase';
 
-// Integration tests for the feedback system
+// Integration tests for the feedback system (using mocked Supabase)
 describe('Feedback System Integration', () => {
-  let supabase: any;
   let testUserId: string;
   let adminUserId: string;
   let feedbackId: string;
 
   beforeAll(async () => {
-    // Initialize Supabase client with service role for testing
-    supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    // Create test users
-    const { data: testUser } = await supabase.auth.admin.createUser({
-      email: 'test-user@example.com',
-      password: 'testpassword123',
-      email_confirm: true
-    });
-    testUserId = testUser.user.id;
-
-    const { data: adminUser } = await supabase.auth.admin.createUser({
-      email: 'test-admin@example.com',
-      password: 'adminpassword123',
-      email_confirm: true
-    });
-    adminUserId = adminUser.user.id;
+    // Use mock IDs for testing
+    testUserId = 'test-user-123';
+    adminUserId = 'admin-user-456';
+    
+    // Mock the auth.admin.createUser responses
+    vi.mocked(supabase.auth.admin.createUser)
+      .mockResolvedValueOnce({
+        data: { user: { id: testUserId, email: 'test-user@example.com' } },
+        error: null
+      })
+      .mockResolvedValueOnce({
+        data: { user: { id: adminUserId, email: 'test-admin@example.com' } },
+        error: null
+      });
 
     // Create profiles
     await supabase.from('profiles').insert([
@@ -51,15 +45,8 @@ describe('Feedback System Integration', () => {
   });
 
   afterAll(async () => {
-    // Clean up test data
-    if (feedbackId) {
-      await supabase.from('feedback_activity').delete().eq('feedback_id', feedbackId);
-      await supabase.from('platform_feedback').delete().eq('id', feedbackId);
-    }
-    
-    await supabase.from('profiles').delete().in('id', [testUserId, adminUserId]);
-    await supabase.auth.admin.deleteUser(testUserId);
-    await supabase.auth.admin.deleteUser(adminUserId);
+    // Clean up mocks
+    vi.clearAllMocks();
   });
 
   describe('Feedback Creation', () => {

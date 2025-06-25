@@ -102,6 +102,15 @@ npm run dev  # MUST be port 3000
 - ✅ Mobile responsive design
 
 # RECENT UPDATES
+- **DEV ROLE IMPERSONATION FIXES (January 2025)**:
+  - Fixed critical bug where dev role impersonation wasn't working correctly for sidebar navigation
+  - Issue: When impersonating non-admin roles, sidebar still showed admin-only items
+  - Root cause: `isGlobalAdmin` and `hasAdminPrivileges` functions were checking actual database role even during impersonation
+  - Solution: Updated both functions to return only impersonated role privileges when impersonation is active
+  - Updated dashboard.tsx, detailed-reports.tsx, and feedback.tsx to use `getEffectiveRoleAndStatus` utility
+  - Added debug logging to help troubleshoot role detection issues
+  - **UI Improvement**: Replaced native browser confirm() dialog with custom modal matching FNE design
+  - **Better UX**: Replaced alert() calls with toast notifications using react-hot-toast
 - Avatar performance optimization with caching
 - Real-time notifications complete
 - Expense report export (PDF/Excel)
@@ -314,6 +323,15 @@ npm run dev  # MUST be port 3000
 - **Documentation**: See `SUPABASE_MCP_SETUP.md` and `SUPABASE_MCP_QUICK_REFERENCE.md`
 
 # PENDING TASKS
+
+## Dev Role Impersonation - Complete Fix Needed
+- ⏳ **26 pages still need updates** to use `getEffectiveRoleAndStatus` instead of checking `profile.role` directly
+- ⏳ Run `node scripts/fix-role-impersonation.js` to see list of pages needing fixes
+- ⏳ Each page needs:
+  1. Import `getEffectiveRoleAndStatus` from utils/roleUtils
+  2. Replace direct `profileData.role` checks with the utility function
+  3. Add `userRole` state and pass it to MainLayout component
+- ⏳ Without these fixes, dev impersonation won't work correctly on those pages
 
 ## Instagram Feed - Phase 1 Completion (PRIORITY)
 - ✅ Database tables and RLS policies working

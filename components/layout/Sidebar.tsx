@@ -314,18 +314,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   };
 
   const filteredNavigationItems = NAVIGATION_ITEMS.filter(item => {
-    // Debug logging
-    if (item.id === 'group-assignments') {
-      console.log('Group Assignments item check:', {
-        itemId: item.id,
-        consultantOnly: item.consultantOnly,
-        userRole,
-        isAdmin,
-        isIncluded: ['admin', 'consultor'].includes(userRole || ''),
-        willShow: !item.consultantOnly || ['admin', 'consultor'].includes(userRole || '')
-      });
-    }
-    
     // Check admin-only items
     if (item.adminOnly && !isAdmin) return false;
     

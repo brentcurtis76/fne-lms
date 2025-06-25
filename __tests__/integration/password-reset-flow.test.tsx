@@ -7,22 +7,7 @@ import ChangePasswordPage from '../../pages/change-password';
 import { supabase } from '../../lib/supabase';
 import { checkProfileCompletion } from '../../utils/profileUtils';
 
-// Mock dependencies
-vi.mock('next/router', () => ({
-  useRouter: vi.fn(),
-}));
-
-vi.mock('../../lib/supabase', () => ({
-  supabase: {
-    auth: {
-      signInWithPassword: vi.fn(),
-      getSession: vi.fn(),
-      updateUser: vi.fn(),
-    },
-    from: vi.fn(),
-  },
-}));
-
+// Mock utils only - router and supabase are already mocked globally
 vi.mock('../../utils/profileUtils', () => ({
   checkProfileCompletion: vi.fn(),
 }));
@@ -38,7 +23,7 @@ describe('Password Reset Flow Integration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useRouter as any).mockReturnValue(mockRouter);
+    vi.mocked(useRouter).mockReturnValue(mockRouter as any);
   });
 
   describe('Login with password reset required', () => {

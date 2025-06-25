@@ -13,13 +13,27 @@ import {
   PermissionKey,
   GrowthCommunity 
 } from '../types/roles';
+import { devRoleService } from '../lib/services/devRoleService';
 
 /**
  * Check if user has global admin privileges
  * This is the ONLY role with full admin powers in the new system
+ * Also considers dev impersonation
  */
 export async function isGlobalAdmin(userId: string): Promise<boolean> {
   try {
+    // Check if user is a dev with active impersonation
+    const isDev = await isDevUser(userId);
+    if (isDev) {
+      const activeImpersonation = await devRoleService.getActiveImpersonation(userId);
+      if (activeImpersonation) {
+        // When impersonating, ONLY return true if impersonating admin
+        // If impersonating any other role, return false immediately
+        return activeImpersonation.impersonated_role === 'admin';
+      }
+    }
+
+    // No impersonation active, check actual admin role
     const { data, error } = await supabase
       .from('user_roles')
       .select('id')
@@ -43,10 +57,21 @@ export async function isGlobalAdmin(userId: string): Promise<boolean> {
 /**
  * Check for backward compatibility with legacy admin role
  * Returns true if user is either global_admin OR legacy admin
+ * Also considers dev impersonation
  */
 export async function hasAdminPrivileges(userId: string): Promise<boolean> {
   try {
-    // Check new role system first
+    // IMPORTANT: Check if user is impersonating first
+    const isDev = await isDevUser(userId);
+    if (isDev) {
+      const activeImpersonation = await devRoleService.getActiveImpersonation(userId);
+      if (activeImpersonation) {
+        // When impersonating, ONLY return true if impersonating an admin
+        return activeImpersonation.impersonated_role === 'admin';
+      }
+    }
+
+    // Check new role system first (no impersonation active)
     const isNewAdmin = await isGlobalAdmin(userId);
     if (isNewAdmin) return true;
 
@@ -70,10 +95,36 @@ export async function hasAdminPrivileges(userId: string): Promise<boolean> {
 }
 
 /**
- * Get all active roles for a user
+ * Get all active roles for a user (considers dev impersonation)
  */
 export async function getUserRoles(userId: string): Promise<UserRole[]> {
   try {
+    // Check if user is a dev with active impersonation
+    const isDev = await isDevUser(userId);
+    if (isDev) {
+      const activeImpersonation = await devRoleService.getActiveImpersonation(userId);
+      if (activeImpersonation) {
+        // Return a synthetic role based on impersonation
+        return [{
+          id: 'dev-impersonation',
+          user_id: userId,
+          role_type: activeImpersonation.impersonated_role,
+          school_id: activeImpersonation.school_id ? String(activeImpersonation.school_id) : undefined,
+          generation_id: activeImpersonation.generation_id,
+          community_id: activeImpersonation.community_id,
+          is_active: true,
+          assigned_at: activeImpersonation.started_at,
+          reporting_scope: {},
+          feedback_scope: {},
+          created_at: activeImpersonation.started_at,
+          school: undefined,
+          generation: undefined,
+          community: undefined
+        }];
+      }
+    }
+
+    // No impersonation, return actual roles
     const { data, error } = await supabase
       .from('user_roles')
       .select(`
@@ -95,6 +146,30 @@ export async function getUserRoles(userId: string): Promise<UserRole[]> {
   } catch (error) {
     console.error('Error in getUserRoles:', error);
     return [];
+  }
+}
+
+/**
+ * Check if user is a developer
+ */
+export async function isDevUser(userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('dev_users')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .limit(1);
+
+    if (error) {
+      console.error('Error checking dev status:', error);
+      return false;
+    }
+
+    return data && data.length > 0;
+  } catch (error) {
+    console.error('Error in isDevUser:', error);
+    return false;
   }
 }
 
@@ -586,4 +661,49 @@ export async function canAccessAdminFeatures(userId: string): Promise<boolean> {
   // In the new system, ONLY admin role has admin access
   // But we maintain backward compatibility with legacy admin role
   return await hasAdminPrivileges(userId);
+}
+
+/**
+ * Get effective role and admin status for a user
+ * This handles dev impersonation and legacy role fallback
+ */
+export async function getEffectiveRoleAndStatus(userId: string): Promise<{
+  effectiveRole: string;
+  isAdmin: boolean;
+  activeRole: UserRole | null;
+}> {
+  try {
+    // Get user roles with dev impersonation support
+    const userRoles = await getUserRoles(userId);
+    const highestRole = getHighestRole(userRoles);
+    
+    // Also check legacy profile role as fallback
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', userId)
+      .single();
+    
+    // Use highest role from new system, fall back to legacy role
+    const effectiveRole = highestRole || profileData?.role || '';
+    
+    // Check admin status (handles both systems)
+    const isAdmin = await hasAdminPrivileges(userId);
+    
+    // Get the active role object for organizational context
+    const activeRole = userRoles.find(r => r.role_type === effectiveRole) || null;
+    
+    return {
+      effectiveRole,
+      isAdmin,
+      activeRole
+    };
+  } catch (error) {
+    console.error('Error in getEffectiveRoleAndStatus:', error);
+    return {
+      effectiveRole: '',
+      isAdmin: false,
+      activeRole: null
+    };
+  }
 }

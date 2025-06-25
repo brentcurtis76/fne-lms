@@ -12,6 +12,7 @@ import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import reportsService from '../lib/services/reports';
 import { getReportScopeDescription } from '../utils/reportFilters';
+import { getUserRoles, getHighestRole } from '../utils/roleUtils';
 
 interface ProgressUser {
   user_id: string;
@@ -119,40 +120,49 @@ export default function DetailedReports() {
       }
       setUser(session.user);
 
+      // Get user roles with dev impersonation support
+      const userRoles = await getUserRoles(session.user.id);
+      const highestRole = getHighestRole(userRoles);
+      
+      // Also get profile data for legacy support and avatar
       const { data: profileData } = await supabase
         .from('profiles')
         .select('role, first_name, last_name, avatar_url, school_id, generation_id, community_id')
         .eq('id', session.user.id)
         .single();
 
-      if (profileData) {
-        const role = profileData.role;
-        setUserRole(role);
-        setIsAdmin(role === 'admin');
+      if (highestRole || profileData?.role) {
+        // Use highest role from new system, fall back to legacy role
+        const effectiveRole = highestRole || profileData?.role || '';
+        setUserRole(effectiveRole);
+        setIsAdmin(effectiveRole === 'admin');
 
         // Immediately redirect docentes without showing any UI
-        if (role === 'docente') {
+        if (effectiveRole === 'docente') {
           router.push('/dashboard');
           return;
         }
 
-        if (!hasReportingAccess(role)) {
+        if (!hasReportingAccess(effectiveRole)) {
           toast.error('No tienes permisos para acceder a los reportes.');
           router.push('/dashboard');
           return;
         }
 
-        if (profileData.avatar_url) {
+        if (profileData?.avatar_url) {
           setAvatarUrl(profileData.avatar_url);
         }
 
+        // Get organizational context from user roles if available
+        const activeRole = userRoles.find(r => r.role_type === effectiveRole) || null;
+        
         // Store full profile for role-based filtering
         setUserProfile({
           id: session.user.id,
-          role: profileData.role,
-          school_id: profileData.school_id,
-          generation_id: profileData.generation_id,
-          community_id: profileData.community_id
+          role: effectiveRole,
+          school_id: activeRole?.school_id || profileData?.school_id,
+          generation_id: activeRole?.generation_id || profileData?.generation_id,
+          community_id: activeRole?.community_id || profileData?.community_id
         });
       }
     } catch (error) {
@@ -181,10 +191,9 @@ export default function DetailedReports() {
         throw new Error('Error fetching report data');
       }
 
-      // For now, use mock data until the database views are created
-      // In production, this would use progressResult.data and summaryResult.data
-      let mockUsers: ProgressUser[] = [];
-      let mockSummary: Summary = {
+      // Use real data from the view
+      const users = progressResult.data || [];
+      const summary = summaryResult.data || {
         total_users: 0,
         active_users: 0,
         completed_users: 0,
@@ -193,125 +202,23 @@ export default function DetailedReports() {
         average_quiz_score: 0
       };
 
-      // Generate role-specific mock data
-      if (userRole === 'admin') {
-        // Admins see all users
-        mockUsers = [
-          {
-            user_id: '1',
-            user_name: 'María González',
-            user_email: 'maria@example.com',
-            user_role: 'docente',
-            school_name: 'Escuela Norte',
-            generation_name: 'Generación 2024',
-            community_name: 'Comunidad Alpha',
-            total_courses_enrolled: 3,
-            completed_courses: 1,
-            courses_in_progress: 2,
-            total_lessons_completed: 15,
-            completion_percentage: 65,
-            total_time_spent_minutes: 720,
-            average_quiz_score: 85,
-            last_activity_date: '2024-06-01'
-          },
-          {
-            user_id: '2',
-            user_name: 'Carlos Rodríguez',
-            user_email: 'carlos@example.com',
-            user_role: 'docente',
-            school_name: 'Escuela Sur',
-            generation_name: 'Generación 2024',
-            community_name: 'Comunidad Beta',
-            total_courses_enrolled: 2,
-            completed_courses: 2,
-            courses_in_progress: 0,
-            total_lessons_completed: 24,
-            completion_percentage: 100,
-            total_time_spent_minutes: 960,
-            average_quiz_score: 92,
-            last_activity_date: '2024-06-02'
-          }
-        ];
-        mockSummary = {
-          total_users: 50,
-          active_users: 35,
-          completed_users: 12,
-          average_completion: 72,
-          total_time_spent: 15000,
-          average_quiz_score: 87
-        };
-      } else if (userRole === 'consultor') {
-        // Consultants see only their assigned students
-        mockUsers = [
-          {
-            user_id: '3',
-            user_name: 'Ana Martínez',
-            user_email: 'ana@example.com',
-            user_role: 'docente',
-            school_name: 'Escuela Norte',
-            generation_name: 'Generación 2024',
-            community_name: 'Comunidad Alpha',
-            total_courses_enrolled: 2,
-            completed_courses: 1,
-            courses_in_progress: 1,
-            total_lessons_completed: 12,
-            completion_percentage: 50,
-            total_time_spent_minutes: 480,
-            average_quiz_score: 78,
-            last_activity_date: '2024-06-03'
-          }
-        ];
-        mockSummary = {
-          total_users: 5,
-          active_users: 4,
-          completed_users: 1,
-          average_completion: 60,
-          total_time_spent: 2400,
-          average_quiz_score: 82
-        };
-      } else if (userRole === 'equipo_directivo') {
-        // School leaders see only their school
-        mockUsers = [
-          {
-            user_id: '1',
-            user_name: 'María González',
-            user_email: 'maria@example.com',
-            user_role: 'docente',
-            school_name: 'Escuela Norte',
-            generation_name: 'Generación 2024',
-            community_name: 'Comunidad Alpha',
-            total_courses_enrolled: 3,
-            completed_courses: 1,
-            courses_in_progress: 2,
-            total_lessons_completed: 15,
-            completion_percentage: 65,
-            total_time_spent_minutes: 720,
-            average_quiz_score: 85,
-            last_activity_date: '2024-06-01'
-          }
-        ];
-        mockSummary = {
-          total_users: 15,
-          active_users: 12,
-          completed_users: 4,
-          average_completion: 68,
-          total_time_spent: 4500,
-          average_quiz_score: 85
-        };
-      }
+      // Apply pagination
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedUsers = users.slice(startIndex, endIndex);
 
-      const mockPagination: Pagination = {
+      const pagination: Pagination = {
         current_page: currentPage,
-        total_pages: Math.ceil(mockUsers.length / pageSize),
-        total_count: mockUsers.length,
+        total_pages: Math.ceil(users.length / pageSize),
+        total_count: users.length,
         limit: pageSize,
-        has_next: currentPage < Math.ceil(mockUsers.length / pageSize),
+        has_next: currentPage < Math.ceil(users.length / pageSize),
         has_prev: currentPage > 1
       };
 
-      setUsers(mockUsers);
-      setSummary(mockSummary);
-      setPagination(mockPagination);
+      setUsers(paginatedUsers);
+      setSummary(summary);
+      setPagination(pagination);
       
     } catch (error) {
       console.error('Error fetching detailed progress:', error);
@@ -408,6 +315,7 @@ export default function DetailedReports() {
       pageTitle=""
       breadcrumbs={[]}
       isAdmin={isAdmin}
+      userRole={userRole}
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
@@ -446,24 +354,6 @@ export default function DetailedReports() {
             </div>
           )}
 
-          {/* Notice Banner - Development Mode */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-blue-800">
-                  Sistema de Reportes Optimizado - En Desarrollo
-                </h3>
-                <div className="mt-2 text-sm text-blue-700">
-                  <p>Esta página está optimizada con todas las mejoras de rendimiento y mobile. Los datos mostrados son de ejemplo hasta que se conecte con las APIs reales.</p>
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Tabs Navigation */}
           <div className="mb-6">

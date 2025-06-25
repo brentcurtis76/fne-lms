@@ -210,7 +210,6 @@ export default function QuizReviewsPage() {
                           <p>Curso: <span className="font-medium text-gray-900">{review.course_title}</span></p>
                           <p>Lección: <span className="font-medium text-gray-900">{review.lesson_title}</span></p>
                           <p>Preguntas abiertas: <span className="font-medium text-gray-900">{review.open_responses?.length || 0}</span></p>
-                          <p>Puntos por calificar: <span className="font-medium text-gray-900">{review.manual_gradable_points}</span></p>
                         </div>
                         
                         <div className="flex items-center gap-4 mt-3">

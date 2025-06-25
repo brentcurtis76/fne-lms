@@ -1,109 +1,99 @@
 import React, { useState } from 'react';
-import { AlertCircle, CheckCircle, MessageSquare, Save } from 'lucide-react';
-import { gradeQuizOpenResponses } from '@/lib/services/quizSubmissions';
+import { MessageSquare, Save, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { supabase } from '@/lib/supabase';
 
 interface QuizReviewPanelProps {
   submission: any;
   onGradingComplete?: () => void;
 }
 
-interface GradingData {
+interface QuestionFeedback {
   questionId: string;
-  score: number;
   feedback: string;
 }
 
 export default function QuizReviewPanel({ submission, onGradingComplete }: QuizReviewPanelProps) {
-  const [gradingData, setGradingData] = useState<Record<string, GradingData>>({});
+  const [reviewStatus, setReviewStatus] = useState<'pass' | 'needs_review'>('pass');
+  const [generalFeedback, setGeneralFeedback] = useState('');
+  const [questionFeedback, setQuestionFeedback] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   
-  // Initialize grading data for open-ended questions
+  // Initialize feedback data for open-ended questions
   React.useEffect(() => {
     if (submission?.open_responses) {
-      const initialData: Record<string, GradingData> = {};
+      const initialFeedback: Record<string, string> = {};
       submission.open_responses.forEach((response: any) => {
-        initialData[response.question_id] = {
-          questionId: response.question_id,
-          score: 0,
-          feedback: ''
-        };
+        initialFeedback[response.question_id] = '';
       });
-      setGradingData(initialData);
+      setQuestionFeedback(initialFeedback);
     }
   }, [submission]);
   
-  const handleScoreChange = (questionId: string, score: number) => {
-    setGradingData(prev => ({
-      ...prev,
-      [questionId]: {
-        ...prev[questionId],
-        score: Math.max(0, score) // Ensure non-negative
-      }
-    }));
-  };
-  
   const handleFeedbackChange = (questionId: string, feedback: string) => {
-    setGradingData(prev => ({
+    setQuestionFeedback(prev => ({
       ...prev,
-      [questionId]: {
-        ...prev[questionId],
-        feedback
-      }
+      [questionId]: feedback
     }));
   };
   
-  const handleSubmitGrading = async () => {
-    // Validate that all questions have been graded
-    const ungradedQuestions = submission.open_responses.filter((response: any) => {
-      const grading = gradingData[response.question_id];
-      return !grading || grading?.score === undefined || grading?.score === null;
-    });
-    
-    if (ungradedQuestions.length > 0) {
-      toast.error('Por favor asigna puntos a todas las preguntas abiertas');
-      return;
-    }
-    
-    // Validate scores don't exceed maximum points
-    const invalidScores = submission.open_responses.filter((response: any) => {
-      const grading = gradingData[response.question_id];
-      return grading?.score > response.points;
-    });
-    
-    if (invalidScores.length > 0) {
-      toast.error('Algunos puntajes exceden el máximo permitido');
+  const handleSubmitReview = async () => {
+    if (!generalFeedback.trim() && reviewStatus === 'needs_review') {
+      toast.error('Por favor proporciona retroalimentación general cuando el estudiante necesita revisar');
       return;
     }
     
     setIsSaving(true);
     
     try {
-      const gradingArray = Object.values(gradingData);
-      const { error } = await gradeQuizOpenResponses(
-        submission.id,
-        submission.graded_by || submission.student_id, // Use current user ID in real implementation
-        gradingArray
-      );
+      // Prepare question feedback object
+      const feedbackObject = Object.keys(questionFeedback).reduce((acc, key) => {
+        if (questionFeedback[key].trim()) {
+          acc[key] = questionFeedback[key];
+        }
+        return acc;
+      }, {} as Record<string, string>);
+
+      const { error } = await supabase.rpc('grade_quiz_feedback', {
+        p_submission_id: submission.id,
+        p_graded_by: submission.graded_by,
+        p_review_status: reviewStatus,
+        p_general_feedback: generalFeedback,
+        p_question_feedback: Object.keys(feedbackObject).length > 0 ? feedbackObject : null
+      });
       
       if (error) throw error;
       
-      toast.success('Quiz calificado exitosamente');
+      // Send notification to student
+      const notificationMessage = reviewStatus === 'pass' 
+        ? 'Tu quiz ha sido revisado y aprobado. ¡Buen trabajo!'
+        : 'Tu quiz ha sido revisado. Por favor revisa la retroalimentación del instructor.';
+        
+      await supabase.from('notifications').insert({
+        user_id: submission.student_id,
+        type: 'quiz_reviewed',
+        title: 'Quiz revisado',
+        message: notificationMessage,
+        data: {
+          submission_id: submission.id,
+          course_id: submission.course_id,
+          lesson_id: submission.lesson_id,
+          review_status: reviewStatus
+        }
+      });
+      
+      toast.success('Revisión guardada exitosamente');
       
       if (onGradingComplete) {
         onGradingComplete();
       }
     } catch (error) {
-      console.error('Error grading quiz:', error);
-      toast.error('Error al calificar el quiz');
+      console.error('Error saving review:', error);
+      toast.error('Error al guardar la revisión');
     } finally {
       setIsSaving(false);
     }
   };
-  
-  const totalManualScore = Object.values(gradingData).reduce((sum, g) => sum + (g.score || 0), 0);
-  const finalScore = submission.auto_graded_score + totalManualScore;
-  const percentage = (finalScore / submission.total_possible_points) * 100;
   
   return (
     <div className="bg-white rounded-lg shadow-lg">
@@ -121,27 +111,22 @@ export default function QuizReviewPanel({ submission, onGradingComplete }: QuizR
               </span></p>
             </div>
           </div>
-          <div className="text-right">
-            <div className="bg-white/20 rounded-lg p-4">
-              <p className="text-sm text-blue-100">Puntuación automática</p>
-              <p className="text-2xl font-bold">{submission.auto_graded_score}/{submission.auto_gradable_points}</p>
-            </div>
-          </div>
         </div>
       </div>
       
       {/* Open-ended questions */}
       <div className="p-6 space-y-6">
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-yellow-800">
-            <p className="font-medium mb-1">Preguntas abiertas para revisar</p>
-            <p>Este quiz contiene {submission.open_responses?.length || 0} preguntas abiertas que requieren calificación manual.</p>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+          <MessageSquare className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-800">
+            <p className="font-medium mb-1">Enfoque en el aprendizaje</p>
+            <p>Revisa las respuestas del estudiante y proporciona retroalimentación constructiva. 
+               El objetivo es ayudar al estudiante a mejorar su comprensión del tema.</p>
           </div>
         </div>
         
         {submission.open_responses?.map((response: any, index: number) => {
-          const grading = gradingData[response.question_id] || {} as Partial<GradingData>;
+          const feedback = questionFeedback[response.question_id] || '';
           
           return (
             <div key={response.question_id} className="border rounded-lg p-6 space-y-4">
@@ -153,9 +138,6 @@ export default function QuizReviewPanel({ submission, onGradingComplete }: QuizR
                     </div>
                     <h3 className="text-lg font-medium text-gray-900">{response.question}</h3>
                   </div>
-                  <p className="text-sm text-gray-500 ml-11">
-                    Valor: {response.points} {response.points === 1 ? 'punto' : 'puntos'}
-                  </p>
                 </div>
               </div>
               
@@ -176,75 +158,89 @@ export default function QuizReviewPanel({ submission, onGradingComplete }: QuizR
                   )}
                   {response.gradingGuidelines && (
                     <div>
-                      <p className="text-sm font-medium text-blue-700 mb-1">Guía de calificación:</p>
+                      <p className="text-sm font-medium text-blue-700 mb-1">Guía de evaluación:</p>
                       <p className="text-sm text-blue-900">{response.gradingGuidelines}</p>
                     </div>
                   )}
                 </div>
               )}
               
-              {/* Grading inputs */}
-              <div className="ml-11 grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Puntos asignados
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      max={response.points}
-                      step="0.5"
-                      value={grading?.score || 0}
-                      onChange={(e) => handleScoreChange(response.question_id, parseFloat(e.target.value) || 0)}
-                      className="w-24 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand_blue focus:border-transparent text-center font-medium"
-                    />
-                    <span className="text-gray-500">/ {response.points}</span>
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Retroalimentación (opcional)
-                  </label>
-                  <textarea
-                    value={grading?.feedback || ''}
-                    onChange={(e) => handleFeedbackChange(response.question_id, e.target.value)}
-                    placeholder="Comentarios para el estudiante..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand_blue focus:border-transparent"
-                    rows={2}
-                  />
-                </div>
+              {/* Feedback input */}
+              <div className="ml-11">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Retroalimentación para esta pregunta (opcional)
+                </label>
+                <textarea
+                  value={feedback}
+                  onChange={(e) => handleFeedbackChange(response.question_id, e.target.value)}
+                  placeholder="Proporciona retroalimentación específica sobre esta respuesta..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  rows={3}
+                />
               </div>
             </div>
           );
         })}
         
-        {/* Summary and submit */}
+        {/* General feedback and status */}
         <div className="border-t pt-6">
-          <div className="bg-gray-50 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Resumen de calificación</h3>
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div>
-                <p className="text-sm text-gray-600">Puntos automáticos</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {submission.auto_graded_score}/{submission.auto_gradable_points}
-                </p>
+          <div className="bg-gray-50 rounded-lg p-6 space-y-6">
+            <h3 className="text-lg font-semibold text-gray-900">Evaluación general</h3>
+            
+            {/* Pass/Needs Review selection */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-700">Estado de la revisión</p>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="reviewStatus"
+                    value="pass"
+                    checked={reviewStatus === 'pass'}
+                    onChange={() => setReviewStatus('pass')}
+                    className="w-4 h-4 text-green-600 focus:ring-green-500"
+                  />
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                    <span className="font-medium text-gray-900">Aprobado</span>
+                  </div>
+                  <span className="text-sm text-gray-500">El estudiante demuestra comprensión adecuada</span>
+                </label>
+                
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="reviewStatus"
+                    value="needs_review"
+                    checked={reviewStatus === 'needs_review'}
+                    onChange={() => setReviewStatus('needs_review')}
+                    className="w-4 h-4 text-yellow-600 focus:ring-yellow-500"
+                  />
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-yellow-600" />
+                    <span className="font-medium text-gray-900">Necesita revisar</span>
+                  </div>
+                  <span className="text-sm text-gray-500">El estudiante debe revisar el material</span>
+                </label>
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Puntos manuales</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {totalManualScore}/{submission.manual_gradable_points}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Puntuación final</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {finalScore}/{submission.total_possible_points}
-                  <span className={`ml-2 text-base ${percentage >= 70 ? 'text-green-600' : 'text-red-600'}`}>
-                    ({percentage.toFixed(1)}%)
-                  </span>
-                </p>
-              </div>
+            </div>
+            
+            {/* General feedback */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Retroalimentación general {reviewStatus === 'needs_review' && <span className="text-red-500">*</span>}
+              </label>
+              <textarea
+                value={generalFeedback}
+                onChange={(e) => setGeneralFeedback(e.target.value)}
+                placeholder={
+                  reviewStatus === 'pass' 
+                    ? "Comentarios adicionales para el estudiante (opcional)..."
+                    : "Explica qué áreas necesita revisar el estudiante y proporciona orientación..."
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                rows={4}
+              />
             </div>
             
             <div className="flex justify-end gap-3">
@@ -255,7 +251,7 @@ export default function QuizReviewPanel({ submission, onGradingComplete }: QuizR
                 Cancelar
               </button>
               <button
-                onClick={handleSubmitGrading}
+                onClick={handleSubmitReview}
                 disabled={isSaving}
                 className="px-6 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
@@ -264,7 +260,7 @@ export default function QuizReviewPanel({ submission, onGradingComplete }: QuizR
                 ) : (
                   <>
                     <Save className="w-4 h-4" />
-                    Guardar calificación
+                    Guardar revisión
                   </>
                 )}
               </button>

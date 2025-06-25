@@ -66,9 +66,9 @@ export default function QuizReviewDetailPage() {
           return;
         }
         
-        // Check if already graded
-        if (submissionData.grading_status === 'completed') {
-          toast('Este quiz ya ha sido calificado', { icon: 'ℹ️' });
+        // Check if already reviewed
+        if (submissionData.review_status && submissionData.review_status !== 'pending') {
+          toast('Este quiz ya ha sido revisado', { icon: 'ℹ️' });
           router.push('/quiz-reviews');
           return;
         }

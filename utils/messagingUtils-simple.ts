@@ -222,6 +222,28 @@ export async function getWorkspaceMessages(
       }
     }
 
+    // Get attachments for all messages
+    const messageIds = (data || []).map(msg => msg.id);
+    let attachmentsByMessage: Record<string, any[]> = {};
+    
+    if (messageIds.length > 0) {
+      const { data: attachments } = await supabase
+        .from('message_attachments')
+        .select('*')
+        .in('message_id', messageIds)
+        .eq('is_active', true);
+      
+      if (attachments) {
+        attachmentsByMessage = attachments.reduce((acc, att) => {
+          if (!acc[att.message_id]) {
+            acc[att.message_id] = [];
+          }
+          acc[att.message_id].push(att);
+          return acc;
+        }, {} as Record<string, any[]>);
+      }
+    }
+
     // Transform to MessageWithDetails format
     return (data || []).map(message => {
       const author = authors[message.author_id] || {};
@@ -236,7 +258,7 @@ export async function getWorkspaceMessages(
         author_avatar: author.avatar_url || null,
         reply_to_message: null,
         reactions: [],
-        attachments: [],
+        attachments: attachmentsByMessage[message.id] || [],
         mentions: message.mentions || [],
         user_reaction: undefined,
         is_mentioned: false
@@ -392,6 +414,60 @@ export async function sendMessage(
       }
     }
 
+    // Handle attachments if provided
+    let attachmentRecords: any[] = [];
+    if (messageData.attachments && messageData.attachments.length > 0) {
+      console.log('Processing attachments:', messageData.attachments.length);
+      
+      for (const file of messageData.attachments) {
+        try {
+          // Generate unique file name
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${workspaceId}/${message.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+          
+          console.log('Uploading file:', file.name, 'to:', fileName);
+          
+          // Upload to storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('message-attachments')
+            .upload(fileName, file, {
+              contentType: file.type,
+              upsert: false
+            });
+
+          if (uploadError) {
+            console.error('Error uploading file:', uploadError);
+            continue; // Skip this file but continue with others
+          }
+
+          // Get public URL
+          const { data: { publicUrl } } = supabase.storage
+            .from('message-attachments')
+            .getPublicUrl(fileName);
+
+          // Create attachment record
+          const { data: attachmentRecord, error: attachmentError } = await supabase
+            .from('message_attachments')
+            .insert({
+              message_id: message.id,
+              file_name: file.name,
+              file_size: file.size,
+              mime_type: file.type,
+              storage_path: publicUrl,
+              uploaded_by: userId
+            })
+            .select()
+            .single();
+
+          if (!attachmentError && attachmentRecord) {
+            attachmentRecords.push(attachmentRecord);
+          }
+        } catch (attachmentErr) {
+          console.error('Error processing attachment:', attachmentErr);
+        }
+      }
+    }
+
     // Skip user info query
 
     // Update thread last message time
@@ -418,7 +494,7 @@ export async function sendMessage(
       author_avatar: userProfile?.avatar_url || null,
       reply_to_message: null,
       reactions: [],
-      attachments: [],
+      attachments: attachmentRecords,
       mentions: [],
       user_reaction: undefined,
       is_mentioned: false

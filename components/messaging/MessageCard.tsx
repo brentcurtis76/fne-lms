@@ -233,32 +233,54 @@ const MessageCard: React.FC<MessageCardProps> = ({
           {/* Attachments */}
           {message.attachments.length > 0 && (
             <div className="space-y-2 mb-3">
-              {message.attachments.map((attachment) => (
+              {/* Group attachments by type */}
+              {message.attachments.filter(att => att.mime_type && att.mime_type.startsWith('image/')).length > 0 && (
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  {message.attachments
+                    .filter(att => att.mime_type && att.mime_type.startsWith('image/'))
+                    .map((attachment) => (
+                      <div key={attachment.id} className="relative group">
+                        <img
+                          src={attachment.storage_path}
+                          alt={attachment.file_name}
+                          className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => onPreviewAttachment && onPreviewAttachment(attachment)}
+                        />
+                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onDownloadAttachment && onDownloadAttachment(attachment);
+                            }}
+                            className="bg-black/50 text-white p-1 rounded hover:bg-black/70"
+                            title="Descargar"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+              
+              {/* Non-image attachments */}
+              {message.attachments.filter(att => !att.mime_type || !att.mime_type.startsWith('image/')).map((attachment) => (
                 <div
                   key={attachment.id}
                   className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg border"
                 >
                   <div className="flex-shrink-0 text-gray-500">
-                    {getFileIcon(attachment.mime_type)}
+                    {getFileIcon(attachment.mime_type || 'application/octet-stream')}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-gray-900 truncate">
                       {attachment.file_name}
                     </div>
                     <div className="text-xs text-gray-500">
-                      {formatFileSize(attachment.file_size)}
+                      {formatFileSize(attachment.file_size || 0)}
                     </div>
                   </div>
                   <div className="flex space-x-2">
-                    {attachment.mime_type.startsWith('image/') && onPreviewAttachment && (
-                      <button
-                        onClick={() => onPreviewAttachment(attachment)}
-                        className="text-gray-400 hover:text-gray-600"
-                        title="Ver imagen"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                    )}
                     {onDownloadAttachment && (
                       <button
                         onClick={() => onDownloadAttachment(attachment)}

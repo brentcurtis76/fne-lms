@@ -164,9 +164,12 @@ const ConsultantAssignmentsPage: React.FC = () => {
       }
 
       const data = await response.json();
+      console.log('Raw API response:', data);
+      console.log('First assignment consultant data:', data.assignments?.[0]?.consultant);
       
       // Enrich assignments with additional data
       const enrichedAssignments = await Promise.all((data.assignments || []).map(async (assignment: Assignment) => {
+        console.log('Processing assignment:', assignment.id, 'Consultant:', assignment.consultant);
         // Determine assignment scope
         let scope = 'individual';
         let affectedCount = 1;
@@ -231,10 +234,15 @@ const ConsultantAssignmentsPage: React.FC = () => {
         return {
           ...assignment,
           assignment_scope: scope,
-          affected_students_count: affectedCount
+          affected_students_count: affectedCount,
+          // Ensure consultant and student data is preserved
+          consultant: assignment.consultant || null,
+          student: assignment.student || null
         };
       }));
       
+      console.log('Enriched assignments:', enrichedAssignments);
+      console.log('First enriched assignment consultant:', enrichedAssignments[0]?.consultant);
       setAssignments(enrichedAssignments);
     } catch (error) {
       console.error('Error fetching assignments:', error);
@@ -487,9 +495,11 @@ const ConsultantAssignmentsPage: React.FC = () => {
                       <td className="p-4">
                         <div>
                           <div className="font-medium text-gray-900">
-                            {assignment.consultant?.first_name} {assignment.consultant?.last_name}
+                            {assignment.consultant?.first_name || assignment.consultant?.last_name 
+                              ? `${assignment.consultant?.first_name || ''} ${assignment.consultant?.last_name || ''}`.trim()
+                              : 'Sin nombre'}
                           </div>
-                          <div className="text-sm text-gray-500">{assignment.consultant?.email}</div>
+                          <div className="text-sm text-gray-500">{assignment.consultant?.email || 'Sin email'}</div>
                         </div>
                       </td>
                       <td className="p-4">

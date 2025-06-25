@@ -106,25 +106,50 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
     }
 
     // Get user details for consultants and students
-    const consultantIds = Array.from(new Set(assignments.map(a => a.consultant_id)));
-    const studentIds = Array.from(new Set(assignments.map(a => a.student_id)));
+    const consultantIds = Array.from(new Set(assignments.map(a => a.consultant_id).filter(id => id !== null)));
+    const studentIds = Array.from(new Set(assignments.map(a => a.student_id).filter(id => id !== null)));
 
-    const { data: users } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name, email')
-      .in('id', consultantIds.concat(studentIds));
+    // Combine all user IDs and filter out nulls
+    const allUserIds = [...consultantIds, ...studentIds].filter(id => id !== null);
 
+    // Handle case where there are no user IDs to fetch
+    let users = [];
+    if (allUserIds.length > 0) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, email')
+        .in('id', allUserIds);
+      
+      if (error) {
+        console.error('Error fetching user profiles:', error);
+      } else {
+        users = data || [];
+      }
+    }
+
+    console.log('Found users:', users?.length);
+    console.log('Sample user:', users?.[0]);
+    
     // Enrich assignments with user data
     const enrichedAssignments = assignments.map(assignment => {
       const consultant = users?.find(u => u.id === assignment.consultant_id);
-      const student = users?.find(u => u.id === assignment.student_id);
+      const student = assignment.student_id ? users?.find(u => u.id === assignment.student_id) : null;
+      
+      if (!consultant && assignment.consultant_id) {
+        console.warn(`Consultant profile not found for ID: ${assignment.consultant_id}`);
+      }
+      
+      console.log(`Assignment ${assignment.id}: Consultant ID ${assignment.consultant_id} -> Found:`, consultant ? 'Yes' : 'No');
       
       return {
         ...assignment,
-        consultant,
-        student
+        consultant: consultant || null,
+        student: student || null
       };
     });
+
+    console.log('Returning enriched assignments:', enrichedAssignments.length);
+    console.log('First enriched assignment:', JSON.stringify(enrichedAssignments[0], null, 2));
 
     return res.status(200).json({ assignments: enrichedAssignments });
   } catch (error) {

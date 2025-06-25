@@ -308,6 +308,21 @@ npm run dev  # MUST be port 3000
   - Documents now display with proper icons, names, and file sizes
   - Removed fake view counts that were auto-incrementing
   - View count feature completely removed as it provided no real value
+- **CONSULTANT ASSIGNMENTS FIX (June 2025)**:
+  - Fixed missing consultant names in consultant assignments page
+  - Issue: Consultant profiles had NULL first_name/last_name values
+  - Fixed API to properly filter null IDs when fetching user profiles
+  - Added fallback handling for missing names in UI
+  - Updated consultant profile data in database
+  - Added debugging logs for troubleshooting
+- **GROUP ASSIGNMENTS PDF UPLOAD FIX (June 2025)**:
+  - Created missing 'course-materials' storage bucket
+  - Added RLS policies for authenticated users to upload/manage files
+  - Improved file upload error handling with specific messages
+  - Added file type validation for PDF, Word, Excel, PowerPoint, images
+  - Added progress indicator during file upload
+  - Sanitized filenames to prevent upload issues
+  - 10MB file size limit enforced
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)
@@ -380,7 +395,11 @@ npm run dev  # MUST be port 3000
   - `/scripts/apply-group-assignments-v2.js` - Migration script (use manual SQL if fails)
 - **Documentation**: See `GROUP_ASSIGNMENTS_V2_CHANGES.md` for full details
 
-# DEVELOPMENT CONTACTS
+# DEVELOPMENT TEAM
 **Technical Support**: Brent Curtis  
 **Phone**: +56941623577  
 **Email**: bcurtis@nuevaeducacion.org
+
+**Dev Role Users**:
+- Brent Curtis (brent@perrotuertocm.cl)
+- Mora del Fresno (mdelfresno@nuevaeducacion.org) - Added June 2025

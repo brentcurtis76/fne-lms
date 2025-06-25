@@ -68,20 +68,52 @@ export default function GroupAssignmentBlockEditor({
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Validate file size
     if (file.size > 10 * 1024 * 1024) {
       toast.error('El archivo no debe superar los 10MB');
       return;
     }
 
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'text/plain',
+      'image/jpeg',
+      'image/png',
+      'image/gif'
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Tipo de archivo no permitido. Use PDF, Word, Excel, PowerPoint, imágenes o texto.');
+      return;
+    }
+
     try {
       setUploadingFile(true);
-      const fileName = `group-assignments/${courseId}/${Date.now()}_${file.name}`;
+      
+      // Sanitize filename
+      const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-_]/g, '_');
+      const fileName = `group-assignments/${courseId}/${Date.now()}_${sanitizedFileName}`;
+
+      console.log('Uploading file:', fileName, 'Type:', file.type, 'Size:', file.size);
 
       const { data, error } = await supabase.storage
         .from('course-materials')
-        .upload(fileName, file);
+        .upload(fileName, file, {
+          contentType: file.type,
+          upsert: false
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Storage upload error:', error);
+        throw error;
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from('course-materials')
@@ -90,9 +122,17 @@ export default function GroupAssignmentBlockEditor({
       updateResource(resourceId, 'url', publicUrl);
       updateResource(resourceId, 'title', file.name);
       toast.success('Archivo subido exitosamente');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading file:', error);
-      toast.error('Error al subir el archivo');
+      
+      // Provide more specific error messages
+      if (error.message?.includes('row-level security')) {
+        toast.error('Error de permisos. Por favor, contacte al administrador.');
+      } else if (error.message?.includes('bucket')) {
+        toast.error('Error de configuración del almacenamiento.');
+      } else {
+        toast.error(`Error al subir el archivo: ${error.message || 'Error desconocido'}`);
+      }
     } finally {
       setUploadingFile(false);
     }
@@ -316,12 +356,21 @@ export default function GroupAssignmentBlockEditor({
                             </button>
                           </div>
                         ) : (
-                          <input
-                            type="file"
-                            onChange={(e) => handleFileUpload(e, resource.id)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                            disabled={uploadingFile}
-                          />
+                          <div>
+                            <input
+                              type="file"
+                              onChange={(e) => handleFileUpload(e, resource.id)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                              disabled={uploadingFile}
+                              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif"
+                            />
+                            {uploadingFile && (
+                              <p className="mt-1 text-sm text-blue-600">Subiendo archivo...</p>
+                            )}
+                            <p className="mt-1 text-xs text-gray-500">
+                              Formatos permitidos: PDF, Word, Excel, PowerPoint, texto e imágenes (máx. 10MB)
+                            </p>
+                          </div>
                         )}
                       </div>
                     )}

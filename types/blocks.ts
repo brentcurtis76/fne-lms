@@ -113,7 +113,7 @@ export interface GroupAssignmentBlockPayload {
 
 export interface BibliographyItem {
   id: string;
-  type: 'pdf' | 'link';
+  type: 'pdf' | 'link' | 'image';
   title: string;
   description?: string;
   url: string;

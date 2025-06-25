@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, Plus, Trash2, FileText, Link, GripVertical, ChevronDown, ChevronUp, Upload } from 'lucide-react';
+import { BookOpen, Plus, Trash2, FileText, Link, GripVertical, ChevronDown, ChevronUp, Upload, Image } from 'lucide-react';
 import BlockEditorWrapper from './BlockEditorWrapper';
 import { BibliographyBlock, BibliographyItem } from '@/types/blocks';
 import { supabase } from '@/lib/supabase';
@@ -38,7 +38,7 @@ export default function BibliographyBlockEditor({
     setHasUnsavedChanges(false);
   };
 
-  const addItem = (type: 'pdf' | 'link') => {
+  const addItem = (type: 'pdf' | 'link' | 'image') => {
     const newItem: BibliographyItem = {
       id: generateId(),
       type,
@@ -84,8 +84,16 @@ export default function BibliographyBlockEditor({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.type !== 'application/pdf') {
+    // Check file type based on item type
+    const itemType = block.payload.items.find(item => item.id === itemId)?.type;
+    
+    if (itemType === 'pdf' && file.type !== 'application/pdf') {
       toast.error('Solo se permiten archivos PDF');
+      return;
+    }
+    
+    if (itemType === 'image' && !file.type.startsWith('image/')) {
+      toast.error('Solo se permiten archivos de imagen (JPG, PNG, GIF, etc.)');
       return;
     }
 
@@ -154,6 +162,8 @@ export default function BibliographyBlockEditor({
               <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
                 {item.type === 'pdf' ? (
                   <FileText className="w-5 h-5 text-red-600 flex-shrink-0" />
+                ) : item.type === 'image' ? (
+                  <Image className="w-5 h-5 text-green-600 flex-shrink-0" />
                 ) : (
                   <Link className="w-5 h-5 text-blue-600 flex-shrink-0" />
                 )}
@@ -263,6 +273,13 @@ export default function BibliographyBlockEditor({
                 <Link className="w-4 h-4" />
                 Agregar Enlace
               </button>
+              <button
+                onClick={() => addItem('image')}
+                className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm flex items-center gap-1"
+              >
+                <Image className="w-4 h-4" />
+                Agregar Imagen
+              </button>
             </div>
           </div>
 
@@ -274,11 +291,13 @@ export default function BibliographyBlockEditor({
                     <GripVertical className="w-5 h-5 text-gray-400" />
                     {item.type === 'pdf' ? (
                       <FileText className="w-5 h-5 text-red-600" />
+                    ) : item.type === 'image' ? (
+                      <Image className="w-5 h-5 text-green-600" />
                     ) : (
                       <Link className="w-5 h-5 text-blue-600" />
                     )}
                     <span className="font-medium text-gray-900">
-                      {item.title || `Nuevo ${item.type === 'pdf' ? 'PDF' : 'Enlace'}`}
+                      {item.title || `Nuevo ${item.type === 'pdf' ? 'PDF' : item.type === 'image' ? 'Imagen' : 'Enlace'}`}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -338,30 +357,41 @@ export default function BibliographyBlockEditor({
                     {/* URL / File Upload */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        {item.type === 'pdf' ? 'Archivo PDF' : 'URL'} *
+                        {item.type === 'pdf' ? 'Archivo PDF' : item.type === 'image' ? 'Imagen' : 'URL'} *
                       </label>
-                      {item.type === 'pdf' ? (
+                      {(item.type === 'pdf' || item.type === 'image') ? (
                         <div>
                           {item.url ? (
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={item.url}
-                                readOnly
-                                className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                              />
-                              <button
-                                onClick={() => updateItem(item.id, 'url', '')}
-                                className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-md"
-                              >
-                                Cambiar
-                              </button>
+                            <div>
+                              {item.type === 'image' && (
+                                <div className="mb-2">
+                                  <img 
+                                    src={item.url} 
+                                    alt={item.title || 'Vista previa'} 
+                                    className="max-h-48 rounded-lg object-contain mx-auto"
+                                  />
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  value={item.url}
+                                  readOnly
+                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                                />
+                                <button
+                                  onClick={() => updateItem(item.id, 'url', '')}
+                                  className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-md"
+                                >
+                                  Cambiar
+                                </button>
+                              </div>
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
                               <input
                                 type="file"
-                                accept=".pdf"
+                                accept={item.type === 'pdf' ? '.pdf' : 'image/*'}
                                 onChange={(e) => handleFileUpload(e, item.id)}
                                 className="hidden"
                                 id={`file-${item.id}`}
@@ -375,7 +405,7 @@ export default function BibliographyBlockEditor({
                               >
                                 <Upload className="w-5 h-5 mx-auto mb-1 text-gray-400" />
                                 <span className="text-sm text-gray-600">
-                                  {uploadingFile ? 'Subiendo...' : 'Seleccionar PDF'}
+                                  {uploadingFile ? 'Subiendo...' : item.type === 'pdf' ? 'Seleccionar PDF' : 'Seleccionar Imagen'}
                                 </span>
                               </label>
                             </div>

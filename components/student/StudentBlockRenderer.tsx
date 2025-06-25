@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CheckCircle, Play, Pause, Download, ExternalLink, BookOpen, FileText } from 'lucide-react';
+import { CheckCircle, Play, Pause, Download, ExternalLink, BookOpen, FileText, Image } from 'lucide-react';
 import LearningQuizTaker from '@/components/quiz/LearningQuizTaker';
 import { supabase } from '@/lib/supabase';
 
@@ -884,6 +884,8 @@ export default function StudentBlockRenderer({
                     <div className="flex items-start gap-4">
                       {item.type === 'pdf' ? (
                         <FileText className="w-6 h-6 text-red-600 flex-shrink-0 mt-1" />
+                      ) : item.type === 'image' ? (
+                        <Image className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
                       ) : (
                         <ExternalLink className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
                       )}
@@ -906,12 +908,26 @@ export default function StudentBlockRenderer({
                             {item.description}
                           </p>
                         )}
+                        
+                        {item.type === 'image' && item.url && (
+                          <div className="mt-3">
+                            <img 
+                              src={item.url} 
+                              alt={item.title || 'Imagen de bibliografía'} 
+                              className="max-h-64 rounded-lg object-contain"
+                            />
+                          </div>
+                        )}
                       </div>
                       
                       <div className="flex-shrink-0">
                         {item.type === 'pdf' ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                             PDF
+                          </span>
+                        ) : item.type === 'image' ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Imagen
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">

@@ -323,6 +323,35 @@ npm run dev  # MUST be port 3000
   - Added progress indicator during file upload
   - Sanitized filenames to prevent upload issues
   - 10MB file size limit enforced
+- **COLLABORATIVE SPACE IMAGE UPLOAD FIX (June 2025)**:
+  - Fixed images not displaying in collaborative space message threads
+  - Issue: Messaging system wasn't properly handling attachments
+  - Root cause: Empty attachment arrays being returned
+  - Solution: Implemented full attachment upload functionality in messagingUtils-simple.ts
+  - Added inline image preview display in MessageCard component
+  - Images now display in a grid layout within messages
+- **BIBLIOGRAPHY IMAGE SUPPORT (June 2025)**:
+  - Added ability to upload images to bibliography sections
+  - Extended BibliographyItem type to support 'image' type
+  - Added image preview display in bibliography editor
+  - Implemented file validation for image types (JPG, PNG, GIF, etc.)
+  - Added inline image previews in student view
+  - Added comprehensive unit tests for image functionality
+  - Success messages now differentiate between PDF and image uploads
+- **QUIZ SYSTEM SIMPLIFICATION (June 2025)**:
+  - **Major Change**: Removed all scoring and grading from quiz system
+  - Replaced numerical scores with simple pass/needs_review status
+  - Focus shifted to constructive feedback instead of grades
+  - Updated QuizReviewPanel to remove score inputs and calculations
+  - Added pass/needs_review radio buttons for consultants
+  - Required feedback when marking as "needs review"
+  - Created QuizResultDisplay component for learning-focused student view
+  - Updated all quiz services to remove score calculations
+  - New database columns: review_status, general_feedback
+  - Created grade_quiz_feedback function for simplified reviews
+  - Updated notifications to be feedback-focused
+  - **Database Migration Applied**: simplify_quiz_feedback_v2
+  - Philosophy: Learning and improvement through feedback, not grades
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)

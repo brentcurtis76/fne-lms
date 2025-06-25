@@ -104,8 +104,12 @@ export default function BibliographyBlockEditor({
 
     try {
       setUploadingFile(true);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `bibliography/${courseId}/${Date.now()}_${file.name}`;
+      
+      // Sanitize filename
+      const fileExt = file.name.split('.').pop() || '';
+      const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9-_]/g, '_');
+      const sanitizedFileName = `${baseName}.${fileExt}`;
+      const fileName = `bibliography/${courseId}/${Date.now()}_${sanitizedFileName}`;
 
       const { data, error } = await supabase.storage
         .from('course-materials')
@@ -119,7 +123,13 @@ export default function BibliographyBlockEditor({
 
       updateItem(itemId, 'url', publicUrl);
       updateItem(itemId, 'title', file.name.replace(/\.[^/.]+$/, ''));
-      toast.success('PDF subido exitosamente');
+      
+      // Show appropriate success message
+      if (itemType === 'pdf') {
+        toast.success('PDF subido exitosamente');
+      } else if (itemType === 'image') {
+        toast.success('Imagen subida exitosamente');
+      }
     } catch (error) {
       console.error('Error uploading file:', error);
       toast.error('Error al subir el archivo');
@@ -350,7 +360,7 @@ export default function BibliographyBlockEditor({
                         value={item.title}
                         onChange={(e) => updateItem(item.id, 'title', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                        placeholder={item.type === 'pdf' ? 'Título del documento' : 'Título del enlace'}
+                        placeholder={item.type === 'pdf' ? 'Título del documento' : item.type === 'image' ? 'Título de la imagen' : 'Título del enlace'}
                       />
                     </div>
 
@@ -369,6 +379,13 @@ export default function BibliographyBlockEditor({
                                     src={item.url} 
                                     alt={item.title || 'Vista previa'} 
                                     className="max-h-48 rounded-lg object-contain mx-auto"
+                                    onError={(e) => {
+                                      e.currentTarget.style.display = 'none';
+                                      e.currentTarget.parentElement?.insertAdjacentHTML(
+                                        'afterbegin',
+                                        '<div class="text-sm text-red-600 bg-red-50 p-3 rounded text-center">Error al cargar la imagen</div>'
+                                      );
+                                    }}
                                   />
                                 </div>
                               )}

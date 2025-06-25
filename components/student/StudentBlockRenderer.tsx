@@ -915,6 +915,13 @@ export default function StudentBlockRenderer({
                               src={item.url} 
                               alt={item.title || 'Imagen de bibliografía'} 
                               className="max-h-64 rounded-lg object-contain"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.parentElement?.insertAdjacentHTML(
+                                  'afterbegin',
+                                  '<div class="text-sm text-red-600 bg-red-50 p-2 rounded">Error al cargar la imagen</div>'
+                                );
+                              }}
                             />
                           </div>
                         )}

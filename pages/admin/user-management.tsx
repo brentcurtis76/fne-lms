@@ -8,6 +8,7 @@ import RoleAssignmentModal from '../../components/RoleAssignmentModal';
 import ConsultantAssignmentModal from '../../components/ConsultantAssignmentModal';
 import PasswordResetModal from '../../components/PasswordResetModal';
 import UnifiedUserManagement from '../../components/admin/UnifiedUserManagement';
+import BulkUserImportModal from '../../components/admin/BulkUserImportModal';
 import { getUserRoles } from '../../utils/roleUtils';
 import { ROLE_NAMES } from '../../types/roles';
 
@@ -45,6 +46,9 @@ export default function UserManagement() {
   // Password reset modal state
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
   const [userToReset, setUserToReset] = useState<{ id: string; email: string; name: string } | null>(null);
+  
+  // Bulk import modal state
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false);
   
   const handleOpenRoleModal = (user: User) => {
     const userName = user.first_name && user.last_name 
@@ -686,6 +690,7 @@ export default function UserManagement() {
             setShowPasswordResetModal(true);
           }}
           onAddUser={() => setShowAddForm(true)}
+          onBulkImport={() => setShowBulkImportModal(true)}
         />
         
         {/* Add User Form Modal */}
@@ -875,6 +880,16 @@ export default function UserManagement() {
         }}
         user={userToReset}
         onPasswordReset={handlePasswordReset}
+      />
+
+      {/* Bulk User Import Modal */}
+      <BulkUserImportModal
+        isOpen={showBulkImportModal}
+        onClose={() => setShowBulkImportModal(false)}
+        onImportComplete={() => {
+          setShowBulkImportModal(false);
+          fetchUsers();
+        }}
       />
     </>
   );

@@ -16,7 +16,8 @@ import {
   Download,
   Filter,
   User,
-  Settings
+  Settings,
+  Upload
 } from 'lucide-react';
 import { ROLE_NAMES } from '../../types/roles';
 
@@ -44,6 +45,7 @@ interface UnifiedUserManagementProps {
   onAssign: (user: UserType) => void;
   onPasswordReset: (user: UserType) => void;
   onAddUser: () => void;
+  onBulkImport: () => void;
 }
 
 export default function UnifiedUserManagement({
@@ -54,7 +56,8 @@ export default function UnifiedUserManagement({
   onRoleChange,
   onAssign,
   onPasswordReset,
-  onAddUser
+  onAddUser,
+  onBulkImport
 }: UnifiedUserManagementProps) {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -171,6 +174,13 @@ export default function UnifiedUserManagement({
             </p>
           </div>
           <div className="mt-4 sm:mt-0 flex gap-3">
+            <button 
+              onClick={onBulkImport}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b] transition-colors"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Importar Usuarios
+            </button>
             <button 
               onClick={onAddUser}
               className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-[#00365b] hover:bg-[#002844] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b] transition-colors"

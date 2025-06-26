@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import DeleteCourseModal from '../../../components/DeleteCourseModal';
 import AssignTeachersModal from '../../../components/AssignTeachersModal';
+import CourseBuilderForm from '../../../src/components/CourseBuilderForm';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { BookOpen, Plus } from 'lucide-react';
 
@@ -431,19 +432,30 @@ const CourseBuilder: React.FC = () => {
     >
       <ResponsiveFunctionalPageHeader
         icon={<BookOpen />}
-        title="Constructor de Cursos"
+        title="Gestor de Cursos"
         subtitle={`${courses.length} curso${courses.length !== 1 ? 's' : ''} creado${courses.length !== 1 ? 's' : ''}`}
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Buscar cursos..."
-        primaryAction={{
-          label: "Crear Nuevo Curso",
-          onClick: () => router.push('/admin/course-builder/new'),
-          icon: <Plus size={20} />
-        }}
       />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        
+        {/* Course Creation Form Section */}
+        <div className="mb-12 bg-white rounded-lg shadow-md">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-[#00365b]">Agregar Nuevo Curso</h2>
+            <p className="text-gray-500 text-sm mt-1">
+              Completa el formulario para crear un nuevo curso
+            </p>
+          </div>
+          
+          <div className="p-6">
+            <CourseBuilderForm 
+              onSuccess={fetchCourses} 
+            />
+          </div>
+        </div>
 
         {courses.length === 0 ? (
           <div className="text-center bg-white p-12 rounded-xl shadow-lg">

@@ -5,7 +5,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
-import { toast } from 'react-hot-toast';
+import { toastSuccess, toastError } from '../../utils/toastUtils';
+import { TOAST_MESSAGES } from '../../constants/toastMessages';
 import { 
   UserRoleType, 
   School, 
@@ -128,6 +129,10 @@ const RoleSwitcher: React.FC<RoleSwitcherProps> = ({ user, onRoleChange }) => {
     if (!selectedRole) return;
     
     setLoading(true);
+    
+    // Set a flag to prevent session logout during impersonation start
+    sessionStorage.setItem('fne-impersonation-starting', 'true');
+    
     try {
       const context: ImpersonationContext = {
         role: selectedRole as UserRoleType,
@@ -141,11 +146,21 @@ const RoleSwitcher: React.FC<RoleSwitcherProps> = ({ user, onRoleChange }) => {
       if (result.success) {
         setIsOpen(false);
         resetForm();
-        toast.success('Suplantación iniciada correctamente');
+        toastSuccess(TOAST_MESSAGES.DEV.IMPERSONATION_START);
+        
+        // Wait a bit then remove the flag
+        setTimeout(() => {
+          sessionStorage.removeItem('fne-impersonation-starting');
+        }, 1000);
+        
         // The event listener will update the UI
       } else {
-        toast.error(result.error || 'Error al iniciar suplantación');
+        toastError(result.error || TOAST_MESSAGES.DEV.IMPERSONATION_ERROR);
+        sessionStorage.removeItem('fne-impersonation-starting');
       }
+    } catch (error) {
+      sessionStorage.removeItem('fne-impersonation-starting');
+      toastError(TOAST_MESSAGES.DEV.IMPERSONATION_ERROR);
     } finally {
       setLoading(false);
     }
@@ -162,9 +177,9 @@ const RoleSwitcher: React.FC<RoleSwitcherProps> = ({ user, onRoleChange }) => {
       const result = await devRoleService.endImpersonation(user.id);
       
       if (result.success) {
-        toast.success('Suplantación terminada correctamente');
+        toastSuccess(TOAST_MESSAGES.DEV.IMPERSONATION_END);
       } else {
-        toast.error(result.error || 'Error al terminar suplantación');
+        toastError(result.error || TOAST_MESSAGES.DEV.IMPERSONATION_ERROR);
       }
     } finally {
       setLoading(false);

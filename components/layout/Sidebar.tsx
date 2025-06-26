@@ -96,33 +96,11 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     consultantOnly: true
   },
   {
-    id: 'group-assignments',
-    label: 'Gestión de Tareas Grupales',
-    icon: UserGroupIcon,
-    href: '/group-assignments',
-    description: 'Administrar tareas grupales',
-    consultantOnly: true
-  },
-  {
     id: 'courses',
     label: 'Cursos',
     icon: BookOpenIcon,
-    description: 'Gestión de cursos',
-    children: [
-      {
-        id: 'course-builder',
-        label: 'Constructor de Cursos',
-        href: '/admin/course-builder',
-        description: 'Crear y editar cursos',
-        adminOnly: true
-      },
-      {
-        id: 'course-manager',
-        label: 'Mis Cursos',
-        href: '/course-manager',
-        description: 'Ver cursos asignados'
-      }
-    ]
+    href: '/admin/course-builder',
+    description: 'Gestión de cursos'
   },
   {
     id: 'users',

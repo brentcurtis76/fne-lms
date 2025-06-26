@@ -126,6 +126,9 @@ class DevRoleService {
         detail: sessionData 
       }));
 
+      // Add a small delay before allowing navigation to ensure localStorage is updated
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       return { success: true, sessionToken };
     } catch (error) {
       console.error('Error in startImpersonation:', error);

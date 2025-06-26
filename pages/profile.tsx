@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import Head from 'next/head';
 import Link from 'next/link';
-import { toast } from 'react-hot-toast';
+import { toastSuccess, toastError } from '../utils/toastUtils';
+import { TOAST_MESSAGES } from '../constants/toastMessages';
 import MainLayout from '../components/layout/MainLayout';
 import { invalidateAvatarCache, updateAvatarCache } from '../hooks/useAvatar';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
@@ -278,7 +279,7 @@ export default function ProfilePage() {
       // Check for errors
       if (updateError) {
         console.error('Profile update failed:', updateError);
-        toast.error(`Error actualizando perfil: ${updateError.message}`);
+        toastError(TOAST_MESSAGES.USER.PROFILE_ERROR + ': ' + updateError.message);
       } else {
         // Update avatar cache with new URL
         if (avatar_url && user) {
@@ -287,10 +288,10 @@ export default function ProfilePage() {
         
         // Success message
         if (avatarUploadFailed) {
-          toast.success('Perfil actualizado correctamente');
-          toast.error(`Problema con la imagen: ${avatarErrorMessage}`);
+          toastSuccess(TOAST_MESSAGES.USER.PROFILE_UPDATED);
+          toastError(avatarErrorMessage);
         } else {
-          toast.success('Perfil actualizado correctamente');
+          toastSuccess(TOAST_MESSAGES.USER.PROFILE_UPDATED);
         }
         
         // Redirect new users to pending approval page after profile completion
@@ -302,7 +303,7 @@ export default function ProfilePage() {
       }
     } catch (error) {
       console.error('Unexpected error saving profile:', error);
-      toast.error('Error inesperado al guardar el perfil. Por favor, intenta de nuevo.');
+      toastError(TOAST_MESSAGES.NETWORK.UNEXPECTED_ERROR);
     }
   };
 

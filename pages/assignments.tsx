@@ -7,7 +7,6 @@ import MainLayout from '../components/layout/MainLayout';
 import { ClipboardCheckIcon as ClipboardDocumentCheckIcon } from '@heroicons/react/outline';
 import { useAvatar } from '../hooks/useAvatar';
 import { assignmentService } from '../lib/services/assignments';
-import { getStudentAssignmentInstances } from '../lib/services/assignmentInstances';
 
 export default function AssignmentsPage() {
   const router = useRouter();
@@ -104,41 +103,11 @@ export default function AssignmentsPage() {
         });
         
       } else {
-        // Students see assignments from enrolled courses AND group assignment instances
-        const [regularAssignments, groupInstances] = await Promise.all([
-          assignmentService.getStudentAssignments(userId),
-          getStudentAssignmentInstances(userId)
-        ]);
+        // Students see assignments from enrolled courses
+        const regularAssignments = await assignmentService.getStudentAssignments(userId);
         
-        // Transform group instances to match assignment format
-        const transformedGroupInstances = groupInstances?.data?.map((instance: any) => ({
-          id: `instance-${instance.id}`,
-          title: instance.title,
-          description: instance.description || instance.assignment_templates?.description,
-          instructions: instance.instructions || instance.assignment_templates?.instructions,
-          due_date: instance.due_date,
-          assignment_type: 'group',
-          is_published: true,
-          is_instance: true,
-          instance_id: instance.id,
-          courses: {
-            id: instance.assignment_templates?.lessons?.modules?.courses?.id,
-            title: instance.assignment_templates?.lessons?.modules?.courses?.title
-          },
-          lessons: {
-            id: instance.assignment_templates?.lessons?.id,
-            title: instance.assignment_templates?.lessons?.title
-          },
-          submissions: instance.submission ? [{
-            id: instance.submission.id,
-            status: instance.submission.status,
-            submitted_at: instance.submission.submitted_at,
-            score: instance.submission.grade
-          }] : []
-        })) || [];
-        
-        // Combine both types of assignments
-        const allAssignments = [...(regularAssignments || []), ...transformedGroupInstances];
+        // Use only regular assignments (group assignments handled in collaborative workspace)
+        const allAssignments = regularAssignments || [];
         setAssignments(allAssignments);
         
         // Build submission map

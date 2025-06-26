@@ -60,9 +60,7 @@ npm run dev  # MUST be port 3000
 ├── Mi Panel (Dashboard)
 ├── Mi Perfil
 ├── Mis Tareas (Assignments)
-├── Cursos
-│   ├── Constructor de Cursos
-│   └── Gestor de Cursos
+├── Cursos (unified course management)
 ├── Usuarios [Admin only]
 ├── Consultorías [Admin only]
 ├── Gestión [Admin only]
@@ -323,6 +321,22 @@ npm run dev  # MUST be port 3000
   - Added progress indicator during file upload
   - Sanitized filenames to prevent upload issues
   - 10MB file size limit enforced
+- **REMOVED UNUSED GROUP ASSIGNMENTS MANAGEMENT (June 2025)**:
+  - Removed "Gestión de Tareas Grupales" from sidebar navigation
+  - Deleted unused /pages/group-assignments/ directory
+  - Removed /lib/services/assignmentInstances.js service
+  - Simplified interface by eliminating confusion with groupAssignmentsV2 system
+  - Zero data loss - feature had 0 usage records in database
+  - Kept database tables intact for potential future use
+- **SIMPLIFIED CURSOS NAVIGATION (June 2025)**:
+  - **COMPLETED**: Unified course management into single "Cursos" navigation item
+  - Removed redundant submenu structure (Constructor de Cursos, Mis Cursos)
+  - "Cursos" links directly to /admin/course-builder with enhanced functionality
+  - **Perfect Solution**: Course creation form at top + comprehensive course grid below
+  - Single page provides: course creation, course search, and full course management
+  - All course actions available: Edit, View, Assign Teachers, Delete
+  - Eliminated user confusion while preserving all functionality
+  - User feedback: "perfect" - successfully combined best features of both pages
 - **BULK USER IMPORT SECURITY OVERHAUL (June 2025)**:
   - **ENTERPRISE-GRADE SECURITY IMPLEMENTATION**:
     - Fixed critical password exposure vulnerability - passwords never returned in API responses

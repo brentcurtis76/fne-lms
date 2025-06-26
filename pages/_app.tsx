@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { Toaster } from 'react-hot-toast';
 import { SessionManager } from '../lib/sessionManager';
+import { toasterConfig } from '../constants/toastStyles';
 
 // Create a singleton Supabase client to avoid multiple instances warning
 let supabaseClient: any;
@@ -62,7 +63,15 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         />
       </Head>
       <Component {...pageProps} />
-      <Toaster position="bottom-right" reverseOrder={false} />
+      <Toaster 
+        position="bottom-right" 
+        reverseOrder={false}
+        toastOptions={toasterConfig}
+        containerStyle={{
+          bottom: 24,
+          right: 24,
+        }}
+      />
     </SessionContextProvider>
   );
 }

@@ -22,6 +22,20 @@ export class SessionManager {
       const currentSessionId = sessionStorage.getItem(this.BROWSER_SESSION_KEY);
       const storedSessionId = localStorage.getItem(this.SESSION_ID_KEY);
 
+      // Check if dev impersonation is active - if so, skip session management
+      const hasImpersonation = localStorage.getItem('fne-dev-impersonation');
+      if (hasImpersonation) {
+        console.log('[SessionManager] Dev impersonation active, skipping session checks');
+        return;
+      }
+
+      // Also check if we're in the middle of starting impersonation
+      const impersonationStarting = sessionStorage.getItem('fne-impersonation-starting');
+      if (impersonationStarting) {
+        console.log('[SessionManager] Impersonation starting, skipping session checks');
+        return;
+      }
+
       console.log('[SessionManager] Initializing:', {
         rememberMe,
         hasCurrentSessionId: !!currentSessionId,

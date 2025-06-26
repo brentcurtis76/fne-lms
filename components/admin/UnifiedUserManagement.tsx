@@ -19,7 +19,10 @@ import {
   Settings,
   Upload
 } from 'lucide-react';
+import { toastSuccess, toastError } from '../../utils/toastUtils';
+import { TOAST_MESSAGES } from '../../constants/toastMessages';
 import { ROLE_NAMES } from '../../types/roles';
+import { ConfirmModal } from '../common/ConfirmModal';
 
 interface UserType {
   id: string;
@@ -62,6 +65,10 @@ export default function UnifiedUserManagement({
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'approved'>('all');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; user: UserType | null }>({
+    isOpen: false,
+    user: null
+  });
   
   // Helper functions
   const getUserName = (user: UserType) => {
@@ -451,9 +458,7 @@ export default function UnifiedUserManagement({
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (confirm(`¿Estás seguro de que deseas eliminar a ${getUserName(user)}?`)) {
-                              onDelete(user);
-                            }
+                            setDeleteConfirm({ isOpen: true, user });
                           }}
                           className="w-full flex items-center justify-center px-4 py-2 border border-red-300 rounded-md shadow-sm text-sm font-medium text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                         >
@@ -509,6 +514,23 @@ export default function UnifiedUserManagement({
           ))
         )}
       </div>
+      
+      {/* Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={deleteConfirm.isOpen}
+        onClose={() => setDeleteConfirm({ isOpen: false, user: null })}
+        onConfirm={() => {
+          if (deleteConfirm.user) {
+            onDelete(deleteConfirm.user);
+            toastSuccess(TOAST_MESSAGES.CRUD.DELETE_SUCCESS('Usuario'));
+          }
+        }}
+        title="Eliminar Usuario"
+        message={`¿Estás seguro de que deseas eliminar a ${deleteConfirm.user ? getUserName(deleteConfirm.user) : ''}?`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        isDangerous={true}
+      />
     </div>
   );
 }

@@ -404,6 +404,20 @@ npm run dev  # MUST be port 3000
   - Updated notifications to be feedback-focused
   - **Database Migration Applied**: simplify_quiz_feedback_v2
   - Philosophy: Learning and improvement through feedback, not grades
+- **MEETING CREATION SIMPLIFICATION (June 2025)**:
+  - Removed facilitator and secretary fields from meeting creation form
+  - Simplified form from 4 steps to 3 essential steps
+  - Updated MeetingDocumentationModal component
+  - Updated TypeScript interfaces to remove optional role fields
+  - Modified database insert functions to exclude these fields
+  - Addresses user feedback about too many questions in meeting creation
+- **CRITICAL BUG FIX: GROUP ASSIGNMENTS NOT VISIBLE (June 2025)**:
+  - Fixed mismatch between course builder and group assignments service
+  - Course builder saves blocks to `blocks` table, not `lessons.content`
+  - Updated groupAssignmentsV2Service to read from `blocks` table
+  - Group assignments now properly display in collaborative workspace
+  - Affected all users - no one could see group assignments before this fix
+  - Diagnostic script created: `/scripts/diagnose-group-assignments.js`
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)

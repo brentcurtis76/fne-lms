@@ -199,8 +199,6 @@ export interface MeetingDocumentationInput {
     meeting_date: string;
     duration_minutes: number;
     location?: string;
-    facilitator_id?: string;
-    secretary_id?: string;
     attendee_ids: string[];
   };
   

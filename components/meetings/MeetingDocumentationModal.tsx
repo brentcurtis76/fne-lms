@@ -1,6 +1,6 @@
 /**
- * Meeting Documentation Modal - 4-Step Professional Form
- * Step-by-step meeting documentation with information, summary, agreements, and commitments/tasks
+ * Meeting Documentation Modal - Simplified 3-Step Form
+ * Streamlined meeting documentation with essential information only
  */
 
 import React, { useState, useEffect } from 'react';
@@ -86,8 +86,6 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       meeting_date: '',
       duration_minutes: 60,
       location: '',
-      facilitator_id: '',
-      secretary_id: '',
       attendee_ids: []
     },
     summary_info: {
@@ -226,8 +224,6 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         meeting_date: '',
         duration_minutes: 60,
         location: '',
-        facilitator_id: '',
-        secretary_id: '',
         attendee_ids: []
       },
       summary_info: {
@@ -532,44 +528,6 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   />
                 </div>
 
-                {/* Roles */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Facilitador
-                    </label>
-                    <select
-                      value={formData.meeting_info.facilitator_id}
-                      onChange={(e) => updateMeetingInfo('facilitator_id', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
-                    >
-                      <option value="">Seleccionar facilitador</option>
-                      {availableUsers.map(user => (
-                        <option key={user.id} value={user.id}>
-                          {user.first_name} {user.last_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Secretario
-                    </label>
-                    <select
-                      value={formData.meeting_info.secretary_id}
-                      onChange={(e) => updateMeetingInfo('secretary_id', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
-                    >
-                      <option value="">Seleccionar secretario</option>
-                      {availableUsers.map(user => (
-                        <option key={user.id} value={user.id}>
-                          {user.first_name} {user.last_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
 
                 {/* Attendees */}
                 <div>

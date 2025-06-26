@@ -36,6 +36,7 @@ import WorkspaceTabNavigation from '../../components/workspace/WorkspaceTabNavig
 import { useAuth } from '../../hooks/useAuth';
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
 import { communityWorkspaceService } from '../../lib/services/communityWorkspace';
+import { ChatAlt2Icon as ChatIcon } from '@heroicons/react/outline';
 import { 
   getUserWorkspaceAccess, 
   getOrCreateWorkspace, 
@@ -533,6 +534,7 @@ const CommunityWorkspacePage: React.FC = () => {
             workspaceAccess={workspaceAccess} 
             user={user} 
             searchQuery={searchQuery}
+            router={router}
           />
         </div>
       </>
@@ -1949,13 +1951,15 @@ interface GroupAssignmentsContentProps {
   workspaceAccess: WorkspaceAccess | null;
   user: any;
   searchQuery: string;
+  router: any;
 }
 
 const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({ 
   workspace, 
   workspaceAccess, 
   user, 
-  searchQuery 
+  searchQuery,
+  router 
 }) => {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1964,6 +1968,7 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
   const [userGroups, setUserGroups] = useState<Map<string, any>>(new Map());
   const [isConsultantView, setIsConsultantView] = useState(false);
   const [students, setStudents] = useState<any[]>([]);
+  const [discussionCounts, setDiscussionCounts] = useState<Map<string, number>>(new Map());
 
   useEffect(() => {
     if (user) {
@@ -2023,12 +2028,52 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
           }
         }
         setUserGroups(groupsMap);
+
+        // Load discussion comment counts
+        await loadDiscussionCounts(fetchedAssignments, groupsMap);
       }
     } catch (error) {
       console.error('Error loading group assignments:', error);
       toast.error('Error al cargar las tareas grupales');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadDiscussionCounts = async (assignments: any[], groupsMap: Map<string, any>) => {
+    if (!workspace) return;
+    
+    try {
+      const counts = new Map<string, number>();
+      
+      for (const assignment of assignments) {
+        const group = groupsMap.get(assignment.id);
+        if (!group) continue;
+
+        // Get the discussion thread for this assignment and group
+        const { data: thread } = await supabase
+          .from('community_threads')
+          .select('id')
+          .eq('metadata->>assignmentId', assignment.id)
+          .eq('metadata->>groupId', group.id)
+          .single();
+
+        if (thread) {
+          // Count messages in this thread
+          const { count } = await supabase
+            .from('community_messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('thread_id', thread.id);
+
+          counts.set(assignment.id, count || 0);
+        } else {
+          counts.set(assignment.id, 0);
+        }
+      }
+
+      setDiscussionCounts(counts);
+    } catch (error) {
+      console.error('Error loading discussion counts:', error);
     }
   };
 
@@ -2220,6 +2265,33 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
                         </span>
                       </div>
                     )}
+
+                    {/* Discussion Link with Comment Count */}
+                    <div className="mt-4 pt-3 border-t border-gray-100">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/community/workspace/assignments/${assignment.id}/discussion`);
+                        }}
+                        className="flex items-center justify-between w-full group hover:bg-gray-50 -mx-2 px-2 py-1 rounded transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <ChatIcon className="h-4 w-4 text-gray-500 group-hover:text-[#00365b]" />
+                          <span className="text-sm text-gray-600 group-hover:text-[#00365b]">
+                            Discusión del grupo
+                          </span>
+                        </div>
+                        {discussionCounts.get(assignment.id) !== undefined && (
+                          <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${
+                            discussionCounts.get(assignment.id)! > 0 
+                              ? 'bg-[#fdb933]/20 text-[#00365b]' 
+                              : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {discussionCounts.get(assignment.id)} comentario{discussionCounts.get(assignment.id) !== 1 ? 's' : ''}
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   </>
                 )}
               </div>

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import Link from 'next/link';
 import { checkProfileCompletion } from '../utils/profileUtils';
+import { SessionManager } from '../lib/sessionManager';
 export default function LoginPage() {
   const router = useRouter();
 
@@ -41,31 +42,24 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    // Check if we should clear session based on remember me preference
-    const checkSessionPersistence = async () => {
+    // Initialize session management and set checkbox state
+    const initializeSessionAndPreferences = async () => {
       try {
-        const rememberMePreference = localStorage.getItem('rememberMe');
-        const sessionOnly = sessionStorage.getItem('sessionOnly');
+        // Initialize session manager (this handles browser restart detection)
+        await SessionManager.initialize();
         
-        // If user didn't choose "remember me" and this is a new browser session
-        if (rememberMePreference === 'false' && sessionOnly !== 'true') {
-          // Clear the session as the browser was closed/reopened
-          await supabase.auth.signOut();
-          sessionStorage.removeItem('sessionOnly');
-        }
+        // Set checkbox state based on stored preference
+        const shouldPersist = SessionManager.shouldPersistSession();
+        setRememberMe(shouldPersist);
         
-        // Set the checkbox state based on stored preference
-        if (rememberMePreference === 'true') {
-          setRememberMe(true);
-        }
+        console.log('[Login] Session debug info:', SessionManager.getDebugInfo());
       } catch (error) {
-        console.error('Error checking session persistence:', error);
-        // If there's an error, just continue without session clearing
+        console.error('Error initializing session:', error);
       }
     };
 
-    checkSessionPersistence();
-  }, [supabase.auth]);
+    initializeSessionAndPreferences();
+  }, []);
 
   const handleSignIn = async () => {
     try {
@@ -74,17 +68,9 @@ export default function LoginPage() {
         password
       });
 
-      // Store the remember me preference after successful login
+      // Configure session persistence after successful login
       if (!error) {
-        if (rememberMe) {
-          localStorage.setItem('rememberMe', 'true');
-          // Remove any session-only flag
-          sessionStorage.removeItem('sessionOnly');
-        } else {
-          localStorage.setItem('rememberMe', 'false');
-          // Set a flag to clear session on browser close
-          sessionStorage.setItem('sessionOnly', 'true');
-        }
+        await SessionManager.configureSessionPersistence(rememberMe);
       }
 
       if (error) {

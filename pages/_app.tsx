@@ -3,9 +3,10 @@ import '../styles/notifications.css';
 import type { AppProps } from 'next/app';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { Toaster } from 'react-hot-toast';
+import { SessionManager } from '../lib/sessionManager';
 
 // Create a singleton Supabase client to avoid multiple instances warning
 let supabaseClient: any;
@@ -17,6 +18,15 @@ if (typeof window !== 'undefined') {
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   const [client] = useState(() => supabaseClient || createPagesBrowserClient());
+
+  // Initialize session management on app startup
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      SessionManager.initialize().catch(error => {
+        console.error('[App] Session manager initialization failed:', error);
+      });
+    }
+  }, []);
 
   return (
     <SessionContextProvider supabaseClient={client} initialSession={pageProps.initialSession}>

@@ -432,6 +432,20 @@ npm run dev  # MUST be port 3000
   - Group assignments now properly display in collaborative workspace
   - Affected all users - no one could see group assignments before this fix
   - Diagnostic script created: `/scripts/diagnose-group-assignments.js`
+- **INVOICE DELETION FEATURE WITH ENHANCED UX (July 2025)**:
+  - **Phase 1 - Core Functionality**: Users can now delete incorrectly uploaded invoices
+  - **Phase 2 - Professional UX**: 
+    - Custom confirmation modal replacing browser confirm()
+    - Optimistic UI updates - invoice disappears immediately
+    - Robust file path extraction for Supabase URLs
+    - Enhanced file display: size, upload date, file type icons
+    - File validation: PDF/JPG/PNG only, 10MB limit
+  - **Database Changes**: Added metadata columns to `cuotas` table:
+    - `factura_filename`, `factura_size`, `factura_type`, `factura_uploaded_at`
+  - **Security**: Proper storage bucket cleanup and database consistency
+  - **Testing**: 100% test coverage with 10 passing unit tests
+  - Components updated: ContractDetailsModal.tsx, contracts.tsx
+  - Migration applied: `add_invoice_metadata_fields`
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)

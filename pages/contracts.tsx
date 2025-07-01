@@ -77,6 +77,10 @@ interface Cuota {
   created_at: string;
   factura_url?: string;
   factura_pagada?: boolean;
+  factura_filename?: string;
+  factura_size?: number;
+  factura_type?: string;
+  factura_uploaded_at?: string;
 }
 
 export default function ContractsPage() {
@@ -346,6 +350,19 @@ export default function ContractsPage() {
 
   const handleInvoiceUpload = async (cuotaId: string, file: File) => {
     try {
+      // Validate file type and size
+      const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+      if (!validTypes.includes(file.type)) {
+        toast.error('Tipo de archivo no válido. Use PDF, JPG o PNG.');
+        return;
+      }
+      
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (file.size > maxSize) {
+        toast.error('El archivo es demasiado grande. Máximo 10MB.');
+        return;
+      }
+      
       // Upload file to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `invoice_${cuotaId}_${Date.now()}.${fileExt}`;
@@ -361,11 +378,15 @@ export default function ContractsPage() {
         .from('facturas')
         .getPublicUrl(fileName);
 
-      // Update cuota with invoice URL
+      // Update cuota with invoice URL and metadata
       const { error: updateError } = await supabase
         .from('cuotas')
         .update({ 
-          factura_url: publicUrl
+          factura_url: publicUrl,
+          factura_filename: file.name,
+          factura_size: file.size,
+          factura_type: file.type,
+          factura_uploaded_at: new Date().toISOString()
         })
         .eq('id', cuotaId);
 
@@ -441,6 +462,96 @@ export default function ContractsPage() {
     } catch (error) {
       console.error('Error updating payment status:', error);
       toast.error('Error al actualizar el estado de pago: ' + (error as Error).message);
+    }
+  };
+
+  const handleInvoiceDelete = async (cuotaId: string) => {
+    try {
+      // Get the cuota to find the invoice URL
+      const { data: cuota, error: fetchError } = await supabase
+        .from('cuotas')
+        .select('factura_url')
+        .eq('id', cuotaId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!cuota?.factura_url) {
+        toast.error('No se encontró la factura');
+        return;
+      }
+
+      // Extract the file name from the URL more robustly
+      let fileName: string;
+      try {
+        const url = new URL(cuota.factura_url);
+        const pathParts = url.pathname.split('/');
+        // Find the index of 'facturas' bucket and get the file name after it
+        const bucketIndex = pathParts.indexOf('facturas');
+        if (bucketIndex !== -1 && bucketIndex < pathParts.length - 1) {
+          fileName = pathParts.slice(bucketIndex + 1).join('/');
+        } else {
+          // Fallback to the last part of the path
+          fileName = pathParts[pathParts.length - 1];
+        }
+        
+        if (!fileName) {
+          throw new Error('No file name found in URL');
+        }
+      } catch (error) {
+        console.error('Error parsing invoice URL:', error);
+        toast.error('Error al obtener el nombre del archivo');
+        return;
+      }
+
+      // Delete the file from storage
+      const { error: deleteError } = await supabase.storage
+        .from('facturas')
+        .remove([fileName]);
+
+      if (deleteError) throw deleteError;
+
+      // Update the cuota to remove the invoice URL and metadata
+      const { error: updateError } = await supabase
+        .from('cuotas')
+        .update({ 
+          factura_url: null,
+          factura_pagada: false,
+          factura_filename: null,
+          factura_size: null,
+          factura_type: null,
+          factura_uploaded_at: null
+        })
+        .eq('id', cuotaId);
+
+      if (updateError) throw updateError;
+
+      // Show success notification
+      toast.success('Factura eliminada exitosamente');
+
+      // Refresh the contracts list to update the modal
+      await loadContratos();
+      
+      // Force refresh the modal if it's open by re-fetching the specific contract
+      if (selectedContrato) {
+        const { data: refreshedContract, error: refreshError } = await supabase
+          .from('contratos')
+          .select(`
+            *,
+            clientes(*),
+            programas(*),
+            cuotas(*)
+          `)
+          .eq('id', selectedContrato.id)
+          .single();
+          
+        if (!refreshError && refreshedContract) {
+          setSelectedContrato(refreshedContract);
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+      toast.error('Error al eliminar la factura: ' + (error as Error).message);
     }
   };
 
@@ -798,6 +909,7 @@ export default function ContractsPage() {
               onGeneratePDF={(contrato) => window.open(`/contract-print/${contrato.id}`, '_blank')}
               onUploadInvoice={handleInvoiceUpload}
               onTogglePaymentStatus={handleTogglePaymentStatus}
+              onDeleteInvoice={handleInvoiceDelete}
             />
           </div>
         </div>

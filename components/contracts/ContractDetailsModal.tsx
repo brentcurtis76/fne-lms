@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, FileText, Calendar, DollarSign, MapPin, User, Building, CreditCard, Download, Upload, TrendingUp, Edit, Trash2, Check, Eye } from 'lucide-react';
 
 interface Programa {
@@ -41,6 +41,10 @@ interface Cuota {
   created_at: string;
   factura_url?: string;
   factura_pagada?: boolean;
+  factura_filename?: string;
+  factura_size?: number;
+  factura_type?: string;
+  factura_uploaded_at?: string;
 }
 
 interface Contrato {
@@ -72,6 +76,7 @@ interface ContractDetailsModalProps {
   onGeneratePDF: (contrato: Contrato) => void;
   onUploadInvoice?: (cuotaId: string, file: File) => Promise<void>;
   onTogglePaymentStatus?: (cuotaId: string, currentStatus: boolean) => Promise<void>;
+  onDeleteInvoice?: (cuotaId: string) => Promise<void>;
 }
 
 export default function ContractDetailsModal({
@@ -84,10 +89,14 @@ export default function ContractDetailsModal({
   onUploadContract,
   onGeneratePDF,
   onUploadInvoice,
-  onTogglePaymentStatus
+  onTogglePaymentStatus,
+  onDeleteInvoice
 }: ContractDetailsModalProps) {
   const [uploadingContract, setUploadingContract] = useState(false);
   const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
+  const [deleteInvoiceId, setDeleteInvoiceId] = useState<string | null>(null);
+  const [deletingInvoice, setDeletingInvoice] = useState<string | null>(null);
+  const [hiddenInvoices, setHiddenInvoices] = useState<Set<string>>(new Set());
 
   // Handle Escape key to close modal - MUST be before early return
   useEffect(() => {
@@ -109,6 +118,15 @@ export default function ContractDetailsModal({
     };
   }, [isOpen, onClose]);
 
+  // Clear hidden invoices when modal closes or contract changes
+  useEffect(() => {
+    if (!isOpen || !contrato) {
+      setHiddenInvoices(new Set());
+      setDeletingInvoice(null);
+      setDeleteInvoiceId(null);
+    }
+  }, [isOpen, contrato?.id]);
+
   if (!isOpen) return null;
 
   const formatDate = (dateString: string) => {
@@ -121,6 +139,44 @@ export default function ContractDetailsModal({
       return `UF ${amount.toLocaleString('es-CL', { minimumFractionDigits: 2 })}`;
     } else {
       return `$${amount.toLocaleString('es-CL')}`;
+    }
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '';
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    if (bytes === 0) return '0 B';
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+  };
+
+  const getFileIcon = (type?: string) => {
+    if (!type) return '📄';
+    if (type.includes('pdf')) return '📑';
+    if (type.includes('image')) return '🖼️';
+    return '📄';
+  };
+
+  const formatUploadDate = (dateString?: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      if (diffHours === 0) {
+        const diffMins = Math.floor(diffMs / (1000 * 60));
+        return `Hace ${diffMins} minuto${diffMins !== 1 ? 's' : ''}`;
+      }
+      return `Hace ${diffHours} hora${diffHours !== 1 ? 's' : ''}`;
+    } else if (diffDays === 1) {
+      return 'Ayer';
+    } else if (diffDays < 7) {
+      return `Hace ${diffDays} días`;
+    } else {
+      return date.toLocaleDateString('es-CL');
     }
   };
 
@@ -154,6 +210,33 @@ export default function ContractDetailsModal({
         await onTogglePaymentStatus(cuotaId, currentStatus);
       } catch (error) {
         console.error('Error toggling payment status:', error);
+      }
+    }
+  };
+
+  const handleInvoiceDelete = async (cuotaId: string) => {
+    setDeleteInvoiceId(cuotaId);
+  };
+
+  const confirmInvoiceDelete = async () => {
+    if (onDeleteInvoice && deleteInvoiceId) {
+      setDeletingInvoice(deleteInvoiceId);
+      // Optimistic update - hide the invoice immediately
+      setHiddenInvoices(prev => new Set(prev).add(deleteInvoiceId));
+      setDeleteInvoiceId(null);
+      
+      try {
+        await onDeleteInvoice(deleteInvoiceId);
+      } catch (error) {
+        console.error('Error deleting invoice:', error);
+        // Revert optimistic update on error
+        setHiddenInvoices(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(deleteInvoiceId);
+          return newSet;
+        });
+      } finally {
+        setDeletingInvoice(null);
       }
     }
   };
@@ -503,11 +586,25 @@ export default function ContractDetailsModal({
                         </td>
                         <td className="border border-gray-200 px-4 py-3 text-center">
                           <div className="flex items-center justify-center space-x-2">
-                            {cuota.factura_url ? (
+                            {cuota.factura_url && !hiddenInvoices.has(cuota.id) ? (
                               <div className="flex items-center space-x-2">
-                                {/* File name display */}
-                                <div className="text-xs text-gray-600 max-w-20 truncate" title={cuota.factura_url.split('/').pop()}>
-                                  {cuota.factura_url.split('/').pop()?.split('_').slice(-1)[0] || 'Factura'}
+                                {/* Enhanced file display */}
+                                <div className="flex flex-col items-start">
+                                  <div className="flex items-center space-x-1">
+                                    <span className="text-sm">{getFileIcon(cuota.factura_type)}</span>
+                                    <div className="text-xs font-medium text-gray-700 max-w-32 truncate" 
+                                         title={cuota.factura_filename || cuota.factura_url.split('/').pop()}>
+                                      {cuota.factura_filename || cuota.factura_url.split('/').pop()?.split('_').slice(-1)[0] || 'Factura'}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center space-x-2 mt-0.5">
+                                    {cuota.factura_size && (
+                                      <span className="text-xs text-gray-500">{formatFileSize(cuota.factura_size)}</span>
+                                    )}
+                                    {cuota.factura_uploaded_at && (
+                                      <span className="text-xs text-gray-500">• {formatUploadDate(cuota.factura_uploaded_at)}</span>
+                                    )}
+                                  </div>
                                 </div>
                                 {/* View button */}
                                 <a 
@@ -528,6 +625,23 @@ export default function ContractDetailsModal({
                                 >
                                   <Download className="text-green-600" size={14} />
                                 </a>
+                                {/* Delete button */}
+                                <button
+                                  onClick={() => handleInvoiceDelete(cuota.id)}
+                                  disabled={deletingInvoice === cuota.id}
+                                  className={`flex items-center justify-center w-7 h-7 rounded-lg transition-colors ${
+                                    deletingInvoice === cuota.id 
+                                      ? 'bg-gray-100 cursor-not-allowed' 
+                                      : 'bg-red-50 hover:bg-red-100'
+                                  }`}
+                                  title="Eliminar factura"
+                                >
+                                  {deletingInvoice === cuota.id ? (
+                                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600"></div>
+                                  ) : (
+                                    <Trash2 className="text-red-600" size={14} />
+                                  )}
+                                </button>
                               </div>
                             ) : (
                               <label className="cursor-pointer">
@@ -601,6 +715,49 @@ export default function ContractDetailsModal({
           )}
         </div>
       </div>
+
+      {/* Invoice Delete Confirmation Modal */}
+      {deleteInvoiceId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <Trash2 className="text-red-600" size={20} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Eliminar Factura</h3>
+                  <p className="text-sm text-gray-500">Esta acción no se puede deshacer</p>
+                </div>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-gray-700">
+                  ¿Está seguro de que desea eliminar esta factura?
+                </p>
+                <p className="text-sm text-gray-600 mt-2">
+                  La factura será eliminada permanentemente del sistema.
+                </p>
+              </div>
+              
+              <div className="flex space-x-3 justify-end">
+                <button
+                  onClick={() => setDeleteInvoiceId(null)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmInvoiceDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Eliminar Factura
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -16,6 +16,9 @@ import {
 } from '@heroicons/react/outline';
 import { MenuIcon as LoaderIcon } from '@heroicons/react/outline';
 import { UserNotification } from '../../pages/api/notifications/index';
+import { checkUserAccess, getAlternativeUrl } from '../../utils/notificationPermissions';
+import { toast } from 'react-hot-toast';
+import { supabase } from '../../lib/supabase';
 
 interface NotificationDropdownProps {
   notifications: UserNotification[];
@@ -86,7 +89,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   };
 
   // Handle notification click
-  const handleNotificationClick = (notification: UserNotification) => {
+  const handleNotificationClick = async (notification: UserNotification) => {
     // Mark as read if unread
     if (!notification.is_read) {
       onMarkAsRead(notification.id);
@@ -94,8 +97,48 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
 
     // Navigate to related URL if available
     if (notification.related_url) {
-      onClose();
-      router.push(notification.related_url);
+      try {
+        // Get current user
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          toast.error('Sesión no válida');
+          return;
+        }
+
+        // Check if user has access to the URL
+        const hasAccess = await checkUserAccess(notification.related_url, session.user.id);
+        
+        if (hasAccess) {
+          onClose();
+          router.push(notification.related_url);
+        } else {
+          // Try to get an alternative URL
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+            
+          const alternativeUrl = getAlternativeUrl(
+            notification.related_url, 
+            profile?.role || 'docente',
+            notification.notification_type?.name
+          );
+          
+          if (alternativeUrl) {
+            toast.error('No tienes permisos para acceder a esta página. Redirigiendo...');
+            onClose();
+            setTimeout(() => {
+              router.push(alternativeUrl);
+            }, 1500);
+          } else {
+            toast.error('No tienes permisos para acceder a esta página');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking permissions:', error);
+        toast.error('Error al verificar permisos');
+      }
     }
   };
 

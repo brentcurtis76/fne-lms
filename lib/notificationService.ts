@@ -4,6 +4,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { getAccessibleUrl } from '../utils/notificationPermissions';
 
 // Use service role key for bypassing RLS when creating notifications
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -122,12 +123,28 @@ class NotificationService {
       // Create notification for each recipient
       for (const recipient of recipients) {
         try {
+          // Get recipient's role for URL generation
+          const { data: profile } = await supabaseServiceRole
+            .from('profiles')
+            .select('role')
+            .eq('id', recipient.id)
+            .single();
+          
+          const userRole = profile?.role || 'docente';
+          
+          // Determine appropriate URL based on recipient's role
+          const relatedUrl = getAccessibleUrl(
+            content.related_url, 
+            userRole, 
+            eventData
+          );
+          
           await this.createNotification({
             user_id: recipient.id,
             title: content.title,
             description: content.description,
             category: trigger.category,
-            related_url: content.related_url,
+            related_url: relatedUrl,
             importance: content.importance || 'normal',
             read_at: null
           });

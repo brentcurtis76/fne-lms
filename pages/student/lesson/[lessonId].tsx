@@ -105,7 +105,8 @@ export default function StudentLessonViewer() {
             *,
             module:modules(
               id,
-              course_id
+              course_id,
+              order_number
             )
           `)
           .eq('id', lessonId)

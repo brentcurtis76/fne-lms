@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabase';
+import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import Link from 'next/link';
 import MainLayout from '../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
@@ -15,6 +15,8 @@ import { getOrCreateWorkspace } from '../utils/workspaceUtils';
 
 export default function Dashboard() {
   const router = useRouter();
+  const supabase = useSupabaseClient();
+  const session = useSession();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [profileName, setProfileName] = useState('');
@@ -35,7 +37,6 @@ export default function Dashboard() {
   useEffect(() => {
     const loadCachedAvatar = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           // First check in-memory cache from useAvatar hook
           const cachedData = sessionStorage.getItem('fne-avatar-cache');
@@ -55,13 +56,12 @@ export default function Dashboard() {
     };
     
     loadCachedAvatar();
-  }, []);
+  }, [session]);
   
   useEffect(() => {
     const checkSession = async () => {
       try {
         // Check if user is authenticated
-        const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
           router.push('/login');
           return;
@@ -246,7 +246,7 @@ export default function Dashboard() {
     };
     
     checkSession();
-  }, [router]);
+  }, [router, session, supabase]);
   
   const handleLogout = async () => {
     await supabase.auth.signOut();

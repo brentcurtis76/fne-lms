@@ -81,13 +81,6 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     description: 'Información personal'
   },
   {
-    id: 'assignments',
-    label: 'Mis Tareas',
-    icon: ClipboardDocumentCheckIcon,
-    href: '/assignments',
-    description: 'Gestión de tareas'
-  },
-  {
     id: 'quiz-reviews',
     label: 'Revisión de Quizzes',
     icon: ClipboardDocumentCheckIcon,
@@ -122,9 +115,24 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     id: 'consultants',
     label: 'Consultorías',
     icon: UserIcon,
-    href: '/admin/consultant-assignments',
-    description: 'Asignación de consultores',
-    adminOnly: true
+    description: 'Gestión de consultorías',
+    restrictedRoles: ['admin', 'consultor'],
+    children: [
+      {
+        id: 'consultant-assignments',
+        label: 'Asignación de Consultores',
+        href: '/admin/consultant-assignments',
+        description: 'Gestionar asignaciones',
+        adminOnly: true
+      },
+      {
+        id: 'assignment-overview',
+        label: 'Vista de Tareas',
+        href: '/admin/assignment-overview',
+        description: 'Monitoreo de tareas grupales',
+        icon: ClipboardDocumentCheckIcon
+      }
+    ]
   },
   {
     id: 'gestion',

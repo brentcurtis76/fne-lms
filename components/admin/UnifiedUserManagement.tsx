@@ -36,6 +36,7 @@ interface UserType {
   user_roles?: any[];
   consultant_assignments?: any[];
   student_assignments?: any[];
+  course_assignments?: any[];
   created_at?: string;
 }
 
@@ -65,6 +66,7 @@ export default function UnifiedUserManagement({
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'approved'>('all');
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; user: UserType | null }>({
     isOpen: false,
     user: null
@@ -141,18 +143,41 @@ export default function UnifiedUserManagement({
     return colors[role] || 'bg-gray-50 text-gray-700 border-gray-200';
   };
 
+  // Get unique communities from all users
+  const uniqueCommunities = (() => {
+    const communitiesMap = new Map();
+    users.forEach(user => {
+      if (user.user_roles && user.user_roles.length > 0) {
+        user.user_roles.forEach((role: any) => {
+          if (role.community?.id && role.community?.name) {
+            communitiesMap.set(role.community.id, role.community.name);
+          }
+        });
+      }
+    });
+    return Array.from(communitiesMap, ([id, name]) => ({ id, name })).sort((a, b) => 
+      a.name.localeCompare(b.name)
+    );
+  })();
+
   // Filter users
   const filteredUsers = users.filter(user => {
     const matchesStatus = selectedStatus === 'all' || user.approval_status === selectedStatus;
     
-    if (!searchQuery.trim()) return matchesStatus;
+    // Check community filter
+    const matchesCommunity = !selectedCommunityId || 
+      (user.user_roles && user.user_roles.some((role: any) => 
+        role.community?.id === selectedCommunityId
+      ));
+    
+    if (!searchQuery.trim()) return matchesStatus && matchesCommunity;
     
     const searchLower = searchQuery.toLowerCase();
     const userName = getUserName(user).toLowerCase();
     const userEmail = user.email.toLowerCase();
     const userSchool = getUserPrimarySchool(user).toLowerCase();
     
-    return matchesStatus && (
+    return matchesStatus && matchesCommunity && (
       userName.includes(searchLower) ||
       userEmail.includes(searchLower) ||
       userSchool.includes(searchLower)
@@ -259,8 +284,8 @@ export default function UnifiedUserManagement({
         </div>
       </div>
 
-      {/* Search */}
-      <div className="mb-6">
+      {/* Search and Filters */}
+      <div className="mb-6 space-y-4">
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-gray-400" />
@@ -273,6 +298,28 @@ export default function UnifiedUserManagement({
             placeholder="Buscar por nombre, email o escuela..."
           />
         </div>
+
+        {/* Community Filter */}
+        {uniqueCommunities.length > 0 && (
+          <div>
+            <label htmlFor="community-filter" className="block text-sm font-medium text-gray-700 mb-1">
+              Filtrar por Comunidad
+            </label>
+            <select
+              id="community-filter"
+              value={selectedCommunityId || ''}
+              onChange={(e) => setSelectedCommunityId(e.target.value || null)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-[#00365b]"
+            >
+              <option value="">Todas las comunidades</option>
+              {uniqueCommunities.map(community => (
+                <option key={community.id} value={community.id}>
+                  {community.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Users List */}
@@ -471,7 +518,8 @@ export default function UnifiedUserManagement({
 
                   {/* Assignments Section */}
                   {(user.consultant_assignments && user.consultant_assignments.length > 0) || 
-                   (user.student_assignments && user.student_assignments.length > 0) ? (
+                   (user.student_assignments && user.student_assignments.length > 0) ||
+                   (user.course_assignments && user.course_assignments.length > 0) ? (
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <h4 className="text-sm font-medium text-gray-900 mb-2">Asignaciones</h4>
                       
@@ -495,12 +543,25 @@ export default function UnifiedUserManagement({
                       )}
                       
                       {user.student_assignments && user.student_assignments.length > 0 && (
-                        <div>
+                        <div className="mb-3">
                           <h5 className="text-xs font-medium text-gray-700 mb-1">Como Estudiante:</h5>
                           <div className="space-y-1">
                             {user.student_assignments.map((assignment: any, index: number) => (
                               <div key={index} className="text-sm text-gray-600">
                                 • Consultor: {assignment.consultant?.first_name} {assignment.consultant?.last_name}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {user.course_assignments && user.course_assignments.length > 0 && (
+                        <div>
+                          <h5 className="text-xs font-medium text-gray-700 mb-1">Cursos Asignados ({user.course_assignments.length}):</h5>
+                          <div className="space-y-1">
+                            {user.course_assignments.map((assignment: any, index: number) => (
+                              <div key={index} className="text-sm text-gray-600">
+                                • {assignment.course?.title || 'Curso sin título'}
                               </div>
                             ))}
                           </div>

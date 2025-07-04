@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabase';
+import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import { Session, User } from '@supabase/supabase-js';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -34,6 +34,8 @@ type Profile = {
 
 export default function ProfilePage() {
   const router = useRouter();
+  const supabase = useSupabaseClient();
+  const session = useSession();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [dataLoaded, setDataLoaded] = useState(false);
@@ -54,7 +56,6 @@ export default function ProfilePage() {
   useEffect(() => {
     const getSessionAndProfile = async () => {
       // Check if user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
         router.push('/login');
         return;

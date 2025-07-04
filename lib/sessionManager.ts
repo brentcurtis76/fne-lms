@@ -43,13 +43,12 @@ export class SessionManager {
         sessionMatch: currentSessionId === storedSessionId
       });
 
-      // If user doesn't want to be remembered and this is a new browser session
-      if (!rememberMe && currentSessionId !== storedSessionId) {
-        console.log('[SessionManager] Clearing session due to "Remember Me" = false');
-        await supabase.auth.signOut();
-        localStorage.removeItem(this.SESSION_ID_KEY);
-        return;
-      }
+      // FIXED: Removed automatic logout logic that was causing unexpected logouts
+      // The previous logic was incorrectly logging users out on page refresh
+      // when "Remember Me" was false. Supabase already handles session persistence
+      // properly, so we don't need to interfere with it.
+      
+      // We'll only track the user's preference, not control the session lifecycle
 
       // Generate a new browser session ID if none exists
       if (!currentSessionId) {

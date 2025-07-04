@@ -12,7 +12,7 @@ import Sidebar from './Sidebar';
 import Avatar from '../common/Avatar';
 import { useAvatar } from '../../hooks/useAvatar';
 import { LogoutIcon } from '@heroicons/react/outline';
-import FeedbackButton from '../feedback/FeedbackButton';
+import FeedbackButtonWithPermissions from '../feedback/FeedbackButtonWithPermissions';
 import RoleSwitcher from '../dev/RoleSwitcher';
 import { isDevUser } from '../../utils/roleUtils';
 
@@ -262,8 +262,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         </div>
       </div>
       
-      {/* Feedback Button - Always visible */}
-      <FeedbackButton />
+      {/* Feedback Button - Only visible to users with permission */}
+      <FeedbackButtonWithPermissions />
       
       {/* Role Switcher - Only visible for dev users */}
       {user && isDev && (

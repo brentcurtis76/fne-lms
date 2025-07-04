@@ -24,6 +24,7 @@ type User = {
   user_roles?: any[];
   consultant_assignments?: any[];
   student_assignments?: any[];
+  course_assignments?: any[];
   school_relation?: any;
 };
 
@@ -325,12 +326,27 @@ export default function UserManagement() {
           // Combine both types of assignments
           const studentAssignments = [...(directAssignments || []), ...communityAssignments];
 
+          // Get course assignments for this user
+          const { data: courseAssignments } = await supabase
+            .from('course_assignments')
+            .select(`
+              course_id,
+              assigned_at,
+              course:courses!inner(
+                id,
+                title,
+                description
+              )
+            `)
+            .eq('teacher_id', user.id);
+
           return {
             ...user,
             approval_status: (user.approval_status as 'pending' | 'approved' | 'rejected') || 'pending',
             user_roles: userRoles,
             consultant_assignments: consultantAssignments || [],
-            student_assignments: studentAssignments || []
+            student_assignments: studentAssignments || [],
+            course_assignments: courseAssignments || []
           };
         })
       );

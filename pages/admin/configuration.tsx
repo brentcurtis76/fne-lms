@@ -5,6 +5,7 @@ import MainLayout from '../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 import { Bell, Settings, Users, Palette, CheckCircle, XCircle, Loader2, RefreshCw, UserCog } from 'lucide-react';
 import UserPreferences from '../../components/configuration/UserPreferences';
+import FeedbackPermissionsManager from '../../components/admin/FeedbackPermissionsManager';
 
 interface NotificationType {
   id: string;
@@ -424,7 +425,16 @@ export default function Configuration() {
                 Configura roles, permisos y políticas de acceso.
               </p>
             </div>
-            {commonContent}
+            
+            {/* Feedback Permissions Section */}
+            <FeedbackPermissionsManager />
+            
+            {/* Placeholder for future permissions */}
+            <div className="bg-gray-50 rounded-lg p-6 text-center">
+              <p className="text-gray-600">
+                Más opciones de permisos estarán disponibles próximamente
+              </p>
+            </div>
           </div>
         );
       case 'customization':

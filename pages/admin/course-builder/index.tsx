@@ -128,13 +128,57 @@ const CourseBuilder: React.FC = () => {
 
       console.log('Courses fetched successfully:', data?.length || 0);
       
-      const formattedCourses = (data || []).map(course => ({
-        ...course,
-        instructor_name: 'Sin instructor', // Simplified - no join for now
-        thumbnail_url: (course.thumbnail_url && course.thumbnail_url !== 'default-thumbnail.png') ? course.thumbnail_url : null 
+      // Now fetch instructors for each course
+      const coursesWithInstructors = await Promise.all((data || []).map(async (course) => {
+        let instructorName = 'Sin instructor';
+        
+        // First, try to get instructor from instructors table using course.instructor_id
+        if (course.instructor_id) {
+          const { data: instructor } = await supabase
+            .from('instructors')
+            .select('full_name')
+            .eq('id', course.instructor_id)
+            .single();
+          
+          if (instructor && instructor.full_name) {
+            instructorName = instructor.full_name;
+          }
+        }
+        
+        // If no instructor found from instructor_id, look for consultants in course_assignments
+        if (instructorName === 'Sin instructor') {
+          // Get all teachers assigned to this course
+          const { data: assignments } = await supabase
+            .from('course_assignments')
+            .select('teacher_id')
+            .eq('course_id', course.id);
+
+          if (assignments && assignments.length > 0) {
+            // Get profiles of assigned teachers and find consultants
+            const teacherIds = assignments.map(a => a.teacher_id);
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('id, first_name, last_name, role')
+              .in('id', teacherIds)
+              .eq('role', 'consultor')
+              .limit(1);
+            
+            if (profiles && profiles.length > 0) {
+              const profile = profiles[0];
+              instructorName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Sin nombre';
+            }
+          }
+        }
+        
+
+        return {
+          ...course,
+          instructor_name: instructorName,
+          thumbnail_url: (course.thumbnail_url && course.thumbnail_url !== 'default-thumbnail.png') ? course.thumbnail_url : null 
+        };
       }));
       
-      setCourses(formattedCourses);
+      setCourses(coursesWithInstructors);
     } catch (error) {
       console.error('Unexpected error fetching courses:', error);
       toast.error('Error inesperado al cargar cursos');

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '../../../../lib/supabase';
 import MainLayout from '../../../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
+import { ConfirmModal } from '../../../../components/common/ConfirmModal';
 
 interface Course {
   id: string;
@@ -37,6 +38,13 @@ export default function EditCourse() {
   // Instructors data
   const [instructors, setInstructors] = useState<any[]>([]);
   const [loadingInstructors, setLoadingInstructors] = useState(false);
+  
+  // Confirmation modal state
+  const [showInstructorChangeModal, setShowInstructorChangeModal] = useState(false);
+  const [pendingInstructorChange, setPendingInstructorChange] = useState<{
+    oldName: string;
+    newName: string;
+  } | null>(null);
 
   useEffect(() => {
     const checkAuthAndLoadCourse = async () => {
@@ -91,6 +99,13 @@ export default function EditCourse() {
           setDescription(courseData.description);
           setInstructor(courseData.instructor_id || '');
           setCurrentThumbnailUrl(courseData.thumbnail_url);
+          
+          // Log for debugging instructor changes
+          console.log('[EditCourse] Loaded course:', {
+            id: courseData.id,
+            title: courseData.title,
+            instructor_id: courseData.instructor_id
+          });
           
           // Fetch instructors
           fetchInstructors();
@@ -148,16 +163,7 @@ export default function EditCourse() {
     return data.publicUrl;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!title.trim()) {
-      toast.error('El título es requerido');
-      return;
-    }
-    
-    setSaving(true);
-    
+  const performSave = async () => {
     try {
       let thumbnailUrl = currentThumbnailUrl;
       
@@ -165,6 +171,8 @@ export default function EditCourse() {
       if (thumbnail) {
         thumbnailUrl = await uploadThumbnail(thumbnail);
       }
+      
+      console.log('[EditCourse] Saving course with instructor:', instructor);
       
       // Update course
       const { error } = await supabase
@@ -183,6 +191,68 @@ export default function EditCourse() {
       
       toast.success('Curso actualizado exitosamente');
       router.push(`/admin/course-builder/${courseId}`);
+    } catch (error: any) {
+      throw error;
+    }
+  };
+
+  const handleInstructorChangeConfirm = async () => {
+    setShowInstructorChangeModal(false);
+    setPendingInstructorChange(null);
+    setSaving(true);
+    
+    try {
+      console.warn('[EditCourse] INSTRUCTOR CHANGE CONFIRMED:', {
+        courseId,
+        title: course?.title,
+        old_instructor_id: course?.instructor_id,
+        new_instructor_id: instructor || null
+      });
+      
+      await performSave();
+    } catch (error: any) {
+      console.error('Error updating course:', error);
+      toast.error('Error al actualizar el curso: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!title.trim()) {
+      toast.error('El título es requerido');
+      return;
+    }
+    
+    setSaving(true);
+    
+    try {
+      let thumbnailUrl = currentThumbnailUrl;
+      
+      // Upload new thumbnail if provided
+      if (thumbnail) {
+        thumbnailUrl = await uploadThumbnail(thumbnail);
+      }
+      
+      // Check if instructor is being changed
+      if (course && course.instructor_id !== instructor) {
+        const oldInstructorName = instructors.find(i => i.id === course.instructor_id)?.full_name || 'Sin instructor';
+        const newInstructorName = instructors.find(i => i.id === instructor)?.full_name || 'Sin instructor';
+        
+        // Show confirmation modal
+        setPendingInstructorChange({
+          oldName: oldInstructorName,
+          newName: newInstructorName
+        });
+        setShowInstructorChangeModal(true);
+        setSaving(false);
+        return;
+      }
+      
+      // Proceed with save if no instructor change
+      await performSave();
       
     } catch (error: any) {
       console.error('Error updating course:', error);
@@ -393,6 +463,25 @@ export default function EditCourse() {
             </div>
           </div>
         </div>
+        
+        {/* Instructor Change Confirmation Modal */}
+        <ConfirmModal
+          isOpen={showInstructorChangeModal}
+          onClose={() => {
+            setShowInstructorChangeModal(false);
+            setPendingInstructorChange(null);
+          }}
+          onConfirm={handleInstructorChangeConfirm}
+          title="Cambiar Instructor"
+          message={
+            pendingInstructorChange
+              ? `¿Estás seguro de que quieres cambiar el instructor de "${pendingInstructorChange.oldName}" a "${pendingInstructorChange.newName}"? Este cambio afectará cómo se muestra el curso.`
+              : ''
+          }
+          confirmText="Sí, cambiar"
+          cancelText="Cancelar"
+          isDangerous={false}
+        />
     </MainLayout>
   );
 }

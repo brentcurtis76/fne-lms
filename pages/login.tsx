@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabase';
+import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { checkProfileCompletion } from '../utils/profileUtils';
 import { SessionManager } from '../lib/sessionManager';
 export default function LoginPage() {
   const router = useRouter();
+  const supabase = useSupabaseClient();
+  const session = useSession();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

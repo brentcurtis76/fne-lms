@@ -9,16 +9,10 @@ import { Toaster } from 'react-hot-toast';
 import { SessionManager } from '../lib/sessionManager';
 import { toasterConfig } from '../constants/toastStyles';
 
-// Create a singleton Supabase client to avoid multiple instances warning
-let supabaseClient: any;
-if (typeof window !== 'undefined') {
-  if (!supabaseClient) {
-    supabaseClient = createPagesBrowserClient();
-  }
-}
-
 export default function MyApp({ Component, pageProps }: AppProps) {
-  const [client] = useState(() => supabaseClient || createPagesBrowserClient());
+  // FIXED: Use standard pattern recommended by Supabase auth-helpers
+  // This ensures proper session management and prevents conflicts
+  const [client] = useState(() => createPagesBrowserClient());
 
   // Initialize session management on app startup
   useEffect(() => {

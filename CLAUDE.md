@@ -100,6 +100,26 @@ npm run dev  # MUST be port 3000
 - ✅ Mobile responsive design
 
 # RECENT UPDATES
+- **AUTHENTICATION FIX (July 4, 2025)**:
+  - Fixed critical logout issue where users were being logged out unexpectedly on page refresh
+  - Removed flawed SessionManager logic that was incorrectly signing users out
+  - Fixed singleton Supabase client pattern in _app.tsx that was causing conflicts
+  - Updated dashboard, login, and profile pages to use auth-helpers hooks
+  - Created AUTH_MIGRATION_GUIDE.md for migrating remaining pages
+  - Users now stay logged in properly regardless of "Remember Me" setting
+- **COURSE INSTRUCTOR DISPLAY FIX (July 4, 2025)**:
+  - Fixed instructor names not displaying on courses page
+  - Updated to fetch from `instructors` table first, then fallback to course assignments
+  - Added confirmation modal when changing instructor to prevent accidental changes
+  - Replaced browser confirm() with custom ConfirmModal matching FNE design
+  - Added logging to track instructor changes
+- **UI IMPROVEMENTS (July 4, 2025)**:
+  - Fixed duplicate "Vista de Tareas Grupales" title in assignment overview page
+  - Removed unused "Mis Tareas" navigation item (0 records in database)
+  - Simplified navigation by removing redundant assignment system
+  - Assignment functionality properly consolidated in Collaborative Space
+
+# RECENT UPDATES
 - **NOTIFICATIONS PAGE IMPLEMENTATION (July 2025)**:
   - Replaced placeholder notifications page with full-featured management interface
   - Comprehensive list view with pagination (20 items per page)

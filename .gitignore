@@ -78,3 +78,10 @@ fix_*.js
 dev-server.sh
 run-*.sh
 run-*.mjs
+
+# Reports and Analysis
+*.md
+*.json
+
+# Backups
+/backups/

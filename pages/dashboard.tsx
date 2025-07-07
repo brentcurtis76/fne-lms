@@ -112,7 +112,7 @@ export default function Dashboard() {
               setProfileData(profileData);
               
               // Get effective role and admin status (handles dev impersonation)
-              const { effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(userData.user.id);
+              const { effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, userData.user.id);
               setUserRole(effectiveRole);
               setIsAdmin(isAdminUser);
               
@@ -149,7 +149,7 @@ export default function Dashboard() {
               for (const role of roles) {
                 if (role.community_id) {
                   try {
-                    const members = await getCommunityMembers(role.community_id);
+                    const members = await getCommunityMembers(supabase, role.community_id);
                     communityMembersData[role.community_id] = members;
                     
                     // Get or create workspace for this community

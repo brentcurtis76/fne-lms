@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import ConsultantAssignmentModal from '../../components/ConsultantAssignmentModal';
+import { getUserPrimaryRole } from '../../utils/roleUtils';
 
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 import { GraduationCap, Plus } from 'lucide-react';
@@ -113,12 +114,13 @@ const ConsultantAssignmentsPage: React.FC = () => {
 
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('role, first_name, last_name, avatar_url')
+        .select('first_name, last_name, avatar_url')
         .eq('id', session.user.id)
         .single();
       
       if (profileData) {
-        const isAdminUser = profileData.role === 'admin';
+        const userRole = await getUserPrimaryRole(session.user.id);
+        const isAdminUser = userRole === 'admin';
         setIsAdmin(isAdminUser);
         
         if (!isAdminUser) {

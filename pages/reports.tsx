@@ -148,12 +148,12 @@ const ReportsPage: React.FC = () => {
 
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('role, first_name, last_name, avatar_url, school_id, generation_id, community_id')
+        .select('first_name, last_name, avatar_url, school_id, generation_id, community_id')
         .eq('id', session.user.id)
         .single();
       
       if (profileData) {
-        const role = profileData.role;
+        const role = await getUserPrimaryRole(session.user.id);
         setUserRole(role);
         setIsAdmin(role === 'admin');
         

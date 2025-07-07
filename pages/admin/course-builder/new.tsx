@@ -7,6 +7,7 @@ import Head from 'next/head';
 import MainLayout from '../../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 
+import { getUserPrimaryRole } from '../../../utils/roleUtils';
 export default function NewCourse() {
   const supabase = useSupabaseClient();
   const router = useRouter();
@@ -55,12 +56,13 @@ export default function NewCourse() {
         // Always check profiles table as well
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .select('role, avatar_url')
+          .select('avatar_url')
           .eq('id', session.user.id)
           .single();
           
         console.log('Profile data:', profileData);
-        const adminFromProfile = profileData?.role === 'admin';
+        const userRole = await getUserPrimaryRole(session.user.id);
+        const adminFromProfile = userRole === 'admin';
         
         // Set avatar URL if available
         if (profileData?.avatar_url) {

@@ -13,8 +13,6 @@ import Avatar from '../common/Avatar';
 import { useAvatar } from '../../hooks/useAvatar';
 import { LogoutIcon } from '@heroicons/react/outline';
 import FeedbackButtonWithPermissions from '../feedback/FeedbackButtonWithPermissions';
-import RoleSwitcher from '../dev/RoleSwitcher';
-import { devRoleService } from '../../lib/services/devRoleService';
 
 interface Breadcrumb {
   label: string;
@@ -51,9 +49,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   // Sidebar state with localStorage persistence
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
-  // Dev user state
-  const [isDev, setIsDev] = useState(false);
-  
   // Use the avatar hook for better performance
   const { url: fetchedAvatarUrl } = useAvatar(user);
   
@@ -76,17 +71,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       }
     }
   }, [user, avatarUrl]);
-
-  // Check if user is a dev
-  useEffect(() => {
-    const checkDevStatus = async () => {
-      if (user) {
-        const devStatus = await devRoleService.isDevUser(user.id);
-        setIsDev(devStatus);
-      }
-    };
-    checkDevStatus();
-  }, [user]);
   
   // Initialize sidebar state from localStorage
   useEffect(() => {
@@ -264,19 +248,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       
       {/* Feedback Button - Only visible to users with permission */}
       <FeedbackButtonWithPermissions />
-      
-      {/* Role Switcher - Only visible for dev users */}
-      {user && isDev && (
-        <RoleSwitcher 
-          user={user} 
-          onRoleChange={(context) => {
-            // Force a page refresh to apply the new role
-            if (context || context === null) {
-              router.reload();
-            }
-          }}
-        />
-      )}
     </>
   );
 };

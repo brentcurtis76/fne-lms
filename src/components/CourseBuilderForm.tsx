@@ -13,8 +13,8 @@ interface CourseBuilderFormProps {
 }
 
 const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
-  instructorId = '1d6e3e5d-93ed-4a95-96d4-1b9e7dc7891d',
-  createdBy = '6a4962f0-0d7b-45ce-838f-ead89c77b09d',
+  instructorId,
+  createdBy,
   onSuccess,
 }) => {
   const [title, setTitle] = useState('');
@@ -33,7 +33,7 @@ const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
       {
         title,
         description,
-        instructor_id: instructorId,
+        instructor_id: instructorId || null,
         created_by: createdBy,
         thumbnail_url: 'https://example.com/default-thumbnail.png',
         status: 'draft',
@@ -41,9 +41,9 @@ const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
     ]);
 
     if (error) {
-      setErrorMessage('Error creating course: ' + error.message);
+      setErrorMessage('Error al crear el curso: ' + error.message);
     } else {
-      setSuccessMessage('✅ Course created successfully!');
+      setSuccessMessage('✅ ¡Curso creado exitosamente!');
       setTitle('');
       setDescription('');
       
@@ -57,8 +57,7 @@ const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-2xl font-bold text-brand_blue mb-6">Create New Course</h2>
+    <div className="w-full max-w-2xl mx-auto">
 
       {successMessage && (
         <div className="mb-4 text-green-700 bg-green-100 p-3 rounded">
@@ -74,7 +73,7 @@ const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="courseTitle" className="block text-sm font-medium text-gray-700 mb-1">
-            Course Title
+            Título del Curso
           </label>
           <input
             id="courseTitle"
@@ -82,21 +81,23 @@ const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue"
-            placeholder="Enter course title"
+            placeholder="Ingresa el título del curso"
+            required
           />
         </div>
 
         <div>
           <label htmlFor="courseDescription" className="block text-sm font-medium text-gray-700 mb-1">
-            Course Description
+            Descripción del Curso
           </label>
           <textarea
             id="courseDescription"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            rows={5}
+            rows={3}
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue"
-            placeholder="Enter course description"
+            placeholder="Ingresa la descripción del curso"
+            required
           />
         </div>
 
@@ -110,7 +111,7 @@ const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
                 : 'bg-brand_blue text-white hover:bg-brand_yellow hover:text-brand_blue'
             }`}
           >
-            {loading ? 'Saving...' : 'Save Course'}
+            {loading ? 'Guardando...' : 'Crear Curso'}
           </button>
         </div>
       </form>

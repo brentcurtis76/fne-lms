@@ -98,7 +98,7 @@ export default function Dashboard() {
             
             const { data: profileData, error: profileError } = await supabase
               .from('profiles')
-              .select('role, first_name, last_name, avatar_url, school, description, must_change_password')
+              .select('first_name, last_name, avatar_url, school, description, must_change_password')
               .eq('id', userData.user.id)
               .single();
               

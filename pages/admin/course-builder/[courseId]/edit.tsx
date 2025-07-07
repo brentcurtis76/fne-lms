@@ -9,6 +9,7 @@ import MainLayout from '../../../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 import { ConfirmModal } from '../../../../components/common/ConfirmModal';
 
+import { getUserPrimaryRole } from '../../../../utils/roleUtils';
 interface Course {
   id: string;
   title: string;
@@ -64,12 +65,13 @@ export default function EditCourse() {
         // Check admin status
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('role, avatar_url')
+          .select('avatar_url')
           .eq('id', session.user.id)
           .single();
           
         const adminFromMetadata = session.user.user_metadata?.role === 'admin';
-        const adminFromProfile = profileData?.role === 'admin';
+        const userRole = await getUserPrimaryRole(session.user.id);
+        const adminFromProfile = userRole === 'admin';
         const isAdminUser = adminFromMetadata || adminFromProfile;
         setIsAdmin(isAdminUser);
         

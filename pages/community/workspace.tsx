@@ -297,18 +297,15 @@ const CommunityWorkspacePage: React.FC = () => {
     
     setActiveSection(newSection);
     
-    // Update URL without page reload - use replace to avoid navigation stack pollution
-    try {
-      await router.replace(
-        {
-          pathname: router.pathname,
-          query: { ...router.query, section: newSection }
-        },
-        undefined,
-        { shallow: true }
+    // Update URL without page reload using the History API directly
+    // This avoids any Next.js router hooks that might trigger a reload
+    if (typeof window !== 'undefined') {
+      const newUrl = `${window.location.pathname}?section=${newSection}`;
+      window.history.replaceState(
+        { ...window.history.state, section: newSection },
+        '',
+        newUrl
       );
-    } catch (error) {
-      console.warn('Router navigation throttled, continuing without URL update');
     }
     
     // Log section change activity

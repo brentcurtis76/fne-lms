@@ -268,31 +268,6 @@ vi.mock('./lib/notificationService', () => ({
   }
 }));
 
-// Mock dev role service - but allow test files to override with their own mocks
-vi.mock('./lib/services/devRoleService', async () => {
-  const actual = await vi.importActual('./lib/services/devRoleService');
-  return {
-    ...actual,
-    devRoleService: {
-      isDevUser: vi.fn().mockResolvedValue(false),
-      getActiveImpersonation: vi.fn().mockResolvedValue(null),
-      startImpersonation: vi.fn().mockResolvedValue({ success: true, sessionToken: 'test-token' }),
-      endImpersonation: vi.fn().mockResolvedValue({ success: true }),
-      getEffectiveRole: vi.fn().mockResolvedValue('admin'),
-      getAvailableRoles: vi.fn().mockReturnValue([
-        { value: 'admin', label: 'Administrador Global', description: 'Control total de la plataforma' },
-        { value: 'consultor', label: 'Consultor FNE', description: 'Instructor asignado a colegios' }
-      ]),
-      getAvailableSchools: vi.fn().mockResolvedValue([]),
-      getAvailableGenerations: vi.fn().mockResolvedValue([]),
-      getAvailableCommunities: vi.fn().mockResolvedValue([]),
-      getAuditLog: vi.fn().mockResolvedValue([]),
-      getSampleUsers: vi.fn().mockResolvedValue([]),
-      initialize: vi.fn().mockResolvedValue(undefined)
-    }
-  };
-});
-
 // Reset all mocks before each test
 beforeEach(() => {
   vi.clearAllMocks();

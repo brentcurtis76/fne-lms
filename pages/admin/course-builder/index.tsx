@@ -10,8 +10,9 @@ import DeleteCourseModal from '../../../components/DeleteCourseModal';
 import AssignTeachersModal from '../../../components/AssignTeachersModal';
 import CourseBuilderForm from '../../../src/components/CourseBuilderForm';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
-import { BookOpen, Plus } from 'lucide-react';
+import { BookOpen, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 
+import { getUserPrimaryRole } from '../../../utils/roleUtils';
 interface CourseFromDB {
   id: string;
   title: string;
@@ -35,6 +36,7 @@ const CourseBuilder: React.FC = () => {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [isFormCollapsed, setIsFormCollapsed] = useState(true);
 
   // State for delete confirmation modal
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -58,7 +60,7 @@ const CourseBuilder: React.FC = () => {
       // Get user profile to check role and avatar
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('role, approval_status, avatar_url')
+        .select('approval_status, avatar_url')
         .eq('id', session.user.id)
         .single();
 
@@ -70,14 +72,13 @@ const CourseBuilder: React.FC = () => {
       });
 
       const adminInMetadata = session.user.user_metadata?.role === 'admin';
-      const adminInProfile = profileData?.role === 'admin';
       
       // Set avatar URL if available
       if (profileData?.avatar_url) {
         setAvatarUrl(profileData.avatar_url);
       }
       
-      if (adminInMetadata || adminInProfile) {
+      if (adminInMetadata) {
         console.log('Setting user role to admin');
         setUserRole('admin');
       } else {
@@ -487,20 +488,32 @@ const CourseBuilder: React.FC = () => {
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         
-        {/* Course Creation Form Section */}
+        {/* Course Creation Form Section - Collapsible */}
         <div className="mb-12 bg-white rounded-lg shadow-md">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-[#00365b]">Agregar Nuevo Curso</h2>
-            <p className="text-gray-500 text-sm mt-1">
-              Completa el formulario para crear un nuevo curso
-            </p>
-          </div>
+          <button
+            onClick={() => setIsFormCollapsed(!isFormCollapsed)}
+            className="w-full p-6 border-b border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          >
+            <div className="text-left">
+              <h2 className="text-xl font-semibold text-[#00365b]">Agregar Nuevo Curso</h2>
+              <p className="text-gray-500 text-sm mt-1">
+                {isFormCollapsed ? 'Haz clic para expandir el formulario' : 'Completa el formulario para crear un nuevo curso'}
+              </p>
+            </div>
+            {isFormCollapsed ? <ChevronDown className="h-5 w-5 text-gray-400" /> : <ChevronUp className="h-5 w-5 text-gray-400" />}
+          </button>
           
-          <div className="p-6">
-            <CourseBuilderForm 
-              onSuccess={fetchCourses} 
-            />
-          </div>
+          {!isFormCollapsed && (
+            <div className="p-6">
+              <CourseBuilderForm 
+                createdBy={user?.id}
+                onSuccess={() => {
+                  fetchCourses();
+                  setIsFormCollapsed(true);
+                }} 
+              />
+            </div>
+          )}
         </div>
 
         {courses.length === 0 ? (

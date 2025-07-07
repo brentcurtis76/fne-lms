@@ -14,6 +14,7 @@ import { sendEmail, generateExpenseReportSubmissionEmail, generateExpenseReportA
 import { ExpenseReportExporter } from '../lib/expenseReportExport';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 
+import { getUserPrimaryRole } from '../utils/roleUtils';
 interface ExpenseCategory {
   id: string;
   name: string;
@@ -92,16 +93,17 @@ export default function ExpenseReportsPage() {
         // Check if user is admin
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role, avatar_url')
+          .select('avatar_url')
           .eq('id', session.user.id)
           .single();
 
         if (profile) {
-          setIsAdmin(profile.role === 'admin');
+          const userRole = await getUserPrimaryRole(session.user.id);
+          setIsAdmin(userRole === 'admin');
           setAvatarUrl(profile.avatar_url || '');
           
           // Redirect non-admins away from expense reports
-          if (profile.role !== 'admin') {
+          if (!userRole || userRole !== 'admin') {
             router.push('/dashboard');
             return;
           }

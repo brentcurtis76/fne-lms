@@ -9,6 +9,7 @@ import { assignmentService } from '../lib/services/assignments';
 import { useAvatar } from '../hooks/useAvatar';
 import { ClipboardCheckIcon as ClipboardDocumentCheckIcon } from '@heroicons/react/outline';
 
+import { getUserPrimaryRole } from '../utils/roleUtils';
 export default function AssignmentsPage() {
   const router = useRouter();
   const session = useSession();
@@ -84,7 +85,7 @@ export default function AssignmentsPage() {
         try {
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
-            .select('role, avatar_url, name')
+            .select('avatar_url, name')
             .eq('id', session.user.id)
             .single();
 
@@ -92,10 +93,11 @@ export default function AssignmentsPage() {
 
           if (profile) {
             setUserProfile(profile);
-            setUserRole(profile.role);
+            const role = await getUserPrimaryRole(session.user.id);
+            setUserRole(role);
             setProfileName(profile.name || session.user.email?.split('@')[0] || 'Usuario');
-            setIsAdmin(profile.role === 'admin');
-            await loadAssignments(session.user.id, profile.role);
+            setIsAdmin(role === 'admin');
+            await loadAssignments(session.user.id, role);
           } else {
             toast.error('No se pudo encontrar el perfil del usuario.');
             setUserRole('docente'); // default role

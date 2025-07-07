@@ -609,25 +609,14 @@ export async function getEffectiveRoleAndStatus(supabase: SupabaseClient, userId
   activeRole: UserRole | null;
 }> {
   try {
-    // Get user roles
+    // Get user roles from user_roles table
     const userRoles = await getUserRoles(supabase, userId);
     const highestRole = getHighestRole(userRoles);
     
-    // Also check legacy profile role as fallback
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    if (profileError && profileError.code !== 'PGRST116') {
-      console.error('Error fetching legacy profile role:', profileError);
-    }
+    // Use highest role from new system
+    const effectiveRole = highestRole || '';
     
-    // Use highest role from new system, fall back to legacy role
-    const effectiveRole = highestRole || profileData?.role || '';
-    
-    // Check admin status (handles both systems)
+    // Check admin status
     const isAdmin = await hasAdminPrivileges(supabase, userId);
     
     // Get the active role object for organizational context
@@ -645,5 +634,22 @@ export async function getEffectiveRoleAndStatus(supabase: SupabaseClient, userId
       isAdmin: false,
       activeRole: null
     };
+  }
+}
+
+/**
+ * Get the primary (highest priority) role for a user
+ * This is a simpler function for when you just need the role string
+ */
+export async function getUserPrimaryRole(userId: string): Promise<string> {
+  const { supabase } = await import('../lib/supabase');
+  
+  try {
+    const userRoles = await getUserRoles(supabase, userId);
+    const highestRole = getHighestRole(userRoles);
+    return highestRole || '';
+  } catch (error) {
+    console.error('Error in getUserPrimaryRole:', error);
+    return '';
   }
 }

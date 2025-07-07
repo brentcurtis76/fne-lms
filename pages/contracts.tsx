@@ -14,6 +14,7 @@ import CashFlowView from '../components/contracts/CashFlowView';
 import ContractDetailsModal from '../components/contracts/ContractDetailsModal';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 
+import { getUserPrimaryRole } from '../utils/roleUtils';
 interface Programa {
   id: string;
   nombre: string;
@@ -122,11 +123,12 @@ export default function ContractsPage() {
         // Check if user is admin
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role, avatar_url')
+          .select('avatar_url')
           .eq('id', session.user.id)
           .single();
         
-        if (!profile || profile.role !== 'admin') {
+        const userRole = await getUserPrimaryRole(session.user.id);
+        if (!profile || userRole !== 'admin') {
           router.push('/dashboard');
           return;
         }

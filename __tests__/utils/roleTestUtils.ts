@@ -46,7 +46,6 @@ export async function mockAuthForRole(user: TestUser): Promise<RoleTestContext> 
     email: user.email,
     first_name: user.first_name,
     last_name: user.last_name,
-    role: user.role,
     school_id: user.school_id,
     generation_id: user.generation_id,
     community_id: user.community_id,
@@ -343,25 +342,3 @@ export function createTestScenario(scenarioName: 'school' | 'consultant' | 'full
   }
 }
 
-/**
- * Test helper for dev role impersonation
- */
-export async function mockDevRoleImpersonation(targetRole: UserRoleType, devUser: TestUser) {
-  const targetUser = UserFactory.createUser({ role: targetRole });
-  
-  // Mock the dev role service through vi.mocked API
-  const { devRoleService } = await import('../../lib/services/devRoleService');
-  vi.mocked(devRoleService.getActiveImpersonation)
-    .mockResolvedValue({
-      id: 'session-123',
-      dev_user_id: devUser.id,
-      impersonated_role: targetRole,
-      session_token: 'test-token',
-      is_active: true,
-      started_at: new Date().toISOString(),
-      expires_at: new Date(Date.now() + 3600000).toISOString(),
-      created_at: new Date().toISOString()
-    });
-
-  return await mockAuthForRole(targetUser);
-}

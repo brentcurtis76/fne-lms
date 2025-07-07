@@ -102,12 +102,13 @@ export default function NotificationsPage() {
     try {
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('role, avatar_url')
+        .select('avatar_url')
         .eq('id', session.user.id)
         .single();
 
       if (profileData) {
-        setIsAdmin(profileData.role === 'admin');
+        const userRole = await getUserPrimaryRole(session.user.id);
+        setIsAdmin(userRole === 'admin');
         setAvatarUrl(profileData.avatar_url);
       }
       await loadNotifications();

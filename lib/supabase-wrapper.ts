@@ -2,52 +2,27 @@
  * Supabase Wrapper - Temporary compatibility layer
  * 
  * This module provides a way to access Supabase client without creating
- * multiple instances. It should be used temporarily while migrating to
- * auth-helpers.
+ * multiple instances. It reuses the client from _app.tsx to prevent
+ * the "Multiple GoTrueClient instances" warning.
  * 
  * TODO: Remove this file once all components are migrated to auth-helpers
  */
 
+import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+
+// Create a singleton that matches what _app.tsx creates
+// This ensures we use the same instance throughout the app
 let supabaseInstance: any = null;
 
 export function getSupabaseClient() {
   if (typeof window === 'undefined') {
-    // Server-side: Create a new client for each request
-    const { createClient } = require('@supabase/supabase-js');
-    return createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    // Server-side: Use auth-helpers for consistency
+    return createPagesBrowserClient();
   }
   
-  // Client-side: Try to get the auth-helpers client first
-  try {
-    // Check if we're in a React component context
-    const authHelpersClient = (window as any).__SUPABASE_CLIENT__;
-    if (authHelpersClient) {
-      return authHelpersClient;
-    }
-  } catch (e) {
-    // Not in auth-helpers context
-  }
-  
-  // Fallback: Create a singleton instance
+  // Client-side: Create singleton that matches _app.tsx
   if (!supabaseInstance) {
-    const { createClient } = require('@supabase/supabase-js');
-    supabaseInstance = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: true
-        }
-      }
-    );
-    
-    // Store it globally so auth-helpers can find it
-    (window as any).__SUPABASE_CLIENT__ = supabaseInstance;
+    supabaseInstance = createPagesBrowserClient();
   }
   
   return supabaseInstance;

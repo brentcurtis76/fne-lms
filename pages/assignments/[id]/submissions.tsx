@@ -14,6 +14,7 @@ import { Assignment, AssignmentSubmission } from '../../../types/assignments';
 import { ArrowLeft, Download, FileSpreadsheet } from 'lucide-react';
 import { ClipboardCheckIcon } from '@heroicons/react/outline';
 
+import { getUserPrimaryRole } from '../../../utils/roleUtils';
 interface GradeModalProps {
   submission: AssignmentSubmission;
   assignment: Assignment;
@@ -180,16 +181,17 @@ export default function SubmissionsPage() {
         // Get user profile
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role, avatar_url')
+          .select('avatar_url')
           .eq('id', session.user.id)
           .single();
 
         if (profile) {
-          setUserRole(profile.role);
+          const role = await getUserPrimaryRole(session.user.id);
+          setUserRole(role);
           setAvatarUrl(profile.avatar_url || '');
           
           // Check if user is a teacher
-          if (!['admin', 'consultor', 'equipo_directivo', 'lider_generacion'].includes(profile.role)) {
+          if (!['admin', 'consultor', 'equipo_directivo', 'lider_generacion'].includes(role)) {
             toast.error('No tienes permisos para ver esta página');
             router.push('/assignments');
             return;

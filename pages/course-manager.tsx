@@ -36,19 +36,20 @@ const CourseManagerPage: React.FC = () => {
         // Get user profile
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('role, avatar_url')
+          .select('avatar_url')
           .eq('id', session.user.id)
           .single();
         
         if (profileData) {
-          setUserRole(profileData.role);
-          setIsAdmin(profileData.role === 'admin');
+          const role = await getUserPrimaryRole(session.user.id);
+          setUserRole(role);
+          setIsAdmin(role === 'admin');
           if (profileData.avatar_url) {
             setAvatarUrl(profileData.avatar_url);
           }
           
           // Fetch assigned courses for all non-admin users
-          if (profileData.role !== 'admin') {
+          if (role !== 'admin') {
             const { data: assignments } = await supabase
               .from('course_assignments')
               .select(`

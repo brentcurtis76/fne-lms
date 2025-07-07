@@ -6,6 +6,7 @@ import { useRouter } from 'next/router';
 import MainLayout from '../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
+import { getUserPrimaryRole } from '../../utils/roleUtils';
 import {
   getAvailableSchools,
   getAvailableCommunitiesForSchool,
@@ -55,6 +56,7 @@ export default function AssignmentOverview() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [profileData, setProfileData] = useState<any>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string>('');
   
   // Assignment data
   const [assignments, setAssignments] = useState<Assignment[]>([]);
@@ -124,12 +126,14 @@ export default function AssignmentOverview() {
       if (profileError) throw profileError;
 
       // Check if user is admin or consultant
-      if (profile.role !== 'admin' && profile.role !== 'consultor') {
+      const role = await getUserPrimaryRole(authUser.id);
+      if (role !== 'admin' && role !== 'consultor') {
         toast.error('No tienes permisos para acceder a esta página');
         router.push('/dashboard');
         return;
       }
 
+      setUserRole(role);
       setProfileData(profile);
 
       // Get avatar URL
@@ -148,7 +152,7 @@ export default function AssignmentOverview() {
   const loadInitialData = async () => {
     try {
       // Load available schools
-      const availableSchools = await getAvailableSchools(user.id, profileData.role);
+      const availableSchools = await getAvailableSchools(user.id, userRole);
       setSchools(availableSchools);
       
       // Load assignments
@@ -215,7 +219,7 @@ export default function AssignmentOverview() {
       setLoadingCommunities(true);
       const availableCommunities = await getAvailableCommunitiesForSchool(
         user.id,
-        profileData.role,
+        userRole,
         filters.school_id
       );
       setCommunities(availableCommunities);
@@ -233,7 +237,7 @@ export default function AssignmentOverview() {
       setLoadingGenerations(true);
       const availableGenerations = await getAvailableGenerationsForSchool(
         user.id,
-        profileData.role,
+        userRole,
         filters.school_id
       );
       setGenerations(availableGenerations);
@@ -306,8 +310,8 @@ export default function AssignmentOverview() {
   return (
     <MainLayout
       user={user}
-      isAdmin={profileData.role === 'admin'}
-      userRole={profileData.role}
+      isAdmin={userRole === 'admin'}
+      userRole={userRole}
       avatarUrl={avatarUrl}
       onLogout={handleLogout}
       currentPage="assignment-overview"
@@ -320,7 +324,7 @@ export default function AssignmentOverview() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-600">
-                  {profileData.role === 'admin' 
+                  {userRole === 'admin' 
                     ? 'Monitorea todas las tareas grupales de la plataforma'
                     : 'Monitorea las tareas grupales de tus estudiantes asignados'}
                 </p>

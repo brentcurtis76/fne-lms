@@ -81,12 +81,13 @@ export default function StudentLessonViewer() {
         try {
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('role, first_name, last_name, avatar_url')
+            .select('first_name, last_name, avatar_url')
             .eq('id', session.user.id)
             .single();
           
           if (profileData) {
-            setIsAdmin(profileData.role === 'admin');
+            const userRole = await getUserPrimaryRole(session.user.id);
+            setIsAdmin(userRole === 'admin');
             
             if (profileData.first_name && profileData.last_name) {
               setProfileName(`${profileData.first_name} ${profileData.last_name}`);

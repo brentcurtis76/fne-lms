@@ -129,13 +129,13 @@ export default function DetailedReports() {
       // Also get profile data for legacy support and avatar
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('role, first_name, last_name, avatar_url, school_id, generation_id, community_id')
+        .select('first_name, last_name, avatar_url, school_id, generation_id, community_id')
         .eq('id', session.user.id)
         .single();
 
-      if (highestRole || profileData?.role) {
-        // Use highest role from new system, fall back to legacy role
-        const effectiveRole = highestRole || profileData?.role || '';
+      if (highestRole) {
+        // Use highest role from new system
+        const effectiveRole = highestRole || '';
         setUserRole(effectiveRole);
         setIsAdmin(effectiveRole === 'admin');
 

@@ -11,7 +11,7 @@ import ConsultantAssignmentModal from '../../components/ConsultantAssignmentModa
 import PasswordResetModal from '../../components/PasswordResetModal';
 import UnifiedUserManagement from '../../components/admin/UnifiedUserManagement';
 import BulkUserImportModal from '../../components/admin/BulkUserImportModal';
-import { getUserRoles } from '../../utils/roleUtils';
+import { getUserRoles, getUserPrimaryRole } from '../../utils/roleUtils';
 import { ROLE_NAMES } from '../../types/roles';
 
 type User = {
@@ -221,11 +221,13 @@ export default function UserManagement() {
       const { data: userData } = await supabase.auth.getUser();
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('role, avatar_url')
+        .select('avatar_url')
         .eq('id', session.user.id)
         .single();
 
-      const adminRole = userData?.user?.user_metadata?.role === 'admin' || profileData?.role === 'admin';
+      // Get user role from user_roles table
+      const userRole = await getUserPrimaryRole(session.user.id);
+      const adminRole = userData?.user?.user_metadata?.role === 'admin' || userRole === 'admin';
       
       if (!adminRole) {
         router.push('/dashboard');
@@ -264,7 +266,6 @@ export default function UserManagement() {
           email, 
           first_name, 
           last_name, 
-          role, 
           school,
           school_id,
           created_at, 

@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import MainLayout from '../../components/layout/MainLayout';
+import { getUserPrimaryRole } from '../../utils/roleUtils';
 
 import { toast } from 'react-hot-toast';
 import { Plus, Edit2, Trash2, Building, Users, ChevronDown, ChevronRight, FileText } from 'lucide-react';
@@ -112,7 +113,14 @@ export default function SchoolsManagement() {
         .eq('id', user.id)
         .single();
 
-      if (!profile || profile.role !== 'admin') {
+      if (!profile) {
+        toast.error('Perfil no encontrado.');
+        router.push('/dashboard');
+        return;
+      }
+      
+      const userRole = await getUserPrimaryRole(user.id);
+      if (userRole !== 'admin') {
         toast.error('Acceso denegado. Solo administradores.');
         router.push('/dashboard');
         return;
@@ -129,7 +137,7 @@ export default function SchoolsManagement() {
   const fetchSchools = async () => {
     setLoading(true);
     try {
-      // Fetch schools with counts
+      // Fetch schools with basic data
       const { data: schoolsData, error: schoolsError } = await supabase
         .from('schools')
         .select(`
@@ -138,18 +146,66 @@ export default function SchoolsManagement() {
             *,
             profiles!profiles_generation_id_fkey (count),
             growth_communities (count)
-          ),
-          profiles!profiles_school_id_fkey (count)
+          )
         `)
         .order('name');
 
       if (schoolsError) throw schoolsError;
 
-      // Transform the data to include counts
+      // Get user counts from user_roles table for accurate counting
+      const { data: userCounts, error: countError } = await supabase
+        .from('user_roles')
+        .select('school_id')
+        .not('school_id', 'is', null);
+
+      if (countError) throw countError;
+
+      // Count users per school
+      const schoolUserCounts = userCounts?.reduce((acc: any, role: any) => {
+        if (!acc[role.school_id]) {
+          acc[role.school_id] = new Set();
+        }
+        acc[role.school_id].add(role.user_id);
+        return acc;
+      }, {});
+
+      // Get unique user counts per school
+      const { data: uniqueUserCounts, error: uniqueCountError } = await supabase
+        .rpc('get_school_user_counts');
+
+      let userCountMap: Record<number, number> = {};
+      
+      if (!uniqueCountError && uniqueUserCounts) {
+        uniqueUserCounts.forEach((item: any) => {
+          userCountMap[item.school_id] = item.user_count;
+        });
+      } else {
+        // Fallback: manual count from user_roles
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('school_id, user_id')
+          .not('school_id', 'is', null);
+
+        if (!roleError && roleData) {
+          const schoolUsers: Record<number, Set<string>> = {};
+          roleData.forEach((role: any) => {
+            if (!schoolUsers[role.school_id]) {
+              schoolUsers[role.school_id] = new Set();
+            }
+            schoolUsers[role.school_id].add(role.user_id);
+          });
+          
+          Object.entries(schoolUsers).forEach(([schoolId, userSet]) => {
+            userCountMap[parseInt(schoolId)] = userSet.size;
+          });
+        }
+      }
+
+      // Transform the data to include accurate counts
       const transformedSchools = schoolsData?.map(school => ({
         ...school,
         _count: {
-          profiles: school.profiles?.[0]?.count || 0,
+          profiles: userCountMap[school.id] || 0,
           generations: school.generations?.length || 0
         },
         generations: school.generations?.map((gen: any) => ({

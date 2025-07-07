@@ -13,6 +13,7 @@ import DeleteLessonModal from '../../../../../components/DeleteLessonModal';
 import MoveLessonModal from '../../../../../components/MoveLessonModal';
 import { BookOpen, Plus, Edit as EditIcon, ChevronLeft } from 'lucide-react';
 
+import { getUserPrimaryRole } from '../../../../../utils/roleUtils';
 interface Module {
   id: string;
   title: string;
@@ -88,12 +89,13 @@ const ModuleDetailPage = () => {
         // Check admin status
         const { data: profileData } = await supabase
           .from('profiles')
-          .select('role, avatar_url')
+          .select('avatar_url')
           .eq('id', session.user.id)
           .single();
           
         const adminFromMetadata = session.user.user_metadata?.role === 'admin';
-        const adminFromProfile = profileData?.role === 'admin';
+        const userRole = await getUserPrimaryRole(session.user.id);
+        const adminFromProfile = userRole === 'admin';
         setIsAdmin(adminFromMetadata || adminFromProfile);
         
         // Set avatar URL

@@ -38,12 +38,13 @@ export default function UserProfileView() {
         // Get current user's admin status and avatar
         const { data: currentUserProfile } = await supabase
           .from('profiles')
-          .select('role, avatar_url')
+          .select('avatar_url')
           .eq('id', session.user.id)
           .single();
         
         if (currentUserProfile) {
-          setIsAdmin(currentUserProfile.role === 'admin');
+          const userRole = await getUserPrimaryRole(session.user.id);
+          setIsAdmin(userRole === 'admin');
           
           if (currentUserProfile.avatar_url) {
             setAvatarUrl(currentUserProfile.avatar_url);

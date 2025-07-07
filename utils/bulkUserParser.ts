@@ -1,6 +1,9 @@
 import { BulkUserData, ParseOptions, ParseResult } from '../types/bulk';
 import { validateRut } from './rutValidation';
 
+// Re-export types for backward compatibility
+export type { BulkUserData, ParseOptions, ParseResult } from '../types/bulk';
+
 const DANGEROUS_CHARS = ['=', '+', '-', '@', '\t', '\r'];
 
 function sanitizeCsvValue(value: string | undefined): string {
@@ -146,6 +149,43 @@ function parseUserRow(
     warnings,
     rowNumber: 0,
   };
+}
+
+export function formatParsedData(data: BulkUserData[]): BulkUserData[] {
+  return data;
+}
+
+export function exportAsCSV(data: BulkUserData[]): string {
+  const headers = ['email', 'firstName', 'lastName', 'role', 'rut'];
+  const rows = data.map(user => [
+    user.email,
+    user.firstName || '',
+    user.lastName || '',
+    user.role || '',
+    user.rut || ''
+  ]);
+  
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+  ].join('\n');
+  
+  return csvContent;
+}
+
+export function generateSampleCSV(rowCount: number = 3): string {
+  const sampleRows = [
+    '"juan.perez@ejemplo.com","Juan","Pérez","docente","12.345.678-9"',
+    '"maria.gonzalez@ejemplo.com","María","González","admin","98.765.432-1"',
+    '"carlos.rodriguez@ejemplo.com","Carlos","Rodríguez","consultor","11.222.333-4"',
+    '"ana.martinez@ejemplo.com","Ana","Martínez","equipo_directivo","55.666.777-8"',
+    '"pedro.silva@ejemplo.com","Pedro","Silva","lider_generacion","99.888.777-6"'
+  ];
+  
+  const headers = 'email,firstName,lastName,role,rut';
+  const selectedRows = sampleRows.slice(0, Math.min(rowCount, sampleRows.length));
+  
+  return [headers, ...selectedRows].join('\n');
 }
 
 export function parseBulkUserData(

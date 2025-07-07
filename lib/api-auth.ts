@@ -9,7 +9,7 @@ import {
   ApiError,
   ApiSuccess
 } from './types/api-auth.types';
-import { hasAdminPrivilegesRLS } from '../utils/roleUtils';
+import { hasAdminPrivileges } from '../utils/roleUtils';
 
 // Create a consistent Supabase client for API routes
 export async function createApiSupabaseClient(
@@ -100,7 +100,7 @@ export async function checkIsAdmin(
     // Use our new, fortified RLS-compliant utility function.
     // This correctly handles all cases: new roles, legacy roles, and dev impersonation.
     const supabase = await createApiSupabaseClient(req, res);
-    const isAdmin = await hasAdminPrivilegesRLS(supabase);
+    const isAdmin = await hasAdminPrivileges(supabase, user.id);
 
     if (isAdmin) {
       console.log(`[API Auth] Admin verified via RLS check for user: ${user.id}`);

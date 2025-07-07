@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Upload, FileText, Users, AlertCircle } from 'lucide-react';
 import { submitGroupAssignment } from '@/lib/services/simpleGroupAssignments';
-import { supabase } from '@/lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { toast } from 'react-hot-toast';
 
 interface SimpleGroupSubmissionModalProps {

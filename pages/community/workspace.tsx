@@ -1,4 +1,5 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../../lib/supabase';
 /**
  * Community Workspace Page - FNE LMS
  * Collaborative workspace for growth communities with role-based access

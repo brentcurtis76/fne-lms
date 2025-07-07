@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
+import { supabase } from '../lib/supabase';
 import Link from 'next/link';
 import MainLayout from '../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
@@ -139,7 +140,7 @@ export default function Dashboard() {
               }
 
               // Fetch user roles and community information
-              const roles = await getUserRoles(userData.user.id);
+              const roles = await getUserRoles(supabase, userData.user.id);
               setUserRoles(roles);
 
               // Get community members and workspaces for each community the user belongs to

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { MessageSquare, Save, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '@/lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 interface QuizReviewPanelProps {
   submission: any;

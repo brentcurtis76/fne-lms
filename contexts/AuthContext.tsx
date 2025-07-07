@@ -9,10 +9,10 @@ import { useRouter } from 'next/router';
 import { User } from '@supabase/supabase-js';
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
 import { 
-  getUserProfileWithRolesRLS,
-  hasAdminPrivilegesRLS, 
+  getUserProfileWithRoles,
+  hasAdminPrivileges, 
   getUserPermissions,
-  migrateLegacyUserRLS,
+  migrateLegacyUser,
   getHighestRole
 } from '../utils/roleUtils';
 import { UserRole, RolePermissions } from '../types/roles';
@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthState(prev => ({ ...prev, loading: true }));
 
         // Fetch profile and roles
-        const profileData = await getUserProfileWithRolesRLS(supabase);
+        const profileData = await getUserProfileWithRoles(supabase, session.user.id);
         
         if (!profileData) {
           console.error('[AuthContext] No profile found for user');
@@ -122,10 +122,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Check for legacy role and migrate if needed
         if (profileData.role && userRoles.length === 0 && (profileData.role === 'admin' || profileData.role === 'docente')) {
           console.log('[AuthContext] Migrating legacy role:', profileData.role);
-          const migrationResult = await migrateLegacyUserRLS(profileData.role as 'admin' | 'docente', supabase);
+          const migrationResult = await migrateLegacyUser(supabase, session.user.id, profileData.role as 'admin' | 'docente');
           if (migrationResult.success) {
             // Re-fetch profile after migration
-            const updatedProfile = await getUserProfileWithRolesRLS(supabase);
+            const updatedProfile = await getUserProfileWithRoles(supabase, session.user.id);
             if (updatedProfile) {
               const updatedRoles = (updatedProfile as any).roles || updatedProfile.user_roles || [];
               userRoles.length = 0;
@@ -136,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Get permissions
         const permissions = getUserPermissions(userRoles);
-        const isGlobalAdmin = await hasAdminPrivilegesRLS(supabase);
+        const isGlobalAdmin = await hasAdminPrivileges(supabase, session.user.id);
         const highestRole = getHighestRole(userRoles);
 
         // Get avatar URL

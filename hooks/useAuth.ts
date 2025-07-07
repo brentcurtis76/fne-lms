@@ -93,10 +93,10 @@ export function useAuth() {
         }
 
         // Get user roles from new system
-        const userRoles = await getUserRoles(user.id);
+        const userRoles = await getUserRoles(supabase, user.id);
         
         // Check admin privileges (backward compatible)
-        const isAdmin = await hasAdminPrivileges(user.id);
+        const isAdmin = await hasAdminPrivileges(supabase, user.id);
         const isGlobalAdmin = userRoles.some(role => role.role_type === 'admin');
 
         // Get aggregated permissions
@@ -104,9 +104,9 @@ export function useAuth() {
 
         // Auto-migrate legacy users if needed
         if (userRoles.length === 0 && profile?.role) {
-          await migrateLegacyUser(user.id, profile.role);
+          await migrateLegacyUser(supabase, user.id, profile.role);
           // Refresh roles after migration
-          const newRoles = await getUserRoles(user.id);
+          const newRoles = await getUserRoles(supabase, user.id);
           setAuthState(prev => ({
             ...prev,
             userRoles: newRoles,

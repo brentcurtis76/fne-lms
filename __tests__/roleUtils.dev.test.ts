@@ -189,7 +189,7 @@ describe('roleUtils - Dev Features', () => {
       
       vi.mocked(devRoleService.getActiveImpersonation).mockResolvedValue(mockImpersonation);
       
-      const roles = await getUserRoles(mockDevUserId);
+      const roles = await getUserRoles(supabase, mockDevUserId);
       
       expect(roles).toHaveLength(1);
       expect(roles[0]).toMatchObject({
@@ -240,7 +240,7 @@ describe('roleUtils - Dev Features', () => {
         .mockImplementationOnce(mockFromDev)
         .mockImplementationOnce(mockFromRoles);
       
-      const roles = await getUserRoles(mockUserId);
+      const roles = await getUserRoles(supabase, mockUserId);
       
       expect(roles).toHaveLength(1);
       expect(roles[0].role_type).toBe('docente');
@@ -276,7 +276,7 @@ describe('roleUtils - Dev Features', () => {
         created_at: new Date().toISOString()
       });
       
-      const result = await hasAdminPrivileges(mockDevUserId);
+      const result = await hasAdminPrivileges(supabase, mockDevUserId);
       
       expect(result).toBe(true);
     });
@@ -329,7 +329,7 @@ describe('roleUtils - Dev Features', () => {
         .mockImplementationOnce(mockFromUserRoles)
         .mockImplementationOnce(mockFromProfiles);
       
-      const result = await hasAdminPrivileges(mockUserId);
+      const result = await hasAdminPrivileges(supabase, mockUserId);
       
       expect(result).toBe(true);
     });

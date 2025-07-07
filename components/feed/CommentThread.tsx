@@ -9,7 +9,7 @@ import {
   DotsHorizontalIcon
 } from '@heroicons/react/outline';
 import { FeedService } from '@/lib/services/feedService';
-import { supabase } from '@/lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import type { PostComment } from '@/types/feed';
 import ConfirmationModal from './ConfirmationModal';
 
@@ -151,6 +151,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
 };
 
 export default function CommentThread({ postId, onClose }: CommentThreadProps) {
+  const supabase = useSupabaseClient();
   const [comments, setComments] = useState<PostComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../lib/supabase';
 import MainLayout from '../components/layout/MainLayout';
 import {
   BellIcon,

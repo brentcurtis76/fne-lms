@@ -1,6 +1,6 @@
 // Instagram-style feed service for Collaborative Space
 
-import { supabase } from '../supabase';
+import { supabase } from '../supabase-wrapper';
 import type { 
   CommunityPost, 
   CreatePostInput, 

@@ -3,7 +3,7 @@ import { X, Upload, Download, AlertCircle, CheckCircle, Users, Copy, Eye, EyeOff
 import { parseBulkUserData, formatParsedData, exportAsCSV, generateSampleCSV } from '../../utils/bulkUserParser';
 import { toast } from 'react-hot-toast';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import type { BulkUserData } from '../../utils/bulkUserParser';
+import type { BulkUserData } from '../../types/bulk';
 
 interface BulkUserImportModalProps {
   isOpen: boolean;

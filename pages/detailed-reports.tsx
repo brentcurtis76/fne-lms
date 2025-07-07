@@ -9,6 +9,7 @@ import MobileUserCard from '../components/reports/MobileUserCard';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { FileText } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import reportsService from '../lib/services/reports';
 import { getReportScopeDescription } from '../utils/reportFilters';
@@ -122,7 +123,7 @@ export default function DetailedReports() {
       setUser(session.user);
 
       // Get user roles with dev impersonation support
-      const userRoles = await getUserRoles(session.user.id);
+      const userRoles = await getUserRoles(supabase, session.user.id);
       const highestRole = getHighestRole(userRoles);
       
       // Also get profile data for legacy support and avatar

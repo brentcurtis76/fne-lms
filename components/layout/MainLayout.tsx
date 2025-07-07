@@ -14,7 +14,7 @@ import { useAvatar } from '../../hooks/useAvatar';
 import { LogoutIcon } from '@heroicons/react/outline';
 import FeedbackButtonWithPermissions from '../feedback/FeedbackButtonWithPermissions';
 import RoleSwitcher from '../dev/RoleSwitcher';
-import { isDevUser } from '../../utils/roleUtils';
+import { devRoleService } from '../../lib/services/devRoleService';
 
 interface Breadcrumb {
   label: string;
@@ -81,7 +81,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   useEffect(() => {
     const checkDevStatus = async () => {
       if (user) {
-        const devStatus = await isDevUser(user.id);
+        const devStatus = await devRoleService.isDevUser(user.id);
         setIsDev(devStatus);
       }
     };

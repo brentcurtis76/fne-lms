@@ -83,12 +83,12 @@ export default function RoleAssignmentModal({
     const loadCommunitiesForSchool = async () => {
       if (selectedSchool) {
         console.log('Loading communities for school:', selectedSchool);
-        const comms = await getAvailableCommunitiesForAssignment(selectedSchool);
+        const comms = await getAvailableCommunitiesForAssignment(supabase, selectedSchool);
         setAvailableCommunities(comms);
         console.log('Communities loaded for school', selectedSchool, ':', comms);
       } else {
         // Load all communities if no school selected
-        const comms = await getAvailableCommunitiesForAssignment();
+        const comms = await getAvailableCommunitiesForAssignment(supabase);
         setAvailableCommunities(comms);
         console.log('All communities loaded:', comms);
       }
@@ -103,7 +103,7 @@ export default function RoleAssignmentModal({
     setLoading(true);
     try {
       // Load user's current roles
-      const roles = await getUserRoles(userId);
+      const roles = await getUserRoles(supabase, userId);
       setUserRoles(roles);
       
       // If user has roles, select the first one by default
@@ -124,7 +124,7 @@ export default function RoleAssignmentModal({
       if (communitiesResult.data) setCommunities(communitiesResult.data);
       
       // Initially load all communities
-      const allComms = await getAvailableCommunitiesForAssignment();
+      const allComms = await getAvailableCommunitiesForAssignment(supabase);
       setAvailableCommunities(allComms);
       console.log('Initial available communities:', allComms);
       console.log('Schools data:', schoolsResult.data);
@@ -161,7 +161,7 @@ export default function RoleAssignmentModal({
         communityId: selectedCommunity || undefined
       };
 
-      const result = await assignRole(userId, selectedRole, currentUserId, organizationalScope);
+      const result = await assignRole(supabase, userId, selectedRole, currentUserId, organizationalScope);
       
       if (result.success) {
         if (selectedRole === 'lider_comunidad' && result.communityId) {
@@ -192,7 +192,7 @@ export default function RoleAssignmentModal({
     try {
       setLoading(true);
       
-      const result = await removeRole(roleId, currentUserId);
+      const result = await removeRole(supabase, roleId, currentUserId);
       
       if (result.success) {
         toast.success('Rol removido correctamente');
@@ -264,7 +264,7 @@ export default function RoleAssignmentModal({
       setLoading(true);
 
       // First remove the old role
-      const removeResult = await removeRole(editingRole.id, currentUserId);
+      const removeResult = await removeRole(supabase, editingRole.id, currentUserId);
       if (!removeResult.success) {
         toast.error(removeResult.error || 'Error al actualizar rol');
         return;
@@ -277,7 +277,7 @@ export default function RoleAssignmentModal({
         communityId: selectedCommunity || undefined
       };
 
-      const assignResult = await assignRole(userId, selectedRole, currentUserId, organizationalScope);
+      const assignResult = await assignRole(supabase, userId, selectedRole, currentUserId, organizationalScope);
       
       if (assignResult.success) {
         toast.success('Rol actualizado correctamente');

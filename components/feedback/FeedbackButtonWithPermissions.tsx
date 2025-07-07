@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle } from 'lucide-react';
 import FeedbackModal from './FeedbackModal';
-
-import { useUser } from '@supabase/auth-helpers-react';
+import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 
 interface FeedbackButtonProps {
   className?: string;

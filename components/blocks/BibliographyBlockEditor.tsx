@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BookOpen, Plus, Trash2, FileText, Link, GripVertical, ChevronDown, ChevronUp, Upload, Image } from 'lucide-react';
 import BlockEditorWrapper from './BlockEditorWrapper';
 import { BibliographyBlock, BibliographyItem } from '@/types/blocks';
-import { supabase } from '@/lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { toast } from 'react-hot-toast';
 
 interface BibliographyBlockEditorProps {

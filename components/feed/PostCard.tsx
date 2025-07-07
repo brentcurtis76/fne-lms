@@ -17,9 +17,9 @@ import {
   HeartIcon as HeartSolidIcon,
   BookmarkIcon as BookmarkSolidIcon
 } from '@heroicons/react/solid';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import type { CommunityPost, ReactionType } from '@/types/feed';
 import { FeedService } from '@/lib/services/feedService';
-import { supabase } from '@/lib/supabase';
 import ConfirmationModal from './ConfirmationModal';
 
 interface PostCardProps {

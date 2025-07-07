@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Play, Pause, Download, ExternalLink, BookOpen, FileText, Image } from 'lucide-react';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import LearningQuizTaker from '@/components/quiz/LearningQuizTaker';
-import { supabase } from '@/lib/supabase';
 
 interface StudentBlockRendererProps {
   block: {

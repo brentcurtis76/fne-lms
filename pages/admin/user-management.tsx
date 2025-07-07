@@ -1,4 +1,5 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../../lib/supabase';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 
@@ -282,7 +283,7 @@ export default function UserManagement() {
       const usersWithRolesAndAssignments = await Promise.all(
         (usersData || []).map(async (user) => {
           // Get user roles
-          const userRoles = await getUserRoles(user.id);
+          const userRoles = await getUserRoles(supabase, user.id);
           
           // Get consultant assignments (where user is the consultant)
           const { data: consultantAssignments } = await supabase

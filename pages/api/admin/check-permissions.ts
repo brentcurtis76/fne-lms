@@ -45,10 +45,10 @@ export default async function handler(
     }
 
     // Get new role system data
-    const userRoles = await getUserRoles(userId);
+    const userRoles = await getUserRoles(supabase, userId);
     const permissions = getUserPermissions(userRoles);
-    const isAdmin = await hasAdminPrivileges(userId);
-    const isGlobalAdminUser = await isGlobalAdmin(userId);
+    const isAdmin = await hasAdminPrivileges(supabase, userId);
+    const isGlobalAdminUser = await isGlobalAdmin(supabase, userId);
 
     // Return comprehensive permission information
     return res.status(200).json({

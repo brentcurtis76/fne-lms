@@ -6,6 +6,7 @@ import CourseList from '../src/components/CourseList';
 import MainLayout from '../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../lib/supabase';
 import { FolderOpen } from 'lucide-react';
 
 const CourseManagerPage: React.FC = () => {

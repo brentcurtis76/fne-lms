@@ -1,4 +1,5 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../lib/supabase';
 import { useState, useEffect } from 'react';
 
 export default function DebugAuthEnhanced() {

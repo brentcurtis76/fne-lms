@@ -12,6 +12,7 @@ import AdvancedFilters from '../components/reports/AdvancedFilters';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { BarChart3, Calendar } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../lib/supabase';
 
 interface User {
   id: string;

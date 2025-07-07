@@ -1,4 +1,5 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../../lib/supabase';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 
@@ -83,7 +84,7 @@ export default function UserProfileView() {
       setProfileData(profile);
 
       // Get user roles
-      const roles = await getUserRoles(targetUserId);
+      const roles = await getUserRoles(supabase, targetUserId);
       setUserRoles(roles);
 
       // Get enrolled courses

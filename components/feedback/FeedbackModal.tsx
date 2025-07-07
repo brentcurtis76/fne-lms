@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useRef, useCallback } from 'react';
 import { X, Upload, Camera, AlertCircle, Lightbulb, MessageSquare, CheckCircle } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+
 import { toast } from 'react-hot-toast';
 
 interface FeedbackModalProps {
@@ -11,6 +12,7 @@ interface FeedbackModalProps {
 type FeedbackType = 'bug' | 'idea' | 'feedback';
 
 export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
+  const supabase = useSupabaseClient();
   const [description, setDescription] = useState('');
   const [type, setType] = useState<FeedbackType>('feedback');
   const [screenshot, setScreenshot] = useState<File | null>(null);

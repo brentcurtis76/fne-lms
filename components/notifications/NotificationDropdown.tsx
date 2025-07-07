@@ -1,3 +1,4 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React from 'react';
 import { useRouter } from 'next/router';
 import { 
@@ -18,7 +19,6 @@ import { MenuIcon as LoaderIcon } from '@heroicons/react/outline';
 import { UserNotification } from '../../pages/api/notifications/index';
 import { checkUserAccess, getAlternativeUrl } from '../../utils/notificationPermissions';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
 
 interface NotificationDropdownProps {
   notifications: UserNotification[];
@@ -41,6 +41,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   onRefresh,
   onClose
 }) => {
+  const supabase = useSupabaseClient();
   const router = useRouter();
 
   // Get icon for notification category

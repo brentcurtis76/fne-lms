@@ -1,5 +1,6 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+
 import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download, Users } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { toast } from 'react-hot-toast';
@@ -60,6 +61,7 @@ interface AnnexFormProps {
 }
 
 export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel }: AnnexFormProps) {
+  const supabase = useSupabaseClient();
   // Form states
   const [loading, setLoading] = useState(false);
   const [loadingParent, setLoadingParent] = useState(false);

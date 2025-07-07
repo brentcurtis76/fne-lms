@@ -1,7 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { AlertTriangle } from 'lucide-react';
-import { supabase } from '../lib/supabase';
 
 interface User {
   id: string;
@@ -46,6 +46,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
   onAssignmentCreated,
   editingAssignment
 }) => {
+  const supabase = useSupabaseClient();
   // Check if we're in user context (opened from user row)
   const isUserContext = editingAssignment?.student_id && editingAssignment?.student;
   const fixedUser = isUserContext ? editingAssignment.student : null;

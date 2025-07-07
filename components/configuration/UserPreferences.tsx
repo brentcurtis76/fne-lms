@@ -1,6 +1,6 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import { Bell, Mail, Clock, Shield, Loader2, Save, RefreshCw, Check, X } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 
 interface NotificationPreference {
   in_app_enabled: boolean;
@@ -87,6 +87,7 @@ const priorityLabels: Record<string, string> = {
 };
 
 export default function UserPreferences({ userId }: UserPreferencesProps) {
+  const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [preferences, setPreferences] = useState<Record<string, NotificationPreference>>({});

@@ -30,6 +30,7 @@ interface PostCardProps {
 }
 
 export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCardProps) {
+  const supabase = useSupabaseClient();
   const [isLiked, setIsLiked] = useState(!!post.user_reaction);
   const [isSaved, setIsSaved] = useState(post.is_saved || false);
   const [reactionCount, setReactionCount] = useState(post.reaction_count || 0);

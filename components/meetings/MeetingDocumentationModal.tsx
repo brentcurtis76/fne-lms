@@ -1,3 +1,4 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 /**
  * Meeting Documentation Modal - Simplified 3-Step Form
  * Streamlined meeting documentation with essential information only
@@ -5,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+
 import {
   XIcon,
   ChevronLeftIcon,
@@ -74,6 +75,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   onSuccess,
   className = ''
 }) => {
+  const supabase = useSupabaseClient();
   const [currentStep, setCurrentStep] = useState(MeetingFormStep.INFORMATION);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<AssignmentUser[]>([]);
@@ -527,7 +529,6 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
                   />
                 </div>
-
 
                 {/* Attendees */}
                 <div>

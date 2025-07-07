@@ -20,6 +20,7 @@ export default function BibliographyBlockEditor({
   mode,
   courseId
 }: BibliographyBlockEditorProps) {
+  const supabase = useSupabaseClient();
   const [uploadingFile, setUploadingFile] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);

@@ -1,6 +1,6 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import { XIcon, UserAddIcon } from '@heroicons/react/outline';
-import { supabase } from '../lib/supabase';
 
 interface RegistrationModalProps {
   isOpen: boolean;
@@ -31,6 +31,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
   isSubmitting,
   showSuccess = false
 }) => {
+  const supabase = useSupabaseClient();
   const [formData, setFormData] = useState<RegistrationFormData>({
     firstName: '',
     lastName: '',

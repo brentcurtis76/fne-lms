@@ -1,5 +1,6 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+
 import { Plus, Trash2, Save, Calendar, DollarSign, Upload, X, Eye, FileText } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { convertToCLP, formatCurrency, getAvailableCurrencies } from '../../lib/currency-service';
@@ -37,6 +38,7 @@ interface ExpenseReportFormProps {
 }
 
 export default function ExpenseReportForm({ categories, editingReport, onSuccess, onCancel }: ExpenseReportFormProps) {
+  const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(false);
   const [uploadingReceipts, setUploadingReceipts] = useState<Set<number>>(new Set());
   

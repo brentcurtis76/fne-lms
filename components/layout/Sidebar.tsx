@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
+import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import {
   HomeIcon,
   BookOpenIcon,
@@ -227,6 +228,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onLogout,
   className = ''
 }) => {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [newFeedbackCount, setNewFeedbackCount] = useState(0);
@@ -243,7 +245,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const fetchNewFeedbackCount = async () => {
     try {
-      const { supabase } = await import('../../lib/supabase');
+
       const { count, error } = await supabase
         .from('platform_feedback')
         .select('*', { count: 'exact', head: true })

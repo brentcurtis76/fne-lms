@@ -14,6 +14,7 @@ interface QuestionFeedback {
 }
 
 export default function QuizReviewPanel({ submission, onGradingComplete }: QuizReviewPanelProps) {
+  const supabase = useSupabaseClient();
   const [reviewStatus, setReviewStatus] = useState<'pass' | 'needs_review'>('pass');
   const [generalFeedback, setGeneralFeedback] = useState('');
   const [questionFeedback, setQuestionFeedback] = useState<Record<string, string>>({});

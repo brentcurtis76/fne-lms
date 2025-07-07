@@ -33,6 +33,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
   currentUserId,
   isReply = false 
 }) => {
+  const supabase = useSupabaseClient();
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isOwnComment = comment.author_id === currentUserId;

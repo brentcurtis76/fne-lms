@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { 
   BellIcon, 
   CheckIcon,
@@ -13,7 +14,6 @@ import {
   UserGroupIcon
 } from '@heroicons/react/outline';
 import { BellIcon as BellSolidIcon } from '@heroicons/react/solid';
-import { supabase } from '../../lib/supabase';
 
 interface NotificationItem {
   id: string;
@@ -31,6 +31,7 @@ interface ModernNotificationCenterProps {
 
 const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ className = '' }) => {
   const router = useRouter();
+  const supabase = useSupabaseClient();
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -163,7 +164,7 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
     }, REFRESH_INTERVAL);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [supabase]);
 
   // Get category icon and color
   const getCategoryIcon = (category: string) => {

@@ -1,6 +1,6 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import { XIcon, ArrowRightIcon } from '@heroicons/react/outline';
-import { supabase } from '../lib/supabase';
 
 interface Module {
   id: string;
@@ -29,6 +29,7 @@ const MoveLessonModal: React.FC<MoveLessonModalProps> = ({
   onConfirm,
   isMoving
 }) => {
+  const supabase = useSupabaseClient();
   const [availableModules, setAvailableModules] = useState<Module[]>([]);
   const [selectedModuleId, setSelectedModuleId] = useState<string>('');
   const [loading, setLoading] = useState(false);

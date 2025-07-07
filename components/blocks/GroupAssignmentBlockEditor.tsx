@@ -2,8 +2,9 @@ import React from 'react';
 import { Users, FileText, Info, Link, File, Plus, Trash2, ExternalLink } from 'lucide-react';
 import BlockEditorWrapper from './BlockEditorWrapper';
 import { GroupAssignmentBlock, GroupAssignmentResource } from '@/types/blocks';
-import { supabase } from '@/lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { toast } from 'react-hot-toast';
+import { Database } from '@/types/supabase';
 
 interface GroupAssignmentBlockEditorProps {
   block: GroupAssignmentBlock;
@@ -20,6 +21,7 @@ export default function GroupAssignmentBlockEditor({
   mode,
   courseId
 }: GroupAssignmentBlockEditorProps) {
+  const supabase = useSupabaseClient<Database>();
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [uploadingFile, setUploadingFile] = React.useState(false);
   

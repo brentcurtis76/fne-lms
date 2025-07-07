@@ -1,3 +1,4 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import { 
   X, 
@@ -14,7 +15,7 @@ import {
   Copy,
   Code
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+
 import { toast } from 'react-hot-toast';
 
 interface FeedbackDetailProps {
@@ -45,6 +46,7 @@ export default function FeedbackDetail({
   onStatusUpdate,
   onRefresh 
 }: FeedbackDetailProps) {
+  const supabase = useSupabaseClient();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);

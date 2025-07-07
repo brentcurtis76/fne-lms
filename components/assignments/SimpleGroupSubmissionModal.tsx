@@ -21,6 +21,7 @@ export default function SimpleGroupSubmissionModal({
   userId,
   onSubmissionComplete
 }: SimpleGroupSubmissionModalProps) {
+  const supabase = useSupabaseClient();
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [submitComment, setSubmitComment] = useState('');

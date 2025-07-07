@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle } from 'lucide-react';
 import FeedbackModal from './FeedbackModal';
-import { supabase } from '../../lib/supabase';
+
 import { useUser } from '@supabase/auth-helpers-react';
 
 interface FeedbackButtonProps {
@@ -9,6 +9,7 @@ interface FeedbackButtonProps {
 }
 
 export default function FeedbackButtonWithPermissions({ className = '' }: FeedbackButtonProps) {
+  const supabase = useSupabaseClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [hasPermission, setHasPermission] = useState(false);

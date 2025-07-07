@@ -1,3 +1,4 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 /**
  * Role Assignment Modal for FNE LMS 6-Role System
  * Allows admins to assign/remove roles from users
@@ -6,7 +7,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Trash2, Users, Building, Users as Team, Edit } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../lib/supabase';
+
 import { 
   UserRoleType, 
   ROLE_NAMES, 
@@ -37,6 +38,7 @@ export default function RoleAssignmentModal({
   currentUserId,
   onRoleUpdate
 }: RoleAssignmentModalProps) {
+  const supabase = useSupabaseClient();
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [schools, setSchools] = useState<School[]>([]);
   const [generations, setGenerations] = useState<Generation[]>([]);

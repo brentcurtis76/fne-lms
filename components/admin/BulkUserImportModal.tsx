@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Upload, Download, AlertCircle, CheckCircle, Users, Copy, Eye, EyeOff, Key } from 'lucide-react';
 import { parseBulkUserData, formatParsedData, exportAsCSV, generateSampleCSV } from '../../utils/bulkUserParser';
 import { toast } from 'react-hot-toast';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import type { BulkUserData } from '../../utils/bulkUserParser';
 
 interface BulkUserImportModalProps {
@@ -18,6 +19,7 @@ interface ImportResult {
 }
 
 export default function BulkUserImportModal({ isOpen, onClose, onImportComplete }: BulkUserImportModalProps) {
+  const supabase = useSupabaseClient();
   const [csvText, setCsvText] = useState('');
   const [parsedUsers, setParsedUsers] = useState<BulkUserData[]>([]);
   const [invalidUsers, setInvalidUsers] = useState<BulkUserData[]>([]);
@@ -75,11 +77,13 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
     setIsImporting(true);
     
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const response = await fetch('/api/admin/bulk-create-users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await (await import('../../lib/supabase')).supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({
           csvData: csvText,
@@ -141,11 +145,13 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
     if (!sessionId) return;
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const response = await fetch('/api/admin/retrieve-import-passwords', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await (await import('../../lib/supabase')).supabase.auth.getSession()).data.session?.access_token}`
+          'Authorization': `Bearer ${session?.access_token}`
         },
         body: JSON.stringify({ sessionId })
       });

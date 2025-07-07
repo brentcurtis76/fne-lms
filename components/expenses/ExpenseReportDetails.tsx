@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
 import { X, Calendar, DollarSign, Receipt, Eye, Download, Edit, Trash2, FileText, FileSpreadsheet } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+
 import { formatCurrency as formatCurrencyWithSymbol } from '../../lib/currency-service';
 import { ExpenseReportExporter } from '../../lib/expenseReportExport';
 import { toast } from 'react-hot-toast';
@@ -74,6 +75,7 @@ export default function ExpenseReportDetails({
   currentUser,
   isAdmin = false
 }: ExpenseReportDetailsProps) {
+  const supabase = useSupabaseClient();
   if (!isOpen || !report) return null;
 
   const formatDate = (dateString: string) => {

@@ -1,5 +1,6 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+
 import { toast } from 'react-hot-toast';
 import { X, Search, User } from 'lucide-react';
 
@@ -21,6 +22,7 @@ interface AssignTeachersModalProps {
 }
 
 export default function AssignTeachersModal({ isOpen, onClose, courseId, courseTitle }: AssignTeachersModalProps) {
+  const supabase = useSupabaseClient();
   const [teachers, setTeachers] = useState<User[]>([]);
   const [assignedUsers, setAssignedUsers] = useState<Set<string>>(new Set());
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());

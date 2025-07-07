@@ -87,6 +87,7 @@ export default function StudentBlockRenderer({
   courseId,
   studentId
 }: StudentBlockRendererProps) {
+  const supabase = useSupabaseClient();
   const [hasRead, setHasRead] = useState(false);
   const [timeSpent, setTimeSpent] = useState(0);
   const [startTime] = useState(Date.now());

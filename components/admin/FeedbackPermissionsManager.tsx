@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { toast } from 'react-hot-toast';
 import { 
   UserAddIcon, 
@@ -20,6 +20,7 @@ interface UserWithPermission {
 }
 
 export default function FeedbackPermissionsManager() {
+  const supabase = useSupabaseClient();
   const [users, setUsers] = useState<UserWithPermission[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -27,7 +28,7 @@ export default function FeedbackPermissionsManager() {
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [supabase]);
 
   const loadUsers = async () => {
     try {

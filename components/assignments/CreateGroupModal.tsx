@@ -1,7 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import { X, Users, UserPlus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
 
 interface CreateGroupModalProps {
   isOpen: boolean;
@@ -20,6 +20,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
   currentUserId,
   onGroupCreated
 }) => {
+  const supabase = useSupabaseClient();
   const [groupName, setGroupName] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [availableMembers, setAvailableMembers] = useState<any[]>([]);

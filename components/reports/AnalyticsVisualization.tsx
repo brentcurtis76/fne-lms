@@ -1,3 +1,4 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import {
   LineChart,
@@ -19,7 +20,7 @@ import {
   Cell
 } from 'recharts';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import ExportDropdown from './ExportDropdown';
 import { generateAutomaticInsights } from '../../utils/insightGenerator';
@@ -74,6 +75,7 @@ export default function AnalyticsVisualization({
   userRole, 
   filters 
 }: AnalyticsVisualizationProps) {
+  const supabase = useSupabaseClient();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedChart, setSelectedChart] = useState<string | null>(null);

@@ -1,7 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
 import { Calendar, DollarSign, TrendingUp, AlertCircle, CheckCircle, Upload, Check, X, Filter } from 'lucide-react';
 import UFService from '../../lib/uf-service';
-import { supabase } from '../../lib/supabase';
 
 interface Cuota {
   id: string;
@@ -56,6 +56,7 @@ interface CashFlowViewProps {
 }
 
 export default function CashFlowView({ contratos }: CashFlowViewProps) {
+  const supabase = useSupabaseClient();
   const [cashFlow, setCashFlow] = useState<CashFlowItem[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<'3m' | '6m' | '12m'>('6m');
   const [viewType, setViewType] = useState<'monthly' | 'detailed'>('monthly');

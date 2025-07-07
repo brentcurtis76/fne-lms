@@ -1,7 +1,8 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect, useRef } from 'react';
 import { BellIcon } from '@heroicons/react/outline';
 import { BellIcon as BellSolidIcon } from '@heroicons/react/solid';
-import { supabase } from '../../lib/supabase';
+
 import NotificationDropdown from './NotificationDropdown';
 import { UserNotification } from '../../pages/api/notifications/index';
 
@@ -10,6 +11,7 @@ interface NotificationBellProps {
 }
 
 const NotificationBell: React.FC<NotificationBellProps> = ({ className = '' }) => {
+  const supabase = useSupabaseClient();
   console.log('🔔 NotificationBell component rendering...');
   
   const [isOpen, setIsOpen] = useState(false);

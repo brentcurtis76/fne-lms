@@ -1,5 +1,6 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+
 import useDebounce from '../../hooks/useDebounce';
 
 interface AdvancedFiltersProps {
@@ -26,6 +27,7 @@ export default function AdvancedFilters({
   isAdmin,
   userProfile 
 }: AdvancedFiltersProps) {
+  const supabase = useSupabaseClient();
   const [schools, setSchools] = useState<any[]>([]);
   const [generations, setGenerations] = useState<any[]>([]);
   const [communities, setCommunities] = useState<any[]>([]);

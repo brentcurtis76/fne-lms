@@ -1,7 +1,8 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import { X, Upload, Users, FileText, CheckCircle, ExternalLink, File } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
 
 interface GroupSubmissionModalV2Props {
@@ -17,6 +18,7 @@ export default function GroupSubmissionModalV2({
   onClose, 
   onSubmit 
 }: GroupSubmissionModalV2Props) {
+  const supabase = useSupabaseClient();
   const [submissionText, setSubmissionText] = useState('');
   const [fileUrl, setFileUrl] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);

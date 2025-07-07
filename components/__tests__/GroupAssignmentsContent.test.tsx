@@ -1,9 +1,9 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { toast } from 'react-hot-toast';
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
-import { supabase } from '../../lib/supabase';
 
 // Mock dependencies
 jest.mock('react-hot-toast');
@@ -36,6 +36,7 @@ beforeAll(async () => {
     
     // Define the component
     const GroupAssignmentsContent = ({ workspace, workspaceAccess, user, searchQuery }) => {
+  const supabase = useSupabaseClient();
       const [assignments, setAssignments] = useState([]);
       const [loading, setLoading] = useState(true);
       const [selectedAssignment, setSelectedAssignment] = useState(null);

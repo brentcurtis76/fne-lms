@@ -1,5 +1,6 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+
 import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download, Building } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { toast } from 'react-hot-toast';
@@ -60,6 +61,7 @@ interface ContractFormProps {
 }
 
 export default function ContractForm({ programas, clientes, editingContract, preSelectedClientId, onSuccess, onCancel }: ContractFormProps) {
+  const supabase = useSupabaseClient();
   // Form states
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<'cliente' | 'contrato' | 'cuotas'>('cliente');

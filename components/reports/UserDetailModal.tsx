@@ -1,5 +1,6 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+
 import LoadingSkeleton from '../common/LoadingSkeleton';
 import { toast } from 'react-hot-toast';
 
@@ -118,6 +119,7 @@ export default function UserDetailModal({
   userId, 
   requestingUserId 
 }: UserDetailModalProps) {
+  const supabase = useSupabaseClient();
   const [userDetails, setUserDetails] = useState<UserDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');

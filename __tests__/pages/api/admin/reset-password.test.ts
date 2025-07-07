@@ -3,9 +3,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import handler from '../../../../pages/api/admin/reset-password';
 import { createClient } from '@supabase/supabase-js';
 
-// Mock createClient for API tests
+// Mock the entire module to intercept the client creation at the module level
+const mockCreateClient = vi.fn();
 vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn()
+  createClient: mockCreateClient,
 }));
 
 describe('/api/admin/reset-password', () => {
@@ -28,7 +29,7 @@ describe('/api/admin/reset-password', () => {
     mockEq = vi.fn().mockReturnValue({ single: mockSingle });
     mockSelect = vi.fn().mockReturnValue({ eq: mockEq });
     mockUpdate = vi.fn().mockReturnValue({ eq: mockEq });
-    mockInsert = vi.fn().mockReturnValue({ select: mockSelect });
+    mockInsert = vi.fn();
     mockFrom = vi.fn().mockImplementation((table: string) => {
       if (table === 'profiles') {
         return { select: mockSelect, update: mockUpdate };
@@ -54,8 +55,8 @@ describe('/api/admin/reset-password', () => {
       from: mockFrom,
     };
 
-    // Make createClient return our mock
-    vi.mocked(createClient).mockReturnValue(mockSupabaseClient);
+    // Make our mocked createClient return the detailed mock client object
+    mockCreateClient.mockReturnValue(mockSupabaseClient);
   });
 
   it('should reject non-POST requests', async () => {

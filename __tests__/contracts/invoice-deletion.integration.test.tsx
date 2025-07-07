@@ -1,10 +1,10 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import ContractsPage from '../../pages/contracts';
-import { supabase } from '../../lib/supabase';
 
 // Mock dependencies
 jest.mock('next/router', () => ({
@@ -33,6 +33,7 @@ jest.mock('../../lib/supabase', () => ({
 // Mock MainLayout to avoid complex dependencies
 jest.mock('../../components/layout/MainLayout', () => {
   return function MainLayout({ children }: { children: React.ReactNode }) {
+  const supabase = useSupabaseClient();
     return <div data-testid="main-layout">{children}</div>;
   };
 });

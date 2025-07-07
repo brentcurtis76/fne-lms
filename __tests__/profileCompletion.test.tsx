@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { useRouter } from 'next/router';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { checkProfileCompletion } from '../utils/profileUtils';
 import HomePage from '../pages/index';
 import { vi, Mock } from 'vitest';
@@ -12,9 +12,9 @@ vi.mock('next/router', () => ({
   useRouter: vi.fn(),
 }));
 
-// Mock the Supabase client
-vi.mock('@supabase/auth-helpers-nextjs', () => ({
-  createClientComponentClient: vi.fn(),
+// Mock the Supabase client hook
+vi.mock('@supabase/auth-helpers-react', () => ({
+  useSupabaseClient: vi.fn(),
 }));
 
 // Mock the profile utils
@@ -40,7 +40,7 @@ describe('Profile Completion Routing', () => {
     });
     
     // Setup Supabase client mock
-    (createClientComponentClient as Mock).mockReturnValue(mockSupabase);
+    (useSupabaseClient as Mock).mockReturnValue(mockSupabase);
   });
 
   test('should redirect to profile page when user is logged in but profile is incomplete', async () => {

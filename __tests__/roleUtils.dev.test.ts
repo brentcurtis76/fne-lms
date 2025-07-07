@@ -9,11 +9,11 @@ import {
   hasAdminPrivileges,
   getUserRoles 
 } from '../utils/roleUtils';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase-wrapper';
 import { devRoleService } from '../lib/services/devRoleService';
 
 // Mock modules
-vi.mock('../lib/supabase', () => ({
+vi.mock('../lib/supabase-wrapper', () => ({
   supabase: {
     from: vi.fn(),
     rpc: vi.fn()

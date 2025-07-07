@@ -1,3 +1,4 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -6,7 +7,6 @@ import { toast } from 'react-hot-toast';
 import { vi, describe, test, expect, beforeEach } from 'vitest';
 import ContractsPage from '../../pages/contracts';
 import ContractDetailsModal from '../../components/contracts/ContractDetailsModal';
-import { supabase } from '../../lib/supabase';
 
 // Mock dependencies
 vi.mock('next/router', () => ({

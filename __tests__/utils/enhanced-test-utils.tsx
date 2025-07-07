@@ -1,3 +1,4 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 /**
  * Enhanced Test Utilities for Complex Integration Tests
  */
@@ -6,7 +7,7 @@ import React from 'react';
 import { render, RenderOptions, act, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 import { useRouter } from 'next/router';
-import { supabase } from '../../lib/supabase';
+
 import { toast } from 'react-hot-toast';
 
 // Re-export everything from existing test utils
@@ -57,6 +58,7 @@ export const setupIntegrationTest = () => {
 
 // Wrapper component for tests that need providers
 export const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const supabase = useSupabaseClient();
   return <>{children}</>;
 };
 

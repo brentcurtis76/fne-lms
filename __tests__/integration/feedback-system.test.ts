@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase-wrapper';
 
 // Integration tests for the feedback system (using mocked Supabase)
 describe('Feedback System Integration', () => {

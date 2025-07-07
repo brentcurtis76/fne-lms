@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { submitQuiz, getQuizSubmission, gradeQuizOpenResponses } from '../lib/services/quizSubmissions';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase-wrapper';
 
 // Note: Supabase is already mocked globally in vitest.setup.ts
 // We'll work with the existing global mock

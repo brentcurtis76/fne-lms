@@ -1,9 +1,9 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useRouter } from 'next/router';
 import NotificationsPage from '../pages/notifications';
-import { supabase } from '../lib/supabase';
 
 // Mock Next.js router
 vi.mock('next/router', () => ({

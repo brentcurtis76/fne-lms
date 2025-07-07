@@ -67,7 +67,7 @@ export async function mockAuthForRole(user: TestUser): Promise<RoleTestContext> 
   });
 
   // Update global mocks through vi.mocked API
-  const { supabase } = await import('../../lib/supabase');
+  const { supabase } = await import('../../lib/supabase-wrapper');
   vi.mocked(supabase.auth.getUser).mockResolvedValue({
     data: { user: mockSupabaseUser },
     error: null

@@ -6,10 +6,10 @@ import {
   getActiveFilterCount,
   clearAllFilters
 } from '../../utils/assignmentFilters';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase-wrapper';
 
 // Mock Supabase
-jest.mock('../../lib/supabase', () => ({
+jest.mock('../../lib/supabase-wrapper', () => ({
   supabase: {
     from: jest.fn()
   }

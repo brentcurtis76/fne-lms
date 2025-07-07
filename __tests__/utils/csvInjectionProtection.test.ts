@@ -129,13 +129,22 @@ user@sub-domain.example.com,Bob,Johnson,docente`;
 
   describe('Role Field Protection', () => {
     it('should sanitize role field formulas', () => {
-      const csvData = `email,firstName,lastName,role\ntest@example.com,John,Doe,=CONCATENATE\nuser@example.com,Jane,Smith,+admin`;
+      const csv = `email,rol
+test1@example.com,=SUM(1+1)
+test2@example.com,@admin`;
+      const result = parseBulkUserData(csv, { columnMapping: { email: 0, role: 1 } });
 
-      const result = parseBulkUserData(csvData);
-      
-      // These should be invalid due to unknown role
-      expect(result.invalid.length).toBeGreaterThan(0);
-      expect(result.invalid.some(user => user.errors?.some(e => e.includes('Rol inválido')))).toBe(true);
+      // Users should be invalid because the roles are not in the list of valid roles
+      expect(result.valid).toHaveLength(0);
+      expect(result.invalid).toHaveLength(2);
+
+      // Check that the role is still sanitized in the output object (and lowercased)
+      expect(result.invalid[0].role).toBe(`'=sum(1+1)`);
+      expect(result.invalid[1].role).toBe(`'@admin`);
+
+      // Check for correct error messages
+      expect(result.invalid[0].errors).toContain("Rol '=sum(1+1)' inválido");
+      expect(result.invalid[1].errors).toContain("Rol '@admin' inválido");
     });
 
     it('should accept valid roles even after sanitization', () => {
@@ -153,12 +162,20 @@ admin@example.com,Jane,Smith,admin`;
 
   describe('RUT Field Protection', () => {
     it('should sanitize RUT field formulas', () => {
-      const csvData = `email,firstName,lastName,role,rut\ntest@example.com,John,Doe,docente,"=SUM(A1:A10)"\nuser@example.com,Jane,Smith,docente,"+12345678-5"`;
+      const csv = `email,rut
+test1@example.com,"=11111111-1"
+test2@example.com,"+22222222-2"`;
+      const result = parseBulkUserData(csv, { columnMapping: { email: 0, rut: 1 } });
 
-      const result = parseBulkUserData(csvData);
-      
-      // These should be invalid due to invalid RUT format
+      // Users should be invalid because the RUTs are not valid
+      expect(result.valid).toHaveLength(0);
       expect(result.invalid).toHaveLength(2);
+
+      // Check that the RUT is still sanitized in the output object
+      expect(result.invalid[0].rut).toBe(`'=11111111-1`);
+      expect(result.invalid[1].rut).toBe(`'+22222222-2`);
+
+      // Check for correct error messages
       expect(result.invalid[0].errors).toContain('RUT inválido');
       expect(result.invalid[1].errors).toContain('RUT inválido');
     });

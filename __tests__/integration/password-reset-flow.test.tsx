@@ -1,10 +1,11 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { useRouter } from 'next/router';
 import LoginPage from '../../pages/login';
 import ChangePasswordPage from '../../pages/change-password';
-import { supabase } from '../../lib/supabase';
+
 import { checkProfileCompletion } from '../../utils/profileUtils';
 
 // Mock utils only - router and supabase are already mocked globally

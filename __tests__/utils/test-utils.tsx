@@ -5,14 +5,7 @@ import React from 'react';
 import { render, RenderOptions, act } from '@testing-library/react';
 import { vi } from 'vitest';
 
-// Enhanced render function with proper async handling
-export const renderWithAct = async (ui: React.ReactElement, options?: RenderOptions) => {
-  let result: any;
-  await act(async () => {
-    result = render(ui, options);
-  });
-  return result;
-};
+
 
 // Helper for async state updates
 export const waitForStateUpdate = async (fn: () => Promise<void>) => {
@@ -35,8 +28,8 @@ export const createMockFeedback = (overrides: any = {}) => ({
     platform: 'Test Platform',
     language: 'en-US'
   },
-  screenshot_url: 'https://example.com/screenshot.jpg',
-  screenshot_filename: 'screenshot.jpg',
+  screenshot_url: 'http://example.com/screenshot.png',
+  screenshot_filename: 'screenshot.png',
   created_by: 'user-123',
   created_at: '2025-01-23T10:00:00Z',
   updated_at: '2025-01-23T10:00:00Z',
@@ -122,12 +115,7 @@ export const createMockEvent = (type: string, data: any = {}) => {
   };
 };
 
-// Async operation helper
-export const flushPromises = async () => {
-  await act(async () => {
-    await new Promise(resolve => setTimeout(resolve, 0));
-  });
-};
+
 
 // Form interaction helper
 export const submitFormWithAct = async (form: HTMLElement) => {
@@ -186,13 +174,11 @@ export const simulateNetworkDelay = async (ms: number = 100) => {
 };
 
 export default {
-  renderWithAct,
   waitForStateUpdate,
   createMockFeedback,
   setupComplexMocks,
   createMockFile,
   setupTimers,
-  flushPromises,
   expectToastCalled,
   expectElementState,
   expectModalOpen,

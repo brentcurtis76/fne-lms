@@ -5,8 +5,23 @@ import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 import { toast } from 'react-hot-toast';
 import FeedbackModal from '../../../components/feedback/FeedbackModal';
-import { supabase } from '../../../lib/supabase';
+
 import { renderWithAct, flushPromises, createMockFile } from '../../utils/test-utils';
+
+// Mock @supabase/auth-helpers-react
+vi.mock('@supabase/auth-helpers-react', () => ({
+  useSupabaseClient: vi.fn(),
+  useSession: vi.fn(() => ({
+    user: { id: 'test-user', email: 'test@example.com' }
+  })),
+  useUser: vi.fn(() => ({
+    id: 'test-user',
+    email: 'test@example.com'
+  }))
+}));
+
+// Import after mocking
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 // Using global vitest mocks from vitest.setup.ts
 const mockToast = toast as any;
@@ -14,8 +29,63 @@ const mockToast = toast as any;
 describe('FeedbackModal', () => {
   const mockOnClose = vi.fn();
   
+  // Default mock supabase client
+  const mockSupabaseClient = {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: 'test-user', email: 'test@example.com' } },
+        error: null
+      })
+    },
+    from: vi.fn().mockImplementation((table: string) => {
+      if (table === 'platform_feedback') {
+        return {
+          insert: vi.fn().mockReturnValue({
+            select: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: 'test-feedback-id' },
+                error: null
+              })
+            })
+          })
+        };
+      } else if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { first_name: 'Test', last_name: 'User', email: 'test@example.com' },
+                error: null
+              })
+            })
+          })
+        };
+      }
+      return {
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: [], error: null })
+        })
+      };
+    }),
+    storage: {
+      from: vi.fn().mockReturnValue({
+        upload: vi.fn().mockResolvedValue({ data: { path: 'test/path.jpg' }, error: null }),
+        getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'https://test.com/image.jpg' } })
+      })
+    }
+  };
+  
   beforeEach(() => {
     vi.clearAllMocks();
+    
+    // Set default mock for useSupabaseClient
+    vi.mocked(useSupabaseClient).mockReturnValue(mockSupabaseClient as any);
+    
+    // Mock the fetch API for admin notifications
+    vi.mocked(global.fetch).mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, notificationsCreated: 1 }),
+    } as Response);
   });
 
   it('does not render when closed', async () => {
@@ -194,21 +264,60 @@ describe('FeedbackModal', () => {
   it('disables submit button when submitting', async () => {
     const user = userEvent.setup();
     
-    // Override the Supabase mock to add a delay
-    const mockSlowAuth = vi.fn().mockImplementation(() => 
-      new Promise(resolve => {
-        setTimeout(() => {
-          resolve({
-            data: { user: { id: 'test-user', email: 'test@example.com' } },
-            error: null
-          });
-        }, 200); // 200ms delay to catch loading state
-      })
-    );
+    // Create a mock supabase client for this test
+    const mockSupabaseClient = {
+      auth: {
+        getUser: vi.fn().mockImplementation(() => 
+          new Promise(resolve => {
+            setTimeout(() => {
+              resolve({
+                data: { user: { id: 'test-user', email: 'test@example.com' } },
+                error: null
+              });
+            }, 200); // 200ms delay to catch loading state
+          })
+        )
+      },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === 'platform_feedback') {
+          return {
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'test-feedback-id' },
+                  error: null
+                })
+              })
+            })
+          };
+        } else if (table === 'profiles') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: { first_name: 'Test', last_name: 'User', email: 'test@example.com' },
+                  error: null
+                })
+              })
+            })
+          };
+        }
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({ data: [], error: null })
+          })
+        };
+      }),
+      storage: {
+        from: vi.fn().mockReturnValue({
+          upload: vi.fn().mockResolvedValue({ data: { path: 'test/path.jpg' }, error: null }),
+          getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'https://test.com/image.jpg' } })
+        })
+      }
+    };
     
-    // Temporarily override the auth.getUser mock
-    const originalGetUser = supabase.auth.getUser;
-    supabase.auth.getUser = mockSlowAuth;
+    // Override the useSupabaseClient mock for this test
+    vi.mocked(useSupabaseClient).mockReturnValue(mockSupabaseClient as any);
     
     await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     
@@ -233,33 +342,67 @@ describe('FeedbackModal', () => {
     // Should be disabled during submission
     expect(submitButton).toBeDisabled();
     expect(submitButton).toHaveTextContent('Enviando...');
-    
-    // Restore the original mock
-    supabase.auth.getUser = originalGetUser;
   });
 
   it('shows success state after successful submission', async () => {
     const user = userEvent.setup();
-    
+
+    const mockInsert = vi.fn().mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        single: vi.fn().mockResolvedValue({
+          data: { id: 'new-feedback-123' },
+          error: null,
+        }),
+      }),
+    });
+
+    const mockSupabaseClient = {
+      auth: {
+        getUser: vi.fn().mockResolvedValue({
+          data: { user: { id: 'test-user', email: 'test@example.com' } },
+          error: null,
+        }),
+      },
+      from: vi.fn().mockImplementation((table: string) => {
+        if (table === 'platform_feedback') {
+          return { insert: mockInsert };
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: {}, error: null }),
+        };
+      }),
+      storage: {
+        from: vi.fn().mockReturnValue({
+          upload: vi.fn().mockResolvedValue({ data: { path: 'test/path.jpg' }, error: null }),
+          getPublicUrl: vi.fn().mockReturnValue({ data: { publicUrl: 'https://test.com/image.jpg' } }),
+        }),
+      },
+    };
+
+    vi.mocked(useSupabaseClient).mockReturnValue(mockSupabaseClient as any);
+
     await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
-    
+
     const textarea = screen.getByPlaceholderText(/El botón no funciona cuando/);
     const submitButton = screen.getByRole('button', { name: /enviar/i });
-    
+
     await act(async () => {
       await user.type(textarea, 'Test feedback');
       await flushPromises();
     });
-    
+
     await act(async () => {
       await user.click(submitButton);
       await flushPromises();
     });
-    
-    // Allow submission to complete and success state to show
+
     await waitFor(() => {
       expect(screen.getByText(/¡Gracias!/)).toBeInTheDocument();
       expect(screen.getByText(/Tu reporte fue enviado/)).toBeInTheDocument();
-    }, { timeout: 2000 });
-  }, 10000);
+    });
+
+    expect(mockInsert).toHaveBeenCalled();
+  });
 });

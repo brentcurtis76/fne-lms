@@ -27,6 +27,9 @@ describe('/api/admin/retrieve-import-passwords', () => {
   let mockFrom: any;
   let mockInsert: any;
   let mockPasswordStore: any;
+  let mockSelect: any;
+  let mockEq: any;
+  let mockSingle: any;
 
   beforeEach(async () => {
     // Get mock from the mocked module
@@ -45,8 +48,21 @@ describe('/api/admin/retrieve-import-passwords', () => {
     mockPasswordStore.store?.mockClear?.();
 
     // Setup mock Supabase client structure
+    mockSelect = vi.fn().mockReturnThis();
+    mockEq = vi.fn().mockReturnThis();
+    mockSingle = vi.fn();
     mockInsert = vi.fn().mockResolvedValue({ data: null, error: null });
-    mockFrom = vi.fn().mockReturnValue({ insert: mockInsert });
+
+    mockFrom = vi.fn().mockImplementation((tableName: string) => {
+      if (tableName === 'profiles') {
+        return { select: mockSelect, eq: mockEq, single: mockSingle };
+      }
+      if (tableName === 'audit_logs') {
+        return { insert: mockInsert };
+      }
+      return {};
+    });
+
     mockAuth = {
       getUser: vi.fn()
     };

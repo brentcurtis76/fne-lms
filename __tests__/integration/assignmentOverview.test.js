@@ -1,9 +1,9 @@
 import { createMockData, cleanupMockData } from '../utils/testHelpers';
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase-wrapper';
 
 // Mock Supabase for integration tests
-jest.mock('../../lib/supabase', () => ({
+jest.mock('../../lib/supabase-wrapper', () => ({
   supabase: {
     from: jest.fn(),
     auth: {

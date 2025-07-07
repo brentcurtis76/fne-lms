@@ -1,3 +1,4 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -6,12 +7,23 @@ import { useRouter } from 'next/router';
 import { vi } from 'vitest';
 import FeedbackDashboard from '../../../pages/admin/feedback';
 import { renderWithAct, flushPromises, createMockFeedback } from '../../utils/test-utils';
-import { supabase } from '../../../lib/supabase';
 
 // Using global vitest mocks from vitest.setup.ts
 
+vi.mock('next/router', () => ({
+  useRouter: vi.fn(),
+}));
+
+vi.mock('../../../utils/roleUtils', () => ({
+  getEffectiveRoleAndStatus: vi.fn(() => Promise.resolve({ isAdmin: true, effectiveRole: 'admin' })),
+}));
+
+vi.mock('@supabase/auth-helpers-react', () => ({
+  useSupabaseClient: vi.fn(),
+}));
+
 vi.mock('../../../components/layout/MainLayout', () => ({
-  default: function MockMainLayout({ children, pageTitle }: { children: React.ReactNode, pageTitle?: string }) {
+    default: function MockMainLayout({ children, pageTitle }: { children: React.ReactNode, pageTitle?: string }) {
     return (
       <div data-testid="main-layout">
         {pageTitle && <h1>{pageTitle}</h1>}
@@ -88,13 +100,19 @@ const mockStats = {
 };
 
 describe('FeedbackDashboard', () => {
+  const mockGetSession = vi.fn();
+  const mockFrom = vi.fn();
+  const mockSupabase = {
+    auth: { getSession: mockGetSession },
+    from: mockFrom,
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
-    // Update the global router mock
     vi.mocked(useRouter).mockReturnValue(mockRouter as any);
-    
-    // Mock admin user session
-    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+    vi.mocked(useSupabaseClient).mockReturnValue(mockSupabase as any);
+
+    mockGetSession.mockResolvedValue({
       data: {
         session: {
           user: { id: 'admin-123', email: 'admin@example.com' }
@@ -102,43 +120,57 @@ describe('FeedbackDashboard', () => {
       },
       error: null
     });
-    
-    // Mock admin profile
-    const mockFromChain = {
-      select: vi.fn().mockReturnThis(),
-      eq: vi.fn().mockReturnThis(),
-      single: vi.fn().mockResolvedValue({
-        data: { role: 'admin' },
-        error: null
-      }),
-      in: vi.fn().mockResolvedValue({
-        data: mockFeedbackList,
-        error: null
-      }),
-      order: vi.fn().mockReturnThis()
-    };
-    vi.mocked(supabase.from).mockReturnValue(mockFromChain);
+
+    mockFrom.mockImplementation((tableName) => {
+      if (tableName === 'profiles') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: { role: 'admin' }, error: null }),
+        };
+      }
+      if (tableName === 'platform_feedback') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          order: vi.fn().mockResolvedValue({ data: mockFeedbackList, error: null }),
+        };
+      }
+      if (tableName === 'feedback_activity') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          in: vi.fn().mockResolvedValue({ data: [], error: null }),
+        };
+      }
+      if (tableName === 'feedback_stats') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: mockStats, error: null }),
+        };
+      }
+      return { select: vi.fn().mockResolvedValue({ data: [], error: null }) };
+    });
   });
 
-  it('renders loading state initially', async () => {
+  it('renders feedback data and stats after loading', async () => {
     await renderWithAct(<FeedbackDashboard />);
-    expect(screen.getByText(/Cargando feedback/)).toBeInTheDocument();
-  });
 
-  it('renders page title', async () => {
-    await renderWithAct(<FeedbackDashboard />);
+    // Wait for loading to finish and check for final content
+    await waitFor(() => {
+      expect(screen.queryByText(/Cargando feedback/)).not.toBeInTheDocument();
+    });
+
+    // Check that the main layout is there
     expect(screen.getByTestId('main-layout')).toBeInTheDocument();
-  });
+    
+    // Check for rendered feedback items from mock data
+    expect(screen.getByText('Test bug report')).toBeInTheDocument();
+    expect(screen.getByText('Feature request')).toBeInTheDocument();
 
-  it('contains expected UI elements in loading state', async () => {
-    await renderWithAct(<FeedbackDashboard />);
-    
-    // Should show loading spinner
-    const loadingElement = screen.getByText(/Cargando feedback/);
-    expect(loadingElement).toBeInTheDocument();
-    
-    // Should be wrapped in MainLayout
-    const layout = screen.getByTestId('main-layout');
-    expect(layout).toBeInTheDocument();
+    // Check for rendered stats from mock data
+    expect(screen.getByText('Nuevos', { selector: 'p' })).toBeInTheDocument();
+    await waitFor(() => {
+      const newCountElements = screen.getAllByText('1');
+      expect(newCountElements.length).toBeGreaterThan(0);
+    });
   });
 });

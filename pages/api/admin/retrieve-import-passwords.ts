@@ -67,18 +67,23 @@ export default async function handler(
     // Clear the passwords after retrieval (one-time access)
     passwordStore.clear(sessionId);
 
-    // Log the password retrieval
-    await supabaseAdmin
-      .from('audit_logs')
-      .insert({
-        user_id: user.id,
-        action: 'bulk_passwords_retrieved',
-        details: {
-          session_id: sessionId,
-          count: passwords.length,
-          retrieved_by: user.email
-        }
-      });
+    // Log the password retrieval (best effort)
+    try {
+      await supabaseAdmin
+        .from('audit_logs')
+        .insert({
+          user_id: user.id,
+          action: 'bulk_passwords_retrieved',
+          details: {
+            session_id: sessionId,
+            count: passwords.length,
+            retrieved_by: user.email
+          }
+        });
+    } catch (auditError) {
+      console.error('Failed to write to audit log:', auditError);
+      // Do not re-throw; we want the main operation to succeed
+    }
 
     return res.status(200).json({
       passwords: passwords.map(entry => ({

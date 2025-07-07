@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase-wrapper';
 
 /**
  * Utilities for managing cascading filters in assignment overview

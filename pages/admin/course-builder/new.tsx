@@ -1,11 +1,13 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
-import { supabase } from '../../../lib/supabase';
+
 import MainLayout from '../../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 
 export default function NewCourse() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);

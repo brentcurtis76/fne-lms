@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../lib/supabase';
+
 import Head from 'next/head';
 import Link from 'next/link';
 import MainLayout from '../../components/layout/MainLayout';
@@ -10,6 +11,7 @@ import { UserRole, UserProfile } from '../../types/roles';
 import { ArrowLeft, Book, Calendar, User } from 'lucide-react';
 
 export default function UserProfileView() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const { userId } = router.query;
   const [loading, setLoading] = useState(true);

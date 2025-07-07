@@ -1,9 +1,11 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabase';
+
 import Link from 'next/link';
 
 export default function DebugFeedbackPermissions() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const [userInfo, setUserInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);

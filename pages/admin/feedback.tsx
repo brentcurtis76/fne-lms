@@ -1,6 +1,8 @@
+import React from 'react';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../lib/supabase';
+
 import MainLayout from '../../components/layout/MainLayout';
 import { 
   Search, 
@@ -43,6 +45,7 @@ interface Feedback {
 }
 
 export default function FeedbackDashboard() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -89,7 +92,7 @@ export default function FeedbackDashboard() {
       setUser(session.user);
 
       // Get effective role and admin status (handles dev impersonation)
-      const { effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(session.user.id);
+      const { effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, session.user.id);
       
       setUserRole(effectiveRole);
       setIsAdmin(isAdminUser);

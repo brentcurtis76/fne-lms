@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase-wrapper';
 import { 
   getUserRoles, 
   hasAdminPrivileges, 

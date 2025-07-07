@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabase';
+import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../components/layout/MainLayout';
@@ -11,60 +11,59 @@ import Link from 'next/link';
 
 export default function QuizReviewsPage() {
   const router = useRouter();
+  const session = useSession();
+  const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [pendingReviews, setPendingReviews] = useState<any[]>([]);
   const [filter, setFilter] = useState<'all' | 'my_courses'>('my_courses');
   
-  const { url: avatarUrl } = useAvatar(user);
+  const { url: avatarUrl } = useAvatar(session?.user);
   
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user) {
-          router.push('/login');
-          return;
-        }
-        
-        setUser(session.user);
-        
-        // Get user profile and role
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (profile) {
-          setUserRole(profile.role);
-          setIsAdmin(profile.role === 'admin');
+    const loadUserData = async () => {
+      if (session) {
+        try {
+          // Get user profile and role
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
           
-          // Check if user is a consultant/teacher
-          if (!['admin', 'consultor', 'equipo_directivo'].includes(profile.role)) {
-            toast.error('No tienes permisos para acceder a esta página');
-            router.push('/dashboard');
-            return;
+          if (profile) {
+            setUserRole(profile.role);
+            setIsAdmin(profile.role === 'admin');
+            
+            // Check if user is a consultant/teacher
+            if (!['admin', 'consultor', 'equipo_directivo'].includes(profile.role)) {
+              toast.error('No tienes permisos para acceder a esta página');
+              router.push('/dashboard');
+              return;
+            }
           }
+          
+          await loadPendingReviews();
+          setLoading(false);
+        } catch (error) {
+          console.error('Error loading user data:', error);
+          toast.error('Error al cargar los datos del usuario');
+          setLoading(false);
         }
-        
-        await loadPendingReviews();
-        setLoading(false);
-      } catch (error) {
-        console.error('Session check error:', error);
-        toast.error('Error al verificar la sesión');
+      } else if (session === null) {
+        // Session has loaded and user is not logged in
         router.push('/login');
       }
+      // The `session` object can be `undefined` while loading, so we check for `null`.
     };
 
-    checkSession();
-  }, [router]);
+    loadUserData();
+  }, [session, router, supabase]);
   
   const loadPendingReviews = async () => {
     try {
-      const { data, error } = await getPendingQuizReviews();
+      const { data, error } = await getPendingQuizReviews(supabase);
       
       if (error) throw error;
       
@@ -109,7 +108,7 @@ export default function QuizReviewsPage() {
       </Head>
 
       <MainLayout 
-        user={user}
+        user={session?.user}
         currentPage="quiz-reviews"
         pageTitle="Revisión de Quizzes"
         isAdmin={isAdmin}

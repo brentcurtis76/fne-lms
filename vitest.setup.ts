@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom';
 import 'dotenv/config';
-import { vi } from 'vitest';
+import { vi, afterEach, beforeEach } from 'vitest';
+import { cleanup } from '@testing-library/react';
 
 // Support legacy `jest` global usage in tests
 globalThis.jest = vi as any;
@@ -192,7 +193,23 @@ vi.mock('./lib/supabase', () => {
             role: 'admin' 
           });
         case 'platform_feedback':
-          return createMockQueryBuilder([]);
+          return {
+            ...createMockQueryBuilder([]),
+            insert: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: {
+                    id: 'test-feedback-id',
+                    description: 'Test feedback',
+                    type: 'feedback',
+                    created_at: new Date().toISOString(),
+                    created_by: 'test-user'
+                  },
+                  error: null
+                })
+              })
+            })
+          };
         case 'feedback_activity':
           return createMockQueryBuilder([]);
         case 'feedback_stats':
@@ -276,25 +293,6 @@ vi.mock('./lib/services/devRoleService', async () => {
   };
 });
 
-// Advanced test utilities
-import { act, render } from '@testing-library/react';
-
-// Custom render helper that wraps components with act()
-(global as any).renderWithAct = async (component: any) => {
-  let result: any;
-  await act(async () => {
-    result = render(component);
-  });
-  return result;
-};
-
-// Helper for async operations in tests
-(global as any).waitForAsync = async (fn: () => Promise<void>) => {
-  await act(async () => {
-    await fn();
-  });
-};
-
 // Reset all mocks before each test
 beforeEach(() => {
   vi.clearAllMocks();
@@ -302,7 +300,8 @@ beforeEach(() => {
   vi.useRealTimers();
 });
 
-// Setup fake timers when needed
+// Runs a cleanup after each test case (e.g., clearing jsdom)
 afterEach(() => {
+  cleanup();
   vi.useRealTimers();
 });

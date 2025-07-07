@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../../../../lib/supabase';
+
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../../../components/layout/MainLayout';
@@ -9,6 +10,7 @@ import { groupAssignmentService } from '../../../../../lib/services/groupAssignm
 import { ClipboardCheckIcon, UsersIcon, ArrowLeftIcon } from '@heroicons/react/outline';
 
 export default function AssignmentGroupsPage() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const { id: assignmentId } = router.query;
   const { user, loading: authLoading, isAdmin, avatarUrl, logout } = useAuth();

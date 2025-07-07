@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../lib/supabase-wrapper';
 
 // Mock Supabase
-vi.mock('../../lib/supabase', () => ({
+vi.mock('../../lib/supabase-wrapper', () => ({
   supabase: {
     from: vi.fn()
   }

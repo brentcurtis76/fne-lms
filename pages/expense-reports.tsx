@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabase';
+
 import Head from 'next/head';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
@@ -58,6 +59,7 @@ interface ExpenseItem {
 }
 
 export default function ExpenseReportsPage() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);

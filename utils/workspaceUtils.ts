@@ -3,7 +3,7 @@
  * Handles access control and workspace management logic
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase-wrapper';
 import { UserRole, GrowthCommunity } from '../types/roles';
 
 export interface WorkspaceAccess {

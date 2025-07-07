@@ -4,7 +4,7 @@
  * Following established patterns from messagingUtils-simple.ts and documentUtils.ts
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase-wrapper';
 import {
   ActivityFeed,
   ActivityWithDetails,

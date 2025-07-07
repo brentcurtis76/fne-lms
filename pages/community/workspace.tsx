@@ -1,3 +1,4 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 /**
  * Community Workspace Page - FNE LMS
  * Collaborative workspace for growth communities with role-based access
@@ -6,7 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../lib/supabase';
+
 import MainLayout from '../../components/layout/MainLayout';
 import LoadingSkeleton from '../../components/common/LoadingSkeleton';
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
@@ -795,6 +796,7 @@ interface MeetingsTabContentProps {
 }
 
 const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, workspaceAccess, user, searchQuery, filterMeetingsBySearch }) => {
+  const supabase = useSupabaseClient();
   const [meetings, setMeetings] = useState<CommunityMeeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [canManage, setCanManage] = useState(false);

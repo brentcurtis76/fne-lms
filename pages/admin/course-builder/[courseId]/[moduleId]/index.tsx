@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
-import { supabase } from '../../../../../lib/supabase';
+
 import Link from 'next/link';
 import Head from 'next/head';
 import { ArrowLeftIcon, PlusCircleIcon } from '@heroicons/react/solid';
@@ -34,6 +35,7 @@ const isValidUUID = (uuid: string | undefined): uuid is string => {
 };
 
 const ModuleDetailPage = () => {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const courseIdQuery = router.query.courseId;
   const moduleIdQuery = router.query.moduleId;

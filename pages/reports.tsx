@@ -11,7 +11,7 @@ import AnalyticsVisualization from '../components/reports/AnalyticsVisualization
 import AdvancedFilters from '../components/reports/AdvancedFilters';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { BarChart3, Calendar } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 interface User {
   id: string;
@@ -95,6 +95,7 @@ interface CourseAnalytics {
 
 const ReportsPage: React.FC = () => {
   const router = useRouter();
+  const supabase = useSupabaseClient();
   
   // Authentication state
   const [user, setUser] = useState<any>(null);

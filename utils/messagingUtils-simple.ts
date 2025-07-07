@@ -4,7 +4,7 @@
  * Minimal version to get messaging working without complex functions
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase-wrapper';
 import {
   ThreadWithDetails,
   MessageWithDetails,

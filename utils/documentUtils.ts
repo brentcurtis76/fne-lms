@@ -3,7 +3,7 @@
 // =============================================================================
 // Utility functions for document management following established patterns
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase-wrapper';
 import { getUserWorkspaceAccess } from './workspaceUtils';
 
 // Storage bucket configuration

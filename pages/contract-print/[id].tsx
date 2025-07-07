@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../lib/supabase';
+
 import { generateContractFromTemplate } from '../../lib/contract-template';
 import { generateAnnexFromTemplate } from '../../lib/annex-template';
 import Head from 'next/head';
@@ -45,6 +46,7 @@ interface Contrato {
 }
 
 export default function ContractPrintPage() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const { id } = router.query;
   const [contrato, setContrato] = useState<Contrato | null>(null);

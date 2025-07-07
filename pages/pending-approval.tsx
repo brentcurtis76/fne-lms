@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
 import Header from '../components/layout/Header';
 
 export default function PendingApprovalPage() {
   const router = useRouter();
+  const supabase = useSupabaseClient();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);

@@ -1,9 +1,10 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { useRouter } from 'next/router';
-import { supabase } from '../../lib/supabase';
+
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
 
 // Mock Next.js router
@@ -11,14 +12,9 @@ vi.mock('next/router', () => ({
   useRouter: vi.fn()
 }));
 
-// Mock Supabase client
-vi.mock('../../lib/supabase', () => ({
-  supabase: {
-    from: vi.fn(),
-    auth: {
-      getUser: vi.fn()
-    }
-  }
+// Mock Supabase client hook
+vi.mock('@supabase/auth-helpers-react', () => ({
+  useSupabaseClient: vi.fn(),
 }));
 
 // Mock groupAssignmentsV2Service
@@ -47,6 +43,7 @@ const mockRouter = {
 
 // Create a mock GroupAssignmentsContent component that simulates the real behavior
 const GroupAssignmentsContent = ({ workspace, workspaceAccess, user, searchQuery, router }: any) => {
+  const supabase = useSupabaseClient();
   const [assignments, setAssignments] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [discussionCounts, setDiscussionCounts] = React.useState<Map<string, number>>(new Map());
@@ -184,6 +181,62 @@ const GroupAssignmentsContent = ({ workspace, workspaceAccess, user, searchQuery
 };
 
 describe('GroupAssignmentsContent - Comment Count Feature', () => {
+  const mockFrom = vi.fn();
+  const mockSupabase = {
+    from: mockFrom,
+    auth: {
+      getUser: vi.fn().mockResolvedValue({ data: { user: { id: 'test-user' } } }),
+    },
+    storage: {
+      from: vi.fn().mockReturnThis(),
+      upload: vi.fn().mockReturnThis(),
+      getPublicUrl: vi.fn().mockReturnThis(),
+    }
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(useSupabaseClient).mockReturnValue(mockSupabase as any);
+
+    // Default implementation for supabase.from
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: { role: 'docente' }, error: null })
+        };
+      }
+      if (table === 'community_threads') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: { id: `thread-for-assignment-1` }, error: null })
+        };
+      }
+      if (table === 'community_messages') {
+        return {
+          select: vi.fn().mockReturnValue({ 
+            eq: vi.fn().mockResolvedValue({ count: 5, error: null })
+          })
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockReturnThis(),
+      };
+    });
+
+    // Default service mock
+    (groupAssignmentsV2Service as any).getGroupAssignmentsForUser.mockResolvedValue({ 
+      assignments: mockAssignments, 
+      error: null 
+    });
+    (groupAssignmentsV2Service as any).getOrCreateGroup.mockImplementation((assignmentId: string) => ({
+      group: { id: `group-for-${assignmentId}` }
+    }));
+  });
   const mockRouter = {
     push: vi.fn(),
     pathname: '/community/workspace',
@@ -261,7 +314,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
       };
     });
 
-    (supabase.from as any).mockImplementation(fromMock);
+    mockFrom.mockImplementation(fromMock);
     
     // Setup groupAssignmentsV2Service mocks
     (groupAssignmentsV2Service.getGroupAssignmentsForUser as any).mockResolvedValue({
@@ -292,7 +345,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
       };
 
       // Setup specific mocks for this test
-      (supabase.from as any).mockImplementation((table: string) => {
+      mockFrom.mockImplementation((table: string) => {
         if (table === 'community_threads') {
           return {
             select: vi.fn().mockReturnThis(),
@@ -339,7 +392,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
 
     it('should show "0 comentarios" when no comments exist', async () => {
       // Mock no thread found
-      (supabase.from as any).mockImplementation((table: string) => {
+      mockFrom.mockImplementation((table: string) => {
         if (table === 'community_threads') {
           return {
             select: vi.fn().mockReturnThis(),
@@ -374,7 +427,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
 
     it('should handle singular/plural correctly', async () => {
       // Mock 1 comment
-      (supabase.from as any).mockImplementation((table: string) => {
+      mockFrom.mockImplementation((table: string) => {
         if (table === 'community_threads') {
           return {
             select: vi.fn().mockReturnThis(),
@@ -530,7 +583,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
   describe('Error Handling', () => {
     it('should handle errors when loading discussion counts', async () => {
       // Mock error in loading threads
-      (supabase.from as any).mockImplementation((table: string) => {
+      mockFrom.mockImplementation((table: string) => {
         if (table === 'community_threads') {
           return {
             select: vi.fn().mockReturnThis(),
@@ -575,7 +628,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
   describe('Consultant View', () => {
     it('should not show discussion links for consultants', async () => {
       // Mock consultant role
-      (supabase.from as any).mockImplementation((table: string) => {
+      mockFrom.mockImplementation((table: string) => {
         if (table === 'profiles') {
           return {
             select: vi.fn().mockReturnThis(),

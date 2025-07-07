@@ -8,7 +8,7 @@ import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import MobileUserCard from '../components/reports/MobileUserCard';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { FileText } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import toast from 'react-hot-toast';
 import reportsService from '../lib/services/reports';
 import { getReportScopeDescription } from '../utils/reportFilters';
@@ -54,6 +54,7 @@ interface Pagination {
 
 export default function DetailedReports() {
   const router = useRouter();
+  const supabase = useSupabaseClient();
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [userRole, setUserRole] = useState<string>('');

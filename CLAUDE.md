@@ -1,242 +1,202 @@
-FNE LMS Project - Claude Code Context
+import { BulkUserData, ParseOptions, ParseResult } from '@/types/bulk';
+import { isValidRut } from './validation';
 
-# IMMEDIATE CONTEXT
-- Project: Custom Next.js 14 + Supabase LMS platform
-- Location: ~/Documents/fne-lms-working  
-- Technology: Next.js 14.2.28, Supabase, React 18, Tailwind CSS, Recharts
-- Port: MUST run on port 3000 for Supabase integration
-- Language: All UI text in Spanish
-- Production URL: https://fne-lms.vercel.app
+const DANGEROUS_CHARS = ['=', '+', '-', '@', '\t', '\r'];
 
-# ENVIRONMENT CONFIGURATION
-```bash
-NEXT_PUBLIC_SUPABASE_URL=https://sxlogxqzmarhqsblxmtj.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4bG9neHF6bWFyaHFzYmx4bXRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDczMjIyMjEsImV4cCI6MjA2Mjg5ODIyMX0.J6YJpTDvW6vz7d-N0BkGsLIZY51h_raFPNIQfU5UE5E
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4bG9neHF6bWFyaHFzYmx4bXRqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NzMyMjIyMSwiZXhwIjoyMDYyODk4MjIxfQ.OiyMUeIoCc_mH7G5xZms1AhDyYM3jXqqIjccSL0JmWI
-```
+function sanitizeCsvValue(value: string | undefined): string {
+  if (typeof value !== 'string') return '';
+  let sanitized = value.replace(/[\r\n]+/g, ' ').trim();
+  if (DANGEROUS_CHARS.includes(sanitized.charAt(0))) {
+    sanitized = "'" + sanitized;
+  }
+  return sanitized;
+}
 
-# QUICK START
-```bash
-cd ~/Documents/fne-lms-working
-npm install
-npm run dev  # MUST be port 3000
-```
+function isValidEmail(email: string): boolean {
+  if (DANGEROUS_CHARS.includes(email.charAt(0))) {
+    return false;
+  }
+  const emailRegex = /^(?!.*\s)[^@]+@[^@]+\.[^@]+$/;
+  return emailRegex.test(email);
+}
 
-# FNE BRAND STANDARDS
-- Navy Blue: #00365b
-- Golden Yellow: #fdb933  
-- Error Red: #ef4044
-- All text in Spanish
-- Mobile responsive with Tailwind CSS
+function parseCsvLine(line: string, delimiter: string): string[] {
+  const result: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        currentField += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === delimiter && !inQuotes) {
+      result.push(currentField);
+      currentField = '';
+    } else {
+      currentField += char;
+    }
+  }
+  result.push(currentField);
+  return result;
+}
 
-# KEY DIRECTORIES
-- `/pages/admin/course-builder/` - Lesson editor
-- `/components/blocks/` - Content block editors
-- `/components/layout/` - MainLayout, Sidebar
-- `/lib/` - Supabase client, services
-- `/types/` - TypeScript definitions
-- `/utils/` - Utility functions
+function getLines(text: string): string[] {
+    const lines: string[] = [];
+    let currentLine = '';
+    let inQuotes = false;
+    for (const char of text) {
+        if (char === '"') {
+            inQuotes = !inQuotes;
+        }
+        if (char === '\n' && !inQuotes) {
+            lines.push(currentLine);
+            currentLine = '';
+        } else {
+            currentLine += char;
+        }
+    }
+    if (currentLine) {
+        lines.push(currentLine);
+    }
+    return lines;
+}
 
-# CURRENT SYSTEM STATUS
+function getColumnIndices(
+  headers: string[],
+  mapping?: ParseOptions['columnMapping']
+): Required<NonNullable<ParseOptions['columnMapping']>> {
+  const findIndex = (patterns: string[]) =>
+    headers.findIndex(h => patterns.some(p => h.toLowerCase().includes(p)));
 
-## ✅ Core Features Complete
-- **Global sidebar navigation** - Unified interface across all pages
-- **Lesson editor** - 6 block types (Text, Video, Image, Quiz, File Download, External Links)
-- **User management** - 6-role system with approval workflow
-- **Course assignments** - Teacher-course relationship management
-- **Assignment system** - Full CRUD with enrolled courses filtering, submissions tracking
-- **Group assignments** - Collaborative assignments in workspace with discussion threads
-- **Reporting system** - Analytics dashboard with role-based access
-- **Notification system** - Real-time notifications with email delivery
-- **Collaborative workspace** - Meetings, documents, messaging, activity feed, group assignments
-- **Contract management** - Creation, editing, annexes, PDF generation
-- **Expense reporting** - Approval workflow with receipt management
-- **Consultant assignments** - Individual and group-based consultant-student relationships
+  return {
+    email: mapping?.email ?? findIndex(['email', 'correo']),
+    firstName: mapping?.firstName ?? findIndex(['first', 'nombre']),
+    lastName: mapping?.lastName ?? findIndex(['last', 'apellido']),
+    role: mapping?.role ?? findIndex(['role', 'rol']),
+    rut: mapping?.rut ?? findIndex(['rut']),
+    password: mapping?.password ?? findIndex(['password', 'contraseña']),
+  };
+}
 
-## 🎯 Key Technical Patterns
+function parseUserRow(
+  cells: string[],
+  columns: Required<NonNullable<ParseOptions['columnMapping']>>,
+  options: {
+    generatePasswords: boolean;
+    validateRut: boolean;
+    defaultRole: string;
+  }
+): BulkUserData {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const rawEmail = (cells[columns.email] || '').trim();
+  const rawFirstName = (cells[columns.firstName] || '').trim();
+  const rawLastName = (cells[columns.lastName] || '').trim();
+  const rawRole = (cells[columns.role] || '').trim();
+  const rawRut = (cells[columns.rut] || '').trim();
+  const rawPassword = (cells[columns.password] || '').trim();
 
-### Navigation Structure
-```
-├── Mi Panel (Dashboard)
-├── Mi Perfil
-├── Mis Tareas (Assignments)
-├── Cursos (unified course management)
-├── Usuarios [Admin only]
-├── Consultorías [Admin only]
-├── Gestión [Admin only]
-│   ├── Contratos
-│   └── Rendición de Gastos
-├── Reportes
-├── Espacio Colaborativo
-└── Configuración [Admin only]
-```
+  if (!rawEmail) {
+    errors.push('Email es requerido');
+  } else if (!isValidEmail(rawEmail)) {
+    errors.push('Email inválido');
+  }
 
-### 6-Role System (CRITICAL CORRECTION)
-- **admin** - Full platform control
-- **consultor** - FNE instructors (TEACHERS in the LMS)
-- **equipo_directivo** - School administration (students)
-- **lider_generacion** - Generation oversight (students)
-- **lider_comunidad** - Community leadership (students)
-- **docente** - School teachers (STUDENTS in the LMS)
+  const role = rawRole.toLowerCase() || options.defaultRole;
+  const validRoles = ['admin', 'docente', 'inspirador', 'socio_comunitario', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'];
+  if (role && !validRoles.includes(role)) {
+    errors.push(`Rol '${role}' inválido`);
+  }
 
-### Header Component Pattern (CRITICAL)
-```typescript
-// Required in every authenticated page
-<Header 
-  user={user}
-  isAdmin={isAdmin}
-  avatarUrl={avatarUrl}
-  onLogout={handleLogout}
-  showNavigation={true}
-/>
-```
+  if (options.validateRut && rawRut && !isValidRut(rawRut)) {
+    errors.push('RUT inválido');
+  }
 
-# CRITICAL REMINDERS
-- ✅ Port 3000 REQUIRED for Supabase
-- ✅ Use consistent Supabase client from `/lib/supabase`
-- ✅ All UI text in Spanish
-- ✅ Follow FNE brand colors
-- ✅ TypeScript strict mode
-- ✅ Mobile responsive design
+  let password = rawPassword;
+  if (options.generatePasswords && !password) {
+    password = Math.random().toString(36).slice(-8);
+    warnings.push('Se generó una contraseña por defecto');
+  }
 
-# RECENT UPDATES
-- **AUTHENTICATION FIX (July 4, 2025)**:
-  - Fixed critical logout issue where users were being logged out unexpectedly on page refresh
-  - Removed flawed SessionManager logic that was incorrectly signing users out
-  - Fixed singleton Supabase client pattern in _app.tsx that was causing conflicts
-  - Updated dashboard, login, and profile pages to use auth-helpers hooks
-  - Created AUTH_MIGRATION_GUIDE.md for migrating remaining pages
-  - Users now stay logged in properly regardless of "Remember Me" setting
-- **COURSE INSTRUCTOR DISPLAY FIX (July 4, 2025)**:
-  - Fixed instructor names not displaying on courses page
-  - Updated to fetch from `instructors` table first, then fallback to course assignments
-  - Added confirmation modal when changing instructor to prevent accidental changes
-  - Replaced browser confirm() with custom ConfirmModal matching FNE design
-  - Added logging to track instructor changes
-- **UI IMPROVEMENTS (July 4, 2025)**:
-  - Fixed duplicate "Vista de Tareas Grupales" title in assignment overview page
-  - Removed unused "Mis Tareas" navigation item (0 records in database)
-  - Simplified navigation by removing redundant assignment system
-  - Assignment functionality properly consolidated in Collaborative Space
+  return {
+    email: sanitizeCsvValue(rawEmail),
+    firstName: sanitizeCsvValue(rawFirstName),
+    lastName: sanitizeCsvValue(rawLastName),
+    role: sanitizeCsvValue(role || options.defaultRole),
+    rut: sanitizeCsvValue(rawRut),
+    password: sanitizeCsvValue(password),
+    errors,
+    warnings,
+    rowNumber: 0,
+  };
+}
 
-# RECENT UPDATES
-- **NOTIFICATIONS PAGE IMPLEMENTATION (July 2025)**:
-  - Replaced placeholder notifications page with full-featured management interface
-  - Comprehensive list view with pagination (20 items per page)
-  - Advanced filtering: search, category, status, date range
-  - Bulk actions: mark as read/unread, delete multiple
-  - Permission-aware navigation prevents unauthorized access
-  - Custom delete confirmation modal (no browser dialogs)
-  - Fixed TypeScript errors: changed notification_type?.type to notification_type?.name
-  - Fixed duplicate stylesheet warnings in _app.tsx and debug pages
-  - Created test notifications for admin user
-  - Professional UI with loading states, empty states, responsive design
-  - Documentation: See NOTIFICATIONS_PAGE_IMPLEMENTATION.md
-- **DEV ROLE IMPERSONATION FIXES (January 2025)**:
-  - Fixed critical bug where dev role impersonation wasn't working correctly for sidebar navigation
-  - Issue: When impersonating non-admin roles, sidebar still showed admin-only items
-  - Root cause: `isGlobalAdmin` and `hasAdminPrivileges` functions were checking actual database role even during impersonation
-  - Solution: Updated both functions to return only impersonated role privileges when impersonation is active
-  - Updated dashboard.tsx, detailed-reports.tsx, and feedback.tsx to use `getEffectiveRoleAndStatus` utility
-  - Added debug logging to help troubleshoot role detection issues
-  - **UI Improvement**: Replaced native browser confirm() dialog with custom modal matching FNE design
-  - **Better UX**: Replaced alert() calls with toast notifications using react-hot-toast
-- Avatar performance optimization with caching
-- Real-time notifications complete
-- Expense report export (PDF/Excel)
-- Contract annex system
-- Messaging @mentions
-- User notification preferences
-- Assignment system complete with enrolled courses integration
-- Assignment stats simplified to show work status (Active, Completed, In Progress, New)
-- **INSTAGRAM-STYLE FEED (January 2025) - PHASE 1 COMPLETE**:
-  - Replaced activity feed in "Mi Resumen" with Instagram/LinkedIn-style social feed
-  - Post types: text, images (carousel), documents, links
-  - Interactions: likes, comments (with nested replies), saves, view counts
-  - Custom confirmation modals instead of browser dialogs
-  - Edit/delete functionality for own posts
-  - Database tables created: community_posts, post_reactions, post_comments, etc.
-  - Storage bucket created: post-media with proper RLS policies
-  - **COMPLETED FEATURES**:
-    - ✅ Comment thread UI with nested replies, pagination, and delete functionality
-    - ✅ Community-based post visibility (users only see posts from their communities)
-    - ✅ Custom community names display throughout the interface
-    - ✅ Role-based access control (admins see all, consultants see assigned schools, others see own community)
-    - ✅ Storage policies fixed for image uploads
-  - **LOCATION**: Collaborative Space → "Mi Resumen" tab
-  - **NEXT STEPS** (Phase 2):
-    1. Add real-time updates via Supabase subscriptions
-    2. Implement poll and question post types
-    3. Enhanced reactions beyond like/save
-    4. Hashtags and @mentions support
-  - **PHASE 3 FEATURES** (Future): Stories, AI feed algorithm, analytics
-- **BLOCK DELETION AND VISIBILITY FIX (January 2025)**:
-  - Fixed block deletion using correct Supabase syntax (.eq instead of .match)
-  - Added persistent visibility state with is_visible database field
-  - Blocks now properly delete and stay deleted
-  - Collapse/expand state persists across page refreshes
-  - Database migration: `/database/add_visibility_to_blocks.sql`
-- **GROUP ASSIGNMENTS V2 - SIMPLIFIED IMPLEMENTATION (January 2025)**:
-  - Complete re-engineering based on consultant feedback
-  - Group assignments now created directly in lesson blocks
-  - Automatically appear in collaborative workspace when courses assigned to communities
-  - Students see informational message in lessons directing to collaborative space
-  - No blocking of lesson progression
-  - Simplified database schema: group_assignment_groups, group_assignment_members, group_assignment_submissions
-  - Automatic group creation and assignment
-  - Consultant notifications on submission
-  - New service: groupAssignmentsV2Service
-  - New component: GroupSubmissionModalV2
-  - Migration: Run `/database/MANUAL_MIGRATION_group_assignments_v2.sql` in Supabase
-- **GROUP ASSIGNMENT RESOURCES (January 2025)**:
-  - Added ability for instructors to attach links and documents to group assignments
-  - Resources only visible in collaborative workspace, not in lessons
-  - Support for external links and file uploads (10MB limit)
-  - Updated components: GroupAssignmentBlockEditor, GroupSubmissionModalV2
-  - New TypeScript interface: GroupAssignmentResource
-  - Comprehensive unit test coverage (41 tests passing)
-- **QUIZ SYSTEM ENHANCEMENTS (January 2025)**:
-  - Added open-ended question type to quiz blocks
-  - New quiz submission tracking system
-  - Consultant review interface for open-ended answers
-  - Real-time notifications for pending reviews
-  - New page: `/quiz-reviews` for consultants to grade open questions
-  - Enhanced quiz types: multiple choice, true/false, open-ended
-- **QUIZ LEARNING-FOCUSED UPDATE (January 2025)**:
-  - Removed all score/grade displays from student view
-  - Implemented 2-tier feedback system for MC/TF questions
-  - Tier 1: General encouragement to review answers
-  - Tier 2: Specific questions marked for attention
-  - Quiz submissions now save to database properly
-  - New component: `LearningQuizTaker` replaces inline quiz rendering
-  - Focus on learning, not grades
-- **USER MANAGEMENT IMPROVEMENTS (January 2025)**:
-  - Fixed duplicate profile creation issue
-  - Added forced password change for admin-created users
-  - Created API endpoint for user creation with service role
-  - Proper login flow: password change → profile completion → dashboard
-- **ROLE-BASED COURSE ACCESS (January 2025)**:
-  - Non-admin users can only see assigned courses
-  - Course creation restricted to admins only
-  - Course manager page shows appropriate content per role
-- **AVATAR STYLING FIX (January 2025)**:
-  - Fixed avatar border styling from square to circular
-  - Added proper ring styling with yellow color (#fdb933)
-  - Enhanced avatar component with rounded-full wrapper
-- **CONSULTANT ASSIGNMENTS SYSTEM (January 2025)**:
-  - Full consultant-student assignment management system
-  - Support for individual, community, generation, and school-wide assignments
-  - Consultant assignments page at `/admin/consultant-assignments`
-  - Community-based assignments properly display affected students
-  - User management page shows consultant names for students
-  - Fixed Supabase foreign key expansion issues
-  - Assignment types: comprehensive (Completa), monitoring, mentoring, evaluation, support
-  - Permissions: view progress, assign courses, message students
-- **LESSON COMPLETION UI UPDATE (January 2025)**:
-  - Changed completion icon from trophy to thumbs up per user request
-  - Updated in `/pages/student/lesson/[lessonId].tsx`
-- **GROWTH COMMUNITIES CUSTOMIZATION (January 2025)**:
-  - Communities can now rename themselves and add a group image (like WhatsApp)
+export function parseBulkUserData(
+  text: string,
+  options: ParseOptions = {}
+): ParseResult {
+  const {
+    delimiter = ',',
+    hasHeader = true,
+    generatePasswords = true,
+    validateRut: validateRutOption = true,
+    defaultRole = 'docente',
+    columnMapping
+  } = options;
+
+  const lines = getLines(text.trim());
+  if (lines.length === 0) {
+    return { valid: [], invalid: [], warnings: [], summary: { total: 0, valid: 0, invalid: 0, hasWarnings: 0 } };
+  }
+
+  let headers: string[] = [];
+  let dataStartIndex = 0;
+  if (hasHeader) {
+    headers = parseCsvLine(lines[0], delimiter).map(h => h.toLowerCase().trim());
+    dataStartIndex = 1;
+  }
+
+  const columns = getColumnIndices(headers, columnMapping);
+
+  if (columns.email === -1) {
+    throw new Error('La columna "email" es requerida.');
+  }
+
+  const valid: BulkUserData[] = [];
+  const invalid: BulkUserData[] = [];
+
+  for (let i = dataStartIndex; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+
+    const rowNumber = i + 1;
+    const cells = parseCsvLine(line, delimiter);
+    const userData = parseUserRow(cells, columns, { generatePasswords, validateRut: validateRutOption, defaultRole });
+    userData.rowNumber = rowNumber;
+
+    if (userData.errors && userData.errors.length > 0) {
+      invalid.push(userData);
+    } else {
+      valid.push(userData);
+    }
+  }
+
+  return {
+    valid,
+    invalid,
+    warnings: [],
+    summary: {
+      total: valid.length + invalid.length,
+      valid: valid.length,
+      invalid: invalid.length,
+      hasWarnings: valid.filter(u => u.warnings && u.warnings.length > 0).length,
+    },
+  };
+}
   - DEMOCRATIC: Any community member can edit settings (not just leaders)
   - New fields: custom_name, image_url, image_storage_path in community_workspaces
   - New component: WorkspaceSettingsModal for editing community settings

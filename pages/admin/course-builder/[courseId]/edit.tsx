@@ -1,8 +1,9 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
-import { supabase } from '../../../../lib/supabase';
+
 import MainLayout from '../../../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 import { ConfirmModal } from '../../../../components/common/ConfirmModal';
@@ -16,6 +17,7 @@ interface Course {
 }
 
 export default function EditCourse() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const { courseId } = router.query;
   

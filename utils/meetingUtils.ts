@@ -3,7 +3,7 @@
  * Integrates with existing workspace access control and provides meeting management functions
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase-wrapper';
 import { toast } from 'react-hot-toast';
 import { 
   CommunityMeeting, 

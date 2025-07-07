@@ -1,9 +1,11 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+
 import MainLayout from '../components/layout/MainLayout';
 import { useAuth } from '../hooks/useAuth';
 
 export default function TestSidebarRole() {
+  const supabase = useSupabaseClient();
   const { user, profile, isAdmin, avatarUrl, logout } = useAuth();
   const [debugInfo, setDebugInfo] = useState<any>({});
 

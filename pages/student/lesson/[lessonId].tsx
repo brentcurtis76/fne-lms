@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../../lib/supabase';
+
 import Head from 'next/head';
 import { ArrowLeft, ArrowRight, CheckCircle, Clock, ThumbsUp, Star, BookOpen } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -37,6 +38,7 @@ interface Progress {
 }
 
 export default function StudentLessonViewer() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const { lessonId } = router.query;
 

@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../../../../lib/supabase';
+
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../../../components/layout/MainLayout';
@@ -12,6 +13,7 @@ import { ClipboardCheckIcon, ChatAlt2Icon, ArrowLeftIcon } from '@heroicons/reac
 import { sendMessage, subscribeToWorkspaceMessages } from '../../../../../utils/messagingUtils-simple';
 
 export default function GroupDiscussionPage() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const { id: assignmentId } = router.query;
   const { user, loading: authLoading, isAdmin, avatarUrl, logout } = useAuth();

@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabase';
+import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
 import MainLayout from '../components/layout/MainLayout';
-import { 
-  BellIcon, 
-  ArrowLeftIcon,
+import {
+  BellIcon,
   SearchIcon,
   FilterIcon,
   TrashIcon,
@@ -12,16 +11,19 @@ import {
   CogIcon,
   ClockIcon,
   EyeIcon,
-  EyeOffIcon
+  EyeOffIcon,
+  ArrowLeftIcon,
 } from '@heroicons/react/outline';
-import { 
+import {
   ShieldCheckIcon,
-  CheckIcon as CheckSquareIcon,
   BookOpenIcon,
   ChatAlt2Icon,
   CogIcon as SystemIcon,
-  DocumentIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  AcademicCapIcon,
+  ChatIcon,
+  OfficeBuildingIcon,
+  QuestionMarkCircleIcon,
 } from '@heroicons/react/solid';
 import { toast } from 'react-hot-toast';
 import { checkUserAccess, getAlternativeUrl } from '../utils/notificationPermissions';
@@ -37,90 +39,39 @@ interface NotificationFilters {
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const session = useSession();
+  const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(true);
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | undefined>(undefined);
-  
+
   // Notifications state
   const [notifications, setNotifications] = useState<UserNotification[]>([]);
   const [filteredNotifications, setFilteredNotifications] = useState<UserNotification[]>([]);
   const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set());
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const notificationsPerPage = 20;
-  
+
   // Filters
   const [filters, setFilters] = useState<NotificationFilters>({
     search: '',
     category: 'all',
     status: 'all',
-    dateRange: 'all'
+    dateRange: 'all',
   });
-  
+
   // UI state
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTargetIds, setDeleteTargetIds] = useState<string[]>([]);
 
-  useEffect(() => {
-    checkUserAuth();
-  }, []);
-
-  useEffect(() => {
-    if (currentUser) {
-      loadNotifications();
-    }
-  }, [currentUser]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [notifications, filters]);
-
-  useEffect(() => {
-    // Calculate total pages whenever filtered notifications change
-    setTotalPages(Math.ceil(filteredNotifications.length / notificationsPerPage));
-    setCurrentPage(1); // Reset to first page when filters change
-  }, [filteredNotifications]);
-
-  const checkUserAuth = async () => {
+  const loadNotifications = useCallback(async () => {
+    if (!session) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        router.push('/login');
-        return;
-      }
-
-      setCurrentUser(session.user);
-
-      // Get user profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('role, avatar_url')
-        .eq('id', session.user.id)
-        .single();
-        
-      if (profileData) {
-        setIsAdmin(profileData.role === 'admin');
-        setAvatarUrl(profileData.avatar_url);
-      }
-      
-    } catch (error) {
-      console.error('Authentication error:', error);
-      router.push('/login');
-    }
-  };
-
-  const loadNotifications = async () => {
-    try {
-      setLoading(true);
-      
-      // First, let's try a simple query to see if the table is accessible
-      console.log('Loading notifications for user:', currentUser.id);
-      
       const { data, error } = await supabase
         .from('user_notifications')
         .select(`
@@ -131,76 +82,96 @@ export default function NotificationsPage() {
             category
           )
         `)
-        .eq('user_id', currentUser.id)
+        .eq('user_id', session.user.id)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Supabase error details:', error);
-        throw error;
-      }
-
-      console.log('Notifications loaded:', data?.length || 0);
+      if (error) throw error;
       setNotifications(data || []);
     } catch (error) {
       console.error('Error loading notifications:', error);
-      toast.error('Error al cargar las notificaciones');
+      toast.error('Error al cargar notificaciones.');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [session, supabase]);
+
+  const loadInitialData = useCallback(async () => {
+    if (!session) return;
+    setLoading(true);
+    try {
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('role, avatar_url')
+        .eq('id', session.user.id)
+        .single();
+
+      if (profileData) {
+        setIsAdmin(profileData.role === 'admin');
+        setAvatarUrl(profileData.avatar_url);
+      }
+      await loadNotifications();
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+      toast.error('Error al cargar los datos iniciales.');
     } finally {
       setLoading(false);
     }
-  };
+  }, [session, supabase, loadNotifications]);
 
-  const applyFilters = () => {
-    let filtered = [...notifications];
+  useEffect(() => {
+    if (session) {
+      loadInitialData();
+    } else if (session === null) {
+      router.push('/login');
+    }
+  }, [session, router, loadInitialData]);
 
-    // Search filter
+  const applyFilters = useCallback(() => {
+    let tempNotifications = [...notifications];
     if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(n => 
-        n.title.toLowerCase().includes(searchLower) ||
-        n.description?.toLowerCase().includes(searchLower)
+      tempNotifications = tempNotifications.filter(n =>
+        n.title.toLowerCase().includes(filters.search.toLowerCase()) ||
+        n.description?.toLowerCase().includes(filters.search.toLowerCase())
       );
     }
-
-    // Category filter
     if (filters.category !== 'all') {
-      filtered = filtered.filter(n => n.notification_type?.category === filters.category);
+        tempNotifications = tempNotifications.filter(n => n.notification_type.category === filters.category);
     }
-
-    // Status filter
-    if (filters.status === 'unread') {
-      filtered = filtered.filter(n => !n.is_read);
-    } else if (filters.status === 'read') {
-      filtered = filtered.filter(n => n.is_read);
+    if (filters.status !== 'all') {
+      tempNotifications = tempNotifications.filter(n => filters.status === 'read' ? n.is_read : !n.is_read);
     }
-
-    // Date range filter
     if (filters.dateRange !== 'all') {
       const now = new Date();
-      const startDate = new Date();
-      
-      switch (filters.dateRange) {
-        case 'today':
-          startDate.setHours(0, 0, 0, 0);
-          break;
-        case 'week':
-          startDate.setDate(now.getDate() - 7);
-          break;
-        case 'month':
-          startDate.setMonth(now.getMonth() - 1);
-          break;
-      }
-      
-      filtered = filtered.filter(n => new Date(n.created_at) >= startDate);
+      let startDate = new Date();
+      if (filters.dateRange === 'today') startDate.setHours(0, 0, 0, 0);
+      else if (filters.dateRange === 'week') startDate.setDate(now.getDate() - 7);
+      else if (filters.dateRange === 'month') startDate.setMonth(now.getMonth() - 1);
+      tempNotifications = tempNotifications.filter(n => new Date(n.created_at) >= startDate);
     }
+    setFilteredNotifications(tempNotifications);
+  }, [notifications, filters]);
 
-    setFilteredNotifications(filtered);
-  };
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
-  const handleRefresh = async () => {
+  useEffect(() => {
+    setTotalPages(Math.ceil(filteredNotifications.length / notificationsPerPage));
+    setCurrentPage(1);
+    setSelectedNotifications(new Set());
+  }, [filteredNotifications, notificationsPerPage]);
+
+  const paginatedNotifications = React.useMemo(() => {
+    const startIndex = (currentPage - 1) * notificationsPerPage;
+    const endIndex = startIndex + notificationsPerPage;
+    return filteredNotifications.slice(startIndex, endIndex);
+  }, [currentPage, notificationsPerPage, filteredNotifications]);
+
+
+  const handleRefresh = () => {
     setRefreshing(true);
-    await loadNotifications();
-    setRefreshing(false);
-    toast.success('Notificaciones actualizadas');
+    setSelectedNotifications(new Set());
+    loadNotifications();
   };
 
   const handleMarkAsRead = async (notificationIds: string[]) => {
@@ -209,22 +180,15 @@ export default function NotificationsPage() {
         .from('user_notifications')
         .update({ is_read: true, read_at: new Date().toISOString() })
         .in('id', notificationIds);
-
       if (error) throw error;
-
-      // Update local state
-      setNotifications(prev => 
-        prev.map(n => 
-          notificationIds.includes(n.id) 
-            ? { ...n, is_read: true, read_at: new Date().toISOString() }
-            : n
-        )
+      setNotifications(prev =>
+        prev.map(n => notificationIds.includes(n.id) ? { ...n, is_read: true } : n)
       );
-
+      setSelectedNotifications(new Set());
       toast.success(`${notificationIds.length} notificación(es) marcada(s) como leída(s)`);
     } catch (error) {
       console.error('Error marking as read:', error);
-      toast.error('Error al marcar como leídas');
+      toast.error('Error al marcar como leído');
     }
   };
 
@@ -234,22 +198,15 @@ export default function NotificationsPage() {
         .from('user_notifications')
         .update({ is_read: false, read_at: null })
         .in('id', notificationIds);
-
       if (error) throw error;
-
-      // Update local state
-      setNotifications(prev => 
-        prev.map(n => 
-          notificationIds.includes(n.id) 
-            ? { ...n, is_read: false, read_at: null }
-            : n
-        )
+      setNotifications(prev =>
+        prev.map(n => notificationIds.includes(n.id) ? { ...n, is_read: false } : n)
       );
-
+      setSelectedNotifications(new Set());
       toast.success(`${notificationIds.length} notificación(es) marcada(s) como no leída(s)`);
     } catch (error) {
       console.error('Error marking as unread:', error);
-      toast.error('Error al marcar como no leídas');
+      toast.error('Error al marcar como no leído');
     }
   };
 
@@ -264,52 +221,50 @@ export default function NotificationsPage() {
         .from('user_notifications')
         .delete()
         .in('id', deleteTargetIds);
-
       if (error) throw error;
-
-      // Update local state
       setNotifications(prev => prev.filter(n => !deleteTargetIds.includes(n.id)));
       setSelectedNotifications(new Set());
-
       toast.success(`${deleteTargetIds.length} notificación(es) eliminada(s)`);
-      setShowDeleteModal(false);
-      setDeleteTargetIds([]);
     } catch (error) {
       console.error('Error deleting notifications:', error);
       toast.error('Error al eliminar notificaciones');
+    } finally {
+      setShowDeleteModal(false);
+      setDeleteTargetIds([]);
     }
   };
 
   const handleNotificationClick = async (notification: UserNotification) => {
-    // Mark as read if unread
+    if (!session) return;
     if (!notification.is_read) {
+      // Optimistically update UI, then mark as read
+      setNotifications(prev =>
+        prev.map(n => n.id === notification.id ? { ...n, is_read: true } : n)
+      );
       await handleMarkAsRead([notification.id]);
     }
 
-    // Navigate to URL if available
     if (notification.related_url) {
-      const hasAccess = await checkUserAccess(notification.related_url, currentUser.id);
-      
+      const hasAccess = await checkUserAccess(notification.related_url, session.user.id);
+
       if (hasAccess) {
         router.push(notification.related_url);
       } else {
         const { data: profile } = await supabase
           .from('profiles')
           .select('role')
-          .eq('id', currentUser.id)
+          .eq('id', session.user.id)
           .single();
-          
+
         const alternativeUrl = getAlternativeUrl(
-          notification.related_url, 
+          notification.related_url,
           profile?.role || 'docente',
           notification.notification_type?.name
         );
-        
+
         if (alternativeUrl) {
-          toast.error('No tienes permisos para acceder a esta página. Redirigiendo...');
-          setTimeout(() => {
-            router.push(alternativeUrl);
-          }, 1500);
+          toast.error('No tienes permisos. Redirigiendo...');
+          setTimeout(() => router.push(alternativeUrl), 1500);
         } else {
           toast.error('No tienes permisos para acceder a esta página');
         }
@@ -318,105 +273,80 @@ export default function NotificationsPage() {
   };
 
   const toggleSelectAll = () => {
-    const pageNotifications = getPaginatedNotifications();
-    if (selectedNotifications.size === pageNotifications.length) {
+    if (selectedNotifications.size === paginatedNotifications.length && paginatedNotifications.length > 0) {
       setSelectedNotifications(new Set());
     } else {
-      setSelectedNotifications(new Set(pageNotifications.map(n => n.id)));
+      setSelectedNotifications(new Set(paginatedNotifications.map(n => n.id)));
     }
   };
 
   const toggleSelectNotification = (id: string) => {
-    const newSelected = new Set(selectedNotifications);
-    if (newSelected.has(id)) {
-      newSelected.delete(id);
+    const newSelection = new Set(selectedNotifications);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
     } else {
-      newSelected.add(id);
+      newSelection.add(id);
     }
-    setSelectedNotifications(newSelected);
-  };
-
-  const getPaginatedNotifications = () => {
-    const startIndex = (currentPage - 1) * notificationsPerPage;
-    const endIndex = startIndex + notificationsPerPage;
-    return filteredNotifications.slice(startIndex, endIndex);
+    setSelectedNotifications(newSelection);
   };
 
   const getCategoryIcon = (category: string) => {
-    switch (category) {
-      case 'admin': return ShieldCheckIcon;
-      case 'assignments': return CheckSquareIcon;
-      case 'courses': return BookOpenIcon;
-      case 'messaging': return ChatAlt2Icon;
-      case 'social': return UserGroupIcon;
-      case 'feedback': return ChatAlt2Icon;
-      case 'system': return SystemIcon;
-      case 'workspace': return DocumentIcon;
-      default: return BellIcon;
-    }
+    const iconMap: { [key: string]: React.ElementType } = {
+      admin: ShieldCheckIcon,
+      assignments: AcademicCapIcon,
+      courses: BookOpenIcon,
+      messaging: ChatIcon,
+      social: UserGroupIcon,
+      feedback: ChatAlt2Icon,
+      system: SystemIcon,
+      workspace: OfficeBuildingIcon,
+    };
+    return iconMap[category] || QuestionMarkCircleIcon;
   };
 
   const getCategoryName = (category: string) => {
-    switch (category) {
-      case 'admin': return 'Administración';
-      case 'assignments': return 'Tareas';
-      case 'courses': return 'Cursos';
-      case 'messaging': return 'Mensajes';
-      case 'social': return 'Social';
-      case 'feedback': return 'Feedback';
-      case 'system': return 'Sistema';
-      case 'workspace': return 'Workspace';
-      default: return 'Otras';
-    }
+    const nameMap: { [key: string]: string } = {
+      admin: 'Administración',
+      assignments: 'Tareas',
+      courses: 'Cursos',
+      messaging: 'Mensajes',
+      social: 'Social',
+      feedback: 'Feedback',
+      system: 'Sistema',
+      workspace: 'Workspace',
+    };
+    return nameMap[category] || category;
   };
 
   const getRelativeTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    
-    const minutes = Math.floor(diffMs / (1000 * 60));
-    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
-    if (minutes < 1) return 'ahora mismo';
-    if (minutes < 60) return `hace ${minutes} min`;
-    if (hours < 24) return `hace ${hours}h`;
-    if (days < 7) return `hace ${days}d`;
-    
-    return date.toLocaleDateString('es-ES', { 
-      day: 'numeric', 
-      month: 'short',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
-    });
+    const diff = now.getTime() - date.getTime();
+    const seconds = Math.floor(diff / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (days > 365) return date.toLocaleDateString();
+    if (days > 30) return `hace ${Math.floor(days / 30)} mes(es)`;
+    if (days > 0) return `hace ${days} día(s)`;
+    if (hours > 0) return `hace ${hours} hora(s)`;
+    if (minutes > 0) return `hace ${minutes} minuto(s)`;
+    return 'justo ahora';
   };
 
   if (loading) {
     return (
-      <MainLayout 
-        user={currentUser} 
-        currentPage="notifications"
-        pageTitle="Notificaciones"
-        isAdmin={isAdmin}
-        avatarUrl={avatarUrl}
-      >
-        <div className="flex items-center justify-center min-h-96">
+      <MainLayout user={session?.user} currentPage="notifications" pageTitle="Notificaciones" isAdmin={isAdmin} onLogout={() => supabase.auth.signOut()} avatarUrl={avatarUrl}>
+        <div className="flex items-center justify-center min-h-screen">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00365b]"></div>
         </div>
       </MainLayout>
     );
   }
 
-  const paginatedNotifications = getPaginatedNotifications();
-
   return (
-    <MainLayout 
-      user={currentUser} 
-      currentPage="notifications"
-      pageTitle="Notificaciones"
-      isAdmin={isAdmin}
-      avatarUrl={avatarUrl}
-    >
+    <MainLayout user={session?.user} currentPage="notifications" pageTitle="Notificaciones" isAdmin={isAdmin} onLogout={() => supabase.auth.signOut()} avatarUrl={avatarUrl}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-6">
@@ -424,41 +354,17 @@ export default function NotificationsPage() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Todas las Notificaciones</h1>
               <p className="text-gray-600 mt-1">
-                {filteredNotifications.length} notificación(es) • 
-                {filteredNotifications.filter(n => !n.is_read).length} sin leer
+                {filteredNotifications.length} notificación(es) • {filteredNotifications.filter(n => !n.is_read).length} sin leer
               </p>
             </div>
-            
             <div className="flex items-center space-x-2">
-              {/* Preferences Link */}
-              <button
-                onClick={() => router.push('/configuracion')}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Preferencias de notificaciones"
-              >
+              <button onClick={() => router.push('/configuracion')} className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100" title="Configuración">
                 <CogIcon className="h-5 w-5" />
               </button>
-              
-              {/* Refresh Button */}
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Actualizar"
-              >
+              <button onClick={handleRefresh} disabled={refreshing} className="p-2 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 disabled:opacity-50" title="Refrescar">
                 <RefreshIcon className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
-              
-              {/* Filters Toggle */}
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`p-2 rounded-lg transition-colors ${
-                  showFilters 
-                    ? 'bg-[#00365b] text-white' 
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-                }`}
-                title="Filtros"
-              >
+              <button onClick={() => setShowFilters(!showFilters)} className={`p-2 rounded-full ${showFilters ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'}`} title="Filtros">
                 <FilterIcon className="h-5 w-5" />
               </button>
             </div>
@@ -469,7 +375,6 @@ export default function NotificationsPage() {
         {showFilters && (
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              {/* Search */}
               <div className="relative">
                 <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <input
@@ -480,8 +385,6 @@ export default function NotificationsPage() {
                   className="pl-10 pr-3 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
                 />
               </div>
-
-              {/* Category Filter */}
               <select
                 value={filters.category}
                 onChange={(e) => setFilters({ ...filters, category: e.target.value })}
@@ -497,22 +400,18 @@ export default function NotificationsPage() {
                 <option value="system">Sistema</option>
                 <option value="workspace">Workspace</option>
               </select>
-
-              {/* Status Filter */}
               <select
                 value={filters.status}
-                onChange={(e) => setFilters({ ...filters, status: e.target.value as any })}
+                onChange={(e) => setFilters({ ...filters, status: e.target.value as 'all' | 'read' | 'unread' })}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
               >
                 <option value="all">Todas</option>
                 <option value="unread">No leídas</option>
                 <option value="read">Leídas</option>
               </select>
-
-              {/* Date Range Filter */}
               <select
                 value={filters.dateRange}
-                onChange={(e) => setFilters({ ...filters, dateRange: e.target.value as any })}
+                onChange={(e) => setFilters({ ...filters, dateRange: e.target.value as 'all' | 'today' | 'week' | 'month' })}
                 className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
               >
                 <option value="all">Todo el tiempo</option>
@@ -578,7 +477,7 @@ export default function NotificationsPage() {
                 <label className="flex items-center">
                   <input
                     type="checkbox"
-                    checked={selectedNotifications.size === paginatedNotifications.length}
+                    checked={paginatedNotifications.length > 0 && selectedNotifications.size === paginatedNotifications.length}
                     onChange={toggleSelectAll}
                     className="h-4 w-4 text-[#00365b] focus:ring-[#00365b] border-gray-300 rounded"
                   />
@@ -599,8 +498,9 @@ export default function NotificationsPage() {
                         px-4 py-4 transition-all duration-200
                         ${notification.is_read 
                           ? 'hover:bg-gray-50' 
-                          : 'bg-blue-50 hover:bg-blue-100 border-l-4 border-l-[#fdb933]'
+                          : 'bg-blue-50 hover:bg-blue-100'
                         }
+                        ${isSelected ? 'bg-blue-100' : ''}
                       `}
                     >
                       <div className="flex items-start space-x-3">

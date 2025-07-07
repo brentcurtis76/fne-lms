@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import { LockClosedIcon, ExclamationIcon } from '@heroicons/react/outline';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
+  const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [user, setUser] = useState<any>(null);

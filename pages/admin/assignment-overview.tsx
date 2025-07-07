@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../lib/supabase';
+
 import MainLayout from '../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
@@ -46,6 +47,7 @@ interface FilterState {
 }
 
 export default function AssignmentOverview() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);

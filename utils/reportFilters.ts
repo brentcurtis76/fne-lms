@@ -3,7 +3,7 @@
  * Ensures users only see data within their scope
  */
 
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase-wrapper';
 
 export interface UserProfile {
   id: string;

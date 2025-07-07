@@ -1,7 +1,8 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import { supabase } from '../../../lib/supabase';
+
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import DeleteCourseModal from '../../../components/DeleteCourseModal';

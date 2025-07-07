@@ -4,7 +4,7 @@ import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { checkProfileCompletion } from '../utils/profileUtils';
-import { SessionManager } from '../lib/sessionManager';
+
 export default function LoginPage() {
   const router = useRouter();
   const supabase = useSupabaseClient();
@@ -14,7 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [isResetMode, setIsResetMode] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+
 
   // Debug Supabase configuration
   useEffect(() => {
@@ -43,26 +43,6 @@ export default function LoginPage() {
     testConnection();
   }, []);
 
-  useEffect(() => {
-    // Initialize session management and set checkbox state
-    const initializeSessionAndPreferences = async () => {
-      try {
-        // Initialize session manager (this handles browser restart detection)
-        await SessionManager.initialize();
-        
-        // Set checkbox state based on stored preference
-        const shouldPersist = SessionManager.shouldPersistSession();
-        setRememberMe(shouldPersist);
-        
-        console.log('[Login] Session debug info:', SessionManager.getDebugInfo());
-      } catch (error) {
-        console.error('Error initializing session:', error);
-      }
-    };
-
-    initializeSessionAndPreferences();
-  }, []);
-
   const handleSignIn = async () => {
     try {
       const { error, data } = await supabase.auth.signInWithPassword({ 
@@ -72,7 +52,7 @@ export default function LoginPage() {
 
       // Configure session persistence after successful login
       if (!error) {
-        await SessionManager.configureSessionPersistence(rememberMe);
+
       }
 
       if (error) {
@@ -212,19 +192,9 @@ export default function LoginPage() {
           </div>
         )}
         
-        {/* Remember me and Forgot password - only show in login mode */}
+        {/* Forgot password - only show in login mode */}
         {!isResetMode && (
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center">
-              <input 
-                type="checkbox" 
-                id="remember" 
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 text-brand_blue focus:ring-brand_blue border-gray-300 rounded"
-              />
-              <label htmlFor="remember" className="ml-2 block text-sm">Recordarme</label>
-            </div>
             <div>
               <button 
                 type="button"

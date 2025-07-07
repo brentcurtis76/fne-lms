@@ -5,11 +5,12 @@ import CourseBuilderForm from '../src/components/CourseBuilderForm';
 import CourseList from '../src/components/CourseList';
 import MainLayout from '../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
-import { supabase } from '../lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { FolderOpen } from 'lucide-react';
 
 const CourseManagerPage: React.FC = () => {
   const router = useRouter();
+  const supabase = useSupabaseClient();
   const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [user, setUser] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -81,8 +82,6 @@ const CourseManagerPage: React.FC = () => {
   
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    localStorage.removeItem('rememberMe');
-    sessionStorage.removeItem('sessionOnly');
     router.push('/login');
   };
   

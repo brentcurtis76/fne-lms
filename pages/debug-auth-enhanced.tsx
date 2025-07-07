@@ -1,7 +1,8 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 
 export default function DebugAuthEnhanced() {
+  const supabase = useSupabaseClient();
   const [results, setResults] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('brent@perrotuertocm.cl');

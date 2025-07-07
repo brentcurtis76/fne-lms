@@ -1,6 +1,6 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
 
 interface AvatarContextType {
   avatarUrl: string | null;
@@ -24,6 +24,7 @@ interface CacheData {
 }
 
 export function AvatarProvider({ children, user }: { children: ReactNode; user: User | null }) {
+  const supabase = useSupabaseClient();
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);

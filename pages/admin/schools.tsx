@@ -1,7 +1,8 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import MainLayout from '../../components/layout/MainLayout';
-import { supabase } from '../../lib/supabase';
+
 import { toast } from 'react-hot-toast';
 import { Plus, Edit2, Trash2, Building, Users, ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import { GRADE_RANGES } from '../../constants/gradeRanges';
@@ -38,6 +39,7 @@ interface Generation {
 }
 
 export default function SchoolsManagement() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const [schools, setSchools] = useState<School[]>([]);
   const [loading, setLoading] = useState(true);
@@ -758,8 +760,6 @@ export default function SchoolsManagement() {
                   placeholder="Nombre de la escuela"
                 />
               </div>
-
-
 
               <div>
                 <label className="flex items-center">

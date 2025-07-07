@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../lib/supabase';
+
 import MainLayout from '../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 import { Bell, Settings, Users, Palette, CheckCircle, XCircle, Loader2, RefreshCw, UserCog } from 'lucide-react';
@@ -31,6 +32,7 @@ const tabs: TabItem[] = [
 ];
 
 export default function Configuration() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -110,7 +112,6 @@ export default function Configuration() {
       setLoading(false);
     }
   };
-
 
   const fetchNotificationTypes = async () => {
     console.log('🔍 Starting fetchNotificationTypes...');
@@ -473,7 +474,6 @@ export default function Configuration() {
       </MainLayout>
     );
   }
-
 
   return (
     <MainLayout 

@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../../lib/supabase';
+
 import Head from 'next/head';
 import Link from 'next/link';
 import { ArrowLeft, Play, CheckCircle, Clock, BookOpen, FileText } from 'lucide-react';
@@ -40,6 +41,7 @@ interface Progress {
 }
 
 export default function StudentCourseViewer() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const { courseId } = router.query;
 

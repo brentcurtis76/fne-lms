@@ -3,7 +3,7 @@
  * Manages role impersonation for developers
  */
 
-import { supabase } from '../supabase';
+import { supabase } from '../supabase-wrapper';
 import { 
   UserRoleType, 
   DevRoleSession,

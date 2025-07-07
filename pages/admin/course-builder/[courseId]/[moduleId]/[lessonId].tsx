@@ -1,8 +1,9 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { GetServerSideProps, NextPage } from 'next';
 import { useRouter } from 'next/router';
 import React, { useState, useCallback, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { supabase } from '../../../../../lib/supabase';
+
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import {
   DndContext,
@@ -577,6 +578,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
 
   // Sortable Item Component
   const SortableTimelineItem = ({ block, index }: { block: Block; index: number }) => {
+  const supabase = useSupabaseClient();
     const {
       attributes,
       listeners,

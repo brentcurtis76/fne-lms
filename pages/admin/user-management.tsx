@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../lib/supabase';
+
 import MainLayout from '../../components/layout/MainLayout';
 import { Trash2, Plus, X, AlertTriangle, CheckCircle, Settings, Users, Key } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -29,6 +30,7 @@ type User = {
 };
 
 export default function UserManagement() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -674,8 +676,6 @@ export default function UserManagement() {
       </MainLayout>
     );
   }
-
-
 
   return (
     <>

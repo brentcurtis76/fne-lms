@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase-wrapper';
 import { canAccessAdminFeatures } from './roleUtils';
 
 /**
@@ -37,5 +37,5 @@ export const checkProfileCompletion = async (userId: string): Promise<boolean> =
  * Maintains backward compatibility with legacy admin role
  */
 export async function hasAdminAccess(userId: string): Promise<boolean> {
-  return await canAccessAdminFeatures(userId);
+  return await canAccessAdminFeatures(supabase, userId);
 }

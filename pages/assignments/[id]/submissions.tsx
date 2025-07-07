@@ -1,6 +1,7 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { supabase } from '../../../lib/supabase';
+
 import Head from 'next/head';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
@@ -20,6 +21,7 @@ interface GradeModalProps {
 }
 
 const GradeModal: React.FC<GradeModalProps> = ({ submission, assignment, onClose, onSubmit }) => {
+  const supabase = useSupabaseClient();
   const [score, setScore] = useState(submission.score || 0);
   const [feedback, setFeedback] = useState(submission.feedback || '');
 

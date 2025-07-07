@@ -1,3 +1,4 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import MainLayout from '../components/layout/MainLayout';
@@ -12,7 +13,7 @@ import ReportLoadingSkeleton from '../components/reports/ReportLoadingSkeleton';
 import { NoData, NoResults, ErrorState } from '../components/reports/EmptyStates';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { TrendingUp } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+
 import { apiCache, setupCacheCleanup, invalidateReportCache } from '../utils/cache';
 import useFiltersUrlState from '../hooks/useFiltersUrlState';
 import useDebounce from '../hooks/useDebounce';
@@ -78,6 +79,7 @@ const TABLE_COLUMNS = [
 ];
 
 export default function EnhancedReports() {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);

@@ -1,9 +1,10 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import ConsultantAssignmentModal from '../../components/ConsultantAssignmentModal';
-import { supabase } from '../../lib/supabase';
+
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 import { GraduationCap, Plus } from 'lucide-react';
 

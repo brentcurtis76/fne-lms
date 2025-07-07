@@ -1,7 +1,8 @@
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { supabase } from '../../../../lib/supabase';
+
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../../components/layout/FunctionalPageHeader';
@@ -26,6 +27,7 @@ interface Module {
 }
 
 const CourseDetailPage = () => {
+  const supabase = useSupabaseClient();
   const router = useRouter();
   const { courseId } = router.query;
 

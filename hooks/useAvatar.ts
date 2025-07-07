@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 interface AvatarData {
   url: string | null;
@@ -18,6 +18,7 @@ const avatarCache = new Map<string, CacheEntry>();
 const CACHE_DURATION = 1000 * 60 * 30; // 30 minutes
 
 export function useAvatar(user: User | null): AvatarData {
+  const supabase = useSupabaseClient();
   const [avatarData, setAvatarData] = useState<AvatarData>({
     url: null,
     isLoading: true,
@@ -70,7 +71,7 @@ export function useAvatar(user: User | null): AvatarData {
     };
 
     fetchAvatar();
-  }, [user?.id]);
+  }, [user?.id, supabase]);
 
   return avatarData;
 }

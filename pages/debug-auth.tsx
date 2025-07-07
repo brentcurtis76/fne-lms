@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 export default function DebugAuth() {
+  const supabase = useSupabaseClient();
   const [debugInfo, setDebugInfo] = useState<any>({});
   const [testEmail, setTestEmail] = useState('brent@perrotuertocm.cl');
   const [testPassword, setTestPassword] = useState('');
@@ -32,7 +33,7 @@ export default function DebugAuth() {
 
     // Test basic API connectivity
     testAPIConnectivity();
-  }, []);
+  }, [supabase]);
 
   const testAPIConnectivity = async () => {
     try {
@@ -63,6 +64,10 @@ export default function DebugAuth() {
   };
 
   const testLogin = async () => {
+    if (!supabase) {
+      setTestResult({ success: false, error: { message: 'Supabase client not available' } });
+      return;
+    }
     setTestResult({ loading: true });
     
     try {

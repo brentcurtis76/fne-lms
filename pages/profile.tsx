@@ -58,6 +58,14 @@ export default function ProfilePage() {
     const getSessionAndProfile = async () => {
       // Check if user is authenticated
       if (!session?.user) {
+        // Check if we're coming from login to prevent redirect loop
+        const fromLogin = router.query.from === 'login';
+        if (fromLogin) {
+          console.error('[Profile] No session but referred from login - breaking redirect loop');
+          setLoading(false);
+          // Show an error state instead of redirecting
+          return;
+        }
         router.push('/login');
         return;
       }
@@ -320,6 +328,30 @@ export default function ProfilePage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand_blue mx-auto"></div>
           <p className="mt-4 text-brand_blue font-medium">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if no session but coming from login (prevents redirect loop)
+  if (!session && router.query.from === 'login') {
+    return (
+      <div className="flex justify-center items-center h-screen bg-brand_beige">
+        <div className="text-center max-w-md">
+          <div className="text-red-600 mb-4">
+            <svg className="h-16 w-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-brand_blue mb-2">Error de Sesión</h2>
+          <p className="text-gray-600 mb-6">
+            Hubo un problema al establecer tu sesión. Por favor, intenta iniciar sesión nuevamente.
+          </p>
+          <Link href="/login">
+            <a className="inline-block bg-brand_blue text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+              Volver a Iniciar Sesión
+            </a>
+          </Link>
         </div>
       </div>
     );

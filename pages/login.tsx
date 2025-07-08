@@ -96,46 +96,71 @@ export default function LoginPage() {
       } else {
         setMessage('Login successful!');
         
-        // Check if profile is complete and if password change is required
+        // Wait for auth state to be fully established before checking profile
         const userId = data.user?.id;
         if (userId) {
-          // First check if user must change password
-          const { data: profile, error: profileError } = await supabaseClient
-            .from('profiles')
-            .select('must_change_password')
-            .eq('id', userId)
-            .single();
-          
-          if (profileError) {
-            console.error('Error fetching profile for password check:', profileError);
-            // On error, proceed to dashboard and let it handle any issues
-            router.push('/dashboard');
-            return;
-          }
-          
-          if (profile?.must_change_password) {
-            // Redirect to password change page
-            router.push('/change-password');
-          } else {
-            // Check if profile is complete using the auth-helpers client
-            // This ensures we have the proper auth context
-            const isProfileComplete = await checkProfileCompletionSimple(supabaseClient, userId);
+          // Set up a one-time listener for auth state change
+          const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
+            console.log('[Login] Auth state changed:', event, session?.user?.id);
             
-            console.log('[Login] Profile completion check result:', isProfileComplete);
-            
-            if (isProfileComplete) {
-              // If profile is complete, redirect to dashboard
-              console.log('[Login] Redirecting to dashboard');
-              router.push('/dashboard');
-            } else {
-              // If profile is incomplete, redirect to profile page
-              console.log('[Login] Redirecting to profile page');
-              router.push('/profile');
+            if (event === 'SIGNED_IN' && session?.user?.id === userId) {
+              // Unsubscribe immediately to prevent multiple calls
+              subscription?.unsubscribe();
+              
+              // Now it's safe to check profile with an established session
+              try {
+                // First check if user must change password
+                const { data: profile, error: profileError } = await supabaseClient
+                  .from('profiles')
+                  .select('must_change_password')
+                  .eq('id', userId)
+                  .single();
+                
+                if (profileError) {
+                  console.error('Error fetching profile for password check:', profileError);
+                  // On error, proceed to dashboard and let it handle any issues
+                  router.push('/dashboard');
+                  return;
+                }
+                
+                if (profile?.must_change_password) {
+                  // Redirect to password change page
+                  router.push('/change-password');
+                } else {
+                  // Check if profile is complete using the auth-helpers client
+                  const isProfileComplete = await checkProfileCompletionSimple(supabaseClient, userId);
+                  
+                  console.log('[Login] Profile completion check result:', isProfileComplete);
+                  
+                  if (isProfileComplete) {
+                    // If profile is complete, redirect to dashboard
+                    console.log('[Login] Redirecting to dashboard');
+                    router.push('/dashboard');
+                  } else {
+                    // If profile is incomplete, redirect to profile page
+                    console.log('[Login] Redirecting to profile page');
+                    router.push('/profile?from=login');
+                  }
+                }
+              } catch (error) {
+                console.error('Error during profile checks:', error);
+                // On any error, go to dashboard and let it handle
+                router.push('/dashboard');
+              }
             }
-          }
+          });
+          
+          // Fallback timeout in case auth state change doesn't fire
+          setTimeout(() => {
+            subscription?.unsubscribe();
+            if (!router.pathname.includes('/dashboard') && !router.pathname.includes('/profile') && !router.pathname.includes('/change-password')) {
+              console.warn('[Login] Auth state change timeout, redirecting to dashboard');
+              router.push('/dashboard');
+            }
+          }, 5000);
         } else {
           // Fallback if user ID is not available
-          router.push('/profile');
+          router.push('/profile?from=login');
         }
       }
     } catch (err) {

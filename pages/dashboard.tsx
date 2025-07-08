@@ -96,11 +96,50 @@ export default function Dashboard() {
               // Ignore cache errors
             }
             
-            const { data: profileData, error: profileError } = await supabase
+            let { data: profileData, error: profileError } = await supabase
               .from('profiles')
               .select('first_name, last_name, avatar_url, school, description, must_change_password')
               .eq('id', userData.user.id)
               .single();
+              
+            // Handle profile fetch error
+            if (profileError) {
+              console.error('Error fetching profile:', profileError);
+              
+              // If it's an auth session error, try to refresh the session
+              if (profileError.message?.includes('Auth session missing')) {
+                console.log('Auth session missing, attempting to refresh...');
+                const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+                
+                if (!refreshError && refreshData?.session) {
+                  // Retry the profile fetch after refresh
+                  const { data: retryData, error: retryError } = await supabase
+                    .from('profiles')
+                    .select('first_name, last_name, avatar_url, school, description, must_change_password')
+                    .eq('id', userData.user.id)
+                    .single();
+                  
+                  if (!retryError && retryData) {
+                    profileData = retryData;
+                  } else {
+                    console.error('Profile fetch failed after session refresh:', retryError);
+                    // Don't redirect immediately - let the user see an error state
+                    setLoading(false);
+                    return;
+                  }
+                } else {
+                  console.error('Session refresh failed:', refreshError);
+                  // Only redirect to login if we're certain the session is invalid
+                  if (refreshError?.message?.includes('Invalid Refresh Token')) {
+                    router.push('/login');
+                  }
+                  return;
+                }
+              } else {
+                // For other errors, don't block the user
+                console.warn('Non-critical profile error, continuing...');
+              }
+            }
               
             if (profileData) {
               // Check if user must change password

@@ -1969,6 +1969,7 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
   const [isConsultantView, setIsConsultantView] = useState(false);
   const [students, setStudents] = useState<any[]>([]);
   const [discussionCounts, setDiscussionCounts] = useState<Map<string, number>>(new Map());
+  const [consultantManagedAssignments, setConsultantManagedAssignments] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (user) {
@@ -2021,13 +2022,19 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
 
         // Load user's groups for each assignment
         const groupsMap = new Map();
+        const consultantManaged = new Set<string>();
+        
         for (const assignment of fetchedAssignments || []) {
-          const { group } = await groupAssignmentsV2Service.getOrCreateGroup(assignment.id, user.id);
+          const { group, error } = await groupAssignmentsV2Service.getOrCreateGroup(assignment.id, user.id);
           if (group) {
             groupsMap.set(assignment.id, group);
+          } else if (error?.message?.includes('consultor')) {
+            // Mark this assignment as consultant-managed
+            consultantManaged.add(assignment.id);
           }
         }
         setUserGroups(groupsMap);
+        setConsultantManagedAssignments(consultantManaged);
 
         // Load discussion comment counts
         await loadDiscussionCounts(fetchedAssignments, groupsMap);
@@ -2179,8 +2186,8 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
             return (
               <div
                 key={assignment.id}
-                className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${!isConsultantView ? 'hover:shadow-md cursor-pointer' : ''} transition-shadow`}
-                onClick={() => !isConsultantView && handleAssignmentClick(assignment)}
+                className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${!isConsultantView && !consultantManagedAssignments.has(assignment.id) ? 'hover:shadow-md cursor-pointer' : ''} transition-shadow`}
+                onClick={() => !isConsultantView && !consultantManagedAssignments.has(assignment.id) && handleAssignmentClick(assignment)}
               >
                 <h3 className="text-lg font-semibold text-[#00365b] mb-2">
                   {assignment.title}
@@ -2242,7 +2249,10 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
                       <div className="flex items-center gap-2">
                         <UsersIcon className="h-4 w-4 text-gray-500" />
                         <span className="text-sm text-gray-600">
-                          {group ? `Grupo: ${group.name}` : 'Sin grupo asignado'}
+                          {group ? `Grupo: ${group.name}` : 
+                           consultantManagedAssignments.has(assignment.id) ? 
+                           'Esperando asignación del consultor' : 
+                           'Sin grupo asignado'}
                         </span>
                       </div>
                       
@@ -2250,6 +2260,10 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
                         <span className="text-sm font-medium text-green-600 flex items-center gap-1">
                           <CheckCircle className="h-4 w-4" />
                           Entregado
+                        </span>
+                      ) : consultantManagedAssignments.has(assignment.id) ? (
+                        <span className="text-sm font-medium text-blue-600">
+                          Asignación pendiente
                         </span>
                       ) : (
                         <span className="text-sm font-medium text-yellow-600">
@@ -2263,6 +2277,15 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
                         <span className="text-sm text-gray-600">
                           Calificación: <span className="font-medium text-[#00365b]">{assignment.grade}%</span>
                         </span>
+                      </div>
+                    )}
+
+                    {/* Consultant-managed notice */}
+                    {consultantManagedAssignments.has(assignment.id) && (
+                      <div className="mt-3 p-3 bg-blue-50 rounded-lg">
+                        <p className="text-sm text-blue-700">
+                          <span className="font-medium">Nota:</span> Tu consultor debe asignarte a un grupo antes de que puedas entregar esta tarea.
+                        </p>
                       </div>
                     )}
 

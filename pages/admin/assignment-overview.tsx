@@ -278,8 +278,8 @@ export default function AssignmentOverview() {
   };
 
   const handleViewDetails = (assignmentId: string) => {
-    // Navigate to the assignment discussion page
-    router.push(`/community/workspace/assignments/${assignmentId}/discussion`);
+    // Navigate to the assignment review page for consultants
+    router.push(`/admin/assignment-review/${assignmentId}`);
   };
 
   const formatDate = (dateString: string) => {

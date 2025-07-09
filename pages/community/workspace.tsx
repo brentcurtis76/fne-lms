@@ -16,8 +16,8 @@ import { ResponsiveFunctionalPageHeader } from '../../components/layout/Function
 import MeetingFilters from '../../components/meetings/MeetingFilters';
 import MeetingCard from '../../components/meetings/MeetingCard';
 import MeetingDocumentationModal from '../../components/meetings/MeetingDocumentationModal';
-import MeetingDetailsModal from '../../components/meetings/MeetingDetailsModal';
-import MeetingDeletionModal from '../../components/meetings/MeetingDeletionModal';
+// import MeetingDetailsModal from '../../components/meetings/MeetingDetailsModal';
+// import MeetingDeletionModal from '../../components/meetings/MeetingDeletionModal';
 import DocumentUploadModal from '../../components/documents/DocumentUploadModal';
 import DocumentGrid from '../../components/documents/DocumentGrid';
 import FolderNavigation from '../../components/documents/FolderNavigation';
@@ -148,9 +148,86 @@ const CommunityWorkspacePage: React.FC = () => {
   const [activeSection, setActiveSection] = useState<SectionType>('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
+  const [communityMembers, setCommunityMembers] = useState<any[]>([]);
+  const [showMembers, setShowMembers] = useState(false);
   
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Load community members when workspace changes
+  useEffect(() => {
+    const loadCommunityMembersForWorkspace = async () => {
+      if (!currentWorkspace || !currentWorkspace.community_id) {
+        setCommunityMembers([]);
+        return;
+      }
+
+      try {
+        // Load members of the current community
+        const { data: members, error } = await supabase
+          .from('growth_communities')
+          .select(`
+            id,
+            name,
+            members:user_roles!user_roles_community_id_fkey(
+              user_id,
+              role_type,
+              user:profiles!user_roles_user_id_fkey(
+                id,
+                first_name,
+                last_name,
+                email,
+                avatar_url
+              )
+            )
+          `)
+          .eq('id', currentWorkspace.community_id)
+          .single();
+
+        if (error) {
+          console.error('Error loading community members:', error);
+          setCommunityMembers([]);
+          return;
+        }
+
+        // Transform members for display and deduplicate by user ID
+        const membersList = (members?.members || []).reduce((acc: any[], member: any) => {
+          const userId = member.user?.id;
+          if (!userId) return acc;
+
+          // Check if user is already in the list
+          const existingMember = acc.find(m => m.id === userId);
+          
+          if (!existingMember) {
+            // Add new member
+            acc.push({
+              id: userId,
+              first_name: member.user?.first_name || '',
+              last_name: member.user?.last_name || '',
+              email: member.user?.email || '',
+              avatar_url: member.user?.avatar_url || null,
+              user_roles: [{ role_type: member.role_type }]
+            });
+          } else {
+            // Add role to existing member if not already present
+            const roleExists = existingMember.user_roles.some((role: any) => role.role_type === member.role_type);
+            if (!roleExists) {
+              existingMember.user_roles.push({ role_type: member.role_type });
+            }
+          }
+          
+          return acc;
+        }, []);
+
+        setCommunityMembers(membersList);
+      } catch (error) {
+        console.error('Error loading community members:', error);
+        setCommunityMembers([]);
+      }
+    };
+
+    loadCommunityMembersForWorkspace();
+  }, [currentWorkspace]);
   
   // Sidebar state
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -475,61 +552,80 @@ const CommunityWorkspacePage: React.FC = () => {
             <div className="min-h-screen bg-gray-50">
               {/* Community Members Section */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-[#00365b]">
-                    Miembros de la Comunidad
-                  </h2>
-                  <div className="text-sm text-gray-500">
-                    {communityMembers.length} {communityMembers.length === 1 ? 'miembro' : 'miembros'}
+                <div 
+                  className="flex items-center justify-between cursor-pointer hover:bg-gray-50 -m-2 p-2 rounded-lg transition-colors"
+                  onClick={() => setShowMembers(!showMembers)}
+                >
+                  <div className="flex items-center space-x-3">
+                    <h2 className="text-xl font-semibold text-[#00365b]">
+                      Miembros de la Comunidad
+                    </h2>
+                    <div className="text-sm text-gray-500">
+                      ({communityMembers.length})
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button className="text-gray-400 hover:text-[#00365b] transition-colors">
+                      <ChevronDownIcon className={`h-5 w-5 transform transition-transform duration-200 ${showMembers ? 'rotate-180' : ''}`} />
+                    </button>
                   </div>
                 </div>
                 
-                {communityMembers.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {communityMembers.map(member => (
-                      <Link
-                        key={member.id}
-                        href={`/user/${member.id}`}
-                        className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 hover:shadow-md transition-all cursor-pointer"
-                      >
-                        {member.avatar_url ? (
-                          <img 
-                            src={member.avatar_url} 
-                            alt={`${member.first_name} ${member.last_name}`}
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-[#fdb933] flex items-center justify-center">
-                            <span className="text-[#00365b] font-bold text-sm">
-                              {member.first_name?.charAt(0) || 'U'}{member.last_name?.charAt(0) || ''}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
-                            {member.first_name && member.last_name 
-                              ? `${member.first_name} ${member.last_name}`
-                              : member.email || 'Usuario sin nombre'
-                            }
-                          </p>
-                          <p className="text-xs text-gray-500 truncate">
-                            {member.user_roles?.[0]?.role_type === 'admin' && 'Administrador'}
-                            {member.user_roles?.[0]?.role_type === 'consultor' && 'Consultor'}
-                            {member.user_roles?.[0]?.role_type === 'equipo_directivo' && 'Equipo Directivo'}
-                            {member.user_roles?.[0]?.role_type === 'lider_generacion' && 'Líder de Generación'}
-                            {member.user_roles?.[0]?.role_type === 'lider_comunidad' && 'Líder de Comunidad'}
-                            {member.user_roles?.[0]?.role_type === 'docente' && 'Docente'}
-                          </p>
-                        </div>
-                        {member.id === user?.id && (
-                          <div className="w-3 h-3 rounded-full bg-[#fdb933]" title="Tú"></div>
-                        )}
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>No hay otros miembros en esta comunidad aún.</p>
+                {showMembers && (
+                  <div className="mt-4">
+                    {communityMembers.length > 0 ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {communityMembers.map(member => (
+                          <Link
+                            key={member.id}
+                            href={`/user/${member.id}`}
+                            className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 hover:shadow-md transition-all cursor-pointer"
+                          >
+                            {member.avatar_url ? (
+                              <img 
+                                src={member.avatar_url} 
+                                alt={`${member.first_name} ${member.last_name}`}
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-[#fdb933] flex items-center justify-center">
+                                <span className="text-[#00365b] font-bold text-sm">
+                                  {member.first_name?.charAt(0) || 'U'}{member.last_name?.charAt(0) || ''}
+                                </span>
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {member.first_name && member.last_name 
+                                  ? `${member.first_name} ${member.last_name}`
+                                  : member.email || 'Usuario sin nombre'
+                                }
+                              </p>
+                              <p className="text-xs text-gray-500 truncate">
+                                {member.user_roles?.map((role: any) => {
+                                  switch (role.role_type) {
+                                    case 'admin': return 'Administrador';
+                                    case 'consultor': return 'Consultor';
+                                    case 'equipo_directivo': return 'Equipo Directivo';
+                                    case 'lider_generacion': return 'Líder de Generación';
+                                    case 'lider_comunidad': return 'Líder de Comunidad';
+                                    case 'docente': return 'Docente';
+                                    default: return role.role_type;
+                                  }
+                                }).join(', ')}
+                              </p>
+                            </div>
+                            {member.id === user?.id && (
+                              <div className="w-3 h-3 rounded-full bg-[#fdb933]" title="Tú"></div>
+                            )}
+                          </Link>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>No hay otros miembros en esta comunidad aún.</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1120,6 +1216,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
       )}
 
       {/* Meeting Details Modal */}
+      {/* TODO: Uncomment when MeetingDetailsModal component is created
       {showDetailsModal && selectedMeetingId && (
         <MeetingDetailsModal
           isOpen={showDetailsModal}
@@ -1134,8 +1231,10 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
           canDelete={canManage}
         />
       )}
+      */}
 
       {/* Meeting Deletion Modal */}
+      {/* TODO: Uncomment when MeetingDeletionModal component is created
       {showDeleteModal && selectedMeetingId && user && (
         <MeetingDeletionModal
           isOpen={showDeleteModal}
@@ -1150,6 +1249,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
           onSuccess={handleDeleteSuccess}
         />
       )}
+      */}
     </div>
   );
 };
@@ -1553,7 +1653,6 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
   
   // Mention state
   const [mentionSuggestions, setMentionSuggestions] = useState<any[]>([]);
-  const [communityMembers, setCommunityMembers] = useState<any[]>([]);
   
   // UI state
   const [activeView, setActiveView] = useState<'messages' | 'threads'>('threads');

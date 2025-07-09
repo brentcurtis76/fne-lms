@@ -438,6 +438,23 @@ export function parseBulkUserData(
   - **Testing**: 100% test coverage with 10 passing unit tests
   - Components updated: ContractDetailsModal.tsx, contracts.tsx
   - Migration applied: `add_invoice_metadata_fields`
+- **PROFILES.ROLE MIGRATION FIX (July 2025)**:
+  - Fixed systemic incomplete migration from profiles.role to user_roles.role_type
+  - Created unified migration script fixing 31 RLS policies + 3 triggers
+  - Fixed all API endpoints checking non-existent profiles.role column
+  - Applied fix to create-user, delete-user, and 14 other admin APIs
+  - Jorge Parra admin user successfully created after fix
+  - Migration script: `/database/unified-role-migration-fix.sql`
+  - Fixes composite ID bug in groupAssignmentsV2.js
+- **GROUP ASSIGNMENT CONSULTANT REVIEW SYSTEM (July 2025)**:
+  - Created dedicated consultant review page at `/admin/assignment-review/[id]`
+  - Fixed "Ver detalles" navigation - now goes to review page instead of student discussion
+  - Implemented group submission viewing with expandable cards
+  - Added grading interface with score (0-100) and feedback
+  - Shows all group members, submission status, and attached files
+  - Supports filtering by submission status (pending, submitted, reviewed)
+  - Fixed foreign key relationship issues with separate profile queries
+  - Consultants can now properly review and grade group assignments
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)
@@ -445,6 +462,7 @@ export function parseBulkUserData(
 - ✅ FIXED: Block deletion and visibility persistence in course builder (January 2025)
 - ✅ FIXED: Community leader role assignment for schools without generations (January 2025)
 - ✅ FIXED: Notifications page TypeScript errors and stylesheet warnings (July 2025)
+- ✅ FIXED: Group assignments "Ver detalles" navigation error - consultants now see proper review page (July 2025)
 
 # SUPABASE MCP CONFIGURATION (January 23, 2025)
 - **MCP Server Added**: Full read/write access to FNE LMS Supabase project

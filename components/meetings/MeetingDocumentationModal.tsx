@@ -20,7 +20,10 @@ import {
   UserIcon,
   DocumentTextIcon,
   MenuIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  PaperClipIcon,
+  DocumentIcon,
+  UploadIcon
 } from '@heroicons/react/outline';
 import {
   MeetingDocumentationInput,
@@ -34,8 +37,11 @@ import {
 import { 
   createMeetingWithDocumentation,
   getCommunityMembersForAssignment,
-  sendTaskAssignmentNotifications
+  sendTaskAssignmentNotifications,
+  getMeetingDetails,
+  updateMeeting
 } from '../../utils/meetingUtils';
+import { uploadFile } from '../../utils/storage';
 
 interface MeetingDocumentationModalProps {
   isOpen: boolean;
@@ -44,6 +50,8 @@ interface MeetingDocumentationModalProps {
   userId: string;
   onSuccess: () => void;
   className?: string;
+  meetingId?: string;
+  mode?: 'create' | 'edit';
 }
 
 const STEPS = [
@@ -73,13 +81,16 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   workspaceId,
   userId,
   onSuccess,
-  className = ''
+  className = '',
+  meetingId,
+  mode = 'create'
 }) => {
   const supabase = useSupabaseClient();
   const [currentStep, setCurrentStep] = useState(MeetingFormStep.INFORMATION);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<AssignmentUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingMeeting, setLoadingMeeting] = useState(false);
 
   // Form data state
   const [formData, setFormData] = useState<MeetingDocumentationInput>({
@@ -100,11 +111,18 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     tasks: []
   });
 
+  // Document upload state
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       loadCommunityMembers();
+      if (mode === 'edit' && meetingId) {
+        loadMeetingData();
+      }
     }
-  }, [isOpen, workspaceId]);
+  }, [isOpen, workspaceId, mode, meetingId]);
 
   const loadCommunityMembers = async () => {
     try {
@@ -215,6 +233,56 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }
   };
 
+  const loadMeetingData = async () => {
+    if (!meetingId) return;
+    
+    try {
+      setLoadingMeeting(true);
+      const meetingDetails = await getMeetingDetails(meetingId);
+      
+      if (meetingDetails) {
+        // Extract attendee IDs from the attendees array
+        const attendeeIds = meetingDetails.attendees?.map(attendee => attendee.user_id) || [];
+        
+        // Populate form with existing data
+        setFormData({
+          meeting_info: {
+            title: meetingDetails.title,
+            meeting_date: new Date(meetingDetails.meeting_date).toISOString().slice(0, 16), // Format for datetime-local input
+            duration_minutes: meetingDetails.duration_minutes,
+            location: meetingDetails.location || '',
+            attendee_ids: attendeeIds
+          },
+          summary_info: {
+            summary: meetingDetails.summary || '',
+            notes: meetingDetails.notes || '',
+            status: meetingDetails.status
+          },
+          agreements: meetingDetails.agreements || [],
+          commitments: meetingDetails.commitments || [],
+          tasks: meetingDetails.tasks || []
+        });
+        
+        // Load existing attachments
+        const { data: attachments, error: attachError } = await supabase
+          .from('meeting_attachments')
+          .select('*')
+          .eq('meeting_id', meetingId);
+          
+        if (attachments && attachments.length > 0) {
+          // Note: We can't restore File objects, but we can show existing attachments info
+          console.log('Meeting has', attachments.length, 'existing attachments');
+          // TODO: Show existing attachments separately from new uploads
+        }
+      }
+    } catch (error) {
+      console.error('Error loading meeting data:', error);
+      toast.error('Error al cargar los datos de la reunión');
+    } finally {
+      setLoadingMeeting(false);
+    }
+  };
+
   const handleClose = () => {
     if (isSubmitting) return;
     
@@ -237,6 +305,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       commitments: [],
       tasks: []
     });
+    setSelectedFiles([]);
     onClose();
   };
 
@@ -277,10 +346,122 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }
 
     setIsSubmitting(true);
+    setUploadingFiles(true);
+    
     try {
-      const result = await createMeetingWithDocumentation(workspaceId, userId, formData);
+      let result: { success: boolean; meetingId?: string; error?: string };
+      
+      if (mode === 'edit' && meetingId) {
+        // Update existing meeting
+        const updateResult = await updateMeeting(meetingId, {
+          title: formData.meeting_info.title,
+          meeting_date: formData.meeting_info.meeting_date,
+          duration_minutes: formData.meeting_info.duration_minutes,
+          location: formData.meeting_info.location,
+          summary: formData.summary_info.summary,
+          notes: formData.summary_info.notes,
+          status: formData.summary_info.status
+        });
+        
+        if (updateResult.success) {
+          // Update agreements, commitments, and tasks
+          // First, delete existing ones
+          await supabase.from('meeting_agreements').delete().eq('meeting_id', meetingId);
+          await supabase.from('meeting_commitments').delete().eq('meeting_id', meetingId);
+          await supabase.from('meeting_tasks').delete().eq('meeting_id', meetingId);
+          
+          // Then create new ones
+          if (formData.agreements.length > 0) {
+            await supabase.from('meeting_agreements').insert(
+              formData.agreements.map((agreement, index) => ({
+                meeting_id: meetingId,
+                agreement_text: agreement.agreement_text,
+                category: agreement.category,
+                order_index: index
+              }))
+            );
+          }
+          
+          if (formData.commitments.length > 0) {
+            await supabase.from('meeting_commitments').insert(
+              formData.commitments.map(commitment => ({
+                meeting_id: meetingId,
+                commitment_text: commitment.commitment_text,
+                assigned_to: commitment.assigned_to,
+                due_date: commitment.due_date
+              }))
+            );
+          }
+          
+          if (formData.tasks.length > 0) {
+            await supabase.from('meeting_tasks').insert(
+              formData.tasks.map(task => ({
+                meeting_id: meetingId,
+                task_title: task.task_title,
+                task_description: task.task_description,
+                assigned_to: task.assigned_to,
+                due_date: task.due_date,
+                priority: task.priority,
+                category: task.category,
+                estimated_hours: task.estimated_hours
+              }))
+            );
+          }
+          
+          result = { success: true, meetingId };
+        } else {
+          result = updateResult;
+        }
+      } else {
+        // Create new meeting
+        result = await createMeetingWithDocumentation(workspaceId, userId, formData);
+      }
       
       if (result.success && result.meetingId) {
+        // Upload documents if any
+        if (selectedFiles.length > 0) {
+          try {
+            // Create meeting-documents bucket if it doesn't exist
+            const bucketName = 'meeting-documents';
+            
+            for (const file of selectedFiles) {
+              // Generate unique file path
+              const timestamp = Date.now();
+              const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+              const filePath = `${workspaceId}/${result.meetingId}/${timestamp}-${sanitizedName}`;
+              
+              // Upload file
+              const { url, error } = await uploadFile(file, filePath, bucketName);
+              
+              if (error) {
+                console.error('Error uploading file:', file.name, error);
+                toast.error(`Error al subir ${file.name}`);
+                continue;
+              }
+
+              // Save file reference to database
+              const { error: dbError } = await supabase
+                .from('meeting_attachments')
+                .insert({
+                  meeting_id: result.meetingId,
+                  filename: file.name,
+                  file_path: filePath,
+                  file_size: file.size,
+                  file_type: file.type,
+                  uploaded_by: userId
+                });
+
+              if (dbError) {
+                console.error('Error saving file reference:', dbError);
+                // Continue with other files even if one fails
+              }
+            }
+          } catch (uploadError) {
+            console.error('Error during file upload:', uploadError);
+            toast.error('Algunos archivos no se pudieron subir');
+          }
+        }
+
         // Send notifications for assigned tasks/commitments
         const assignedUserIds = [
           ...formData.commitments.map(c => c.assigned_to),
@@ -291,17 +472,18 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           await sendTaskAssignmentNotifications(result.meetingId, assignedUserIds);
         }
 
-        toast.success('Reunión documentada correctamente');
+        toast.success(mode === 'edit' ? 'Reunión actualizada correctamente' : 'Reunión documentada correctamente');
         onSuccess();
         handleClose();
       } else {
-        toast.error(result.error || 'Error al crear la reunión');
+        toast.error(result.error || `Error al ${mode === 'edit' ? 'actualizar' : 'crear'} la reunión`);
       }
     } catch (error) {
       console.error('Error submitting meeting:', error);
-      toast.error('Error inesperado al crear la reunión');
+      toast.error(`Error inesperado al ${mode === 'edit' ? 'actualizar' : 'crear'} la reunión`);
     } finally {
       setIsSubmitting(false);
+      setUploadingFiles(false);
     }
   };
 
@@ -412,6 +594,65 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }));
   };
 
+  // Document upload functions
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const fileArray = Array.from(files);
+    const validFiles = fileArray.filter(file => {
+      // Validate file type
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'image/jpeg',
+        'image/png',
+        'image/gif'
+      ];
+
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(`Tipo de archivo no permitido: ${file.name}`);
+        return false;
+      }
+
+      // Validate file size (10MB limit)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`Archivo demasiado grande: ${file.name}. Máximo 10MB.`);
+        return false;
+      }
+
+      return true;
+    });
+
+    setSelectedFiles(prev => [...prev, ...validFiles]);
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getFileIcon = (mimeType: string): string => {
+    if (mimeType.startsWith('image/')) return '🖼️';
+    if (mimeType.includes('pdf')) return '📄';
+    if (mimeType.includes('word')) return '📝';
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
+    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '📽️';
+    return '📎';
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -424,7 +665,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div>
               <h2 className="text-xl font-semibold text-[#00365b]">
-                Documentar Reunión
+                {mode === 'edit' ? 'Editar Reunión' : 'Documentar Reunión'}
               </h2>
               <p className="text-sm text-gray-600 mt-1">
                 {STEPS[currentStep].title}: {STEPS[currentStep].description}
@@ -472,8 +713,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
           {/* Content */}
           <div className="p-6 max-h-96 overflow-y-auto">
-            {/* Step 1: Information */}
-            {currentStep === MeetingFormStep.INFORMATION && (
+            {loadingMeeting ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#fdb933]"></div>
+              </div>
+            ) : (
+              <>
+                {/* Step 1: Information */}
+                {currentStep === MeetingFormStep.INFORMATION && (
               <div className="space-y-6">
                 {/* Basic Info */}
                 <div>
@@ -611,6 +858,65 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
             {/* Step 3: Agreements, Commitments and Tasks */}
             {currentStep === MeetingFormStep.AGREEMENTS && (
               <div className="space-y-8">
+                {/* Documents Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      Documentos
+                    </h3>
+                  </div>
+
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6">
+                    <div className="text-center">
+                      <DocumentIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <div className="text-sm text-gray-600">
+                        <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-[#fdb933] hover:text-[#fdb933]/80 focus-within:outline-none">
+                          <span>Seleccionar archivos</span>
+                          <input
+                            id="file-upload"
+                            name="file-upload"
+                            type="file"
+                            className="sr-only"
+                            multiple
+                            onChange={handleFileSelect}
+                            accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif"
+                          />
+                        </label>
+                        <span className="pl-1">o arrastrar y soltar</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-2">
+                        PDF, Word, Excel, PowerPoint, o imágenes hasta 10MB
+                      </p>
+                    </div>
+                  </div>
+
+                  {selectedFiles.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">Archivos seleccionados ({selectedFiles.length})</h4>
+                      <div className="space-y-2">
+                        {selectedFiles.map((file, index) => (
+                          <div key={index} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
+                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                              <span className="text-3xl flex-shrink-0">{getFileIcon(file.type)}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                                <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => removeFile(index)}
+                              className="ml-4 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar archivo"
+                            >
+                              <TrashIcon className="h-5 w-5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Unified Agreements/Commitments Section */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
@@ -796,6 +1102,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                 </div>
               </div>
             )}
+              </>
+            )}
           </div>
 
           {/* Footer */}
@@ -836,12 +1144,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   {isSubmitting ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      Guardando...
+                      {uploadingFiles ? `Subiendo ${selectedFiles.length} archivo${selectedFiles.length !== 1 ? 's' : ''}...` : 'Guardando...'}
                     </>
                   ) : (
                     <>
                       <CheckIcon className="h-4 w-4 mr-1" />
-                      Crear Reunión
+                      {mode === 'edit' ? 'Guardar Cambios' : 'Crear Reunión'}
                     </>
                   )}
                 </button>

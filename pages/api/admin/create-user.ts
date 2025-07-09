@@ -38,13 +38,15 @@ export default async function handler(
     }
 
     // Check if the user is an admin
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
+    const { data: userRoles, error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .select('role_type')
+      .eq('user_id', user.id)
+      .eq('role_type', 'admin')
+      .eq('is_active', true)
       .single();
 
-    if (profileError || profile?.role !== 'admin') {
+    if (roleError || !userRoles) {
       return res.status(403).json({ error: 'Unauthorized. Only admins can create users.' });
     }
 
@@ -79,7 +81,7 @@ export default async function handler(
         .single();
 
       if (!existingProfile) {
-        // Create profile
+        // Create profile (without role - that goes in user_roles table)
         const { error: profileError } = await supabaseAdmin
           .from('profiles')
           .insert({
@@ -88,7 +90,6 @@ export default async function handler(
             name: firstName && lastName ? `${firstName} ${lastName}` : null,
             first_name: firstName,
             last_name: lastName,
-            role: role || 'docente',
             approval_status: 'approved', // Admin-created users are auto-approved
             must_change_password: true // Flag to force password change on first login
           });
@@ -99,20 +100,36 @@ export default async function handler(
           throw profileError;
         }
       } else {
-        // Update existing profile
+        // Update existing profile (without role - that goes in user_roles table)
         const { error: updateError } = await supabaseAdmin
           .from('profiles')
           .update({
             name: firstName && lastName ? `${firstName} ${lastName}` : null,
             first_name: firstName,
             last_name: lastName,
-            role: role || 'docente',
             approval_status: 'approved',
             must_change_password: true // Flag to force password change on first login
           })
           .eq('id', newUser.user.id);
 
         if (updateError) throw updateError;
+      }
+
+      // Now create the user role in the user_roles table
+      const { error: roleError } = await supabaseAdmin
+        .from('user_roles')
+        .insert({
+          user_id: newUser.user.id,
+          role_type: role || 'docente',
+          is_active: true,
+          created_at: new Date().toISOString(),
+          assigned_by: user.id // The admin who created this user
+        });
+
+      if (roleError) {
+        console.error('Error creating user role:', roleError);
+        // Don't fail the whole operation if role creation fails
+        // The user can be assigned a role later
       }
 
       return res.status(200).json({

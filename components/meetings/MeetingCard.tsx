@@ -3,7 +3,8 @@
  * Expandable meeting display with collapsible sections for agreements, tasks, and commitments
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { 
   ChevronDownIcon,
   ChevronUpIcon,
@@ -16,7 +17,10 @@ import {
   CheckCircleIcon,
   ExclamationIcon,
   EyeIcon,
-  PencilIcon
+  PencilIcon,
+  PaperClipIcon,
+  DownloadIcon,
+  UsersIcon
 } from '@heroicons/react/outline';
 import { 
   CommunityMeeting,
@@ -45,7 +49,11 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   className = ''
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [activeSection, setActiveSection] = useState<'summary' | 'agreements' | 'tasks'>('summary');
+  const [activeSection, setActiveSection] = useState<'summary' | 'agreements' | 'tasks' | 'documents'>('summary');
+  const [attachments, setAttachments] = useState<any[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  
+  const supabase = useSupabaseClient();
 
   const hasDetails = 'agreements' in meeting;
   const meetingWithDetails = hasDetails ? meeting as MeetingWithDetails : null;
@@ -63,6 +71,34 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
   };
 
   const taskStats = getTaskStats();
+
+  // Load attachments when documents section is opened
+  useEffect(() => {
+    if (activeSection === 'documents' && isExpanded && attachments.length === 0) {
+      loadAttachments();
+    }
+  }, [activeSection, isExpanded]);
+
+  const loadAttachments = async () => {
+    setLoadingAttachments(true);
+    try {
+      const { data, error } = await supabase
+        .from('meeting_attachments')
+        .select('*')
+        .eq('meeting_id', meeting.id)
+        .order('uploaded_at', { ascending: false });
+
+      if (error) {
+        console.error('Error loading attachments:', error);
+      } else {
+        setAttachments(data || []);
+      }
+    } catch (error) {
+      console.error('Error loading attachments:', error);
+    } finally {
+      setLoadingAttachments(false);
+    }
+  };
 
   const toggleSection = (section: typeof activeSection) => {
     if (activeSection === section && isExpanded) {
@@ -189,6 +225,75 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
     );
   };
 
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getFileIcon = (mimeType: string): string => {
+    if (mimeType.startsWith('image/')) return '🖼️';
+    if (mimeType.includes('pdf')) return '📄';
+    if (mimeType.includes('word')) return '📝';
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
+    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '📽️';
+    return '📎';
+  };
+
+  const handleDownload = async (attachment: any) => {
+    try {
+      const { data } = supabase.storage
+        .from('meeting-documents')
+        .getPublicUrl(attachment.file_path);
+
+      window.open(data.publicUrl, '_blank');
+    } catch (error) {
+      console.error('Error downloading file:', error);
+    }
+  };
+
+  const renderDocumentsSection = () => {
+    if (loadingAttachments) {
+      return (
+        <div className="flex items-center justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#fdb933]"></div>
+        </div>
+      );
+    }
+
+    if (attachments.length === 0) {
+      return <p className="text-sm text-gray-500 italic">No se adjuntaron documentos en esta reunión.</p>;
+    }
+
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {attachments.map((attachment) => (
+          <div
+            key={attachment.id}
+            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors"
+          >
+            <div className="flex items-center space-x-3 flex-1 min-w-0">
+              <span className="text-2xl flex-shrink-0">{getFileIcon(attachment.file_type)}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{attachment.filename}</p>
+                <p className="text-xs text-gray-500">{formatFileSize(attachment.file_size)}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => handleDownload(attachment)}
+              className="flex-shrink-0 p-2 text-[#00365b] hover:text-[#fdb933] hover:bg-[#fdb933]/10 rounded-lg transition-colors"
+              title="Descargar documento"
+            >
+              <DownloadIcon className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
 
   return (
     <div className={`bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 ${className}`}>
@@ -230,7 +335,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                 </div>
               )}
 
-              {meeting.facilitator && (
+              {meeting.facilitator && meeting.facilitator.first_name && (
                 <div className="flex items-center space-x-1">
                   <UserIcon className="h-4 w-4" />
                   <span>
@@ -239,6 +344,42 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Attendees Preview */}
+            {meetingWithDetails && meetingWithDetails.attendees && meetingWithDetails.attendees.length > 0 && (
+              <div className="mt-3 flex items-center gap-2">
+                <UsersIcon className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                <div className="flex -space-x-2 overflow-hidden">
+                  {meetingWithDetails.attendees.slice(0, 5).map((attendee, index) => (
+                    <div key={attendee.id} className="relative group">
+                      {attendee.user && attendee.user.avatar_url ? (
+                        <img
+                          src={attendee.user.avatar_url}
+                          alt={`${attendee.user.first_name} ${attendee.user.last_name}`}
+                          className="h-8 w-8 rounded-full border-2 border-white"
+                        />
+                      ) : (
+                        <div className="h-8 w-8 rounded-full bg-gray-300 border-2 border-white flex items-center justify-center">
+                          <UserIcon className="h-4 w-4 text-gray-600" />
+                        </div>
+                      )}
+                      {/* Tooltip */}
+                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                        {attendee.user ? `${attendee.user.first_name || ''} ${attendee.user.last_name || ''}`.trim() || 'Sin nombre' : 'Usuario'}
+                      </div>
+                    </div>
+                  ))}
+                  {meetingWithDetails.attendees.length > 5 && (
+                    <div className="h-8 w-8 rounded-full bg-gray-200 border-2 border-white flex items-center justify-center">
+                      <span className="text-xs font-medium text-gray-600">+{meetingWithDetails.attendees.length - 5}</span>
+                    </div>
+                  )}
+                </div>
+                <span className="text-sm text-gray-500">
+                  {meetingWithDetails.attendees.length} participante{meetingWithDetails.attendees.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Actions */}
@@ -301,7 +442,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               Resumen
             </button>
 
-            {(meetingWithDetails.agreements.length > 0 || meetingWithDetails.commitments.length > 0) && (
+            {meetingWithDetails && (meetingWithDetails.agreements.length > 0 || meetingWithDetails.commitments.length > 0) && (
               <button
                 onClick={() => toggleSection('agreements')}
                 className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
@@ -328,6 +469,18 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                 Tareas ({meetingWithDetails.tasks.length})
               </button>
             )}
+
+            <button
+              onClick={() => toggleSection('documents')}
+              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
+                activeSection === 'documents' && isExpanded
+                  ? 'bg-[#fdb933] text-[#00365b]'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              <PaperClipIcon className="h-3 w-3 mr-1" />
+              Documentos
+            </button>
 
           </div>
         )}
@@ -356,6 +509,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             {activeSection === 'summary' && renderSummarySection()}
             {activeSection === 'agreements' && renderAgreementsSection()}
             {activeSection === 'tasks' && renderTasksSection()}
+            {activeSection === 'documents' && renderDocumentsSection()}
           </div>
         </div>
       )}

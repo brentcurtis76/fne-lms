@@ -58,38 +58,97 @@ export default function GroupDiscussionPage() {
     try {
       setLoading(true);
       
-      // Load assignment details
-      const { data: assignmentData, error: assignmentError } = await supabase
-        .from('lesson_assignments')
+      // Load assignment details from blocks table
+      const { data: blockData, error: assignmentError } = await supabase
+        .from('blocks')
         .select(`
           *,
-          courses (
+          lesson:lessons!lesson_id (
             id,
-            title
-          ),
-          lessons (
-            id,
-            title
-          ),
-          community:growth_communities!assigned_to_community_id (
-            id,
-            name
+            title,
+            course_id
           )
         `)
         .eq('id', assignmentId)
         .single();
 
       if (assignmentError) throw assignmentError;
+      
+      // Check if this is a group assignment block
+      if (blockData.type !== 'group-assignment' && blockData.type !== 'group_assignment') {
+        throw new Error('This is not a group assignment');
+      }
+      
+      // Get the assignment from the view that admin page uses
+      const { data: assignmentView } = await supabase
+        .from('group_assignments_with_status')
+        .select('*')
+        .eq('id', assignmentId)
+        .single();
+      
+      // If we can't get it from the view, construct it from block data
+      let assignmentData = assignmentView;
+      
+      if (!assignmentData) {
+        // Get community from user's current assignment
+        const { data: userRole } = await supabase
+          .from('user_roles')
+          .select('community_id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .single();
+          
+        const communityId = userRole?.community_id;
+        
+        if (!communityId) {
+          throw new Error('User does not have a community assigned');
+        }
+        
+        // Load course details
+        const { data: courseData } = await supabase
+          .from('courses')
+          .select('id, title')
+          .eq('id', blockData.lesson.course_id)
+          .single();
+        
+        // Load community details
+        const { data: communityData } = await supabase
+          .from('growth_communities')
+          .select('id, name')
+          .eq('id', communityId)
+          .single();
+        
+        // Construct assignment data from block
+        assignmentData = {
+          id: blockData.id,
+          block_id: blockData.id,
+          lesson_id: blockData.lesson_id,
+          lesson_title: blockData.lesson?.title,
+          course_id: courseData?.id,
+          course_title: courseData?.title,
+          title: blockData.payload?.title || 'Tarea Grupal',
+          description: blockData.payload?.instructions || blockData.payload?.description || '',
+          instructions: blockData.payload?.instructions || '',
+          resources: blockData.payload?.resources || [],
+          community_id: communityId,
+          community: communityData,
+          course: courseData,
+          lesson: blockData.lesson,
+          created_at: blockData.created_at
+        };
+      }
+      
       setAssignment(assignmentData);
 
       // Load workspace
-      if (assignmentData.assigned_to_community_id) {
-        const { data: workspaceData } = await supabase
-          .from('community_workspaces')
-          .select('*')
-          .eq('community_id', assignmentData.assigned_to_community_id)
-          .single();
+      const communityId = assignmentData.community_id;
+      const { data: workspaceData } = await supabase
+        .from('community_workspaces')
+        .select('*')
+        .eq('community_id', communityId)
+        .single();
           
+      if (workspaceData) {
         setWorkspace(workspaceData);
 
         // Get user's group
@@ -257,7 +316,7 @@ export default function GroupDiscussionPage() {
                   Discusión: {assignment.title}
                 </h1>
                 <p className="text-gray-600">
-                  {assignment.courses?.title} - {assignment.lessons?.title}
+                  {assignment.course?.title} - {assignment.lesson?.title}
                 </p>
               </div>
               <ChatAlt2Icon className="w-8 h-8 text-gray-400" />

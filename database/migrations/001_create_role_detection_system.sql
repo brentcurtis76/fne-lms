@@ -6,23 +6,25 @@
 -- This will be refreshed whenever roles change
 CREATE MATERIALIZED VIEW IF NOT EXISTS public.user_roles_cache AS
 SELECT 
-    p.id as user_id,
-    p.role,
-    p.school_id,
-    p.generation_id,
-    p.community_id,
+    ur.user_id,
+    ur.role_type as role,
+    ur.school_id,
+    ur.generation_id,
+    ur.community_id,
     p.approval_status,
     CASE 
-        WHEN p.role = 'admin' THEN true
+        WHEN ur.role_type = 'admin' THEN true
         ELSE false
     END as is_admin,
     CASE 
-        WHEN p.role IN ('admin', 'consultor') THEN true
+        WHEN ur.role_type IN ('admin', 'consultor') THEN true
         ELSE false
     END as is_teacher,
     NOW() as cached_at
-FROM profiles p
-WHERE p.approval_status = 'approved';
+FROM user_roles ur
+JOIN profiles p ON ur.user_id = p.id
+WHERE ur.is_active = true
+AND p.approval_status = 'approved';
 
 -- Create index for fast lookups
 CREATE UNIQUE INDEX idx_user_roles_cache_user_id ON user_roles_cache(user_id);
@@ -48,13 +50,20 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
     -- Use pg_notify to handle this asynchronously
-    PERFORM pg_notify('refresh_user_roles_cache', 'profiles_changed');
+    PERFORM pg_notify('refresh_user_roles_cache', 'roles_changed');
     RETURN NULL;
 END;
 $$;
 
-CREATE TRIGGER profiles_changed_refresh_cache
-AFTER INSERT OR UPDATE OR DELETE ON profiles
+-- Create triggers on user_roles table instead of profiles
+CREATE TRIGGER user_roles_changed_refresh_cache
+AFTER INSERT OR UPDATE OR DELETE ON user_roles
+FOR EACH STATEMENT
+EXECUTE FUNCTION trigger_refresh_user_roles_cache();
+
+-- Also trigger on profiles for approval_status changes
+CREATE TRIGGER profiles_approval_changed_refresh_cache
+AFTER UPDATE OF approval_status ON profiles
 FOR EACH STATEMENT
 EXECUTE FUNCTION trigger_refresh_user_roles_cache();
 

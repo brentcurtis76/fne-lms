@@ -146,8 +146,8 @@ CREATE POLICY "Users can view activities in their workspace or assigned communit
         OR
         -- Admins can see all activities
         EXISTS (
-            SELECT 1 FROM user_profiles up 
-            WHERE up.user_id = auth.uid() AND up.role = 'admin'
+            SELECT 1 FROM user_roles ur 
+            WHERE ur.user_id = auth.uid() AND ur.role_type = 'admin' AND ur.is_active = true
         )
         OR
         -- Community leaders can see all activities in their communities
@@ -180,8 +180,8 @@ CREATE POLICY "Users can create activities in accessible workspaces"
         )
         OR
         EXISTS (
-            SELECT 1 FROM user_profiles up 
-            WHERE up.user_id = auth.uid() AND up.role = 'admin'
+            SELECT 1 FROM user_roles ur 
+            WHERE ur.user_id = auth.uid() AND ur.role_type = 'admin' AND ur.is_active = true
         )
     );
 
@@ -191,8 +191,8 @@ CREATE POLICY "Users can update their own activities or admins/leaders can updat
         user_id = auth.uid()
         OR
         EXISTS (
-            SELECT 1 FROM user_profiles up 
-            WHERE up.user_id = auth.uid() AND up.role = 'admin'
+            SELECT 1 FROM user_roles ur 
+            WHERE ur.user_id = auth.uid() AND ur.role_type = 'admin' AND ur.is_active = true
         )
         OR
         EXISTS (
@@ -213,8 +213,8 @@ CREATE POLICY "Admins can view all subscriptions"
     ON activity_subscriptions FOR SELECT
     USING (
         EXISTS (
-            SELECT 1 FROM user_profiles up 
-            WHERE up.user_id = auth.uid() AND up.role = 'admin'
+            SELECT 1 FROM user_roles ur 
+            WHERE ur.user_id = auth.uid() AND ur.role_type = 'admin' AND ur.is_active = true
         )
     );
 
@@ -229,8 +229,8 @@ CREATE POLICY "Users can view aggregations for their accessible workspaces"
         )
         OR
         EXISTS (
-            SELECT 1 FROM user_profiles up 
-            WHERE up.user_id = auth.uid() AND up.role = 'admin'
+            SELECT 1 FROM user_roles ur 
+            WHERE ur.user_id = auth.uid() AND ur.role_type = 'admin' AND ur.is_active = true
         )
     );
 

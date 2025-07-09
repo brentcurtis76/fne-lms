@@ -35,22 +35,7 @@ export async function getWorkspaceThreads(
     // First get the threads - be explicit about columns to avoid schema cache issues
     let query = supabase
       .from('message_threads')
-      .select(`
-        id,
-        workspace_id,
-        thread_title,
-        description,
-        category,
-        created_by,
-        is_pinned,
-        is_locked,
-        is_archived,
-        last_message_at,
-        message_count,
-        participant_count,
-        created_at,
-        updated_at
-      `)
+      .select('*')
       .eq('workspace_id', workspaceId)
       .eq('is_archived', false);
 
@@ -60,7 +45,7 @@ export async function getWorkspaceThreads(
     }
     
     if (filters.category) {
-      query = query.eq('category', filters.category);
+      query = query.eq('custom_category_name', filters.category);
     }
     
     if (filters.status && filters.status !== 'all') {

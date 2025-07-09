@@ -32,9 +32,16 @@ export async function getMeetings(
   sort: MeetingSortOptions = { field: 'meeting_date', direction: 'desc' }
 ): Promise<CommunityMeeting[]> {
   try {
+    console.log('Fetching meetings for workspace:', workspaceId);
+    
     let query = supabase
       .from('community_meetings')
-      .select('*')
+      .select(`
+        *,
+        facilitator:profiles!community_meetings_facilitator_id_fkey(id, first_name, last_name),
+        secretary:profiles!community_meetings_secretary_id_fkey(id, first_name, last_name),
+        created_by_profile:profiles!community_meetings_created_by_fkey(id, first_name, last_name, email)
+      `)
       .eq('workspace_id', workspaceId)
       .eq('is_active', true);
 
@@ -61,56 +68,124 @@ export async function getMeetings(
     const { data, error } = await query;
 
     if (error) {
-      // Gracefully handle missing tables - try simple_meetings table
-      if (error.code === '42P01' || error.message.includes('does not exist')) {
-        console.warn('Meetings table not found - trying simple_meetings table');
-        
-        // Try to fetch from simple_meetings table
-        let simpleQuery = supabase
-          .from('simple_meetings')
-          .select('*')
-          .eq('workspace_id', workspaceId);
-          
-        // Apply filters to simple meetings
-        if (filters.status && filters.status.length > 0) {
-          simpleQuery = simpleQuery.in('status', filters.status);
-        }
-        if (filters.dateRange?.start) {
-          simpleQuery = simpleQuery.gte('meeting_date', filters.dateRange.start);
-        }
-        if (filters.dateRange?.end) {
-          simpleQuery = simpleQuery.lte('meeting_date', filters.dateRange.end);
-        }
-        if (filters.search) {
-          simpleQuery = simpleQuery.or(`title.ilike.%${filters.search}%,notes.ilike.%${filters.search}%`);
-        }
-        
-        simpleQuery = simpleQuery.order(sort.field, { ascending: sort.direction === 'asc' });
-        
-        const { data: simpleData, error: simpleError } = await simpleQuery;
-        
-        if (simpleError) {
-          console.error('Error fetching simple meetings:', simpleError);
-          return [];
-        }
-        
-        // Transform simple meetings to match CommunityMeeting interface
-        return (simpleData || []).map(meeting => ({
-          ...meeting,
-          description: meeting.notes,
-          is_active: true
-        })) as CommunityMeeting[];
-      } else {
-        console.error('Error fetching meetings:', error);
-      }
-      return [];
+      console.error('Error fetching meetings:', error);
+      throw error;
     }
 
+    console.log('Fetched meetings:', data?.length || 0);
     return data || [];
 
   } catch (error) {
     console.error('Error in getMeetings:', error);
     return [];
+  }
+}
+
+/**
+ * Get detailed meeting information including all related data
+ */
+export async function getMeetingDetails(meetingId: string): Promise<MeetingWithDetails | null> {
+  try {
+    // Get the meeting with joins
+    const { data: meeting, error } = await supabase
+      .from('community_meetings')
+      .select(`
+        *,
+        facilitator:profiles!community_meetings_facilitator_id_fkey(id, first_name, last_name),
+        secretary:profiles!community_meetings_secretary_id_fkey(id, first_name, last_name),
+        created_by_profile:profiles!community_meetings_created_by_fkey(id, first_name, last_name, email)
+      `)
+      .eq('id', meetingId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching meeting details:', error);
+      return null;
+    }
+
+    if (!meeting) {
+      return null;
+    }
+
+    // Get agreements
+    const { data: agreements } = await supabase
+      .from('meeting_agreements')
+      .select('*')
+      .eq('meeting_id', meetingId)
+      .order('created_at');
+
+    // Get commitments
+    const { data: commitments } = await supabase
+      .from('meeting_commitments')
+      .select('*')
+      .eq('meeting_id', meetingId)
+      .order('due_date');
+
+    // Get tasks
+    const { data: tasks } = await supabase
+      .from('meeting_tasks')
+      .select('*')
+      .eq('meeting_id', meetingId)
+      .order('due_date');
+
+    // Get attendees
+    const { data: attendees } = await supabase
+      .from('meeting_attendees')
+      .select(`
+        *,
+        user:profiles(id, first_name, last_name, email, avatar_url)
+      `)
+      .eq('meeting_id', meetingId);
+
+    // Combine all data
+    const meetingWithDetails: MeetingWithDetails = {
+      ...meeting,
+      agreements: agreements || [],
+      commitments: commitments || [],
+      tasks: tasks || [],
+      attendees: attendees || []
+    };
+
+    return meetingWithDetails;
+  } catch (error) {
+    console.error('Error in getMeetingDetails:', error);
+    return null;
+  }
+}
+
+/**
+ * Update an existing meeting
+ */
+export async function updateMeeting(
+  meetingId: string,
+  updates: Partial<CommunityMeeting>
+): Promise<{ success: boolean; error?: any }> {
+  try {
+    const { data, error } = await supabase
+      .from('community_meetings')
+      .update({
+        title: updates.title,
+        meeting_date: updates.meeting_date,
+        duration_minutes: updates.duration_minutes,
+        location: updates.location,
+        status: updates.status,
+        summary: updates.summary,
+        notes: updates.notes,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', meetingId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating meeting:', error);
+      return { success: false, error };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error in updateMeeting:', error);
+    return { success: false, error };
   }
 }
 

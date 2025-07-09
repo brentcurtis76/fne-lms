@@ -75,13 +75,13 @@ export class FeedService {
             .select('*, user:profiles!user_id(first_name, last_name, avatar_url)')
             .eq('post_id', post.id);
 
-          // Get user's reaction
+          // Get user's reaction (use maybeSingle to avoid 406 error when no reaction exists)
           const { data: userReaction } = await supabase
             .from('post_reactions')
             .select('reaction_type')
             .eq('post_id', post.id)
             .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-            .single();
+            .maybeSingle();
 
           // Get hashtags
           const { data: hashtags } = await supabase
@@ -89,13 +89,13 @@ export class FeedService {
             .select('hashtag')
             .eq('post_id', post.id);
 
-          // Check if saved
+          // Check if saved (use maybeSingle to avoid 406 error when not saved)
           const { data: savedPost } = await supabase
             .from('saved_posts')
             .select('id')
             .eq('post_id', post.id)
             .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
-            .single();
+            .maybeSingle();
 
           return {
             ...post,
@@ -130,7 +130,17 @@ export class FeedService {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
 
-      // Start a transaction
+      // Check if user can access workspace before creating post
+      const canAccess = await supabase.rpc('can_access_workspace', {
+        p_user_id: user.id,
+        p_workspace_id: workspaceId
+      });
+      
+      if (!canAccess.data) {
+        throw new Error('No tienes permisos para publicar en esta comunidad. Verifica que estés asignado a la comunidad.');
+      }
+
+      // Create the post
       const { data: post, error: postError } = await supabase
         .from('community_posts')
         .insert({
@@ -190,7 +200,12 @@ export class FeedService {
         });
 
         const mediaData = await Promise.all(mediaPromises);
-        await supabase.from('post_media').insert(mediaData);
+        const { error: mediaError } = await supabase.from('post_media').insert(mediaData);
+        
+        if (mediaError) {
+          console.error('Error inserting media:', mediaError);
+          throw new Error(`Error al subir archivos: ${mediaError.message}`);
+        }
       }
 
       // Handle hashtags
@@ -211,13 +226,20 @@ export class FeedService {
         await supabase.from('post_mentions').insert(mentionData);
       }
 
-      // Return the created post with all data
-      const { posts } = await this.getPosts(workspaceId, { 
-        limit: 1, 
-        filters: { author_id: user.id } 
-      });
-      
-      return posts[0];
+      // Return the created post with basic data
+      // We'll let the UI refresh to get the full enriched data
+      return {
+        ...post,
+        media: [],
+        reactions: [],
+        user_reaction: null,
+        hashtags: [],
+        is_saved: false,
+        reaction_count: 0,
+        comment_count: 0,
+        view_count: 0,
+        author: null, // Will be populated by UI refresh
+      } as CommunityPost;
     } catch (error) {
       console.error('Error creating post:', error);
       throw error;
@@ -282,7 +304,7 @@ export class FeedService {
         .select('id')
         .eq('post_id', postId)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         // Remove reaction
@@ -398,7 +420,7 @@ export class FeedService {
         .select('id')
         .eq('post_id', postId)
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         await supabase

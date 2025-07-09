@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 
 import MainLayout from '../../components/layout/MainLayout';
@@ -15,6 +16,8 @@ import { ResponsiveFunctionalPageHeader } from '../../components/layout/Function
 import MeetingFilters from '../../components/meetings/MeetingFilters';
 import MeetingCard from '../../components/meetings/MeetingCard';
 import MeetingDocumentationModal from '../../components/meetings/MeetingDocumentationModal';
+import MeetingDetailsModal from '../../components/meetings/MeetingDetailsModal';
+import MeetingDeletionModal from '../../components/meetings/MeetingDeletionModal';
 import DocumentUploadModal from '../../components/documents/DocumentUploadModal';
 import DocumentGrid from '../../components/documents/DocumentGrid';
 import FolderNavigation from '../../components/documents/FolderNavigation';
@@ -49,6 +52,7 @@ import {
 } from '../../utils/workspaceUtils';
 import { 
   getMeetings,
+  getMeetingDetails,
   canUserManageMeetings
 } from '../../utils/meetingUtils';
 import {
@@ -469,6 +473,67 @@ const CommunityWorkspacePage: React.FC = () => {
             </div>
           ) : (
             <div className="min-h-screen bg-gray-50">
+              {/* Community Members Section */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-[#00365b]">
+                    Miembros de la Comunidad
+                  </h2>
+                  <div className="text-sm text-gray-500">
+                    {communityMembers.length} {communityMembers.length === 1 ? 'miembro' : 'miembros'}
+                  </div>
+                </div>
+                
+                {communityMembers.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {communityMembers.map(member => (
+                      <Link
+                        key={member.id}
+                        href={`/user/${member.id}`}
+                        className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 hover:shadow-md transition-all cursor-pointer"
+                      >
+                        {member.avatar_url ? (
+                          <img 
+                            src={member.avatar_url} 
+                            alt={`${member.first_name} ${member.last_name}`}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-[#fdb933] flex items-center justify-center">
+                            <span className="text-[#00365b] font-bold text-sm">
+                              {member.first_name?.charAt(0) || 'U'}{member.last_name?.charAt(0) || ''}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {member.first_name && member.last_name 
+                              ? `${member.first_name} ${member.last_name}`
+                              : member.email || 'Usuario sin nombre'
+                            }
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">
+                            {member.user_roles?.[0]?.role_type === 'admin' && 'Administrador'}
+                            {member.user_roles?.[0]?.role_type === 'consultor' && 'Consultor'}
+                            {member.user_roles?.[0]?.role_type === 'equipo_directivo' && 'Equipo Directivo'}
+                            {member.user_roles?.[0]?.role_type === 'lider_generacion' && 'Líder de Generación'}
+                            {member.user_roles?.[0]?.role_type === 'lider_comunidad' && 'Líder de Comunidad'}
+                            {member.user_roles?.[0]?.role_type === 'docente' && 'Docente'}
+                          </p>
+                        </div>
+                        {member.id === user?.id && (
+                          <div className="w-3 h-3 rounded-full bg-[#fdb933]" title="Tú"></div>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>No hay otros miembros en esta comunidad aún.</p>
+                  </div>
+                )}
+              </div>
+
               {/* Instagram-style Feed */}
               <FeedContainer
                 workspaceId={currentWorkspace.id}
@@ -799,6 +864,10 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
   const [loading, setLoading] = useState(true);
   const [canManage, setCanManage] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedMeetingId, setSelectedMeetingId] = useState<string | null>(null);
+  const [selectedMeetingTitle, setSelectedMeetingTitle] = useState<string>('');
   const [filters, setFilters] = useState<MeetingFiltersType>({
     dateRange: {},
     status: [],
@@ -825,7 +894,16 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
     try {
       setLoading(true);
       const meetingsData = await getMeetings(workspace.id, filters, sort);
-      setMeetings(meetingsData);
+      
+      // Load full details for each meeting to include agreements, commitments, and tasks
+      const meetingsWithDetails = await Promise.all(
+        meetingsData.map(async (meeting) => {
+          const details = await getMeetingDetails(meeting.id);
+          return details || meeting; // Fallback to basic meeting if details fail
+        })
+      );
+      
+      setMeetings(meetingsWithDetails);
     } catch (error) {
       console.error('Error loading meetings:', error);
       toast.error('Error al cargar las reuniones');
@@ -855,13 +933,30 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
   };
 
   const handleEditMeeting = (meetingId: string) => {
-    // TODO: Open meeting edit modal
-    toast(`Edición de reunión ${meetingId} próximamente`, { icon: 'ℹ️' });
+    setSelectedMeetingId(meetingId);
+    setShowCreateModal(true); // Reuse the same modal in edit mode
   };
 
   const handleViewMeeting = (meetingId: string) => {
-    // TODO: Open meeting details modal
-    toast(`Detalles de reunión ${meetingId} próximamente`, { icon: 'ℹ️' });
+    setSelectedMeetingId(meetingId);
+    setShowDetailsModal(true);
+  };
+
+  const handleDeleteMeeting = (meetingId: string) => {
+    // Find the meeting to get its title
+    const meeting = meetings.find(m => m.id === meetingId);
+    if (meeting) {
+      setSelectedMeetingId(meetingId);
+      setSelectedMeetingTitle(meeting.title);
+      setShowDeleteModal(true);
+    }
+  };
+
+  const handleDeleteSuccess = () => {
+    loadMeetings();
+    setShowDeleteModal(false);
+    setSelectedMeetingId(null);
+    setSelectedMeetingTitle('');
   };
 
   const handleClearFilters = () => {
@@ -1012,10 +1107,47 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
       {showCreateModal && workspace && user && (
         <MeetingDocumentationModal
           isOpen={showCreateModal}
-          onClose={() => setShowCreateModal(false)}
+          onClose={() => {
+            setShowCreateModal(false);
+            setSelectedMeetingId(null);
+          }}
           workspaceId={workspace.id}
           userId={user.id}
           onSuccess={handleMeetingCreated}
+          meetingId={selectedMeetingId || undefined}
+          mode={selectedMeetingId ? 'edit' : 'create'}
+        />
+      )}
+
+      {/* Meeting Details Modal */}
+      {showDetailsModal && selectedMeetingId && (
+        <MeetingDetailsModal
+          isOpen={showDetailsModal}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setSelectedMeetingId(null);
+          }}
+          meetingId={selectedMeetingId}
+          onEdit={handleEditMeeting}
+          onDelete={handleDeleteMeeting}
+          canEdit={canManage}
+          canDelete={canManage}
+        />
+      )}
+
+      {/* Meeting Deletion Modal */}
+      {showDeleteModal && selectedMeetingId && user && (
+        <MeetingDeletionModal
+          isOpen={showDeleteModal}
+          onClose={() => {
+            setShowDeleteModal(false);
+            setSelectedMeetingId(null);
+            setSelectedMeetingTitle('');
+          }}
+          meetingId={selectedMeetingId}
+          meetingTitle={selectedMeetingTitle}
+          userId={user.id}
+          onSuccess={handleDeleteSuccess}
         />
       )}
     </div>
@@ -1541,10 +1673,10 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
         .select(`
           id,
           name,
-          members:user_roles(
+          members:user_roles!user_roles_community_id_fkey(
             user_id,
-            role,
-            user:profiles(
+            role_type,
+            user:profiles!user_roles_user_id_fkey(
               id,
               first_name,
               last_name,

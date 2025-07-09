@@ -58,8 +58,9 @@ export default function FeedContainer({ workspaceId, userName, userAvatar }: Fee
 
   const handleCreatePost = async (postData: CreatePostInput) => {
     try {
-      const newPost = await FeedService.createPost(workspaceId, postData);
-      setPosts(prev => [newPost, ...prev]);
+      await FeedService.createPost(workspaceId, postData);
+      // Refresh the feed to get the complete post data with author info, media, etc.
+      loadPosts(true);
     } catch (error) {
       console.error('Error creating post:', error);
       throw error;

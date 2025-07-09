@@ -91,7 +91,21 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUser(session.user);
-        setIsAdmin(session.user?.user_metadata?.role === 'admin');
+        
+        // Check admin status from both metadata and user_roles table
+        const adminInMetadata = session.user?.user_metadata?.role === 'admin';
+        
+        // Check user_roles table for admin role
+        const { data: userRoleData } = await supabase
+          .from('user_roles')
+          .select('role_type')
+          .eq('user_id', session.user.id)
+          .eq('role_type', 'admin')
+          .eq('is_active', true)
+          .single();
+        
+        const isAdminUser = adminInMetadata || userRoleData?.role_type === 'admin';
+        setIsAdmin(isAdminUser);
         
         // Fetch avatar URL
         const { data: profileData } = await supabase

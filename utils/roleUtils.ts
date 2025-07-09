@@ -144,10 +144,23 @@ export function hasPermission(
 
 /**
  * Get aggregated permissions for a user based on all their roles
+ * Now includes legacy role support for backward compatibility
  */
-export function getUserPermissions(roles: UserRole[]): RolePermissions {
+export function getUserPermissions(roles: UserRole[], legacyRole?: string): RolePermissions {
+  // PHASE 1 FIX: Check legacy admin role first
+  if (legacyRole === 'admin') {
+    console.log('[getUserPermissions] Legacy admin detected, granting full permissions');
+    return ROLE_HIERARCHY.admin; // Return full admin permissions immediately
+  }
+
+  // If no roles in new system and legacy role is docente, use docente permissions
+  if ((!roles || roles.length === 0) && legacyRole === 'docente') {
+    return ROLE_HIERARCHY.docente;
+  }
+
+  // No roles at all - default to lowest permissions
   if (!roles || roles.length === 0) {
-    return ROLE_HIERARCHY.docente; // Default to lowest permissions
+    return ROLE_HIERARCHY.docente;
   }
 
   // Start with no permissions

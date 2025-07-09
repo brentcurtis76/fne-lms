@@ -46,7 +46,8 @@ export default async function handler(
 
     // Get new role system data
     const userRoles = await getUserRoles(supabase, userId);
-    const permissions = getUserPermissions(userRoles);
+    // PHASE 1 FIX: Pass legacy role to getUserPermissions
+    const permissions = getUserPermissions(userRoles, profile?.role);
     const isAdmin = await hasAdminPrivileges(supabase, userId);
     const isGlobalAdminUser = await isGlobalAdmin(supabase, userId);
 

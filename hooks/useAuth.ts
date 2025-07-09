@@ -99,8 +99,8 @@ export function useAuth() {
         const isAdmin = await hasAdminPrivileges(supabase, user.id);
         const isGlobalAdmin = userRoles.some(role => role.role_type === 'admin');
 
-        // Get aggregated permissions
-        const permissions = getUserPermissions(userRoles);
+        // Get aggregated permissions - PHASE 1 FIX: Pass legacy role
+        const permissions = getUserPermissions(userRoles, profile?.role);
 
         // Auto-migrate legacy users if needed
         if (userRoles.length === 0 && profile?.role) {
@@ -110,7 +110,7 @@ export function useAuth() {
           setAuthState(prev => ({
             ...prev,
             userRoles: newRoles,
-            permissions: getUserPermissions(newRoles)
+            permissions: getUserPermissions(newRoles, profile?.role)
           }));
         }
 

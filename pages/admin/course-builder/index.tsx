@@ -71,14 +71,26 @@ const CourseBuilder: React.FC = () => {
         adminInMetadata: session.user.user_metadata?.role,
       });
 
+      // Check admin status from both metadata and user_roles table
       const adminInMetadata = session.user.user_metadata?.role === 'admin';
+      
+      // Check user_roles table for admin role
+      const { data: userRoleData } = await supabase
+        .from('user_roles')
+        .select('role_type')
+        .eq('user_id', session.user.id)
+        .eq('role_type', 'admin')
+        .eq('is_active', true)
+        .single();
+      
+      const isAdmin = adminInMetadata || userRoleData?.role_type === 'admin';
       
       // Set avatar URL if available
       if (profileData?.avatar_url) {
         setAvatarUrl(profileData.avatar_url);
       }
       
-      if (adminInMetadata) {
+      if (isAdmin) {
         console.log('Setting user role to admin');
         setUserRole('admin');
       } else {

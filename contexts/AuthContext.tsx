@@ -134,8 +134,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // Get permissions
-        const permissions = getUserPermissions(userRoles);
+        // Get permissions - PHASE 1 FIX: Pass legacy role for backward compatibility
+        const permissions = getUserPermissions(userRoles, profileData.role);
         const isGlobalAdmin = await hasAdminPrivileges(supabase, session.user.id);
         const highestRole = getHighestRole(userRoles);
 

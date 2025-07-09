@@ -94,7 +94,8 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Cursos',
     icon: BookOpenIcon,
     href: '/admin/course-builder',
-    description: 'Gestión de cursos'
+    description: 'Gestión de cursos',
+    adminOnly: true
   },
   {
     id: 'users',

@@ -1,94 +1,45 @@
--- ====================================================================
--- FIX RLS POLICIES FOR SCHOOLS TABLE
--- Ensure admins can update schools properly
--- ====================================================================
+-- Fix Schools RLS Policies
+-- This script resolves the duplicate RLS policy issue on the schools table
+-- Date: 2025-01-10
 
--- First, check if RLS is enabled
-ALTER TABLE schools ENABLE ROW LEVEL SECURITY;
+BEGIN;
 
--- Drop existing policies if they exist
-DROP POLICY IF EXISTS "Admin can do everything with schools" ON schools;
-DROP POLICY IF EXISTS "Users can view schools" ON schools;
-DROP POLICY IF EXISTS "Admin full access to schools" ON schools;
-DROP POLICY IF EXISTS "Public read access to schools" ON schools;
+-- Drop all existing policies on schools table
+DROP POLICY IF EXISTS "Admin can do everything with schools" ON schools CASCADE;
+DROP POLICY IF EXISTS "Users can view schools" ON schools CASCADE;
+DROP POLICY IF EXISTS "Admin full access to schools" ON schools CASCADE;
+DROP POLICY IF EXISTS "Public read access to schools" ON schools CASCADE;
+DROP POLICY IF EXISTS "Authenticated users can view schools" ON schools CASCADE;
+DROP POLICY IF EXISTS "Admin full access" ON schools CASCADE;
 
--- Create comprehensive admin policy
-CREATE POLICY "Admin full access to schools" ON schools
-  FOR ALL 
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'admin'
-    )
+-- Create new policy: All authenticated users can read schools
+CREATE POLICY "authenticated_users_read_schools" 
+ON schools
+FOR SELECT
+USING (auth.uid() IS NOT NULL);
+
+-- Create new policy: Admins have full access
+CREATE POLICY "admin_full_access_schools"
+ON schools
+FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM user_roles ur
+    WHERE ur.user_id = auth.uid()
+    AND ur.role_type = 'admin'
+    AND ur.is_active = true
   )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'admin'
-    )
-  );
+);
 
--- Create read policy for all authenticated users
-CREATE POLICY "Authenticated users can view schools" ON schools
-  FOR SELECT
-  USING (auth.uid() IS NOT NULL);
+COMMIT;
 
--- Also ensure generations table has proper policies
-ALTER TABLE generations ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Admin full access to generations" ON generations;
-DROP POLICY IF EXISTS "Users can view generations" ON generations;
-
--- Admin can manage generations
-CREATE POLICY "Admin full access to generations" ON generations
-  FOR ALL 
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'admin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'admin'
-    )
-  );
-
--- All users can view generations
-CREATE POLICY "Authenticated users can view generations" ON generations
-  FOR SELECT
-  USING (auth.uid() IS NOT NULL);
-
--- Also check growth_communities policies
-ALTER TABLE growth_communities ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS "Admin full access to communities" ON growth_communities;
-DROP POLICY IF EXISTS "Users can view communities" ON growth_communities;
-
--- Admin can manage communities
-CREATE POLICY "Admin full access to communities" ON growth_communities
-  FOR ALL 
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'admin'
-    )
-  )
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles 
-      WHERE profiles.id = auth.uid() 
-      AND profiles.role = 'admin'
-    )
-  );
-
--- All users can view communities
-CREATE POLICY "Authenticated users can view communities" ON growth_communities
-  FOR SELECT
-  USING (auth.uid() IS NOT NULL);
+-- Verify the policies after creation
+SELECT 
+  policyname,
+  cmd,
+  roles,
+  permissive,
+  qual::text as using_expression
+FROM pg_policies 
+WHERE tablename = 'schools'
+ORDER BY policyname;

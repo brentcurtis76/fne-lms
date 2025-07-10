@@ -43,31 +43,14 @@ export async function isGlobalAdmin(supabase: SupabaseClient, userId: string): P
 }
 
 /**
- * Check for backward compatibility with legacy admin role
- * Returns true if user is either global_admin OR legacy admin
+ * Check if user has admin privileges
+ * Uses the new user_roles system exclusively
+ * Note: When called from API routes, should be passed a service role client to bypass RLS
  */
 export async function hasAdminPrivileges(supabase: SupabaseClient, userId: string): Promise<boolean> {
   try {
-    // Check new role system first
-    const isNewAdmin = await isGlobalAdmin(supabase, userId);
-    if (isNewAdmin) return true;
-
-    // Check legacy role system for backward compatibility
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
-
-    if (error) {
-      // It's okay if no profile is found, don't log an error for that.
-      if (error.code !== 'PGRST116') {
-        console.error('Error checking legacy admin status:', error);
-      }
-      return false;
-    }
-
-    return data?.role === 'admin';
+    // Only check the new role system - no legacy fallback
+    return await isGlobalAdmin(supabase, userId);
   } catch (error) {
     console.error('Error in hasAdminPrivileges:', error);
     return false;

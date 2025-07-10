@@ -168,8 +168,12 @@ const ConsultantAssignmentsPage: React.FC = () => {
         throw new Error('Failed to fetch assignments');
       }
 
-      const data = await response.json();
-      console.log('Raw API response:', data);
+      const result = await response.json();
+      console.log('Raw API response:', result);
+      
+      // Handle the wrapped response structure from sendApiResponse
+      const data = result.data || result;
+      console.log('Extracted data:', data);
       console.log('First assignment consultant data:', data.assignments?.[0]?.consultant);
       
       // Enrich assignments with additional data

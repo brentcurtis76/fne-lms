@@ -56,6 +56,29 @@ export async function getApiUser(
   res: NextApiResponse
 ): Promise<AuthResult> {
   try {
+    // Check for Bearer token in Authorization header first
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.replace('Bearer ', '');
+      
+      // Use service role client to verify the token
+      const serviceClient = createServiceRoleClient();
+      const { data: { user }, error } = await serviceClient.auth.getUser(token);
+      
+      if (error || !user) {
+        console.error('[API Auth] Bearer token validation failed:', error);
+        return { user: null, error: error || new Error('Invalid token') };
+      }
+      
+      console.log('[API Auth] User authenticated via Bearer token:', {
+        userId: user.id,
+        email: user.email?.split('@')[0] + '@***'
+      });
+      
+      return { user, error: null };
+    }
+    
+    // Fall back to cookie-based auth
     const supabase = await createApiSupabaseClient(req, res);
     const { data: { session }, error } = await supabase.auth.getSession();
     
@@ -69,7 +92,7 @@ export async function getApiUser(
     }
     
     // Log successful auth (without sensitive data)
-    console.log('[API Auth] User authenticated:', {
+    console.log('[API Auth] User authenticated via session:', {
       userId: session.user.id,
       email: session.user.email?.split('@')[0] + '@***',
       role: session.user.user_metadata?.role
@@ -97,10 +120,10 @@ export async function checkIsAdmin(
   }
   
   try {
-    // Use our new, fortified RLS-compliant utility function.
-    // This correctly handles all cases: new roles, legacy roles, and dev impersonation.
-    const supabase = await createApiSupabaseClient(req, res);
-    const isAdmin = await hasAdminPrivileges(supabase, user.id);
+    // Use service role client for admin checks to bypass RLS
+    // This ensures we can accurately check user_roles regardless of RLS policies
+    const serviceClient = createServiceRoleClient();
+    const isAdmin = await hasAdminPrivileges(serviceClient, user.id);
 
     if (isAdmin) {
       console.log(`[API Auth] Admin verified via RLS check for user: ${user.id}`);

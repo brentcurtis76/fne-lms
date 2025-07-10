@@ -1,55 +1,67 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
+import { 
+  checkIsAdmin, 
+  createServiceRoleClient, 
+  sendAuthError, 
+  sendApiResponse,
+  validateRequestBody,
+  logApiRequest
+} from '../../../lib/api-auth';
+import { ApiError, ApiSuccess } from '../../../lib/types/api-auth.types';
 
-// Initialize Supabase client with service role key for admin operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+export default async function handler(
+  req: NextApiRequest, 
+  res: NextApiResponse<ApiSuccess<any> | ApiError>
+) {
+  // Log the request
+  logApiRequest(req, 'reset-password');
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return sendAuthError(res, 'Method not allowed', 405);
   }
-
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const token = authHeader.replace('Bearer ', '');
 
   try {
-    // Verify the requesting user's token
-    const { data: { user: requestingUser }, error: authError } = await supabaseAdmin.auth.getUser(token);
+    // Verify admin access using the centralized auth utility
+    const { isAdmin, user, error } = await checkIsAdmin(req, res);
     
-    if (authError || !requestingUser) {
-      return res.status(401).json({ error: 'Invalid token' });
+    console.log('[Reset Password API] Auth check result:', {
+      isAdmin,
+      userId: user?.id,
+      error: error?.message
+    });
+    
+    if (error || !user) {
+      console.error('[Reset Password API] Authentication failed:', error);
+      return sendAuthError(res, 'Authentication required', 401);
+    }
+    
+    if (!isAdmin) {
+      console.error('[Reset Password API] User is not admin:', user.id);
+      return sendAuthError(res, 'Only admins can reset passwords', 403);
     }
 
-    // Check if requesting user is admin
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', requestingUser.id)
-      .single();
-
-    if (profileError || !profile || profile.role !== 'admin') {
-      return res.status(403).json({ error: 'Only admins can reset passwords' });
-    }
+    // Create service role client for admin operations
+    const supabaseAdmin = createServiceRoleClient();
 
     const { userId, temporaryPassword } = req.body;
 
-    if (!userId || !temporaryPassword) {
-      return res.status(400).json({ error: 'User ID and temporary password are required' });
+    // Validate required fields
+    const validation = validateRequestBody<{ userId: string; temporaryPassword: string }>(
+      req.body,
+      ['userId', 'temporaryPassword']
+    );
+
+    if (!validation.valid) {
+      return sendAuthError(
+        res, 
+        `Missing required fields: ${validation.missing.join(', ')}`,
+        400
+      );
     }
 
+    // Log the userId we're trying to update
+    console.log('[Reset Password API] Attempting to reset password for userId:', userId);
+    
     // Update the user's password
     const { data: updateData, error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       userId,
@@ -65,7 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (updateError) {
       console.error('Error updating password:', updateError);
-      return res.status(500).json({ error: 'Failed to reset password' });
+      return sendAuthError(res, 'Failed to reset password', 500, updateError.message);
     }
 
     // Update the profile to indicate password change is required
@@ -86,7 +98,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { error: logError } = await supabaseAdmin
       .from('audit_logs')
       .insert({
-        user_id: requestingUser.id,
+        user_id: user.id,  // Use the authenticated user from checkIsAdmin
         action: 'password_reset',
         details: {
           target_user_id: userId,
@@ -100,14 +112,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Continue anyway as this is not critical
     }
 
-    return res.status(200).json({ 
-      success: true, 
+    // Return success response using standardized format
+    return sendApiResponse(res, {
+      success: true,
       message: 'Password reset successfully',
       user: updateData.user
     });
 
-  } catch (error) {
-    console.error('Unexpected error in password reset:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+  } catch (error: any) {
+    console.error('[Reset Password API] Unexpected error:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code,
+      details: error
+    });
+    return sendAuthError(
+      res, 
+      'Internal server error', 
+      500, 
+      error.message || 'An unexpected error occurred'
+    );
   }
 }

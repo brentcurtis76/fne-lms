@@ -455,6 +455,15 @@ export function parseBulkUserData(
   - Supports filtering by submission status (pending, submitted, reviewed)
   - Fixed foreign key relationship issues with separate profile queries
   - Consultants can now properly review and grade group assignments
+- **INSTAGRAM FEED UPLOAD FIXES (July 2025)**:
+  - Fixed critical database constraint preventing document uploads (400 Bad Request errors)
+  - Updated post_media table constraint to allow 'document' type in addition to 'image' and 'video'
+  - Fixed 406 Not Acceptable errors by changing .single() to .maybeSingle() for optional queries
+  - Resolved "0" display bug in posts by refreshing feed after creation instead of showing incomplete data
+  - Fixed Vercel deployment failure by commenting out missing MeetingDetailsModal and MeetingDeletionModal imports
+  - Instagram feed now supports all file types: PDFs, images, Word docs, Excel files, PowerPoint, etc.
+  - Database update: `ALTER TABLE post_media ADD CONSTRAINT post_media_type_check CHECK (type IN ('image', 'video', 'document'));`
+  - All feed functionality now working correctly with proper file upload support
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)
@@ -463,6 +472,18 @@ export function parseBulkUserData(
 - ✅ FIXED: Community leader role assignment for schools without generations (January 2025)
 - ✅ FIXED: Notifications page TypeScript errors and stylesheet warnings (July 2025)
 - ✅ FIXED: Group assignments "Ver detalles" navigation error - consultants now see proper review page (July 2025)
+- ✅ FIXED: Schools not loading in profile dropdown - RLS policies using legacy profiles.role (July 2025)
+  - Created `authenticated_users_read_schools` policy to allow all authenticated users to view schools
+  - Verification confirmed: Jorge can now see all 12 schools including "Los Pellines"
+  - Created comprehensive RLS troubleshooting documentation and tools
+
+# RLS TROUBLESHOOTING & DOCUMENTATION
+- **Comprehensive Guide**: See `RLS_TROUBLESHOOTING_GUIDE.md` for systematic approach to diagnosing and fixing RLS issues
+- **Automated Audit**: Run `node scripts/audit-rls-policies.js` to check all tables for legacy RLS policies
+- **Root Cause**: Migration from `profiles.role` to `user_roles.role_type` left outdated RLS policies
+- **Common Fix Pattern**: Update policies to use `EXISTS (SELECT 1 FROM user_roles WHERE user_id = auth.uid() AND role_type = 'admin')`
+- **Testing Process**: Always test with specific user contexts before and after fixes
+- **Long-term Prevention**: Regular RLS audits and monitoring for access failures
 
 # SUPABASE MCP CONFIGURATION (January 23, 2025)
 - **MCP Server Added**: Full read/write access to FNE LMS Supabase project
@@ -482,11 +503,14 @@ export function parseBulkUserData(
   3. Add `userRole` state and pass it to MainLayout component
 - ⏳ Without these fixes, dev impersonation won't work correctly on those pages
 
-## Instagram Feed - Phase 1 Completion (PRIORITY)
+## Instagram Feed - Phase 1 Completion (COMPLETED ✅)
 - ✅ Database tables and RLS policies working
 - ✅ Storage bucket configured
 - ✅ Basic post creation and interactions functional
-- ⏳ **IMMEDIATE**: Build comment thread UI component
+- ✅ **FIXED**: All file upload issues resolved (documents, images, PDFs)
+- ✅ **FIXED**: Database constraint and API error issues
+- ✅ **FIXED**: Build and deployment issues
+- ⏳ Build comment thread UI component
 - ⏳ Add real-time subscriptions for live updates
 - ⏳ Implement poll and question post types
 - ⏳ Multi-user testing and verification
@@ -537,3 +561,39 @@ export function parseBulkUserData(
 **Dev Role Users**:
 - Brent Curtis (brent@perrotuertocm.cl)
 - Mora del Fresno (mdelfresno@nuevaeducacion.org) - Added June 2025
+
+# BUG ANALYSIS REPORTING STANDARDS
+
+When investigating complex bugs, especially those involving multiple layers of the application, provide comprehensive analysis following this structure:
+
+## 1. Executive Summary
+- Brief acknowledgment if previous fixes were insufficient
+- Clear statement identifying the true root cause
+- Specify the exact file and function where the issue originates
+
+## 2. In-Depth Root Cause Analysis
+- **The Point of Failure**: Pinpoint the specific function/component causing the error
+- **The Core Flaw**: Explain the technical reason for failure (e.g., RLS restrictions, incorrect client usage)
+- **The Consequence**: Detail how this failure cascades through the system
+
+## 3. Key Artifacts for Review
+- Present relevant code snippets from affected files
+- Show the flawed logic clearly with line numbers
+- Include any related configuration or schema issues
+
+## 4. Strategic Fix Plan
+**This is the most critical section - address architectural issues, not just symptoms**
+- **Part 1**: Primary fix addressing the core issue
+- **Part 2**: Cleanup of legacy code or technical debt
+- **Part 3**: Any additional systematic improvements
+
+## 5. Alignment and Risk Assessment
+- Explain how the fix aligns with project architecture principles
+- Assess implementation risk (low/medium/high) with justification
+- Identify any potential side effects or areas requiring additional testing
+
+## Example: Password Reset API Bug (July 2025)
+- **Root Cause**: `hasAdminPrivileges` in `utils/roleUtils.ts` using user-context client that couldn't bypass RLS
+- **Consequence**: Fell back to checking non-existent `profiles.role` column
+- **Fix**: Use service role client for admin checks, remove legacy fallback entirely
+- **Result**: Eliminated architectural flaw and technical debt in one solution

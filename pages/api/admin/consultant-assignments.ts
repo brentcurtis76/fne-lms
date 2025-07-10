@@ -1,76 +1,47 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
+import { 
+  checkIsAdmin, 
+  createServiceRoleClient, 
+  sendAuthError, 
+  sendApiResponse,
+  logApiRequest
+} from '../../../lib/api-auth';
+import { ApiError, ApiSuccess } from '../../../lib/types/api-auth.types';
 import NotificationService from '../../../lib/notificationService';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Log the request for debugging
+  logApiRequest(req, 'consultant-assignments');
+  
   try {
-    // Verify admin authentication
-    const authHeader = req.headers.authorization;
-    if (!authHeader) {
-      console.error('No authorization header provided');
-      return res.status(401).json({ error: 'No authorization header' });
-    }
-
-    const token = authHeader.split(' ')[1];
-    if (!token) {
-      console.error('No token in authorization header');
-      return res.status(401).json({ error: 'No token provided' });
-    }
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    // Check admin authentication using our standardized function
+    const { isAdmin, user, error } = await checkIsAdmin(req, res);
     
-    if (authError) {
-      console.error('Auth error:', authError.message);
-      return res.status(401).json({ error: 'Invalid authentication', details: authError.message });
-    }
-    
-    if (!user) {
-      console.error('No user found for token');
-      return res.status(401).json({ error: 'User not found' });
-    }
-
-    // Verify admin role
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError) {
-      console.error('Profile fetch error:', profileError.message);
-      return res.status(500).json({ error: 'Failed to fetch user profile', details: profileError.message });
-    }
-
-    if (profile?.role !== 'admin') {
-      console.error('User is not admin:', profile?.role);
-      return res.status(403).json({ error: 'Admin access required' });
+    if (!isAdmin) {
+      return sendAuthError(res, 'Only admins can manage consultant assignments', 403);
     }
 
     switch (req.method) {
       case 'GET':
         return await handleGet(req, res);
       case 'POST':
-        return await handlePost(req, res, user.id);
+        return await handlePost(req, res, user!.id);
       case 'PUT':
         return await handlePut(req, res);
       case 'DELETE':
         return await handleDelete(req, res);
       default:
-        return res.status(405).json({ error: 'Method not allowed' });
+        return sendAuthError(res, 'Method not allowed', 405);
     }
   } catch (error) {
     console.error('Consultant assignments API error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return sendAuthError(res, 'Internal server error', 500);
   }
 }
 
 async function handleGet(req: NextApiRequest, res: NextApiResponse) {
   const { consultant_id, student_id, include_inactive } = req.query;
+  const supabase = createServiceRoleClient();
 
   try {
     // First, get the basic assignments
@@ -97,12 +68,12 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
 
     if (error) {
       console.error('Database error:', error);
-      return res.status(500).json({ error: 'Failed to fetch assignments', details: error.message });
+      return sendAuthError(res, 'Failed to fetch assignments', 500, error.message);
     }
 
     // If no assignments, return empty array
     if (!assignments || assignments.length === 0) {
-      return res.status(200).json({ assignments: [] });
+      return sendApiResponse(res, { assignments: [] });
     }
 
     // Get user details for consultants and students
@@ -151,14 +122,15 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
     console.log('Returning enriched assignments:', enrichedAssignments.length);
     console.log('First enriched assignment:', JSON.stringify(enrichedAssignments[0], null, 2));
 
-    return res.status(200).json({ assignments: enrichedAssignments });
-  } catch (error) {
+    return sendApiResponse(res, { assignments: enrichedAssignments });
+  } catch (error: any) {
     console.error('Get assignments error:', error);
-    return res.status(500).json({ error: 'Failed to fetch assignments', details: error.message });
+    return sendAuthError(res, 'Failed to fetch assignments', 500, error.message);
   }
 }
 
 async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: string) {
+  const supabase = createServiceRoleClient();
   const {
     consultant_id,
     student_id,
@@ -177,29 +149,29 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: str
 
   // Validation
   if (!consultant_id) {
-    return res.status(400).json({ error: 'consultant_id is required' });
+    return sendAuthError(res, 'consultant_id is required', 400);
   }
 
   // For individual assignments, student_id is required
   if (assignment_scope === 'individual' && !student_id) {
-    return res.status(400).json({ error: 'student_id is required for individual assignments' });
+    return sendAuthError(res, 'student_id is required for individual assignments', 400);
   }
 
   // Validate assignment scope
   const validScopes = ['individual', 'school', 'generation', 'community'];
   if (!validScopes.includes(assignment_scope)) {
-    return res.status(400).json({ error: 'Invalid assignment_scope' });
+    return sendAuthError(res, 'Invalid assignment_scope', 400);
   }
 
   // Validate scope-specific requirements
   if (assignment_scope === 'school' && !school_id) {
-    return res.status(400).json({ error: 'school_id is required for school-wide assignments' });
+    return sendAuthError(res, 'school_id is required for school-wide assignments', 400);
   }
   if (assignment_scope === 'generation' && (!school_id || !generation_id)) {
-    return res.status(400).json({ error: 'school_id and generation_id are required for generation assignments' });
+    return sendAuthError(res, 'school_id and generation_id are required for generation assignments', 400);
   }
   if (assignment_scope === 'community' && (!school_id || !community_id)) {
-    return res.status(400).json({ error: 'school_id and community_id are required for community assignments' });
+    return sendAuthError(res, 'school_id and community_id are required for community assignments', 400);
   }
   
   // Validate community_id exists if provided
@@ -213,15 +185,12 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: str
     
     if (communityError || !community) {
       console.error('Invalid community_id:', community_id, communityError);
-      return res.status(400).json({ 
-        error: 'Invalid community_id', 
-        details: `Community with ID ${community_id} not found` 
-      });
+      return sendAuthError(res, 'Invalid community_id', 400, `Community with ID ${community_id} not found`);
     }
   }
 
   if (assignment_scope === 'individual' && consultant_id === student_id) {
-    return res.status(400).json({ error: 'Consultant cannot be assigned to themselves' });
+    return sendAuthError(res, 'Consultant cannot be assigned to themselves', 400);
   }
 
   try {
@@ -243,7 +212,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: str
       .single();
 
     if (!consultantProfile) {
-      return res.status(400).json({ error: 'Consultant not found' });
+      return sendAuthError(res, 'Consultant not found', 404);
     }
 
     // For individual assignments, verify student exists (no role restriction)
@@ -256,7 +225,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: str
         .single();
 
       if (!profile) {
-        return res.status(400).json({ error: 'User not found' });
+        return sendAuthError(res, 'User not found', 404);
       }
       studentProfile = profile;
     }
@@ -272,7 +241,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: str
         .single();
 
       if (existingAssignment) {
-        return res.status(400).json({ error: 'Active assignment already exists between this consultant and user' });
+        return sendAuthError(res, 'Active assignment already exists between this consultant and user', 409);
       }
     } else {
       // For group assignments, check for existing assignment with same scope
@@ -300,7 +269,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: str
       const { data: existingAssignment } = await query.single();
 
       if (existingAssignment) {
-        return res.status(400).json({ error: 'Active assignment already exists for this scope' });
+        return sendAuthError(res, 'Active assignment already exists for this scope', 409);
       }
     }
 
@@ -352,29 +321,15 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: str
       // Check for specific foreign key violations
       if (error.code === '23503') {
         if (error.message.includes('community_id')) {
-          return res.status(400).json({ 
-            error: 'Invalid community reference',
-            details: `The community ID ${assignmentData.community_id} does not exist in the database`
-          });
+          return sendAuthError(res, 'Invalid community reference', 400, `The community ID ${assignmentData.community_id} does not exist in the database`);
         } else if (error.message.includes('school_id')) {
-          return res.status(400).json({ 
-            error: 'Invalid school reference',
-            details: `The school ID ${assignmentData.school_id} does not exist in the database`
-          });
+          return sendAuthError(res, 'Invalid school reference', 400, `The school ID ${assignmentData.school_id} does not exist in the database`);
         } else if (error.message.includes('generation_id')) {
-          return res.status(400).json({ 
-            error: 'Invalid generation reference',
-            details: `The generation ID ${assignmentData.generation_id} does not exist in the database`
-          });
+          return sendAuthError(res, 'Invalid generation reference', 400, `The generation ID ${assignmentData.generation_id} does not exist in the database`);
         }
       }
       
-      return res.status(500).json({ 
-        error: 'Failed to create assignment',
-        details: error.message,
-        hint: error.hint,
-        code: error.code
-      });
+      return sendAuthError(res, 'Failed to create assignment', 500, error.message);
     }
 
     // Trigger consultant assignment notification for individual assignments
@@ -406,14 +361,15 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: str
       }
     }
 
-    return res.status(201).json({ assignment: newAssignment });
-  } catch (error) {
+    return sendApiResponse(res, { assignment: newAssignment }, 201);
+  } catch (error: any) {
     console.error('Create assignment error:', error);
-    return res.status(500).json({ error: 'Failed to create assignment' });
+    return sendAuthError(res, 'Failed to create assignment', 500);
   }
 }
 
 async function handlePut(req: NextApiRequest, res: NextApiResponse) {
+  const supabase = createServiceRoleClient();
   const {
     id,
     assignment_type,
@@ -430,7 +386,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
   } = req.body;
 
   if (!id) {
-    return res.status(400).json({ error: 'Assignment ID is required' });
+    return sendAuthError(res, 'Assignment ID is required', 400);
   }
 
   try {
@@ -442,7 +398,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
       .single();
 
     if (!existingAssignment) {
-      return res.status(404).json({ error: 'Assignment not found' });
+      return sendAuthError(res, 'Assignment not found', 404);
     }
 
     // Build update object with only provided fields
@@ -473,10 +429,10 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
 
     if (error) {
       console.error('Database error:', error);
-      return res.status(500).json({ error: 'Failed to update assignment' });
+      return sendAuthError(res, 'Failed to update assignment', 500);
     }
 
-    return res.status(200).json({ assignment: updatedAssignment });
+    return sendApiResponse(res, { assignment: updatedAssignment });
   } catch (error) {
     console.error('Update assignment error:', error);
     return res.status(500).json({ error: 'Failed to update assignment' });
@@ -484,10 +440,11 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
 }
 
 async function handleDelete(req: NextApiRequest, res: NextApiResponse) {
+  const supabase = createServiceRoleClient();
   const { id } = req.query;
 
   if (!id) {
-    return res.status(400).json({ error: 'Assignment ID is required' });
+    return sendAuthError(res, 'Assignment ID is required', 400);
   }
 
   try {
@@ -499,7 +456,7 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse) {
       .single();
 
     if (!existingAssignment) {
-      return res.status(404).json({ error: 'Assignment not found' });
+      return sendAuthError(res, 'Assignment not found', 404);
     }
 
     // Soft delete by setting is_active to false
@@ -513,12 +470,12 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse) {
 
     if (error) {
       console.error('Database error:', error);
-      return res.status(500).json({ error: 'Failed to delete assignment' });
+      return sendAuthError(res, 'Failed to delete assignment', 500);
     }
 
-    return res.status(200).json({ message: 'Assignment deleted successfully' });
+    return sendApiResponse(res, { message: 'Assignment deleted successfully' });
   } catch (error) {
     console.error('Delete assignment error:', error);
-    return res.status(500).json({ error: 'Failed to delete assignment' });
+    return sendAuthError(res, 'Failed to delete assignment', 500);
   }
 }

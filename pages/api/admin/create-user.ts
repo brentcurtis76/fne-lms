@@ -73,75 +73,117 @@ export default async function handler(
     }
 
     if (newUser.user) {
-      // Check if profile already exists
-      const { data: existingProfile } = await supabaseAdmin
-        .from('profiles')
-        .select('id')
-        .eq('id', newUser.user.id)
-        .single();
-
-      if (!existingProfile) {
-        // Create profile (without role - that goes in user_roles table)
-        const { error: profileError } = await supabaseAdmin
+      // CRITICAL: Ensure data integrity between auth.users and profiles
+      // If ANY step fails, we must roll back to prevent orphaned records
+      
+      let profileCreated = false;
+      let roleCreated = false;
+      
+      try {
+        // Check if profile already exists
+        const { data: existingProfile } = await supabaseAdmin
           .from('profiles')
+          .select('id')
+          .eq('id', newUser.user.id)
+          .single();
+
+        if (!existingProfile) {
+          // Create profile (without role - that goes in user_roles table)
+          const { error: profileError } = await supabaseAdmin
+            .from('profiles')
+            .insert({
+              id: newUser.user.id,
+              email: email,
+              name: firstName && lastName ? `${firstName} ${lastName}` : null,
+              first_name: firstName,
+              last_name: lastName,
+              approval_status: 'approved', // Admin-created users are auto-approved
+              must_change_password: true // Flag to force password change on first login
+            });
+
+          if (profileError) {
+            throw profileError;
+          }
+          profileCreated = true;
+        } else {
+          // Update existing profile (without role - that goes in user_roles table)
+          const { error: updateError } = await supabaseAdmin
+            .from('profiles')
+            .update({
+              name: firstName && lastName ? `${firstName} ${lastName}` : null,
+              first_name: firstName,
+              last_name: lastName,
+              approval_status: 'approved',
+              must_change_password: true // Flag to force password change on first login
+            })
+            .eq('id', newUser.user.id);
+
+          if (updateError) throw updateError;
+        }
+
+        // Now create the user role in the user_roles table
+        const { error: roleError } = await supabaseAdmin
+          .from('user_roles')
           .insert({
-            id: newUser.user.id,
-            email: email,
-            name: firstName && lastName ? `${firstName} ${lastName}` : null,
-            first_name: firstName,
-            last_name: lastName,
-            approval_status: 'approved', // Admin-created users are auto-approved
-            must_change_password: true // Flag to force password change on first login
+            user_id: newUser.user.id,
+            role_type: role || 'docente',
+            is_active: true,
+            created_at: new Date().toISOString(),
+            assigned_by: user.id // The admin who created this user
           });
 
-        if (profileError) {
-          // If profile creation fails, delete the auth user
-          await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
-          throw profileError;
+        if (roleError) {
+          console.error('Error creating user role:', roleError);
+          // Don't fail the whole operation if role creation fails
+          // The user can be assigned a role later
+        } else {
+          roleCreated = true;
         }
-      } else {
-        // Update existing profile (without role - that goes in user_roles table)
-        const { error: updateError } = await supabaseAdmin
-          .from('profiles')
-          .update({
-            name: firstName && lastName ? `${firstName} ${lastName}` : null,
-            first_name: firstName,
-            last_name: lastName,
-            approval_status: 'approved',
-            must_change_password: true // Flag to force password change on first login
-          })
-          .eq('id', newUser.user.id);
 
-        if (updateError) throw updateError;
-      }
-
-      // Now create the user role in the user_roles table
-      const { error: roleError } = await supabaseAdmin
-        .from('user_roles')
-        .insert({
-          user_id: newUser.user.id,
-          role_type: role || 'docente',
-          is_active: true,
-          created_at: new Date().toISOString(),
-          assigned_by: user.id // The admin who created this user
+        return res.status(200).json({
+          success: true,
+          user: {
+            id: newUser.user.id,
+            email: newUser.user.email,
+            firstName,
+            lastName,
+            role: role || 'docente'
+          }
         });
-
-      if (roleError) {
-        console.error('Error creating user role:', roleError);
-        // Don't fail the whole operation if role creation fails
-        // The user can be assigned a role later
-      }
-
-      return res.status(200).json({
-        success: true,
-        user: {
-          id: newUser.user.id,
-          email: newUser.user.email,
-          firstName,
-          lastName,
-          role: role || 'docente'
+        
+      } catch (error: any) {
+        // ROLLBACK: Clean up any partial data to maintain integrity
+        console.error('Error during user creation, rolling back:', error);
+        
+        try {
+          // Always try to delete the auth user if something went wrong
+          await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+          console.log('Rolled back auth user creation');
+          
+          // If we created a profile, try to delete it too (belt and suspenders)
+          if (profileCreated) {
+            await supabaseAdmin
+              .from('profiles')
+              .delete()
+              .eq('id', newUser.user.id);
+            console.log('Rolled back profile creation');
+          }
+          
+          // If we created a role, delete it
+          if (roleCreated) {
+            await supabaseAdmin
+              .from('user_roles')
+              .delete()
+              .eq('user_id', newUser.user.id);
+            console.log('Rolled back role creation');
+          }
+        } catch (rollbackError) {
+          console.error('Error during rollback:', rollbackError);
+          // Log but don't throw - we want to return the original error
         }
-      });
+        
+        throw error;
+      }
     }
 
     return res.status(500).json({ error: 'Failed to create user' });

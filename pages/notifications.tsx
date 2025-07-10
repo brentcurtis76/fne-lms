@@ -30,6 +30,7 @@ import { toast } from 'react-hot-toast';
 import { checkUserAccess, getAlternativeUrl } from '../utils/notificationPermissions';
 import { UserNotification } from './api/notifications/index';
 import NotificationDeleteModal from '../components/notifications/NotificationDeleteModal';
+import { getUserPrimaryRole } from '../utils/roleUtils';
 
 interface NotificationFilters {
   search: string;
@@ -137,7 +138,7 @@ export default function NotificationsPage() {
       );
     }
     if (filters.category !== 'all') {
-        tempNotifications = tempNotifications.filter(n => n.notification_type.category === filters.category);
+        tempNotifications = tempNotifications.filter(n => n.notification_type?.category === filters.category);
     }
     if (filters.status !== 'all') {
       tempNotifications = tempNotifications.filter(n => filters.status === 'read' ? n.is_read : !n.is_read);
@@ -252,15 +253,11 @@ export default function NotificationsPage() {
       if (hasAccess) {
         router.push(notification.related_url);
       } else {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
+        const userRole = await getUserPrimaryRole(session.user.id);
 
         const alternativeUrl = getAlternativeUrl(
           notification.related_url,
-          profile?.role || 'docente',
+          userRole || 'docente',
           notification.notification_type?.name
         );
 
@@ -564,7 +561,7 @@ export default function NotificationsPage() {
                                         : 'bg-[#fdb933]/20 text-[#00365b]'
                                       }
                                     `}>
-                                      {getCategoryName(notification.notification_type.category)}
+                                      {getCategoryName(notification.notification_type?.category || '')}
                                     </span>
                                   )}
                                 </div>

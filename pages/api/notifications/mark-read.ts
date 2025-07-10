@@ -29,10 +29,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { error } = await supabase
         .from('user_notifications')
         .update({ 
+          is_read: true,
           read_at: new Date().toISOString() 
         })
         .eq('user_id', user.id)
-        .is('read_at', null);
+        .eq('is_read', false);
 
       if (error) {
         console.error('Error marking all as read:', error);
@@ -51,6 +52,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { error } = await supabase
         .from('user_notifications')
         .update({ 
+          is_read: true,
           read_at: new Date().toISOString() 
         })
         .eq('id', notificationId)

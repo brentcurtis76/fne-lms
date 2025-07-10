@@ -88,7 +88,7 @@ export default async function handler(
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Build the query
+    // Build the query - use left join instead of inner join to include notifications with NULL/invalid types
     let query = supabaseAdmin
       .from('user_notifications')
       .select(`
@@ -101,7 +101,7 @@ export default async function handler(
         is_read,
         created_at,
         read_at,
-        notification_types!inner (
+        notification_types!left (
           id,
           name,
           category
@@ -116,7 +116,9 @@ export default async function handler(
     }
 
     if (type_category) {
-      query = query.eq('notification_types.category', type_category);
+      // For filtering by category, we need to check if notification_types exists
+      query = query.not('notification_types', 'is', null)
+        .eq('notification_types.category', type_category);
     }
 
     // Get total count for pagination

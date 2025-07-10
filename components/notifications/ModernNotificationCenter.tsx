@@ -66,11 +66,10 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
           id,
           title,
           description,
-          category,
-          importance,
-          read_at,
+          is_read,
           related_url,
-          created_at
+          created_at,
+          notification_type_id
         `)
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
@@ -88,7 +87,7 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
         .from('user_notifications')
         .select('*', { count: 'exact', head: true })
         .eq('user_id', session.user.id)
-        .is('read_at', null);
+        .eq('is_read', false);
 
       if (countError) {
         console.error('Error counting unread notifications:', countError);
@@ -99,8 +98,8 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
         id: item.id,
         title: item.title,
         description: item.description || '',
-        category: item.category || 'system',
-        is_read: item.read_at !== null,
+        category: getCategoryFromType(item.notification_type_id),
+        is_read: item.is_read || false,
         created_at: item.created_at,
         related_url: item.related_url
       }));
@@ -166,6 +165,60 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
     return () => clearInterval(interval);
   }, [supabase]);
 
+  // Helper function to map notification type to category
+  const getCategoryFromType = (typeId: string | null): string => {
+    if (!typeId) return 'system';
+    
+    // Map actual notification_type_id values to categories
+    const typeMapping: Record<string, string> = {
+      // Admin category
+      'user_approved': 'admin',
+      'consultant_assigned': 'admin',
+      'role_assigned': 'admin',
+      
+      // Assignments category
+      'assignment_assigned': 'assignments',
+      'assignment_graded': 'assignments',
+      'assignment_due': 'assignments',
+      'assignment_created': 'assignments',
+      'group_assignment': 'assignments',
+      'quiz': 'assignments',
+      
+      // Courses category
+      'course_assigned': 'courses',
+      'course_completed': 'courses',
+      'lesson_available': 'courses',
+      
+      // Messaging category
+      'feedback_received': 'messaging',
+      'message_received': 'messaging',
+      'message_mentioned': 'messaging',
+      
+      // System category
+      'account_security': 'system',
+      'system_update': 'system',
+      'system_maintenance': 'system',
+      
+      // Workspace category
+      'document_shared': 'workspace',
+      'meeting_scheduled': 'workspace',
+      'mention_received': 'workspace',
+      
+      // Social category
+      'post_mentioned': 'social',
+      
+      // Legacy simple types
+      'assignment': 'assignments',
+      'course': 'courses',
+      'message': 'messaging',
+      'feedback': 'messaging',
+      'system': 'system',
+      'general': 'system'
+    };
+    
+    return typeMapping[typeId] || 'system';
+  };
+
   // Get category icon and color
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -179,6 +232,10 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
         return { Icon: ChatAlt2Icon, color: 'text-purple-500', bg: 'bg-purple-50' };
       case 'system':
         return { Icon: CogIcon, color: 'text-gray-500', bg: 'bg-gray-50' };
+      case 'workspace':
+        return { Icon: UserGroupIcon, color: 'text-indigo-500', bg: 'bg-indigo-50' };
+      case 'social':
+        return { Icon: DocumentIcon, color: 'text-pink-500', bg: 'bg-pink-50' };
       default:
         return { Icon: DocumentIcon, color: 'text-gray-500', bg: 'bg-gray-50' };
     }

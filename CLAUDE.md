@@ -476,6 +476,17 @@ export function parseBulkUserData(
   - Created `authenticated_users_read_schools` policy to allow all authenticated users to view schools
   - Verification confirmed: Jorge can now see all 12 schools including "Los Pellines"
   - Created comprehensive RLS troubleshooting documentation and tools
+- ✅ FIXED: Notifications not displaying due to NULL/invalid notification_type_id values (July 2025)
+  - Fixed 108 notifications with NULL type_id and 13 with invalid types
+  - Changed API from inner join to left join to include all notifications
+  - Updated frontend mapping to handle actual notification_type_id values
+  - Created migration scripts and comprehensive test suite
+- ✅ FIXED: Notifications page TypeError "Cannot read properties of undefined (reading 'user_id')" (July 2025)
+  - Added missing import for getUserPrimaryRole function
+  - Added null checks for notification_type property accesses
+  - Updated notificationPermissions.ts to use user_roles instead of legacy profiles.role
+  - All notification filtering and navigation now works correctly
+  - See `NOTIFICATION_FIXES_SUMMARY.md` for complete details
 
 # RLS TROUBLESHOOTING & DOCUMENTATION
 - **Comprehensive Guide**: See `RLS_TROUBLESHOOTING_GUIDE.md` for systematic approach to diagnosing and fixing RLS issues

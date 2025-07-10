@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase-wrapper';
+import { getUserPrimaryRole } from './roleUtils';
 
 /**
  * Check if a URL requires admin access
@@ -53,19 +54,13 @@ export const checkUserAccess = async (url: string, userId: string): Promise<bool
   try {
     if (!url || !userId) return false;
     
-    // Get user's role
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', userId)
-      .single();
+    // Get user's role using the new role system
+    const userRole = await getUserPrimaryRole(userId);
     
-    if (error || !profile) {
-      console.error('Error fetching user profile:', error);
+    if (!userRole) {
+      console.error('No role found for user:', userId);
       return false;
     }
-    
-    const userRole = profile.role;
     
     // Admin has access to everything
     if (userRole === 'admin') return true;

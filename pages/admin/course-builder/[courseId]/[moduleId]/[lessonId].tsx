@@ -1000,6 +1000,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                             onDelete={() => handleDeleteBlock(block.id)}
                             mode={collapsedBlocks.has(block.id) ? 'preview' : 'edit'}
                             courseId={courseId}
+                            onSave={handleSave}
                           />
                         )}
                       </div>

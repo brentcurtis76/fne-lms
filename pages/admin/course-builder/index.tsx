@@ -189,7 +189,9 @@ const CourseBuilder: React.FC = () => {
         return {
           ...course,
           instructor_name: instructorName,
-          thumbnail_url: (course.thumbnail_url && course.thumbnail_url !== 'default-thumbnail.png') ? course.thumbnail_url : null 
+          thumbnail_url: (course.thumbnail_url && 
+                         course.thumbnail_url !== 'default-thumbnail.png' && 
+                         course.thumbnail_url !== 'https://example.com/default-thumbnail.png') ? course.thumbnail_url : null 
         };
       }));
       

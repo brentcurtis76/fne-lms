@@ -11,6 +11,7 @@ interface BibliographyBlockEditorProps {
   onDelete: () => void;
   mode: 'edit' | 'preview';
   courseId: string;
+  onSave?: () => void;
 }
 
 export default function BibliographyBlockEditor({
@@ -18,7 +19,8 @@ export default function BibliographyBlockEditor({
   onChange,
   onDelete,
   mode,
-  courseId
+  courseId,
+  onSave
 }: BibliographyBlockEditorProps) {
   const supabase = useSupabaseClient();
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -118,11 +120,15 @@ export default function BibliographyBlockEditor({
 
       if (error) throw error;
 
-      const { data: { publicUrl } } = supabase.storage
+      const publicUrlData = supabase.storage
         .from('course-materials')
         .getPublicUrl(fileName);
 
-      updateItem(itemId, 'url', publicUrl);
+      if (!publicUrlData.data || !publicUrlData.data.publicUrl) {
+        throw new Error('Could not get public URL for uploaded file');
+      }
+
+      updateItem(itemId, 'url', publicUrlData.data.publicUrl);
       updateItem(itemId, 'title', file.name.replace(/\.[^/.]+$/, ''));
       
       // Show appropriate success message
@@ -130,6 +136,17 @@ export default function BibliographyBlockEditor({
         toast.success('PDF subido exitosamente');
       } else if (itemType === 'image') {
         toast.success('Imagen subida exitosamente');
+      }
+      
+      // Auto-save after successful upload to prevent data loss
+      if (onSave) {
+        setTimeout(() => {
+          onSave();
+          toast.success('Guardando cambios automáticamente...', {
+            duration: 2000,
+            icon: '💾'
+          });
+        }, 500); // Small delay to ensure state updates are processed
       }
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -417,14 +434,32 @@ export default function BibliographyBlockEditor({
                               />
                               <label
                                 htmlFor={`file-${item.id}`}
-                                className={`flex-1 px-3 py-2 border-2 border-dashed border-gray-300 rounded-md text-center cursor-pointer hover:border-[#00365b] ${
-                                  uploadingFile ? 'opacity-50 cursor-not-allowed' : ''
+                                className={`flex-1 px-3 py-2 border-2 border-dashed rounded-md text-center cursor-pointer transition-all ${
+                                  uploadingFile 
+                                    ? 'border-amber-400 bg-amber-50 cursor-not-allowed' 
+                                    : 'border-gray-300 hover:border-[#00365b] hover:bg-blue-50'
                                 }`}
                               >
-                                <Upload className="w-5 h-5 mx-auto mb-1 text-gray-400" />
-                                <span className="text-sm text-gray-600">
-                                  {uploadingFile ? 'Subiendo...' : item.type === 'pdf' ? 'Seleccionar PDF' : 'Seleccionar Imagen'}
-                                </span>
+                                {uploadingFile ? (
+                                  <>
+                                    <div className="animate-spin w-5 h-5 mx-auto mb-1 text-amber-600">
+                                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                      </svg>
+                                    </div>
+                                    <span className="text-sm text-amber-600 font-medium">
+                                      Subiendo archivo...
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="w-5 h-5 mx-auto mb-1 text-gray-400" />
+                                    <span className="text-sm text-gray-600">
+                                      {item.type === 'pdf' ? 'Seleccionar PDF' : 'Seleccionar Imagen'}
+                                    </span>
+                                  </>
+                                )}
                               </label>
                             </div>
                           )}
@@ -515,12 +550,21 @@ export default function BibliographyBlockEditor({
 
         {/* Save Info */}
         {hasUnsavedChanges && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <div className="bg-amber-50 border-2 border-amber-300 rounded-lg p-4 shadow-sm">
             <div className="flex items-center">
-              <BookOpen className="h-4 w-4 text-yellow-600 mr-2 flex-shrink-0" />
-              <p className="text-sm text-yellow-800">
-                Los cambios se guardarán automáticamente al hacer clic en "Guardar Bibliografía" o al guardar la lección completa.
-              </p>
+              <div className="flex-shrink-0 mr-3">
+                <svg className="h-5 w-5 text-amber-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-amber-800">
+                  ⚠️ Tienes cambios sin guardar
+                </p>
+                <p className="text-xs text-amber-700 mt-1">
+                  Los archivos subidos se guardarán automáticamente. Para otros cambios, haz clic en "Guardar Bibliografía".
+                </p>
+              </div>
             </div>
           </div>
         )}

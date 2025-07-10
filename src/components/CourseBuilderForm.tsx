@@ -71,7 +71,7 @@ const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
         description,
         instructor_id: selectedInstructorId,
         created_by: createdBy,
-        thumbnail_url: 'https://example.com/default-thumbnail.png',
+        thumbnail_url: null, // Set to null instead of placeholder URL
         status: 'draft',
       },
     ]);

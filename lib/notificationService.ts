@@ -175,13 +175,22 @@ class NotificationService {
 
       switch (eventType) {
         case 'assignment_created':
-          // Recipients are assigned users
+          // Recipients are assigned users (for student assignments)
           if (eventData.assigned_users && Array.isArray(eventData.assigned_users)) {
             for (const userId of eventData.assigned_users) {
               recipients.push({ id: userId });
             }
           } else if (eventData.student_id) {
             recipients.push({ id: eventData.student_id });
+          }
+          break;
+
+        case 'course_assigned':
+          // Recipients are assigned teachers
+          if (eventData.assigned_users && Array.isArray(eventData.assigned_users)) {
+            for (const userId of eventData.assigned_users) {
+              recipients.push({ id: userId });
+            }
           }
           break;
 

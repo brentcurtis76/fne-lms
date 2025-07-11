@@ -73,7 +73,7 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
         `)
         .eq('user_id', session.user.id)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);  // Increased from 10 to show more notifications
 
       if (notifError) {
         console.error('Error fetching notifications:', notifError);

@@ -181,8 +181,29 @@ export default function BibliographyBlockEditor({
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('El archivo no debe superar los 10MB');
+    // More robust file size check with better error message
+    const maxSizeMB = 10;
+    const fileSizeMB = file.size / (1024 * 1024);
+    
+    console.log('📏 File size check:', {
+      fileName: file.name,
+      fileSizeBytes: file.size,
+      fileSizeMB: fileSizeMB.toFixed(2),
+      maxSizeMB,
+      willBlock: fileSizeMB > maxSizeMB
+    });
+    
+    if (fileSizeMB > maxSizeMB) {
+      toast.error(`El archivo es demasiado grande: ${fileSizeMB.toFixed(2)} MB. El tamaño máximo permitido es ${maxSizeMB} MB.`, {
+        duration: 6000,
+        style: {
+          background: '#FEE2E2',
+          color: '#991B1B',
+          fontWeight: 'bold'
+        }
+      });
+      // Reset the file input
+      event.target.value = '';
       return;
     }
 
@@ -199,7 +220,25 @@ export default function BibliographyBlockEditor({
         .from('course-materials')
         .upload(fileName, file);
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Supabase upload error:', error);
+        
+        // Provide specific error messages
+        if (error.message?.includes('size') || error.message?.includes('large')) {
+          toast.error(`Error: El archivo es demasiado grande para el servidor. Tamaño: ${fileSizeMB.toFixed(2)} MB`, {
+            duration: 6000
+          });
+        } else if (error.message?.includes('type') || error.message?.includes('format')) {
+          toast.error('Error: Formato de archivo no permitido', {
+            duration: 5000
+          });
+        } else {
+          toast.error(`Error al subir archivo: ${error.message}`, {
+            duration: 5000
+          });
+        }
+        throw error;
+      }
 
       const publicUrlData = supabase.storage
         .from('course-materials')
@@ -579,8 +618,19 @@ export default function BibliographyBlockEditor({
                                       <p className="text-sm font-medium text-gray-900 truncate">
                                         {item.filename || item.url.split('/').pop() || 'Archivo cargado'}
                                       </p>
-                                      <p className="text-xs text-gray-500 mt-1">
-                                        {item.filesize ? `${(item.filesize / 1024 / 1024).toFixed(2)} MB` : 'Tamaño desconocido'}
+                                      <p className={`text-xs mt-1 ${
+                                        item.filesize && item.filesize > 10 * 1024 * 1024 
+                                          ? 'text-red-600 font-semibold' 
+                                          : 'text-gray-500'
+                                      }`}>
+                                        {item.filesize ? (
+                                          <>
+                                            {(item.filesize / 1024 / 1024).toFixed(2)} MB
+                                            {item.filesize > 10 * 1024 * 1024 && (
+                                              <span className="ml-1">⚠️ ARCHIVO MUY GRANDE</span>
+                                            )}
+                                          </>
+                                        ) : 'Tamaño desconocido'}
                                       </p>
                                       <a 
                                         href={item.url} 

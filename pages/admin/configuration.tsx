@@ -81,24 +81,22 @@ export default function Configuration() {
       const adminFromMetadata = userData?.user?.user_metadata?.role === 'admin';
       
       // Check user_roles table for admin role
-      const { data: userRoleData } = await supabase
+      const { data: userRoles } = await supabase
         .from('user_roles')
         .select('role_type')
         .eq('user_id', session.user.id)
-        .eq('role_type', 'admin')
-        .eq('is_active', true)
-        .single();
+        .eq('is_active', true);
         
-      if (!userRoleData && !adminFromMetadata) {
+      const hasAdminRoleInDB = userRoles?.some(role => role.role_type === 'admin') || false;
+      
+      if (!hasAdminRoleInDB && !adminFromMetadata) {
         console.error('User is not an admin');
         router.push('/dashboard');
         return;
       }
-        
-      const adminFromRoles = userRoleData?.role_type === 'admin';
       
       // User is admin if either metadata or user_roles indicates admin
-      const isAdminUser = adminFromMetadata || adminFromRoles;
+      const isAdminUser = adminFromMetadata || hasAdminRoleInDB;
       
       // Allow all authenticated users to access configuration for preferences tab
       // Only restrict admin-only tabs

@@ -322,26 +322,44 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
         });
 
         if (!saveError) {
-          // CRITICAL FIX: Don't overwrite local state with database response
-          // The database might not return all fields (like filename/filesize)
-          // Instead, merge the database IDs with our local state
+          // CRITICAL FIX: Preserve local state completely
+          // The database response might not include all JSONB fields
           const mergedBlocks = blocks.map((localBlock, index) => {
             const savedBlock = newBlocks[index];
+            
+            // Log what we're dealing with
+            if (localBlock.type === 'bibliography') {
+              console.log('🔄 Merging bibliography block:', {
+                localId: localBlock.id,
+                savedId: savedBlock?.id,
+                localPayload: JSON.stringify(localBlock.payload, null, 2),
+                savedPayload: savedBlock ? JSON.stringify(savedBlock.payload, null, 2) : 'N/A'
+              });
+            }
+            
             if (savedBlock && localBlock.id.startsWith('new-')) {
               // For new blocks, use the database ID but keep our local payload
-              console.log('🔄 Merging new block with database ID:', {
-                oldId: localBlock.id,
-                newId: savedBlock.id,
-                type: localBlock.type
-              });
               return {
                 ...localBlock,
-                id: savedBlock.id
+                id: savedBlock.id,
+                // Ensure we keep the local payload with all fields
+                payload: localBlock.payload
               };
             }
-            // For existing blocks, keep our local state
+            
+            // For existing blocks, ALWAYS keep our local state
+            // The database might not return all JSONB subfields
             return localBlock;
           });
+          
+          console.log('✅ Blocks merged after save, bibliography blocks:', 
+            mergedBlocks
+              .filter(b => b.type === 'bibliography')
+              .map(b => ({
+                id: b.id,
+                itemsWithFiles: b.payload.items?.filter(i => i.filename).length || 0
+              }))
+          );
           
           setBlocks(mergedBlocks);
           

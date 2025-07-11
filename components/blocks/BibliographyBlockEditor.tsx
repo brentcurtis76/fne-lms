@@ -286,9 +286,13 @@ export default function BibliographyBlockEditor({
       
       // DISABLED AUTO-SAVE FOR TESTING
       console.log('⚠️ AUTO-SAVE DISABLED - Manual save required');
-      toast.warning('Archivo subido. Haz clic en "Guardar Cambios" para guardar.', {
+      toast('Archivo subido. Haz clic en "Guardar Cambios" para guardar.', {
         duration: 5000,
-        icon: '⚠️'
+        icon: '⚠️',
+        style: {
+          background: '#FEF3C7',
+          color: '#92400E'
+        }
       });
       
       // Show appropriate success message

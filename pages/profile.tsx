@@ -269,14 +269,9 @@ export default function ProfilePage() {
           });
       }
       
-      // Also update user metadata with role if not already set
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData.user && !userData.user.user_metadata?.role) {
-        console.log('Setting user metadata role to docente');
-        await supabase.auth.updateUser({
-          data: { role: 'docente' }
-        });
-      }
+      // REMOVED: Do not update user metadata with role
+      // This triggers Supabase sync that tries to write to non-existent profiles.role column
+      // Roles are now managed exclusively through user_roles table
       
       // Execute the update or insert
       const { error: updateError } = await updateMethod;

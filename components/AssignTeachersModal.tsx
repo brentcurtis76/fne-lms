@@ -40,14 +40,34 @@ export default function AssignTeachersModal({ isOpen, onClose, courseId, courseT
 
   const fetchTeachers = async () => {
     try {
-      const { data, error } = await supabase
+      // First get profiles
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, email, first_name, last_name, school, approval_status, role')
+        .select('id, email, first_name, last_name, school, approval_status')
         .eq('approval_status', 'approved')
         .order('first_name');
 
-      if (error) throw error;
-      setTeachers(data || []);
+      if (profilesError) throw profilesError;
+
+      // Then get roles for these users
+      const userIds = profilesData?.map(p => p.id) || [];
+      const { data: rolesData, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role_type')
+        .in('user_id', userIds);
+
+      if (rolesError) {
+        console.error('Error fetching roles:', rolesError);
+      }
+
+      // Merge role data into profiles
+      const rolesMap = new Map(rolesData?.map(r => [r.user_id, r.role_type]) || []);
+      const teachersWithRoles = profilesData?.map(profile => ({
+        ...profile,
+        role: rolesMap.get(profile.id) || 'docente'
+      })) || [];
+
+      setTeachers(teachersWithRoles);
     } catch (error) {
       console.error('Error fetching teachers:', error);
       toast.error('Error al cargar usuarios');

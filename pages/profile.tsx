@@ -291,15 +291,34 @@ export default function ProfilePage() {
         // If no role exists, create one
         if (!userRole && !roleCheckError) {
           console.log('No role found for user, creating docente role');
+          
+          // Get school_id from schools table (required for docente role)
+          let schoolId = null;
+          if (school) {
+            const { data: schoolData } = await supabase
+              .from('schools')
+              .select('id')
+              .eq('name', school)
+              .single();
+            
+            if (schoolData) {
+              schoolId = schoolData.id;
+            }
+          }
+          
           const { error: roleInsertError } = await supabase
             .from('user_roles')
             .insert({
               user_id: user.id,
-              role_type: 'docente'
+              role_type: 'docente',
+              school_id: schoolId, // Required for docente role by constraint
+              is_active: true
             });
           
           if (roleInsertError) {
             console.error('Error creating user role:', roleInsertError);
+          } else {
+            console.log('User role created successfully with school_id:', schoolId);
           }
         }
         // Update avatar cache with new URL

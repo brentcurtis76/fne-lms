@@ -102,11 +102,7 @@ export default function ProfilePage() {
         // Check if this is a new user (profile exists but no first name = incomplete)
         setIsNewUser(!profileData.first_name);
         
-        // If we still don't have admin status, check profile role as fallback
-        if (!isAdmin && profileData.role === 'admin') {
-          console.log('Is admin from profile data:', true);
-          setIsAdmin(true);
-        }
+        // REMOVED: profile.role check - roles are now in user_roles table
       } else {
         // No profile data means this is definitely a new user
         setIsNewUser(true);
@@ -250,9 +246,8 @@ export default function ProfilePage() {
             description,
             school,
             avatar_url,
-            growth_community: profile?.growth_community || null,
-            // Assign docente role if no role is currently set
-            role: existingProfile.role || 'docente'
+            growth_community: profile?.growth_community || null
+            // REMOVED: role field no longer exists in profiles table
           })
           .eq('id', user.id);
       } else {
@@ -269,7 +264,7 @@ export default function ProfilePage() {
             school,
             avatar_url,
             growth_community: profile?.growth_community || null,
-            role: 'docente',
+            // REMOVED: role field no longer exists in profiles table
             approval_status: 'pending'
           });
       }
@@ -291,6 +286,27 @@ export default function ProfilePage() {
         console.error('Profile update failed:', updateError);
         toastError(TOAST_MESSAGES.USER.PROFILE_ERROR + ': ' + updateError.message);
       } else {
+        // Check if user has a role in user_roles table
+        const { data: userRole, error: roleCheckError } = await supabase
+          .from('user_roles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        // If no role exists, create one
+        if (!userRole && !roleCheckError) {
+          console.log('No role found for user, creating docente role');
+          const { error: roleInsertError } = await supabase
+            .from('user_roles')
+            .insert({
+              user_id: user.id,
+              role_type: 'docente'
+            });
+          
+          if (roleInsertError) {
+            console.error('Error creating user role:', roleInsertError);
+          }
+        }
         // Update avatar cache with new URL
         if (avatar_url && user) {
           updateAvatarCache(user.id, avatar_url);

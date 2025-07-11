@@ -275,7 +275,7 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
       try {
         const { error } = await supabase
           .from('user_notifications')
-          .update({ read_at: new Date().toISOString() })
+          .update({ is_read: true })
           .eq('id', notification.id);
 
         if (error) {
@@ -321,9 +321,9 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
       // Mark all unread notifications as read
       const { error } = await supabase
         .from('user_notifications')
-        .update({ read_at: new Date().toISOString() })
+        .update({ is_read: true })
         .eq('user_id', session.user.id)
-        .is('read_at', null);
+        .eq('is_read', false);
 
       if (error) {
         throw error;

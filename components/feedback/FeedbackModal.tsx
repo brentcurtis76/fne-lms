@@ -153,13 +153,13 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
 
       // Notify admins about new feedback
       try {
-        // Get all admin users
-        const { data: admins } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('role', 'admin');
+        // Get all admin users from user_roles table
+        const { data: adminRoles } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('role_type', 'admin');
 
-        if (admins && admins.length > 0) {
+        if (adminRoles && adminRoles.length > 0) {
           // Send notification via API route (server-side)
           const response = await fetch('/api/feedback/notify-admins', {
             method: 'POST',
@@ -174,7 +174,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                 user_email: profile?.email || user.email,
                 description: description.trim().substring(0, 100) + (description.length > 100 ? '...' : ''),
                 page_url: window.location.href,
-                assigned_users: admins.map(admin => admin.id)
+                assigned_users: adminRoles.map(admin => admin.user_id)
               }
             })
           });

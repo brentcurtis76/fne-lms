@@ -918,6 +918,34 @@ export default function StudentBlockRenderer({
                           </p>
                         )}
                         
+                        {/* File information for PDFs and documents */}
+                        {item.type !== 'link' && item.url && (
+                          <div className="mt-2">
+                            <span className="text-xs text-gray-500">
+                              📎 {(() => {
+                                // Use filename if available, otherwise extract from URL
+                                if (item.filename) {
+                                  return item.filename;
+                                }
+                                // Extract filename from URL for legacy files
+                                try {
+                                  const urlParts = item.url.split('/');
+                                  const lastPart = urlParts[urlParts.length - 1];
+                                  const filename = lastPart.split('?')[0]; // Remove query params
+                                  // Decode and clean up filename
+                                  const decodedName = decodeURIComponent(filename);
+                                  // Remove timestamp prefix if present (e.g., "1234567890_filename.pdf")
+                                  const cleanName = decodedName.replace(/^\d+_/, '');
+                                  return cleanName || 'Archivo cargado';
+                                } catch {
+                                  return 'Archivo cargado';
+                                }
+                              })()}
+                              {item.filesize && ` • ${(item.filesize / 1024 / 1024).toFixed(2)} MB`}
+                            </span>
+                          </div>
+                        )}
+                        
                         {item.type === 'image' && item.url && (
                           <div className="mt-3">
                             <img 

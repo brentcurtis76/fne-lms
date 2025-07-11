@@ -30,14 +30,47 @@ export default function BibliographyBlockEditor({
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
   const handleChange = (field: keyof BibliographyBlock['payload'], value: any) => {
-    onChange({
+    console.log('📝 BibliographyBlockEditor handleChange called:', {
+      field,
+      value: field === 'items' ? JSON.stringify(value, null, 2) : value,
+      timestamp: new Date().toISOString()
+    });
+    
+    const newPayload = {
       ...block.payload,
       [field]: value
-    });
+    };
+    
+    console.log('📤 Calling onChange with payload:', JSON.stringify(newPayload, null, 2));
+    
+    onChange(newPayload);
     setHasUnsavedChanges(true);
   };
 
   const handleSave = () => {
+    // Validate that PDF/image items have files uploaded
+    const invalidItems = block.payload.items.filter(item => {
+      if (item.type === 'pdf' || item.type === 'image') {
+        return !item.url || item.url.trim() === '';
+      }
+      return false;
+    });
+    
+    if (invalidItems.length > 0) {
+      toast.error(`Hay ${invalidItems.length} ${invalidItems.length === 1 ? 'elemento' : 'elementos'} sin archivo cargado. Por favor, sube los archivos o elimina los elementos vacíos.`, {
+        duration: 5000,
+        icon: '⚠️'
+      });
+      
+      // Expand all invalid items so user can see them
+      const newExpanded = new Set(expandedItems);
+      invalidItems.forEach(item => newExpanded.add(item.id));
+      setExpandedItems(newExpanded);
+      
+      return;
+    }
+    
+    console.log('✅ All bibliography items validated, saving...');
     setHasUnsavedChanges(false);
   };
 
@@ -66,9 +99,23 @@ export default function BibliographyBlockEditor({
   };
 
   const updateItem = (itemId: string, field: keyof BibliographyItem, value: any) => {
-    const updatedItems = block.payload.items.map(item =>
-      item.id === itemId ? { ...item, [field]: value } : item
-    );
+    console.log('🔄 updateItem called:', {
+      itemId,
+      field,
+      value: field === 'url' ? value?.substring(0, 50) + '...' : value,
+      timestamp: new Date().toISOString()
+    });
+    
+    const updatedItems = block.payload.items.map(item => {
+      if (item.id === itemId) {
+        const updatedItem = { ...item, [field]: value };
+        console.log('📦 Updated item:', JSON.stringify(updatedItem, null, 2));
+        return updatedItem;
+      }
+      return item;
+    });
+    
+    console.log('📋 All items after update:', JSON.stringify(updatedItems, null, 2));
     handleChange('items', updatedItems);
   };
 
@@ -135,6 +182,13 @@ export default function BibliographyBlockEditor({
         throw new Error('Could not get public URL for uploaded file');
       }
 
+      console.log('✅ File upload successful, updating item fields:', {
+        itemId,
+        url: publicUrlData.data.publicUrl,
+        filename: file.name,
+        filesize: file.size
+      });
+      
       updateItem(itemId, 'url', publicUrlData.data.publicUrl);
       updateItem(itemId, 'filename', file.name);
       updateItem(itemId, 'filesize', file.size);
@@ -154,13 +208,17 @@ export default function BibliographyBlockEditor({
       
       // Auto-save after successful upload to prevent data loss
       if (onSave) {
+        console.log('🚀 Auto-save triggered after file upload');
         setTimeout(() => {
+          console.log('💾 Calling onSave callback');
           onSave();
           toast.success('Guardando cambios automáticamente...', {
             duration: 2000,
             icon: '💾'
           });
         }, 500); // Small delay to ensure state updates are processed
+      } else {
+        console.warn('⚠️ No onSave callback provided - file data might not persist!');
       }
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -359,6 +417,13 @@ export default function BibliographyBlockEditor({
                           <span className="text-xs text-gray-500">
                             📎 {item.filename}
                             {item.filesize && ` • ${(item.filesize / 1024 / 1024).toFixed(2)} MB`}
+                          </span>
+                        </div>
+                      )}
+                      {!item.url && item.type !== 'link' && (
+                        <div className="mt-1">
+                          <span className="text-xs text-red-500 font-medium">
+                            ⚠️ Sin archivo cargado
                           </span>
                         </div>
                       )}

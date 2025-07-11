@@ -243,6 +243,15 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
           };
         }
         
+        // Log bibliography blocks specifically
+        if (block.type === 'bibliography') {
+          console.log('💾 Saving bibliography block:', {
+            blockId: block.id,
+            payload: JSON.stringify(payload, null, 2),
+            timestamp: new Date().toISOString()
+          });
+        }
+        
         const blockDataToSave = {
           ...cleanBlock,
           course_id: courseId,
@@ -992,6 +1001,11 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                           <BibliographyBlockEditor
                             block={block as BibliographyBlock}
                             onChange={(payload) => {
+                              console.log('📚 Bibliography onChange in parent:', {
+                                blockId: block.id,
+                                payload: JSON.stringify(payload, null, 2),
+                                timestamp: new Date().toISOString()
+                              });
                               setBlocks(blocks.map(b => 
                                 b.id === block.id ? { ...b, payload } : b
                               ) as Block[]);

@@ -26,13 +26,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Check if user is admin
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    const { data: adminRole } = await supabase
+      .from('user_roles')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('role_type', 'admin')
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
 
-    if (profileError || profile?.role !== 'admin') {
+    if (!adminRole) {
       return res.status(403).json({ error: 'Forbidden: Admin access required' });
     }
 

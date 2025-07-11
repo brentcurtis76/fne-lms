@@ -43,14 +43,17 @@ export default async function handler(
       return res.status(401).json({ error: 'Invalid authorization token' });
     }
 
-    // Check if the user is an admin
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    // Check if the user is an admin using the new user_roles table
+    const { data: adminRole } = await supabaseAdmin
+      .from('user_roles')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('role_type', 'admin')
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
 
-    if (profileError || profile?.role !== 'admin') {
+    if (!adminRole) {
       return res.status(403).json({ error: 'Unauthorized. Only admins can retrieve passwords.' });
     }
 

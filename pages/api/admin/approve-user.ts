@@ -40,16 +40,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Check if user is admin by checking both metadata and profile
-    const { data: profileData } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    const { data: adminRole } = await supabaseAdmin
+      .from('user_roles')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('role_type', 'admin')
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
 
     const isAdminFromMetadata = user.user_metadata?.role === 'admin';
-    const isAdminFromProfile = profileData?.role === 'admin';
+    const isAdminFromProfile = adminRole !== null;
 
-    if (!isAdminFromMetadata && !isAdminFromProfile) {
+    if (!isAdminFromMetadata && !isAdminFromRoles) {
       return res.status(403).json({ error: 'Insufficient permissions. Admin access required.' });
     }
 

@@ -42,11 +42,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Check if user is admin
-    const { data: profileData } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    const { data: adminRole } = await supabaseAdmin
+      .from('user_roles')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('role_type', 'admin')
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
 
     if (profileData?.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required for system updates' });

@@ -59,7 +59,7 @@ export default async function handler(
       .eq('id', user.id)
       .single();
 
-    const isAdmin = profileData?.role === 'admin' || user.user_metadata?.role === 'admin';
+    const isAdmin = adminRole !== null || user.user_metadata?.role === 'admin';
     
     if (!isAdmin) {
       return res.status(403).json({

@@ -36,17 +36,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'Invalid authentication token' });
     }
 
-    // Check if user is admin
-    const { data: profileData } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    // Check if user is admin using the new user_roles table
+    const { data: adminRole } = await supabaseAdmin
+      .from('user_roles')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('role_type', 'admin')
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
 
     const isAdminFromMetadata = user.user_metadata?.role === 'admin';
-    const isAdminFromProfile = profileData?.role === 'admin';
+    const isAdminFromRoles = adminRole !== null;
 
-    if (!isAdminFromMetadata && !isAdminFromProfile) {
+    if (!isAdminFromMetadata && !isAdminFromRoles) {
       return res.status(403).json({ error: 'Insufficient permissions. Admin access required.' });
     }
 

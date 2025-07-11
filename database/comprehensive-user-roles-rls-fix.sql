@@ -72,10 +72,43 @@ $$;
 -- Grant execute permission
 GRANT EXECUTE ON FUNCTION public.auth_is_admin() TO authenticated;
 
--- Step 3: Refresh the materialized view to ensure it's current
+-- =================================================================
+-- Step 3: Create a trigger mechanism for automatic cache refresh
+-- =================================================================
+-- This is CRITICAL to prevent the cache from becoming stale.
+
+-- First, create the function that will be called by the triggers.
+CREATE OR REPLACE FUNCTION public.refresh_user_roles_cache()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY public.user_roles_cache;
+    RETURN NULL;
+END;
+$$;
+
+-- Next, create a trigger on the user_roles table.
+-- This will refresh the cache whenever a user's role is added, changed, or removed.
+DROP TRIGGER IF EXISTS trigger_refresh_user_roles_cache_on_user_roles ON public.user_roles;
+CREATE TRIGGER trigger_refresh_user_roles_cache_on_user_roles
+    AFTER INSERT OR UPDATE OR DELETE ON public.user_roles
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION public.refresh_user_roles_cache();
+
+-- Finally, create a trigger on the profiles table.
+-- This will refresh the cache if a user's approval_status changes, which affects cache content.
+DROP TRIGGER IF EXISTS trigger_refresh_user_roles_cache_on_profiles ON public.profiles;
+CREATE TRIGGER trigger_refresh_user_roles_cache_on_profiles
+    AFTER UPDATE OF approval_status ON public.profiles
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION public.refresh_user_roles_cache();
+
+-- Step 4: Refresh the materialized view to ensure it's current
 REFRESH MATERIALIZED VIEW CONCURRENTLY user_roles_cache;
 
--- Step 4: Fix the RLS policies on user_roles table
+-- Step 5: Fix the RLS policies on user_roles table
 -- Drop all existing policies
 DROP POLICY IF EXISTS "Users can view their own roles" ON user_roles;
 DROP POLICY IF EXISTS "Admins can view all roles" ON user_roles;
@@ -109,7 +142,7 @@ COMMENT ON POLICY "user_roles_admin_view" ON user_roles IS
 COMMENT ON POLICY "user_roles_block_mutations" ON user_roles IS 
     'Blocks ALL mutations from authenticated users. Only service role can modify roles through API endpoints.';
 
--- Step 5: Verify the fix
+-- Step 6: Verify the fix
 -- Check that policies are correctly set
 SELECT 
     policyname,

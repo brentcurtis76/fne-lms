@@ -431,7 +431,7 @@ describe('BibliographyBlockEditor', () => {
       );
     });
 
-    it('expands and collapses items', () => {
+    it('expands and collapses items with edit button', () => {
       render(
         <BibliographyBlockEditor
           block={blockWithItems}
@@ -446,15 +446,39 @@ describe('BibliographyBlockEditor', () => {
       expect(screen.getByText('Test PDF Document')).toBeInTheDocument();
       expect(screen.getByText('Test External Link')).toBeInTheDocument();
 
-      // Find expand/collapse buttons - they should have ChevronDown/ChevronUp icons
-      const itemContainers = screen.getAllByText('Test PDF Document').map(el => el.closest('.border'));
-      const firstItemContainer = itemContainers[0];
-      const expandButton = firstItemContainer?.querySelector('button:has(svg.lucide-chevron-down), button:has(svg.lucide-chevron-up)');
+      // Find edit buttons - they should say "Editar"
+      const editButtons = screen.getAllByText('Editar');
+      expect(editButtons).toHaveLength(2); // One for each item
       
-      expect(expandButton).toBeTruthy();
+      // Click the first edit button
+      fireEvent.click(editButtons[0]);
       
-      // The expand/collapse functionality is managed by the component's state
-      // We've verified the button exists and the items are rendered
+      // Now we should see "Cerrar" button instead
+      expect(screen.getByText('Cerrar')).toBeInTheDocument();
+      
+      // Verify edit form fields are visible
+      expect(screen.getByPlaceholderText('Nombre del autor o autores')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('2024')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Ej: Lecturas obligatorias, Material complementario')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Breve descripción del recurso')).toBeInTheDocument();
+    });
+
+    it('shows author and year in collapsed view', () => {
+      render(
+        <BibliographyBlockEditor
+          block={blockWithItems}
+          onChange={mockOnChange}
+          onDelete={mockOnDelete}
+          mode="edit"
+          courseId="test-course"
+        />
+      );
+
+      // Check that author and year are visible in the collapsed view
+      expect(screen.getByText('• John Doe')).toBeInTheDocument();
+      expect(screen.getByText('(2024)')).toBeInTheDocument();
+      expect(screen.getByText('• Jane Smith')).toBeInTheDocument();
+      expect(screen.getByText('(2023)')).toBeInTheDocument();
     });
   });
 });

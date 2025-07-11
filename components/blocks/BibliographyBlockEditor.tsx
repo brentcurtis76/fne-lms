@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, Plus, Trash2, FileText, Link, GripVertical, ChevronDown, ChevronUp, Upload, Image } from 'lucide-react';
+import { BookOpen, Plus, Trash2, FileText, Link, GripVertical, ChevronDown, ChevronUp, Upload, Image, Edit2 } from 'lucide-react';
 import BlockEditorWrapper from './BlockEditorWrapper';
 import { BibliographyBlock, BibliographyItem } from '@/types/blocks';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
@@ -55,7 +55,14 @@ export default function BibliographyBlockEditor({
 
     const updatedItems = [...(block.payload.items || []), newItem];
     handleChange('items', updatedItems);
+    // Automatically expand newly added items for immediate editing
     setExpandedItems(new Set(Array.from(expandedItems).concat(newItem.id)));
+    
+    // Show a helpful toast
+    toast.success(`${type === 'pdf' ? 'PDF' : type === 'image' ? 'Imagen' : 'Enlace'} agregado. Complete los detalles abajo.`, {
+      duration: 3000,
+      icon: '📝'
+    });
   };
 
   const updateItem = (itemId: string, field: keyof BibliographyItem, value: any) => {
@@ -129,7 +136,14 @@ export default function BibliographyBlockEditor({
       }
 
       updateItem(itemId, 'url', publicUrlData.data.publicUrl);
-      updateItem(itemId, 'title', file.name.replace(/\.[^/.]+$/, ''));
+      updateItem(itemId, 'filename', file.name);
+      updateItem(itemId, 'filesize', file.size);
+      
+      // Only set title if it's empty
+      const currentItem = block.payload.items.find(item => item.id === itemId);
+      if (!currentItem?.title) {
+        updateItem(itemId, 'title', file.name.replace(/\.[^/.]+$/, ''));
+      }
       
       // Show appropriate success message
       if (itemType === 'pdf') {
@@ -324,9 +338,31 @@ export default function BibliographyBlockEditor({
                     ) : (
                       <Link className="w-5 h-5 text-blue-600" />
                     )}
-                    <span className="font-medium text-gray-900">
-                      {item.title || `Nuevo ${item.type === 'pdf' ? 'PDF' : item.type === 'image' ? 'Imagen' : 'Enlace'}`}
-                    </span>
+                    <div className="flex-1">
+                      <div>
+                        <span className="font-medium text-gray-900">
+                          {item.title || `Nuevo ${item.type === 'pdf' ? 'PDF' : item.type === 'image' ? 'Imagen' : 'Enlace'}`}
+                        </span>
+                        {item.author && (
+                          <span className="text-sm text-gray-600 ml-2">
+                            • {item.author}
+                          </span>
+                        )}
+                        {item.year && (
+                          <span className="text-sm text-gray-600 ml-2">
+                            ({item.year})
+                          </span>
+                        )}
+                      </div>
+                      {item.filename && item.type !== 'link' && (
+                        <div className="mt-1">
+                          <span className="text-xs text-gray-500">
+                            📎 {item.filename}
+                            {item.filesize && ` • ${(item.filesize / 1024 / 1024).toFixed(2)} MB`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {index > 0 && (
@@ -349,17 +385,29 @@ export default function BibliographyBlockEditor({
                     )}
                     <button
                       onClick={() => toggleItemExpanded(item.id)}
-                      className="p-1 hover:bg-gray-200 rounded"
+                      className={`p-1 rounded flex items-center gap-1 ${
+                        expandedItems.has(item.id) 
+                          ? 'bg-[#00365b] text-white hover:bg-[#00365b]/90' 
+                          : 'hover:bg-gray-200 text-gray-700'
+                      }`}
+                      title={expandedItems.has(item.id) ? 'Cerrar edición' : 'Editar'}
                     >
                       {expandedItems.has(item.id) ? (
-                        <ChevronUp className="w-4 h-4" />
+                        <>
+                          <ChevronUp className="w-4 h-4" />
+                          <span className="text-xs font-medium">Cerrar</span>
+                        </>
                       ) : (
-                        <ChevronDown className="w-4 h-4" />
+                        <>
+                          <Edit2 className="w-4 h-4" />
+                          <span className="text-xs font-medium">Editar</span>
+                        </>
                       )}
                     </button>
                     <button
                       onClick={() => deleteItem(item.id)}
                       className="p-1 hover:bg-gray-200 rounded text-red-600"
+                      title="Eliminar"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -368,6 +416,14 @@ export default function BibliographyBlockEditor({
 
                 {expandedItems.has(item.id) && (
                   <div className="p-4 space-y-4 bg-white">
+                    {/* Edit Header */}
+                    <div className="border-b pb-3 mb-4">
+                      <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                        <Edit2 className="w-4 h-4 text-[#00365b]" />
+                        Editando {item.type === 'pdf' ? 'PDF' : item.type === 'image' ? 'Imagen' : 'Enlace'}
+                      </h4>
+                    </div>
+
                     {/* Title */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -377,7 +433,7 @@ export default function BibliographyBlockEditor({
                         type="text"
                         value={item.title}
                         onChange={(e) => updateItem(item.id, 'title', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
                         placeholder={item.type === 'pdf' ? 'Título del documento' : item.type === 'image' ? 'Título de la imagen' : 'Título del enlace'}
                       />
                     </div>
@@ -407,18 +463,38 @@ export default function BibliographyBlockEditor({
                                   />
                                 </div>
                               )}
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="text"
-                                  value={item.url}
-                                  readOnly
-                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                                />
+                              <div className="space-y-2">
+                                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                  <div className="flex items-start gap-3">
+                                    {item.type === 'pdf' ? (
+                                      <FileText className="w-10 h-10 text-red-600 flex-shrink-0" />
+                                    ) : (
+                                      <Image className="w-10 h-10 text-green-600 flex-shrink-0" />
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm font-medium text-gray-900 truncate">
+                                        {item.filename || item.url.split('/').pop() || 'Archivo cargado'}
+                                      </p>
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        {item.filesize ? `${(item.filesize / 1024 / 1024).toFixed(2)} MB` : 'Tamaño desconocido'}
+                                      </p>
+                                      <a 
+                                        href={item.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-blue-600 hover:text-blue-800 underline mt-1 inline-block"
+                                      >
+                                        Ver archivo
+                                      </a>
+                                    </div>
+                                  </div>
+                                </div>
                                 <button
                                   onClick={() => updateItem(item.id, 'url', '')}
-                                  className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-md"
+                                  className="w-full px-3 py-2 text-red-600 hover:bg-red-50 rounded-md border border-red-200 transition-colors"
                                 >
-                                  Cambiar
+                                  <Trash2 className="w-4 h-4 inline mr-1" />
+                                  Eliminar archivo y subir otro
                                 </button>
                               </div>
                             </div>
@@ -469,39 +545,42 @@ export default function BibliographyBlockEditor({
                           type="url"
                           value={item.url}
                           onChange={(e) => updateItem(item.id, 'url', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
                           placeholder="https://ejemplo.com/recurso"
                         />
                       )}
                     </div>
 
-                    {/* Author */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Autor(es)
-                      </label>
-                      <input
-                        type="text"
-                        value={item.author || ''}
-                        onChange={(e) => updateItem(item.id, 'author', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                        placeholder="Nombre del autor o autores"
-                      />
-                    </div>
+                    {/* Author and Year Row */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* Author */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Autor(es)
+                        </label>
+                        <input
+                          type="text"
+                          value={item.author || ''}
+                          onChange={(e) => updateItem(item.id, 'author', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                          placeholder="Nombre del autor o autores"
+                        />
+                      </div>
 
-                    {/* Year */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Año
-                      </label>
-                      <input
-                        type="text"
-                        value={item.year || ''}
-                        onChange={(e) => updateItem(item.id, 'year', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                        placeholder="2024"
-                        maxLength={4}
-                      />
+                      {/* Year */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Año
+                        </label>
+                        <input
+                          type="text"
+                          value={item.year || ''}
+                          onChange={(e) => updateItem(item.id, 'year', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                          placeholder="2024"
+                          maxLength={4}
+                        />
+                      </div>
                     </div>
 
                     {/* Category */}
@@ -513,7 +592,7 @@ export default function BibliographyBlockEditor({
                         type="text"
                         value={item.category || ''}
                         onChange={(e) => updateItem(item.id, 'category', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
                         placeholder="Ej: Lecturas obligatorias, Material complementario"
                       />
                     </div>
@@ -526,11 +605,18 @@ export default function BibliographyBlockEditor({
                       <textarea
                         value={item.description || ''}
                         onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
                         rows={2}
                         placeholder="Breve descripción del recurso"
                       />
                     </div>
+
+                    {/* Save Reminder */}
+                    {hasUnsavedChanges && (
+                      <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-700">
+                        Recuerda hacer clic en "Guardar Bibliografía" para guardar todos los cambios.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

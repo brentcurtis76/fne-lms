@@ -881,6 +881,14 @@ export default function StudentBlockRenderer({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block p-4 hover:bg-gray-50"
+                    onClick={(e) => {
+                      // For PDFs, ensure they open properly
+                      if (item.type === 'pdf' && item.url) {
+                        e.preventDefault();
+                        console.log('Opening PDF URL:', item.url);
+                        window.open(item.url, '_blank', 'noopener,noreferrer');
+                      }
+                    }}
                   >
                     <div className="flex items-start gap-4">
                       {item.type === 'pdf' ? (
@@ -930,9 +938,21 @@ export default function StudentBlockRenderer({
                       
                       <div className="flex-shrink-0">
                         {item.type === 'pdf' ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            PDF
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              PDF
+                            </span>
+                            <a
+                              href={item.url}
+                              download
+                              onClick={(e) => e.stopPropagation()}
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
+                              title="Descargar PDF"
+                            >
+                              <Download className="w-3 h-3 mr-1" />
+                              Descargar
+                            </a>
+                          </div>
                         ) : item.type === 'image' ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Imagen

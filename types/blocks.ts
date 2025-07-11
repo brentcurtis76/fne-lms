@@ -120,6 +120,8 @@ export interface BibliographyItem {
   author?: string;
   year?: string;
   category?: string;
+  filename?: string;
+  filesize?: number;
 }
 
 export interface BibliographyBlockPayload {

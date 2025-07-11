@@ -206,14 +206,16 @@ export default function BibliographyBlockEditor({
       });
       
       // Update all fields at once to avoid race conditions
-      const currentItem = block.payload.items.find(item => item.id === itemId);
+      // CRITICAL: We must read the current state, not the stale prop
+      const currentItems = block.payload.items || [];
+      const currentItem = currentItems.find(item => item.id === itemId);
       if (!currentItem) {
         console.error('❌ Could not find item to update:', itemId);
         throw new Error('Item not found');
       }
       
       // Create updated item with all new fields
-      const updatedItems = block.payload.items.map(item => {
+      const updatedItems = currentItems.map(item => {
         if (item.id === itemId) {
           const updatedItem = {
             ...item,
@@ -232,6 +234,19 @@ export default function BibliographyBlockEditor({
       console.log('📋 All items after batch update:', JSON.stringify(updatedItems, null, 2));
       handleChange('items', updatedItems);
       
+      // CRITICAL: Force immediate save after file upload
+      // This prevents the issue where state updates don't persist
+      setTimeout(() => {
+        console.log('🔥 FORCING SAVE after file upload');
+        if (onSave) {
+          onSave();
+          toast.success('Guardando archivo automáticamente...', {
+            duration: 3000,
+            icon: '💾'
+          });
+        }
+      }, 100);
+      
       // Show appropriate success message
       if (itemType === 'pdf') {
         toast.success('PDF subido exitosamente');
@@ -239,29 +254,6 @@ export default function BibliographyBlockEditor({
         toast.success('Imagen subida exitosamente');
       }
       
-      // Auto-save after successful upload to prevent data loss
-      if (onSave) {
-        console.log('🚀 Auto-save triggered after file upload');
-        // Longer delay to ensure React has processed all state updates
-        setTimeout(() => {
-          console.log('💾 Calling onSave callback');
-          console.log('📊 Current block state before save:', {
-            items: block.payload.items?.map(item => ({
-              id: item.id,
-              title: item.title,
-              hasUrl: !!item.url,
-              filename: item.filename
-            }))
-          });
-          onSave();
-          toast.success('Guardando cambios automáticamente...', {
-            duration: 2000,
-            icon: '💾'
-          });
-        }, 1000); // Increased delay to ensure state updates are fully processed
-      } else {
-        console.warn('⚠️ No onSave callback provided - file data might not persist!');
-      }
     } catch (error) {
       console.error('Error uploading file:', error);
       toast.error('Error al subir el archivo');

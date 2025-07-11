@@ -27,20 +27,31 @@ export default function BibliographyBlockEditor({
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  // Monitor block prop changes
+  // Monitor block prop changes - THIS IS CRITICAL FOR DEBUGGING
   useEffect(() => {
+    const hasEmptyPdfItems = block.payload.items?.some(item => 
+      (item.type === 'pdf' || item.type === 'image') && !item.url
+    );
+    
     console.log('📊 BibliographyBlockEditor received block update:', {
       blockId: block.id,
       itemsCount: block.payload.items?.length || 0,
+      hasEmptyPdfItems,
       items: block.payload.items?.map(item => ({
         id: item.id,
         title: item.title,
-        url: item.url ? 'Has URL' : 'NO URL',
-        filename: item.filename || 'NO FILENAME',
-        filesize: item.filesize || 'NO FILESIZE'
+        type: item.type,
+        url: item.url ? `Has URL (${item.url.substring(0, 50)}...)` : '❌ NO URL',
+        filename: item.filename || '❌ NO FILENAME',
+        filesize: item.filesize || '❌ NO FILESIZE'
       })),
       timestamp: new Date().toISOString()
     });
+    
+    // DETECT WHEN URL DISAPPEARS
+    if (hasEmptyPdfItems) {
+      console.error('⚠️ WARNING: PDF/Image items detected with NO URL - data was likely overwritten!');
+    }
   }, [block]);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);

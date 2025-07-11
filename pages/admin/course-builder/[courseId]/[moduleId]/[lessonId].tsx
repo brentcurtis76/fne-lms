@@ -289,7 +289,28 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
         });
 
         if (!saveError) {
-          setBlocks(newBlocks);
+          // CRITICAL FIX: Don't overwrite local state with database response
+          // The database might not return all fields (like filename/filesize)
+          // Instead, merge the database IDs with our local state
+          const mergedBlocks = blocks.map((localBlock, index) => {
+            const savedBlock = newBlocks[index];
+            if (savedBlock && localBlock.id.startsWith('new-')) {
+              // For new blocks, use the database ID but keep our local payload
+              console.log('🔄 Merging new block with database ID:', {
+                oldId: localBlock.id,
+                newId: savedBlock.id,
+                type: localBlock.type
+              });
+              return {
+                ...localBlock,
+                id: savedBlock.id
+              };
+            }
+            // For existing blocks, keep our local state
+            return localBlock;
+          });
+          
+          setBlocks(mergedBlocks);
           
           // V2 Implementation: Group assignments are now stored directly in lesson blocks
           // No need to create separate assignment templates

@@ -245,18 +245,12 @@ export default function BibliographyBlockEditor({
       console.log('📋 All items after batch update:', JSON.stringify(updatedItems, null, 2));
       handleChange('items', updatedItems);
       
-      // CRITICAL: Force immediate save after file upload
-      // This prevents the issue where state updates don't persist
-      setTimeout(() => {
-        console.log('🔥 FORCING SAVE after file upload');
-        if (onSave) {
-          onSave();
-          toast.success('Guardando archivo automáticamente...', {
-            duration: 3000,
-            icon: '💾'
-          });
-        }
-      }, 100);
+      // DISABLED AUTO-SAVE FOR TESTING
+      console.log('⚠️ AUTO-SAVE DISABLED - Manual save required');
+      toast.warning('Archivo subido. Haz clic en "Guardar Cambios" para guardar.', {
+        duration: 5000,
+        icon: '⚠️'
+      });
       
       // Show appropriate success message
       if (itemType === 'pdf') {

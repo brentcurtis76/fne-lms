@@ -222,6 +222,24 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
         return;
       }
 
+      // CRITICAL: Log the blocks array state at save time
+      console.log('🎯 BLOCKS STATE AT SAVE TIME:', {
+        bibliographyBlocks: blocks
+          .filter(b => b.type === 'bibliography')
+          .map(b => ({
+            id: b.id,
+            items: b.payload.items.map(item => ({
+              id: item.id,
+              type: item.type,
+              title: item.title,
+              hasUrl: !!item.url,
+              hasFilename: !!item.filename,
+              hasFilesize: !!item.filesize
+            }))
+          })),
+        timestamp: new Date().toISOString()
+      });
+      
       const blockPromises = blocks.map(async (block, index) => {
         const cleanBlock = { ...block };
         
@@ -265,6 +283,21 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
           const { id, ...insertData } = blockDataToSave;
           return supabase.from('blocks').insert(insertData).select().single();
         } else { 
+          // CRITICAL LOGGING: What exactly are we sending to the database?
+          if (block.type === 'bibliography') {
+            console.log('🚀 SENDING TO DATABASE:', {
+              blockId: block.id,
+              payloadItems: blockDataToSave.payload.items.map(item => ({
+                id: item.id,
+                type: item.type,
+                title: item.title,
+                url: item.url ? 'HAS URL' : 'NO URL',
+                filename: item.filename || 'NO FILENAME',
+                filesize: item.filesize || 'NO FILESIZE'
+              })),
+              timestamp: new Date().toISOString()
+            });
+          }
           return supabase.from('blocks').update(blockDataToSave).eq('id', block.id).select().single();
         }
       });
@@ -1024,12 +1057,35 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                             onChange={(payload) => {
                               console.log('📚 Bibliography onChange in parent:', {
                                 blockId: block.id,
-                                payload: JSON.stringify(payload, null, 2),
+                                payloadItemsAnalysis: payload.items?.map(item => ({
+                                  id: item.id,
+                                  type: item.type,
+                                  title: item.title,
+                                  url: item.url ? `YES (${item.url.substring(0, 50)}...)` : 'NO',
+                                  filename: item.filename || 'MISSING',
+                                  filesize: item.filesize || 'MISSING'
+                                })),
                                 timestamp: new Date().toISOString()
                               });
-                              setBlocks(blocks.map(b => 
-                                b.id === block.id ? { ...b, payload } : b
-                              ) as Block[]);
+                              
+                              // Use functional setState to ensure we're working with latest state
+                              setBlocks(prevBlocks => {
+                                console.log('📊 setState called with prevBlocks');
+                                const newBlocks = prevBlocks.map(b => 
+                                  b.id === block.id ? { ...b, payload } : b
+                                ) as Block[];
+                                
+                                // Verify the update worked
+                                const updatedBlock = newBlocks.find(b => b.id === block.id);
+                                if (updatedBlock?.type === 'bibliography') {
+                                  console.log('✅ Block updated in state:', {
+                                    blockId: updatedBlock.id,
+                                    itemsWithFiles: updatedBlock.payload.items?.filter(i => i.filename).length || 0
+                                  });
+                                }
+                                
+                                return newBlocks;
+                              });
                               setHasUnsavedChanges(true);
                             }}
                             onDelete={() => handleDeleteBlock(block.id)}

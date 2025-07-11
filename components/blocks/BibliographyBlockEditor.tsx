@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BookOpen, Plus, Trash2, FileText, Link, GripVertical, ChevronDown, ChevronUp, Upload, Image, Edit2 } from 'lucide-react';
 import BlockEditorWrapper from './BlockEditorWrapper';
 import { BibliographyBlock, BibliographyItem } from '@/types/blocks';
@@ -26,6 +26,22 @@ export default function BibliographyBlockEditor({
   const [uploadingFile, setUploadingFile] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // Monitor block prop changes
+  useEffect(() => {
+    console.log('📊 BibliographyBlockEditor received block update:', {
+      blockId: block.id,
+      itemsCount: block.payload.items?.length || 0,
+      items: block.payload.items?.map(item => ({
+        id: item.id,
+        title: item.title,
+        url: item.url ? 'Has URL' : 'NO URL',
+        filename: item.filename || 'NO FILENAME',
+        filesize: item.filesize || 'NO FILESIZE'
+      })),
+      timestamp: new Date().toISOString()
+    });
+  }, [block]);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -189,15 +205,32 @@ export default function BibliographyBlockEditor({
         filesize: file.size
       });
       
-      updateItem(itemId, 'url', publicUrlData.data.publicUrl);
-      updateItem(itemId, 'filename', file.name);
-      updateItem(itemId, 'filesize', file.size);
-      
-      // Only set title if it's empty
+      // Update all fields at once to avoid race conditions
       const currentItem = block.payload.items.find(item => item.id === itemId);
-      if (!currentItem?.title) {
-        updateItem(itemId, 'title', file.name.replace(/\.[^/.]+$/, ''));
+      if (!currentItem) {
+        console.error('❌ Could not find item to update:', itemId);
+        throw new Error('Item not found');
       }
+      
+      // Create updated item with all new fields
+      const updatedItems = block.payload.items.map(item => {
+        if (item.id === itemId) {
+          const updatedItem = {
+            ...item,
+            url: publicUrlData.data.publicUrl,
+            filename: file.name,
+            filesize: file.size,
+            // Only update title if it's empty
+            title: item.title || file.name.replace(/\.[^/.]+$/, '')
+          };
+          console.log('📦 Updated item with all fields:', JSON.stringify(updatedItem, null, 2));
+          return updatedItem;
+        }
+        return item;
+      });
+      
+      console.log('📋 All items after batch update:', JSON.stringify(updatedItems, null, 2));
+      handleChange('items', updatedItems);
       
       // Show appropriate success message
       if (itemType === 'pdf') {
@@ -209,14 +242,23 @@ export default function BibliographyBlockEditor({
       // Auto-save after successful upload to prevent data loss
       if (onSave) {
         console.log('🚀 Auto-save triggered after file upload');
+        // Longer delay to ensure React has processed all state updates
         setTimeout(() => {
           console.log('💾 Calling onSave callback');
+          console.log('📊 Current block state before save:', {
+            items: block.payload.items?.map(item => ({
+              id: item.id,
+              title: item.title,
+              hasUrl: !!item.url,
+              filename: item.filename
+            }))
+          });
           onSave();
           toast.success('Guardando cambios automáticamente...', {
             duration: 2000,
             icon: '💾'
           });
-        }, 500); // Small delay to ensure state updates are processed
+        }, 1000); // Increased delay to ensure state updates are fully processed
       } else {
         console.warn('⚠️ No onSave callback provided - file data might not persist!');
       }
@@ -555,7 +597,15 @@ export default function BibliographyBlockEditor({
                                   </div>
                                 </div>
                                 <button
-                                  onClick={() => updateItem(item.id, 'url', '')}
+                                  onClick={() => {
+                                    // Clear all file-related fields when deleting
+                                    const updatedItems = block.payload.items.map(i => 
+                                      i.id === item.id 
+                                        ? { ...i, url: '', filename: '', filesize: 0 } 
+                                        : i
+                                    );
+                                    handleChange('items', updatedItems);
+                                  }}
                                   className="w-full px-3 py-2 text-red-600 hover:bg-red-50 rounded-md border border-red-200 transition-colors"
                                 >
                                   <Trash2 className="w-4 h-4 inline mr-1" />

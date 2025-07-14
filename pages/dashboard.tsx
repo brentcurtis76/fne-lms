@@ -141,9 +141,17 @@ export default function Dashboard() {
               }
             }
               
+            // Critical null check to prevent TypeError and infinite loops
+            if (!profileData) {
+              console.error('Failed to fetch profile data after all attempts');
+              // Redirect to profile page to complete setup
+              router.push('/profile?from=dashboard&error=profile-fetch-failed');
+              return;
+            }
+            
             if (profileData) {
-              // Check if user must change password
-              if (profileData.must_change_password) {
+              // Check if user must change password (explicit true check to avoid undefined)
+              if (profileData.must_change_password === true) {
                 router.push('/change-password');
                 return;
               }

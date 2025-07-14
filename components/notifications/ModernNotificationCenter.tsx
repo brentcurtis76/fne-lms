@@ -41,12 +41,30 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLButtonElement>(null);
+  const lastFetchRef = useRef<number>(0);
+  const isFetchingRef = useRef<boolean>(false);
 
   // Auto-refresh interval (30 seconds)
   const REFRESH_INTERVAL = 30000;
 
   // Fetch notifications directly from Supabase
   const fetchNotifications = async (showLoading = false) => {
+    // Debounce mechanism - prevent fetches within 1 second of each other
+    const now = Date.now();
+    if (now - lastFetchRef.current < 1000) {
+      console.log('Skipping fetch - too soon after last fetch');
+      return;
+    }
+    
+    // Prevent concurrent fetches
+    if (isFetchingRef.current) {
+      console.log('Skipping fetch - already fetching');
+      return;
+    }
+    
+    isFetchingRef.current = true;
+    lastFetchRef.current = now;
+    
     try {
       if (showLoading) setLoading(true);
       setError(null);
@@ -151,19 +169,35 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
       setUnreadCount(mockNotifications.filter(n => !n.is_read).length);
     } finally {
       if (showLoading) setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
   // Initial fetch and setup auto-refresh
   useEffect(() => {
-    fetchNotifications(true);
-
+    let mounted = true;
+    let hasFetched = false;
+    
+    const fetchWithGuard = async () => {
+      if (mounted && !hasFetched) {
+        hasFetched = true;
+        await fetchNotifications(true);
+      }
+    };
+    
+    fetchWithGuard();
+    
     const interval = setInterval(() => {
-      fetchNotifications(false);
+      if (mounted) {
+        fetchNotifications(false);
+      }
     }, REFRESH_INTERVAL);
-
-    return () => clearInterval(interval);
-  }, [supabase]);
+    
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []); // Empty dependency array - only run once on mount
 
   // Helper function to map notification type to category
   const getCategoryFromType = (typeId: string | null): string => {

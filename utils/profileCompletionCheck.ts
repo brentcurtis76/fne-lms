@@ -30,9 +30,9 @@ export async function checkProfileCompletionSimple(
         hint: error.hint
       });
       
-      // For any error, assume profile is complete to avoid blocking
-      // This is the safest approach for production
-      return true;
+      // For any error, assume profile is incomplete to redirect to profile setup
+      // This prevents infinite loops when profile fetch fails
+      return false;
     }
     
     if (!data) {
@@ -55,8 +55,8 @@ export async function checkProfileCompletionSimple(
   } catch (error) {
     // Catch any unexpected errors
     console.error('Unexpected error in profile check:', error);
-    // In case of any error, don't block the user
-    return true;
+    // In case of any error, assume profile is incomplete to avoid infinite loops
+    return false;
   }
 }
 

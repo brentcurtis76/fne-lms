@@ -17,10 +17,14 @@ export default function ChangePasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPasswords, setShowPasswords] = useState(false);
   const [isAdminReset, setIsAdminReset] = useState(false);
+  const [hasCheckedAuth, setHasCheckedAuth] = useState(false);
 
   useEffect(() => {
-    checkAuth();
-  }, []);
+    if (!hasCheckedAuth) {
+      checkAuth();
+      setHasCheckedAuth(true);
+    }
+  }, [hasCheckedAuth]);
 
   const checkAuth = async () => {
     try {
@@ -34,11 +38,19 @@ export default function ChangePasswordPage() {
       setUser(session.user);
       
       // Check if user actually needs to change password
-      const { data: profile } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('must_change_password, password_change_required')
         .eq('id', session.user.id)
         .single();
+
+      if (profileError) {
+        console.error('Error checking password change requirement:', profileError);
+        // On error, assume user needs to change password (stay on page)
+        // This prevents redirect loop when profile fetch fails
+        setLoading(false);
+        return;
+      }
 
       if (!profile?.must_change_password && !profile?.password_change_required) {
         // User doesn't need to change password, redirect to dashboard
@@ -108,7 +120,11 @@ export default function ChangePasswordPage() {
         })
         .eq('id', user.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Could not update profile flags:', profileError);
+        // Continue anyway - password was changed successfully
+        // The important thing is the password is updated, not the flags
+      }
 
       // Clear the admin reset metadata
       if (isAdminReset) {
@@ -121,23 +137,31 @@ export default function ChangePasswordPage() {
       }
 
       // Check if profile is complete before redirecting
-      const { data: profile } = await supabase
+      const { data: profile, error: checkError } = await supabase
         .from('profiles')
         .select('first_name, last_name, school')
         .eq('id', user.id)
         .single();
       
-      const isProfileComplete = profile?.first_name && profile?.last_name && profile?.school;
+      let isProfileComplete = false;
       
-      if (isProfileComplete) {
-        toast.success('Contraseña actualizada exitosamente');
+      if (checkError) {
+        console.error('Could not check profile completion:', checkError);
+        // On error, assume profile is incomplete and send to profile page
+        toast.success('Contraseña actualizada exitosamente. Por favor completa tu perfil.');
       } else {
-        toast.success('Contraseña actualizada exitosamente. Ahora completa tu perfil.');
+        isProfileComplete = profile?.first_name && profile?.last_name && profile?.school;
+        
+        if (isProfileComplete) {
+          toast.success('Contraseña actualizada exitosamente');
+        } else {
+          toast.success('Contraseña actualizada exitosamente. Ahora completa tu perfil.');
+        }
       }
       
       // Redirect based on profile completion status
       setTimeout(() => {
-        if (isProfileComplete) {
+        if (isProfileComplete && !checkError) {
           router.push('/dashboard');
         } else {
           router.push('/profile');

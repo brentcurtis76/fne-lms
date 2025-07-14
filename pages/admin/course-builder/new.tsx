@@ -248,10 +248,10 @@ export default function NewCourse() {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-lg">
             <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold text-brand_blue font-mont">Crear Nuevo Curso</h1>
+              <h1 className="text-2xl font-bold text-brand_blue font-sans">Crear Nuevo Curso</h1>
               <button
                 onClick={() => router.back()}
-                className="text-brand_blue hover:text-brand_yellow transition font-mont"
+                className="text-brand_blue hover:text-brand_yellow transition font-sans"
               >
                 ← Volver
               </button>
@@ -330,7 +330,7 @@ export default function NewCourse() {
               <div className="pt-4 border-t border-gray-200">
                 <button
                   type="submit"
-                  className="w-full md:w-auto px-6 py-3 bg-brand_blue text-white font-medium rounded-md hover:bg-brand_yellow hover:text-brand_blue transition font-mont"
+                  className="w-full md:w-auto px-6 py-3 bg-brand_blue text-white font-medium rounded-md hover:bg-brand_yellow hover:text-brand_blue transition font-sans"
                 >
                   Crear Curso
                 </button>

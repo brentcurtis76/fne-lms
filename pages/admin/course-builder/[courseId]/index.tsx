@@ -345,7 +345,7 @@ const CourseDetailPage = () => {
         avatarUrl={avatarUrl}
       >
         <div className="flex justify-center items-center min-h-[50vh]">
-          <p className="text-xl text-brand_blue font-mont">Cargando...</p>
+          <p className="text-xl text-brand_blue font-sans">Cargando...</p>
         </div>
       </MainLayout>
     );
@@ -362,9 +362,9 @@ const CourseDetailPage = () => {
         avatarUrl={avatarUrl}
       >
         <div className="flex flex-col items-center justify-center min-h-[50vh] p-4">
-          <p className="text-xl text-red-600 font-mont">Error: {error}</p>
+          <p className="text-xl text-red-600 font-sans">Error: {error}</p>
           <Link href="/admin/course-builder" legacyBehavior>
-            <a className="mt-4 px-4 py-2 bg-brand_blue text-white font-mont rounded hover:bg-brand_yellow hover:text-brand_blue transition">
+            <a className="mt-4 px-4 py-2 bg-brand_blue text-white font-sans rounded hover:bg-brand_yellow hover:text-brand_blue transition">
               Volver a Cursos
             </a>
           </Link>
@@ -384,7 +384,7 @@ const CourseDetailPage = () => {
         avatarUrl={avatarUrl}
       >
         <div className="flex justify-center items-center min-h-[50vh]">
-          <p className="text-xl text-brand_blue font-mont">Curso no encontrado.</p>
+          <p className="text-xl text-brand_blue font-sans">Curso no encontrado.</p>
         </div>
       </MainLayout>
     );
@@ -427,12 +427,12 @@ const CourseDetailPage = () => {
       
       <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
       <div className="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-6">
-        <h2 className="text-2xl font-semibold text-brand_blue font-mont mb-4">Módulos del Curso</h2>
+        <h2 className="text-2xl font-semibold text-brand_blue font-sans mb-4">Módulos del Curso</h2>
         
         {/* Form to create a new module (inline) */}
         {showCreateModuleForm && (
           <div className="bg-white p-6 rounded-lg shadow-md mb-6 border border-brand_blue/30">
-            <h3 className="text-xl font-semibold text-brand_blue font-mont mb-4">Crear Nuevo Módulo</h3>
+            <h3 className="text-xl font-semibold text-brand_blue font-sans mb-4">Crear Nuevo Módulo</h3>
             <form onSubmit={handleModuleSubmit} className="space-y-4" acceptCharset="UTF-8">
               <div>
                 <label htmlFor="newModuleTitle" className="block text-sm font-medium text-brand_blue mb-1">
@@ -519,26 +519,26 @@ const CourseDetailPage = () => {
               <li key={moduleItem.id} className="bg-white p-4 rounded-md shadow-sm border border-brand_blue/20">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="text-xl font-semibold text-brand_blue font-mont">{moduleItem.order_number}. {moduleItem.title}</h3>
+                    <h3 className="text-xl font-semibold text-brand_blue font-sans">{moduleItem.order_number}. {moduleItem.title}</h3>
                     {moduleItem.description && (
                       <p className="text-brand_blue/80 mt-1 text-sm">{moduleItem.description}</p>
                     )}
                   </div>
                   <div className="flex flex-wrap space-x-2 gap-y-2 ml-4">
                     <Link href={`/admin/course-builder/${courseId}/${moduleItem.id}`} legacyBehavior>
-                      <a className="px-3 py-2 bg-brand_yellow text-brand_blue font-mont text-xs md:text-sm rounded-md hover:bg-brand_blue hover:text-brand_yellow transition duration-150 whitespace-nowrap">
+                      <a className="px-3 py-2 bg-brand_yellow text-brand_blue font-sans text-xs md:text-sm rounded-md hover:bg-brand_blue hover:text-brand_yellow transition duration-150 whitespace-nowrap">
                         Ver Lecciones
                       </a>
                     </Link>
                     <button
                       onClick={() => handleOpenEditModal(moduleItem)}
-                      className="px-3 py-2 bg-brand_blue text-white font-mont text-xs md:text-sm rounded-md hover:bg-brand_blue/90 transition duration-150 whitespace-nowrap"
+                      className="px-3 py-2 bg-brand_blue text-white font-sans text-xs md:text-sm rounded-md hover:bg-brand_blue/90 transition duration-150 whitespace-nowrap"
                     >
                       Editar
                     </button>
                     <button
                       onClick={() => handleOpenDeleteModal(moduleItem)}
-                      className="px-3 py-2 bg-red-600 text-white font-mont text-xs md:text-sm rounded-md hover:bg-red-700 transition duration-150 whitespace-nowrap"
+                      className="px-3 py-2 bg-red-600 text-white font-sans text-xs md:text-sm rounded-md hover:bg-red-700 transition duration-150 whitespace-nowrap"
                     >
                       Eliminar
                     </button>
@@ -548,7 +548,7 @@ const CourseDetailPage = () => {
             ))}
           </ul>
         ) : (
-          <p className="text-brand_blue/80 font-mont">Este curso aún no tiene módulos.</p>
+          <p className="text-brand_blue/80 font-sans">Este curso aún no tiene módulos.</p>
         )}
       </div>
       

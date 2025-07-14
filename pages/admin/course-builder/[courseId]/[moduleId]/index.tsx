@@ -555,13 +555,13 @@ const ModuleDetailPage = () => {
       <div className="px-4 md:px-8 py-4 md:py-8">
       <div className="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-lg">
         <div className="mt-8">
-          <h2 className="text-2xl font-semibold text-brand_blue mb-4 font-mont">Lecciones</h2>
+          <h2 className="text-2xl font-semibold text-brand_blue mb-4 font-sans">Lecciones</h2>
           {lessons.length === 0 ? (
             <div className="text-center py-10 px-6 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
               <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
               </svg>
-              <h3 className="mt-2 text-lg font-medium text-gray-800 font-mont">Este módulo aún no tiene lecciones</h3>
+              <h3 className="mt-2 text-lg font-medium text-gray-800 font-sans">Este módulo aún no tiene lecciones</h3>
               <p className="mt-1 text-sm text-gray-600">Comienza por agregar la primera.</p>
               <div className="mt-6">
                 <button
@@ -581,7 +581,7 @@ const ModuleDetailPage = () => {
                 {lessons.map((lesson) => (
                   <li key={lesson.id} className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex justify-between items-center">
                     <div>
-                      <h3 className="text-lg font-semibold font-mont text-gray-800">{lesson.order_number}. {lesson.title}</h3>
+                      <h3 className="text-lg font-semibold font-sans text-gray-800">{lesson.order_number}. {lesson.title}</h3>
                     </div>
                     <div className="flex flex-wrap space-x-2 gap-y-2">
                       <Link 
@@ -589,7 +589,7 @@ const ModuleDetailPage = () => {
                         legacyBehavior
                       >
                         <a 
-                          className="px-3 py-2 bg-brand_yellow text-brand_blue font-mont rounded-md hover:bg-brand_blue hover:text-white transition text-xs md:text-sm"
+                          className="px-3 py-2 bg-brand_yellow text-brand_blue font-sans rounded-md hover:bg-brand_blue hover:text-white transition text-xs md:text-sm"
                           onClick={(e) => {
                             // e.preventDefault(); // Uncomment this if you want to prevent navigation for testing the click log only
                             const href = `/admin/course-builder/${module.course_id}/${module.id}/${lesson.id}`;
@@ -601,13 +601,13 @@ const ModuleDetailPage = () => {
                       </Link>
                       <button
                         onClick={() => handleOpenMoveModal(lesson)}
-                        className="px-3 py-2 bg-brand_blue text-white font-mont rounded-md hover:bg-brand_blue/90 transition text-xs md:text-sm"
+                        className="px-3 py-2 bg-brand_blue text-white font-sans rounded-md hover:bg-brand_blue/90 transition text-xs md:text-sm"
                       >
                         Mover
                       </button>
                       <button
                         onClick={() => handleOpenDeleteModal(lesson)}
-                        className="px-3 py-2 bg-red-600 text-white font-mont rounded-md hover:bg-red-700 transition text-xs md:text-sm"
+                        className="px-3 py-2 bg-red-600 text-white font-sans rounded-md hover:bg-red-700 transition text-xs md:text-sm"
                       >
                         Eliminar
                       </button>

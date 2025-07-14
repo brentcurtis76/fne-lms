@@ -302,9 +302,9 @@ export default function EditCourse() {
         avatarUrl={avatarUrl}
       >
         <div className="flex flex-col items-center justify-center min-h-[50vh]">
-          <p className="text-xl text-red-600 font-mont">Curso no encontrado</p>
+          <p className="text-xl text-red-600 font-sans">Curso no encontrado</p>
           <Link href="/admin/course-builder" legacyBehavior>
-            <a className="mt-4 px-4 py-2 bg-brand_blue text-white font-mont rounded hover:bg-brand_yellow hover:text-brand_blue transition">
+            <a className="mt-4 px-4 py-2 bg-brand_blue text-white font-sans rounded hover:bg-brand_yellow hover:text-brand_blue transition">
               Volver a Cursos
             </a>
           </Link>
@@ -333,11 +333,11 @@ export default function EditCourse() {
             {/* Header */}
             <div className="mb-8">
               <Link href={`/admin/course-builder/${courseId}`} legacyBehavior>
-                <a className="text-brand_blue hover:text-brand_yellow font-mont hover:underline mb-4 inline-block">
+                <a className="text-brand_blue hover:text-brand_yellow font-sans hover:underline mb-4 inline-block">
                   ← Volver al Curso
                 </a>
               </Link>
-              <h1 className="text-3xl font-bold text-brand_blue font-mont">Editar Curso</h1>
+              <h1 className="text-3xl font-bold text-brand_blue font-sans">Editar Curso</h1>
               <p className="text-gray-600 mt-2">Modifica la información general del curso</p>
             </div>
 

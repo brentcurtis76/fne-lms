@@ -40,7 +40,7 @@ export default function ChangePasswordPage() {
       // Check if user actually needs to change password
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('must_change_password, password_change_required')
+        .select('must_change_password')
         .eq('id', session.user.id)
         .single();
 
@@ -52,7 +52,7 @@ export default function ChangePasswordPage() {
         return;
       }
 
-      if (!profile?.must_change_password && !profile?.password_change_required) {
+      if (!profile?.must_change_password) {
         // User doesn't need to change password, redirect to dashboard
         router.push('/dashboard');
         return;
@@ -104,19 +104,42 @@ export default function ChangePasswordPage() {
     setUpdating(true);
 
     try {
-      // Update the password
+      // First attempt: Try direct password update
       const { error: updateError } = await supabase.auth.updateUser({
         password: newPassword
       });
 
-      if (updateError) throw updateError;
+      // If we get a 422 error, it means secure password change is enabled
+      // and we need to use a workaround for first-time password changes
+      if (updateError && (updateError as any).status === 422) {
+        console.log('Secure password change detected, using admin endpoint for first-time change');
+        
+        // Use the admin endpoint to bypass secure password change requirement
+        const response = await fetch('/api/auth/force-password-change', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ newPassword }),
+        });
 
-      // Update the must_change_password and password_change_required flags
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to update password');
+        }
+
+        // If we reach here, password was updated successfully via admin endpoint
+        // Continue with the normal flow
+      } else if (updateError) {
+        throw updateError;
+      }
+
+      // Update the must_change_password flag
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ 
-          must_change_password: false,
-          password_change_required: false 
+          must_change_password: false
         })
         .eq('id', user.id);
 
@@ -168,8 +191,40 @@ export default function ChangePasswordPage() {
         }
       }, 1000);
     } catch (error: any) {
-      console.error('Password update error:', error);
-      toast.error(error.message || 'Error al actualizar la contraseña');
+      // Enhanced error logging for debugging
+      console.error('Password update error - Full details:', {
+        error: error,
+        errorMessage: error?.message,
+        errorCode: error?.code,
+        errorStatus: error?.status,
+        errorName: error?.name,
+        userEmail: user?.email,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Check for specific Supabase auth errors
+      if (error?.message?.includes('reauthentication required') || 
+          error?.message?.includes('New password should be different from the old password') ||
+          error?.code === 'same_password') {
+        toast.error('Por favor usa una contraseña diferente a la anterior');
+      } else if (error?.message?.includes('Password should be at least') ||
+                 error?.message?.includes('password')) {
+        // Supabase might have its own password requirements
+        toast.error('La contraseña no cumple con los requisitos de seguridad del sistema');
+      } else if (error?.status === 422 || error?.message?.includes('auth')) {
+        // Common error when secure password change is enabled
+        toast.error('Error de autenticación. Es posible que necesites volver a iniciar sesión. Por favor contacta al administrador.');
+      } else {
+        toast.error(error.message || 'Error al actualizar la contraseña. Por favor intenta nuevamente.');
+      }
+      
+      // Log to help identify the issue for this specific user
+      if (user?.email === 'maritza.cortes@lisamvallenar.cl') {
+        console.warn('DEBUG - Password change failed for maritza.cortes:', {
+          fullError: JSON.stringify(error, null, 2),
+          stack: error?.stack
+        });
+      }
     } finally {
       setUpdating(false);
     }

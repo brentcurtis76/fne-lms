@@ -3,6 +3,7 @@ import { QuizBlockPayload, QuizQuestion } from '@/types/blocks';
 import { CheckCircle, XCircle, Clock, AlertCircle, Send } from 'lucide-react';
 import { submitQuiz } from '@/lib/services/quizSubmissions';
 import { toast } from 'react-hot-toast';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 interface QuizTakerProps {
   quiz: QuizBlockPayload;
@@ -27,6 +28,7 @@ export default function QuizTaker({
   studentId,
   onComplete
 }: QuizTakerProps) {
+  const supabase = useSupabaseClient();
   const [answers, setAnswers] = useState<Record<string, QuizAnswer>>({});
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [timeSpent, setTimeSpent] = useState(0);
@@ -110,6 +112,7 @@ export default function QuizTaker({
       });
       
       const { data, error } = await submitQuiz(
+        supabase,
         lessonId,
         blockId,
         studentId,

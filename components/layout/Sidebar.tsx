@@ -27,7 +27,8 @@ import {
   CurrencyDollarIcon,
   ClipboardCheckIcon as ClipboardDocumentCheckIcon,
   OfficeBuildingIcon,
-  ExclamationCircleIcon as BugIcon
+  ExclamationCircleIcon as BugIcon,
+  MapIcon
 } from '@heroicons/react/outline';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
@@ -96,6 +97,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     href: '/admin/course-builder',
     description: 'Gestión de cursos',
     adminOnly: true
+  },
+  {
+    id: 'learning-paths',
+    label: 'Rutas de Aprendizaje',
+    icon: MapIcon,
+    href: '/admin/learning-paths',
+    description: 'Gestión de rutas de aprendizaje',
+    restrictedRoles: ['admin', 'equipo_directivo', 'consultor']
   },
   {
     id: 'users',

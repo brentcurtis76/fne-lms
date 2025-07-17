@@ -10,6 +10,7 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { GraduationCap, ChevronLeft } from 'lucide-react';
+import { getUserPrimaryRole } from '../../../utils/roleUtils';
 
 interface Course {
   id: string;

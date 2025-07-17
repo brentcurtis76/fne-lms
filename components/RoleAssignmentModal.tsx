@@ -17,7 +17,7 @@ import {
   Generation,
   GrowthCommunity 
 } from '../types/roles';
-import { assignRole, removeRole, getUserRoles, getAvailableCommunitiesForAssignment } from '../utils/roleUtils';
+import { assignRole, removeRole, getUserRoles, getAvailableCommunitiesForAssignment, assignRoleViaAPI, removeRoleViaAPI } from '../utils/roleUtils';
 
 interface RoleAssignmentModalProps {
   isOpen: boolean;
@@ -161,7 +161,8 @@ export default function RoleAssignmentModal({
         communityId: selectedCommunity || undefined
       };
 
-      const result = await assignRole(supabase, userId, selectedRole, currentUserId, organizationalScope);
+      // Use the API-based function to bypass RLS
+      const result = await assignRoleViaAPI(userId, selectedRole, organizationalScope);
       
       if (result.success) {
         if (selectedRole === 'lider_comunidad' && result.communityId) {
@@ -192,7 +193,8 @@ export default function RoleAssignmentModal({
     try {
       setLoading(true);
       
-      const result = await removeRole(supabase, roleId, currentUserId);
+      // Use the API-based function to bypass RLS
+      const result = await removeRoleViaAPI(roleId);
       
       if (result.success) {
         toast.success('Rol removido correctamente');
@@ -263,21 +265,21 @@ export default function RoleAssignmentModal({
     try {
       setLoading(true);
 
-      // First remove the old role
-      const removeResult = await removeRole(supabase, editingRole.id, currentUserId);
+      // First remove the old role using API
+      const removeResult = await removeRoleViaAPI(editingRole.id);
       if (!removeResult.success) {
         toast.error(removeResult.error || 'Error al actualizar rol');
         return;
       }
 
-      // Then create the updated role
+      // Then create the updated role using API
       const organizationalScope = {
         schoolId: selectedSchool || undefined,
         generationId: selectedGeneration || undefined,
         communityId: selectedCommunity || undefined
       };
 
-      const assignResult = await assignRole(supabase, userId, selectedRole, currentUserId, organizationalScope);
+      const assignResult = await assignRoleViaAPI(userId, selectedRole, organizationalScope);
       
       if (assignResult.success) {
         toast.success('Rol actualizado correctamente');

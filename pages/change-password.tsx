@@ -4,7 +4,7 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
-import { LockClosedIcon, ExclamationIcon } from '@heroicons/react/outline';
+import { LockClosedIcon, ExclamationIcon, LogoutIcon } from '@heroicons/react/outline';
 
 export default function ChangePasswordPage() {
   const router = useRouter();
@@ -69,6 +69,11 @@ export default function ChangePasswordPage() {
       console.error('Auth check error:', error);
       router.push('/login');
     }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
   };
 
   const validatePassword = (password: string): string | null => {
@@ -245,6 +250,17 @@ export default function ChangePasswordPage() {
       </Head>
 
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+        {/* Logout button in top right corner */}
+        <div className="absolute top-4 right-4">
+          <button
+            onClick={handleLogout}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+          >
+            <LogoutIcon className="w-4 h-4 mr-2" />
+            Cerrar Sesión
+          </button>
+        </div>
+
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <div className="flex justify-center">
             <div className="w-20 h-20 bg-[#00365b] rounded-full flex items-center justify-center">

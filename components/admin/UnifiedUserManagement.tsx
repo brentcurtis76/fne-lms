@@ -17,7 +17,8 @@ import {
   Filter,
   User,
   Settings,
-  Upload
+  Upload,
+  Edit
 } from 'lucide-react';
 import { toastSuccess, toastError } from '../../utils/toastUtils';
 import { TOAST_MESSAGES } from '../../constants/toastMessages';
@@ -50,6 +51,7 @@ interface UnifiedUserManagementProps {
   onPasswordReset: (user: UserType) => void;
   onAddUser: () => void;
   onBulkImport: () => void;
+  onEditUser: (user: UserType) => void;
 }
 
 export default function UnifiedUserManagement({
@@ -61,7 +63,8 @@ export default function UnifiedUserManagement({
   onAssign,
   onPasswordReset,
   onAddUser,
-  onBulkImport
+  onBulkImport,
+  onEditUser
 }: UnifiedUserManagementProps) {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -465,6 +468,17 @@ export default function UnifiedUserManagement({
                         
                         {user.approval_status === 'approved' && (
                           <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onEditUser(user);
+                              }}
+                              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Editar Usuario
+                            </button>
+                            
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

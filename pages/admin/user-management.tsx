@@ -11,6 +11,7 @@ import ConsultantAssignmentModal from '../../components/ConsultantAssignmentModa
 import PasswordResetModal from '../../components/PasswordResetModal';
 import UnifiedUserManagement from '../../components/admin/UnifiedUserManagement';
 import BulkUserImportModal from '../../components/admin/BulkUserImportModal';
+import UserEditModal from '../../components/admin/UserEditModal';
 import { getUserRoles, getUserPrimaryRole } from '../../utils/roleUtils';
 import { ROLE_NAMES } from '../../types/roles';
 
@@ -54,6 +55,10 @@ export default function UserManagement() {
   // Bulk import modal state
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
   
+  // Edit user modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<User | null>(null);
+  
   const handleOpenRoleModal = (user: User) => {
     const userName = user.first_name && user.last_name 
       ? `${user.first_name} ${user.last_name}` 
@@ -90,6 +95,23 @@ export default function UserManagement() {
     // Refresh users list after assignment update
     fetchUsers();
   };
+  
+  const handleEditUser = (user: User) => {
+    setUserToEdit(user);
+    setShowEditModal(true);
+  };
+  
+  const handleEditModalClose = () => {
+    setShowEditModal(false);
+    setUserToEdit(null);
+  };
+  
+  const handleUserUpdated = () => {
+    fetchUsers();
+    setShowEditModal(false);
+    setUserToEdit(null);
+  };
+  
   const [isCreating, setIsCreating] = useState(false);
   
   // Delete confirmation modal state
@@ -709,6 +731,7 @@ export default function UserManagement() {
           }}
           onAddUser={() => setShowAddForm(true)}
           onBulkImport={() => setShowBulkImportModal(true)}
+          onEditUser={handleEditUser}
         />
         
         {/* Add User Form Modal */}
@@ -908,6 +931,14 @@ export default function UserManagement() {
           setShowBulkImportModal(false);
           fetchUsers();
         }}
+      />
+      
+      {/* User Edit Modal */}
+      <UserEditModal
+        isOpen={showEditModal}
+        onClose={handleEditModalClose}
+        user={userToEdit}
+        onUserUpdated={handleUserUpdated}
       />
     </>
   );

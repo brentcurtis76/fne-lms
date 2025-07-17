@@ -464,6 +464,27 @@ export function parseBulkUserData(
   - Instagram feed now supports all file types: PDFs, images, Word docs, Excel files, PowerPoint, etc.
   - Database update: `ALTER TABLE post_media ADD CONSTRAINT post_media_type_check CHECK (type IN ('image', 'video', 'document'));`
   - All feed functionality now working correctly with proper file upload support
+- **USER EDIT API FIX (July 2025)**:
+  - Fixed 403 Forbidden error when admins try to edit user emails
+  - Issue: `/api/admin/update-user.ts` was calling `hasAdminPrivileges` without required Supabase client parameter
+  - Solution: Pass `supabaseAdmin` (service role client) to `hasAdminPrivileges` function
+  - Admin users can now successfully edit user emails, names, and school information
+  - All changes are properly logged in audit_logs table
+- **ROLE ASSIGNMENT FIX FOR ADMINS (July 2025)**:
+  - Fixed issue where Mora del Fresno couldn't assign roles despite being admin
+  - Root cause: RoleAssignmentModal using client-side Supabase subject to RLS restrictions
+  - Solution: Created API endpoints `/api/admin/assign-role` and `/api/admin/remove-role`
+  - Updated roleUtils with `assignRoleViaAPI` and `removeRoleViaAPI` functions
+  - Modified RoleAssignmentModal to use API-based approach
+  - All role operations now work correctly for admin users
+  - Comprehensive test suite created to verify functionality
+- **JORGE PARRA COURSE VISIBILITY FIX (July 2025)**:
+  - Fixed issue where Jorge only saw 1 of 2 courses in "Mis Cursos"
+  - Root cause: "Introducción a Los Pellines" had wrong created_by due to previous bug
+  - Found Jorge's correct user ID: 372ab00b-1d39-4574-8eff-d756b9d6b861
+  - Updated course created_by to correct user ID
+  - Both courses now properly display in Jorge's "Mis Cursos" section
+  - Dashboard correctly filters courses by created_by for admin users
 
 # KNOWN ISSUES
 - ✅ FIXED: PDF export runtime error with jsPDF (created wrapper for SSR)

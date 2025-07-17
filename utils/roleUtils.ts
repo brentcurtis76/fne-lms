@@ -351,6 +351,81 @@ export async function removeRole(
 }
 
 /**
+ * Assign a role to a user using API endpoint (bypasses RLS)
+ * This should be used from client-side code to avoid RLS restrictions
+ */
+export async function assignRoleViaAPI(
+  targetUserId: string,
+  roleType: UserRoleType,
+  organizationalScope: {
+    schoolId?: string;
+    generationId?: string;
+    communityId?: string;
+  } = {}
+): Promise<{ success: boolean; error?: string; communityId?: string }> {
+  try {
+    const response = await fetch('/api/admin/assign-role', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        targetUserId,
+        roleType,
+        schoolId: organizationalScope.schoolId,
+        generationId: organizationalScope.generationId,
+        communityId: organizationalScope.communityId,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Error al asignar rol' };
+    }
+
+    return { 
+      success: true, 
+      communityId: data.communityId 
+    };
+  } catch (error) {
+    console.error('Error in assignRoleViaAPI:', error);
+    return { success: false, error: 'Error de conexión al asignar rol' };
+  }
+}
+
+/**
+ * Remove a role from a user using API endpoint (bypasses RLS)
+ * This should be used from client-side code to avoid RLS restrictions
+ */
+export async function removeRoleViaAPI(
+  roleId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch('/api/admin/remove-role', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        roleId,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Error al remover rol' };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error in removeRoleViaAPI:', error);
+    return { success: false, error: 'Error de conexión al remover rol' };
+  }
+}
+
+/**
  * Get user profile with role information
  */
 export async function getUserProfileWithRoles(supabase: SupabaseClient, userId: string): Promise<UserProfile | null> {

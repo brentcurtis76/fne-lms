@@ -28,7 +28,8 @@ import {
   ClipboardCheckIcon as ClipboardDocumentCheckIcon,
   OfficeBuildingIcon,
   ExclamationCircleIcon as BugIcon,
-  MapIcon
+  MapIcon,
+  GlobeIcon as NetworkIcon
 } from '@heroicons/react/outline';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
@@ -123,6 +124,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     adminOnly: true
   },
   {
+    id: 'networks',
+    label: 'Redes de Colegios',
+    icon: NetworkIcon,
+    href: '/admin/network-management',
+    description: 'Gestión de redes y supervisores',
+    adminOnly: true
+  },
+  {
     id: 'consultants',
     label: 'Consultorías',
     icon: UserIcon,
@@ -180,7 +189,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Reportes',
     icon: ChartBarIcon,
     description: 'Análisis y reportes',
-    restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'],
+    restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red'],
     children: [
       {
         id: 'detailed-reports',

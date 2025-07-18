@@ -49,8 +49,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Failed to fetch user profile', details: profileError.message });
     }
 
-    // Check if user has access to reports (admin or consultor)
-    if (!profile || !['admin', 'consultor'].includes(profile.role)) {
+    // Check if user has access to reports
+    const allowedRoles = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red'];
+    if (!profile || !allowedRoles.includes(profile.role)) {
       console.error('User does not have report access:', profile?.role);
       return res.status(403).json({ error: 'Report access required' });
     }

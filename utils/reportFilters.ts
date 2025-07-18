@@ -11,6 +11,7 @@ export interface UserProfile {
   school_id?: string;
   generation_id?: string;
   community_id?: string;
+  red_id?: string; // Network ID for supervisor_de_red
 }
 
 export interface ReportFilters {
@@ -18,6 +19,7 @@ export interface ReportFilters {
   generation_id?: string;
   community_id?: string;
   consultant_id?: string;
+  network_id?: string; // Network ID for supervisor_de_red
 }
 
 /**
@@ -26,7 +28,7 @@ export interface ReportFilters {
  * @returns Filters to apply to report queries
  */
 export function getRoleBasedFilters(userProfile: UserProfile): ReportFilters {
-  const { role, school_id, generation_id, community_id, id } = userProfile;
+  const { role, school_id, generation_id, community_id, red_id, id } = userProfile;
   
   switch (role) {
     case 'admin':
@@ -37,6 +39,15 @@ export function getRoleBasedFilters(userProfile: UserProfile): ReportFilters {
       // Consultants see only students they're assigned to
       return {
         consultant_id: id
+      };
+      
+    case 'supervisor_de_red':
+      // Network supervisors see only data from schools in their network
+      if (!red_id) {
+        throw new Error('Supervisor de red must have red_id');
+      }
+      return {
+        network_id: red_id
       };
       
     case 'equipo_directivo':
@@ -105,6 +116,17 @@ export function applyReportFilters(query: any, filters: ReportFilters): any {
       );
   }
   
+  if (filters.network_id) {
+    // For network supervisors, filter by schools in their network
+    filteredQuery = filteredQuery
+      .in('school_id',
+        supabase
+          .from('red_escuelas')
+          .select('school_id')
+          .eq('red_id', filters.network_id)
+      );
+  }
+  
   return filteredQuery;
 }
 
@@ -119,6 +141,8 @@ export function getReportScopeDescription(role: string): string {
       return 'Vista global de toda la plataforma';
     case 'consultor':
       return 'Estudiantes bajo tu supervisión';
+    case 'supervisor_de_red':
+      return 'Escuelas de tu red asignada';
     case 'equipo_directivo':
       return 'Todos los usuarios de tu escuela';
     case 'lider_generacion':

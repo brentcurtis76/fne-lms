@@ -141,7 +141,8 @@ export default function UnifiedUserManagement({
       docente: 'bg-blue-50 text-blue-700 border-blue-200',
       lider_comunidad: 'bg-purple-50 text-purple-700 border-purple-200',
       lider_generacion: 'bg-indigo-50 text-indigo-700 border-indigo-200',
-      equipo_directivo: 'bg-orange-50 text-orange-700 border-orange-200'
+      equipo_directivo: 'bg-orange-50 text-orange-700 border-orange-200',
+      supervisor_de_red: 'bg-teal-50 text-teal-700 border-teal-200'
     };
     return colors[role] || 'bg-gray-50 text-gray-700 border-gray-200';
   };
@@ -429,6 +430,9 @@ export default function UnifiedUserManagement({
                                 <div key={index} className="text-sm text-gray-900">
                                   {ROLE_NAMES[role.role_type as keyof typeof ROLE_NAMES] || role.role_type}
                                   {role.school?.name && ` - ${role.school.name}`}
+                                  {role.role_type === 'supervisor_de_red' && role.network?.name && (
+                                    <span className="text-teal-600"> - Red: {role.network.name}</span>
+                                  )}
                                 </div>
                               ))}
                             </dd>

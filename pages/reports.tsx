@@ -158,7 +158,7 @@ const ReportsPage: React.FC = () => {
         setIsAdmin(role === 'admin');
         
         // Check if user has reporting access
-        const reportingRoles = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'];
+        const reportingRoles = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red'];
         if (!reportingRoles.includes(role)) {
           router.push('/dashboard');
           return;
@@ -175,6 +175,8 @@ const ReportsPage: React.FC = () => {
           setUserScope('Nivel Comunidad');
         } else if (role === 'consultor') {
           setUserScope('Estudiantes Asignados');
+        } else if (role === 'supervisor_de_red') {
+          setUserScope('Acceso Nivel Red');
         }
         
         if (profileData.avatar_url) {

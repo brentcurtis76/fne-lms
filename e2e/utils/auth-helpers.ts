@@ -14,25 +14,25 @@ export interface TestUser {
 
 export const TEST_USERS = {
   admin: {
-    email: process.env.TEST_ADMIN_EMAIL || 'admin@test.com',
+    email: process.env.TEST_ADMIN_EMAIL || 'acisternas@nuevaeducacion.org',
     password: process.env.TEST_ADMIN_PASSWORD || 'test123456',
     role: 'admin',
-    name: 'Test Admin'
+    name: 'Arnoldo Cisternas'
   },
   consultant: {
-    email: process.env.TEST_CONSULTANT_EMAIL || 'consultant@test.com',
+    email: process.env.TEST_CONSULTANT_EMAIL || 'consultant@nuevaeducacion.org',
     password: process.env.TEST_CONSULTANT_PASSWORD || 'test123456',
     role: 'consultor',
     name: 'Test Consultant'
   },
   student: {
-    email: process.env.TEST_STUDENT_EMAIL || 'student@test.com',
+    email: process.env.TEST_STUDENT_EMAIL || 'student@nuevaeducacion.org',
     password: process.env.TEST_STUDENT_PASSWORD || 'test123456',
     role: 'docente',
     name: 'Test Student'
   },
   director: {
-    email: process.env.TEST_DIRECTOR_EMAIL || 'director@test.com',
+    email: process.env.TEST_DIRECTOR_EMAIL || 'director@nuevaeducacion.org',
     password: process.env.TEST_DIRECTOR_PASSWORD || 'test123456',
     role: 'equipo_directivo',
     name: 'Test Director'

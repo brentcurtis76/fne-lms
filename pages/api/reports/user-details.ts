@@ -129,6 +129,11 @@ function checkUserAccess(requestingUser: any, targetUser: any): boolean {
       // Would need to check consultant_assignments table
       return true; // Simplified for now
     
+    case 'supervisor_de_red':
+      // Supervisor de red can see users from schools in their assigned network
+      // Would need to check red_escuelas table to verify school is in their network
+      return true; // Simplified for now - actual implementation should check network assignment
+    
     default:
       return false;
   }

@@ -10,6 +10,7 @@ export type UserRoleType =
   | 'equipo_directivo'    // School-level administrators  
   | 'lider_generacion'    // Leaders of Tractor/Innova generations
   | 'lider_comunidad'     // Leaders of Growth Communities (2-16 teachers)
+  | 'supervisor_de_red'   // Network supervisors with limited reporting access
   | 'docente';            // Regular teachers/course participants
 
 // Organizational entities
@@ -41,6 +42,36 @@ export interface GrowthCommunity {
   school?: School;
 }
 
+// Network of schools for supervisor_de_red role
+export interface RedDeColegios {
+  id: string;
+  name: string;
+  description?: string;
+  created_by?: string;
+  last_updated_by?: string;
+  created_at: string;
+  updated_at: string;
+  
+  // Related entities (populated via joins)
+  schools?: School[];
+  supervisors?: UserProfile[];
+  school_count?: number;
+  supervisor_count?: number;
+}
+
+// School-network assignment relationship
+export interface RedEscuela {
+  red_id: string;
+  school_id: number;
+  assigned_by?: string;
+  assigned_at: string;
+  
+  // Related entities (populated via joins)
+  network?: RedDeColegios;
+  school?: School;
+  assigned_by_profile?: UserProfile;
+}
+
 // User role assignment
 export interface UserRole {
   id: string;
@@ -49,6 +80,7 @@ export interface UserRole {
   school_id?: string;
   generation_id?: string;
   community_id?: string;
+  red_id?: string; // Network association for supervisor_de_red role
   is_active: boolean;
   assigned_at: string;
   reporting_scope?: Record<string, any>; // For future analytics features
@@ -59,6 +91,7 @@ export interface UserRole {
   school?: School;
   generation?: Generation;
   community?: GrowthCommunity;
+  network?: RedDeColegios;
 }
 
 // Extended user profile with role information
@@ -101,8 +134,8 @@ export interface RolePermissions {
   can_manage_communities: boolean;
   
   // Reporting and analytics
-  reporting_scope: 'global' | 'school' | 'generation' | 'community' | 'individual';
-  feedback_scope: 'global' | 'school' | 'generation' | 'community' | 'individual';
+  reporting_scope: 'global' | 'network' | 'school' | 'generation' | 'community' | 'individual';
+  feedback_scope: 'global' | 'network' | 'school' | 'generation' | 'community' | 'individual';
 }
 
 // Role hierarchy definition
@@ -182,6 +215,21 @@ export const ROLE_HIERARCHY: Record<UserRoleType, RolePermissions> = {
     reporting_scope: 'community',
     feedback_scope: 'community'
   },
+  supervisor_de_red: {
+    can_create_courses: false,
+    can_edit_all_courses: false,
+    can_delete_courses: false,
+    can_assign_courses: false,
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_assign_roles: false,
+    can_manage_schools: false,
+    can_manage_generations: false,
+    can_manage_communities: false,
+    reporting_scope: 'network',
+    feedback_scope: 'network'
+  },
   docente: {
     can_create_courses: false,
     can_edit_all_courses: false,
@@ -206,6 +254,7 @@ export const ROLE_NAMES: Record<UserRoleType, string> = {
   equipo_directivo: 'Equipo Directivo',
   lider_generacion: 'Líder de Generación',
   lider_comunidad: 'Líder de Comunidad',
+  supervisor_de_red: 'Supervisor de Red',
   docente: 'Docente'
 };
 
@@ -216,6 +265,7 @@ export const ROLE_DESCRIPTIONS: Record<UserRoleType, string> = {
   equipo_directivo: 'Administradores a nivel de colegio. Pueden pertenecer a comunidades para colaboración.',
   lider_generacion: 'Líderes de generaciones Tractor/Innova. Pueden pertenecer a comunidades para colaboración.',
   lider_comunidad: 'Líderes de Comunidades de Crecimiento (2-16 miembros). Crean automáticamente su propia comunidad.',
+  supervisor_de_red: 'Supervisores con acceso limitado a reportes de una red específica de colegios. Pueden inscribirse en cursos como estudiantes.',
   docente: 'Docentes participantes en cursos. Pueden pertenecer a comunidades para colaboración.'
 };
 

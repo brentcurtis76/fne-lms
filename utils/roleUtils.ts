@@ -12,6 +12,8 @@ import {
   ROLE_HIERARCHY,
   PermissionKey,
   GrowthCommunity,
+  School,
+  RedDeColegios
 
 } from '../types/roles';
 
@@ -98,6 +100,7 @@ export function getHighestRole(roles: UserRole[]): UserRoleType | null {
     'equipo_directivo',
     'lider_generacion',
     'lider_comunidad',
+    'supervisor_de_red',
     'docente'
   ];
 
@@ -722,5 +725,339 @@ export async function getUserPrimaryRole(userId: string): Promise<string> {
   } catch (error) {
     console.error('Error in getUserPrimaryRole:', error);
     return '';
+  }
+}
+
+/**
+ * Check if user is a network supervisor
+ */
+export async function isNetworkSupervisor(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  try {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('role_type', 'supervisor_de_red')
+      .eq('is_active', true)
+      .not('red_id', 'is', null)
+      .limit(1);
+
+    if (error) {
+      console.error('Error checking network supervisor status:', error);
+      return false;
+    }
+
+    return data && data.length > 0;
+  } catch (error) {
+    console.error('Error in isNetworkSupervisor:', error);
+    return false;
+  }
+}
+
+/**
+ * Get user's assigned network ID (for supervisors)
+ */
+export async function getUserNetworkId(supabase: SupabaseClient, userId: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('red_id')
+      .eq('user_id', userId)
+      .eq('role_type', 'supervisor_de_red')
+      .eq('is_active', true)
+      .not('red_id', 'is', null)
+      .single();
+
+    if (error) {
+      console.error('Error getting user network ID:', error);
+      return null;
+    }
+
+    return data?.red_id || null;
+  } catch (error) {
+    console.error('Error in getUserNetworkId:', error);
+    return null;
+  }
+}
+
+/**
+ * Get schools in a supervisor's network
+ */
+export async function getNetworkSchools(supabase: SupabaseClient, networkId: string): Promise<School[]> {
+  try {
+    const { data, error } = await supabase
+      .from('red_escuelas')
+      .select(`
+        school_id,
+        schools (
+          id,
+          name,
+          code,
+          has_generations,
+          created_at
+        )
+      `)
+      .eq('red_id', networkId);
+
+    if (error) {
+      console.error('Error fetching network schools:', error);
+      return [];
+    }
+
+    return data?.map(item => ({
+      id: item.school_id.toString(),
+      name: item.schools?.name || '',
+      code: item.schools?.code,
+      has_generations: item.schools?.has_generations,
+      created_at: item.schools?.created_at
+    })) || [];
+  } catch (error) {
+    console.error('Error in getNetworkSchools:', error);
+    return [];
+  }
+}
+
+/**
+ * Check if supervisor can access specific user data
+ */
+export async function supervisorCanAccessUser(
+  supabase: SupabaseClient, 
+  supervisorId: string, 
+  targetUserId: string
+): Promise<boolean> {
+  try {
+    // Use the database function for efficient checking
+    const { data, error } = await supabase
+      .rpc('supervisor_can_access_user', {
+        supervisor_id: supervisorId,
+        target_user_id: targetUserId
+      });
+
+    if (error) {
+      console.error('Error checking supervisor user access:', error);
+      return false;
+    }
+
+    return data === true;
+  } catch (error) {
+    console.error('Error in supervisorCanAccessUser:', error);
+    return false;
+  }
+}
+
+/**
+ * Get users accessible to a network supervisor
+ */
+export async function getNetworkUsers(supabase: SupabaseClient, userId: string): Promise<UserProfile[]> {
+  try {
+    // First get the supervisor's network ID
+    const networkId = await getUserNetworkId(supabase, userId);
+    if (!networkId) {
+      return [];
+    }
+
+    // Get schools in the network
+    const networkSchools = await getNetworkSchools(supabase, networkId);
+    const schoolIds = networkSchools.map(school => parseInt(school.id));
+
+    if (schoolIds.length === 0) {
+      return [];
+    }
+
+    // Get users from these schools
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(`
+        *,
+        user_roles!inner (
+          role_type,
+          school_id,
+          is_active
+        )
+      `)
+      .or(`school_id.in.(${schoolIds.join(',')}),user_roles.school_id.in.(${schoolIds.map(id => `"${id}"`).join(',')})`)
+      .eq('user_roles.is_active', true);
+
+    if (error) {
+      console.error('Error fetching network users:', error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getNetworkUsers:', error);
+    return [];
+  }
+}
+
+/**
+ * Assign supervisor role with network
+ */
+export async function assignSupervisorRole(
+  supabase: SupabaseClient,
+  targetUserId: string,
+  networkId: string,
+  assignedBy: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Verify assigner has global admin privileges
+    const canAssign = await isGlobalAdmin(supabase, assignedBy);
+    if (!canAssign) {
+      return { success: false, error: 'Solo administradores pueden asignar roles de supervisor' };
+    }
+
+    // Check if network exists
+    const { data: networkExists } = await supabase
+      .from('redes_de_colegios')
+      .select('id')
+      .eq('id', networkId)
+      .single();
+
+    if (!networkExists) {
+      return { success: false, error: 'La red especificada no existe' };
+    }
+
+    // Check if user already has supervisor role for this network
+    const { data: existingRole } = await supabase
+      .from('user_roles')
+      .select('id')
+      .eq('user_id', targetUserId)
+      .eq('role_type', 'supervisor_de_red')
+      .eq('red_id', networkId)
+      .eq('is_active', true)
+      .single();
+
+    if (existingRole) {
+      return { success: false, error: 'El usuario ya tiene el rol de supervisor para esta red' };
+    }
+
+    // Assign the role
+    const { error } = await supabase
+      .from('user_roles')
+      .insert({
+        user_id: targetUserId,
+        role_type: 'supervisor_de_red',
+        red_id: networkId,
+        is_active: true,
+        assigned_by: assignedBy,
+        assigned_at: new Date().toISOString()
+      });
+
+    if (error) {
+      console.error('Error assigning supervisor role:', error);
+      return { success: false, error: 'Error al asignar rol de supervisor: ' + error.message };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Error in assignSupervisorRole:', error);
+    return { success: false, error: 'Error inesperado al asignar rol de supervisor' };
+  }
+}
+
+/**
+ * Get available networks for supervisor assignment
+ */
+export async function getAvailableNetworks(supabase: SupabaseClient): Promise<any[]> {
+  try {
+    const { data, error } = await supabase
+      .from('redes_de_colegios')
+      .select(`
+        id,
+        name,
+        description,
+        created_at,
+        red_escuelas!inner (
+          school_id,
+          schools (
+            name
+          )
+        )
+      `)
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching available networks:', error);
+      return [];
+    }
+
+    // Group schools by network
+    return data?.map(network => ({
+      id: network.id,
+      name: network.name,
+      description: network.description,
+      created_at: network.created_at,
+      school_count: network.red_escuelas?.length || 0,
+      schools: network.red_escuelas?.map((re: any) => re.schools?.name).filter(Boolean) || []
+    })) || [];
+  } catch (error) {
+    console.error('Error in getAvailableNetworks:', error);
+    return [];
+  }
+}
+
+/**
+ * Enhanced permission checking that includes network scope
+ */
+export function hasNetworkPermission(
+  roles: UserRole[], 
+  permission: PermissionKey,
+  requiredScope: 'network' | 'global' = 'network'
+): boolean {
+  if (!roles || roles.length === 0) return false;
+
+  return roles.some(role => {
+    const permissions = ROLE_HIERARCHY[role.role_type];
+    const hasPermission = permissions[permission];
+    
+    // For network scope, allow network supervisors
+    if (requiredScope === 'network' && role.role_type === 'supervisor_de_red') {
+      return hasPermission;
+    }
+    
+    // For global scope, only allow admin and above
+    if (requiredScope === 'global') {
+      return hasPermission && permissions.reporting_scope === 'global';
+    }
+    
+    return hasPermission;
+  });
+}
+
+/**
+ * Get data filtering scope for user
+ */
+export function getUserDataScope(roles: UserRole[]): {
+  scope: 'global' | 'network' | 'school' | 'generation' | 'community' | 'individual';
+  contextId?: string;
+} {
+  if (!roles || roles.length === 0) {
+    return { scope: 'individual' };
+  }
+
+  // Find the highest privilege role
+  const highestRole = getHighestRole(roles);
+  const roleObj = roles.find(r => r.role_type === highestRole);
+  
+  if (!roleObj) {
+    return { scope: 'individual' };
+  }
+
+  const permissions = ROLE_HIERARCHY[roleObj.role_type];
+  
+  // Return scope with context ID for filtering
+  switch (permissions.reporting_scope) {
+    case 'global':
+      return { scope: 'global' };
+    case 'network':
+      return { scope: 'network', contextId: roleObj.red_id };
+    case 'school':
+      return { scope: 'school', contextId: roleObj.school_id };
+    case 'generation':
+      return { scope: 'generation', contextId: roleObj.generation_id };
+    case 'community':
+      return { scope: 'community', contextId: roleObj.community_id };
+    default:
+      return { scope: 'individual' };
   }
 }

@@ -42,7 +42,8 @@ async function globalSetup(config: FullConfig) {
     console.log('✅ Application is accessible');
 
     // Check if login page is working
-    await page.goto('/login');
+    const baseUrl = config.projects[0].use?.baseURL || 'http://localhost:3000';
+    await page.goto(`${baseUrl}/login`);
     await page.waitForSelector('input[type="email"]', { timeout: 5000 });
     console.log('✅ Login page is functional');
 

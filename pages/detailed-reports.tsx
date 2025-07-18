@@ -174,7 +174,7 @@ export default function DetailedReports() {
   };
 
   const hasReportingAccess = (role: string) => {
-    return ['admin', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'consultor'].includes(role);
+    return ['admin', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'consultor', 'supervisor_de_red'].includes(role);
   };
 
   const fetchDetailedProgress = async () => {

@@ -85,3 +85,4 @@ run-*.mjs
 
 # Backups
 /backups/
+.vercel

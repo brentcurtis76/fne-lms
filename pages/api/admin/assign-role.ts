@@ -73,9 +73,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Could not find user profile' });
       }
 
+      // Check if school requires generations
+      const { data: schoolData, error: schoolError } = await supabaseService
+        .from('schools')
+        .select('id, name, has_generations')
+        .eq('id', schoolId)
+        .single();
+
+      if (schoolError || !schoolData) {
+        return res.status(400).json({ error: 'Could not find school information' });
+      }
+
+      // Check if school has any generations in the database
+      const { data: existingGenerations, error: genError } = await supabaseService
+        .from('generations')
+        .select('id')
+        .eq('school_id', schoolId)
+        .limit(1);
+
+      if (genError) {
+        console.error('Error checking generations:', genError);
+        return res.status(500).json({ error: 'Error verificando generaciones' });
+      }
+
+      const schoolHasGenerations = schoolData.has_generations || (existingGenerations && existingGenerations.length > 0);
+
+      // Validate generation requirement
+      if (schoolHasGenerations && !generationId) {
+        return res.status(400).json({ 
+          error: `La escuela "${schoolData.name}" utiliza generaciones. Debe seleccionar una generación para crear la comunidad.` 
+        });
+      }
+
+      // Validate generation_id exists if provided
+      if (generationId) {
+        const { data: generationData, error: generationError } = await supabaseService
+          .from('generations')
+          .select('id, name')
+          .eq('id', generationId)
+          .eq('school_id', schoolId)
+          .single();
+
+        if (generationError || !generationData) {
+          return res.status(400).json({ error: 'La generación seleccionada no es válida para esta escuela' });
+        }
+      }
+
       const communityName = `Comunidad ${userData.first_name} ${userData.last_name}`;
 
-      // Create the community
+      // Create the community with proper validation
       const { data: newCommunity, error: communityError } = await supabaseService
         .from('growth_communities')
         .insert({
@@ -89,7 +135,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (communityError) {
         console.error('Error creating community:', communityError);
-        return res.status(500).json({ error: 'Error al crear la comunidad' });
+        
+        // Provide specific error messages based on constraint violations
+        if (communityError.code === '23505') {
+          // Unique constraint violation
+          return res.status(400).json({ 
+            error: `Ya existe una comunidad con el nombre "${communityName}" en esta escuela. Por favor, use un nombre diferente.` 
+          });
+        } else if (communityError.code === '23503') {
+          // Foreign key constraint violation
+          return res.status(400).json({ 
+            error: 'Error de configuración: referencias inválidas en la base de datos.' 
+          });
+        } else if (communityError.message && communityError.message.includes('generation_id is required')) {
+          // Our custom trigger error
+          return res.status(400).json({ 
+            error: 'Esta escuela requiere que se especifique una generación para crear comunidades.' 
+          });
+        } else {
+          // Generic error
+          return res.status(500).json({ 
+            error: 'Error al crear la comunidad. Por favor, verifique la configuración e intente nuevamente.' 
+          });
+        }
       }
 
       finalCommunityId = newCommunity.id;

@@ -1,14 +1,4 @@
 {
-  "_crons_temporarily_disabled_for_deployment": [
-    {
-      "path": "/api/cron/due-reminders",
-      "schedule": "0 9 * * *"
-    },
-    {
-      "path": "/api/cron/email-digest",
-      "schedule": "0 9 * * *"
-    }
-  ],
   "functions": {
     "pages/api/cron/due-reminders.ts": {
       "maxDuration": 60

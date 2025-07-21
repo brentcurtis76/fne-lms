@@ -155,6 +155,19 @@ export default function RoleAssignmentModal({
         }
       }
 
+      // Validation: Community leader role requires generation for schools with generations
+      if (selectedRole === 'lider_comunidad' && selectedSchool) {
+        const school = schools.find(s => s.id === selectedSchool);
+        const schoolGenerations = generations.filter(gen => gen.school_id === selectedSchool);
+        const schoolHasGenerations = school?.has_generations || schoolGenerations.length > 0;
+        
+        if (schoolHasGenerations && !selectedGeneration) {
+          toast.error(`La escuela "${school?.name}" utiliza generaciones. Debe seleccionar una generación para crear la comunidad.`);
+          setLoading(false);
+          return;
+        }
+      }
+
       const organizationalScope = {
         schoolId: selectedSchool || undefined,
         generationId: selectedGeneration || undefined,
@@ -589,43 +602,69 @@ export default function RoleAssignmentModal({
                             {/* Generation Selection (for generation/community roles - only show if school has generations) */}
                             {(['lider_generacion', 'lider_comunidad'].includes(selectedRole)) && (
                               <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                  <Team className="inline mr-1" size={16} />
-                                  Generación {selectedRole === 'lider_comunidad' && selectedSchool && schools.find(s => s.id === selectedSchool)?.has_generations === false ? '(Opcional)' : ''}
-                                </label>
-                                {/* Check if selected school has generations */}
-                                {selectedSchool && schools.find(s => s.id === selectedSchool)?.has_generations === false ? (
-                                  <>
-                                    {selectedRole === 'lider_generacion' ? (
-                                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                        <p className="text-sm text-yellow-800">
-                                          Esta escuela no utiliza generaciones. No se puede asignar el rol de Líder de Generación.
-                                        </p>
-                                      </div>
-                                    ) : (
-                                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                        <p className="text-sm text-blue-800">
-                                          Esta escuela no utiliza generaciones. La comunidad se creará directamente bajo la escuela.
-                                        </p>
-                                      </div>
-                                    )}
-                                  </>
-                                ) : (
-                                  <select
-                                    value={selectedGeneration}
-                                    onChange={(e) => setSelectedGeneration(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                                  >
-                                    <option value="">Seleccionar generación</option>
-                                    {generations
-                                      .filter(gen => !selectedSchool || gen.school_id === selectedSchool)
-                                      .map((generation) => (
-                                        <option key={generation.id} value={generation.id}>
-                                          {generation.name} ({generation.grade_range})
-                                        </option>
-                                      ))}
-                                  </select>
-                                )}
+                                {(() => {
+                                  const school = schools.find(s => s.id === selectedSchool);
+                                  const schoolGenerations = generations.filter(gen => gen.school_id === selectedSchool);
+                                  const schoolHasGenerations = school?.has_generations || schoolGenerations.length > 0;
+                                  const isRequired = selectedRole === 'lider_comunidad' && schoolHasGenerations;
+                                  const cannotAssignGenLeader = selectedRole === 'lider_generacion' && selectedSchool && !schoolHasGenerations;
+
+                                  return (
+                                    <>
+                                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        <Team className="inline mr-1" size={16} />
+                                        Generación {isRequired ? '(Requerido)' : cannotAssignGenLeader ? '(No disponible)' : '(Opcional)'}
+                                        {isRequired && <span className="text-red-500 ml-1">*</span>}
+                                      </label>
+                                      
+                                      {cannotAssignGenLeader ? (
+                                        <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                                          <p className="text-sm text-red-800">
+                                            <strong>Error:</strong> Esta escuela no utiliza generaciones. No se puede asignar el rol de Líder de Generación.
+                                          </p>
+                                        </div>
+                                      ) : !schoolHasGenerations && selectedRole === 'lider_comunidad' ? (
+                                        <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                          <p className="text-sm text-blue-800">
+                                            Esta escuela no utiliza generaciones. La comunidad se creará directamente bajo la escuela.
+                                          </p>
+                                        </div>
+                                      ) : (
+                                        <>
+                                          <select
+                                            value={selectedGeneration}
+                                            onChange={(e) => setSelectedGeneration(e.target.value)}
+                                            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent ${
+                                              isRequired && !selectedGeneration 
+                                                ? 'border-red-300 bg-red-50' 
+                                                : 'border-gray-300'
+                                            }`}
+                                            required={isRequired}
+                                          >
+                                            <option value="">
+                                              {isRequired ? 'Seleccionar generación (requerido)' : 'Seleccionar generación'}
+                                            </option>
+                                            {schoolGenerations.map((generation) => (
+                                              <option key={generation.id} value={generation.id}>
+                                                {generation.name} ({generation.grade_range})
+                                              </option>
+                                            ))}
+                                          </select>
+                                          {isRequired && !selectedGeneration && (
+                                            <p className="text-sm text-red-600 mt-1">
+                                              Esta escuela utiliza generaciones. Debe seleccionar una generación para crear la comunidad.
+                                            </p>
+                                          )}
+                                          {schoolGenerations.length === 0 && selectedSchool && (
+                                            <p className="text-sm text-gray-600 mt-1">
+                                              No hay generaciones disponibles para esta escuela.
+                                            </p>
+                                          )}
+                                        </>
+                                      )}
+                                    </>
+                                  );
+                                })()}
                               </div>
                             )}
 
@@ -707,13 +746,32 @@ export default function RoleAssignmentModal({
                               </button>
                             </div>
                           ) : showNewRoleForm ? (
-                            <button
-                              onClick={handleAssignRole}
-                              disabled={loading}
-                              className="w-full bg-[#fdb933] text-white py-3 px-4 rounded-lg hover:bg-[#e6a530] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                            >
-                              {loading ? 'Asignando...' : 'Asignar Rol'}
-                            </button>
+                            (() => {
+                              // Check if form is valid for submission
+                              const school = schools.find(s => s.id === selectedSchool);
+                              const schoolGenerations = generations.filter(gen => gen.school_id === selectedSchool);
+                              const schoolHasGenerations = school?.has_generations || schoolGenerations.length > 0;
+                              
+                              // Validation rules
+                              const isGenLeaderInvalidSchool = selectedRole === 'lider_generacion' && selectedSchool && !schoolHasGenerations;
+                              const isCommunityLeaderMissingGeneration = selectedRole === 'lider_comunidad' && selectedSchool && schoolHasGenerations && !selectedGeneration;
+                              const isFormInvalid = isGenLeaderInvalidSchool || isCommunityLeaderMissingGeneration;
+
+                              return (
+                                <button
+                                  onClick={handleAssignRole}
+                                  disabled={loading || isFormInvalid}
+                                  className={`w-full py-3 px-4 rounded-lg transition-colors font-medium ${
+                                    isFormInvalid 
+                                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                      : 'bg-[#fdb933] text-white hover:bg-[#e6a530] disabled:opacity-50 disabled:cursor-not-allowed'
+                                  }`}
+                                  title={isFormInvalid ? 'Complete todos los campos requeridos' : ''}
+                                >
+                                  {loading ? 'Asignando...' : 'Asignar Rol'}
+                                </button>
+                              );
+                            })()
                           ) : null}
                         </>
                       )}

@@ -1,5 +1,5 @@
 {
-  "crons": [
+  "_crons_temporarily_disabled_for_deployment": [
     {
       "path": "/api/cron/due-reminders",
       "schedule": "0 9 * * *"

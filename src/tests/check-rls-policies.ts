@@ -93,7 +93,7 @@ async function checkTablePermissions() {
     const testRecord = {
       title: 'RLS Test Course',
       description: 'This is a test to check RLS policies',
-      instructor_id: null, // Or use a valid ID
+      instructor_id: '00000000-0000-0000-0000-000000000000', // placeholder UUID for test
       thumbnail_url: 'https://example.com/test.jpg'
     };
     

@@ -100,18 +100,30 @@ export default async function handler(
       });
     }
 
-    // Combine data
-    const schoolsWithNetworks = (schools || []).map(school => ({
-      id: school.id,
-      name: school.name,
-      has_generations: school.has_generations,
-      current_network: schoolAssignments.get(school.id) || null
-    }));
+    // Combine data with the required format
+    const schoolsWithNetworks = (schools || []).map(school => {
+      const networkAssignment = schoolAssignments.get(school.id);
+      return {
+        id: school.id,
+        name: school.name,
+        is_assigned: !!networkAssignment,
+        assigned_network_id: networkAssignment?.id || null,
+        assigned_network_name: networkAssignment?.name || null,
+        // Additional fields for backward compatibility
+        has_generations: school.has_generations,
+        current_network: networkAssignment || null
+      };
+    });
 
     return res.status(200).json({
       success: true,
       schools: schoolsWithNetworks,
-      total: schoolsWithNetworks.length
+      total: schoolsWithNetworks.length,
+      summary: {
+        total_schools: schoolsWithNetworks.length,
+        assigned_schools: schoolsWithNetworks.filter(s => s.is_assigned).length,
+        unassigned_schools: schoolsWithNetworks.filter(s => !s.is_assigned).length
+      }
     });
 
   } catch (error) {

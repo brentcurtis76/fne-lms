@@ -128,8 +128,8 @@ export class LearningPathsService {
       if (paths.length > 0) {
         const { data, error: countError } = await supabaseClient
           .from('learning_path_courses')
-          .select('path_id')
-          .in('path_id', paths.map((p: any) => p.id));
+          .select('learning_path_id')
+          .in('learning_path_id', paths.map((p: any) => p.id));
 
         if (countError) {
           console.warn('Could not fetch course counts:', countError);
@@ -141,7 +141,7 @@ export class LearningPathsService {
 
       // Count courses per path
       const countMap = (courseCounts || []).reduce((acc: any, item: any) => {
-        acc[item.path_id] = (acc[item.path_id] || 0) + 1;
+        acc[item.learning_path_id] = (acc[item.learning_path_id] || 0) + 1;
         return acc;
       }, {});
 
@@ -184,15 +184,15 @@ export class LearningPathsService {
         .from('learning_path_courses')
         .select(`
           course_id,
-          sequence,
+          sequence_order,
           course:courses(
             id,
             title,
             description
           )
         `)
-        .eq('path_id', pathId)
-        .order('sequence', { ascending: true });
+        .eq('learning_path_id', pathId)
+        .order('sequence_order', { ascending: true });
 
       if (coursesError) throw coursesError;
 
@@ -203,7 +203,7 @@ export class LearningPathsService {
           course_id: pc.course_id,
           course_title: pc.course.title,
           course_description: pc.course.description,
-          sequence: pc.sequence
+          sequence: pc.sequence_order
         }));
 
       return {
@@ -358,16 +358,36 @@ export class LearningPathsService {
     userId: string
   ): Promise<any[]> {
     try {
-      // Get direct assignments and group assignments
-      const { data: assignments, error } = await supabaseClient
+      // First, get the user's community IDs (groups they belong to)
+      const { data: userRoles, error: rolesError } = await supabaseClient
+        .from('user_roles')
+        .select('community_id')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .not('community_id', 'is', null);
+
+      if (rolesError) throw rolesError;
+
+      const communityIds = (userRoles || []).map((role: any) => role.community_id);
+
+      // Build the query for assignments
+      let query = supabaseClient
         .from('learning_path_assignments')
         .select(`
           *,
           path:learning_paths(*)
-        `)
-        .or(`user_id.eq.${userId},group_id.in.(
-          SELECT community_id FROM user_roles WHERE user_id = '${userId}' AND is_active = true
-        )`);
+        `);
+
+      // Add filters based on what we have
+      if (communityIds.length > 0) {
+        // User has communities, get both direct and group assignments
+        query = query.or(`user_id.eq.${userId},group_id.in.(${communityIds.join(',')})`);
+      } else {
+        // User has no communities, only get direct assignments
+        query = query.eq('user_id', userId);
+      }
+
+      const { data: assignments, error } = await query;
 
       if (error) throw error;
 
@@ -402,26 +422,187 @@ export class LearningPathsService {
       const { data: pathCourses, error: coursesError } = await supabaseClient
         .from('learning_path_courses')
         .select('course_id')
-        .eq('path_id', pathId)
-        .order('sequence');
+        .eq('learning_path_id', pathId)
+        .order('sequence_order');
 
       if (coursesError) throw coursesError;
 
       const courseIds = pathCourses.map((pc: any) => pc.course_id);
 
-      // Get user's progress in these courses
-      // This is a simplified version - you'd need to implement actual progress tracking
+      // If no courses in path, return empty progress
+      if (courseIds.length === 0) {
+        return {
+          path_id: pathId,
+          total_courses: 0,
+          completed_courses: 0,
+          progress_percentage: 0,
+          last_accessed: null
+        };
+      }
+
+      // Get user's enrollment status for these courses
+      const { data: enrollments, error: enrollmentsError } = await supabaseClient
+        .from('course_enrollments')
+        .select('course_id, progress_percentage, completed_at')
+        .eq('user_id', userId)
+        .in('course_id', courseIds);
+
+      if (enrollmentsError) throw enrollmentsError;
+
+      // Count completed courses (consider a course completed if progress_percentage >= 100)
+      const completedCourses = (enrollments || []).filter((enrollment: any) => 
+        enrollment.progress_percentage >= 100
+      ).length;
+
+      // Find the most recent completion date
+      const lastAccessedDate = (enrollments || [])
+        .map((e: any) => e.completed_at)
+        .filter((date: any) => date)
+        .sort((a: any, b: any) => new Date(b).getTime() - new Date(a).getTime())[0];
+
+      // Calculate progress percentage
+      const progressPercentage = courseIds.length > 0 
+        ? Math.round((completedCourses / courseIds.length) * 100)
+        : 0;
+
       const progress = {
         path_id: pathId,
         total_courses: courseIds.length,
-        completed_courses: 0, // Would need to check actual course completion
-        progress_percentage: 0,
-        last_accessed: new Date().toISOString()
+        completed_courses: completedCourses,
+        progress_percentage: progressPercentage,
+        last_accessed: lastAccessedDate || null
       };
 
       return progress;
     } catch (error: any) {
       throw new Error(`Failed to fetch path progress: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get detailed learning path information for a specific user
+   */
+  static async getLearningPathDetailsForUser(
+    supabaseClient: any,
+    userId: string,
+    pathId: string
+  ): Promise<any> {
+    try {
+      // 1. Fetch the main learning path details
+      const { data: pathData, error: pathError } = await supabaseClient
+        .from('learning_paths')
+        .select('*')
+        .eq('id', pathId)
+        .single();
+
+      if (pathError) throw pathError;
+      if (!pathData) throw new Error('Learning path not found');
+
+      // 2. Fetch all courses in the path with their sequence
+      const { data: pathCourses, error: pathCoursesError } = await supabaseClient
+        .from('learning_path_courses')
+        .select(`
+          course_id,
+          sequence_order,
+          courses!inner(
+            id,
+            title,
+            description,
+            category,
+            duration_hours,
+            difficulty_level
+          )
+        `)
+        .eq('learning_path_id', pathId)
+        .order('sequence_order', { ascending: true });
+
+      if (pathCoursesError) throw pathCoursesError;
+
+      // 3. Get course IDs for enrollment lookup
+      const courseIds = (pathCourses || []).map((pc: any) => pc.course_id);
+
+      // 4. Fetch user's enrollment data for these courses
+      let enrollments: any[] = [];
+      if (courseIds.length > 0) {
+        const { data: enrollmentData, error: enrollmentError } = await supabaseClient
+          .from('course_enrollments')
+          .select('course_id, progress_percentage, status, completed_at, enrolled_at')
+          .eq('user_id', userId)
+          .in('course_id', courseIds);
+
+        if (enrollmentError) throw enrollmentError;
+        enrollments = enrollmentData || [];
+      }
+
+      // 5. Create enrollment lookup map
+      const enrollmentMap = enrollments.reduce((acc: any, enrollment: any) => {
+        acc[enrollment.course_id] = enrollment;
+        return acc;
+      }, {});
+
+      // 6. Combine course data with user progress
+      const coursesWithProgress = (pathCourses || []).map((pathCourse: any) => {
+        const enrollment = enrollmentMap[pathCourse.course_id];
+        const course = pathCourse.courses;
+
+        // Determine course status
+        let status = 'not_started';
+        let buttonText = 'Iniciar Curso';
+        let buttonVariant = 'default';
+
+        if (enrollment) {
+          if (enrollment.progress_percentage >= 100) {
+            status = 'completed';
+            buttonText = 'Revisar';
+            buttonVariant = 'secondary';
+          } else if (enrollment.progress_percentage > 0) {
+            status = 'in_progress';
+            buttonText = 'Continuar';
+            buttonVariant = 'primary';
+          } else {
+            status = 'enrolled';
+            buttonText = 'Comenzar';
+            buttonVariant = 'default';
+          }
+        }
+
+        return {
+          sequence: pathCourse.sequence_order,
+          course_id: course.id,
+          title: course.title,
+          description: course.description,
+          category: course.category,
+          duration_hours: course.duration_hours,
+          difficulty_level: course.difficulty_level,
+          status,
+          completion_rate: enrollment?.progress_percentage || 0,
+          last_accessed: enrollment?.completed_at || null,
+          enrolled_at: enrollment?.enrolled_at || null,
+          enrollment_status: enrollment?.status || null,
+          buttonText,
+          buttonVariant
+        };
+      });
+
+      // 7. Calculate overall progress
+      const totalCourses = coursesWithProgress.length;
+      const completedCourses = coursesWithProgress.filter((c: any) => c.status === 'completed').length;
+      const progressPercentage = totalCourses > 0 
+        ? Math.round((completedCourses / totalCourses) * 100)
+        : 0;
+
+      // 8. Return combined data
+      return {
+        ...pathData,
+        courses: coursesWithProgress,
+        progress: {
+          total_courses: totalCourses,
+          completed_courses: completedCourses,
+          progress_percentage: progressPercentage
+        }
+      };
+    } catch (error: any) {
+      throw new Error(`Failed to fetch learning path details: ${error.message}`);
     }
   }
 }

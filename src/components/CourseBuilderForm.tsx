@@ -59,7 +59,7 @@ const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
     setSuccessMessage('');
     setErrorMessage('');
 
-    if (!selectedInstructorId) {
+    if (!selectedInstructorId || selectedInstructorId.trim() === '') {
       setErrorMessage('Por favor selecciona un instructor');
       setLoading(false);
       return;

@@ -16,7 +16,7 @@ async function testCoursesInsert() {
         {
           title: 'Test Course',
           description: 'Test Description',
-          instructor_id: null, // or a valid ID from your instructors table
+          instructor_id: '00000000-0000-0000-0000-000000000000', // placeholder UUID for test
           thumbnail_url: 'https://example.com/default-thumbnail.png'
         }
       ])

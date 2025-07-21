@@ -377,10 +377,8 @@ export default function ProfilePage() {
           <p className="text-gray-600 mb-6">
             Hubo un problema al establecer tu sesión. Por favor, intenta iniciar sesión nuevamente.
           </p>
-          <Link href="/login">
-            <a className="inline-block bg-brand_blue text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
-              Volver a Iniciar Sesión
-            </a>
+          <Link href="/login" className="inline-block bg-brand_blue text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+            Volver a Iniciar Sesión
           </Link>
         </div>
       </div>

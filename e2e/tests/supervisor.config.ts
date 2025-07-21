@@ -62,8 +62,8 @@ export const SUPERVISOR_TEST_CONFIG = {
     supervisor_de_red: {
       canAccess: ['/dashboard', '/profile', '/reports'],
       cannotAccess: ['/admin/network-management', '/admin/users', '/admin/settings'],
-      sidebarItems: ['Mi Panel', 'Mi Perfil', 'Reportes'],
-      hiddenItems: ['Usuarios', 'Gestión de Redes', 'Configuración']
+      sidebarItems: ['Mi Panel', 'Mi Perfil', 'Mis Rutas', 'Reportes', 'Espacio Colaborativo'],
+      hiddenItems: ['Usuarios', 'Redes de Colegios', 'Cursos', 'Rutas de Aprendizaje', 'Escuelas', 'Consultorías', 'Gestión', 'Configuración']
     }
   }
 };

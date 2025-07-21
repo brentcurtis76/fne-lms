@@ -29,6 +29,7 @@ interface MainLayoutProps {
   userRole?: string;
   onLogout?: () => void;
   avatarUrl?: string;
+  profileData?: any; // Add profile data prop
   className?: string;
 }
 
@@ -42,6 +43,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   userRole,
   onLogout,
   avatarUrl,
+  profileData,
   className = ''
 }) => {
   const router = useRouter();
@@ -169,12 +171,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                       />
                       <div className="hidden sm:block">
                         <p className="text-sm font-medium text-gray-900">
-                          {user.user_metadata?.first_name && user.user_metadata?.last_name
+                          {profileData?.first_name && profileData?.last_name
+                            ? `${profileData.first_name} ${profileData.last_name}`
+                            : user.user_metadata?.first_name && user.user_metadata?.last_name
                             ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
                             : user.email?.split('@')[0] || 'Usuario'
                           }
                         </p>
-                        <p className="text-xs text-gray-500">{isAdmin ? 'Administrador' : 'Usuario'}</p>
+                        <p className="text-xs text-gray-500">
+                          {profileData?.growth_community 
+                            ? profileData.growth_community 
+                            : isAdmin ? 'Administrador' : 'Usuario'}
+                        </p>
                       </div>
                     </Link>
                   )}

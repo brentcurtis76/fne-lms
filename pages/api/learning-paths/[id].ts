@@ -23,17 +23,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     switch (req.method) {
       case 'GET':
-        // Get a single learning path with courses
-        const pathWithCourses = await LearningPathsService.getLearningPathWithCourses(
-          supabaseClient,
-          pathId
-        );
+        // Check if this is a user-specific request (has 'user' query param)
+        const isUserRequest = req.query.user === 'true';
+        
+        if (isUserRequest) {
+          // Get learning path details with user progress
+          const pathDetailsForUser = await LearningPathsService.getLearningPathDetailsForUser(
+            supabaseClient,
+            userId,
+            pathId
+          );
 
-        if (!pathWithCourses) {
-          return res.status(404).json({ error: 'Learning path not found' });
+          if (!pathDetailsForUser) {
+            return res.status(404).json({ error: 'Learning path not found' });
+          }
+
+          return res.status(200).json(pathDetailsForUser);
+        } else {
+          // Admin request - get a single learning path with courses
+          const pathWithCourses = await LearningPathsService.getLearningPathWithCourses(
+            supabaseClient,
+            pathId
+          );
+
+          if (!pathWithCourses) {
+            return res.status(404).json({ error: 'Learning path not found' });
+          }
+
+          return res.status(200).json(pathWithCourses);
         }
-
-        return res.status(200).json(pathWithCourses);
 
       case 'PUT':
         // Update a learning path

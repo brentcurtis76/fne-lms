@@ -79,15 +79,15 @@ async function handleGetNetworks(supabase: any, res: NextApiResponse) {
         *,
         red_escuelas (
           school_id,
-          assigned_at,
-          assigned_by,
+          fecha_agregada,
+          agregado_por,
           schools (
             id,
             name
           )
         )
       `)
-      .order('name');
+      .order('nombre');
 
     if (error) {
       console.error('Error fetching networks:', error);
@@ -120,7 +120,7 @@ async function handleGetNetworks(supabase: any, res: NextApiResponse) {
           .from('user_roles')
           .select(`
             user_id,
-            assigned_at,
+            created_at,
             profiles!user_id (
               id,
               email,
@@ -134,8 +134,8 @@ async function handleGetNetworks(supabase: any, res: NextApiResponse) {
 
         return {
           id: network.id,
-          name: network.name,
-          description: network.description,
+          name: network.nombre,
+          description: network.descripcion,
           created_by: network.created_by,
           last_updated_by: network.last_updated_by,
           created_at: network.created_at,
@@ -145,15 +145,15 @@ async function handleGetNetworks(supabase: any, res: NextApiResponse) {
           schools: network.red_escuelas?.map((re: any) => ({
             id: re.school_id,
             name: re.schools?.name,
-            assigned_at: re.assigned_at,
-            assigned_by: re.assigned_by
+            assigned_at: re.fecha_agregada,
+            assigned_by: re.agregado_por
           })) || [],
           supervisors: supervisors?.map((ur: any) => ({
             user_id: ur.user_id,
             email: ur.profiles?.email,
             first_name: ur.profiles?.first_name,
             last_name: ur.profiles?.last_name,
-            assigned_at: ur.assigned_at
+            assigned_at: ur.created_at
           })) || []
         };
       })
@@ -190,7 +190,7 @@ async function handleCreateNetwork(
     const { data: existingNetwork } = await supabase
       .from('redes_de_colegios')
       .select('id')
-      .eq('name', name.trim())
+      .eq('nombre', name.trim())
       .single();
 
     if (existingNetwork) {
@@ -201,8 +201,8 @@ async function handleCreateNetwork(
     const { data: newNetwork, error } = await supabase
       .from('redes_de_colegios')
       .insert({
-        name: name.trim(),
-        description: description?.trim() || null,
+        nombre: name.trim(),
+        descripcion: description?.trim() || null,
         created_by: adminId,
         last_updated_by: adminId
       })
@@ -262,7 +262,7 @@ async function handleUpdateNetwork(
     // Check if network exists
     const { data: existingNetwork } = await supabase
       .from('redes_de_colegios')
-      .select('id, name')
+      .select('id, nombre')
       .eq('id', id)
       .single();
 
@@ -271,11 +271,11 @@ async function handleUpdateNetwork(
     }
 
     // Check if new name conflicts with another network
-    if (name && name.trim() !== existingNetwork.name) {
+    if (name && name.trim() !== existingNetwork.nombre) {
       const { data: nameConflict } = await supabase
         .from('redes_de_colegios')
         .select('id')
-        .eq('name', name.trim())
+        .eq('nombre', name.trim())
         .neq('id', id)
         .single();
 
@@ -291,11 +291,11 @@ async function handleUpdateNetwork(
     };
 
     if (name?.trim()) {
-      updateData.name = name.trim();
+      updateData.nombre = name.trim();
     }
 
     if (description !== undefined) {
-      updateData.description = description?.trim() || null;
+      updateData.descripcion = description?.trim() || null;
     }
 
     // Update network
@@ -334,7 +334,7 @@ async function handleDeleteNetwork(supabase: any, networkId: string, res: NextAp
     // Check if network exists
     const { data: existingNetwork } = await supabase
       .from('redes_de_colegios')
-      .select('id, name')
+      .select('id, nombre')
       .eq('id', networkId)
       .single();
 
@@ -369,7 +369,7 @@ async function handleDeleteNetwork(supabase: any, networkId: string, res: NextAp
 
     return res.status(200).json({
       success: true,
-      message: `Red "${existingNetwork.name}" eliminada exitosamente`
+      message: `Red "${existingNetwork.nombre}" eliminada exitosamente`
     });
   } catch (error) {
     console.error('Error in handleDeleteNetwork:', error);

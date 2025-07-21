@@ -14,10 +14,10 @@ export interface TestUser {
 
 export const TEST_USERS = {
   admin: {
-    email: process.env.TEST_ADMIN_EMAIL || 'acisternas@nuevaeducacion.org',
-    password: process.env.TEST_ADMIN_PASSWORD || 'test123456',
+    email: process.env.TEST_ADMIN_EMAIL || 'brent@perrotuertocm.cl',
+    password: process.env.TEST_ADMIN_PASSWORD || 'NuevaEdu2025!',
     role: 'admin',
-    name: 'Arnoldo Cisternas'
+    name: 'Brent Curtis'
   },
   consultant: {
     email: process.env.TEST_CONSULTANT_EMAIL || 'consultant@nuevaeducacion.org',
@@ -80,6 +80,13 @@ export async function loginAs(page: Page, userType: keyof typeof TEST_USERS) {
   // Wait for the page to fully load
   await page.waitForLoadState('networkidle');
   
+  // Add a small delay to ensure profile data is accessible
+  await page.waitForTimeout(1000);
+  
+  // Force a page reload to ensure fresh session data
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+  
   console.log(`✅ Successfully logged in as ${user.name}`);
   
   return user;
@@ -124,8 +131,8 @@ export async function verifyRoleAccess(page: Page, expectedRole: string) {
   switch (expectedRole) {
     case 'admin':
       // Admins should see user management
-      await expect(page.locator('text=Usuarios, text=User Management')).toBeVisible();
-      await expect(page.locator('text=Configuración, text=Settings')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Usuarios Administrar usuarios' })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Configuración Configuración del sistema' })).toBeVisible();
       break;
       
     case 'consultor':

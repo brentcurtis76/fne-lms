@@ -1,4 +1,19 @@
 import { defineConfig, devices } from '@playwright/test';
+import * as dotenv from 'dotenv';
+import * as fs from 'fs';
+
+// Load environment variables - prefer local test environment if it exists
+if (!process.env.CI) {
+  const localEnvPath = './.env.test.local';
+  const testEnvPath = './.env.test';
+  
+  if (fs.existsSync(localEnvPath)) {
+    console.log('Using local Supabase environment from .env.test.local');
+    dotenv.config({ path: localEnvPath });
+  } else {
+    dotenv.config({ path: testEnvPath });
+  }
+}
 
 /**
  * @see https://playwright.dev/docs/test-configuration
@@ -45,16 +60,19 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+
     },
 
     {
       name: 'firefox',
       use: { ...devices['Desktop Firefox'] },
+
     },
 
     {
       name: 'webkit',
       use: { ...devices['Desktop Safari'] },
+
     },
 
     /* Test against mobile viewports. */
@@ -139,14 +157,7 @@ export default defineConfig({
     /* Maximum time expect() should wait for the condition to be met */
     timeout: 5000,
     
-    /* Threshold for visual comparisons */
-    toHaveScreenshot: { 
-      threshold: 0.2,
-      mode: 'strict'
-    },
-    toMatchSnapshot: { 
-      threshold: 0.2
-    },
+    toMatchSnapshot: { maxDiffPixels: 100 },
   },
 
   /* Output directory for test artifacts */

@@ -319,7 +319,7 @@ export type Database = {
           deleted_by: string | null
           description: string
           id: string
-          instructor_id: string | null
+          instructor_id: string
           status: string | null
           thumbnail_url: string | null
           title: string
@@ -331,7 +331,7 @@ export type Database = {
           deleted_by?: string | null
           description: string
           id: string
-          instructor_id?: string | null
+          instructor_id: string
           status?: string | null
           thumbnail_url?: string | null
           title: string
@@ -343,7 +343,7 @@ export type Database = {
           deleted_by?: string | null
           description?: string
           id?: string
-          instructor_id?: string | null
+          instructor_id: string
           status?: string | null
           thumbnail_url?: string | null
           title?: string

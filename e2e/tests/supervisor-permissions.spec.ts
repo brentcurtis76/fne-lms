@@ -4,46 +4,34 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { loginAs, TEST_USERS } from '../utils/auth-helpers';
-import { SUPERVISOR_TEST_CONFIG, generateTestData } from './supervisor.config';
+import { createSupervisorTestData, cleanupSupervisorTestData, SupervisorTestData } from '../utils/supervisor-test-data';
 
 test.describe('Supervisor de Red - Security & Permissions', () => {
-  const testData = generateTestData();
+  let supervisorData: SupervisorTestData;
 
-  test.beforeAll(async ({ browser }) => {
-    // Setup: Create a supervisor user via admin
-    const adminContext = await browser.newContext();
-    const adminPage = await adminContext.newPage();
-    
-    await loginAs(adminPage, 'admin');
-    
-    // Create test network
-    await adminPage.goto('/admin/network-management');
-    await adminPage.click(SUPERVISOR_TEST_CONFIG.selectors.newNetworkButton);
-    await adminPage.fill(SUPERVISOR_TEST_CONFIG.selectors.networkNameInput, testData.networkName);
-    await adminPage.fill(SUPERVISOR_TEST_CONFIG.selectors.networkDescriptionInput, 'Test network for permissions');
-    await adminPage.click('button:has-text("Crear Red")');
-    await adminPage.waitForSelector('text=Red creada exitosamente');
-    
-    // Create supervisor user
-    await adminPage.goto('/admin/users');
-    await adminPage.click('button:has-text("Nuevo Usuario")');
-    await adminPage.fill('input[name="email"]', testData.supervisorEmail);
-    await adminPage.fill('input[name="firstName"]', 'Test');
-    await adminPage.fill('input[name="lastName"]', 'Supervisor');
-    await adminPage.fill('input[name="password"]', SUPERVISOR_TEST_CONFIG.testUsers.supervisorTemplate.defaultPassword);
-    await adminPage.click('button:has-text("Crear Usuario")');
-    await adminPage.waitForSelector('text=Usuario creado exitosamente');
-    
-    await adminContext.close();
+  test.beforeAll(async () => {
+    // Create supervisor test data directly in database using admin privileges
+    supervisorData = await createSupervisorTestData();
+    console.log(`📋 Test supervisor created: ${supervisorData.email}`);
+  });
+
+  test.afterAll(async () => {
+    // Clean up test data
+    if (supervisorData) {
+      await cleanupSupervisorTestData(supervisorData);
+    }
   });
 
   test('Supervisor cannot access admin endpoints via API', async ({ page }) => {
-    // Login as supervisor
+    // Login as supervisor with proper wait for authentication
     await page.goto('/login');
-    await page.fill('input[type="email"]', testData.supervisorEmail);
-    await page.fill('input[type="password"]', SUPERVISOR_TEST_CONFIG.testUsers.supervisorTemplate.defaultPassword);
+    await page.fill('input[type="email"]', supervisorData.email);
+    await page.fill('input[type="password"]', supervisorData.password);
     await page.click('button[type="submit"]');
+    
+    // Wait for successful login by checking for dashboard elements
+    await expect(page.locator('text=Mi Panel')).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle');
     
     // Get auth token from cookies/storage
     const cookies = await page.context().cookies();
@@ -61,7 +49,7 @@ test.describe('Supervisor de Red - Security & Permissions', () => {
         headers: authCookie ? { 'Cookie': `${authCookie.name}=${authCookie.value}` } : {}
       });
       
-      // Should get 403 Forbidden
+      // Should get 403 Forbidden or 401 Unauthorized
       expect([403, 401]).toContain(response.status());
     }
   });
@@ -69,124 +57,145 @@ test.describe('Supervisor de Red - Security & Permissions', () => {
   test('Supervisor sidebar reflects correct permissions', async ({ page }) => {
     // Login as supervisor
     await page.goto('/login');
-    await page.fill('input[type="email"]', testData.supervisorEmail);
-    await page.fill('input[type="password"]', SUPERVISOR_TEST_CONFIG.testUsers.supervisorTemplate.defaultPassword);
+    await page.fill('input[type="email"]', supervisorData.email);
+    await page.fill('input[type="password"]', supervisorData.password);
     await page.click('button[type="submit"]');
-    await page.waitForLoadState('networkidle');
-
-    const permissions = SUPERVISOR_TEST_CONFIG.permissions.supervisor_de_red;
     
-    // Check visible items
-    for (const item of permissions.sidebarItems) {
-      await expect(page.locator(`nav >> text=${item}`)).toBeVisible();
+    // Wait for dashboard to load fully - using the main heading
+    await expect(page.locator('main').locator('h1').first()).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle');
+    
+    // Check visible sidebar items - using exact button text from UI
+    const visibleItems = [
+      'Mi Panel',
+      'Mi Perfil',
+      'Mis Rutas',
+      'Reportes',
+      'Espacio Colaborativo',
+      'Rutas de Aprendizaje'  // Supervisors CAN manage learning paths
+    ];
+    
+    for (const item of visibleItems) {
+      const button = page.locator(`button:has-text("${item}")`);
+      await expect(button).toBeVisible({ timeout: 5000 });
     }
     
-    // Check hidden items
-    for (const item of permissions.hiddenItems) {
-      await expect(page.locator(`nav >> text=${item}`)).not.toBeVisible();
+    // Check hidden admin items - these should NOT be visible
+    const hiddenItems = [
+      'Usuarios',
+      'Redes de Colegios',
+      'Cursos',
+      'Escuelas',
+      'Consultorías',
+      'Gestión',
+      'Configuración'
+    ];
+    
+    for (const item of hiddenItems) {
+      const button = page.locator(`button:has-text("${item}")`);
+      await expect(button).not.toBeVisible();
     }
   });
 
   test('Direct URL access enforcement', async ({ page }) => {
     // Login as supervisor
     await page.goto('/login');
-    await page.fill('input[type="email"]', testData.supervisorEmail);
-    await page.fill('input[type="password"]', SUPERVISOR_TEST_CONFIG.testUsers.supervisorTemplate.defaultPassword);
+    await page.fill('input[type="email"]', supervisorData.email);
+    await page.fill('input[type="password"]', supervisorData.password);
     await page.click('button[type="submit"]');
-    await page.waitForLoadState('networkidle');
-
-    const permissions = SUPERVISOR_TEST_CONFIG.permissions.supervisor_de_red;
     
-    // Test blocked pages
-    for (const blockedUrl of permissions.cannotAccess) {
+    // Wait for successful login
+    await expect(page.locator('main').locator('h1').first()).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle');
+    
+    // Test blocked pages - supervisor should be redirected
+    const blockedUrls = [
+      '/admin/users',
+      '/admin/network-management',
+      '/admin/settings',
+      '/admin/course-builder'
+    ];
+    
+    for (const blockedUrl of blockedUrls) {
       await page.goto(blockedUrl);
+      await page.waitForLoadState('networkidle');
       
-      // Should redirect or show error
+      // Should be redirected away from admin pages
       const currentUrl = page.url();
-      const isBlocked = 
-        currentUrl.includes('/dashboard') ||
-        currentUrl.includes('/login') ||
-        (await page.locator('text=/Acceso Denegado|Access Denied|403/').isVisible().catch(() => false));
+      expect(currentUrl).not.toContain(blockedUrl);
       
-      expect(isBlocked).toBeTruthy();
+      // Should either be on dashboard or see access denied
+      const isOnDashboard = currentUrl.includes('/dashboard');
+      const hasAccessDenied = await page.locator('text=/Acceso Denegado|Access Denied|No autorizado/i').isVisible().catch(() => false);
+      
+      expect(isOnDashboard || hasAccessDenied).toBeTruthy();
     }
     
-    // Test allowed pages
-    for (const allowedUrl of permissions.canAccess) {
+    // Test allowed pages - supervisor should access these
+    const allowedUrls = [
+      '/dashboard',
+      '/profile',
+      '/reports'
+    ];
+    
+    for (const allowedUrl of allowedUrls) {
       await page.goto(allowedUrl);
-      await expect(page).toHaveURL(new RegExp(allowedUrl));
+      await page.waitForLoadState('networkidle');
+      
+      // Should stay on the requested page
+      expect(page.url()).toContain(allowedUrl);
     }
   });
 
   test('Data isolation in reports', async ({ page }) => {
-    // First, assign the supervisor to the network as admin
-    await loginAs(page, 'admin');
-    await page.goto('/admin/users');
-    await page.fill('input[placeholder*="Buscar"]', testData.supervisorEmail);
-    await page.waitForTimeout(500);
-    
-    const userRow = page.locator('tr, div.user-row').filter({ hasText: testData.supervisorEmail });
-    await userRow.click();
-    await page.click('button:has-text("Asignar Rol")');
-    await page.click('label:has-text("Supervisor de Red") input[type="checkbox"]');
-    await page.selectOption('select[name="network"]', { label: testData.networkName });
-    await page.click('button:has-text("Guardar")');
-    await page.waitForSelector('text=Rol asignado exitosamente');
-    
-    // Logout and login as supervisor
-    await page.goto('/logout');
+    // Login as supervisor
     await page.goto('/login');
-    await page.fill('input[type="email"]', testData.supervisorEmail);
-    await page.fill('input[type="password"]', SUPERVISOR_TEST_CONFIG.testUsers.supervisorTemplate.defaultPassword);
+    await page.fill('input[type="email"]', supervisorData.email);
+    await page.fill('input[type="password"]', supervisorData.password);
     await page.click('button[type="submit"]');
+    
+    // Wait for dashboard
+    await expect(page.locator('main').locator('h1').first()).toBeVisible({ timeout: 10000 });
     
     // Navigate to reports
     await page.goto('/reports');
     await page.waitForLoadState('networkidle');
     
     // Should see network scope indicator
-    await expect(page.locator('text=/Datos de tu red|Network data|Red:/i')).toBeVisible();
+    await expect(page.locator('text=/Datos de tu red:|Datos de red:|Red:/i')).toBeVisible({ timeout: 10000 });
     
-    // Should NOT see "Todos los datos" or "All data" (admin scope)
-    await expect(page.locator('text=/Todos los datos|All data/i')).not.toBeVisible();
+    // Should see the network name
+    await expect(page.locator(`text=/${supervisorData.networkName}/`)).toBeVisible();
+    
+    // Should NOT see "Todos los datos" (admin scope)
+    await expect(page.locator('text=/Todos los datos|All data|Datos de toda la plataforma/i')).not.toBeVisible();
   });
 
   test('Supervisor cannot modify user roles', async ({ page }) => {
     // Login as supervisor
     await page.goto('/login');
-    await page.fill('input[type="email"]', testData.supervisorEmail);
-    await page.fill('input[type="password"]', SUPERVISOR_TEST_CONFIG.testUsers.supervisorTemplate.defaultPassword);
+    await page.fill('input[type="email"]', supervisorData.email);
+    await page.fill('input[type="password"]', supervisorData.password);
     await page.click('button[type="submit"]');
     
-    // Even if they somehow reach user management
+    // Wait for dashboard
+    await expect(page.locator('main').locator('h1').first()).toBeVisible({ timeout: 10000 });
+    
+    // Try to directly access user management
     const response = await page.goto('/admin/users', { waitUntil: 'domcontentloaded' });
     
-    // Should be blocked
-    expect(
-      page.url().includes('/dashboard') ||
-      page.url().includes('/login') ||
-      response?.status() === 403
-    ).toBeTruthy();
-  });
-
-  test.afterAll(async ({ browser }) => {
-    // Cleanup: Remove test data
-    const adminContext = await browser.newContext();
-    const adminPage = await adminContext.newPage();
+    // Should be blocked - either redirected or get error status
+    const currentUrl = page.url();
+    const isBlocked = 
+      !currentUrl.includes('/admin/users') ||
+      response?.status() === 403 ||
+      response?.status() === 401;
     
-    await loginAs(adminPage, 'admin');
+    expect(isBlocked).toBeTruthy();
     
-    // Delete test network
-    await adminPage.goto('/admin/network-management');
-    const networkCard = adminPage.locator(SUPERVISOR_TEST_CONFIG.selectors.networkCard).filter({ 
-      hasText: testData.networkName 
-    });
-    
-    if (await networkCard.isVisible()) {
-      await networkCard.locator(SUPERVISOR_TEST_CONFIG.selectors.deleteButton).click();
-      await adminPage.click('button:has-text("Confirmar")');
+    // If somehow on the page, role modification buttons should not be visible
+    if (currentUrl.includes('/admin/users')) {
+      await expect(page.locator('button:has-text("Asignar Rol")')).not.toBeVisible();
     }
-    
-    await adminContext.close();
   });
 });

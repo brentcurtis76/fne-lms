@@ -1,6 +1,6 @@
 /**
- * API endpoint to get schools available for network assignment
- * Returns schools that are not already assigned to any network
+ * API endpoint to get ALL schools with their network assignment status
+ * Returns all schools regardless of assignment, with network information
  * 
  * SECURITY: Admin-only access enforced via hasAdminPrivileges
  */
@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Solo administradores pueden acceder a esta información' });
     }
 
-    return handleGetAvailableSchools(supabaseAdmin, req.query.excludeNetwork as string, res);
+    return handleGetAllSchoolsWithStatus(supabaseAdmin, res);
   } catch (error) {
     console.error('Error in available-schools API:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
@@ -43,16 +43,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 /**
- * GET /api/admin/networks/available-schools - Get schools not assigned to any network
- * Optional query param: excludeNetwork=networkId to exclude schools from specific network
+ * GET /api/admin/networks/available-schools - Get ALL schools with network assignment status
  */
-async function handleGetAvailableSchools(
+async function handleGetAllSchoolsWithStatus(
   supabase: any, 
-  excludeNetworkId: string | undefined, 
   res: NextApiResponse
 ) {
   try {
-    // Get all schools with their network assignment status
+    // Get all schools with their network assignment status using LEFT JOIN
     const { data: schools, error } = await supabase
       .from('schools')
       .select(`
@@ -77,40 +75,19 @@ async function handleGetAvailableSchools(
       return res.status(500).json({ error: 'Error al obtener escuelas' });
     }
 
-    // Filter schools based on assignment status
-    const availableSchools = schools?.filter((school: any) => {
-      const assignments = school.red_escuelas || [];
+    // Format the response with the required structure
+    const formattedSchools = (schools || []).map((school: any) => {
+      const assignment = school.red_escuelas?.[0];
+      const isAssigned = !!assignment;
       
-      // If no assignments, school is available
-      if (assignments.length === 0) {
-        return true;
-      }
-
-      // If excludeNetworkId is provided, exclude schools from that network only
-      if (excludeNetworkId) {
-        const isInExcludedNetwork = assignments.some((assignment: any) => 
-          assignment.red_id === excludeNetworkId
-        );
-        return isInExcludedNetwork;
-      }
-
-      // Otherwise, only show schools with no assignments
-      return false;
-    }) || [];
-
-    // Clean up the response data
-    const cleanSchools = availableSchools.map((school: any) => ({
-      id: school.id,
-      name: school.name,
-      code: school.code,
-      has_generations: school.has_generations,
-      created_at: school.created_at,
-      current_network: school.red_escuelas?.[0] ? {
-        id: school.red_escuelas[0].red_id,
-        name: school.red_escuelas[0].redes_de_colegios?.name,
-        assigned_at: school.red_escuelas[0].assigned_at
-      } : null
-    }));
+      return {
+        id: school.id,
+        name: school.name,
+        is_assigned: isAssigned,
+        assigned_network_id: assignment?.red_id || null,
+        assigned_network_name: assignment?.redes_de_colegios?.name || null
+      };
+    });
 
     // Get summary statistics
     const totalSchools = schools?.length || 0;
@@ -119,16 +96,15 @@ async function handleGetAvailableSchools(
 
     return res.status(200).json({
       success: true,
-      schools: cleanSchools,
+      schools: formattedSchools,
       summary: {
         total_schools: totalSchools,
         assigned_schools: assignedSchools,
-        unassigned_schools: unassignedSchools,
-        available_for_assignment: cleanSchools.length
+        unassigned_schools: unassignedSchools
       }
     });
   } catch (error) {
-    console.error('Error in handleGetAvailableSchools:', error);
-    return res.status(500).json({ error: 'Error al obtener escuelas disponibles' });
+    console.error('Error in handleGetAllSchoolsWithStatus:', error);
+    return res.status(500).json({ error: 'Error al obtener escuelas' });
   }
 }

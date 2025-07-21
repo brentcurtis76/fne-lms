@@ -53,7 +53,7 @@ test.describe('Role-Based Authentication @admin', () => {
     
     // Should be able to access admin-only pages
     await page.goto('/admin/user-management');
-    await expect(page.locator('h1, h2')).toContainText(/Usuarios|User Management/);
+    await expect(page.getByRole('heading', { name: 'Gestión de Usuarios' })).toBeVisible();
     
     await logout(page);
   });

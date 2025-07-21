@@ -84,6 +84,13 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     description: 'Información personal'
   },
   {
+    id: 'my-paths',
+    label: 'Mis Rutas',
+    icon: MapIcon,
+    href: '/my-paths',
+    description: 'Rutas de aprendizaje asignadas'
+  },
+  {
     id: 'quiz-reviews',
     label: 'Revisión de Quizzes',
     icon: ClipboardDocumentCheckIcon,

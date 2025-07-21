@@ -271,6 +271,33 @@ npm run dev  # MUST be port 3000
 - **Database Integration**: Network association and role assignment functioning correctly
 - **Deployment Status**: ✅ Ready for immediate production deployment
 
+### **CRITICAL BUG FIX: COMMUNITY LEADER ROLE ASSIGNMENT (January 2025)**
+- **✅ PRODUCTION FIX DEPLOYED**: Error Report #30209AA5 resolved completely
+- **Issue**: "Líder de Comunidad" role assignment failed with "no se puede crear la comunidad" error
+- **Root Cause**: Database constraint `check_community_organization()` trigger required generation_id for schools with generations, but API didn't validate this requirement
+- **Impact**: Affected all users trying to assign community leader roles (Mora del Fresno reported)
+- **Solution Components**:
+  - **API Validation** (`/pages/api/admin/assign-role.ts`): Added generation requirement validation before community creation
+  - **Frontend Enhancements** (`/components/RoleAssignmentModal.tsx`): Real-time validation with visual feedback and required field indicators
+  - **Error Handling**: Comprehensive constraint-specific error messages in Spanish
+  - **Data Audit Tools**: Created audit scripts for school generation flag consistency
+- **Validation Logic**:
+  - Schools with `has_generations=true` → generation_id REQUIRED for community creation
+  - Schools with `has_generations=false` → generation_id OPTIONAL
+  - Clear Spanish error messages with specific school names
+- **User Experience**: 
+  - Proactive form validation prevents invalid submissions
+  - Visual indicators (*) show required fields
+  - Submit button disabled until all requirements met
+  - Helpful contextual messages guide users
+- **Testing**: Comprehensive test suite validates all scenarios (schools with/without generations)
+- **Files Updated**: 
+  - `/pages/api/admin/assign-role.ts` (API validation and error handling)
+  - `/components/RoleAssignmentModal.tsx` (frontend validation and UX)
+  - `/scripts/audit-school-generation-flags.js` (data consistency auditing)
+  - `/scripts/test-api-validation.js` (validation testing suite)
+- **Status**: ✅ **DEPLOYED AND VERIFIED** - Community leader role assignment now works correctly
+
 ### **MAINTENANCE TASKS**
 - ⏳ Quiz review system testing pending
 - ⏳ Group assignments role corrections need SQL application

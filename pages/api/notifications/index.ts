@@ -12,6 +12,7 @@ export interface UserNotification {
   is_read: boolean;
   created_at: string;
   read_at?: string;
+  idempotency_key?: string;
   notification_type?: {
     id: string; // This also matches VARCHAR from notification_types.id
     name: string;

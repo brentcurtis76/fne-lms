@@ -139,6 +139,9 @@ class NotificationService {
             eventData
           );
           
+          // Generate idempotency key for this notification
+          const idempotencyKey = this.generateIdempotencyKey(eventType, eventData, recipient.id);
+          
           await this.createNotification({
             user_id: recipient.id,
             title: content.title,
@@ -146,7 +149,9 @@ class NotificationService {
             category: trigger.category,
             related_url: relatedUrl,
             importance: content.importance || 'normal',
-            read_at: null
+            read_at: null,
+            event_type: eventType,
+            idempotency_key: idempotencyKey
           });
           notificationsCreated++;
         } catch (error) {
@@ -311,6 +316,82 @@ class NotificationService {
   }
 
   /**
+   * Generate idempotency key for notifications to prevent duplicates
+   * @param {string} eventType - The type of event
+   * @param {Object} eventData - Event data containing unique identifiers
+   * @param {string} userId - The recipient user ID
+   */
+  generateIdempotencyKey(eventType, eventData, userId) {
+    // Extract a unique identifier from the event data
+    let eventId = '';
+    
+    // Map event types to their unique identifiers
+    switch (eventType) {
+      case 'new_feedback':
+        eventId = eventData.feedback_id || '';
+        break;
+      case 'assignment_created':
+        eventId = eventData.assignment_id || '';
+        break;
+      case 'course_assigned':
+        eventId = eventData.course_id || '';
+        break;
+      case 'message_sent':
+        eventId = eventData.message_id || '';
+        break;
+      case 'user_mentioned':
+        eventId = `${eventData.workspace_id}-${eventData.mentioned_user_id}`;
+        break;
+      case 'assignment_feedback':
+        eventId = eventData.submission_id || '';
+        break;
+      case 'course_completed':
+        eventId = `${eventData.course_id}-${eventData.student_id}`;
+        break;
+      case 'module_completed':
+        eventId = `${eventData.module_id}-${eventData.student_id}`;
+        break;
+      default:
+        // For unknown event types, create a hash of the event data
+        eventId = this.hashObject(eventData);
+    }
+    
+    // Generate key with minute-level timestamp to allow re-notification after time
+    const timestamp = new Date();
+    const minuteTimestamp = new Date(timestamp.getFullYear(), timestamp.getMonth(), 
+      timestamp.getDate(), timestamp.getHours(), timestamp.getMinutes()).toISOString();
+    
+    // Create a consistent key format
+    const keyString = `${eventType}-${eventId}-${userId}-${minuteTimestamp}`;
+    
+    // Return a hash for consistent length and format
+    return this.simpleHash(keyString);
+  }
+
+  /**
+   * Simple hash function for generating consistent strings
+   * @param {string} str - String to hash
+   */
+  simpleHash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  /**
+   * Hash an object to create a unique identifier
+   * @param {Object} obj - Object to hash
+   */
+  hashObject(obj) {
+    const str = JSON.stringify(obj, Object.keys(obj).sort());
+    return this.simpleHash(str);
+  }
+
+  /**
    * Create a new notification in the database
    * @param {Object} notificationData - Notification data to insert
    */
@@ -349,6 +430,18 @@ class NotificationService {
       // Create in-app notification if enabled
       let createdNotification = null;
       if (shouldSend.send_in_app) {
+        // Check for recent duplicates before creating
+        const isDuplicate = await this.checkForDuplicate(
+          notificationData.user_id,
+          notificationData.title,
+          notificationData.description
+        );
+        
+        if (isDuplicate) {
+          console.log(`🔕 Duplicate notification prevented for user ${notificationData.user_id}: ${notificationData.title}`);
+          return null;
+        }
+        
         const { data, error } = await supabaseServiceRole
           .from('user_notifications')
           .insert({
@@ -359,12 +452,18 @@ class NotificationService {
             related_url: notificationData.related_url,
             importance: notificationData.importance || 'normal',
             read_at: null,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            idempotency_key: notificationData.idempotency_key || null
           })
           .select()
           .single();
 
         if (error) {
+          // Check if it's a unique constraint violation on idempotency_key
+          if (error.code === '23505' && error.message.includes('unique_notification_idempotency_key')) {
+            console.log(`🔕 Duplicate notification prevented by idempotency key for user ${notificationData.user_id}`);
+            return null;
+          }
           console.error('Database error creating notification:', error);
           throw error;
         }
@@ -385,6 +484,51 @@ class NotificationService {
     } catch (error) {
       console.error('Error creating notification:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Check if a similar notification was recently created
+   * @param {string} userId - User ID to check
+   * @param {string} title - Notification title
+   * @param {string} description - Notification description
+   * @param {number} timeWindowSeconds - Time window to check (default 60 seconds)
+   */
+  async checkForDuplicate(userId, title, description, timeWindowSeconds = 60) {
+    try {
+      const cutoffTime = new Date(Date.now() - (timeWindowSeconds * 1000)).toISOString();
+      
+      const { data, error } = await supabaseServiceRole
+        .from('user_notifications')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('title', title)
+        .gte('created_at', cutoffTime)
+        .limit(1);
+      
+      if (error) {
+        console.error('Error checking for duplicate notifications:', error);
+        return false; // Don't prevent notification on error
+      }
+      
+      // If description is provided, also check if it matches
+      if (data && data.length > 0 && description) {
+        const { data: exactMatch } = await supabaseServiceRole
+          .from('user_notifications')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('title', title)
+          .eq('description', description)
+          .gte('created_at', cutoffTime)
+          .limit(1);
+        
+        return exactMatch && exactMatch.length > 0;
+      }
+      
+      return data && data.length > 0;
+    } catch (error) {
+      console.error('Exception checking for duplicate notifications:', error);
+      return false; // Don't prevent notification on error
     }
   }
 

@@ -247,27 +247,47 @@ export default function NotificationsPage() {
       await handleMarkAsRead([notification.id]);
     }
 
+    // Navigate to related URL or fallback
     if (notification.related_url) {
-      const hasAccess = await checkUserAccess(notification.related_url, session.user.id);
-
-      if (hasAccess) {
+      try {
         router.push(notification.related_url);
-      } else {
-        const userRole = await getUserPrimaryRole(session.user.id);
-
-        const alternativeUrl = getAlternativeUrl(
-          notification.related_url,
-          userRole || 'docente',
-          notification.notification_type?.name
-        );
-
-        if (alternativeUrl) {
-          toast.error('No tienes permisos. Redirigiendo...');
-          setTimeout(() => router.push(alternativeUrl), 1500);
-        } else {
-          toast.error('No tienes permisos para acceder a esta página');
+      } catch (error) {
+        console.error('Error navigating to notification:', error);
+        router.push('/dashboard');
+      }
+    } else {
+      // Provide fallback navigation for notifications without related_url
+      let fallbackUrl = '/dashboard';
+      
+      // Determine fallback URL based on notification content
+      if (notification.title.includes('Feedback') || notification.title.includes('feedback')) {
+        fallbackUrl = '/admin/feedback';
+      } else if (notification.title.includes('curso') || notification.title.includes('Course')) {
+        fallbackUrl = '/cursos';
+      } else if (notification.title.includes('tarea') || notification.title.includes('assignment')) {
+        fallbackUrl = '/tareas';
+      } else if (notification.notification_type?.category) {
+        // Use category-based fallbacks
+        switch (notification.notification_type.category) {
+          case 'admin':
+            fallbackUrl = '/admin';
+            break;
+          case 'courses':
+            fallbackUrl = '/cursos';
+            break;
+          case 'assignments':
+            fallbackUrl = '/tareas';
+            break;
+          case 'feedback':
+            fallbackUrl = '/admin/feedback';
+            break;
+          default:
+            fallbackUrl = '/dashboard';
         }
       }
+      
+      console.log(`📍 No related_url for notification "${notification.title}", using fallback: ${fallbackUrl}`);
+      router.push(fallbackUrl);
     }
   };
 

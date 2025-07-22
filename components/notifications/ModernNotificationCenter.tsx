@@ -325,10 +325,45 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
       }
     }
 
-    // Navigate to related content
+    // Navigate to related content or fallback
     if (notification.related_url) {
       setIsOpen(false);
       router.push(notification.related_url);
+    } else {
+      // Provide fallback navigation for notifications without related_url
+      let fallbackUrl = '/dashboard';
+      
+      // Determine fallback URL based on notification content
+      if (notification.title.includes('Feedback') || notification.title.includes('feedback')) {
+        fallbackUrl = '/admin/feedback';
+      } else if (notification.title.includes('curso') || notification.title.includes('Course')) {
+        fallbackUrl = '/cursos';
+      } else if (notification.title.includes('tarea') || notification.title.includes('assignment')) {
+        fallbackUrl = '/tareas';
+      } else if (notification.notification_type?.category) {
+        // Use category-based fallbacks
+        switch (notification.notification_type.category) {
+          case 'admin':
+            fallbackUrl = '/admin';
+            break;
+          case 'courses':
+            fallbackUrl = '/cursos';
+            break;
+          case 'assignments':
+            fallbackUrl = '/tareas';
+            break;
+          case 'feedback':
+            fallbackUrl = '/admin/feedback';
+            break;
+          default:
+            fallbackUrl = '/dashboard';
+        }
+      }
+      
+      console.log(`📍 No related_url for notification "${notification.title}", using fallback: ${fallbackUrl}`);
+      
+      setIsOpen(false);
+      router.push(fallbackUrl);
     }
   };
 

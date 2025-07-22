@@ -142,12 +142,32 @@ class NotificationService {
           // Generate idempotency key for this notification
           const idempotencyKey = this.generateIdempotencyKey(eventType, eventData, recipient.id);
           
+          // Provide fallback URL if the template substitution failed
+          let finalRelatedUrl = relatedUrl;
+          if (!finalRelatedUrl || finalRelatedUrl.includes('{')) {
+            console.warn(`⚠️ Invalid or missing related_url for ${eventType}, generating fallback`);
+            switch (eventType) {
+              case 'new_feedback':
+                finalRelatedUrl = '/admin/feedback';
+                break;
+              case 'assignment_created':
+                finalRelatedUrl = '/tareas';
+                break;
+              case 'course_assigned':
+                finalRelatedUrl = '/cursos';
+                break;
+              default:
+                finalRelatedUrl = '/dashboard';
+            }
+            console.log(`🔄 Using fallback URL: ${finalRelatedUrl}`);
+          }
+          
           await this.createNotification({
             user_id: recipient.id,
             title: content.title,
             description: content.description,
             category: trigger.category,
-            related_url: relatedUrl,
+            related_url: finalRelatedUrl,
             importance: content.importance || 'normal',
             read_at: null,
             event_type: eventType,
@@ -277,12 +297,22 @@ class NotificationService {
     try {
       // Template substitution function
       const substitute = (text, data) => {
-        if (!text) return '';
+        if (!text) {
+          return '';
+        }
         
-        return text.replace(/\{([^}]+)\}/g, (match, key) => {
+        const result = text.replace(/\{([^}]+)\}/g, (match, key) => {
           const value = this.getNestedValue(data, key);
           return value !== undefined ? value : match;
         });
+        
+        // Check if substitution failed (still contains placeholders)
+        if (result.includes('{') && result.includes('}')) {
+          console.warn(`⚠️ Template substitution incomplete for "${text}" -> "${result}"`);
+          return ''; // Return empty string if substitution failed
+        }
+        
+        return result;
       };
 
       const content = {
@@ -397,7 +427,7 @@ class NotificationService {
    */
   async createNotification(notificationData) {
     try {
-      console.log('📧 Creating notification:', notificationData);
+      console.log('📧 Creating notification:', notificationData.title);
       
       // First check user preferences
       const userPrefs = await this.getUserPreferences(notificationData.user_id);
@@ -442,19 +472,23 @@ class NotificationService {
           return null;
         }
         
+        const insertData = {
+          user_id: notificationData.user_id,
+          title: notificationData.title,
+          description: notificationData.description,
+          category: notificationData.category,
+          related_url: notificationData.related_url,
+          importance: notificationData.importance || 'normal',
+          read_at: null,
+          created_at: new Date().toISOString(),
+          idempotency_key: notificationData.idempotency_key || null
+        };
+        
+        // Insert notification to database
+
         const { data, error } = await supabaseServiceRole
           .from('user_notifications')
-          .insert({
-            user_id: notificationData.user_id,
-            title: notificationData.title,
-            description: notificationData.description,
-            category: notificationData.category,
-            related_url: notificationData.related_url,
-            importance: notificationData.importance || 'normal',
-            read_at: null,
-            created_at: new Date().toISOString(),
-            idempotency_key: notificationData.idempotency_key || null
-          })
+          .insert(insertData)
           .select()
           .single();
 

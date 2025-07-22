@@ -102,7 +102,8 @@ async function handleGetNetworks(supabase: any, res: NextApiResponse) {
       if (error.code === '42P01') {
         return res.status(500).json({ 
           error: 'Las tablas de red no existen',
-          details: 'relation "public.redes_de_colegios" does not exist. Please apply the database migration.'
+          details: 'relation "public.redes_de_colegios" does not exist',
+          migration_required: true
         });
       }
       

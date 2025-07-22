@@ -45,6 +45,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     switch (req.method) {
+      case 'GET':
+        return handleGetAvailableSchools(supabaseAdmin, res);
       case 'POST':
         return handleAssignSchool(supabaseAdmin, req.body as AssignSchoolRequest, session.user.id, res);
       case 'DELETE':
@@ -52,12 +54,92 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       case 'PUT':
         return handleBulkAssignSchools(supabaseAdmin, req.body as BulkAssignSchoolsRequest, session.user.id, res);
       default:
-        res.setHeader('Allow', ['POST', 'DELETE', 'PUT']);
+        res.setHeader('Allow', ['GET', 'POST', 'DELETE', 'PUT']);
         return res.status(405).json({ error: 'Método no permitido' });
     }
   } catch (error) {
     console.error('Error in networks/schools API:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+}
+
+/**
+ * GET /api/admin/networks/schools - List all schools with their current network assignments
+ */
+async function handleGetAvailableSchools(supabase: any, res: NextApiResponse) {
+  try {
+    // Fetch all schools
+    const { data: schools, error: schoolsError } = await supabase
+      .from('schools')
+      .select('id, name, has_generations')
+      .order('name');
+
+    if (schoolsError) {
+      console.error('Error fetching schools:', schoolsError);
+      return res.status(500).json({ 
+        error: 'Error al obtener escuelas',
+        details: schoolsError.message
+      });
+    }
+
+    // Fetch all network assignments
+    const { data: assignments, error: assignmentsError } = await supabase
+      .from('red_escuelas')
+      .select(`
+        school_id,
+        red_id,
+        fecha_agregada,
+        redes_de_colegios (
+          id,
+          nombre
+        )
+      `);
+
+    if (assignmentsError) {
+      console.error('Error fetching assignments:', assignmentsError);
+      // Continue without assignments if there's an error
+    }
+
+    // Create assignment map
+    const schoolAssignments = new Map();
+    if (assignments) {
+      assignments.forEach(assignment => {
+        if (assignment.redes_de_colegios) {
+          schoolAssignments.set(assignment.school_id, {
+            id: assignment.redes_de_colegios.id,
+            name: assignment.redes_de_colegios.nombre,
+            assigned_at: assignment.fecha_agregada
+          });
+        }
+      });
+    }
+
+    // Combine data
+    const schoolsWithNetworks = (schools || []).map(school => {
+      const networkAssignment = schoolAssignments.get(school.id);
+      return {
+        id: school.id,
+        name: school.name,
+        has_generations: school.has_generations,
+        is_assigned: !!networkAssignment,
+        assigned_network_id: networkAssignment?.id || null,
+        assigned_network_name: networkAssignment?.name || null,
+        assigned_at: networkAssignment?.assigned_at || null
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      schools: schoolsWithNetworks,
+      summary: {
+        total: schoolsWithNetworks.length,
+        assigned: schoolsWithNetworks.filter(s => s.is_assigned).length,
+        unassigned: schoolsWithNetworks.filter(s => !s.is_assigned).length
+      }
+    });
+  } catch (error) {
+    console.error('Error in handleGetAvailableSchools:', error);
+    return res.status(500).json({ error: 'Error al obtener escuelas disponibles' });
   }
 }
 

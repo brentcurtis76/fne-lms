@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createSupabaseServiceClient } from '../../../lib/supabase-service';
+import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 
 /**
  * Background job to update learning path summary tables
@@ -11,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    const supabase = createSupabaseServiceClient();
+    const supabase = supabaseAdmin;
     
     console.log('Starting learning path summaries update...');
     const startTime = Date.now();

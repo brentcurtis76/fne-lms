@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
+import { supabaseAdmin } from '../../../lib/supabaseAdmin';
 
 /**
  * Cron job to clean up dangling learning path sessions
@@ -22,17 +22,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Create service role client for elevated permissions
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
+    // Use service role client for elevated permissions
+    const supabase = supabaseAdmin;
 
     const now = new Date();
     const cutoffTime = new Date(now.getTime() - (15 * 60 * 1000)); // 15 minutes ago

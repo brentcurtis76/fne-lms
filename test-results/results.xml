@@ -1,0 +1,50 @@
+<testsuites id="" name="" tests="1" failures="1" skipped="0" errors="0" time="18.619537">
+<testsuite name="tests/reports-analytics-minimal.spec.ts" timestamp="2025-07-22T17:52:58.173Z" hostname="chromium" tests="1" failures="1" skipped="0" time="12.633" errors="0">
+<testcase name="Learning Path Analytics Dashboard - Critical Path › should load analytics dashboard and display components without errors" classname="tests/reports-analytics-minimal.spec.ts" time="12.633">
+<failure message="reports-analytics-minimal.spec.ts:8:7 should load analytics dashboard and display components without errors" type="FAILURE">
+<![CDATA[  [chromium] › tests/reports-analytics-minimal.spec.ts:8:7 › Learning Path Analytics Dashboard - Critical Path › should load analytics dashboard and display components without errors 
+
+    Error: Timed out 10000ms waiting for expect(locator).toBeVisible()
+
+    Locator: getByRole('button', { name: '🗺️ Rutas de Aprendizaje' })
+    Expected: visible
+    Received: <element(s) not found>
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByRole('button', { name: '🗺️ Rutas de Aprendizaje' })
+
+
+      25 |     // Step 3: Find and click the learning paths tab (specific to reports tabs)
+      26 |     const learningPathsTab = page.getByRole('button', { name: '🗺️ Rutas de Aprendizaje' });
+    > 27 |     await expect(learningPathsTab).toBeVisible({ timeout: 10000 });
+         |                                    ^
+      28 |     await learningPathsTab.click();
+      29 |     console.log('✅ Learning paths analytics tab clicked');
+      30 |     
+        at /Users/brentcurtis76/Documents/fne-lms-working/e2e/tests/reports-analytics-minimal.spec.ts:27:36
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    ../test-results/tests-reports-analytics-mi-38493-y-components-without-errors-chromium/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    ../test-results/tests-reports-analytics-mi-38493-y-components-without-errors-chromium/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: ../test-results/tests-reports-analytics-mi-38493-y-components-without-errors-chromium/error-context.md
+]]>
+</failure>
+<system-out>
+<![CDATA[✅ Admin login successful
+✅ Reports page loaded
+
+[[ATTACHMENT|tests-reports-analytics-mi-38493-y-components-without-errors-chromium/test-failed-1.png]]
+
+[[ATTACHMENT|tests-reports-analytics-mi-38493-y-components-without-errors-chromium/video.webm]]
+
+[[ATTACHMENT|tests-reports-analytics-mi-38493-y-components-without-errors-chromium/error-context.md]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+</testsuites>

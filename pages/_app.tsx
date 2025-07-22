@@ -8,11 +8,15 @@ import Head from 'next/head';
 import { Toaster } from 'react-hot-toast';
 
 import { toasterConfig } from '../constants/toastStyles';
+import { useEnvironmentValidation } from '../lib/utils/environmentMonitor';
 
 // Create a singleton Supabase client
 const supabaseClient = createPagesBrowserClient();
 
 export default function MyApp({ Component, pageProps }: AppProps) {
+  // Environment validation on app startup
+  useEnvironmentValidation();
+  
   return (
     <SessionContextProvider supabaseClient={supabaseClient} initialSession={pageProps.initialSession}>
       <Head>

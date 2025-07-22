@@ -480,7 +480,8 @@ export class LearningPathsService {
   }
 
   /**
-   * Get detailed learning path information for a specific user
+   * Get detailed learning path information for a specific user (OPTIMIZED)
+   * Uses efficient RPC function to eliminate N+1 queries and perform all calculations database-side
    */
   static async getLearningPathDetailsForUser(
     supabaseClient: any,
@@ -488,120 +489,27 @@ export class LearningPathsService {
     pathId: string
   ): Promise<any> {
     try {
-      // 1. Fetch the main learning path details
-      const { data: pathData, error: pathError } = await supabaseClient
-        .from('learning_paths')
-        .select('*')
-        .eq('id', pathId)
-        .single();
+      // Use the efficient RPC function that performs all joins and calculations in one call
+      const { data, error } = await supabaseClient
+        .rpc('get_user_path_details_with_progress', {
+          p_user_id: userId,
+          p_path_id: pathId
+        });
 
-      if (pathError) throw pathError;
-      if (!pathData) throw new Error('Learning path not found');
-
-      // 2. Fetch all courses in the path with their sequence
-      const { data: pathCourses, error: pathCoursesError } = await supabaseClient
-        .from('learning_path_courses')
-        .select(`
-          course_id,
-          sequence_order,
-          courses!inner(
-            id,
-            title,
-            description,
-            category,
-            duration_hours,
-            difficulty_level
-          )
-        `)
-        .eq('learning_path_id', pathId)
-        .order('sequence_order', { ascending: true });
-
-      if (pathCoursesError) throw pathCoursesError;
-
-      // 3. Get course IDs for enrollment lookup
-      const courseIds = (pathCourses || []).map((pc: any) => pc.course_id);
-
-      // 4. Fetch user's enrollment data for these courses
-      let enrollments: any[] = [];
-      if (courseIds.length > 0) {
-        const { data: enrollmentData, error: enrollmentError } = await supabaseClient
-          .from('course_enrollments')
-          .select('course_id, progress_percentage, status, completed_at, enrolled_at')
-          .eq('user_id', userId)
-          .in('course_id', courseIds);
-
-        if (enrollmentError) throw enrollmentError;
-        enrollments = enrollmentData || [];
+      if (error) {
+        console.error('[LearningPathsService] RPC error:', error);
+        throw error;
       }
 
-      // 5. Create enrollment lookup map
-      const enrollmentMap = enrollments.reduce((acc: any, enrollment: any) => {
-        acc[enrollment.course_id] = enrollment;
-        return acc;
-      }, {});
+      if (!data) {
+        throw new Error('Learning path not found');
+      }
 
-      // 6. Combine course data with user progress
-      const coursesWithProgress = (pathCourses || []).map((pathCourse: any) => {
-        const enrollment = enrollmentMap[pathCourse.course_id];
-        const course = pathCourse.courses;
-
-        // Determine course status
-        let status = 'not_started';
-        let buttonText = 'Iniciar Curso';
-        let buttonVariant = 'default';
-
-        if (enrollment) {
-          if (enrollment.progress_percentage >= 100) {
-            status = 'completed';
-            buttonText = 'Revisar';
-            buttonVariant = 'secondary';
-          } else if (enrollment.progress_percentage > 0) {
-            status = 'in_progress';
-            buttonText = 'Continuar';
-            buttonVariant = 'primary';
-          } else {
-            status = 'enrolled';
-            buttonText = 'Comenzar';
-            buttonVariant = 'default';
-          }
-        }
-
-        return {
-          sequence: pathCourse.sequence_order,
-          course_id: course.id,
-          title: course.title,
-          description: course.description,
-          category: course.category,
-          duration_hours: course.duration_hours,
-          difficulty_level: course.difficulty_level,
-          status,
-          completion_rate: enrollment?.progress_percentage || 0,
-          last_accessed: enrollment?.completed_at || null,
-          enrolled_at: enrollment?.enrolled_at || null,
-          enrollment_status: enrollment?.status || null,
-          buttonText,
-          buttonVariant
-        };
-      });
-
-      // 7. Calculate overall progress
-      const totalCourses = coursesWithProgress.length;
-      const completedCourses = coursesWithProgress.filter((c: any) => c.status === 'completed').length;
-      const progressPercentage = totalCourses > 0 
-        ? Math.round((completedCourses / totalCourses) * 100)
-        : 0;
-
-      // 8. Return combined data
-      return {
-        ...pathData,
-        courses: coursesWithProgress,
-        progress: {
-          total_courses: totalCourses,
-          completed_courses: completedCourses,
-          progress_percentage: progressPercentage
-        }
-      };
+      // The RPC function returns a complete JSON object with all required data
+      // No additional processing needed - all calculations done database-side
+      return data;
     } catch (error: any) {
+      console.error('[LearningPathsService] Error in getLearningPathDetailsForUser:', error);
       throw new Error(`Failed to fetch learning path details: ${error.message}`);
     }
   }

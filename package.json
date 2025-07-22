@@ -3,7 +3,8 @@
   "version": "1.0.1",
   "main": "index.js",
   "scripts": {
-    "dev": "next dev",
+    "dev": "./scripts/pre-dev-check.sh && next dev",
+    "dev:unsafe": "next dev",
     "dev:stable": "./dev-server.sh",
     "dev:clean": "rm -rf .next && npm run dev",
     "build": "next build",
@@ -47,7 +48,8 @@
     "apply:group-assignments": "node scripts/apply-group-assignments.js",
     "apply:dev-role": "node scripts/apply-dev-role.js",
     "assign:dev-role": "node scripts/assign-dev-role.js",
-    "apply:learning-paths": "node scripts/apply-learning-paths-functions.js"
+    "apply:learning-paths": "node scripts/apply-learning-paths-functions.js",
+    "seed:learning-path-summaries": "node scripts/seed-learning-path-summaries.js"
   },
   "keywords": [],
   "author": "",

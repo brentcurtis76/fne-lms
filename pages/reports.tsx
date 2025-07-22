@@ -9,8 +9,9 @@ import StatusBadge from '../components/reports/StatusBadge';
 import ConsultantIndicator from '../components/reports/ConsultantIndicator';
 import AnalyticsVisualization from '../components/reports/AnalyticsVisualization';
 import AdvancedFilters from '../components/reports/AdvancedFilters';
+import LearningPathAnalytics from '../components/reports/LearningPathAnalytics';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
-import { BarChart3, Calendar } from 'lucide-react';
+import { BarChart3, Calendar, Map } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
 
@@ -352,6 +353,7 @@ const ReportsPage: React.FC = () => {
               {[
                 { id: 'overview', label: 'Resumen General', icon: '📊' },
                 { id: 'analytics', label: 'Analytics', icon: '📈' },
+                { id: 'learning-paths', label: 'Rutas de Aprendizaje', icon: '🗺️' },
                 { id: 'community', label: 'Comunidades', icon: '👥' },
                 { id: 'school', label: 'Escuelas', icon: '🏫' },
                 { id: 'courses', label: 'Cursos', icon: '📚' }
@@ -689,6 +691,18 @@ const ReportsPage: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Learning Paths Tab */}
+          {activeTab === 'learning-paths' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Análisis de Rutas de Aprendizaje</h3>
+              </div>
+              <LearningPathAnalytics 
+                dateRange={parseInt(dateRange)} 
+              />
             </div>
           )}
 

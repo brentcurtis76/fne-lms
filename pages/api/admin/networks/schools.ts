@@ -65,6 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 /**
  * GET /api/admin/networks/schools - List all schools with their current network assignments
+ * Updated: 2025-01-23 - Force deployment
  */
 async function handleGetAvailableSchools(supabase: any, res: NextApiResponse) {
   try {

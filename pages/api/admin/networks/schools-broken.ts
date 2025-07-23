@@ -65,6 +65,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
 /**
  * GET /api/admin/networks/schools - List all schools with their current network assignments
+ * Updated: 2025-01-23 - Force deployment
  */
 async function handleGetAvailableSchools(supabase: any, res: NextApiResponse) {
   try {
@@ -103,7 +104,7 @@ async function handleGetAvailableSchools(supabase: any, res: NextApiResponse) {
     // Create assignment map
     const schoolAssignments = new Map();
     if (assignments) {
-      assignments.forEach((assignment: any) => {
+      assignments.forEach(assignment => {
         if (assignment.redes_de_colegios) {
           schoolAssignments.set(assignment.school_id, {
             id: assignment.redes_de_colegios.id,
@@ -115,7 +116,7 @@ async function handleGetAvailableSchools(supabase: any, res: NextApiResponse) {
     }
 
     // Combine data
-    const schoolsWithNetworks = (schools || []).map((school: any) => {
+    const schoolsWithNetworks = (schools || []).map(school => {
       const networkAssignment = schoolAssignments.get(school.id);
       return {
         id: school.id,
@@ -133,8 +134,8 @@ async function handleGetAvailableSchools(supabase: any, res: NextApiResponse) {
       schools: schoolsWithNetworks,
       summary: {
         total: schoolsWithNetworks.length,
-        assigned: schoolsWithNetworks.filter((s: any) => s.is_assigned).length,
-        unassigned: schoolsWithNetworks.filter((s: any) => !s.is_assigned).length
+        assigned: schoolsWithNetworks.filter(s => s.is_assigned).length,
+        unassigned: schoolsWithNetworks.filter(s => !s.is_assigned).length
       }
     });
   } catch (error) {
@@ -163,7 +164,7 @@ async function handleAssignSchool(
     // Verify network exists
     const { data: network } = await supabase
       .from('redes_de_colegios')
-      .select('id, nombre')
+      .select('id, name')
       .eq('id', networkId)
       .single();
 
@@ -192,7 +193,7 @@ async function handleAssignSchool(
 
     if (existingAssignment) {
       return res.status(409).json({ 
-        error: `La escuela "${school.name}" ya está asignada a la red "${network.nombre}"` 
+        error: `La escuela "${school.name}" ya está asignada a la red "${network.name}"` 
       });
     }
 
@@ -202,7 +203,7 @@ async function handleAssignSchool(
       .select(`
         red_id,
         redes_de_colegios (
-          nombre
+          name
         )
       `)
       .eq('school_id', schoolId)
@@ -210,7 +211,7 @@ async function handleAssignSchool(
 
     if (otherNetworkAssignment) {
       return res.status(409).json({ 
-        error: `La escuela "${school.name}" ya está asignada a la red "${otherNetworkAssignment.redes_de_colegios.nombre}"` 
+        error: `La escuela "${school.name}" ya está asignada a la red "${otherNetworkAssignment.redes_de_colegios.name}"` 
       });
     }
 
@@ -220,8 +221,8 @@ async function handleAssignSchool(
       .insert({
         red_id: networkId,
         school_id: schoolId,
-        agregado_por: adminId,
-        fecha_agregada: new Date().toISOString()
+        assigned_by: adminId,
+        assigned_at: new Date().toISOString()
       });
 
     if (assignError) {
@@ -231,7 +232,7 @@ async function handleAssignSchool(
 
     return res.status(201).json({
       success: true,
-      message: `Escuela "${school.name}" asignada exitosamente a la red "${network.nombre}"`
+      message: `Escuela "${school.name}" asignada exitosamente a la red "${network.name}"`
     });
   } catch (error) {
     console.error('Error in handleAssignSchool:', error);
@@ -258,7 +259,7 @@ async function handleRemoveSchool(supabase: any, body: RemoveSchoolRequest, res:
         red_id,
         school_id,
         redes_de_colegios (
-          nombre
+          name
         ),
         schools (
           name
@@ -304,7 +305,7 @@ async function handleRemoveSchool(supabase: any, body: RemoveSchoolRequest, res:
 
     return res.status(200).json({
       success: true,
-      message: `Escuela "${assignment.schools.name}" removida exitosamente de la red "${assignment.redes_de_colegios.nombre}"`
+      message: `Escuela "${assignment.schools.name}" removida exitosamente de la red "${assignment.redes_de_colegios.name}"`
     });
   } catch (error) {
     console.error('Error in handleRemoveSchool:', error);
@@ -332,7 +333,7 @@ async function handleBulkAssignSchools(
     // Verify network exists
     const { data: network } = await supabase
       .from('redes_de_colegios')
-      .select('id, nombre')
+      .select('id, name')
       .eq('id', networkId)
       .single();
 
@@ -347,7 +348,7 @@ async function handleBulkAssignSchools(
       .in('id', schoolIds);
 
     if (!schools || schools.length !== schoolIds.length) {
-      const foundIds = schools?.map((s: any) => s.id) || [];
+      const foundIds = schools?.map(s => s.id) || [];
       const missingIds = schoolIds.filter(id => !foundIds.includes(id));
       return res.status(404).json({ 
         error: `Escuelas no encontradas con IDs: ${missingIds.join(', ')}` 
@@ -357,13 +358,13 @@ async function handleBulkAssignSchools(
     // Check for existing assignments
     const { data: existingAssignments } = await supabase
       .from('red_escuelas')
-      .select('school_id, red_id, redes_de_colegios(nombre)')
+      .select('school_id, red_id, redes_de_colegios(name)')
       .in('school_id', schoolIds);
 
     if (existingAssignments && existingAssignments.length > 0) {
       const conflicts = existingAssignments.map((assignment: any) => {
-        const school = schools.find((s: any) => s.id === assignment.school_id);
-        return `"${school?.name}" ya asignada a "${assignment.redes_de_colegios.nombre}"`;
+        const school = schools.find(s => s.id === assignment.school_id);
+        return `"${school?.name}" ya asignada a "${assignment.redes_de_colegios.name}"`;
       });
       
       return res.status(409).json({ 
@@ -375,8 +376,8 @@ async function handleBulkAssignSchools(
     const assignmentData = schoolIds.map(schoolId => ({
       red_id: networkId,
       school_id: schoolId,
-      agregado_por: adminId,
-      fecha_agregada: new Date().toISOString()
+      assigned_by: adminId,
+      assigned_at: new Date().toISOString()
     }));
 
     // Bulk insert assignments
@@ -389,11 +390,11 @@ async function handleBulkAssignSchools(
       return res.status(500).json({ error: 'Error al asignar escuelas en lote' });
     }
 
-    const schoolNames = schools.map((s: any) => s.name).join(', ');
+    const schoolNames = schools.map(s => s.name).join(', ');
     
     return res.status(201).json({
       success: true,
-      message: `${schoolIds.length} escuelas asignadas exitosamente a la red "${network.nombre}": ${schoolNames}`
+      message: `${schoolIds.length} escuelas asignadas exitosamente a la red "${network.name}": ${schoolNames}`
     });
   } catch (error) {
     console.error('Error in handleBulkAssignSchools:', error);

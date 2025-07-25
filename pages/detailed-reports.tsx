@@ -443,7 +443,8 @@ export default function DetailedReports() {
 
           {/* Tab Content */}
           {activeTab === 'overview' && summary && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {/* Total Users Card */}
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-sm border border-blue-200 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
@@ -600,6 +601,7 @@ export default function DetailedReports() {
                 )}
               </div>
             )}
+            </>
           )}
 
           {/* Analytics Dashboard Tab */}

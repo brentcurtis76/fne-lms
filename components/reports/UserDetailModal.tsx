@@ -356,7 +356,7 @@ export default function UserDetailModal({
                             <div>
                               <p className="text-sm font-medium text-gray-900">{activity.description}</p>
                               <p className="text-xs text-gray-500">
-                                {new Date(activity.created_at).toLocaleString('es-ES')}
+                                {new Date(activity.completed_at || activity.created_at).toLocaleString('es-ES')}
                               </p>
                             </div>
                             <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -395,12 +395,12 @@ export default function UserDetailModal({
                             {userDetails.course_progress.map((course) => (
                               <tr key={course.id} className="border-b border-gray-100">
                                 <td className="p-4">
-                                  <div className="font-medium text-gray-900">{course.courses.title}</div>
-                                  <div className="text-sm text-gray-500">{course.courses.description}</div>
+                                  <div className="font-medium text-gray-900">{course.courses?.title || 'Curso no encontrado'}</div>
+                                  <div className="text-sm text-gray-500">{course.courses?.description || 'Sin descripción'}</div>
                                 </td>
                                 <td className="p-4">
                                   <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                                    {course.courses.category}
+                                    {course.courses?.category || 'Sin categoría'}
                                   </span>
                                 </td>
                                 <td className="p-4">
@@ -450,11 +450,11 @@ export default function UserDetailModal({
                               {userDetails.quiz_results.slice(0, 10).map((quiz) => (
                                 <tr key={quiz.id} className="border-b border-gray-100">
                                   <td className="p-4">
-                                    <div className="font-medium text-gray-900">{quiz.lessons.title}</div>
-                                    <div className="text-sm text-gray-500">{quiz.lessons.modules.title}</div>
+                                    <div className="font-medium text-gray-900">{quiz.lessons?.title || 'Lección no encontrada'}</div>
+                                    <div className="text-sm text-gray-500">{quiz.lessons?.modules?.title || 'Módulo no encontrado'}</div>
                                   </td>
                                   <td className="p-4 text-sm text-gray-600">
-                                    {quiz.lessons.modules.courses.title}
+                                    {quiz.lessons?.modules?.courses?.title || 'Curso no encontrado'}
                                   </td>
                                   <td className="p-4 font-medium">
                                     {quiz.score}/{quiz.max_score}
@@ -498,7 +498,7 @@ export default function UserDetailModal({
                               <div className="flex-1">
                                 <p className="font-medium text-gray-900">{activity.description}</p>
                                 <p className="text-sm text-gray-500">
-                                  {new Date(activity.created_at).toLocaleString('es-ES')}
+                                  {new Date(activity.completed_at || activity.created_at).toLocaleString('es-ES')}
                                 </p>
                               </div>
                             </div>
@@ -527,11 +527,11 @@ export default function UserDetailModal({
                               {userDetails.lesson_completions.slice(0, 10).map((lesson) => (
                                 <tr key={lesson.id} className="border-b border-gray-100">
                                   <td className="p-4">
-                                    <div className="font-medium text-gray-900">{lesson.lessons.title}</div>
-                                    <div className="text-sm text-gray-500">Orden: {lesson.lessons.order_index}</div>
+                                    <div className="font-medium text-gray-900">{lesson.lessons?.title || 'Lección no encontrada'}</div>
+                                    <div className="text-sm text-gray-500">Orden: {lesson.lessons?.order_index || 'N/A'}</div>
                                   </td>
                                   <td className="p-4 text-sm text-gray-600">
-                                    {lesson.lessons.modules.courses.title}
+                                    {lesson.lessons?.modules?.courses?.title || 'Curso no encontrado'}
                                   </td>
                                   <td className="p-4 font-medium">
                                     {formatTime(lesson.time_spent_minutes)}

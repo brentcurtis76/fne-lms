@@ -109,8 +109,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
 
     const userIds = reportableUsers;
 
-    // Get user profile data with organizational info
-    const { data: userProfiles, error: profilesError } = await supabase
+    // Get user profile data with organizational info and apply filters
+    let profileQuery = supabase
       .from('profiles')
       .select(`
         id,
@@ -122,6 +122,25 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
         community_id
       `)
       .in('id', userIds);
+
+    // Apply filters from frontend
+    if (filters) {
+      if (filters.school_id && filters.school_id !== 'all') {
+        profileQuery = profileQuery.eq('school_id', filters.school_id);
+      }
+      if (filters.generation_id && filters.generation_id !== 'all') {
+        profileQuery = profileQuery.eq('generation_id', filters.generation_id);
+      }
+      if (filters.community_id && filters.community_id !== 'all') {
+        profileQuery = profileQuery.eq('community_id', filters.community_id);
+      }
+      if (filters.search && filters.search.trim()) {
+        const searchTerm = `%${filters.search.trim()}%`;
+        profileQuery = profileQuery.or(`first_name.ilike.${searchTerm},last_name.ilike.${searchTerm},email.ilike.${searchTerm}`);
+      }
+    }
+
+    const { data: userProfiles, error: profilesError } = await profileQuery;
 
     if (profilesError) {
       throw profilesError;
@@ -273,6 +292,61 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
             activity_score, // Add activity score for smart sorting
         };
     });
+
+    // Apply additional filters
+    let filteredUsers = progressUsers;
+    
+    if (filters) {
+      // Status filtering
+      if (filters.status && filters.status !== 'all') {
+        filteredUsers = filteredUsers.filter(user => {
+          const lastActivityDate = user.last_activity_date ? new Date(user.last_activity_date) : null;
+          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+          
+          switch (filters.status) {
+            case 'active':
+              return lastActivityDate && lastActivityDate > thirtyDaysAgo;
+            case 'completed':
+              return user.completion_percentage === 100;
+            case 'inactive':
+              return !lastActivityDate || lastActivityDate <= thirtyDaysAgo;
+            default:
+              return true;
+          }
+        });
+      }
+      
+      // Course filtering (if user is enrolled in specific course)
+      if (filters.course_id && filters.course_id !== 'all') {
+        const usersInCourse = (courseData || []).filter(assignment => assignment.course_id === filters.course_id).map(a => a.teacher_id);
+        filteredUsers = filteredUsers.filter(user => usersInCourse.includes(user.user_id));
+      }
+      
+      // Date range filtering (filter by last activity date)
+      if (filters.date_from || filters.date_to) {
+        filteredUsers = filteredUsers.filter(user => {
+          if (!user.last_activity_date) return false;
+          
+          const activityDate = new Date(user.last_activity_date);
+          
+          if (filters.date_from) {
+            const fromDate = new Date(filters.date_from);
+            if (activityDate < fromDate) return false;
+          }
+          
+          if (filters.date_to) {
+            const toDate = new Date(filters.date_to);
+            toDate.setHours(23, 59, 59, 999); // Include full day
+            if (activityDate > toDate) return false;
+          }
+          
+          return true;
+        });
+      }
+    }
+    
+    // Update progressUsers to be the filtered version
+    progressUsers = filteredUsers;
 
     progressUsers.sort((a, b) => {
         const valA = a[field];

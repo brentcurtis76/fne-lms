@@ -62,37 +62,94 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get accessible communities based on user role
     const accessibleCommunities = await getAccessibleCommunities(user.id, profile.role);
 
-    let query = supabase
-      .from('community_progress_report')
-      .select('*');
+    // Since community_progress_report view doesn't exist, generate report data from existing tables
+    let communityData: any[] = [];
+    let communityError = null;
 
-    // Filter by accessible communities
-    if (accessibleCommunities.length > 0) {
-      query = query.in('community_id', accessibleCommunities);
-    } else if (profile.role !== 'admin') {
-      // If user has no accessible communities and is not admin, return empty result
-      return res.status(200).json({
-        message: 'No accessible communities found',
-        data: []
-      });
-    }
+    try {
+      // Get communities to report on
+      let communitiesToQuery = accessibleCommunities;
+      if (community_id) {
+        const communityIdStr = Array.isArray(community_id) ? community_id[0] : community_id;
+        communitiesToQuery = communitiesToQuery.includes(communityIdStr) ? [communityIdStr] : [];
+      }
+      
+      if (communitiesToQuery.length === 0 && profile.role !== 'admin') {
+        return res.status(200).json({
+          message: 'No accessible communities found',
+          data: []
+        });
+      }
 
-    // Filter by specific community if provided
-    if (community_id) {
-      query = query.eq('community_id', community_id);
-    }
+      // If admin and no specific communities, get all communities
+      if (profile.role === 'admin' && communitiesToQuery.length === 0) {
+        const { data: allCommunities } = await supabase
+          .from('growth_communities')
+          .select('id');
+        communitiesToQuery = allCommunities?.map(c => c.id) || [];
+      }
 
-    // Apply date filters if provided
-    if (start_date) {
-      query = query.gte('report_date', start_date);
-    }
-    if (end_date) {
-      query = query.lte('report_date', end_date);
-    }
+      if (communitiesToQuery.length > 0) {
+        // Get community details
+        const { data: communities } = await supabase
+          .from('growth_communities')
+          .select('id, name')
+          .in('id', communitiesToQuery);
 
-    const { data: communityData, error: communityError } = await query
-      .order('community_name')
-      .order('report_date', { ascending: false });
+        // Get users in these communities
+        const { data: communityUsers } = await supabase
+          .from('profiles')
+          .select('id, community_id')
+          .in('community_id', communitiesToQuery)
+          .not('community_id', 'is', null);
+
+        // Get course enrollments for these users
+        const userIds = communityUsers?.map(u => u.id) || [];
+        const { data: courseEnrollments } = userIds.length > 0 ? await supabase
+          .from('course_enrollments')
+          .select('user_id, course_id, progress_percentage, completed_at, time_spent')
+          .in('user_id', userIds) : { data: [] };
+
+        // Aggregate data for each community
+        communityData = communities?.map((community: any) => {
+          const communityUsersData = communityUsers?.filter(u => u.community_id === community.id) || [];
+          const communityUserIds = communityUsersData.map(u => u.id);
+          
+          // Calculate metrics
+          const totalUsers = communityUsersData.length;
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          
+          // Get enrollments for this community's users
+          const communityEnrollments = courseEnrollments?.filter(e => communityUserIds.includes(e.user_id)) || [];
+          
+          let activeUsers = 0;
+          let totalCourses = communityEnrollments.length;
+          let completedCourses = communityEnrollments.filter(e => e.progress_percentage >= 100).length;
+          
+          // Count active users (users with activity in last 7 days)
+          const activeUserIds = new Set();
+          communityEnrollments.forEach(enrollment => {
+            if (enrollment.completed_at && new Date(enrollment.completed_at) > sevenDaysAgo) {
+              activeUserIds.add(enrollment.user_id);
+            }
+          });
+          activeUsers = activeUserIds.size;
+
+          return {
+            community_id: community.id,
+            community_name: community.name,
+            report_date: new Date().toISOString().split('T')[0], // Today's date
+            total_users: totalUsers,
+            active_users: activeUsers,
+            total_courses: totalCourses,
+            completed_courses: completedCourses
+          };
+        }) || [];
+      }
+    } catch (error) {
+      console.error('Error generating community report data:', error);
+      communityError = error;
+    }
 
     if (communityError) {
       console.error('Community report error:', communityError.message);
@@ -119,7 +176,7 @@ async function getAccessibleCommunities(userId: string, userRole: string): Promi
     if (userRole === 'admin') {
       // Admins can see all communities
       const { data: allCommunities } = await supabase
-        .from('communities')
+        .from('growth_communities')
         .select('id');
       
       return allCommunities?.map(c => c.id) || [];

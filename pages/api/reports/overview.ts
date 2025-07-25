@@ -76,10 +76,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         email,
         school_id,
         generation_id,
-        community_id,
-        schools(name),
-        generations(name),
-        communities(name)
+        community_id
       `)
       .in('id', reportableUsers);
 
@@ -87,6 +84,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Profile fetch error:', profileError.message);
       return res.status(500).json({ error: 'Failed to fetch user profiles', details: profileError.message });
     }
+
+    // Get organizational data separately to avoid relationship issues
+    const schoolIds = [...new Set(userProfiles?.map(p => p.school_id).filter(Boolean) || [])];
+    const generationIds = [...new Set(userProfiles?.map(p => p.generation_id).filter(Boolean) || [])];
+    const communityIds = [...new Set(userProfiles?.map(p => p.community_id).filter(Boolean) || [])];
+
+    const [schoolsData, generationsData, communitiesData] = await Promise.all([
+      schoolIds.length > 0 ? supabase
+        .from('schools')
+        .select('id, name')
+        .in('id', schoolIds) : Promise.resolve({ data: [] }),
+      
+      generationIds.length > 0 ? supabase
+        .from('generations')
+        .select('id, name')
+        .in('id', generationIds) : Promise.resolve({ data: [] }),
+      
+      communityIds.length > 0 ? supabase
+        .from('growth_communities')
+        .select('id, name')
+        .in('id', communityIds) : Promise.resolve({ data: [] })
+    ]);
+
+    // Create lookup maps
+    const schoolsMap = new Map(schoolsData.data?.map(s => [s.id, s]) || []);
+    const generationsMap = new Map(generationsData.data?.map(g => [g.id, g]) || []);
+    const communitiesMap = new Map(communitiesData.data?.map(c => [c.id, c]) || []);
+
+    // Combine profile data with organizational info
+    const enrichedProfiles = userProfiles?.map(profile => ({
+      ...profile,
+      schools: profile.school_id ? schoolsMap.get(profile.school_id) : null,
+      generations: profile.generation_id ? generationsMap.get(profile.generation_id) : null,
+      communities: profile.community_id ? communitiesMap.get(profile.community_id) : null
+    })) || [];
 
     // Get user roles for the reportable users
     const { data: userRoles, error: rolesError } = await supabase
@@ -111,8 +143,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         completed_courses,
         total_time_spent_minutes,
         last_session_date,
-        is_at_risk,
-        learning_paths(name)
+        is_at_risk
       `)
       .in('user_id', reportableUsers);
 
@@ -128,8 +159,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         course_id,
         progress_percentage,
         completed_at,
-        updated_at,
-        courses(title)
+        updated_at
       `)
       .in('user_id', reportableUsers);
 
@@ -156,7 +186,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Format data for dashboard UI
     const formattedData = formatOverviewData(
-      userProfiles || [],
+      enrichedProfiles || [],
       userRoles || [],
       learningPathData || [],
       courseData || [],

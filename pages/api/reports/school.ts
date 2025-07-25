@@ -62,42 +62,134 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get accessible schools based on user role
     const accessibleSchools = await getAccessibleSchools(user.id, profile.role);
 
-    let query = supabase
-      .from('school_progress_report')
-      .select('*');
+    // Since school_progress_report view doesn't exist, generate report data from existing tables
+    let schoolData: any[] = [];
+    let schoolError = null;
 
-    // Filter by accessible schools
-    if (accessibleSchools.length > 0) {
-      query = query.in('school_id', accessibleSchools);
-    } else if (profile.role !== 'admin') {
-      // If user has no accessible schools and is not admin, return empty result
-      return res.status(200).json({
-        message: 'No accessible schools found',
-        data: []
-      });
-    }
+    try {
+      // Get schools to report on
+      let schoolsToQuery = accessibleSchools;
+      if (school_id) {
+        const schoolIdStr = Array.isArray(school_id) ? school_id[0] : school_id;
+        schoolsToQuery = schoolsToQuery.includes(schoolIdStr) ? [schoolIdStr] : [];
+      }
+      
+      if (schoolsToQuery.length === 0 && profile.role !== 'admin') {
+        return res.status(200).json({
+          message: 'No accessible schools found',
+          data: []
+        });
+      }
 
-    // Filter by specific school if provided
-    if (school_id) {
-      query = query.eq('school_id', school_id);
-    }
+      // If admin and no specific schools, get all schools
+      if (profile.role === 'admin' && schoolsToQuery.length === 0) {
+        const { data: allSchools } = await supabase
+          .from('schools')
+          .select('id');
+        schoolsToQuery = allSchools?.map(s => s.id) || [];
+      }
 
-    // Filter by community if provided
-    if (community_id) {
-      query = query.eq('community_id', community_id);
-    }
+      if (schoolsToQuery.length > 0) {
+        // Get school details
+        const { data: schools } = await supabase
+          .from('schools')
+          .select('id, name, community_id')
+          .in('id', schoolsToQuery);
 
-    // Apply date filters if provided
-    if (start_date) {
-      query = query.gte('report_date', start_date);
-    }
-    if (end_date) {
-      query = query.lte('report_date', end_date);
-    }
+        // Get community names separately to avoid relationship issues
+        const communityIds = schools?.map(s => s.community_id).filter(Boolean) || [];
+        const { data: communities } = communityIds.length > 0 ? await supabase
+          .from('growth_communities')
+          .select('id, name')
+          .in('id', communityIds) : { data: [] };
+        
+        const communityMap = new Map(communities?.map(c => [c.id, c.name]) || []);
 
-    const { data: schoolData, error: schoolError } = await query
-      .order('school_name')
-      .order('report_date', { ascending: false });
+        // Filter by community if provided
+        let filteredSchools = schools || [];
+        if (community_id) {
+          const communityIdStr = Array.isArray(community_id) ? community_id[0] : community_id;
+          filteredSchools = filteredSchools.filter(s => s.community_id === communityIdStr);
+        }
+
+        // Get users in these schools
+        const schoolIds = filteredSchools.map(s => s.id);
+        const { data: schoolUsers } = await supabase
+          .from('profiles')
+          .select('id, school_id, role')
+          .in('school_id', schoolIds)
+          .not('school_id', 'is', null);
+
+        // Get course enrollments for these users
+        const userIds = schoolUsers?.map(u => u.id) || [];
+        const { data: courseEnrollments } = userIds.length > 0 ? await supabase
+          .from('course_enrollments')
+          .select('user_id, course_id, progress_percentage, completed_at, time_spent')
+          .in('user_id', userIds) : { data: [] };
+
+        // Aggregate data for each school
+        schoolData = filteredSchools.map((school: any) => {
+          const schoolUsersData = schoolUsers?.filter(u => u.school_id === school.id) || [];
+          const schoolUserIds = schoolUsersData.map(u => u.id);
+          
+          // Separate teachers and students
+          const teachers = schoolUsersData.filter(u => u.role === 'docente' || u.role === 'admin');
+          const students = schoolUsersData.filter(u => u.role === 'estudiante');
+          
+          // Calculate metrics
+          const totalTeachers = teachers.length;
+          const totalStudents = students.length;
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          
+          // Get enrollments for this school's users
+          const schoolEnrollments = courseEnrollments?.filter(e => schoolUserIds.includes(e.user_id)) || [];
+          
+          let activeTeachers = 0;
+          let activeStudents = 0;
+          let totalCourses = schoolEnrollments.length;
+          let completedCourses = schoolEnrollments.filter(e => e.progress_percentage >= 100).length;
+          
+          // Count active users (users with activity in last 7 days)
+          const activeUserIds = new Set();
+          schoolEnrollments.forEach(enrollment => {
+            if (enrollment.completed_at && new Date(enrollment.completed_at) > sevenDaysAgo) {
+              activeUserIds.add(enrollment.user_id);
+            }
+          });
+          
+          // Categorize active users as teachers or students
+          activeUserIds.forEach(userId => {
+            const user = schoolUsersData.find(u => u.id === userId);
+            if (user?.role === 'docente' || user?.role === 'admin') {
+              activeTeachers++;
+            } else if (user?.role === 'estudiante') {
+              activeStudents++;
+            }
+          });
+
+          return {
+            school_id: school.id,
+            school_name: school.name,
+            community_id: school.community_id,
+            community_name: communityMap.get(school.community_id) || null,
+            report_date: new Date().toISOString().split('T')[0], // Today's date
+            total_teachers: totalTeachers,
+            active_teachers: activeTeachers,
+            total_students: totalStudents,
+            active_students: activeStudents,
+            total_courses: totalCourses,
+            completed_courses: completedCourses,
+            average_lesson_completion_rate: 0, // Would need lesson data to calculate
+            average_assessment_score: 0, // Would need assessment data to calculate
+            total_time_spent: schoolEnrollments.reduce((sum, e) => sum + (e.time_spent || 0), 0),
+            unique_courses_accessed: new Set(schoolEnrollments.map(e => e.course_id)).size
+          };
+        });
+      }
+    } catch (error) {
+      console.error('Error generating school report data:', error);
+      schoolError = error;
+    }
 
     if (schoolError) {
       console.error('School report error:', schoolError.message);

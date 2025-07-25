@@ -140,86 +140,239 @@ function checkUserAccess(requestingUser: any, targetUser: any): boolean {
 }
 
 async function getUserBasicInfo(userId: string) {
-  const { data } = await supabase
+  // Get basic user profile
+  const { data: profile } = await supabase
     .from('profiles')
     .select(`
       id, first_name, last_name, email, role, phone, avatar_url,
-      created_at, last_login,
-      schools!inner(name),
-      generations(name),
-      growth_communities(name)
+      created_at, last_login, school_id, generation_id, community_id
     `)
     .eq('id', userId)
     .single();
 
-  return data;
+  if (!profile) return null;
+
+  // Get related data separately to avoid relationship issues
+  const [schoolData, generationData, communityData] = await Promise.all([
+    profile.school_id ? supabase
+      .from('schools')
+      .select('name')
+      .eq('id', profile.school_id)
+      .single() : Promise.resolve({ data: null }),
+    
+    profile.generation_id ? supabase
+      .from('generations')
+      .select('name')
+      .eq('id', profile.generation_id)
+      .single() : Promise.resolve({ data: null }),
+    
+    profile.community_id ? supabase
+      .from('growth_communities')
+      .select('name')
+      .eq('id', profile.community_id)
+      .single() : Promise.resolve({ data: null })
+  ]);
+
+  return {
+    ...profile,
+    schools: schoolData.data,
+    generations: generationData.data,
+    growth_communities: communityData.data
+  };
 }
 
 async function getCourseProgress(userId: string) {
-  const { data } = await supabase
+  // Get course enrollments
+  const { data: enrollments } = await supabase
     .from('course_enrollments')
     .select(`
-      id, enrolled_at, completion_rate, last_accessed,
-      courses!inner(id, title, description, category)
+      id, enrolled_at, completion_rate, last_accessed, course_id
     `)
     .eq('user_id', userId)
     .order('enrolled_at', { ascending: false });
 
-  return data || [];
+  if (!enrollments?.length) return [];
+
+  // Get course details separately
+  const courseIds = enrollments.map(e => e.course_id);
+  const { data: courses } = await supabase
+    .from('courses')
+    .select('id, title, description, category')
+    .in('id', courseIds);
+
+  const courseMap = new Map(courses?.map(c => [c.id, c]) || []);
+
+  // Combine enrollment and course data
+  return enrollments.map(enrollment => ({
+    ...enrollment,
+    courses: courseMap.get(enrollment.course_id) || null
+  }));
 }
 
 async function getLessonCompletions(userId: string) {
-  const { data } = await supabase
+  // Get user progress data
+  const { data: progressData } = await supabase
     .from('user_progress')
     .select(`
-      id, completed_at, time_spent_minutes,
-      lessons!inner(id, title, order_index,
-        modules!inner(id, title,
-          courses!inner(id, title)
-        )
-      )
+      id, completed_at, time_spent_minutes, lesson_id
     `)
     .eq('user_id', userId)
     .eq('completed', true)
     .order('completed_at', { ascending: false })
     .limit(20);
 
-  return data || [];
+  if (!progressData?.length) return [];
+
+  // Get lesson, module, and course data separately
+  const lessonIds = progressData.map(p => p.lesson_id);
+  const { data: lessons } = await supabase
+    .from('lessons')
+    .select('id, title, order_index, module_id')
+    .in('id', lessonIds);
+
+  const moduleIds = lessons?.map(l => l.module_id) || [];
+  const { data: modules } = moduleIds.length > 0 ? await supabase
+    .from('modules')
+    .select('id, title, course_id')
+    .in('id', moduleIds) : { data: [] };
+
+  const courseIds = modules?.map(m => m.course_id) || [];
+  const { data: courses } = courseIds.length > 0 ? await supabase
+    .from('courses')
+    .select('id, title')
+    .in('id', courseIds) : { data: [] };
+
+  // Create lookup maps
+  const lessonMap = new Map(lessons?.map(l => [l.id, l]) || []);
+  const moduleMap = new Map(modules?.map(m => [m.id, m]) || []);
+  const courseMap = new Map(courses?.map(c => [c.id, c]) || []);
+
+  // Combine data
+  return progressData.map(progress => {
+    const lesson = lessonMap.get(progress.lesson_id);
+    const module = lesson ? moduleMap.get(lesson.module_id) : null;
+    const course = module ? courseMap.get(module.course_id) : null;
+
+    return {
+      ...progress,
+      lessons: lesson ? {
+        ...lesson,
+        modules: module ? {
+          ...module,
+          courses: course
+        } : null
+      } : null
+    };
+  });
 }
 
 async function getQuizResults(userId: string) {
-  const { data } = await supabase
+  // Get quiz attempts data
+  const { data: quizData } = await supabase
     .from('quiz_attempts')
     .select(`
-      id, score, max_score, percentage_score, attempted_at,
-      lessons!inner(id, title,
-        modules!inner(title,
-          courses!inner(title)
-        )
-      )
+      id, score, max_score, percentage_score, attempted_at, lesson_id
     `)
     .eq('user_id', userId)
     .order('attempted_at', { ascending: false })
     .limit(20);
 
-  return data || [];
+  if (!quizData?.length) return [];
+
+  // Get lesson, module, and course data separately
+  const lessonIds = quizData.map(q => q.lesson_id);
+  const { data: lessons } = await supabase
+    .from('lessons')
+    .select('id, title, module_id')
+    .in('id', lessonIds);
+
+  const moduleIds = lessons?.map(l => l.module_id) || [];
+  const { data: modules } = moduleIds.length > 0 ? await supabase
+    .from('modules')
+    .select('id, title, course_id')
+    .in('id', moduleIds) : { data: [] };
+
+  const courseIds = modules?.map(m => m.course_id) || [];
+  const { data: courses } = courseIds.length > 0 ? await supabase
+    .from('courses')
+    .select('id, title')
+    .in('id', courseIds) : { data: [] };
+
+  // Create lookup maps
+  const lessonMap = new Map(lessons?.map(l => [l.id, l]) || []);
+  const moduleMap = new Map(modules?.map(m => [m.id, m]) || []);
+  const courseMap = new Map(courses?.map(c => [c.id, c]) || []);
+
+  // Combine data
+  return quizData.map(quiz => {
+    const lesson = lessonMap.get(quiz.lesson_id);
+    const module = lesson ? moduleMap.get(lesson.module_id) : null;
+    const course = module ? courseMap.get(module.course_id) : null;
+
+    return {
+      ...quiz,
+      lessons: lesson ? {
+        ...lesson,
+        modules: module ? {
+          title: module.title,
+          courses: course ? { title: course.title } : null
+        } : null
+      } : null
+    };
+  });
 }
 
 async function getTimeSpent(userId: string) {
-  const { data } = await supabase
+  // Get time spent data
+  const { data: timeData } = await supabase
     .from('user_progress')
     .select(`
-      time_spent_minutes,
-      lessons!inner(
-        modules!inner(
-          courses!inner(title)
-        )
-      )
+      time_spent_minutes, lesson_id
     `)
     .eq('user_id', userId)
     .not('time_spent_minutes', 'is', null);
 
-  return data || [];
+  if (!timeData?.length) return [];
+
+  // Get lesson, module, and course data separately
+  const lessonIds = timeData.map(t => t.lesson_id);
+  const { data: lessons } = await supabase
+    .from('lessons')
+    .select('id, module_id')
+    .in('id', lessonIds);
+
+  const moduleIds = lessons?.map(l => l.module_id) || [];
+  const { data: modules } = moduleIds.length > 0 ? await supabase
+    .from('modules')
+    .select('id, course_id')
+    .in('id', moduleIds) : { data: [] };
+
+  const courseIds = modules?.map(m => m.course_id) || [];
+  const { data: courses } = courseIds.length > 0 ? await supabase
+    .from('courses')
+    .select('id, title')
+    .in('id', courseIds) : { data: [] };
+
+  // Create lookup maps
+  const lessonMap = new Map(lessons?.map(l => [l.id, l]) || []);
+  const moduleMap = new Map(modules?.map(m => [m.id, m]) || []);
+  const courseMap = new Map(courses?.map(c => [c.id, c]) || []);
+
+  // Combine data
+  return timeData.map(time => {
+    const lesson = lessonMap.get(time.lesson_id);
+    const module = lesson ? moduleMap.get(lesson.module_id) : null;
+    const course = module ? courseMap.get(module.course_id) : null;
+
+    return {
+      ...time,
+      lessons: lesson ? {
+        modules: module ? {
+          courses: course || null
+        } : null
+      } : null
+    };
+  });
 }
 
 async function getConsultantAssignments(userId: string) {
@@ -237,14 +390,12 @@ async function getConsultantAssignments(userId: string) {
 }
 
 async function getRecentActivity(userId: string) {
-  // This would typically come from an activity log table
-  // For now, we'll get recent lesson completions and quiz attempts
-  const [lessons, quizzes] = await Promise.all([
+  // Get recent lesson completions and quiz attempts separately
+  const [lessonProgress, quizAttempts] = await Promise.all([
     supabase
       .from('user_progress')
       .select(`
-        completed_at as created_at,
-        lessons!inner(title)
+        id, completed_at, time_spent_minutes, lesson_id, user_id
       `)
       .eq('user_id', userId)
       .eq('completed', true)
@@ -254,35 +405,54 @@ async function getRecentActivity(userId: string) {
     supabase
       .from('quiz_attempts')
       .select(`
-        attempted_at as created_at,
-        lessons!inner(title)
+        id, attempted_at, score, lesson_id, user_id
       `)
       .eq('user_id', userId)
       .order('attempted_at', { ascending: false })
       .limit(10)
   ]);
 
+  // Get lesson titles separately
+  const allLessonIds = [
+    ...(lessonProgress.data?.map(l => l.lesson_id) || []),
+    ...(quizAttempts.data?.map(q => q.lesson_id) || [])
+  ];
+  
+  const uniqueLessonIds = [...new Set(allLessonIds)];
+  const { data: lessons } = uniqueLessonIds.length > 0 ? await supabase
+    .from('lessons')
+    .select('id, title')
+    .in('id', uniqueLessonIds) : { data: [] };
+
+  const lessonMap = new Map(lessons?.map(l => [l.id, l]) || []);
+
   const activities = [
-    ...(lessons.data || []).map((item: any) => ({
-      id: item.id,
-      completed_at: item.completed_at,
-      time_spent: item.time_spent,
-      lesson_id: item.lesson_id,
-      user_id: item.user_id,
-      lessons: item.lessons,
-      activity_type: 'lesson_completion',
-      description: `Completó la lección: ${item.lessons.title}`
-    })),
-    ...(quizzes.data || []).map((item: any) => ({
-      id: item.id,
-      completed_at: item.completed_at,
-      time_spent: item.time_spent,
-      lesson_id: item.lesson_id,
-      user_id: item.user_id,
-      lessons: item.lessons,
-      activity_type: 'quiz_attempt',
-      description: `Realizó quiz en: ${item.lessons.title}`
-    }))
+    ...(lessonProgress.data || []).map((item: any) => {
+      const lesson = lessonMap.get(item.lesson_id);
+      return {
+        id: item.id,
+        completed_at: item.completed_at,
+        time_spent: item.time_spent_minutes,
+        lesson_id: item.lesson_id,
+        user_id: item.user_id,
+        lessons: lesson,
+        activity_type: 'lesson_completion',
+        description: `Completó la lección: ${lesson?.title || 'Lección desconocida'}`
+      };
+    }),
+    ...(quizAttempts.data || []).map((item: any) => {
+      const lesson = lessonMap.get(item.lesson_id);
+      return {
+        id: item.id,
+        completed_at: item.attempted_at,
+        score: item.score,
+        lesson_id: item.lesson_id,
+        user_id: item.user_id,
+        lessons: lesson,
+        activity_type: 'quiz_attempt',
+        description: `Realizó quiz en: ${lesson?.title || 'Lección desconocida'}`
+      };
+    })
   ].sort((a, b) => new Date(b.completed_at || 0).getTime() - new Date(a.completed_at || 0).getTime());
 
   return activities.slice(0, 15);

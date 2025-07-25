@@ -40,9 +40,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Build filters object
     const filters = {
-      school_id: school_id as string,
-      generation_id: generation_id as string,
-      community_id: community_id as string
+      school_id: Array.isArray(school_id) ? school_id[0] : school_id,
+      generation_id: Array.isArray(generation_id) ? generation_id[0] : generation_id,
+      community_id: Array.isArray(community_id) ? community_id[0] : community_id
     };
 
     // Get analytics data in parallel
@@ -208,52 +208,124 @@ async function getCompletionRatesByOrganization(userProfile: any, filters: any =
   try {
     const data = {};
 
-    // Get school completion rates with filtering
-    let schoolQuery = supabase
-      .from('school_progress_report')
-      .select('*');
-    
-    // Apply filters to school data
-    if (filters.school_id) {
-      schoolQuery = schoolQuery.eq('school_id', filters.school_id);
-    }
-    
-    const { data: schoolData, error: schoolError } = await schoolQuery
-      .order('avg_lesson_completion', { ascending: false });
+    // Generate school completion rates from existing tables (school_progress_report view doesn't exist)
+    try {
+      let schoolQuery = supabase
+        .from('schools')
+        .select('id, name');
+      
+      // Apply filters to school data
+      if (filters.school_id) {
+        schoolQuery = schoolQuery.eq('id', filters.school_id);
+      }
+      
+      const { data: schools, error: schoolError } = await schoolQuery;
 
-    if (!schoolError && schoolData) {
-      data['schools'] = schoolData.map(school => ({
-        name: school.school_name,
-        completionRate: Math.round(school.avg_lesson_completion || 0),
-        totalStudents: school.total_teachers || 0
-      }));
+      if (!schoolError && schools) {
+        // Get aggregated data for each school
+        const schoolPromises = schools.map(async (school) => {
+          // Get users in this school
+          const { data: schoolUsers } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('school_id', school.id);
+
+          const userIds = schoolUsers?.map(u => u.id) || [];
+          
+          if (userIds.length === 0) {
+            return {
+              name: school.name,
+              completionRate: 0,
+              totalStudents: 0
+            };
+          }
+
+          // Get lesson completion data for these users
+          const { data: progressData } = await supabase
+            .from('lesson_progress')
+            .select('user_id, completed_at')
+            .in('user_id', userIds)
+            .not('completed_at', 'is', null);
+
+          const completions = progressData?.length || 0;
+          const totalStudents = userIds.length;
+          const completionRate = totalStudents > 0 ? Math.round((completions / totalStudents) * 5) : 0; // Adjusted scale
+
+          return {
+            name: school.name,
+            completionRate: Math.min(100, completionRate),
+            totalStudents
+          };
+        });
+
+        data['schools'] = await Promise.all(schoolPromises);
+      }
+    } catch (schoolError) {
+      console.error('Error generating school completion rates:', schoolError);
+      data['schools'] = [];
     }
 
-    // Get community completion rates with filtering
-    let communityQuery = supabase
-      .from('community_progress_report')
-      .select('*');
-    
-    if (filters.community_id) {
-      communityQuery = communityQuery.eq('community_id', filters.community_id);
-    }
-    
-    const { data: communityData, error: communityError } = await communityQuery
-      .order('avg_completion_rate', { ascending: false });
+    // Generate community completion rates from existing tables (community_progress_report view doesn't exist)
+    try {
+      let communityQuery = supabase
+        .from('growth_communities')
+        .select('id, name');
+      
+      if (filters.community_id) {
+        communityQuery = communityQuery.eq('id', filters.community_id);
+      }
+      
+      const { data: communities, error: communityError } = await communityQuery;
 
-    if (!communityError && communityData) {
-      data['communities'] = communityData.map(community => ({
-        name: community.community_name,
-        completionRate: Math.round(community.avg_completion_rate || 0),
-        totalStudents: community.total_users || 0
-      }));
+      if (!communityError && communities) {
+        // Get aggregated data for each community
+        const communityPromises = communities.map(async (community) => {
+          // Get users in this community
+          const { data: communityUsers } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('community_id', community.id);
+
+          const userIds = communityUsers?.map(u => u.id) || [];
+          
+          if (userIds.length === 0) {
+            return {
+              name: community.name,
+              completionRate: 0,
+              totalStudents: 0
+            };
+          }
+
+          // Get lesson completion data for these users
+          const { data: progressData } = await supabase
+            .from('lesson_progress')
+            .select('user_id, completed_at')
+            .in('user_id', userIds)
+            .not('completed_at', 'is', null);
+
+          const completions = progressData?.length || 0;
+          const totalStudents = userIds.length;
+          const completionRate = totalStudents > 0 ? Math.round((completions / totalStudents) * 5) : 0; // Adjusted scale
+
+          return {
+            name: community.name,
+            completionRate: Math.min(100, completionRate),
+            totalStudents
+          };
+        });
+
+        data['communities'] = await Promise.all(communityPromises);
+      }
+    } catch (communityError) {
+      console.error('Error generating community completion rates:', communityError);
+      data['communities'] = [];
     }
 
     // Get generation data if available with filtering
     let generationQuery = supabase
       .from('profiles')
       .select(`
-        generations(name),
+        generation_id,
         id
       `)
       .not('generation_id', 'is', null);
@@ -261,11 +333,20 @@ async function getCompletionRatesByOrganization(userProfile: any, filters: any =
     // Apply filters
     generationQuery = applyUserFilters(generationQuery, filters);
     
-    const { data: generationData, error: generationError } = await generationQuery;
+    const { data: generationProfiles, error: generationError } = await generationQuery;
 
-    if (!generationError && generationData) {
-      const generationStats = generationData.reduce((acc, item: any) => {
-        const genName = item.generations?.name || 'Sin Generación';
+    if (!generationError && generationProfiles?.length) {
+      // Get generation names separately
+      const generationIds = [...new Set(generationProfiles.map(p => p.generation_id))];
+      const { data: generations } = await supabase
+        .from('generations')
+        .select('id, name')
+        .in('id', generationIds);
+
+      const generationMap = new Map(generations?.map(g => [g.id, g.name]) || []);
+
+      const generationStats = generationProfiles.reduce((acc, item: any) => {
+        const genName = generationMap.get(item.generation_id) || 'Sin Generación';
         if (!acc[genName]) {
           acc[genName] = { count: 0, name: genName };
         }

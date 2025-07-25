@@ -1,8 +1,6 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
 
-import useDebounce from '../../hooks/useDebounce';
-
 interface AdvancedFiltersProps {
   filters: {
     search: string;
@@ -33,11 +31,7 @@ export default function AdvancedFilters({
   const [communities, setCommunities] = useState<any[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [searchInput, setSearchInput] = useState(filters.search);
   const [isMobile, setIsMobile] = useState(false);
-
-  // Debounce search input to reduce API calls
-  const debouncedSearch = useDebounce(searchInput, 500);
 
   useEffect(() => {
     fetchFilterData();
@@ -50,13 +44,6 @@ export default function AdvancedFilters({
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, [userProfile]);
-
-  // Update search filter when debounced value changes
-  useEffect(() => {
-    if (debouncedSearch !== filters.search) {
-      handleFilterChange('search', debouncedSearch);
-    }
-  }, [debouncedSearch]);
 
   const fetchFilterData = async () => {
     try {
@@ -105,9 +92,8 @@ export default function AdvancedFilters({
   };
 
   const clearAllFilters = () => {
-    setSearchInput('');
     onFiltersChange({
-      search: '',
+      search: '', // Keep search in data structure but don't manage it locally
       school_id: 'all',
       generation_id: 'all',
       community_id: 'all',
@@ -160,21 +146,8 @@ export default function AdvancedFilters({
         </div>
       </div>
 
-      {/* Basic Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Buscar Usuario
-          </label>
-          <input
-            type="text"
-            placeholder="Nombre, email..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base"
-          />
-        </div>
-
+      {/* Primary Filters - Search removed, now handled by main header */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Estado del Usuario

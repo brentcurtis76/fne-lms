@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import { getReportScopeDescription } from '../utils/reportFilters';
 import { getUserRoles, getHighestRole } from '../utils/roleUtils';
+import useDebounce from '../hooks/useDebounce';
 
 interface ProgressUser {
   user_id: string;
@@ -68,8 +69,9 @@ export default function DetailedReports() {
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   
-  // Search state
+  // Search state  
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearch = useDebounce(searchQuery, 500);
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -107,6 +109,14 @@ export default function DetailedReports() {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  // Sync debounced search with filters
+  useEffect(() => {
+    if (debouncedSearch !== filters.search) {
+      setFilters(prevFilters => ({ ...prevFilters, search: debouncedSearch }));
+      setCurrentPage(1); // Reset to first page when searching
+    }
+  }, [debouncedSearch]);
 
   useEffect(() => {
     if (userProfile && hasReportingAccess(userRole)) {
@@ -236,6 +246,11 @@ export default function DetailedReports() {
   const handleFiltersChange = (newFilters: any) => {
     setFilters(newFilters);
     setCurrentPage(1);
+    
+    // Sync search field when filters are cleared
+    if (newFilters.search !== filters.search) {
+      setSearchQuery(newFilters.search);
+    }
   };
 
   const handleUserClick = (userId: string) => {

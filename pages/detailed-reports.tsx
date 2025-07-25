@@ -443,27 +443,96 @@ export default function DetailedReports() {
 
           {/* Tab Content */}
           {activeTab === 'overview' && summary && (
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-              <div className="bg-white p-4 rounded-lg shadow">
-                <div className="text-2xl font-bold text-blue-600">{summary.total_users}</div>
-                <div className="text-sm text-gray-600">Total Usuarios</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              {/* Total Users Card */}
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-sm border border-blue-200 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-3xl font-bold text-blue-700">{summary.total_users}</div>
+                    <div className="text-sm font-medium text-blue-600 mt-1">Total Usuarios</div>
+                  </div>
+                  <div className="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center">
+                    <span className="text-2xl">👥</span>
+                  </div>
+                </div>
+                <div className="mt-3 text-xs text-blue-500">
+                  Usuarios en el sistema
+                </div>
               </div>
-              <div className="bg-white p-4 rounded-lg shadow">
-                <div className="text-2xl font-bold text-green-600">{summary.active_users}</div>
-                <div className="text-sm text-gray-600">Activos</div>
+
+              {/* Active Users Card */}
+              <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl shadow-sm border border-green-200 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-3xl font-bold text-green-700">{summary.active_users}</div>
+                    <div className="text-sm font-medium text-green-600 mt-1">Usuarios Activos</div>
+                  </div>
+                  <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center">
+                    <span className="text-2xl">🟢</span>
+                  </div>
+                </div>
+                <div className="mt-3 text-xs text-green-500">
+                  Activos últimos 30 días
+                </div>
               </div>
-              <div className="bg-white p-4 rounded-lg shadow">
-                <div className="text-2xl font-bold text-purple-600">{summary.average_completion}%</div>
-                <div className="text-sm text-gray-600">Progreso Promedio</div>
+
+              {/* Average Progress Card */}
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl shadow-sm border border-purple-200 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-3xl font-bold text-purple-700">{summary.average_completion}%</div>
+                    <div className="text-sm font-medium text-purple-600 mt-1">Progreso Promedio</div>
+                  </div>
+                  <div className="w-12 h-12 bg-purple-200 rounded-full flex items-center justify-center">
+                    <span className="text-2xl">📈</span>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="w-full bg-purple-200 rounded-full h-2">
+                    <div 
+                      className="bg-purple-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ width: `${Math.min(100, summary.average_completion)}%` }}
+                    ></div>
+                  </div>
+                </div>
               </div>
-              <div className="bg-white p-4 rounded-lg shadow">
-                <div className="text-2xl font-bold text-orange-600">{formatTime(summary.total_time_spent)}</div>
-                <div className="text-sm text-gray-600">Tiempo Total</div>
+
+              {/* Total Time Card */}
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl shadow-sm border border-orange-200 hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-3xl font-bold text-orange-700">{formatTime(summary.total_time_spent)}</div>
+                    <div className="text-sm font-medium text-orange-600 mt-1">Tiempo Total</div>
+                  </div>
+                  <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
+                    <span className="text-2xl">⏰</span>
+                  </div>
+                </div>
+                <div className="mt-3 text-xs text-orange-500">
+                  Tiempo de estudio acumulado
+                </div>
               </div>
+
+              {/* Quiz Score Card - Only show if data exists */}
               {summary.average_quiz_score && (
-                <div className="bg-white p-4 rounded-lg shadow">
-                  <div className="text-2xl font-bold text-red-600">{summary.average_quiz_score}%</div>
-                  <div className="text-sm text-gray-600">Quiz Promedio</div>
+                <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-xl shadow-sm border border-red-200 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-3xl font-bold text-red-700">{summary.average_quiz_score}%</div>
+                      <div className="text-sm font-medium text-red-600 mt-1">Quiz Promedio</div>
+                    </div>
+                    <div className="w-12 h-12 bg-red-200 rounded-full flex items-center justify-center">
+                      <span className="text-2xl">🎯</span>
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <div className="w-full bg-red-200 rounded-full h-2">
+                      <div 
+                        className="bg-red-600 h-2 rounded-full transition-all duration-300" 
+                        style={{ width: `${Math.min(100, summary.average_quiz_score)}%` }}
+                      ></div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

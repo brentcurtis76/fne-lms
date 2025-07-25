@@ -63,17 +63,30 @@ export default function AdvancedFilters({
       // Fetch data based on user role
       if (isAdmin || userRole === 'admin') {
         // Admins see all options
-        const [schoolsRes, generationsRes, communitiesRes, coursesRes] = await Promise.all([
+        const [schoolsRes, generationsRes, communitiesRes] = await Promise.all([
           supabase.from('schools').select('id, name').order('name'),
           supabase.from('generations').select('id, name, school_id').order('name'),
-          supabase.from('growth_communities').select('id, name, generation_id, school_id').order('name'),
-          supabase.from('courses').select('id, title').eq('is_published', true).order('title')
+          supabase.from('growth_communities').select('id, name, generation_id, school_id').order('name')
         ]);
+
+        // Fetch courses separately with error handling
+        let coursesData = [];
+        try {
+          const coursesRes = await supabase
+            .from('courses')
+            .select('id, title')
+            .eq('is_published', true)
+            .order('title');
+          coursesData = coursesRes.data || [];
+        } catch (coursesError) {
+          console.log('Error fetching courses:', coursesError);
+          coursesData = [];
+        }
 
         setSchools(schoolsRes.data || []);
         setGenerations(generationsRes.data || []);
         setCommunities(communitiesRes.data || []);
-        setCourses(coursesRes.data || []);
+        setCourses(coursesData);
       } else if (userProfile) {
         // Role-based filtering
         let schoolsData = [];
@@ -82,12 +95,17 @@ export default function AdvancedFilters({
         let coursesData = [];
 
         // Fetch courses (all published for now)
-        const coursesRes = await supabase
-          .from('courses')
-          .select('id, title')
-          .eq('is_published', true)
-          .order('title');
-        coursesData = coursesRes.data || [];
+        try {
+          const coursesRes = await supabase
+            .from('courses')
+            .select('id, title')
+            .eq('is_published', true)
+            .order('title');
+          coursesData = coursesRes.data || [];
+        } catch (coursesError) {
+          console.log('Error fetching courses:', coursesError);
+          coursesData = [];
+        }
 
         if (userRole === 'consultor') {
           // Consultants see schools/generations/communities of their assigned students

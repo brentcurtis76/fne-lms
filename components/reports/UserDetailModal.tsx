@@ -138,15 +138,8 @@ export default function UserDetailModal({
     
     setLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        toast.error('Error de autenticación');
-        return;
-      }
-
       const response = await fetch(`/api/reports/user-details?userId=${userId}`, {
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
           'Content-Type': 'application/json'
         }
       });

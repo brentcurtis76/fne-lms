@@ -67,13 +67,13 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     }
 
     // Get user profile data
-    const { data: userProfile, error: profileError } = await supabase
+    const { data: userProfile, error: userProfileError } = await supabase
       .from('profiles')
       .select('id, first_name, last_name, school_id, generation_id, community_id')
       .eq('id', session.user.id)
       .single();
 
-    if (profileError || !userProfile) {
+    if (userProfileError || !userProfile) {
         return res.status(404).json({ error: 'User profile not found.' });
     }
     
@@ -95,7 +95,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     const userIds = reportableUsers;
 
     // Get user profile data with organizational info
-    const { data: userProfiles, error: profileError } = await supabase
+    const { data: userProfiles, error: profilesError } = await supabase
       .from('profiles')
       .select(`
         id,
@@ -108,8 +108,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
       `)
       .in('id', userIds);
 
-    if (profileError) {
-      throw profileError;
+    if (profilesError) {
+      throw profilesError;
     }
 
     // Get organizational data separately to avoid relationship issues
@@ -156,7 +156,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     }
 
     // Get user roles for the reportable users
-    const { data: userRoles, error: rolesError } = await supabase
+    const { data: reportableUserRoles, error: rolesError } = await supabase
       .from('user_roles')
       .select('user_id, role_type')
       .in('user_id', userIds)
@@ -168,7 +168,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
 
     // Create role mapping for quick lookup
     const roleMap = new Map();
-    (userRoles || []).forEach(role => {
+    (reportableUserRoles || []).forEach(role => {
       roleMap.set(role.user_id, role.role_type);
     });
 

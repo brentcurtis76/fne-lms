@@ -536,6 +536,65 @@ export default function DetailedReports() {
                 </div>
               )}
             </div>
+
+            {/* Smart Analytics Insights */}
+            <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 mb-6 border border-indigo-200">
+              <h3 className="text-lg font-semibold text-indigo-900 mb-4 flex items-center">
+                🧠 Insights Inteligentes
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {/* Completion Rate Insight */}
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <div className="text-sm font-medium text-gray-700 mb-2">📈 Tasa de Finalización</div>
+                  <div className="text-lg font-bold text-indigo-600">
+                    {summary.total_users > 0 ? Math.round((summary.completed_users / summary.total_users) * 100) : 0}%
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {summary.completed_users} de {summary.total_users} usuarios han completado sus cursos
+                  </div>
+                </div>
+
+                {/* Engagement Insight */}
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <div className="text-sm font-medium text-gray-700 mb-2">🔥 Nivel de Compromiso</div>
+                  <div className="text-lg font-bold text-green-600">
+                    {summary.total_users > 0 ? Math.round((summary.active_users / summary.total_users) * 100) : 0}%
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {summary.active_users} usuarios activos en los últimos 30 días
+                  </div>
+                </div>
+
+                {/* Study Time Per User */}
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <div className="text-sm font-medium text-gray-700 mb-2">⏱️ Tiempo Promedio</div>
+                  <div className="text-lg font-bold text-orange-600">
+                    {summary.total_users > 0 ? formatTime(Math.round(summary.total_time_spent / summary.total_users)) : '0m'}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Tiempo de estudio promedio por usuario
+                  </div>
+                </div>
+              </div>
+
+              {/* Contextual Recommendations */}
+              <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-sm font-medium text-blue-800 mb-2">💡 Recomendaciones</div>
+                <div className="text-sm text-blue-700">
+                  {summary.total_users === 0 ? (
+                    "No hay usuarios en el filtro seleccionado. Intenta ajustar los filtros para ver datos."
+                  ) : summary.active_users / summary.total_users < 0.3 ? (
+                    "🚨 Baja participación: Considera enviar recordatorios o revisar la estrategia de engagement."
+                  ) : summary.average_completion < 50 ? (
+                    "📚 Progreso lento: Los usuarios pueden necesitar más apoyo o contenido más atractivo."
+                  ) : summary.average_completion > 80 ? (
+                    "🎉 ¡Excelente progreso! Los usuarios están muy comprometidos con el aprendizaje."
+                  ) : (
+                    "👍 Progreso saludable: Los usuarios están avanzando constantemente en sus cursos."
+                  )}
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Analytics Dashboard Tab */}

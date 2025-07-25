@@ -146,11 +146,76 @@ export default function AdvancedFilters({
         </div>
       </div>
 
-      {/* Primary Filters - Search removed, now handled by main header */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      {/* Primary Filters - Most Important Filters Always Visible */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        {/* Organizational Filter - Most important for filtering */}
+        {isAdmin && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              🏫 Escuela
+            </label>
+            <select
+              value={filters.school_id}
+              onChange={(e) => handleFilterChange('school_id', e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">Todas las escuelas</option>
+              {schools.map((school) => (
+                <option key={school.id} value={school.id}>
+                  {school.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Generation Filter for Leadership */}
+        {(isAdmin || ['equipo_directivo'].includes(userRole)) && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              👥 Generación
+            </label>
+            <select
+              value={filters.generation_id}
+              onChange={(e) => handleFilterChange('generation_id', e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={!isAdmin && filters.school_id === 'all'}
+            >
+              <option value="all">Todas las generaciones</option>
+              {filteredGenerations.map((generation) => (
+                <option key={generation.id} value={generation.id}>
+                  {generation.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Community Filter for Leaders */}
+        {(isAdmin || ['equipo_directivo', 'lider_generacion'].includes(userRole)) && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              👥 Comunidad
+            </label>
+            <select
+              value={filters.community_id}
+              onChange={(e) => handleFilterChange('community_id', e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={filters.generation_id === 'all'}
+            >
+              <option value="all">Todas las comunidades</option>
+              {filteredCommunities.map((community) => (
+                <option key={community.id} value={community.id}>
+                  {community.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Estado del Usuario
+            📊 Estado del Usuario
           </label>
           <select
             value={filters.status}
@@ -166,7 +231,7 @@ export default function AdvancedFilters({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Curso
+            📚 Curso
           </label>
           <select
             value={filters.course_id}
@@ -186,74 +251,11 @@ export default function AdvancedFilters({
       {/* Advanced Filters */}
       {showAdvanced && (
         <div className="border-t border-gray-200 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-            {/* Organizational Filters - Only for admin and leadership */}
-            {isAdmin && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Escuela
-                </label>
-                <select
-                  value={filters.school_id}
-                  onChange={(e) => handleFilterChange('school_id', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">Todas las escuelas</option>
-                  {schools.map((school) => (
-                    <option key={school.id} value={school.id}>
-                      {school.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {(isAdmin || ['equipo_directivo'].includes(userRole)) && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Generación
-                </label>
-                <select
-                  value={filters.generation_id}
-                  onChange={(e) => handleFilterChange('generation_id', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={!isAdmin && filters.school_id === 'all'}
-                >
-                  <option value="all">Todas las generaciones</option>
-                  {filteredGenerations.map((generation) => (
-                    <option key={generation.id} value={generation.id}>
-                      {generation.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {(isAdmin || ['equipo_directivo', 'lider_generacion'].includes(userRole)) && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Comunidad
-                </label>
-                <select
-                  value={filters.community_id}
-                  onChange={(e) => handleFilterChange('community_id', e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  disabled={filters.generation_id === 'all'}
-                >
-                  <option value="all">Todas las comunidades</option>
-                  {filteredCommunities.map((community) => (
-                    <option key={community.id} value={community.id}>
-                      {community.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {/* Date Range Filters */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {/* Date Range Filters - Advanced only */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Desde
+                📅 Fecha Desde
               </label>
               <input
                 type="date"
@@ -265,7 +267,7 @@ export default function AdvancedFilters({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Hasta
+                📅 Fecha Hasta
               </label>
               <input
                 type="date"

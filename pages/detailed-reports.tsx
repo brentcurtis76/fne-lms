@@ -11,7 +11,6 @@ import { FileText } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import reportsService from '../lib/services/reports';
 import { getReportScopeDescription } from '../utils/reportFilters';
 import { getUserRoles, getHighestRole } from '../utils/roleUtils';
 
@@ -178,53 +177,37 @@ export default function DetailedReports() {
   };
 
   const fetchDetailedProgress = async () => {
-    if (!userProfile) return;
-
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      // Fetch real data using the reports service
-      const [progressResult, summaryResult] = await Promise.all([
-        reportsService.getUserProgress(userProfile, filters),
-        reportsService.getSummaryStats(userProfile)
-      ]);
+      const response = await fetch('/api/reports/detailed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filters,
+          sort: { field: sortBy, order: sortOrder },
+          pagination: { page: currentPage, limit: pageSize },
+        }),
+      });
 
-      if (progressResult.error || summaryResult.error) {
-        throw new Error('Error fetching report data');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch report data');
       }
 
-      // Use real data from the view
-      const users = progressResult.data || [];
-      const summary = summaryResult.data || {
-        total_users: 0,
-        active_users: 0,
-        completed_users: 0,
-        average_completion: 0,
-        total_time_spent: 0,
-        average_quiz_score: 0
-      };
-
-      // Apply pagination
-      const startIndex = (currentPage - 1) * pageSize;
-      const endIndex = startIndex + pageSize;
-      const paginatedUsers = users.slice(startIndex, endIndex);
-
-      const pagination: Pagination = {
-        current_page: currentPage,
-        total_pages: Math.ceil(users.length / pageSize),
-        total_count: users.length,
-        limit: pageSize,
-        has_next: currentPage < Math.ceil(users.length / pageSize),
-        has_prev: currentPage > 1
-      };
-
-      setUsers(paginatedUsers);
+      const { users, summary, pagination } = await response.json();
+      
+      setUsers(users);
       setSummary(summary);
       setPagination(pagination);
-      
-    } catch (error) {
+
+    } catch (error: any) {
       console.error('Error fetching detailed progress:', error);
-      toast.error('Error cargando datos de progreso');
+      toast.error(`Failed to load report: ${error.message}`);
+      setUsers([]);
+      setSummary(null);
+      setPagination(null);
     } finally {
       setLoading(false);
     }

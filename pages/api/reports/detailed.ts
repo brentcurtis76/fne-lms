@@ -241,7 +241,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     });
 
     // Build the progress users array
-    const progressUsers: ProgressUser[] = (userProfiles || []).map(profile => {
+    let progressUsers: ProgressUser[] = (userProfiles || []).map(profile => {
         const userAssignments = assignmentsByUser.get(profile.id) || [];
         const userLessons = lessonProgressByUser.get(profile.id) || [];
         

@@ -229,7 +229,7 @@ async function getCourseProgress(userId: string) {
   const courseIds = assignments.map(a => a.course_id);
   const { data: courses } = await supabase
     .from('courses')
-    .select('id, title, description, difficulty_level')
+    .select('id, title, difficulty_level')
     .in('id', courseIds);
 
   const courseMap = new Map(courses?.map(c => [c.id, c]) || []);

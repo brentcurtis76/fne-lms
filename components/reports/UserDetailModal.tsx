@@ -34,7 +34,6 @@ interface UserDetails {
     courses: {
       id: string;
       title: string;
-      description: string;
       difficulty_level: string;
     };
   }>;
@@ -396,7 +395,6 @@ export default function UserDetailModal({
                               <tr key={course.id} className="border-b border-gray-100">
                                 <td className="p-4">
                                   <div className="font-medium text-gray-900">{course.courses?.title || 'Curso no encontrado'}</div>
-                                  <div className="text-sm text-gray-500">{course.courses?.description || 'Sin descripción'}</div>
                                 </td>
                                 <td className="p-4">
                                   <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">

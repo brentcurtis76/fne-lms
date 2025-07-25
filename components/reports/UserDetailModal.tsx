@@ -202,9 +202,9 @@ export default function UserDetailModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] flex flex-col">
         {/* Header */}
-        <div className="bg-[#00365b] text-white p-6">
+        <div className="bg-[#00365b] text-white p-6 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold">
@@ -231,7 +231,7 @@ export default function UserDetailModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto min-h-0">
           {loading ? (
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -629,7 +629,7 @@ export default function UserDetailModal({
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+        <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex-shrink-0">
           <div className="flex justify-end">
             <button
               onClick={onClose}

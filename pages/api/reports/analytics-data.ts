@@ -138,19 +138,36 @@ async function getProgressTrends(timeRange: string, groupBy: string, userProfile
     if (groupBy === 'week') dateTrunc = 'week';
     else if (groupBy === 'month') dateTrunc = 'month';
 
-    // Get progress trends from lesson_progress table with user filtering
-    const { data: progressData, error } = await supabase
-      .from('lesson_progress')
-      .select(`
-        completed_at,
-        time_spent,
-        user_id,
-        lesson_id
-      `)
-      .gte('completed_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString())
-      .not('completed_at', 'is', null)
-      .in('user_id', filteredUsers)
-      .order('completed_at');
+    // Get progress trends from lesson_progress table with user filtering (batched)
+    let progressData = [];
+    let error = null;
+    
+    const batchSize = 50;
+    for (let i = 0; i < filteredUsers.length; i += batchSize) {
+      const userBatch = filteredUsers.slice(i, i + batchSize);
+      
+      const { data: batchData, error: batchError } = await supabase
+        .from('lesson_progress')
+        .select(`
+          completed_at,
+          time_spent,
+          user_id,
+          lesson_id
+        `)
+        .gte('completed_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString())
+        .not('completed_at', 'is', null)
+        .in('user_id', userBatch)
+        .order('completed_at');
+      
+      if (batchError) {
+        error = batchError;
+        break;
+      }
+      
+      if (batchData) {
+        progressData.push(...batchData);
+      }
+    }
 
     if (error) {
       console.error('Error fetching progress trends:', error);
@@ -240,12 +257,18 @@ async function getCompletionRatesByOrganization(userProfile: any, filters: any =
             };
           }
 
-          // Get lesson completion data for these users
-          const { data: progressData } = await supabase
-            .from('lesson_progress')
-            .select('user_id, completed_at')
-            .in('user_id', userIds)
-            .not('completed_at', 'is', null);
+          // Get lesson completion data for these users (batched)
+          let progressData = [];
+          const batchSize = 50;
+          for (let i = 0; i < userIds.length; i += batchSize) {
+            const userBatch = userIds.slice(i, i + batchSize);
+            const { data: batchData } = await supabase
+              .from('lesson_progress')
+              .select('user_id, completed_at')
+              .in('user_id', userBatch)
+              .not('completed_at', 'is', null);
+            if (batchData) progressData.push(...batchData);
+          }
 
           const completions = progressData?.length || 0;
           const totalStudents = userIds.length;
@@ -296,12 +319,18 @@ async function getCompletionRatesByOrganization(userProfile: any, filters: any =
             };
           }
 
-          // Get lesson completion data for these users
-          const { data: progressData } = await supabase
-            .from('lesson_progress')
-            .select('user_id, completed_at')
-            .in('user_id', userIds)
-            .not('completed_at', 'is', null);
+          // Get lesson completion data for these users (batched)
+          let progressData = [];
+          const batchSize = 50;
+          for (let i = 0; i < userIds.length; i += batchSize) {
+            const userBatch = userIds.slice(i, i + batchSize);
+            const { data: batchData } = await supabase
+              .from('lesson_progress')
+              .select('user_id, completed_at')
+              .in('user_id', userBatch)
+              .not('completed_at', 'is', null);
+            if (batchData) progressData.push(...batchData);
+          }
 
           const completions = progressData?.length || 0;
           const totalStudents = userIds.length;
@@ -381,12 +410,29 @@ async function getPerformanceDistribution(userProfile: any, filters: any = {}) {
     }
 
     // Since individual_progress_report view doesn't exist, calculate performance distribution
-    // based on lesson completion data from lesson_progress table
-    const { data: progressData, error } = await supabase
-      .from('lesson_progress')
-      .select('user_id, time_spent, completed_at')
-      .not('completed_at', 'is', null)
-      .in('user_id', filteredUsers);
+    // based on lesson completion data from lesson_progress table (batched)
+    let progressData = [];
+    let error = null;
+    
+    const batchSize = 50;
+    for (let i = 0; i < filteredUsers.length; i += batchSize) {
+      const userBatch = filteredUsers.slice(i, i + batchSize);
+      
+      const { data: batchData, error: batchError } = await supabase
+        .from('lesson_progress')
+        .select('user_id, time_spent, completed_at')
+        .not('completed_at', 'is', null)
+        .in('user_id', userBatch);
+      
+      if (batchError) {
+        error = batchError;
+        break;
+      }
+      
+      if (batchData) {
+        progressData.push(...batchData);
+      }
+    }
 
     if (error || !progressData) {
       console.error('Error fetching performance distribution:', error);
@@ -461,18 +507,35 @@ async function getTimeSpentTrends(timeRange: string, groupBy: string, userProfil
       return [];
     }
     
-    // Get time spent data from lesson_progress
-    const { data: timeData, error } = await supabase
-      .from('lesson_progress')
-      .select(`
-        completed_at,
-        time_spent,
-        user_id
-      `)
-      .gte('completed_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString())
-      .not('time_spent', 'is', null)
-      .in('user_id', filteredUsers)
-      .order('completed_at');
+    // Get time spent data from lesson_progress (batched)
+    let timeData = [];
+    let error = null;
+    
+    const batchSize = 50;
+    for (let i = 0; i < filteredUsers.length; i += batchSize) {
+      const userBatch = filteredUsers.slice(i, i + batchSize);
+      
+      const { data: batchData, error: batchError } = await supabase
+        .from('lesson_progress')
+        .select(`
+          completed_at,
+          time_spent,
+          user_id
+        `)
+        .gte('completed_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString())
+        .not('time_spent', 'is', null)
+        .in('user_id', userBatch)
+        .order('completed_at');
+      
+      if (batchError) {
+        error = batchError;
+        break;
+      }
+      
+      if (batchData) {
+        timeData.push(...batchData);
+      }
+    }
 
     if (error || !timeData) {
       console.error('Error fetching time spent trends:', error);
@@ -534,18 +597,35 @@ async function getQuizPerformanceAnalytics(userProfile: any, filters: any = {}) 
     }
 
     // Since quiz_attempts table doesn't exist, generate performance analytics 
-    // based on lesson completion patterns from lesson_progress table
-    const { data: progressData, error } = await supabase
-      .from('lesson_progress')
-      .select(`
-        user_id,
-        time_spent,
-        completed_at,
-        lesson_id
-      `)
-      .not('completed_at', 'is', null)
-      .in('user_id', filteredUsers)
-      .order('completed_at');
+    // based on lesson completion patterns from lesson_progress table (batched)
+    let progressData = [];
+    let error = null;
+    
+    const batchSize = 50;
+    for (let i = 0; i < filteredUsers.length; i += batchSize) {
+      const userBatch = filteredUsers.slice(i, i + batchSize);
+      
+      const { data: batchData, error: batchError } = await supabase
+        .from('lesson_progress')
+        .select(`
+          user_id,
+          time_spent,
+          completed_at,
+          lesson_id
+        `)
+        .not('completed_at', 'is', null)
+        .in('user_id', userBatch)
+        .order('completed_at');
+      
+      if (batchError) {
+        error = batchError;
+        break;
+      }
+      
+      if (batchData) {
+        progressData.push(...batchData);
+      }
+    }
 
     if (error || !progressData) {
       console.error('Error fetching progress for quiz analytics:', error);
@@ -633,27 +713,60 @@ async function getKPIData(timeRange: string, userProfile: any, filters: any = {}
       // Total users (from filtered set)
       Promise.resolve({ count: filteredUsers.length }),
       
-      // Active users (users with activity in the period) - using lesson_progress table
-      filteredUsers.length > 0 ? supabase
-        .from('lesson_progress')
-        .select('user_id', { count: 'exact' })
-        .gte('completed_at', periodStart.toISOString())
-        .not('completed_at', 'is', null)
-        .in('user_id', filteredUsers) : Promise.resolve({ count: 0 }),
+      // Active users (users with activity in the period) - using lesson_progress table (batched)
+      filteredUsers.length > 0 ? (async () => {
+        let activeUserIds = new Set();
+        const batchSize = 50;
+        for (let i = 0; i < filteredUsers.length; i += batchSize) {
+          const userBatch = filteredUsers.slice(i, i + batchSize);
+          const { data: batchData } = await supabase
+            .from('lesson_progress')
+            .select('user_id')
+            .gte('completed_at', periodStart.toISOString())
+            .not('completed_at', 'is', null)
+            .in('user_id', userBatch);
+          if (batchData) {
+            batchData.forEach(item => activeUserIds.add(item.user_id));
+          }
+        }
+        return { count: activeUserIds.size };
+      })() : Promise.resolve({ count: 0 }),
       
-      // Progress data - using profiles table since individual_progress_report doesn't exist
-      filteredUsers.length > 0 ? supabase
-        .from('profiles')
-        .select('courses_completed, lessons_completed')
-        .in('id', filteredUsers) : Promise.resolve({ data: [] }),
+      // Progress data - using profiles table since individual_progress_report doesn't exist (batched)
+      filteredUsers.length > 0 ? (async () => {
+        let profileData = [];
+        const batchSize = 50;
+        for (let i = 0; i < filteredUsers.length; i += batchSize) {
+          const userBatch = filteredUsers.slice(i, i + batchSize);
+          const { data: batchData } = await supabase
+            .from('profiles')
+            .select('courses_completed, lessons_completed')
+            .in('id', userBatch);
+          if (batchData) {
+            profileData.push(...batchData);
+          }
+        }
+        return { data: profileData };
+      })() : Promise.resolve({ data: [] }),
       
-      // Time spent - using lesson_progress table
-      filteredUsers.length > 0 ? supabase
-        .from('lesson_progress')
-        .select('time_spent')
-        .gte('completed_at', periodStart.toISOString())
-        .not('time_spent', 'is', null)
-        .in('user_id', filteredUsers) : Promise.resolve({ data: [] })
+      // Time spent - using lesson_progress table (batched)
+      filteredUsers.length > 0 ? (async () => {
+        let timeSpentData = [];
+        const batchSize = 50;
+        for (let i = 0; i < filteredUsers.length; i += batchSize) {
+          const userBatch = filteredUsers.slice(i, i + batchSize);
+          const { data: batchData } = await supabase
+            .from('lesson_progress')
+            .select('time_spent')
+            .gte('completed_at', periodStart.toISOString())
+            .not('time_spent', 'is', null)
+            .in('user_id', userBatch);
+          if (batchData) {
+            timeSpentData.push(...batchData);
+          }
+        }
+        return { data: timeSpentData };
+      })() : Promise.resolve({ data: [] })
     ]);
 
     // Calculate current period metrics

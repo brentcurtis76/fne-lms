@@ -131,54 +131,115 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('Roles fetch error:', rolesError.message);
     }
 
-    // Get learning path summary data for these users
-    const { data: learningPathData, error: pathError } = await supabase
-      .from('user_learning_path_summary')
-      .select(`
-        user_id,
-        path_id,
-        status,
-        overall_progress_percentage,
-        total_courses,
-        completed_courses,
-        total_time_spent_minutes,
-        last_session_date,
-        is_at_risk
-      `)
-      .in('user_id', reportableUsers);
+    // Get learning path summary data for these users (paginated to avoid URL limits)
+    let learningPathData = [];
+    let pathError = null;
+    
+    const batchSize = 50;
+    for (let i = 0; i < reportableUsers.length; i += batchSize) {
+      const userBatch = reportableUsers.slice(i, i + batchSize);
+      
+      try {
+        const { data: batchData, error: batchError } = await supabase
+          .from('user_learning_path_summary')
+          .select(`
+            user_id,
+            path_id,
+            status,
+            overall_progress_percentage,
+            total_courses,
+            completed_courses,
+            total_time_spent_minutes,
+            last_session_date,
+            is_at_risk
+          `)
+          .in('user_id', userBatch);
+
+        if (batchError) {
+          pathError = batchError;
+          break;
+        }
+
+        if (batchData) {
+          learningPathData.push(...batchData);
+        }
+      } catch (error) {
+        console.log('Learning path data not available for batch:', error);
+      }
+    }
 
     if (pathError) {
       console.error('Learning path data error:', pathError.message);
     }
 
-    // Get course enrollment data for additional metrics
-    const { data: courseData, error: courseError } = await supabase
-      .from('course_enrollments')
-      .select(`
-        user_id,
-        course_id,
-        progress_percentage,
-        completed_at,
-        updated_at
-      `)
-      .in('user_id', reportableUsers);
+    // Get course enrollment data for additional metrics (paginated to avoid URL limits)
+    let courseData = [];
+    let courseError = null;
+    
+    for (let i = 0; i < reportableUsers.length; i += batchSize) {
+      const userBatch = reportableUsers.slice(i, i + batchSize);
+      
+      try {
+        const { data: batchData, error: batchError } = await supabase
+          .from('course_enrollments')
+          .select(`
+            user_id,
+            course_id,
+            progress_percentage,
+            completed_at,
+            updated_at
+          `)
+          .in('user_id', userBatch);
+
+        if (batchError) {
+          courseError = batchError;
+          break;
+        }
+
+        if (batchData) {
+          courseData.push(...batchData);
+        }
+      } catch (error) {
+        console.log('Course enrollment data not available for batch:', error);
+      }
+    }
 
     if (courseError) {
       console.error('Course data error:', courseError.message);
     }
 
-    // Get consultant assignments for the consultant info
-    const { data: consultantData, error: consultantError } = await supabase
-      .from('consultant_assignments')
-      .select(`
-        student_id,
-        consultant_id,
-        assignment_type,
-        is_active,
-        profiles!consultant_assignments_consultant_id_fkey(first_name, last_name)
-      `)
-      .in('student_id', reportableUsers)
-      .eq('is_active', true);
+    // Get consultant assignments for the consultant info (paginated to avoid URL limits)
+    let consultantData = [];
+    let consultantError = null;
+    
+    for (let i = 0; i < reportableUsers.length; i += batchSize) {
+      const userBatch = reportableUsers.slice(i, i + batchSize);
+      
+      try {
+        const { data: batchData, error: batchError } = await supabase
+          .from('consultant_assignments')
+          .select(`
+            student_id,
+            consultant_id,
+            assignment_type,
+            is_active,
+            profiles!consultant_assignments_consultant_id_fkey(first_name, last_name)
+          `)
+          .in('student_id', userBatch)
+          .eq('is_active', true);
+
+        if (batchError) {
+          consultantError = batchError;
+          break;
+        }
+
+        if (batchData) {
+          consultantData.push(...batchData);
+        }
+      } catch (error) {
+        console.log('Consultant assignment data not available for batch:', error);
+      }
+    }
 
     if (consultantError) {
       console.error('Consultant data error:', consultantError.message);

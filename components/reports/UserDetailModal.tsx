@@ -35,7 +35,7 @@ interface UserDetails {
       id: string;
       title: string;
       description: string;
-      category: string;
+      difficulty_level: string;
     };
   }>;
   lesson_completions: Array<{
@@ -385,7 +385,7 @@ export default function UserDetailModal({
                           <thead className="bg-gray-50">
                             <tr>
                               <th className="text-left p-4 font-medium text-gray-700">Curso</th>
-                              <th className="text-left p-4 font-medium text-gray-700">Categoría</th>
+                              <th className="text-left p-4 font-medium text-gray-700">Nivel</th>
                               <th className="text-left p-4 font-medium text-gray-700">Progreso</th>
                               <th className="text-left p-4 font-medium text-gray-700">Última Visita</th>
                               <th className="text-left p-4 font-medium text-gray-700">Inscrito</th>
@@ -400,7 +400,7 @@ export default function UserDetailModal({
                                 </td>
                                 <td className="p-4">
                                   <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                                    {course.courses?.category || 'Sin categoría'}
+                                    {course.courses?.difficulty_level || 'Sin nivel'}
                                   </span>
                                 </td>
                                 <td className="p-4">

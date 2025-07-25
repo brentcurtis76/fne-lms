@@ -155,6 +155,22 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
       console.error('Course data error:', courseError.message);
     }
 
+    // Get lesson progress data (actual lesson completions)
+    const { data: lessonProgressData, error: lessonProgressError } = await supabase
+      .from('lesson_progress')
+      .select(`
+        user_id,
+        lesson_id,
+        completed_at,
+        time_spent,
+        completion_data
+      `)
+      .in('user_id', userIds);
+
+    if (lessonProgressError) {
+      console.error('Lesson progress data error:', lessonProgressError.message);
+    }
+
     // Get user roles for the reportable users
     const { data: reportableUserRoles, error: rolesError } = await supabase
       .from('user_roles')
@@ -181,18 +197,37 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
       assignmentsByUser.get(assignment.teacher_id).push(assignment);
     });
 
+    // Process lesson progress data
+    const lessonProgressByUser = new Map();
+    (lessonProgressData || []).forEach(progress => {
+      if (!lessonProgressByUser.has(progress.user_id)) {
+        lessonProgressByUser.set(progress.user_id, []);
+      }
+      lessonProgressByUser.get(progress.user_id).push(progress);
+    });
+
     // Build the progress users array
     const progressUsers: ProgressUser[] = (userProfiles || []).map(profile => {
         const userAssignments = assignmentsByUser.get(profile.id) || [];
+        const userLessons = lessonProgressByUser.get(profile.id) || [];
+        
         const total_courses_enrolled = userAssignments.length;
         const completed_courses = userAssignments.filter(a => a.status === 'completed').length;
         const completion_percentage = total_courses_enrolled > 0 ? 
           Math.round(userAssignments.reduce((sum, a) => sum + (a.progress_percentage || 0), 0) / total_courses_enrolled) : 0;
         
-        // Determine most recent activity
+        // Calculate actual lesson progress data
+        const total_lessons_completed = userLessons.filter(l => l.completed_at).length;
+        const total_time_spent_minutes = Math.round(
+          userLessons.reduce((sum, l) => sum + (l.time_spent || 0), 0) / 60
+        ); // Convert seconds to minutes
+        
+        // Determine most recent activity from lesson progress or course assignments
+        const lessonActivities = userLessons.map(l => l.completed_at).filter(Boolean);
         const courseActivities = userAssignments.map(a => a.assigned_at).filter(Boolean);
-        const lastActivity = courseActivities.length > 0 ? 
-          courseActivities.sort().reverse()[0] : null;
+        const allActivities = [...lessonActivities, ...courseActivities];
+        const lastActivity = allActivities.length > 0 ? 
+          allActivities.sort().reverse()[0] : null;
 
         return {
             user_id: profile.id,
@@ -206,9 +241,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
             completed_courses,
             courses_in_progress: total_courses_enrolled - completed_courses,
             completion_percentage,
-            total_time_spent_minutes: 0, // Will be calculated if we have time data
+            total_time_spent_minutes,
             last_activity_date: lastActivity,
-            total_lessons_completed: userAssignments.filter(a => a.status === 'completed').length,
+            total_lessons_completed,
             average_quiz_score: 0, // Not available in current schema
         };
     });

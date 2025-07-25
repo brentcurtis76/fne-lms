@@ -139,17 +139,17 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     const generationsMap = new Map(generationsData.data?.map(g => [g.id, g]) || []);
     const communitiesMap = new Map(communitiesData.data?.map(c => [c.id, c]) || []);
 
-    // Get course enrollment data
+    // Get course assignment data (actual table used in the system)
     const { data: courseData, error: courseError } = await supabase
-      .from('course_enrollments')
+      .from('course_assignments')
       .select(`
-        user_id,
+        teacher_id,
         course_id,
         progress_percentage,
-        completed_at,
-        updated_at
+        assigned_at,
+        status
       `)
-      .in('user_id', userIds);
+      .in('teacher_id', userIds);
 
     if (courseError) {
       console.error('Course data error:', courseError.message);
@@ -172,25 +172,25 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
       roleMap.set(role.user_id, role.role_type);
     });
 
-    // Process course enrollment data
-    const enrollmentsByUser = new Map();
-    (courseData || []).forEach(enrollment => {
-      if (!enrollmentsByUser.has(enrollment.user_id)) {
-        enrollmentsByUser.set(enrollment.user_id, []);
+    // Process course assignment data
+    const assignmentsByUser = new Map();
+    (courseData || []).forEach(assignment => {
+      if (!assignmentsByUser.has(assignment.teacher_id)) {
+        assignmentsByUser.set(assignment.teacher_id, []);
       }
-      enrollmentsByUser.get(enrollment.user_id).push(enrollment);
+      assignmentsByUser.get(assignment.teacher_id).push(assignment);
     });
 
     // Build the progress users array
     const progressUsers: ProgressUser[] = (userProfiles || []).map(profile => {
-        const userEnrollments = enrollmentsByUser.get(profile.id) || [];
-        const total_courses_enrolled = userEnrollments.length;
-        const completed_courses = userEnrollments.filter(e => e.completed_at).length;
+        const userAssignments = assignmentsByUser.get(profile.id) || [];
+        const total_courses_enrolled = userAssignments.length;
+        const completed_courses = userAssignments.filter(a => a.status === 'completed').length;
         const completion_percentage = total_courses_enrolled > 0 ? 
-          Math.round(userEnrollments.reduce((sum, e) => sum + (e.progress_percentage || 0), 0) / total_courses_enrolled) : 0;
+          Math.round(userAssignments.reduce((sum, a) => sum + (a.progress_percentage || 0), 0) / total_courses_enrolled) : 0;
         
         // Determine most recent activity
-        const courseActivities = userEnrollments.map(e => e.completed_at || e.updated_at).filter(Boolean);
+        const courseActivities = userAssignments.map(a => a.assigned_at).filter(Boolean);
         const lastActivity = courseActivities.length > 0 ? 
           courseActivities.sort().reverse()[0] : null;
 
@@ -208,7 +208,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
             completion_percentage,
             total_time_spent_minutes: 0, // Will be calculated if we have time data
             last_activity_date: lastActivity,
-            total_lessons_completed: userEnrollments.filter(e => e.completed_at).length,
+            total_lessons_completed: userAssignments.filter(a => a.status === 'completed').length,
             average_quiz_score: 0, // Not available in current schema
         };
     });

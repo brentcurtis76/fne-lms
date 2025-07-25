@@ -78,6 +78,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       getRecentActivity(userId as string)
     ]);
 
+    // Handle case where user basic info is not found
+    if (!userBasicInfo) {
+      return res.status(404).json({ error: 'User profile not found' });
+    }
+
     const userDetails = {
       basic_info: userBasicInfo,
       course_progress: courseProgress,
@@ -147,7 +152,7 @@ function checkUserAccessModern(requestingUserId: string, highestRole: string, us
 
 async function getUserBasicInfo(userId: string) {
   // Get basic user profile
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select(`
       id, first_name, last_name, email, phone, avatar_url,
@@ -156,14 +161,23 @@ async function getUserBasicInfo(userId: string) {
     .eq('id', userId)
     .single();
 
+  if (profileError) {
+    console.error('Error fetching user profile:', profileError);
+    return null;
+  }
+
   if (!profile) return null;
 
   // Get user's role from modern role system
-  const { data: userRoles } = await supabase
+  const { data: userRoles, error: rolesError } = await supabase
     .from('user_roles')
     .select('role_type')
     .eq('user_id', userId)
     .eq('is_active', true);
+
+  if (rolesError) {
+    console.error('Error fetching user roles:', rolesError);
+  }
 
   const roleHierarchy = ['admin', 'supervisor_de_red', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'consultor', 'docente'];
   const highestRole = roleHierarchy.find(role => userRoles?.some(r => r.role_type === role)) || 'docente';

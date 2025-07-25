@@ -155,8 +155,8 @@ async function getUserBasicInfo(userId: string) {
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select(`
-      id, first_name, last_name, email, phone, avatar_url,
-      created_at, last_login, school_id, generation_id, community_id
+      id, first_name, last_name, email, avatar_url,
+      created_at, last_active_at, school_id, generation_id, community_id
     `)
     .eq('id', userId)
     .single();
@@ -206,6 +206,7 @@ async function getUserBasicInfo(userId: string) {
   return {
     ...profile,
     role: highestRole, // Use role from modern system
+    last_login: profile.last_active_at, // Map last_active_at to expected field name
     schools: schoolData.data,
     generations: generationData.data,
     growth_communities: communityData.data

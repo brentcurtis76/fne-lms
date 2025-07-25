@@ -50,12 +50,6 @@ interface ExpenseReport {
   expense_items?: ExpenseItem[];
 }
 
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
-
 export class ExpenseReportExporter {
   private static formatDate(dateString: string): string {
     return new Date(dateString).toLocaleDateString('es-CL', {
@@ -82,7 +76,7 @@ export class ExpenseReportExporter {
   static async exportToPDF(report: ExpenseReport): Promise<void> {
     // Dynamic import for client-side only
     const { default: jsPDF } = await import('jspdf');
-    await import('jspdf-autotable');
+    const autoTable = (await import('jspdf-autotable')).default;
     
     const doc = new jsPDF();
     
@@ -161,7 +155,7 @@ export class ExpenseReportExporter {
         item.receipt_filename ? 'Sí' : 'No'
       ]);
       
-      doc.autoTable({
+      autoTable(doc, {
         head: [['Fecha', 'Categoría', 'Descripción', 'Proveedor', 'N° Factura', 'Monto', 'Boleta']],
         body: tableData,
         startY: yPos,
@@ -226,7 +220,7 @@ export class ExpenseReportExporter {
           this.formatCurrency(data.total)
         ]);
         
-        doc.autoTable({
+        autoTable(doc, {
           head: [['Categoría', 'Cantidad', 'Total']],
           body: summaryData,
           startY: finalY + 8,
@@ -407,7 +401,7 @@ export class ExpenseReportExporter {
   static async exportMultipleReportsToPDF(reports: ExpenseReport[]): Promise<void> {
     // Dynamic import for client-side only
     const { default: jsPDF } = await import('jspdf');
-    await import('jspdf-autotable');
+    const autoTable = (await import('jspdf-autotable')).default;
     
     const doc = new jsPDF();
     
@@ -443,7 +437,7 @@ export class ExpenseReportExporter {
       this.formatCurrency(report.total_amount)
     ]);
     
-    doc.autoTable({
+    autoTable(doc, {
       head: [['Nombre del Reporte', 'Período', 'Estado', 'Enviado por', 'Total']],
       body: tableData,
       startY: 60,

@@ -254,14 +254,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
 async function getReportableUsers(userId: string, userRole: string): Promise<string[]> {
   try {
     if (userRole === 'admin') {
-      // Admins can see all users with student/teacher roles
-      const { data: userRoles } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .in('role_type', ['docente', 'teacher', 'estudiante', 'student'])
-        .eq('is_active', true);
+      // Admins can see all users (profiles) - not limited by roles
+      const { data: allProfiles } = await supabase
+        .from('profiles')
+        .select('id');
       
-      return userRoles?.map(ur => ur.user_id) || [];
+      return allProfiles?.map(p => p.id) || [];
     } else if (userRole === 'consultor') {
       // Consultors can only see their assigned students
       const { data: assignments } = await supabase

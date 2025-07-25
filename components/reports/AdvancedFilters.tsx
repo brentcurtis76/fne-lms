@@ -248,6 +248,119 @@ export default function AdvancedFilters({
         </div>
       </div>
 
+      {/* Applied Filters Display */}
+      {hasActiveFilters && (
+        <div className="bg-gray-50 rounded-lg p-3 mb-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-gray-700">Filtros aplicados:</span>
+            
+            {/* Search Filter */}
+            {filters.search && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                🔍 "{filters.search}"
+                <button
+                  onClick={() => handleFilterChange('search', '')}
+                  className="ml-2 text-blue-600 hover:text-blue-800"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+
+            {/* School Filter */}
+            {filters.school_id !== 'all' && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                🏫 {schools.find(s => s.id === filters.school_id)?.name || 'Escuela seleccionada'}
+                <button
+                  onClick={() => handleFilterChange('school_id', 'all')}
+                  className="ml-2 text-green-600 hover:text-green-800"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+
+            {/* Generation Filter */}
+            {filters.generation_id !== 'all' && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                👥 {generations.find(g => g.id === filters.generation_id)?.name || 'Generación seleccionada'}
+                <button
+                  onClick={() => handleFilterChange('generation_id', 'all')}
+                  className="ml-2 text-purple-600 hover:text-purple-800"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+
+            {/* Community Filter */}
+            {filters.community_id !== 'all' && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                👥 {communities.find(c => c.id === filters.community_id)?.name || 'Comunidad seleccionada'}
+                <button
+                  onClick={() => handleFilterChange('community_id', 'all')}
+                  className="ml-2 text-yellow-600 hover:text-yellow-800"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+
+            {/* Status Filter */}
+            {filters.status !== 'all' && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                📊 {filters.status === 'active' ? 'Activos' : 
+                     filters.status === 'completed' ? 'Completados' : 
+                     filters.status === 'inactive' ? 'Inactivos' : filters.status}
+                <button
+                  onClick={() => handleFilterChange('status', 'all')}
+                  className="ml-2 text-indigo-600 hover:text-indigo-800"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+
+            {/* Course Filter */}
+            {filters.course_id !== 'all' && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                📚 {courses.find(c => c.id === filters.course_id)?.title || 'Curso seleccionado'}
+                <button
+                  onClick={() => handleFilterChange('course_id', 'all')}
+                  className="ml-2 text-orange-600 hover:text-orange-800"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+
+            {/* Date Range Filters */}
+            {(filters.date_from || filters.date_to) && (
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
+                📅 {filters.date_from} {filters.date_from && filters.date_to ? ' - ' : ''} {filters.date_to}
+                <button
+                  onClick={() => {
+                    handleFilterChange('date_from', '');
+                    handleFilterChange('date_to', '');
+                  }}
+                  className="ml-2 text-pink-600 hover:text-pink-800"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+
+            {/* Clear All Button */}
+            <button
+              onClick={clearAllFilters}
+              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200"
+            >
+              🗑️ Limpiar todos
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Advanced Filters */}
       {showAdvanced && (
         <div className="border-t border-gray-200 pt-4">
@@ -277,33 +390,6 @@ export default function AdvancedFilters({
               />
             </div>
           </div>
-
-          {/* Filter Summary */}
-          {hasActiveFilters && (
-            <div className="flex flex-wrap gap-2 mt-4">
-              <span className="text-sm font-medium text-gray-700">Filtros activos:</span>
-              {filters.search && (
-                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-                  Búsqueda: "{filters.search}"
-                </span>
-              )}
-              {filters.status !== 'all' && (
-                <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
-                  Estado: {filters.status}
-                </span>
-              )}
-              {filters.course_id !== 'all' && (
-                <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs">
-                  Curso específico
-                </span>
-              )}
-              {(filters.date_from || filters.date_to) && (
-                <span className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs">
-                  Rango de fechas
-                </span>
-              )}
-            </div>
-          )}
         </div>
       )}
     </div>

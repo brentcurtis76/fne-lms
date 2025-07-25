@@ -77,9 +77,24 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
         return res.status(404).json({ error: 'User profile not found.' });
     }
     
-    const { filters, sort, pagination } = req.body;
+    const { filters, sort, pagination, useSmartDefaults = true } = req.body;
     const { page = 1, limit = 20 } = pagination || {};
-    const { field = 'last_activity_date', order = 'desc' } = sort || {};
+    
+    // Smart defaults based on user role
+    let defaultSort = { field: 'last_activity_date', order: 'desc' };
+    let defaultLimit = limit;
+    
+    if (useSmartDefaults && highestRole === 'admin') {
+      // Admin default: Top 10 most active users by activity score
+      defaultSort = { field: 'activity_score', order: 'desc' };
+      defaultLimit = Math.min(limit, 10); // Default to 10 for admin unless they specifically request more
+    } else if (useSmartDefaults && ['equipo_directivo', 'lider_generacion'].includes(highestRole)) {
+      // School leadership: Most active in their organization
+      defaultSort = { field: 'activity_score', order: 'desc' };
+    }
+    
+    const { field = defaultSort.field, order = defaultSort.order } = sort || {};
+    const effectiveLimit = sort ? limit : defaultLimit; // Only use smart limit if no custom sort
 
     // Get reportable users based on role and assignments
     const reportableUsers = await getReportableUsers(session.user.id, highestRole);
@@ -229,6 +244,16 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
         const lastActivity = allActivities.length > 0 ? 
           allActivities.sort().reverse()[0] : null;
 
+        // Calculate activity score for smart sorting
+        // Factors: lessons completed (40%), time spent (30%), recent activity (20%), course enrollments (10%)
+        const lessonScore = Math.min(total_lessons_completed * 10, 400); // Max 400 points for lessons
+        const timeScore = Math.min(total_time_spent_minutes * 2, 300); // Max 300 points for time 
+        const recentActivityScore = lastActivity ? 
+          Math.max(200 - Math.floor((Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24 * 7)), 0) : 0; // 200 points max, decreases weekly
+        const courseScore = Math.min(total_courses_enrolled * 10, 100); // Max 100 points for courses
+        
+        const activity_score = Math.round(lessonScore + timeScore + recentActivityScore + courseScore);
+
         return {
             user_id: profile.id,
             user_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
@@ -245,6 +270,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
             last_activity_date: lastActivity,
             total_lessons_completed,
             average_quiz_score: 0, // Not available in current schema
+            activity_score, // Add activity score for smart sorting
         };
     });
 
@@ -257,7 +283,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
         return (valA < valB ? -1 : 1) * (order === 'asc' ? 1 : -1);
     });
 
-    const paginatedUsers = progressUsers.slice((page - 1) * limit, page * limit);
+    const paginatedUsers = progressUsers.slice((page - 1) * effectiveLimit, page * effectiveLimit);
 
     const summary: Summary = {
         total_users: progressUsers.length,
@@ -272,11 +298,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
       summary: summary,
       pagination: {
         current_page: page,
-        total_pages: Math.ceil(progressUsers.length / limit),
+        total_pages: Math.ceil(progressUsers.length / effectiveLimit),
         total_count: progressUsers.length,
-        limit,
-        has_next: page * limit < progressUsers.length,
-        has_prev: page > 1
+        limit: effectiveLimit,
+        has_next: page * effectiveLimit < progressUsers.length,
+        has_prev: page > 1,
+        is_smart_default: useSmartDefaults && !sort && highestRole === 'admin' // Flag to indicate smart defaults are active
       },
     });
 

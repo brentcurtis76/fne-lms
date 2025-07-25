@@ -30,6 +30,7 @@ interface ProgressUser {
   total_time_spent_minutes: number;
   average_quiz_score?: number;
   last_activity_date?: string;
+  activity_score?: number;
 }
 
 interface Summary {
@@ -48,6 +49,7 @@ interface Pagination {
   limit: number;
   has_next: boolean;
   has_prev: boolean;
+  is_smart_default?: boolean;
 }
 
 // Role descriptions are now handled by getReportScopeDescription function
@@ -188,6 +190,7 @@ export default function DetailedReports() {
           filters,
           sort: { field: sortBy, order: sortOrder },
           pagination: { page: currentPage, limit: pageSize },
+          useSmartDefaults: currentPage === 1 && sortBy === 'last_activity_date' && sortOrder === 'desc', // Use smart defaults for initial load
         }),
       });
 
@@ -314,6 +317,40 @@ export default function DetailedReports() {
       />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {/* Smart Default Indicator */}
+          {pagination?.is_smart_default && userRole === 'admin' && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+              <div className="flex">
+                <div className="flex-shrink-0">
+                  <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-green-800">
+                    📊 Vista Inteligente: Top 10 Usuarios Más Activos
+                  </h3>
+                  <div className="mt-2 text-sm text-green-700">
+                    <p>Mostrando los usuarios con mayor actividad basado en lecciones completadas, tiempo dedicado y participación reciente.</p>
+                  </div>
+                </div>
+                <div className="ml-auto flex-shrink-0">
+                  <button
+                    onClick={() => {
+                      setSortBy('last_activity_date');
+                      setSortOrder('desc');
+                      setCurrentPage(1);
+                      setPageSize(20);
+                    }}
+                    className="text-xs text-green-600 hover:text-green-800 underline"
+                  >
+                    Ver todos los usuarios
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Role-based Access Notice */}
           {userRole && userRole !== 'admin' && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">

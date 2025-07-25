@@ -537,6 +537,69 @@ export default function DetailedReports() {
               )}
             </div>
 
+            {/* Top Users Table in Overview */}
+            {users.length > 0 && (
+              <div className="bg-white rounded-lg shadow overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {pagination?.is_smart_default ? '🏆 Top 10 Usuarios Más Activos' : 'Usuarios'}
+                  </h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Escuela</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progreso</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lecciones</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiempo</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {users.slice(0, 10).map((userData) => (
+                        <tr key={userData.user_id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{userData.user_name}</div>
+                            <div className="text-sm text-gray-500">{userData.user_email}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {userData.school_name || 'Sin escuela'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full" 
+                                  style={{ width: `${Math.min(100, userData.completion_percentage)}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-sm text-gray-900">{userData.completion_percentage}%</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {userData.total_lessons_completed}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatTime(userData.total_time_spent_minutes)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {users.length > 10 && (
+                  <div className="px-6 py-3 bg-gray-50 text-center">
+                    <button
+                      onClick={() => setActiveTab('detailed')}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      Ver todos los usuarios →
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           )}
 
           {/* Analytics Dashboard Tab */}

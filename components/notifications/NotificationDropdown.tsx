@@ -134,20 +134,20 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
       if (notification.title.includes('Feedback') || notification.title.includes('feedback')) {
         fallbackUrl = '/admin/feedback';
       } else if (notification.title.includes('curso') || notification.title.includes('Course')) {
-        fallbackUrl = '/cursos';
+        fallbackUrl = '/course-manager';
       } else if (notification.title.includes('tarea') || notification.title.includes('assignment')) {
-        fallbackUrl = '/tareas';
+        fallbackUrl = '/assignments';
       } else if (notification.notification_type?.category) {
         // Use category-based fallbacks
         switch (notification.notification_type.category) {
           case 'admin':
-            fallbackUrl = '/admin';
+            fallbackUrl = '/admin/user-management';
             break;
           case 'courses':
-            fallbackUrl = '/cursos';
+            fallbackUrl = '/course-manager';
             break;
           case 'assignments':
-            fallbackUrl = '/tareas';
+            fallbackUrl = '/assignments';
             break;
           case 'feedback':
             fallbackUrl = '/admin/feedback';

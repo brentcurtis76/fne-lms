@@ -88,8 +88,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Trigger course assignment notifications for each teacher
       try {
         await NotificationService.triggerNotification('course_assigned', {
-          course_id: courseId,
-          course_name: courseData?.title || 'Nuevo curso',
+          course: {
+            id: courseId,
+            name: courseData?.title || 'Nuevo curso'
+          },
           assigned_users: teacherIds,
           assigned_by: user.id
         });

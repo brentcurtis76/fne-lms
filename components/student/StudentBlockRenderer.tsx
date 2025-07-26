@@ -521,6 +521,33 @@ export default function StudentBlockRenderer({
       );
     }
 
+    // Check if quiz is already completed
+    if (isCompleted) {
+      return (
+        <div className="p-6 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-start space-x-3">
+            <CheckCircle className="w-6 h-6 text-green-600 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold mb-2 text-green-900">
+                {block.payload?.title || 'Quiz Interactivo'} - Completado
+              </h3>
+              <p className="text-green-800">
+                ¡Has completado este quiz exitosamente! 
+              </p>
+              {block.payload?.totalPoints && (
+                <p className="text-sm text-green-700 mt-2">
+                  Puntos totales del quiz: {block.payload.totalPoints}
+                </p>
+              )}
+              <p className="text-sm text-green-700 mt-2">
+                Puedes continuar con el siguiente contenido de la lección.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <LearningQuizTaker
         quiz={block.payload}

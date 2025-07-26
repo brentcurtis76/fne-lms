@@ -43,10 +43,9 @@ export default async function handler(
       .select('role_type')
       .eq('user_id', user.id)
       .eq('role_type', 'admin')
-      .eq('is_active', true)
-      .single();
+      .eq('is_active', true);
 
-    if (roleError || !userRoles) {
+    if (roleError || !userRoles || userRoles.length === 0) {
       return res.status(403).json({ error: 'Unauthorized. Only admins can create users.' });
     }
 

@@ -43,8 +43,14 @@ export default function UserProfileView() {
           .single();
         
         if (currentUserProfile) {
-          const userRole = await getUserPrimaryRole(session.user.id);
-          setIsAdmin(userRole === 'admin');
+          try {
+            const userRole = await getUserPrimaryRole(session.user.id);
+            setIsAdmin(userRole === 'admin');
+          } catch (roleError) {
+            console.error('Error getting user role:', roleError);
+            // Default to non-admin if role check fails
+            setIsAdmin(false);
+          }
           
           if (currentUserProfile.avatar_url) {
             setAvatarUrl(currentUserProfile.avatar_url);
@@ -84,41 +90,55 @@ export default function UserProfileView() {
 
       setProfileData(profile);
 
-      // Get user roles
-      const roles = await getUserRoles(supabase, targetUserId);
-      setUserRoles(roles);
+      // Get user roles with error handling
+      try {
+        const roles = await getUserRoles(supabase, targetUserId);
+        setUserRoles(roles);
+      } catch (rolesError) {
+        console.error('Error fetching user roles:', rolesError);
+        setUserRoles([]);
+      }
 
-      // Get enrolled courses
-      const { data: courseAssignments, error: coursesError } = await supabase
-        .from('course_assignments')
-        .select(`
-          course_id,
-          assigned_at,
-          courses (
-            id,
-            title,
-            description,
-            thumbnail_url,
-            created_at,
-            instructors(full_name)
-          )
-        `)
-        .eq('teacher_id', targetUserId)
-        .eq('is_active', true);
+      // Get enrolled courses with error handling
+      try {
+        const { data: courseAssignments, error: coursesError } = await supabase
+          .from('course_assignments')
+          .select(`
+            course_id,
+            assigned_at,
+            courses (
+              id,
+              title,
+              description,
+              thumbnail_url,
+              created_at,
+              instructors(full_name)
+            )
+          `)
+          .eq('teacher_id', targetUserId);
 
-      if (courseAssignments && !coursesError) {
-        const courses = courseAssignments
-          .map(assignment => assignment.courses)
-          .filter(course => course !== null)
-          .map(course => ({
-            ...course,
-            // @ts-ignore
-            instructor_name: course?.instructors?.full_name || 'Sin instructor',
-            // @ts-ignore
-            thumbnail_url: (course?.thumbnail_url && course?.thumbnail_url !== 'default-thumbnail.png') ? course?.thumbnail_url : null
-          }));
-        
-        setEnrolledCourses(courses);
+        if (coursesError) {
+          console.error('Error fetching course assignments:', coursesError);
+          setEnrolledCourses([]);
+        } else if (courseAssignments) {
+          const courses = courseAssignments
+            .map(assignment => assignment.courses)
+            .filter(course => course !== null)
+            .map(course => ({
+              ...course,
+              // @ts-ignore
+              instructor_name: course?.instructors?.full_name || 'Sin instructor',
+              // @ts-ignore
+              thumbnail_url: (course?.thumbnail_url && course?.thumbnail_url !== 'default-thumbnail.png') ? course?.thumbnail_url : null
+            }));
+          
+          setEnrolledCourses(courses);
+        } else {
+          setEnrolledCourses([]);
+        }
+      } catch (coursesError) {
+        console.error('Error loading courses:', coursesError);
+        setEnrolledCourses([]);
       }
     } catch (error) {
       console.error('Error loading user profile:', error);

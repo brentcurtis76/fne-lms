@@ -391,6 +391,16 @@ npm run dev  # MUST be port 3000
   - **Files Modified**: `/pages/api/reports/user-details.ts`, `/components/reports/UserDetailModal.tsx`
   - **Result**: User details modal now fully functional with proper data loading, scrolling, and error-free tab navigation
 
+### **CRITICAL FIX: ADMIN USER CREATION BUG (January 2025)**
+- **✅ PRODUCTION FIX DEPLOYED**: Fixed bug preventing admins with multiple roles from creating users
+- **Issue**: Admins with multiple active admin roles (like Mora Del Fresno) received "Unauthorized. Only admins can create users" error
+- **Root Cause**: `/api/admin/create-user.ts` used `.single()` when checking for admin roles, which fails when user has multiple admin roles
+- **Solution**: Removed `.single()` constraint, now checks if ANY admin roles exist (supports users with 1 or multiple admin roles)
+- **Testing**: Created comprehensive test suite proving the fix works (`scripts/proof-of-fix.js`)
+- **Impact**: All admins can now create users regardless of how many admin roles they have
+- **Files Modified**: `/pages/api/admin/create-user.ts` (line 47)
+- **Status**: ✅ **DEPLOYED AND VERIFIED** - Admin user creation now works for all admin users
+
 ### **MAINTENANCE TASKS**
 - ⏳ Quiz review system testing pending
 - ⏳ Group assignments role corrections need SQL application

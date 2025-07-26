@@ -391,6 +391,22 @@ npm run dev  # MUST be port 3000
   - **Files Modified**: `/pages/api/reports/user-details.ts`, `/components/reports/UserDetailModal.tsx`
   - **Result**: User details modal now fully functional with proper data loading, scrolling, and error-free tab navigation
 
+### **CRITICAL BUG FIX: DASHBOARD COMMUNITY PROFILE NAVIGATION (July 2025)**
+- **✅ PRODUCTION FIX DEPLOYED**: Resolved critical navigation bug preventing users from viewing community member profiles
+- **Issue**: Clicking on community members in dashboard "Mi Comunidad de Crecimiento" section caused page to bounce back to dashboard instead of navigating to user profile
+- **Root Causes Identified**:
+  - **Invalid Database Column**: `course_assignments.is_active` column reference in query (column doesn't exist)
+  - **getUserPrimaryRole Crashes**: Function failures caused entire profile page to crash and redirect
+  - **Unhandled API Errors**: Profile loading failures weren't properly caught, causing silent navigation failures
+- **Solutions Applied**:
+  - **Database Query Fix**: Removed non-existent `.eq('is_active', true)` filter from course assignments query in `pages/user/[userId].tsx:107`
+  - **Error Handling**: Added comprehensive try-catch wrapper around `getUserPrimaryRole` call with fallback to non-admin
+  - **Graceful Degradation**: Added error handling for roles and courses loading - profile page shows partial data instead of failing completely
+- **Impact**: Community member profile navigation now works correctly without bouncing back to dashboard
+- **Testing**: Created comprehensive test scripts with manual testing URLs for verification
+- **Files Modified**: `/pages/user/[userId].tsx` (database queries and error handling)
+- **Status**: ✅ **DEPLOYED AND VERIFIED** - Community profile navigation now functional
+
 ### **CRITICAL BUG FIXES: NOTIFICATION BELL 404 & QUIZ REPETITION (July 2025)**
 - **✅ PRODUCTION FIX DEPLOYED**: Resolved two critical user-reported bugs affecting core platform functionality
 - **Bug 1 - Notification Bell 404 Errors**:

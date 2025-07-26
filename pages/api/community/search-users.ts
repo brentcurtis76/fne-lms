@@ -28,25 +28,47 @@ export default async function handler(
     const { q: query = '' } = req.query;
     const searchQuery = String(query).toLowerCase().trim();
 
-    // Get the user's community/workspace
-    // First, get the user's community
-    const { data: userProfile, error: profileError } = await supabaseServerClient
-      .from('profiles')
+    // Get the user's active community roles
+    const { data: userRoles, error: rolesError } = await supabaseServerClient
+      .from('user_roles')
       .select('community_id')
-      .eq('id', user.id)
-      .single();
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .not('community_id', 'is', null);
 
-    if (profileError || !userProfile?.community_id) {
+    if (rolesError || !userRoles || userRoles.length === 0) {
       return res.status(400).json({ error: 'User not assigned to a community' });
     }
 
-    // Search for users in the same community
+    // Get all community IDs the user belongs to
+    const userCommunityIds = userRoles.map(role => role.community_id);
+
+    // Search for users in the same communities
+    // First get user IDs from user_roles in the same communities
+    const { data: communityUsers, error: communityUsersError } = await supabaseServerClient
+      .from('user_roles')
+      .select('user_id')
+      .in('community_id', userCommunityIds)
+      .eq('is_active', true)
+      .neq('user_id', user.id);
+
+    if (communityUsersError) {
+      console.error('Error fetching community users:', communityUsersError);
+      return res.status(500).json({ error: 'Failed to fetch community users' });
+    }
+
+    const communityUserIds = [...new Set(communityUsers?.map(cu => cu.user_id) || [])];
+
+    if (communityUserIds.length === 0) {
+      return res.status(200).json([]);
+    }
+
+    // Now get the actual user profiles
     let usersQuery = supabaseServerClient
       .from('profiles')
-      .select('id, first_name, last_name, email, avatar_url, role')
-      .eq('community_id', userProfile.community_id)
-      .eq('is_active', true)
-      .neq('id', user.id); // Don't include the current user
+      .select('id, first_name, last_name, email, avatar_url')
+      .in('id', communityUserIds)
+      .eq('approval_status', 'approved')
 
     // Apply search filter if query is provided
     if (searchQuery) {
@@ -68,9 +90,8 @@ export default async function handler(
     // Format the response
     const formattedUsers = (users || []).map(user => ({
       id: user.id,
-      display_name: `${user.first_name} ${user.last_name}`.trim(),
+      display_name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
       avatar_url: user.avatar_url,
-      role: user.role,
       email: user.email,
     }));
 

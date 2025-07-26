@@ -224,6 +224,41 @@ export class FeedService {
           mentioned_user_id: userId,
         }));
         await supabase.from('post_mentions').insert(mentionData);
+
+        // Trigger notifications for each mentioned user via API endpoint
+        for (const mentionedUserId of input.mentions) {
+          try {
+            // Get auth token for API call
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.access_token) {
+              const response = await fetch('/api/messaging/mention', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${session.access_token}`
+                },
+                body: JSON.stringify({
+                  mentioned_user_id: mentionedUserId,
+                  context: 'community_post',
+                  discussion_id: post.id, // Use post.id as discussion_id for context
+                  content: input.content.text?.substring(0, 100) || 'Te mencionaron en una publicación'
+                })
+              });
+              
+              if (response.ok) {
+                console.log(`✅ Mention notification triggered for user: ${mentionedUserId}`);
+              } else {
+                const errorData = await response.json();
+                console.error(`❌ Failed to trigger mention notification:`, errorData);
+              }
+            } else {
+              console.error('❌ No auth session found for mention notification');
+            }
+          } catch (error) {
+            console.error('❌ Error triggering mention notification:', error);
+            // Don't fail the whole operation if notification fails
+          }
+        }
       }
 
       // Return the created post with basic data

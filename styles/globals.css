@@ -24,6 +24,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './tiptap.css';
+
 /* Optional: Apply FNE default styles to the whole app */
 body {
   @apply bg-brand_beige text-brand_blue;

@@ -485,7 +485,6 @@ class NotificationService {
         };
         
         // Insert notification to database
-
         const { data, error } = await supabaseServiceRole
           .from('user_notifications')
           .insert(insertData)

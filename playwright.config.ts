@@ -145,8 +145,8 @@ export default defineConfig({
   globalTeardown: require.resolve('./e2e/global-teardown'),
 
   /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npm run dev',
+  webServer: process.env.SKIP_WEB_SERVER ? undefined : {
+    command: 'NODE_ENV=test next dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

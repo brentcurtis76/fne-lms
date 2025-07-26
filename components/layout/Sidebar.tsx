@@ -346,7 +346,23 @@ const Sidebar: React.FC<SidebarProps> = ({
   });
 
   const SidebarItem: React.FC<{ item: NavigationItem }> = ({ item }) => {
+    const [showCollapsedMenu, setShowCollapsedMenu] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
     const isExpanded = expandedItems.has(item.id);
+
+    // Close floating menu when clicking outside
+    useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+          setShowCollapsedMenu(false);
+        }
+      };
+
+      if (showCollapsedMenu) {
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+      }
+    }, [showCollapsedMenu]);
     
     // Filter children based on admin status
     const filteredChildren = item.children?.filter(child => 
@@ -357,7 +373,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     const isActive = item.href ? isItemActive(item.href, router.pathname) : false;
 
     const handleClick = async () => {
-      if (hasChildren) {
+      if (isCollapsed && hasChildren) {
+        // In collapsed state, toggle the floating menu
+        setShowCollapsedMenu(!showCollapsedMenu);
+      } else if (hasChildren) {
+        // In expanded state, toggle normal expansion
         toggleExpanded(item.id);
       } else if (item.href) {
         // Use navigation manager to prevent concurrent navigation
@@ -372,7 +392,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     return (
-      <div>
+      <div className="relative">
         <button
           onClick={handleClick}
           className={`
@@ -382,6 +402,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               ? 'bg-[#00365b] text-white shadow-lg'
               : 'text-gray-700 hover:bg-gray-100 hover:text-[#00365b]'
             }
+            ${isCollapsed && hasChildren && showCollapsedMenu ? 'bg-gray-100 text-[#00365b]' : ''}
           `}
           title={isCollapsed ? item.label : undefined}
         >
@@ -432,6 +453,63 @@ const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
         </button>
+
+        {/* Collapsed state floating menu */}
+        {isCollapsed && hasChildren && showCollapsedMenu && (
+          <div 
+            ref={menuRef}
+            className="absolute left-full top-0 ml-2 bg-white rounded-lg shadow-xl border border-gray-200 z-50 min-w-48 overflow-hidden"
+          >
+            <div className="p-2 bg-gray-50 border-b border-gray-200">
+              <h3 className="text-sm font-medium text-gray-900">{item.label}</h3>
+              {item.description && (
+                <p className="text-xs text-gray-500 mt-1">{item.description}</p>
+              )}
+            </div>
+            <div className="py-1">
+              {filteredChildren.map(child => (
+                <Link
+                  key={child.id}
+                  href={child.href}
+                  onClick={() => setShowCollapsedMenu(false)}
+                  className={`
+                    group flex items-center px-3 py-2 text-sm transition-colors
+                    ${isItemActive(child.href, router.pathname)
+                      ? 'bg-[#00365b] text-white'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-[#00365b]'
+                    }
+                  `}
+                >
+                  {child.icon ? (
+                    <child.icon className={`h-4 w-4 mr-3 ${
+                      isItemActive(child.href, router.pathname)
+                        ? 'text-white'
+                        : 'text-gray-400 group-hover:text-[#00365b]'
+                    }`} />
+                  ) : (
+                    <ChevronRightIcon className="h-4 w-4 mr-3 text-gray-400 group-hover:text-[#00365b]" />
+                  )}
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate">{child.label}</span>
+                      {/* Show badge for feedback child item if there are new items */}
+                      {child.id === 'feedback' && newFeedbackCount > 0 && (
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                          {newFeedbackCount}
+                        </span>
+                      )}
+                    </div>
+                    {child.description && (
+                      <div className="text-xs text-gray-500 truncate mt-0.5">
+                        {child.description}
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Children */}
         {!isCollapsed && hasChildren && isExpanded && (

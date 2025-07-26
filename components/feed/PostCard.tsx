@@ -40,6 +40,29 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
   const [isOwnPost, setIsOwnPost] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Function to render text with mentions
+  const renderTextWithMentions = (text: string) => {
+    // Simple regex to find @mentions
+    const mentionRegex = /@(\w+\s?\w*)/g;
+    const parts = text.split(mentionRegex);
+    
+    return parts.map((part, index) => {
+      // Even indices are regular text, odd indices are captured mention names
+      if (index % 2 === 0) {
+        return <span key={index}>{part}</span>;
+      } else {
+        return (
+          <span
+            key={index}
+            className="text-blue-600 font-medium hover:underline cursor-pointer"
+          >
+            @{part}
+          </span>
+        );
+      }
+    });
+  };
+
   // Check if own post
   useEffect(() => {
     // Removed automatic view counting - it was creating fake inflated numbers
@@ -118,7 +141,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
         return (
           <div className="mt-3">
             <p className={`text-gray-800 whitespace-pre-wrap ${!showFullText ? 'line-clamp-3' : ''}`}>
-              {post.content.text}
+              {post.content.text ? renderTextWithMentions(post.content.text) : ''}
             </p>
             {post.content.text && post.content.text.length > 150 && (
               <button
@@ -135,7 +158,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
         return (
           <div className="mt-3">
             {post.content.text && (
-              <p className="text-gray-800 mb-3">{post.content.text}</p>
+              <p className="text-gray-800 mb-3">{renderTextWithMentions(post.content.text)}</p>
             )}
             {post.media && post.media.length > 0 && (
               <div className="relative">
@@ -168,7 +191,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
         return (
           <div className="mt-3">
             {post.content.text && (
-              <p className="text-gray-800 mb-3">{post.content.text}</p>
+              <p className="text-gray-800 mb-3">{renderTextWithMentions(post.content.text)}</p>
             )}
             {/* Handle documents from media array */}
             {post.media && post.media.length > 0 && (
@@ -222,7 +245,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
         return (
           <div className="mt-3">
             {post.content.text && (
-              <p className="text-gray-800 mb-3">{post.content.text}</p>
+              <p className="text-gray-800 mb-3">{renderTextWithMentions(post.content.text)}</p>
             )}
             {post.content.link && (
               <a

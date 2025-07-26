@@ -1,6 +1,12 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { XIcon, PhotographIcon, DocumentIcon, LinkIcon, HashtagIcon, AtSymbolIcon } from '@heroicons/react/outline';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Mention from '@tiptap/extension-mention';
+import { ReactRenderer } from '@tiptap/react';
+import tippy from 'tippy.js';
 import type { CreatePostInput, PostType } from '@/types/feed';
+import MentionList from './MentionList';
 
 interface CreatePostModalProps {
   isOpen: boolean;
@@ -18,25 +24,144 @@ export default function CreatePostModal({
   authorAvatar 
 }: CreatePostModalProps) {
   const [postType, setPostType] = useState<PostType>('text');
-  const [content, setContent] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [linkUrl, setLinkUrl] = useState('');
   const [fileInputType, setFileInputType] = useState<'image' | 'document'>('image');
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [workspaceId, setWorkspaceId] = useState<string>('');
+
+  // Get workspace ID from URL
+  useEffect(() => {
+    const path = window.location.pathname;
+    const match = path.match(/\/community\/workspace/);
+    if (match) {
+      // Get workspace ID from somewhere - we'll need to pass this as a prop
+      // For now, we'll need to update this
+    }
+  }, []);
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Mention.configure({
+        HTMLAttributes: {
+          class: 'mention',
+        },
+        suggestion: {
+          items: async ({ query }) => {
+            // Fetch users from API
+            try {
+              const response = await fetch(`/api/community/search-users?q=${encodeURIComponent(query)}`, {
+                credentials: 'include',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              });
+              if (!response.ok) throw new Error('Failed to fetch users');
+              return await response.json();
+            } catch (error) {
+              console.error('Error fetching users:', error);
+              return [];
+            }
+          },
+          render: () => {
+            let component: any;
+            let popup: any;
+
+            return {
+              onStart: (props: any) => {
+                component = new ReactRenderer(MentionList, {
+                  props,
+                  editor: props.editor,
+                });
+
+                if (!props.clientRect) {
+                  return;
+                }
+
+                popup = tippy('body', {
+                  getReferenceClientRect: props.clientRect,
+                  appendTo: () => document.body,
+                  content: component.element,
+                  showOnCreate: true,
+                  interactive: true,
+                  trigger: 'manual',
+                  placement: 'bottom-start',
+                });
+              },
+
+              onUpdate(props: any) {
+                component.updateProps(props);
+
+                if (!props.clientRect) {
+                  return;
+                }
+
+                popup[0].setProps({
+                  getReferenceClientRect: props.clientRect,
+                });
+              },
+
+              onKeyDown(props: any) {
+                if (props.event.key === 'Escape') {
+                  popup[0].hide();
+                  return true;
+                }
+
+                return component.ref?.onKeyDown(props);
+              },
+
+              onExit() {
+                popup[0].destroy();
+                component.destroy();
+              },
+            };
+          },
+        },
+      }),
+    ],
+    content: '',
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm max-w-none focus:outline-none min-h-[100px]',
+      },
+    },
+  });
 
   const handleSubmit = async () => {
-    if (!content.trim() && selectedFiles.length === 0 && !linkUrl) return;
+    if (!editor) return;
+    
+    const json = editor.getJSON();
+    const text = editor.getText();
+    
+    if (!text.trim() && selectedFiles.length === 0 && !linkUrl) return;
+
+    // Extract mentions from the editor content
+    const mentions: string[] = [];
+    const extractMentions = (node: any) => {
+      if (node.type === 'mention') {
+        mentions.push(node.attrs.id);
+      }
+      if (node.content) {
+        node.content.forEach(extractMentions);
+      }
+    };
+    if (json.content) {
+      json.content.forEach(extractMentions);
+    }
 
     setIsSubmitting(true);
     try {
       const postData: CreatePostInput = {
         type: postType,
         content: {
-          text: content.trim(),
+          text: text.trim(),
+          // Store the full JSON for rich text rendering later
+          richText: json,
         },
         media: postType === 'image' ? selectedFiles : [],
+        mentions: mentions.length > 0 ? mentions : undefined,
       };
 
       if (postType === 'link' && linkUrl) {
@@ -82,7 +207,7 @@ export default function CreatePostModal({
   };
 
   const handleClose = () => {
-    setContent('');
+    editor?.commands.clearContent();
     setSelectedFiles([]);
     setLinkUrl('');
     setPostType('text');
@@ -155,14 +280,9 @@ export default function CreatePostModal({
 
           {/* Content area */}
           <div className="px-4 pb-4">
-            <textarea
-              ref={textareaRef}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              placeholder="¿Qué quieres compartir?"
-              className="w-full resize-none border-0 focus:ring-0 text-gray-900 placeholder-gray-400"
-              rows={4}
-              autoFocus
+            <EditorContent 
+              editor={editor}
+              className="w-full min-h-[100px] max-h-[300px] overflow-y-auto"
             />
 
             {/* Image preview */}
@@ -271,9 +391,9 @@ export default function CreatePostModal({
 
               <button
                 onClick={handleSubmit}
-                disabled={(!content.trim() && selectedFiles.length === 0 && !linkUrl) || isSubmitting}
+                disabled={(!editor?.getText().trim() && selectedFiles.length === 0 && !linkUrl) || isSubmitting}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  (!content.trim() && selectedFiles.length === 0 && !linkUrl) || isSubmitting
+                  (!editor?.getText().trim() && selectedFiles.length === 0 && !linkUrl) || isSubmitting
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     : 'bg-[#00365b] text-white hover:bg-[#00365b]/90'
                 }`}

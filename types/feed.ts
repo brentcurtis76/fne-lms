@@ -83,6 +83,7 @@ export interface PollData {
 
 export interface PostContent {
   text?: string;
+  richText?: any; // TipTap JSON content for rich text rendering
   images?: string[]; // URLs for quick access
   document?: {
     id: string;

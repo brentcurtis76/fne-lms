@@ -391,6 +391,26 @@ npm run dev  # MUST be port 3000
   - **Files Modified**: `/pages/api/reports/user-details.ts`, `/components/reports/UserDetailModal.tsx`
   - **Result**: User details modal now fully functional with proper data loading, scrolling, and error-free tab navigation
 
+### **CRITICAL BUG FIXES: NOTIFICATION BELL 404 & QUIZ REPETITION (July 2025)**
+- **✅ PRODUCTION FIX DEPLOYED**: Resolved two critical user-reported bugs affecting core platform functionality
+- **Bug 1 - Notification Bell 404 Errors**:
+  - **Issue**: Users clicking notification bell received 404 errors instead of navigating to correct pages
+  - **Root Cause**: Two-part problem - backend sent flat data structure while templates expected nested format, frontend had incorrect fallback URLs
+  - **Backend Solution**: Fixed notification data structure in `course-assignments.ts:90-96` to use nested format (`course: { id, name }`) instead of flat structure
+  - **Frontend Solution**: Updated fallback URLs in `NotificationDropdown.tsx:137-150` - changed `/cursos` → `/course-manager`, `/tareas` → `/assignments`, `/admin` → `/admin/user-management`
+  - **Impact**: All notification categories now navigate to correct pages without 404 errors
+- **Bug 2 - Quiz Repetition**:
+  - **Issue**: After completing quiz, clicking "Continuar con la lección" forced users to retake the same quiz questions
+  - **Root Cause**: Quiz component always rendered regardless of completion status in `StudentBlockRenderer.tsx`
+  - **Solution**: Added completion check in `renderQuizBlock()` - completed quizzes now show "Quiz Interactivo - Completado" message instead of re-rendering questions
+  - **Impact**: Students can continue lessons without redoing completed quizzes
+- **Verification**: Created comprehensive test scripts (`verify-notification-fallback-urls.js`, `test-notification-backend-fix.js`, `verify-quiz-fix.js`)
+- **Files Modified**: 
+  - `/pages/api/admin/course-assignments.ts` (backend notification data structure)
+  - `/components/notifications/NotificationDropdown.tsx` (frontend fallback URLs)
+  - `/components/student/StudentBlockRenderer.tsx` (quiz completion check)
+- **Status**: ✅ **DEPLOYED AND VERIFIED** - Both bugs resolved, notification navigation and quiz progression now work correctly
+
 ### **CRITICAL FIX: ADMIN USER CREATION BUG (January 2025)**
 - **✅ PRODUCTION FIX DEPLOYED**: Fixed bug preventing admins with multiple roles from creating users
 - **Issue**: Admins with multiple active admin roles (like Mora Del Fresno) received "Unauthorized. Only admins can create users" error

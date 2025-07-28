@@ -127,8 +127,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .insert({
           name: communityName,
           school_id: schoolId,
-          generation_id: generationId || null
-          // Note: created_by column doesn't exist in database schema
+          generation_id: generationId || null,
+          created_by: currentUserId
         })
         .select()
         .single();

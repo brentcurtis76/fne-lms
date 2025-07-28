@@ -329,19 +329,27 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const filteredNavigationItems = NAVIGATION_ITEMS.filter(item => {
     // Check admin-only items
-    if (item.adminOnly && !isAdmin) return false;
+    if (item.adminOnly && !isAdmin) {
+      console.log(`🔍 SIDEBAR DEBUG: Filtering out admin-only item "${item.label}" (isAdmin: ${isAdmin})`);
+      return false;
+    }
     
     // Check consultant-only items
-    if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) return false;
+    if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
+      console.log(`🔍 SIDEBAR DEBUG: Filtering out consultant-only item "${item.label}" (userRole: ${userRole})`);
+      return false;
+    }
     
     // Check restricted roles
     if (item.restrictedRoles && item.restrictedRoles.length > 0) {
       // If user role is not in the restricted roles list, hide the item
       if (!item.restrictedRoles.includes(userRole || '') && !isAdmin) {
+        console.log(`🔍 SIDEBAR DEBUG: Filtering out restricted item "${item.label}" (userRole: ${userRole}, restrictedRoles: ${item.restrictedRoles.join(', ')})`);
         return false;
       }
     }
     
+    console.log(`🔍 SIDEBAR DEBUG: Including item "${item.label}" (hasChildren: ${!!item.children}, childrenCount: ${item.children?.length || 0})`);
     return true;
   });
 
@@ -373,14 +381,25 @@ const Sidebar: React.FC<SidebarProps> = ({
     const isActive = item.href ? isItemActive(item.href, router.pathname) : false;
 
     const handleClick = async () => {
+      console.log(`🔍 SIDEBAR DEBUG: Item "${item.label}" clicked`, {
+        isCollapsed,
+        hasChildren,
+        filteredChildrenCount: filteredChildren.length,
+        showCollapsedMenu,
+        itemId: item.id
+      });
+
       if (isCollapsed && hasChildren) {
         // In collapsed state, toggle the floating menu
+        console.log(`🔍 SIDEBAR DEBUG: Toggling floating menu for "${item.label}" from ${showCollapsedMenu} to ${!showCollapsedMenu}`);
         setShowCollapsedMenu(!showCollapsedMenu);
       } else if (hasChildren) {
         // In expanded state, toggle normal expansion
+        console.log(`🔍 SIDEBAR DEBUG: Toggling expansion for "${item.label}"`);
         toggleExpanded(item.id);
       } else if (item.href) {
         // Use navigation manager to prevent concurrent navigation
+        console.log(`🔍 SIDEBAR DEBUG: Navigating to "${item.href}" for "${item.label}"`);
         try {
           await navigationManager.navigate(async () => {
             await router.push(item.href);
@@ -395,6 +414,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="relative">
         <button
           onClick={handleClick}
+          onMouseDown={() => console.log(`🔍 SIDEBAR DEBUG: MouseDown on "${item.label}"`)}
+          onMouseUp={() => console.log(`🔍 SIDEBAR DEBUG: MouseUp on "${item.label}"`)}
           className={`
             group flex items-center w-full text-left transition-all duration-200 rounded-lg relative
             ${isCollapsed ? 'px-3 py-3 justify-center' : 'px-3 py-3'}
@@ -405,6 +426,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             ${isCollapsed && hasChildren && showCollapsedMenu ? 'bg-gray-100 text-[#00365b]' : ''}
           `}
           title={isCollapsed ? item.label : undefined}
+          style={{ cursor: 'pointer', pointerEvents: 'auto' }}
         >
           {/* Active indicator */}
           {isActive && !hasChildren && !isCollapsed && (
@@ -447,7 +469,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             
             {/* Badge count for collapsed state with children */}
             {isCollapsed && hasChildren && filteredChildren.length > 0 && (
-              <div className="absolute -top-1 -right-1 bg-[#fdb933] text-[#00365b] text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-sm">
+              <div className="absolute -top-1 -right-1 bg-[#fdb933] text-[#00365b] text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-sm pointer-events-none">
                 {filteredChildren.length}
               </div>
             )}

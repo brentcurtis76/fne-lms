@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Collapsed Sidebar</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 10px; border: 1px solid #ccc; }
+        .status { font-weight: bold; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Collapsed Sidebar Debug Test</h1>
+    
+    <div class="test-section">
+        <h3>Test Instructions:</h3>
+        <ol>
+            <li>Open http://localhost:3000/admin/schools in a new tab</li>
+            <li>Log in if needed</li>
+            <li>Look for the sidebar collapse button (X icon) and click it to collapse the sidebar</li>
+            <li>Look for items with orange badges (numbers like 2, 3, 4)</li>
+            <li>Try clicking on these items</li>
+            <li>Check browser console for any errors</li>
+            <li>Report back what happens</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>Expected Items with Orange Badges (when collapsed):</h3>
+        <ul>
+            <li><strong>Consultorías</strong> - Should show badge "2" (Asignación de Consultores, Vista de Tareas)</li>
+            <li><strong>Gestión</strong> - Should show badge "3" (Contratos, Rendición de Gastos, Soporte Técnico)</li>
+            <li><strong>Reportes</strong> - Should show badge "2" (Reportes Detallados, Reportes Avanzados)</li>
+            <li><strong>Espacio Colaborativo</strong> - Should show badge "2" (Vista General, Gestión Comunidades)</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h3>What Should Happen When Fixed:</h3>
+        <ol>
+            <li>Click on any item with orange badge</li>
+            <li>Floating menu should appear to the RIGHT of the collapsed sidebar</li>
+            <li>Floating menu should show the submenu options</li>
+            <li>Clicking a submenu item should navigate to that page</li>
+            <li>Clicking outside the floating menu should close it</li>
+        </ol>
+    </div>
+
+    <script>
+        console.log('🔍 SIDEBAR DEBUG: Navigate to http://localhost:3000/admin/schools to test');
+        console.log('📝 Follow the test instructions above');
+        console.log('🐛 Report any issues or console errors');
+    </script>
+</body>
+</html>

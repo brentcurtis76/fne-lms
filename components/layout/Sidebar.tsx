@@ -259,16 +259,6 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [newFeedbackCount, setNewFeedbackCount] = useState(0);
 
-  // Fetch new feedback count for admins
-  useEffect(() => {
-    if (isAdmin) {
-      fetchNewFeedbackCount();
-      // Refresh count every 30 seconds
-      const interval = setInterval(fetchNewFeedbackCount, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [isAdmin, fetchNewFeedbackCount]);
-
   const fetchNewFeedbackCount = useCallback(async () => {
     try {
       const { count, error } = await supabase
@@ -283,6 +273,16 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       console.error('Error fetching feedback count:', error);
     }
   }, [supabase]);
+
+  // Fetch new feedback count for admins
+  useEffect(() => {
+    if (isAdmin) {
+      fetchNewFeedbackCount();
+      // Refresh count every 30 seconds
+      const interval = setInterval(fetchNewFeedbackCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [isAdmin, fetchNewFeedbackCount]);
 
   // Auto-expand parent items based on current page
   useEffect(() => {

@@ -23,13 +23,22 @@ class NavigationManager {
     // Check if we're already navigating
     if (this.isNavigating) {
       console.warn('Navigation blocked: Another navigation is in progress');
-      // Queue the navigation for later
-      return new Promise((resolve) => {
-        this.navigationQueue.push(async () => {
-          await navigationFn();
-          resolve();
+      
+      // If we've been stuck navigating for too long, reset the state
+      const now = Date.now();
+      if (now - this.lastNavigationTime > 5000) { // 5 second timeout
+        console.warn('Navigation appears stuck, resetting navigation manager');
+        this.isNavigating = false;
+        this.navigationQueue = [];
+      } else {
+        // Queue the navigation for later
+        return new Promise((resolve) => {
+          this.navigationQueue.push(async () => {
+            await navigationFn();
+            resolve();
+          });
         });
-      });
+      }
     }
 
     // Check minimum delay between navigations
@@ -76,6 +85,13 @@ class NavigationManager {
 
   clearQueue(): void {
     this.navigationQueue = [];
+  }
+
+  reset(): void {
+    console.log('Resetting navigation manager state');
+    this.isNavigating = false;
+    this.navigationQueue = [];
+    this.lastNavigationTime = 0;
   }
 }
 

@@ -402,10 +402,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         console.log(`🔍 SIDEBAR DEBUG: Navigating to "${item.href}" for "${item.label}"`);
         try {
           await navigationManager.navigate(async () => {
-            await router.push(item.href);
+            await router.push(item.href!);
           });
         } catch (err) {
           console.error('Navigation error in sidebar:', err);
+          // Reset navigation manager if there's an error to prevent lock-up
+          navigationManager.reset();
         }
       }
     };

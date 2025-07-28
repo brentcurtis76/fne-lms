@@ -3,7 +3,7 @@
  * Provides backward-compatible authentication with new role system
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase-wrapper';
@@ -53,8 +53,7 @@ export function useAuth() {
     avatarUrl: ''
   });
 
-  useEffect(() => {
-    const initializeAuth = async () => {
+  const initializeAuth = useCallback(async () => {
       try {
         // Get current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -139,8 +138,9 @@ export function useAuth() {
         console.error('Auth initialization error:', error);
         setAuthState(prev => ({ ...prev, loading: false }));
       }
-    };
+    }, []); // Empty dependency array since it should only run once per mount
 
+  useEffect(() => {
     initializeAuth();
 
     // Listen for auth changes
@@ -179,9 +179,9 @@ export function useAuth() {
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [initializeAuth]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
@@ -197,20 +197,20 @@ export function useAuth() {
     } catch (error) {
       console.error('Logout error:', error);
     }
-  };
+  }, [router]);
 
-  const hasPermission = (permission: keyof RolePermissions): boolean => {
+  const hasPermission = useCallback((permission: keyof RolePermissions): boolean => {
     if (typeof authState.permissions[permission] === 'boolean') {
       return authState.permissions[permission] as boolean;
     }
     return false;
-  };
+  }, [authState.permissions]);
 
-  const hasRole = (roleType: string): boolean => {
+  const hasRole = useCallback((roleType: string): boolean => {
     return authState.userRoles.some(role => role.role_type === roleType);
-  };
+  }, [authState.userRoles]);
 
-  const getOrganizationalScope = () => {
+  const getOrganizationalScope = useCallback(() => {
     const roles = authState.userRoles;
     if (roles.length === 0) return null;
 
@@ -224,7 +224,7 @@ export function useAuth() {
       generations: generationRoles.map(role => role.generation).filter(Boolean),
       communities: communityRoles.map(role => role.community).filter(Boolean)
     };
-  };
+  }, [authState.userRoles]);
 
   return {
     ...authState,

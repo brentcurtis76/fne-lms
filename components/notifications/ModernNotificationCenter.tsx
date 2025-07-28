@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { 
@@ -47,8 +47,8 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
   // Auto-refresh interval (30 seconds)
   const REFRESH_INTERVAL = 30000;
 
-  // Fetch notifications directly from Supabase
-  const fetchNotifications = async (showLoading = false) => {
+  // Fetch notifications directly from Supabase - memoized to prevent infinite loops
+  const fetchNotifications = useCallback(async (showLoading = false) => {
     // Debounce mechanism - prevent fetches within 1 second of each other
     const now = Date.now();
     if (now - lastFetchRef.current < 1000) {
@@ -171,7 +171,7 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
       if (showLoading) setLoading(false);
       isFetchingRef.current = false;
     }
-  };
+  }, [supabase]); // Only depend on supabase client
 
   // Initial fetch and setup auto-refresh
   useEffect(() => {

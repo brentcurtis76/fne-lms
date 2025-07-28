@@ -92,25 +92,33 @@ export function logEnvironmentStatus(): void {
   }
 }
 
+import { useEffect, useState } from 'react';
+
 // Runtime validation hook for components
 export function useEnvironmentValidation() {
-  if (typeof window !== 'undefined') { // Client-side only
-    const status = validateEnvironment();
-    
-    if (!status.isValid || status.environment === 'test') {
-      console.warn('🔧 Environment Issue Detected:', {
-        environment: status.environment,
-        warnings: status.warnings,
-        errors: status.errors
-      });
-      
-      if (status.environment === 'test') {
-        console.warn('⚠️  Application is using TEST database - data may not load correctly');
-      }
-    }
-    
-    return status;
-  }
+  const [status, setStatus] = useState<EnvironmentStatus | null>(null);
   
-  return validateEnvironment();
+  useEffect(() => {
+    if (typeof window !== 'undefined') { // Client-side only
+      const envStatus = validateEnvironment();
+      
+      if (!envStatus.isValid || envStatus.environment === 'test') {
+        console.warn('🔧 Environment Issue Detected:', {
+          environment: envStatus.environment,
+          warnings: envStatus.warnings,
+          errors: envStatus.errors
+        });
+        
+        if (envStatus.environment === 'test') {
+          console.warn('⚠️  Application is using TEST database - data may not load correctly');
+        }
+      }
+      
+      setStatus(envStatus);
+    } else {
+      setStatus(validateEnvironment());
+    }
+  }, []); // Empty dependency array - only run once on mount
+  
+  return status || validateEnvironment();
 }

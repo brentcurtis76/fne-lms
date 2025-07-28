@@ -1,5 +1,4 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import { supabase } from '../../../lib/supabase';
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -30,6 +29,7 @@ interface FormattedCourse extends CourseFromDB {
 
 const CourseBuilder: React.FC = () => {
   const router = useRouter();
+  const supabase = useSupabaseClient();
   const [user, setUser] = useState<any>(null);
   const [courses, setCourses] = useState<FormattedCourse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -213,17 +213,10 @@ const CourseBuilder: React.FC = () => {
       
       setLoading(true);
       await fetchUserRole();
-      
-      // Only fetch courses if user role check succeeds
-      if (userRole === 'admin') {
-        await fetchCourses();
-      } else {
-        setLoading(false);
-      }
     };
     
     checkAdminAndFetchData();
-  }, [user?.id]); // Simplified dependencies
+  }, [user?.id, fetchUserRole]); // Include fetchUserRole dependency
 
   // Separate effect for when userRole changes
   useEffect(() => {
@@ -232,7 +225,7 @@ const CourseBuilder: React.FC = () => {
     } else if (userRole !== null && userRole !== 'admin') {
       setLoading(false);
     }
-  }, [userRole]);
+  }, [userRole, user, fetchCourses]); // Include all dependencies
 
   // Handler to open the delete confirmation modal
   const handleOpenDeleteModal = (course: FormattedCourse) => {

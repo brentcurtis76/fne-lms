@@ -398,16 +398,12 @@ const Sidebar: React.FC<SidebarProps> = ({
         console.log(`🔍 SIDEBAR DEBUG: Toggling expansion for "${item.label}"`);
         toggleExpanded(item.id);
       } else if (item.href) {
-        // Use navigation manager to prevent concurrent navigation
+        // Direct navigation without navigation manager for sidebar
         console.log(`🔍 SIDEBAR DEBUG: Navigating to "${item.href}" for "${item.label}"`);
         try {
-          await navigationManager.navigate(async () => {
-            await router.push(item.href!);
-          });
+          router.push(item.href);
         } catch (err) {
           console.error('Navigation error in sidebar:', err);
-          // Reset navigation manager if there's an error to prevent lock-up
-          navigationManager.reset();
         }
       }
     };

@@ -36,7 +36,7 @@ export default function QuizReviewsPage() {
     };
 
     initializePage();
-  }, [user, loading, hasRole, router]);
+  }, [user, loading, hasRole]);
   
   const loadPendingReviews = async () => {
     try {

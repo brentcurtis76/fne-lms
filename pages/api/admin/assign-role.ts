@@ -96,7 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Error verificando generaciones' });
       }
 
-      const schoolHasGenerations = schoolData.has_generations || (existingGenerations && existingGenerations.length > 0);
+      const schoolHasGenerations = schoolData.has_generations === true;
 
       // Validate generation requirement
       if (schoolHasGenerations && !generationId) {
@@ -127,8 +127,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .insert({
           name: communityName,
           school_id: schoolId,
-          generation_id: generationId || null,
-          created_by: currentUserId
+          generation_id: generationId || null
+          // Note: created_by column doesn't exist in database schema
         })
         .select()
         .single();

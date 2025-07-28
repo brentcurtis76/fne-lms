@@ -159,7 +159,7 @@ export default function RoleAssignmentModal({
       if (selectedRole === 'lider_comunidad' && selectedSchool) {
         const school = schools.find(s => s.id === selectedSchool);
         const schoolGenerations = generations.filter(gen => gen.school_id === selectedSchool);
-        const schoolHasGenerations = school?.has_generations || schoolGenerations.length > 0;
+        const schoolHasGenerations = school?.has_generations === true;
         
         if (schoolHasGenerations && !selectedGeneration) {
           toast.error(`La escuela "${school?.name}" utiliza generaciones. Debe seleccionar una generación para crear la comunidad.`);
@@ -605,7 +605,7 @@ export default function RoleAssignmentModal({
                                 {(() => {
                                   const school = schools.find(s => s.id === selectedSchool);
                                   const schoolGenerations = generations.filter(gen => gen.school_id === selectedSchool);
-                                  const schoolHasGenerations = school?.has_generations || schoolGenerations.length > 0;
+                                  const schoolHasGenerations = school?.has_generations === true;
                                   const isRequired = selectedRole === 'lider_comunidad' && schoolHasGenerations;
                                   const cannotAssignGenLeader = selectedRole === 'lider_generacion' && selectedSchool && !schoolHasGenerations;
 
@@ -750,7 +750,7 @@ export default function RoleAssignmentModal({
                               // Check if form is valid for submission
                               const school = schools.find(s => s.id === selectedSchool);
                               const schoolGenerations = generations.filter(gen => gen.school_id === selectedSchool);
-                              const schoolHasGenerations = school?.has_generations || schoolGenerations.length > 0;
+                              const schoolHasGenerations = school?.has_generations === true;
                               
                               // Validation rules
                               const isGenLeaderInvalidSchool = selectedRole === 'lider_generacion' && selectedSchool && !schoolHasGenerations;

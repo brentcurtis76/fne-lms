@@ -3,7 +3,7 @@
  * Provides consistent navigation across all authenticated pages
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
@@ -243,7 +243,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   }
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({
+const Sidebar: React.FC<SidebarProps> = React.memo(({
   user,
   currentPage,
   isCollapsed,
@@ -267,11 +267,10 @@ const Sidebar: React.FC<SidebarProps> = ({
       const interval = setInterval(fetchNewFeedbackCount, 30000);
       return () => clearInterval(interval);
     }
-  }, [isAdmin]);
+  }, [isAdmin, fetchNewFeedbackCount]);
 
-  const fetchNewFeedbackCount = async () => {
+  const fetchNewFeedbackCount = useCallback(async () => {
     try {
-
       const { count, error } = await supabase
         .from('platform_feedback')
         .select('*', { count: 'exact', head: true })
@@ -283,7 +282,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     } catch (error) {
       console.error('Error fetching feedback count:', error);
     }
-  };
+  }, [supabase]);
 
   // Auto-expand parent items based on current page
   useEffect(() => {
@@ -300,10 +299,18 @@ const Sidebar: React.FC<SidebarProps> = ({
       }
     });
     
-    setExpandedItems(newExpanded);
+    // Only update if the set has actually changed
+    setExpandedItems(prev => {
+      const prevArray = Array.from(prev).sort();
+      const newArray = Array.from(newExpanded).sort();
+      if (prevArray.join(',') !== newArray.join(',')) {
+        return newExpanded;
+      }
+      return prev;
+    });
   }, [router.pathname]);
 
-  const isItemActive = (href: string, pathname: string): boolean => {
+  const isItemActive = useCallback((href: string, pathname: string): boolean => {
     if (href === pathname) return true;
     
     // Special handling for workspace sections
@@ -315,45 +322,45 @@ const Sidebar: React.FC<SidebarProps> = ({
     
     // Check if pathname starts with href for nested routes
     return pathname.startsWith(href + '/');
-  };
+  }, []);
 
-  const toggleExpanded = (itemId: string) => {
-    const newExpanded = new Set(expandedItems);
-    if (newExpanded.has(itemId)) {
-      newExpanded.delete(itemId);
-    } else {
-      newExpanded.add(itemId);
-    }
-    setExpandedItems(newExpanded);
-  };
+  const toggleExpanded = useCallback((itemId: string) => {
+    setExpandedItems(prev => {
+      const newExpanded = new Set(prev);
+      if (newExpanded.has(itemId)) {
+        newExpanded.delete(itemId);
+      } else {
+        newExpanded.add(itemId);
+      }
+      return newExpanded;
+    });
+  }, []);
 
-  const filteredNavigationItems = NAVIGATION_ITEMS.filter(item => {
-    // Check admin-only items
-    if (item.adminOnly && !isAdmin) {
-      console.log(`🔍 SIDEBAR DEBUG: Filtering out admin-only item "${item.label}" (isAdmin: ${isAdmin})`);
-      return false;
-    }
-    
-    // Check consultant-only items
-    if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
-      console.log(`🔍 SIDEBAR DEBUG: Filtering out consultant-only item "${item.label}" (userRole: ${userRole})`);
-      return false;
-    }
-    
-    // Check restricted roles
-    if (item.restrictedRoles && item.restrictedRoles.length > 0) {
-      // If user role is not in the restricted roles list, hide the item
-      if (!item.restrictedRoles.includes(userRole || '') && !isAdmin) {
-        console.log(`🔍 SIDEBAR DEBUG: Filtering out restricted item "${item.label}" (userRole: ${userRole}, restrictedRoles: ${item.restrictedRoles.join(', ')})`);
+  const filteredNavigationItems = useMemo(() => {
+    return NAVIGATION_ITEMS.filter(item => {
+      // Check admin-only items
+      if (item.adminOnly && !isAdmin) {
         return false;
       }
-    }
-    
-    console.log(`🔍 SIDEBAR DEBUG: Including item "${item.label}" (hasChildren: ${!!item.children}, childrenCount: ${item.children?.length || 0})`);
-    return true;
-  });
+      
+      // Check consultant-only items
+      if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
+        return false;
+      }
+      
+      // Check restricted roles
+      if (item.restrictedRoles && item.restrictedRoles.length > 0) {
+        // If user role is not in the restricted roles list, hide the item
+        if (!item.restrictedRoles.includes(userRole || '') && !isAdmin) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [isAdmin, userRole]);
 
-  const SidebarItem: React.FC<{ item: NavigationItem }> = ({ item }) => {
+  const SidebarItem: React.FC<{ item: NavigationItem }> = React.memo(({ item }) => {
     const [showCollapsedMenu, setShowCollapsedMenu] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const isExpanded = expandedItems.has(item.id);
@@ -380,40 +387,27 @@ const Sidebar: React.FC<SidebarProps> = ({
     const hasChildren = filteredChildren.length > 0;
     const isActive = item.href ? isItemActive(item.href, router.pathname) : false;
 
-    const handleClick = async () => {
-      console.log(`🔍 SIDEBAR DEBUG: Item "${item.label}" clicked`, {
-        isCollapsed,
-        hasChildren,
-        filteredChildrenCount: filteredChildren.length,
-        showCollapsedMenu,
-        itemId: item.id
-      });
-
+    const handleClick = useCallback(async () => {
       if (isCollapsed && hasChildren) {
         // In collapsed state, toggle the floating menu
-        console.log(`🔍 SIDEBAR DEBUG: Toggling floating menu for "${item.label}" from ${showCollapsedMenu} to ${!showCollapsedMenu}`);
         setShowCollapsedMenu(!showCollapsedMenu);
       } else if (hasChildren) {
         // In expanded state, toggle normal expansion
-        console.log(`🔍 SIDEBAR DEBUG: Toggling expansion for "${item.label}"`);
         toggleExpanded(item.id);
       } else if (item.href) {
         // Direct navigation without navigation manager for sidebar
-        console.log(`🔍 SIDEBAR DEBUG: Navigating to "${item.href}" for "${item.label}"`);
         try {
           router.push(item.href);
         } catch (err) {
           console.error('Navigation error in sidebar:', err);
         }
       }
-    };
+    }, [isCollapsed, hasChildren, showCollapsedMenu, item.id, item.href, toggleExpanded, router]);
 
     return (
       <div className="relative">
         <button
           onClick={handleClick}
-          onMouseDown={() => console.log(`🔍 SIDEBAR DEBUG: MouseDown on "${item.label}"`)}
-          onMouseUp={() => console.log(`🔍 SIDEBAR DEBUG: MouseUp on "${item.label}"`)}
           className={`
             group flex items-center w-full text-left transition-all duration-200 rounded-lg relative
             ${isCollapsed ? 'px-3 py-3 justify-center' : 'px-3 py-3'}
@@ -577,7 +571,9 @@ const Sidebar: React.FC<SidebarProps> = ({
         )}
       </div>
     );
-  };
+  });
+
+  SidebarItem.displayName = 'SidebarItem';
 
   return (
     <>
@@ -665,6 +661,8 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
     </>
   );
-};
+});
+
+Sidebar.displayName = 'Sidebar';
 
 export default Sidebar;

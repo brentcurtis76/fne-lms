@@ -365,7 +365,7 @@ export async function assignRoleViaAPI(
     generationId?: string;
     communityId?: string;
   } = {}
-): Promise<{ success: boolean; error?: string; communityId?: string }> {
+): Promise<{ success: boolean; error?: string; communityId?: string; code?: string; debug?: any }> {
   try {
     const response = await fetch('/api/admin/assign-role', {
       method: 'POST',
@@ -384,7 +384,17 @@ export async function assignRoleViaAPI(
     const data = await response.json();
 
     if (!response.ok) {
-      return { success: false, error: data.error || 'Error al asignar rol' };
+      console.error('[assignRoleViaAPI] API error response:', {
+        status: response.status,
+        statusText: response.statusText,
+        data
+      });
+      return { 
+        success: false, 
+        error: data.error || 'Error al asignar rol',
+        code: data.code,
+        debug: data.debug
+      };
     }
 
     return { 

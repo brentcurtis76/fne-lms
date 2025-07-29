@@ -192,6 +192,23 @@ export default function RoleAssignmentModal({
         setSelectedCommunity('');
         setShowNewRoleForm(false);
       } else {
+        console.error('[RoleAssignmentModal] Role assignment failed:', {
+          error: result.error,
+          code: result.code,
+          debug: result.debug,
+          fullResult: result,
+          requestData: {
+            userId,
+            selectedRole,
+            organizationalScope
+          }
+        });
+        
+        // Show more detailed error in development
+        if (result.debug) {
+          console.error('[RoleAssignmentModal] Debug info:', result.debug);
+        }
+        
         toast.error(result.error || 'Error al asignar rol');
       }
     } catch (error) {

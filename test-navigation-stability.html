@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Navigation Stability Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-results { background: #f5f5f5; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+        .warning { color: orange; }
+    </style>
+</head>
+<body>
+    <h1>FNE LMS Navigation Stability Test</h1>
+    <p>This page tests if the infinite re-render loops have been fixed.</p>
+    
+    <div class="test-results">
+        <h3>Test Steps:</h3>
+        <ol>
+            <li>Open developer console (F12)</li>
+            <li>Go to <a href="http://localhost:3000/dashboard" target="_blank">http://localhost:3000/dashboard</a></li>
+            <li>Watch console for 10 seconds</li>
+            <li>Look for these repeated messages:</li>
+            <ul>
+                <li><code>Environment Issue Detected</code> - should appear once or twice max</li>
+                <li><code>Fetching notifications for user</code> - should appear 1-2 times max</li>
+                <li><code>Course builder auth check</code> - should appear once max</li>
+            </ul>
+            <li>Test sidebar navigation by clicking different menu items</li>
+            <li>Confirm no blinking or re-rendering of UI components</li>
+        </ol>
+    </div>
+    
+    <div class="test-results">
+        <h3>Expected Results:</h3>
+        <ul class="success">
+            <li>✅ Console logs should be minimal and not repeating</li>
+            <li>✅ Sidebar navigation should be smooth without blinking</li>
+            <li>✅ No "Multiple GoTrueClient instances" warnings</li>
+            <li>✅ UI components should not flash or re-render constantly</li>
+        </ul>
+    </div>
+    
+    <div class="test-results">
+        <h3>If you see problems:</h3>
+        <ul class="warning">
+            <li>⚠️ Repeated console messages = infinite loop still exists</li>
+            <li>⚠️ Blinking UI elements = re-render loop not fixed</li>
+            <li>⚠️ Multiple Supabase client warnings = client creation issue</li>
+        </ul>
+    </div>
+    
+    <script>
+        console.log('🧪 Navigation Stability Test Page Loaded');
+        console.log('Open http://localhost:3000/dashboard in another tab and monitor console');
+    </script>
+</body>
+</html>

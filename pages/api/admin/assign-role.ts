@@ -12,11 +12,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // Log incoming request
+    console.log('[assign-role API] Request received:', {
+      method: req.method,
+      body: req.body,
+      timestamp: new Date().toISOString()
+    });
+
     // Get the user's session using the auth helper
     const supabaseClient = createServerSupabaseClient({ req, res });
     const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
     
     if (sessionError || !session) {
+      console.error('[assign-role API] Session error:', sessionError);
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
@@ -35,6 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .limit(1);
 
     if (adminError || !adminCheck || adminCheck.length === 0) {
+      console.error('[assign-role API] Admin check failed:', { adminError, adminCheck, currentUserId });
       return res.status(403).json({ error: 'Solo administradores pueden asignar roles' });
     }
 
@@ -62,6 +71,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Handle community leader role - auto-create community if needed
     if (roleType === 'lider_comunidad' && schoolId && !communityId) {
+      console.log('[assign-role API] Creating community for leader role:', {
+        targetUserId,
+        schoolId,
+        generationId
+      });
+
       // Get user info for community name
       const { data: userData, error: userError } = await supabaseService
         .from('profiles')
@@ -70,6 +85,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .single();
 
       if (userError || !userData) {
+        console.error('[assign-role API] Failed to get user profile:', { userError, targetUserId });
         return res.status(400).json({ error: 'Could not find user profile' });
       }
 
@@ -81,8 +97,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .single();
 
       if (schoolError || !schoolData) {
+        console.error('[assign-role API] Failed to get school data:', { schoolError, schoolId });
         return res.status(400).json({ error: 'Could not find school information' });
       }
+
+      console.log('[assign-role API] School data:', {
+        schoolId: schoolData.id,
+        schoolName: schoolData.name,
+        hasGenerations: schoolData.has_generations
+      });
 
       // Check if school has any generations in the database
       const { data: existingGenerations, error: genError } = await supabaseService
@@ -121,20 +144,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const communityName = `Comunidad ${userData.first_name} ${userData.last_name}`;
 
+      console.log('[assign-role API] Creating community with name:', communityName);
+
       // Create the community with proper validation
+      const communityData = {
+        name: communityName,
+        school_id: schoolId,
+        generation_id: generationId || null
+      };
+
+      console.log('[assign-role API] Community insert data:', communityData);
+
       const { data: newCommunity, error: communityError } = await supabaseService
         .from('growth_communities')
-        .insert({
-          name: communityName,
-          school_id: schoolId,
-          generation_id: generationId || null,
-          created_by: currentUserId
-        })
+        .insert(communityData)
         .select()
         .single();
 
       if (communityError) {
-        console.error('Error creating community:', communityError);
+        console.error('[assign-role API] Error creating community:', {
+          error: communityError,
+          code: communityError.code,
+          message: communityError.message,
+          details: communityError.details,
+          hint: communityError.hint,
+          communityData
+        });
         
         // Provide specific error messages based on constraint violations
         if (communityError.code === '23505') {
@@ -153,34 +188,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             error: 'Esta escuela requiere que se especifique una generación para crear comunidades.' 
           });
         } else {
-          // Generic error
+          // Generic error - but now with more info
+          console.error('[assign-role API] Unhandled community creation error:', {
+            errorCode: communityError.code,
+            errorMessage: communityError.message,
+            errorDetails: communityError.details,
+            fullError: communityError
+          });
+          
           return res.status(500).json({ 
-            error: 'Error al crear la comunidad. Por favor, verifique la configuración e intente nuevamente.' 
+            error: 'Error al crear la comunidad. Por favor, verifique la configuración e intente nuevamente.',
+            code: communityError.code || 'UNKNOWN',
+            debug: process.env.NODE_ENV === 'development' ? {
+              message: communityError.message,
+              details: communityError.details
+            } : undefined
           });
         }
       }
 
       finalCommunityId = newCommunity.id;
+      console.log('[assign-role API] Community created successfully:', { communityId: finalCommunityId });
     }
 
     // Insert the role assignment
+    const roleInsertData = {
+      user_id: targetUserId,
+      role_type: roleType,
+      school_id: schoolId || null,
+      generation_id: generationId || null,
+      community_id: finalCommunityId || null,
+      is_active: true,
+      assigned_by: currentUserId,
+      assigned_at: new Date().toISOString()
+    };
+
+    console.log('[assign-role API] Inserting role assignment:', roleInsertData);
+
     const { data: roleData, error: roleError } = await supabaseService
       .from('user_roles')
-      .insert({
-        user_id: targetUserId,
-        role_type: roleType,
-        school_id: schoolId || null,
-        generation_id: generationId || null,
-        community_id: finalCommunityId || null,
-        is_active: true,
-        assigned_by: currentUserId,
-        assigned_at: new Date().toISOString()
-      })
+      .insert(roleInsertData)
       .select()
       .single();
 
     if (roleError) {
-      console.error('Error assigning role:', roleError);
+      console.error('[assign-role API] Error assigning role:', {
+        error: roleError,
+        roleInsertData
+      });
       return res.status(500).json({ error: 'Error al asignar rol' });
     }
 
@@ -192,7 +247,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
   } catch (error) {
-    console.error('Unexpected error in assign-role API:', error);
-    return res.status(500).json({ error: 'Error inesperado al asignar rol' });
+    console.error('[assign-role API] Unexpected error:', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      requestBody: req.body
+    });
+    return res.status(500).json({ 
+      error: 'Error inesperado al asignar rol',
+      debug: process.env.NODE_ENV === 'development' ? {
+        message: error instanceof Error ? error.message : 'Unknown error'
+      } : undefined
+    });
   }
 }

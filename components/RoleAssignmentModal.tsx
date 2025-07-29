@@ -712,7 +712,7 @@ export default function RoleAssignmentModal({
                                         if (selectedSchool) {
                                           const schoolIdInt = parseInt(selectedSchool);
                                           if (!isNaN(schoolIdInt)) {
-                                            const schoolMatch = comm.school_id === String(schoolIdInt);
+                                            const schoolMatch = comm.school_id === schoolIdInt;
                                             if (!schoolMatch) return false;
                                           } else {
                                             // If selectedSchool is not a valid integer, no match

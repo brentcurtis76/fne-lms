@@ -267,8 +267,9 @@ export default function HomePage() {
           <section id="aula-generativa" className="py-24 bg-[#F5F5F5]">
             <div className="max-w-[1040px] mx-auto px-6">
               <div className="lg:flex gap-12">
-                <div className="lg:w-[45%] mb-8 lg:mb-0">
-                  <img src="/los-pellines-team.gif" alt="Equipo Los Pellines - Experiencias de Aprendizaje Significativo" className="w-full h-[400px] object-cover rounded" />
+                <div className="lg:w-[45%] mb-8 lg:mb-0 space-y-4">
+                  <img src="/los-pellines-team.gif" alt="Equipo Los Pellines - Experiencias de Aprendizaje Significativo" className="w-full h-[200px] object-cover rounded" />
+                  <img src="/aula-generativa-activity.jpg" alt="Actividad colaborativa - Estudiantes participando en dinámicas de aprendizaje" className="w-full h-[400px] object-cover rounded" />
                 </div>
                 <div className="lg:w-[55%]">
                   <h2 className="text-4xl font-black uppercase mb-6">AULA GENERATIVA</h2>
@@ -330,77 +331,178 @@ export default function HomePage() {
             </div>
           </section>
           
-          {/* Section 3: Asesores de Transformación */}
+          {/* Section 3: Equipo */}
           <section id="equipo" className="py-24">
             <div className="max-w-[1040px] mx-auto px-6">
-              <div className="text-center mb-12">
-                <h2 className="text-4xl font-black uppercase mb-6">ASESORES DE TRANSFORMACIÓN</h2>
-                <p className="text-lg leading-relaxed max-w-3xl mx-auto">
-                  Un equipo de consultores educativos especializados en innovación pedagógica, liderados por Arnoldo Cisternas, con más de 20 años de experiencia transformando la educación en Chile, España y Latinoamérica.
-                </p>
+              {/* Equipo FNE */}
+              <div className="mb-20">
+                <div className="text-center mb-12">
+                  <h2 className="text-4xl font-black uppercase mb-6">EQUIPO FNE</h2>
+                  <p className="text-lg leading-relaxed max-w-3xl mx-auto">
+                    El equipo central de la Fundación Nueva Educación, comprometido con la transformación educativa en Chile y el mundo.
+                  </p>
+                </div>
+                
+                <div className="grid md:grid-cols-3 gap-6 mb-8">
+                  {/* Arnoldo Cisternas */}
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                    <h3 className="text-base font-bold mb-1">Arnoldo Cisternas</h3>
+                    <p className="text-gray-600 mb-2 text-xs">Psicólogo y Fundador</p>
+                    <p className="text-xs leading-relaxed">
+                      Especializado en Comportamiento Organizacional y Coaching Relacional. Co-fundador del Instituto Relacional y presidente de la FNE. Desarrolló el Enfoque Relacional y es autor de "Educación Relacional" y "Relaciones Poderosas".
+                    </p>
+                  </div>
+                  
+                  {/* Joan Quintana */}
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                    <h3 className="text-base font-bold mb-1">Joan Quintana</h3>
+                    <p className="text-gray-600 mb-2 text-xs">Psicólogo y Director Instituto Relacional</p>
+                    <p className="text-xs leading-relaxed">
+                      Especializado en Comportamiento Organizacional y Coaching Relacional. Co-fundador del Instituto Relacional y director del programa de Dirección Avanzada en RRHH en ESADE. Co-autor de "Anticípate" y "Relaciones Poderosas".
+                    </p>
+                  </div>
+                  
+                  {/* Gabriela Naranjo */}
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                    <h3 className="text-base font-bold mb-1">Gabriela Naranjo</h3>
+                    <p className="text-gray-600 mb-2 text-xs">Directora Fundación Nueva Educación</p>
+                    <p className="text-xs leading-relaxed">
+                      Psicóloga clínica y organizacional, Máster en Dirección de Personas (Universidad Ramón Llull). Creadora de la ATE-FNE reconocida por MINEDUC. Trabaja para que la educación esté centrada en la vida y experiencia del estudiante.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex justify-center gap-6">
+                  <div className="grid md:grid-cols-2 gap-6 max-w-2xl">
+                    {/* Brent Curtis */}
+                    <div className="text-center">
+                      <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                      <h3 className="text-base font-bold mb-1">Brent Curtis</h3>
+                      <p className="text-gray-600 mb-2 text-xs">Teólogo y Director de Vinculación</p>
+                      <p className="text-xs leading-relaxed">
+                        Encargado de la vinculación con universidades, entidades gubernamentales y organismos internacionales. Experto en redes sociales, educación online y producción de eventos participativos de gran formato.
+                      </p>
+                    </div>
+                    
+                    {/* Mora Del Fresno */}
+                    <div className="text-center">
+                      <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                      <h3 className="text-base font-bold mb-1">Mora Del Fresno</h3>
+                      <p className="text-gray-600 mb-2 text-xs">Coordinadora Académica FNE</p>
+                      <p className="text-xs leading-relaxed">
+                        Lic. en Ciencias de la Educación (UdeSA), Máster en Neuroeducación (UB). Responsable de la Unidad de Educación del Instituto Relacional Barcelona. Especialista en gestión pedagógica y Educación Relacional.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
               
-              <div className="grid md:grid-cols-3 gap-6 mb-8">
-                {/* Arnoldo Cisternas */}
-                <div className="text-center">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
-                  <h3 className="text-base font-bold mb-1">Arnoldo Cisternas</h3>
-                  <p className="text-gray-600 mb-2 text-xs">Psicólogo y Fundador</p>
-                  <p className="text-xs leading-relaxed">
-                    Fundador del Instituto Relacional IR y presidente de la Fundación Nueva Educación.
+              {/* Equipo Internacional */}
+              <div>
+                <div className="text-center mb-12">
+                  <h2 className="text-4xl font-black uppercase mb-6">EQUIPO INTERNACIONAL</h2>
+                  <p className="text-lg leading-relaxed max-w-3xl mx-auto">
+                    Consultores educativos especializados en innovación pedagógica con más de 20 años de experiencia transformando la educación en España y Latinoamérica.
                   </p>
                 </div>
                 
-                {/* Coral Regí */}
-                <div className="text-center">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
-                  <h3 className="text-base font-bold mb-1">Coral Regí</h3>
-                  <p className="text-gray-600 mb-2 text-xs">Ex-Directora Escuela Virolai</p>
-                  <p className="text-xs leading-relaxed">
-                    Asesora internacional para el desarrollo de escuelas de vanguardia en España y América Latina.
-                  </p>
+                <div className="grid md:grid-cols-3 gap-6 mb-8">
+                  {/* Coral Regí */}
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                    <h3 className="text-base font-bold mb-1">Coral Regí</h3>
+                    <p className="text-gray-600 mb-2 text-xs">Ex-Directora Escuela Virolai</p>
+                    <p className="text-xs leading-relaxed">
+                      Bióloga y educadora por vocación. Asesora internacional de escuelas de vanguardia. Miembro del comité científico de Educación Mañana y del Consejo Escolar de Cataluña. Colabora con Fundación Bofill, Carulla y es miembro del Comité Internacional FNE.
+                    </p>
+                  </div>
+                  
+                  {/* Jordi Mussons */}
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                    <h3 className="text-base font-bold mb-1">Jordi Mussons</h3>
+                    <p className="text-gray-600 mb-2 text-xs">Director Escuela Sadako</p>
+                    <p className="text-xs leading-relaxed">
+                      Maestro y biólogo. Director de Sadako desde 2006, referente internacional en innovación educativa. Autor de "Reinventar La Escuela". Su compromiso con una escuela de oportunidades lo ha convertido en personalidad relevante de la educación. Miembro de la junta directiva de la AEC.
+                    </p>
+                  </div>
+                  
+                  {/* Boris Mir */}
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                    <h3 className="text-base font-bold mb-1">Boris Mir</h3>
+                    <p className="text-gray-600 mb-2 text-xs">Director Instituto Angela Ferrer</p>
+                    <p className="text-xs leading-relaxed">
+                      Ex-director adjunto del Programa Escola Nova 21. Fundador del Instituto-Escuela Les Vinyes. Experto en transformación educativa, evaluación formativa y liderazgo. Formador universitario y consultor en gestión del cambio.
+                    </p>
+                  </div>
                 </div>
                 
-                {/* Jordi Mussons */}
-                <div className="text-center">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
-                  <h3 className="text-base font-bold mb-1">Jordi Mussons</h3>
-                  <p className="text-gray-600 mb-2 text-xs">Director Escuela Sadako</p>
-                  <p className="text-xs leading-relaxed">
-                    Director de la escuela Sadako de Barcelona, institución referente en innovación educativa internacional.
-                  </p>
-                </div>
-              </div>
-              
-              <div className="grid md:grid-cols-3 gap-6 mb-12">
-                {/* Anna Comas */}
-                <div className="text-center">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
-                  <h3 className="text-base font-bold mb-1">Anna Comas</h3>
-                  <p className="text-gray-600 mb-2 text-xs">Ex-Directora La Maquinista</p>
-                  <p className="text-xs leading-relaxed">
-                    Licenciada en Filosofía y Ciencias de la Educación. Participó en Escola Nova21 y Futuros de la Educación (UNESCO Catalunya). Mentora en el PMT de Baleares.
-                  </p>
+                <div className="grid md:grid-cols-3 gap-6 mb-8">
+                  {/* Pepe Menéndez */}
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                    <h3 className="text-base font-bold mb-1">Pepe Menéndez</h3>
+                    <p className="text-gray-600 mb-2 text-xs">Ex-Director Adjunto Jesuitas Educació</p>
+                    <p className="text-xs leading-relaxed">
+                      Promotor del proyecto Horizonte 2020 que revolucionó la educación jesuita. Autor de "Educar para la Vida" y "Escuelas que valgan la pena". Experto en liderazgo de procesos de cambio educativo.
+                    </p>
+                  </div>
+                  
+                  {/* Sandra Entrena */}
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                    <h3 className="text-base font-bold mb-1">Sandra Entrena</h3>
+                    <p className="text-gray-600 mb-2 text-xs">Directora Escuela Virolai</p>
+                    <p className="text-xs leading-relaxed">
+                      Actual Directora de la Escuela Virolai, formadora de profesores en Barcelona y pilar del proyecto Escola Nova21. Consultora internacional finalista en los Wise Awards 2017.
+                    </p>
+                  </div>
+                  
+                  {/* Anna Comas */}
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                    <h3 className="text-base font-bold mb-1">Anna Comas</h3>
+                    <p className="text-gray-600 mb-2 text-xs">Ex-Directora La Maquinista</p>
+                    <p className="text-xs leading-relaxed">
+                      Licenciada en Filosofía y Ciencias de la Educación. Participó en Escola Nova21 y Futuros de la Educación (UNESCO Catalunya). Mentora en el PMT de Baleares.
+                    </p>
+                  </div>
                 </div>
                 
-                {/* Elena Guillén */}
-                <div className="text-center">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
-                  <h3 className="text-base font-bold mb-1">Elena Guillén</h3>
-                  <p className="text-gray-600 mb-2 text-xs">Directora Escola Octavio Paz</p>
-                  <p className="text-xs leading-relaxed">
-                    Directora de la Escola Octavio Paz, escuela pública ícono de cambio en Barcelona. Lidera un proceso de transformación basado en relaciones humanas, cohesión comunitaria y pensamiento crítico.
-                  </p>
-                </div>
-                
-                {/* Sandra Entrena */}
-                <div className="text-center">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
-                  <h3 className="text-base font-bold mb-1">Sandra Entrena</h3>
-                  <p className="text-gray-600 mb-2 text-xs">Directora Escuela Virolai</p>
-                  <p className="text-xs leading-relaxed">
-                    Actual Directora de la Escuela Virolai, formadora de profesores en Barcelona y pilar del proyecto Escola Nova21. Consultora internacional finalista en los Wise Awards 2017.
-                  </p>
+                <div className="grid md:grid-cols-3 gap-6 mb-12">
+                  {/* Elena Guillén */}
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                    <h3 className="text-base font-bold mb-1">Elena Guillén</h3>
+                    <p className="text-gray-600 mb-2 text-xs">Directora Escola Octavio Paz</p>
+                    <p className="text-xs leading-relaxed">
+                      Directora de la Escola Octavio Paz, escuela pública ícono de cambio en Barcelona. Lidera un proceso de transformación basado en relaciones humanas, cohesión comunitaria y pensamiento crítico.
+                    </p>
+                  </div>
+                  
+                  {/* Sergi Del Moral */}
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                    <h3 className="text-base font-bold mb-1">Sergi Del Moral</h3>
+                    <p className="text-gray-600 mb-2 text-xs">Director Institut Escola Les Vinyes</p>
+                    <p className="text-xs leading-relaxed">
+                      Licenciado en Matemáticas. Centro premiado por Departament d'Educació y Escola Nova 21. Ex-profesor UB y responsable de innovación SIRE. Experto en ABP, personalización del aprendizaje y didáctica matemática.
+                    </p>
+                  </div>
+                  
+                  {/* Betlem Cuesta */}
+                  <div className="text-center">
+                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-3"></div>
+                    <h3 className="text-base font-bold mb-1">Betlem Cuesta</h3>
+                    <p className="text-gray-600 mb-2 text-xs">Coordinadora Pedagógica Les Vinyes</p>
+                    <p className="text-xs leading-relaxed">
+                      Licenciada en Filosofía, Máster en Estudios Feministas (UB) y Cooperación al Desarrollo (UPV). Miembro Forum "Futurs de l'educació" UNESCO. Experiencia en proyectos de cooperación en Kosovo y Rwanda.
+                    </p>
+                  </div>
                 </div>
               </div>
               

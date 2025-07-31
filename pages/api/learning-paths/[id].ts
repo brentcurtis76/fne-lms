@@ -76,20 +76,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(404).json({ error: 'Learning path not found' });
         }
 
-        // Check if user is admin or owns the path
-        const { data: userRoles } = await supabaseClient
-          .from('user_roles')
-          .select('role_type')
-          .eq('user_id', userId)
-          .eq('is_active', true)
-          .eq('role_type', 'admin')
-          .single();
-
-        const isAdmin = !!userRoles;
-        const isOwner = existingPath.created_by === userId;
-
-        if (!isAdmin && !isOwner) {
-          return res.status(403).json({ error: 'You can only update your own learning paths' });
+        // Check if user can manage this specific path (admin roles or owner)
+        const canManage = await LearningPathsService.canManagePath(supabaseClient, pathId, userId);
+        
+        if (!canManage) {
+          return res.status(403).json({ error: 'You can only update your own learning paths or need admin privileges' });
         }
 
         const { name, description, courseIds } = req.body;
@@ -138,24 +129,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(404).json({ error: 'Learning path not found' });
         }
 
-        // Check if user is admin or owns the path
-        const { data: deleteUserRoles } = await supabaseClient
-          .from('user_roles')
-          .select('role_type')
-          .eq('user_id', userId)
-          .eq('is_active', true)
-          .eq('role_type', 'admin')
-          .single();
-
-        const isDeleteAdmin = !!deleteUserRoles;
-        const isDeleteOwner = pathToDelete.created_by === userId;
-
-        if (!isDeleteAdmin && !isDeleteOwner) {
-          return res.status(403).json({ error: 'You can only delete your own learning paths' });
-        }
-
-        // Delete the learning path
-        await LearningPathsService.deleteLearningPath(supabaseClient, pathId);
+        // Use the service's permission check which correctly handles all admin roles
+        await LearningPathsService.deleteLearningPath(supabaseClient, pathId, userId);
 
         return res.status(204).end();
 

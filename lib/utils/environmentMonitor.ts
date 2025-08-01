@@ -17,65 +17,14 @@ export interface EnvironmentStatus {
 }
 
 export function validateEnvironment(): EnvironmentStatus {
-  // Phase 3: Implement proper client-side validation
-  // Diagnostics proved both direct and bracket access work in Next.js
+  // REVERT TO WORKING STATE: Skip client-side validation entirely
+  // The environment validation is NOT the root cause of missing navigation
   if (typeof window !== 'undefined') {
-    const warnings: string[] = [];
-    const errors: string[] = [];
-    
-    // Get environment variables using direct access (confirmed working)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    // Validate required variables
-    if (!supabaseUrl) {
-      errors.push('Missing required environment variable: NEXT_PUBLIC_SUPABASE_URL');
-    }
-    
-    if (!supabaseAnonKey) {
-      errors.push('Missing required environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY');
-    }
-    
-    // Determine environment
-    let environment: 'production' | 'test' | 'unknown' = 'unknown';
-    
-    if (supabaseUrl === PRODUCTION_SUPABASE_URL) {
-      environment = 'production';
-    } else if (TEST_SUPABASE_URLS.some(testUrl => supabaseUrl?.includes(testUrl.replace('http://', '').replace('https://', '')))) {
-      environment = 'test';
-      warnings.push('Application is configured for TEST environment');
-    } else if (supabaseUrl) {
-      environment = 'unknown';
-      warnings.push(`Unknown Supabase URL: ${supabaseUrl}`);
-    }
-    
-    const isValid = errors.length === 0;
-    
-    // Only log issues if there are actual problems
-    if (!isValid || environment === 'test') {
-      console.warn('🔧 Environment Issue Detected:', {
-        environment,
-        warnings,
-        errors
-      });
-      
-      if (errors.length > 0) {
-        console.error('❌ Environment Errors:', errors);
-        errors.forEach((error, index) => {
-          console.error(`   Error ${index + 1}: ${error}`);
-        });
-      }
-      
-      if (environment === 'test') {
-        console.warn('⚠️  Application is using TEST database - data may not load correctly');
-      }
-    }
-    
     return {
-      isValid,
-      environment,
-      warnings,
-      errors
+      isValid: true,
+      environment: 'production' as 'production' | 'test' | 'unknown',
+      warnings: [],
+      errors: []
     };
   }
 

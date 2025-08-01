@@ -437,6 +437,37 @@ npm run dev  # MUST be port 3000
 - **Files Modified**: `/pages/api/admin/create-user.ts` (line 47)
 - **Status**: ✅ **DEPLOYED AND VERIFIED** - Admin user creation now works for all admin users
 
+### **UNIFIED LEARNING HUB - MAJOR UX IMPROVEMENT (August 2025)**
+- **✅ PRODUCTION ENHANCEMENT DEPLOYED**: Eliminated navigation redundancy by consolidating "Mis Rutas" and "Mis Cursos" into unified "Mi Aprendizaje"
+- **Issue**: Users were confused by dual navigation tabs - "Mis Rutas de Aprendizaje" and "Mis Cursos" created cognitive load and fractured learning experience
+- **Root Cause**: Redundant navigation structure forced users to check multiple places for learning content
+- **Solution Components**:
+  - **Navigation Consolidation**: Single "Mi Aprendizaje" sidebar item replaces dual tabs
+  - **Unified Interface**: New `/mi-aprendizaje` page combines learning paths + individual courses in one view
+  - **Seamless Migration**: Automatic redirects from old URLs (`/my-paths`, `/course-manager`) to new unified page
+  - **Enhanced UX Features**: Universal search across both content types, clear section separation, progress tracking
+- **Technical Implementation**:
+  - **New Page**: `/pages/mi-aprendizaje.tsx` with dual-section layout
+  - **URL Structure**: `/mi-aprendizaje/ruta/[id]` for learning path details
+  - **Redirects**: Old pages now redirect components with loading states
+  - **Notification Fixes**: Updated fallback URLs in notification system and NotificationService
+- **User Experience Benefits**:
+  - ✅ Single source of truth for all learning content
+  - ✅ Eliminated "where is my content?" confusion
+  - ✅ Better discoverability with unified search
+  - ✅ Consistent navigation patterns
+- **Files Modified**:
+  - `/components/layout/Sidebar.tsx` (navigation consolidation)
+  - `/pages/mi-aprendizaje.tsx` (unified learning hub)
+  - `/pages/course-manager.tsx` (redirect component)
+  - `/pages/my-paths.tsx` (redirect component)
+  - `/pages/my-paths/[id].tsx` (updated navigation)
+  - `/pages/mi-aprendizaje/ruta/[id].tsx` (new path details route)
+  - `/components/notifications/ModernNotificationCenter.tsx` (notification URLs)
+  - `/pages/notifications.tsx` (notification URLs)
+  - `/lib/notificationService.ts` (critical fallback URL fix)
+- **Status**: ✅ **DEPLOYED AND VERIFIED** - Unified learning experience operational with all notification bugs resolved
+
 ### **CRITICAL BUG FIX: ENVIRONMENT VALIDATION BREAKING NAVIGATION PANEL (August 2025)**
 - **🚨 IN PROGRESS**: Navigation side panel not rendering for ANY users due to false environment validation errors
 - **Issue**: All users (students, teachers, admins) lost their navigation side panel completely

@@ -99,26 +99,44 @@ export function useEnvironmentValidation() {
   const [status, setStatus] = useState<EnvironmentStatus | null>(null);
   
   useEffect(() => {
-    if (typeof window !== 'undefined') { // Client-side only
-      const envStatus = validateEnvironment();
-      
-      if (!envStatus.isValid || envStatus.environment === 'test') {
-        console.warn('🔧 Environment Issue Detected:', {
-          environment: envStatus.environment,
-          warnings: envStatus.warnings,
-          errors: envStatus.errors
-        });
+    try {
+      if (typeof window !== 'undefined') { // Client-side only
+        const envStatus = validateEnvironment();
         
-        if (envStatus.environment === 'test') {
-          console.warn('⚠️  Application is using TEST database - data may not load correctly');
+        if (!envStatus.isValid || envStatus.environment === 'test') {
+          console.warn('🔧 Environment Issue Detected:', {
+            environment: envStatus.environment,
+            warnings: envStatus.warnings,
+            errors: envStatus.errors
+          });
+          
+          if (envStatus.environment === 'test') {
+            console.warn('⚠️  Application is using TEST database - data may not load correctly');
+          }
         }
+        
+        setStatus(envStatus);
+      } else {
+        // Server-side: set status without logging
+        setStatus(validateEnvironment());
       }
-      
-      setStatus(envStatus);
-    } else {
-      setStatus(validateEnvironment());
+    } catch (error) {
+      console.error('Error in environment validation:', error);
+      // Set a safe fallback status
+      setStatus({
+        isValid: false,
+        environment: 'unknown',
+        warnings: [],
+        errors: ['Environment validation failed']
+      });
     }
   }, []); // Empty dependency array - only run once on mount
   
-  return status || validateEnvironment();
+  // Return status or a safe default - never call validateEnvironment() during render
+  return status || {
+    isValid: true, // Assume valid until proven otherwise
+    environment: 'production' as const,
+    warnings: [],
+    errors: []
+  };
 }

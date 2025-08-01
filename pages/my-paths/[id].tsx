@@ -111,19 +111,26 @@ export default function PathDetailsPage({ profileData }: PathDetailsPageProps) {
   const fetchEnhancedProgress = async () => {
     try {
       setLoadingEnhanced(true);
+      console.log('[Enhanced Progress] Fetching for path:', pathId);
       const response = await fetch(`/api/learning-paths/${pathId}/enhanced-progress`);
+      console.log('[Enhanced Progress] Response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
+        console.log('[Enhanced Progress] Data received:', data);
         setEnhancedProgress(data);
         
         // Auto-show enhanced view if user has significant progress
         if (data.userProgress?.overallProgress > 10 || data.userProgress?.totalSessions > 2) {
           setShowEnhancedView(true);
         }
+      } else {
+        // Log the error but don't show to user
+        const errorText = await response.text();
+        console.error('[Enhanced Progress] API error:', response.status, errorText);
       }
     } catch (err: any) {
-      console.error('Error fetching enhanced progress:', err);
+      console.error('[Enhanced Progress] Fetch error:', err);
       // Enhanced progress is optional, don't show error to user
     } finally {
       setLoadingEnhanced(false);

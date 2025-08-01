@@ -24,12 +24,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Check if user is admin first - admins have access to everything
     const { data: userRoles } = await supabaseClient
       .from('user_roles')
-      .select('role')
+      .select('role_type')
       .eq('user_id', userId)
       .eq('is_active', true);
 
     const hasAdminAccess = userRoles?.some(role => 
-      ['admin', 'equipo_directivo', 'consultor'].includes(role.role)
+      ['admin', 'equipo_directivo', 'consultor'].includes(role.role_type)
     );
 
     let assignment = null;

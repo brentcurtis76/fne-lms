@@ -3,9 +3,9 @@ import { GetServerSideProps } from 'next';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import MainLayout from '../../components/layout/MainLayout';
+import MainLayout from '../../../components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
-import EnhancedProgressIndicators from '../../components/learning-paths/EnhancedProgressIndicators';
+import EnhancedProgressIndicators from '../../../components/learning-paths/EnhancedProgressIndicators';
 import { 
   BookOpen, 
   Clock, 
@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { useSessionTracker } from '../../lib/services/learningPathSessionTracker';
+import { useSessionTracker } from '../../../lib/services/learningPathSessionTracker';
 
 interface Course {
   sequence: number;

@@ -110,6 +110,14 @@ export function useEnvironmentValidation() {
             errors: envStatus.errors
           });
           
+          // Log the specific errors
+          if (envStatus.errors.length > 0) {
+            console.error('❌ Environment Errors:', envStatus.errors);
+            envStatus.errors.forEach((error, index) => {
+              console.error(`   Error ${index + 1}: ${error}`);
+            });
+          }
+          
           if (envStatus.environment === 'test') {
             console.warn('⚠️  Application is using TEST database - data may not load correctly');
           }

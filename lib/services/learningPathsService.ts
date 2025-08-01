@@ -38,6 +38,7 @@ interface CourseWithSequence {
 interface LearningPathWithDetails extends LearningPath {
   created_by_name?: string;
   course_count?: number;
+  assignment_count?: number;
 }
 
 interface LearningPathWithCourses extends LearningPath {
@@ -145,6 +146,28 @@ export class LearningPathsService {
         return acc;
       }, {});
 
+      // Get assignment counts for each path
+      let assignmentCounts = [];
+      if (paths.length > 0) {
+        const { data, error: assignmentError } = await supabaseClient
+          .from('learning_path_assignments')
+          .select('path_id')
+          .in('path_id', paths.map((p: any) => p.id));
+
+        if (assignmentError) {
+          console.warn('Could not fetch assignment counts:', assignmentError);
+          // Continue without assignment counts rather than failing
+        } else {
+          assignmentCounts = data || [];
+        }
+      }
+
+      // Count assignments per path
+      const assignmentCountMap = (assignmentCounts || []).reduce((acc: any, item: any) => {
+        acc[item.path_id] = (acc[item.path_id] || 0) + 1;
+        return acc;
+      }, {});
+
       // Format the response
       return paths.map((path: any) => {
         const creator = profileMap[path.created_by];
@@ -153,7 +176,8 @@ export class LearningPathsService {
           created_by_name: creator 
             ? `${creator.first_name || ''} ${creator.last_name || ''}`.trim() || 'Unknown'
             : 'Sistema',
-          course_count: countMap[path.id] || 0
+          course_count: countMap[path.id] || 0,
+          assignment_count: assignmentCountMap[path.id] || 0
         };
       });
     } catch (error: any) {

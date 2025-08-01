@@ -12,6 +12,7 @@ export interface LearningPath {
 export interface LearningPathWithDetails extends LearningPath {
   created_by_name?: string;
   course_count?: number;
+  assignment_count?: number;
 }
 
 export interface LearningPathCourse {

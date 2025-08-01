@@ -58,6 +58,10 @@ export default function AssignLearningPath() {
   const [hasMoreUsers, setHasMoreUsers] = useState(false);
   const [hasMoreGroups, setHasMoreGroups] = useState(false);
   
+  // Assignment counts for tabs
+  const [totalAssignedUsers, setTotalAssignedUsers] = useState(0);
+  const [totalAssignedGroups, setTotalAssignedGroups] = useState(0);
+  
   // Loading states
   const [loading, setLoading] = useState(true);
   const [searchingUsers, setSearchingUsers] = useState(false);
@@ -133,12 +137,37 @@ export default function AssignLearningPath() {
       const pathData: LearningPath = await pathResponse.json();
       setLearningPath(pathData);
       
+      // Load assignment counts for tabs
+      await loadAssignmentCounts(pathId as string);
+      
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Error al cargar los datos');
       router.push('/admin/learning-paths');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAssignmentCounts = async (pathId: string) => {
+    try {
+      const { data: assignments, error } = await supabase
+        .from('learning_path_assignments')
+        .select('user_id, group_id')
+        .eq('path_id', pathId);
+
+      if (error) {
+        console.warn('Could not load assignment counts:', error);
+        return;
+      }
+
+      const userCount = assignments.filter(a => a.user_id).length;
+      const groupCount = assignments.filter(a => a.group_id).length;
+      
+      setTotalAssignedUsers(userCount);
+      setTotalAssignedGroups(groupCount);
+    } catch (error) {
+      console.warn('Error loading assignment counts:', error);
     }
   };
 
@@ -278,7 +307,19 @@ export default function AssignLearningPath() {
         { id: loadingToast }
       );
       
-      router.push('/admin/learning-paths');
+      // Refresh assignment counts
+      await loadAssignmentCounts(pathId as string);
+      
+      // Clear selected assignees
+      setSelectedAssignees([]);
+      
+      // Refresh search results to show updated assignment status
+      if (userSearchQuery) {
+        await searchAssignees('users', userSearchQuery, 1, false);
+      }
+      if (groupSearchQuery) {
+        await searchAssignees('groups', groupSearchQuery, 1, false);
+      }
       
     } catch (error: any) {
       console.error('Error assigning learning path:', error);
@@ -359,7 +400,7 @@ export default function AssignLearningPath() {
                   }`}
                 >
                   <UserPlus className="h-4 w-4 inline mr-2" />
-                  Usuarios ({selectedUserCount})
+                  Usuarios ({totalAssignedUsers})
                 </button>
                 <button
                   onClick={() => setActiveTab('groups')}
@@ -370,7 +411,7 @@ export default function AssignLearningPath() {
                   }`}
                 >
                   <Users className="h-4 w-4 inline mr-2" />
-                  Grupos ({selectedGroupCount})
+                  Grupos ({totalAssignedGroups})
                 </button>
               </nav>
             </div>

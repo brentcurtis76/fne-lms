@@ -222,6 +222,9 @@ export default function AdminLearningPaths() {
                       Cursos
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Asignados
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Creado por
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -245,6 +248,11 @@ export default function AdminLearningPaths() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {path.course_count || 0} cursos
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {path.assignment_count || 0} usuarios
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

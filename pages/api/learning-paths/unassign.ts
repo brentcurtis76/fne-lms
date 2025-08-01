@@ -87,6 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Unassign from groups (and their members)
     if (hasGroups) {
+      console.log('Unassigning from groups:', groupIds);
       for (const groupId of groupIds!) {
         // Get the community_id for this group
         const { data: workspace } = await supabaseClient

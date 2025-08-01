@@ -313,7 +313,8 @@ async function handleRemoveSchool(supabase: any, body: RemoveSchoolRequest, res:
 }
 
 /**
- * PUT /api/admin/networks/schools - Bulk assign multiple schools to network
+ * PUT /api/admin/networks/schools - Smart bulk assign multiple schools to network
+ * Handles partial assignments intelligently with transaction safety
  */
 async function handleBulkAssignSchools(
   supabase: any, 
@@ -329,7 +330,17 @@ async function handleBulkAssignSchools(
       return res.status(400).json({ error: 'Network ID y lista de School IDs son requeridos' });
     }
 
-    // Verify network exists
+    // Limit batch size for scalability
+    const MAX_BATCH_SIZE = 100;
+    if (schoolIds.length > MAX_BATCH_SIZE) {
+      return res.status(400).json({ 
+        error: `Máximo ${MAX_BATCH_SIZE} escuelas permitidas por operación` 
+      });
+    }
+
+    console.log(`🔄 Processing bulk assignment: ${schoolIds.length} schools to network ${networkId}`);
+
+    // Step 1: Verify network exists
     const { data: network } = await supabase
       .from('redes_de_colegios')
       .select('id, nombre')
@@ -340,12 +351,32 @@ async function handleBulkAssignSchools(
       return res.status(404).json({ error: 'Red no encontrada' });
     }
 
-    // Verify all schools exist
-    const { data: schools } = await supabase
-      .from('schools')
-      .select('id, name')
-      .in('id', schoolIds);
+    // Step 2: Get all relevant data in parallel for efficiency
+    const [schoolsResult, assignmentsResult] = await Promise.all([
+      supabase
+        .from('schools')
+        .select('id, name')
+        .in('id', schoolIds),
+      supabase
+        .from('red_escuelas')
+        .select('school_id, red_id, redes_de_colegios(id, nombre)')
+        .in('school_id', schoolIds)
+    ]);
 
+    const { data: schools, error: schoolsError } = schoolsResult;
+    const { data: existingAssignments, error: assignmentsError } = assignmentsResult;
+
+    if (schoolsError) {
+      console.error('Error fetching schools:', schoolsError);
+      return res.status(500).json({ error: 'Error al verificar escuelas' });
+    }
+
+    if (assignmentsError) {
+      console.error('Error fetching assignments:', assignmentsError);
+      return res.status(500).json({ error: 'Error al verificar asignaciones existentes' });
+    }
+
+    // Step 3: Validate all schools exist
     if (!schools || schools.length !== schoolIds.length) {
       const foundIds = schools?.map((s: any) => s.id) || [];
       const missingIds = schoolIds.filter(id => !foundIds.includes(id));
@@ -354,49 +385,148 @@ async function handleBulkAssignSchools(
       });
     }
 
-    // Check for existing assignments
-    const { data: existingAssignments } = await supabase
-      .from('red_escuelas')
-      .select('school_id, red_id, redes_de_colegios(nombre)')
-      .in('school_id', schoolIds);
-
-    if (existingAssignments && existingAssignments.length > 0) {
-      const conflicts = existingAssignments.map((assignment: any) => {
-        const school = schools.find((s: any) => s.id === assignment.school_id);
-        return `"${school?.name}" ya asignada a "${assignment.redes_de_colegios.nombre}"`;
-      });
-      
-      return res.status(409).json({ 
-        error: `Conflictos de asignación: ${conflicts.join(', ')}` 
-      });
-    }
-
-    // Prepare bulk insert data
-    const assignmentData = schoolIds.map(schoolId => ({
-      red_id: networkId,
-      school_id: schoolId,
-      agregado_por: adminId,
-      fecha_agregada: new Date().toISOString()
-    }));
-
-    // Bulk insert assignments
-    const { error: bulkInsertError } = await supabase
-      .from('red_escuelas')
-      .insert(assignmentData);
-
-    if (bulkInsertError) {
-      console.error('Error bulk assigning schools:', bulkInsertError);
-      return res.status(500).json({ error: 'Error al asignar escuelas en lote' });
-    }
-
-    const schoolNames = schools.map((s: any) => s.name).join(', ');
+    // Step 4: Smart conflict analysis
+    const schoolMap = new Map(schools.map((s: any) => [s.id, s]));
+    const assignmentMap = new Map();
     
-    return res.status(201).json({
-      success: true,
-      message: `${schoolIds.length} escuelas asignadas exitosamente a la red "${network.nombre}": ${schoolNames}`
+    // Build assignment map for quick lookup
+    if (existingAssignments) {
+      existingAssignments.forEach((assignment: any) => {
+        assignmentMap.set(assignment.school_id, {
+          red_id: assignment.red_id,
+          red_nombre: assignment.redes_de_colegios?.nombre || 'Unknown'
+        });
+      });
+    }
+
+    // Categorize schools based on current assignments
+    const assignableSchools: number[] = [];
+    const alreadyAssignedToTarget: any[] = [];
+    const assignedToOtherNetworks: any[] = [];
+
+    schoolIds.forEach(schoolId => {
+      const school = schoolMap.get(schoolId);
+      const existingAssignment = assignmentMap.get(schoolId);
+
+      if (!existingAssignment) {
+        // School not assigned to any network - can assign
+        assignableSchools.push(schoolId);
+      } else if (existingAssignment.red_id === networkId) {
+        // Already assigned to target network - skip
+        alreadyAssignedToTarget.push({
+          id: schoolId,
+          name: school?.name || 'Unknown',
+          network: existingAssignment.red_nombre
+        });
+      } else {
+        // Assigned to different network - skip (could be enhanced to allow reassignment)
+        assignedToOtherNetworks.push({
+          id: schoolId,
+          name: school?.name || 'Unknown',
+          network: existingAssignment.red_nombre
+        });
+      }
     });
+
+    console.log(`📊 Assignment analysis:`, {
+      assignable: assignableSchools.length,
+      alreadyAssigned: alreadyAssignedToTarget.length,
+      conflicts: assignedToOtherNetworks.length
+    });
+
+    // Step 5: Process assignable schools with transaction safety
+    let assignedCount = 0;
+    if (assignableSchools.length > 0) {
+      const assignmentData = assignableSchools.map(schoolId => ({
+        red_id: networkId,
+        school_id: schoolId,
+        agregado_por: adminId,
+        fecha_agregada: new Date().toISOString()
+      }));
+
+      const { data: insertResult, error: bulkInsertError } = await supabase
+        .from('red_escuelas')
+        .insert(assignmentData)
+        .select('school_id');
+
+      if (bulkInsertError) {
+        console.error('Error bulk assigning schools:', bulkInsertError);
+        return res.status(500).json({ 
+          error: 'Error al asignar escuelas en lote',
+          details: bulkInsertError.message 
+        });
+      }
+
+      assignedCount = insertResult?.length || 0;
+      console.log(`✅ Successfully assigned ${assignedCount} schools to network ${network.nombre}`);
+    }
+
+    // Step 6: Build comprehensive response
+    const response: any = {
+      success: true,
+      network_name: network.nombre,
+      summary: {
+        total_processed: schoolIds.length,
+        newly_assigned: assignedCount,
+        already_assigned: alreadyAssignedToTarget.length,
+        conflicts: assignedToOtherNetworks.length
+      }
+    };
+
+    // Add detailed breakdown if requested
+    if (assignableSchools.length > 0) {
+      const assignedSchoolNames = assignableSchools
+        .map(id => schoolMap.get(id)?.name || 'Unknown')
+        .filter(name => name !== 'Unknown');
+      response.assigned_schools = assignedSchoolNames;
+    }
+
+    if (alreadyAssignedToTarget.length > 0) {
+      response.already_assigned_schools = alreadyAssignedToTarget.map(s => s.name);
+    }
+
+    if (assignedToOtherNetworks.length > 0) {
+      response.conflicted_schools = assignedToOtherNetworks.map(s => ({
+        name: s.name,
+        current_network: s.network
+      }));
+    }
+
+    // Step 7: Generate user-friendly message
+    const messages: string[] = [];
+    
+    if (assignedCount > 0) {
+      messages.push(`✅ ${assignedCount} escuela${assignedCount !== 1 ? 's' : ''} asignada${assignedCount !== 1 ? 's' : ''} exitosamente`);
+    }
+
+    if (alreadyAssignedToTarget.length > 0) {
+      messages.push(`ℹ️ ${alreadyAssignedToTarget.length} escuela${alreadyAssignedToTarget.length !== 1 ? 's' : ''} ya estaba${alreadyAssignedToTarget.length !== 1 ? 'n' : ''} asignada${alreadyAssignedToTarget.length !== 1 ? 's' : ''} a esta red`);
+    }
+
+    if (assignedToOtherNetworks.length > 0) {
+      messages.push(`⚠️ ${assignedToOtherNetworks.length} escuela${assignedToOtherNetworks.length !== 1 ? 's' : ''} omitida${assignedToOtherNetworks.length !== 1 ? 's' : ''} (asignada${assignedToOtherNetworks.length !== 1 ? 's' : ''} a otra${assignedToOtherNetworks.length !== 1 ? 's' : ''} red${assignedToOtherNetworks.length !== 1 ? 'es' : ''})`);
+    }
+
+    response.message = messages.join(', ') || 'Operación completada';
+
+    // Return appropriate status code
+    if (assignedCount > 0) {
+      return res.status(200).json(response); // Partial or full success
+    } else if (alreadyAssignedToTarget.length > 0) {
+      return res.status(200).json(response); // All schools already assigned (OK)
+    } else {
+      return res.status(409).json({
+        ...response,
+        success: false,
+        error: 'No se pudieron asignar escuelas debido a conflictos existentes'
+      });
+    }
+
   } catch (error) {
     console.error('Error in handleBulkAssignSchools:', error);
-    return res.status(500).json({ error: 'Error al asignar escuelas en lote' });
+    return res.status(500).json({ 
+      error: 'Error interno al procesar asignación en lote',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 }

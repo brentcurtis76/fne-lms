@@ -392,13 +392,53 @@ const NetworkManagementPage: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
-        toast.success(data.message || 'Escuelas asignadas exitosamente');
+        // Handle enhanced API response with detailed feedback
+        const { message, summary, assigned_schools, already_assigned_schools, conflicted_schools } = data;
+        
+        // Show main success message
+        toast.success(message || 'Operación completada');
+        
+        // Show detailed breakdown if available
+        if (summary) {
+          console.log('📊 Assignment Summary:', summary);
+          
+          // Additional detailed notifications for transparency
+          if (assigned_schools && assigned_schools.length > 0) {
+            console.log('✅ Newly assigned schools:', assigned_schools);
+          }
+          
+          if (already_assigned_schools && already_assigned_schools.length > 0) {
+            console.log('ℹ️ Already assigned schools:', already_assigned_schools);
+          }
+          
+          if (conflicted_schools && conflicted_schools.length > 0) {
+            console.log('⚠️ Conflicted schools:', conflicted_schools);
+            // Show warning toast for conflicts
+            const conflictNames = conflicted_schools.map((s: any) => `${s.name} (${s.current_network})`).join(', ');
+            toast.warn(`Escuelas omitidas por conflictos: ${conflictNames}`, { duration: 8000 });
+          }
+        }
+        
         setShowSchoolModal(false);
         setSelectedSchools([]);
         setSelectedNetwork(null);
         fetchNetworks();
       } else {
-        toast.error(data.error || 'Error al asignar escuelas');
+        // Handle error response - could be partial success with conflicts
+        if (response.status === 409 && data.summary) {
+          // Show warning for conflict-only scenario
+          toast.warn(data.error || 'Algunas escuelas no pudieron ser asignadas');
+          
+          if (data.conflicted_schools && data.conflicted_schools.length > 0) {
+            const conflictDetails = data.conflicted_schools
+              .map((s: any) => `${s.name} → ${s.current_network}`)
+              .join(', ');
+            console.log('⚠️ Detailed conflicts:', conflictDetails);
+          }
+        } else {
+          // Standard error handling
+          toast.error(data.error || 'Error al asignar escuelas');
+        }
       }
     } catch (error) {
       console.error('Error assigning schools:', error);

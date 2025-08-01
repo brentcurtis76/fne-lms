@@ -20,11 +20,24 @@ export function validateEnvironment(): EnvironmentStatus {
   // TEMPORARY FIX: Skip validation on client-side to restore navigation panel
   // See CLAUDE.md for full context on this critical bug
   if (typeof window !== 'undefined') {
+    // Phase 2: Add diagnostic logging to understand env var behavior
+    console.log('[ENV DIAGNOSTIC] Client-side environment analysis:');
+    console.log('- Direct access SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) + '...');
+    console.log('- Direct access ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 30) + '...');
+    console.log('- Bracket access SUPABASE_URL:', process.env['NEXT_PUBLIC_SUPABASE_URL']);
+    console.log('- Bracket access ANON_KEY:', process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY']);
+    console.log('- process.env keys:', Object.keys(process.env || {}));
+    console.log('- Window location:', window.location.href);
+    
+    // Determine actual environment for client
+    const actualEnv = process.env.NEXT_PUBLIC_SUPABASE_URL === PRODUCTION_SUPABASE_URL ? 'production' : 'unknown';
+    console.log('- Detected environment:', actualEnv);
+    
     // Client-side: Return valid status to prevent breaking navigation
     // The env vars ARE available, but process.env[varName] doesn't work in browser
     return {
       isValid: true,
-      environment: 'production' as 'production' | 'test' | 'unknown',
+      environment: actualEnv as 'production' | 'test' | 'unknown',
       warnings: [],
       errors: []
     };

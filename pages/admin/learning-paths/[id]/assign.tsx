@@ -67,6 +67,7 @@ export default function AssignLearningPath() {
   const [searchingUsers, setSearchingUsers] = useState(false);
   const [searchingGroups, setSearchingGroups] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  const [unassigning, setUnassigning] = useState(false);
   
   // Refs for infinite scroll
   const userScrollRef = useRef<HTMLDivElement>(null);
@@ -336,6 +337,56 @@ export default function AssignLearningPath() {
     }
   };
 
+  const handleUnassign = async (userId?: string, groupId?: string) => {
+    if (!learningPath) return;
+
+    setUnassigning(true);
+    const loadingToast = toast.loading('Desasignando ruta de aprendizaje...');
+
+    try {
+      const response = await fetch('/api/learning-paths/unassign', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pathId: learningPath.id,
+          userIds: userId ? [userId] : undefined,
+          groupIds: groupId ? [groupId] : undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Failed to unassign learning path');
+      }
+
+      const result = await response.json();
+      
+      toast.success(
+        `Ruta desasignada exitosamente: ${result.unassigned_count} desasignaciones`, 
+        { id: loadingToast }
+      );
+      
+      // Refresh assignment counts
+      await loadAssignmentCounts(pathId as string);
+      
+      // Refresh search results to show updated assignment status
+      if (userSearchQuery) {
+        await searchAssignees('users', userSearchQuery, 1, false);
+      }
+      if (groupSearchQuery) {
+        await searchAssignees('groups', groupSearchQuery, 1, false);
+      }
+      
+    } catch (error: any) {
+      console.error('Error unassigning learning path:', error);
+      toast.error(error.message || 'Error al desasignar la ruta de aprendizaje', { id: loadingToast });
+    } finally {
+      setUnassigning(false);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
@@ -490,9 +541,22 @@ export default function AssignLearningPath() {
                                       </p>
                                     </div>
                                     {user.isAlreadyAssigned && (
-                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                        Asignado
-                                      </span>
+                                      <div className="flex items-center space-x-2">
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                          Asignado
+                                        </span>
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleUnassign(user.id);
+                                          }}
+                                          disabled={unassigning}
+                                          className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                          Desasignar
+                                        </button>
+                                      </div>
                                     )}
                                   </div>
                                 </div>
@@ -580,9 +644,22 @@ export default function AssignLearningPath() {
                                         {group.member_count || 0} miembros
                                       </span>
                                       {group.isAlreadyAssigned && (
-                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                          Asignado
-                                        </span>
+                                        <div className="flex items-center space-x-2">
+                                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                            Asignado
+                                          </span>
+                                          <button
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              handleUnassign(undefined, group.id);
+                                            }}
+                                            disabled={unassigning}
+                                            className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                          >
+                                            Desasignar
+                                          </button>
+                                        </div>
                                       )}
                                     </div>
                                   </div>

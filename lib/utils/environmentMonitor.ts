@@ -17,46 +17,83 @@ export interface EnvironmentStatus {
 }
 
 export function validateEnvironment(): EnvironmentStatus {
-  // TEMPORARY FIX: Skip validation on client-side to restore navigation panel
-  // See CLAUDE.md for full context on this critical bug
+  // Phase 3: Implement proper client-side validation
+  // Diagnostics proved both direct and bracket access work in Next.js
   if (typeof window !== 'undefined') {
-    // Phase 2: Add diagnostic logging to understand env var behavior
-    console.log('[ENV DIAGNOSTIC] Client-side environment analysis:');
-    console.log('- Direct access SUPABASE_URL:', process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 30) + '...');
-    console.log('- Direct access ANON_KEY:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.substring(0, 30) + '...');
-    console.log('- Bracket access SUPABASE_URL:', process.env['NEXT_PUBLIC_SUPABASE_URL']);
-    console.log('- Bracket access ANON_KEY:', process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY']);
-    console.log('- process.env keys:', Object.keys(process.env || {}));
-    console.log('- Window location:', window.location.href);
+    const warnings: string[] = [];
+    const errors: string[] = [];
     
-    // Determine actual environment for client
-    const actualEnv = process.env.NEXT_PUBLIC_SUPABASE_URL === PRODUCTION_SUPABASE_URL ? 'production' : 'unknown';
-    console.log('- Detected environment:', actualEnv);
+    // Get environment variables using direct access (confirmed working)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     
-    // Client-side: Return valid status to prevent breaking navigation
-    // The env vars ARE available, but process.env[varName] doesn't work in browser
+    // Validate required variables
+    if (!supabaseUrl) {
+      errors.push('Missing required environment variable: NEXT_PUBLIC_SUPABASE_URL');
+    }
+    
+    if (!supabaseAnonKey) {
+      errors.push('Missing required environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY');
+    }
+    
+    // Determine environment
+    let environment: 'production' | 'test' | 'unknown' = 'unknown';
+    
+    if (supabaseUrl === PRODUCTION_SUPABASE_URL) {
+      environment = 'production';
+    } else if (TEST_SUPABASE_URLS.some(testUrl => supabaseUrl?.includes(testUrl.replace('http://', '').replace('https://', '')))) {
+      environment = 'test';
+      warnings.push('Application is configured for TEST environment');
+    } else if (supabaseUrl) {
+      environment = 'unknown';
+      warnings.push(`Unknown Supabase URL: ${supabaseUrl}`);
+    }
+    
+    const isValid = errors.length === 0;
+    
+    // Only log issues if there are actual problems
+    if (!isValid || environment === 'test') {
+      console.warn('🔧 Environment Issue Detected:', {
+        environment,
+        warnings,
+        errors
+      });
+      
+      if (errors.length > 0) {
+        console.error('❌ Environment Errors:', errors);
+        errors.forEach((error, index) => {
+          console.error(`   Error ${index + 1}: ${error}`);
+        });
+      }
+      
+      if (environment === 'test') {
+        console.warn('⚠️  Application is using TEST database - data may not load correctly');
+      }
+    }
+    
     return {
-      isValid: true,
-      environment: actualEnv as 'production' | 'test' | 'unknown',
-      warnings: [],
-      errors: []
-    };
-  }
-
-  // Server-side validation continues as normal
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const warnings: string[] = [];
-  const errors: string[] = [];
-  
-  // Check if Supabase URL is defined
-  if (!supabaseUrl) {
-    errors.push('NEXT_PUBLIC_SUPABASE_URL is not defined');
-    return {
-      isValid: false,
-      environment: 'unknown',
+      isValid,
+      environment,
       warnings,
       errors
     };
+  }
+
+  // Server-side validation - use same logic as client-side
+  const warnings: string[] = [];
+  const errors: string[] = [];
+  
+  // Get environment variables
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  // Validate required variables
+  if (!supabaseUrl) {
+    errors.push('Missing required environment variable: NEXT_PUBLIC_SUPABASE_URL');
+  }
+  
+  if (!supabaseAnonKey) {
+    errors.push('Missing required environment variable: NEXT_PUBLIC_SUPABASE_ANON_KEY');
   }
   
   // Determine environment
@@ -64,24 +101,12 @@ export function validateEnvironment(): EnvironmentStatus {
   
   if (supabaseUrl === PRODUCTION_SUPABASE_URL) {
     environment = 'production';
-  } else if (TEST_SUPABASE_URLS.some(testUrl => supabaseUrl.includes(testUrl.replace('http://', '').replace('https://', '')))) {
+  } else if (TEST_SUPABASE_URLS.some(testUrl => supabaseUrl?.includes(testUrl.replace('http://', '').replace('https://', '')))) {
     environment = 'test';
     warnings.push('Application is configured for TEST environment');
-  } else {
+  } else if (supabaseUrl) {
     environment = 'unknown';
     warnings.push(`Unknown Supabase URL: ${supabaseUrl}`);
-  }
-  
-  // Check for required environment variables
-  const requiredVars = [
-    'NEXT_PUBLIC_SUPABASE_URL',
-    'NEXT_PUBLIC_SUPABASE_ANON_KEY'
-  ];
-  
-  for (const varName of requiredVars) {
-    if (!process.env[varName]) {
-      errors.push(`Missing required environment variable: ${varName}`);
-    }
   }
   
   const isValid = errors.length === 0;

@@ -1,26 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
 import MainLayout from '../../../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 import { getUserPrimaryRole } from '../../../../utils/roleUtils';
-import { ChevronLeft, UserPlus, Users } from 'lucide-react';
+import { ChevronLeft, UserPlus, Users, X } from 'lucide-react';
 import { LearningPath } from '../../../../types/learningPaths';
 import { SearchIcon, XIcon } from '@heroicons/react/solid';
+import useDebounce from '../../../../hooks/useDebounce';
 
-interface User {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-}
-
-interface Group {
+interface SearchResult {
   id: string;
   name: string;
+  email?: string;
   description?: string;
   member_count?: number;
+  isAlreadyAssigned: boolean;
+}
+
+interface SelectedAssignee {
+  id: string;
+  name: string;
+  type: 'user' | 'group';
+  email?: string;
+  description?: string;
 }
 
 export default function AssignLearningPath() {
@@ -36,61 +40,58 @@ export default function AssignLearningPath() {
   // Learning path state
   const [learningPath, setLearningPath] = useState<LearningPath | null>(null);
   
-  // Selection state
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
+  // Selection state - now storing full assignee objects
+  const [selectedAssignees, setSelectedAssignees] = useState<SelectedAssignee[]>([]);
   const [activeTab, setActiveTab] = useState<'users' | 'groups'>('users');
   
-  // User/Group lists
-  const [allUsers, setAllUsers] = useState<User[]>([]);
-  const [allGroups, setAllGroups] = useState<Group[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-  const [filteredGroups, setFilteredGroups] = useState<Group[]>([]);
+  // Search state
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [groupSearchQuery, setGroupSearchQuery] = useState('');
+  const debouncedUserQuery = useDebounce(userSearchQuery, 300);
+  const debouncedGroupQuery = useDebounce(groupSearchQuery, 300);
   
-  // Loading state
+  // Search results
+  const [userSearchResults, setUserSearchResults] = useState<SearchResult[]>([]);
+  const [groupSearchResults, setGroupSearchResults] = useState<SearchResult[]>([]);
+  const [userPage, setUserPage] = useState(1);
+  const [groupPage, setGroupPage] = useState(1);
+  const [hasMoreUsers, setHasMoreUsers] = useState(false);
+  const [hasMoreGroups, setHasMoreGroups] = useState(false);
+  
+  // Loading states
   const [loading, setLoading] = useState(true);
+  const [searchingUsers, setSearchingUsers] = useState(false);
+  const [searchingGroups, setSearchingGroups] = useState(false);
   const [assigning, setAssigning] = useState(false);
+  
+  // Refs for infinite scroll
+  const userScrollRef = useRef<HTMLDivElement>(null);
+  const groupScrollRef = useRef<HTMLDivElement>(null);
 
+  // Check authentication and load learning path
   useEffect(() => {
     if (router.isReady && pathId) {
-      checkAuthAndLoadData();
+      checkAuthAndLoadPath();
     }
   }, [router.isReady, pathId]);
 
+  // Search users when debounced query changes
   useEffect(() => {
-    // Filter users based on search query
-    if (userSearchQuery) {
-      const query = userSearchQuery.toLowerCase();
-      setFilteredUsers(
-        allUsers.filter(user => 
-          user.first_name.toLowerCase().includes(query) ||
-          user.last_name.toLowerCase().includes(query) ||
-          user.email.toLowerCase().includes(query)
-        )
-      );
-    } else {
-      setFilteredUsers(allUsers);
+    if (debouncedUserQuery !== undefined) {
+      setUserPage(1);
+      searchAssignees('users', debouncedUserQuery, 1);
     }
-  }, [userSearchQuery, allUsers]);
+  }, [debouncedUserQuery]);
 
+  // Search groups when debounced query changes
   useEffect(() => {
-    // Filter groups based on search query
-    if (groupSearchQuery) {
-      const query = groupSearchQuery.toLowerCase();
-      setFilteredGroups(
-        allGroups.filter(group => 
-          group.name.toLowerCase().includes(query) ||
-          (group.description && group.description.toLowerCase().includes(query))
-        )
-      );
-    } else {
-      setFilteredGroups(allGroups);
+    if (debouncedGroupQuery !== undefined) {
+      setGroupPage(1);
+      searchAssignees('groups', debouncedGroupQuery, 1);
     }
-  }, [groupSearchQuery, allGroups]);
+  }, [debouncedGroupQuery]);
 
-  const checkAuthAndLoadData = async () => {
+  const checkAuthAndLoadPath = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -132,47 +133,6 @@ export default function AssignLearningPath() {
       const pathData: LearningPath = await pathResponse.json();
       setLearningPath(pathData);
       
-      // Load users
-      const { data: users, error: usersError } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, email')
-        .order('first_name');
-      
-      if (usersError) throw usersError;
-      
-      setAllUsers(users || []);
-      setFilteredUsers(users || []);
-      
-      // Load groups
-      const { data: groups, error: groupsError } = await supabase
-        .from('groups')
-        .select('id, name, description')
-        .order('name');
-      
-      if (groupsError) throw groupsError;
-      
-      // Get member counts for groups
-      if (groups && groups.length > 0) {
-        const { data: memberCounts } = await supabase
-          .from('user_roles')
-          .select('community_id')
-          .in('community_id', groups.map(g => g.id))
-          .eq('is_active', true);
-        
-        const countMap = memberCounts?.reduce((acc: any, item: any) => {
-          acc[item.community_id] = (acc[item.community_id] || 0) + 1;
-          return acc;
-        }, {}) || {};
-        
-        const groupsWithCounts = groups.map(group => ({
-          ...group,
-          member_count: countMap[group.id] || 0
-        }));
-        
-        setAllGroups(groupsWithCounts);
-        setFilteredGroups(groupsWithCounts);
-      }
-      
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Error al cargar los datos');
@@ -182,8 +142,105 @@ export default function AssignLearningPath() {
     }
   };
 
+  const searchAssignees = async (
+    searchType: 'users' | 'groups',
+    query: string,
+    page: number,
+    append: boolean = false
+  ) => {
+    const setSearching = searchType === 'users' ? setSearchingUsers : setSearchingGroups;
+    const setResults = searchType === 'users' ? setUserSearchResults : setGroupSearchResults;
+    const setHasMore = searchType === 'users' ? setHasMoreUsers : setHasMoreGroups;
+    
+    setSearching(true);
+    
+    try {
+      const response = await fetch('/api/learning-paths/search-assignees', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          pathId: pathId as string,
+          searchType,
+          query,
+          page,
+          pageSize: 20
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to search assignees');
+      }
+
+      const data = await response.json();
+      
+      if (append) {
+        setResults(prev => [...prev, ...data.results]);
+      } else {
+        setResults(data.results);
+      }
+      
+      setHasMore(data.hasMore);
+      
+    } catch (error: any) {
+      console.error('Error searching assignees:', error);
+      toast.error('Error al buscar');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleScroll = useCallback((searchType: 'users' | 'groups') => {
+    const scrollRef = searchType === 'users' ? userScrollRef : groupScrollRef;
+    const hasMore = searchType === 'users' ? hasMoreUsers : hasMoreGroups;
+    const isSearching = searchType === 'users' ? searchingUsers : searchingGroups;
+    const currentPage = searchType === 'users' ? userPage : groupPage;
+    const setPage = searchType === 'users' ? setUserPage : setGroupPage;
+    const query = searchType === 'users' ? debouncedUserQuery : debouncedGroupQuery;
+    
+    if (!scrollRef.current || !hasMore || isSearching) return;
+    
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    
+    if (scrollTop + clientHeight >= scrollHeight - 100) {
+      const nextPage = currentPage + 1;
+      setPage(nextPage);
+      searchAssignees(searchType, query, nextPage, true);
+    }
+  }, [hasMoreUsers, hasMoreGroups, searchingUsers, searchingGroups, userPage, groupPage, debouncedUserQuery, debouncedGroupQuery]);
+
+  const toggleAssigneeSelection = (result: SearchResult, type: 'user' | 'group') => {
+    if (result.isAlreadyAssigned) return;
+    
+    const assigneeIndex = selectedAssignees.findIndex(a => a.id === result.id && a.type === type);
+    
+    if (assigneeIndex >= 0) {
+      // Remove from selection
+      setSelectedAssignees(prev => prev.filter((_, index) => index !== assigneeIndex));
+    } else {
+      // Add to selection
+      const newAssignee: SelectedAssignee = {
+        id: result.id,
+        name: result.name,
+        type,
+        email: result.email,
+        description: result.description
+      };
+      setSelectedAssignees(prev => [...prev, newAssignee]);
+    }
+  };
+
+  const removeFromSelection = (assigneeId: string, type: 'user' | 'group') => {
+    setSelectedAssignees(prev => prev.filter(a => !(a.id === assigneeId && a.type === type)));
+  };
+
+  const clearSelections = () => {
+    setSelectedAssignees([]);
+  };
+
   const handleAssign = async () => {
-    if (selectedUsers.length === 0 && selectedGroups.length === 0) {
+    if (selectedAssignees.length === 0) {
       toast.error('Debes seleccionar al menos un usuario o grupo');
       return;
     }
@@ -192,6 +249,9 @@ export default function AssignLearningPath() {
     const loadingToast = toast.loading('Asignando ruta de aprendizaje...');
     
     try {
+      const userIds = selectedAssignees.filter(a => a.type === 'user').map(a => a.id);
+      const groupIds = selectedAssignees.filter(a => a.type === 'group').map(a => a.id);
+      
       const response = await fetch('/api/learning-paths/batch-assign', {
         method: 'POST',
         headers: {
@@ -199,8 +259,8 @@ export default function AssignLearningPath() {
         },
         body: JSON.stringify({
           pathId: pathId as string,
-          userIds: selectedUsers,
-          groupIds: selectedGroups
+          userIds,
+          groupIds
         }),
       });
 
@@ -228,27 +288,6 @@ export default function AssignLearningPath() {
     }
   };
 
-  const toggleUserSelection = (userId: string) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    );
-  };
-
-  const toggleGroupSelection = (groupId: string) => {
-    setSelectedGroups(prev => 
-      prev.includes(groupId) 
-        ? prev.filter(id => id !== groupId)
-        : [...prev, groupId]
-    );
-  };
-
-  const clearSelections = () => {
-    setSelectedUsers([]);
-    setSelectedGroups([]);
-  };
-
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
@@ -264,6 +303,9 @@ export default function AssignLearningPath() {
       </div>
     );
   }
+
+  const selectedUserCount = selectedAssignees.filter(a => a.type === 'user').length;
+  const selectedGroupCount = selectedAssignees.filter(a => a.type === 'group').length;
 
   return (
     <MainLayout
@@ -283,216 +325,321 @@ export default function AssignLearningPath() {
         <title>Asignar Ruta de Aprendizaje</title>
       </Head>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={() => router.push('/admin/learning-paths')}
-            className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
-          >
-            <ChevronLeft className="h-4 w-4 mr-1" />
-            Volver a Rutas de Aprendizaje
-          </button>
-          
-          <h1 className="text-3xl font-bold text-brand_blue">
-            Asignar Ruta de Aprendizaje
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Asignando: <span className="font-semibold">{learningPath.name}</span>
-          </p>
-        </div>
-
-        {/* Selection Summary */}
-        {(selectedUsers.length > 0 || selectedGroups.length > 0) && (
-          <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className="text-sm font-medium text-blue-900">
-                  Selección actual
-                </h3>
-                <p className="text-sm text-blue-700 mt-1">
-                  {selectedUsers.length > 0 && `${selectedUsers.length} usuarios`}
-                  {selectedUsers.length > 0 && selectedGroups.length > 0 && ', '}
-                  {selectedGroups.length > 0 && `${selectedGroups.length} grupos`}
-                </p>
-              </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex gap-6">
+          {/* Main Content */}
+          <div className="flex-1">
+            {/* Header */}
+            <div className="mb-8">
               <button
-                onClick={clearSelections}
-                className="text-sm text-blue-600 hover:text-blue-700"
+                onClick={() => router.push('/admin/learning-paths')}
+                className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4"
               >
-                Limpiar selección
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Volver a Rutas de Aprendizaje
               </button>
+              
+              <h1 className="text-3xl font-bold text-brand_blue">
+                Asignar Ruta de Aprendizaje
+              </h1>
+              <p className="mt-2 text-gray-600">
+                Asignando: <span className="font-semibold">{learningPath.name}</span>
+              </p>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="border-b border-gray-200 mb-6">
+              <nav className="-mb-px flex space-x-8">
+                <button
+                  onClick={() => setActiveTab('users')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'users'
+                      ? 'border-brand_blue text-brand_blue'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <UserPlus className="h-4 w-4 inline mr-2" />
+                  Usuarios ({selectedUserCount})
+                </button>
+                <button
+                  onClick={() => setActiveTab('groups')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    activeTab === 'groups'
+                      ? 'border-brand_blue text-brand_blue'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <Users className="h-4 w-4 inline mr-2" />
+                  Grupos ({selectedGroupCount})
+                </button>
+              </nav>
+            </div>
+
+            {/* Content */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              {activeTab === 'users' ? (
+                <div>
+                  {/* User Search */}
+                  <div className="relative mb-4">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <SearchIcon className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      value={userSearchQuery}
+                      onChange={(e) => setUserSearchQuery(e.target.value)}
+                      placeholder="Buscar usuarios por nombre o email..."
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-brand_blue focus:border-brand_blue sm:text-sm"
+                    />
+                  </div>
+
+                  {/* User List */}
+                  <div 
+                    ref={userScrollRef}
+                    onScroll={() => handleScroll('users')}
+                    className="space-y-2 max-h-[400px] overflow-y-auto"
+                  >
+                    {searchingUsers && userSearchResults.length === 0 ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand_blue mx-auto"></div>
+                        <p className="mt-2 text-gray-500">Buscando usuarios...</p>
+                      </div>
+                    ) : userSearchResults.length === 0 ? (
+                      <p className="text-gray-500 text-center py-8">
+                        {userSearchQuery ? 'No se encontraron usuarios' : 'Ingresa un término de búsqueda'}
+                      </p>
+                    ) : (
+                      <>
+                        {userSearchResults.map((user) => {
+                          const isSelected = selectedAssignees.some(a => a.id === user.id && a.type === 'user');
+                          return (
+                            <label
+                              key={user.id}
+                              className={`block p-3 border rounded-lg transition-colors ${
+                                user.isAlreadyAssigned 
+                                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed' 
+                                  : isSelected 
+                                    ? 'border-brand_blue bg-blue-50 cursor-pointer' 
+                                    : 'border-gray-200 hover:border-gray-300 cursor-pointer'
+                              }`}
+                            >
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  disabled={user.isAlreadyAssigned}
+                                  onChange={() => toggleAssigneeSelection(user, 'user')}
+                                  className="h-4 w-4 text-brand_blue focus:ring-brand_blue border-gray-300 rounded disabled:opacity-50"
+                                />
+                                <div className="ml-3 flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {user.name}
+                                      </p>
+                                      <p className="text-sm text-gray-500">
+                                        {user.email}
+                                      </p>
+                                    </div>
+                                    {user.isAlreadyAssigned && (
+                                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                        Asignado
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </label>
+                          );
+                        })}
+                        {searchingUsers && (
+                          <div className="text-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-brand_blue mx-auto"></div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  {/* Group Search */}
+                  <div className="relative mb-4">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <SearchIcon className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      value={groupSearchQuery}
+                      onChange={(e) => setGroupSearchQuery(e.target.value)}
+                      placeholder="Buscar grupos por nombre..."
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-brand_blue focus:border-brand_blue sm:text-sm"
+                    />
+                  </div>
+
+                  {/* Group List */}
+                  <div 
+                    ref={groupScrollRef}
+                    onScroll={() => handleScroll('groups')}
+                    className="space-y-2 max-h-[400px] overflow-y-auto"
+                  >
+                    {searchingGroups && groupSearchResults.length === 0 ? (
+                      <div className="text-center py-8">
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-brand_blue mx-auto"></div>
+                        <p className="mt-2 text-gray-500">Buscando grupos...</p>
+                      </div>
+                    ) : groupSearchResults.length === 0 ? (
+                      <p className="text-gray-500 text-center py-8">
+                        {groupSearchQuery ? 'No se encontraron grupos' : 'Ingresa un término de búsqueda'}
+                      </p>
+                    ) : (
+                      <>
+                        {groupSearchResults.map((group) => {
+                          const isSelected = selectedAssignees.some(a => a.id === group.id && a.type === 'group');
+                          return (
+                            <label
+                              key={group.id}
+                              className={`block p-3 border rounded-lg transition-colors ${
+                                group.isAlreadyAssigned 
+                                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed' 
+                                  : isSelected 
+                                    ? 'border-brand_blue bg-blue-50 cursor-pointer' 
+                                    : 'border-gray-200 hover:border-gray-300 cursor-pointer'
+                              }`}
+                            >
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  disabled={group.isAlreadyAssigned}
+                                  onChange={() => toggleAssigneeSelection(group, 'group')}
+                                  className="h-4 w-4 text-brand_blue focus:ring-brand_blue border-gray-300 rounded disabled:opacity-50"
+                                />
+                                <div className="ml-3 flex-1">
+                                  <div className="flex items-center justify-between">
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {group.name}
+                                      </p>
+                                      {group.description && (
+                                        <p className="text-sm text-gray-500 mt-1">
+                                          {group.description}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-xs text-gray-500">
+                                        {group.member_count || 0} miembros
+                                      </span>
+                                      {group.isAlreadyAssigned && (
+                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                          Asignado
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </label>
+                          );
+                        })}
+                        {searchingGroups && (
+                          <div className="text-center py-4">
+                            <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-brand_blue mx-auto"></div>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
-        )}
 
-        {/* Tab Navigation */}
-        <div className="border-b border-gray-200 mb-6">
-          <nav className="-mb-px flex space-x-8">
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'users'
-                  ? 'border-brand_blue text-brand_blue'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <UserPlus className="h-4 w-4 inline mr-2" />
-              Usuarios ({selectedUsers.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('groups')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'groups'
-                  ? 'border-brand_blue text-brand_blue'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
-            >
-              <Users className="h-4 w-4 inline mr-2" />
-              Grupos ({selectedGroups.length})
-            </button>
-          </nav>
-        </div>
-
-        {/* Content */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          {activeTab === 'users' ? (
-            <div>
-              {/* User Search */}
-              <div className="relative mb-4">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <SearchIcon className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  value={userSearchQuery}
-                  onChange={(e) => setUserSearchQuery(e.target.value)}
-                  placeholder="Buscar usuarios..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-brand_blue focus:border-brand_blue sm:text-sm"
-                />
-              </div>
-
-              {/* User List */}
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                {filteredUsers.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">
-                    No se encontraron usuarios
-                  </p>
-                ) : (
-                  filteredUsers.map((user) => {
-                    const isSelected = selectedUsers.includes(user.id);
-                    return (
-                      <label
-                        key={user.id}
-                        className={`block p-3 border rounded-lg cursor-pointer transition-colors ${
-                          isSelected 
-                            ? 'border-brand_blue bg-blue-50' 
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
+          {/* Assignment Summary Sidebar */}
+          <div className="w-80">
+            <div className="bg-white rounded-lg shadow-sm p-6 sticky top-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Resumen de Asignación
+              </h3>
+              
+              {selectedAssignees.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">
+                  No has seleccionado ningún usuario o grupo
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                    {selectedAssignees.map((assignee) => (
+                      <div
+                        key={`${assignee.type}-${assignee.id}`}
+                        className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
                       >
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleUserSelection(user.id)}
-                            className="h-4 w-4 text-brand_blue focus:ring-brand_blue border-gray-300 rounded"
-                          />
-                          <div className="ml-3">
-                            <p className="text-sm font-medium text-gray-900">
-                              {user.first_name} {user.last_name}
+                        <div className="flex items-center space-x-2 flex-1 min-w-0">
+                          {assignee.type === 'user' ? (
+                            <UserPlus className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                          ) : (
+                            <Users className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {assignee.name}
                             </p>
-                            <p className="text-sm text-gray-500">
-                              {user.email}
-                            </p>
-                          </div>
-                        </div>
-                      </label>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          ) : (
-            <div>
-              {/* Group Search */}
-              <div className="relative mb-4">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <SearchIcon className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  value={groupSearchQuery}
-                  onChange={(e) => setGroupSearchQuery(e.target.value)}
-                  placeholder="Buscar grupos..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-brand_blue focus:border-brand_blue sm:text-sm"
-                />
-              </div>
-
-              {/* Group List */}
-              <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                {filteredGroups.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">
-                    No se encontraron grupos
-                  </p>
-                ) : (
-                  filteredGroups.map((group) => {
-                    const isSelected = selectedGroups.includes(group.id);
-                    return (
-                      <label
-                        key={group.id}
-                        className={`block p-3 border rounded-lg cursor-pointer transition-colors ${
-                          isSelected 
-                            ? 'border-brand_blue bg-blue-50' 
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleGroupSelection(group.id)}
-                            className="h-4 w-4 text-brand_blue focus:ring-brand_blue border-gray-300 rounded"
-                          />
-                          <div className="ml-3 flex-1">
-                            <div className="flex items-center justify-between">
-                              <p className="text-sm font-medium text-gray-900">
-                                {group.name}
-                              </p>
-                              <span className="text-xs text-gray-500">
-                                {group.member_count || 0} miembros
-                              </span>
-                            </div>
-                            {group.description && (
-                              <p className="text-sm text-gray-500 mt-1">
-                                {group.description}
+                            {assignee.email && (
+                              <p className="text-xs text-gray-500 truncate">
+                                {assignee.email}
                               </p>
                             )}
                           </div>
                         </div>
-                      </label>
-                    );
-                  })
-                )}
+                        <button
+                          onClick={() => removeFromSelection(assignee.id, assignee.type)}
+                          className="ml-2 p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus:text-gray-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="text-sm text-gray-600 space-y-1">
+                      {selectedUserCount > 0 && (
+                        <p>{selectedUserCount} usuario{selectedUserCount !== 1 ? 's' : ''}</p>
+                      )}
+                      {selectedGroupCount > 0 && (
+                        <p>{selectedGroupCount} grupo{selectedGroupCount !== 1 ? 's' : ''}</p>
+                      )}
+                    </div>
+                    
+                    <button
+                      onClick={clearSelections}
+                      className="mt-3 w-full text-sm text-brand_blue hover:text-brand_blue/80"
+                    >
+                      Limpiar selección
+                    </button>
+                  </div>
+                </>
+              )}
+
+              {/* Action Buttons */}
+              <div className="mt-6 space-y-3">
+                <button
+                  onClick={handleAssign}
+                  disabled={assigning || selectedAssignees.length === 0}
+                  className="w-full inline-flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand_blue hover:bg-brand_blue/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {assigning ? 'Asignando...' : 'Confirmar Asignación'}
+                </button>
+                <button
+                  onClick={() => router.push('/admin/learning-paths')}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue"
+                >
+                  Cancelar
+                </button>
               </div>
             </div>
-          )}
-        </div>
-
-        {/* Action Buttons */}
-        <div className="mt-6 flex justify-end space-x-3">
-          <button
-            onClick={() => router.push('/admin/learning-paths')}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleAssign}
-            disabled={assigning || (selectedUsers.length === 0 && selectedGroups.length === 0)}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand_blue hover:bg-brand_blue/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_blue disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {assigning ? 'Asignando...' : 'Confirmar Asignación'}
-          </button>
+          </div>
         </div>
       </div>
     </MainLayout>

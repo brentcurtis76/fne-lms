@@ -451,7 +451,7 @@ export default function PathDetailsPage({ profileData, user, isAdmin }: PathDeta
 
                     {/* Action button */}
                     <div className="mt-4">
-                      <Link href={`/courses/${course.course_id}`}>
+                      <Link href={`/student/course/${course.course_id}`}>
                         <Button 
                           variant={course.buttonVariant as any}
                           size="sm"

@@ -437,6 +437,35 @@ npm run dev  # MUST be port 3000
 - **Files Modified**: `/pages/api/admin/create-user.ts` (line 47)
 - **Status**: ✅ **DEPLOYED AND VERIFIED** - Admin user creation now works for all admin users
 
+### **CRITICAL BUG FIX: ENVIRONMENT VALIDATION BREAKING NAVIGATION PANEL (August 2025)**
+- **🚨 IN PROGRESS**: Navigation side panel not rendering for ANY users due to false environment validation errors
+- **Issue**: All users (students, teachers, admins) lost their navigation side panel completely
+- **Error Messages**: Console showing "Missing required environment variable: NEXT_PUBLIC_SUPABASE_URL" and "NEXT_PUBLIC_SUPABASE_ANON_KEY"
+- **Root Cause**: `process.env[varName]` doesn't work in browser context - Next.js only replaces literal `process.env.NEXT_PUBLIC_*` at build time
+- **Impact**: 
+  - ALL users unable to navigate the platform (no side menu)
+  - False positive errors in console damaging user confidence
+  - App actually working but validation incorrectly reporting missing env vars
+- **Discovery Process**:
+  - Initial misdiagnosis: Thought it was admin-only issue with enhanced progress panels
+  - Real issue: `_app.tsx:16:33` error from `useEnvironmentValidation()` hook
+  - Hook was calling `validateEnvironment()` synchronously during render
+  - Validation using bracket notation `process.env[varName]` always returns undefined in browser
+- **Phased Fix Approach**:
+  - **Phase 1**: Immediate fix - skip client-side validation to restore navigation
+  - **Phase 2**: Root cause analysis with diagnostic logging
+  - **Phase 3**: Implement proper validation that works in browser context
+  - **Phase 4**: Comprehensive testing across all user roles
+  - **Phase 5**: Documentation and future prevention
+- **Important Next.js Learning**: 
+  - ❌ `process.env[varName]` - Dynamic access doesn't work in browser
+  - ✅ `process.env.NEXT_PUBLIC_VAR` - Direct access works (build-time replacement)
+  - This is a fundamental Next.js limitation that affects all client-side code
+- **Files Modified**: 
+  - `/lib/utils/environmentMonitor.ts` (validation logic)
+  - `/pages/_app.tsx` (where hook is called)
+- **Status**: 🔧 **FIX IDENTIFIED** - Ready to implement phased solution
+
 ### **MAINTENANCE TASKS**
 - ⏳ Quiz review system testing pending
 - ⏳ Group assignments role corrections need SQL application

@@ -143,7 +143,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Search groups (using community_workspaces table)
       let groupQuery = supabaseClient
         .from('community_workspaces')
-        .select('id, name, description', { count: 'exact' });
+        .select('id, name, description, community_id', { count: 'exact' });
 
       // Apply search filter if query is not empty
       if (searchQuery) {
@@ -164,12 +164,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Get member counts and existing assignments
       if (groups && groups.length > 0) {
         const groupIds = groups.map(g => g.id);
+        const communityIds = groups.map(g => g.community_id);
 
-        // Get member counts
+        // Get member counts (using community_id from workspaces)
         const { data: memberCounts } = await supabaseClient
           .from('user_roles')
           .select('community_id')
-          .in('community_id', groupIds)
+          .in('community_id', communityIds)
           .eq('is_active', true);
         
         const countMap = (memberCounts || []).reduce((acc: any, item: any) => {
@@ -191,7 +192,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: group.id,
           name: group.name,
           description: group.description,
-          member_count: countMap[group.id] || 0,
+          member_count: countMap[group.community_id] || 0,
           isAlreadyAssigned: assignedGroupIds.has(group.id)
         }));
       }

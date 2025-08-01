@@ -44,19 +44,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const supabaseClient = await createApiSupabaseClient(req, res);
 
   try {
-    console.log('[search-assignees] User ID:', user.id);
-    console.log('[search-assignees] Request body:', req.body);
-    
     // Check if user has permission to assign learning paths
     const hasPermission = await LearningPathsService.hasManagePermission(
       supabaseClient,
       user.id
     );
     
-    console.log('[search-assignees] User has permission:', hasPermission);
-    
     if (!hasPermission) {
-      console.log('[search-assignees] Permission denied for user:', user.id);
       return res.status(403).json({ 
         error: 'You do not have permission to assign learning paths' 
       });
@@ -66,7 +60,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { pathId, searchType, query, page = 1, pageSize = 20 } = req.body as SearchAssigneesRequest;
 
     if (!pathId || !searchType || typeof query !== 'string') {
-      console.log('[search-assignees] Validation failed:', { pathId, searchType, query, queryType: typeof query });
       return res.status(400).json({ 
         error: 'pathId, searchType, and query are required' 
       });
@@ -218,11 +211,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json(response);
 
   } catch (error: any) {
-    console.error('[search-assignees] Unexpected error:', error);
-    console.error('[search-assignees] Error stack:', error.stack);
+    console.error('Search assignees error:', error);
     return res.status(500).json({ 
-      error: error.message || 'Failed to search assignees',
-      details: error.message 
+      error: error.message || 'Failed to search assignees' 
     });
   }
 }

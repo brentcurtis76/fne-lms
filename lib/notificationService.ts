@@ -151,10 +151,10 @@ class NotificationService {
                 finalRelatedUrl = '/admin/feedback';
                 break;
               case 'assignment_created':
-                finalRelatedUrl = '/tareas';
+                finalRelatedUrl = '/assignments';
                 break;
               case 'course_assigned':
-                finalRelatedUrl = '/cursos';
+                finalRelatedUrl = '/mi-aprendizaje';
                 break;
               default:
                 finalRelatedUrl = '/dashboard';

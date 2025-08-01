@@ -28,23 +28,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const supabaseClient = await createApiSupabaseClient(req, res);
 
-    // Verify user has access to this learning path
-    const { data: assignments, error: assignmentError } = await supabaseClient
-      .from('learning_path_assignments')
-      .select('id, path_id, user_id, group_id')
-      .eq('path_id', pathId)
-      .or(`user_id.eq.${userId},group_id.is.not.null`);
+    // Check if user is admin first - admins have access to everything
+    const { data: userRoles } = await supabaseClient
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId)
+      .eq('is_active', true);
 
-    if (assignmentError || !assignments || assignments.length === 0) {
-      return res.status(403).json({ error: 'You do not have access to this learning path' });
-    }
+    const hasAdminAccess = userRoles?.some(role => 
+      ['admin', 'equipo_directivo', 'consultor'].includes(role.role)
+    );
 
-    // Check if user has direct assignment or belongs to an assigned group
-    const userAssignment = assignments.find(a => a.user_id === userId);
-    const groupAssignments = assignments.filter(a => a.group_id && !a.user_id);
-    
-    if (!userAssignment && groupAssignments.length === 0) {
-      return res.status(403).json({ error: 'You do not have access to this learning path' });
+    if (!hasAdminAccess) {
+      // For non-admin users, verify they have access to this learning path
+      const { data: assignments, error: assignmentError } = await supabaseClient
+        .from('learning_path_assignments')
+        .select('id, path_id, user_id, group_id')
+        .eq('path_id', pathId)
+        .or(`user_id.eq.${userId},group_id.is.not.null`);
+
+      if (assignmentError || !assignments || assignments.length === 0) {
+        return res.status(403).json({ error: 'You do not have access to this learning path' });
+      }
+
+      // Check if user has direct assignment or belongs to an assigned group
+      const userAssignment = assignments.find(a => a.user_id === userId);
+      const groupAssignments = assignments.filter(a => a.group_id && !a.user_id);
+      
+      if (!userAssignment && groupAssignments.length === 0) {
+        return res.status(403).json({ error: 'You do not have access to this learning path' });
+      }
     }
 
     // If courseId is provided, verify it belongs to this path

@@ -21,19 +21,59 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const supabaseClient = await createApiSupabaseClient(req, res);
 
-    // 1. Get user's learning path assignment
-    const { data: assignment, error: assignmentError } = await supabaseClient
-      .from('learning_path_assignments')
-      .select(`
-        *,
-        learning_paths!inner(id, name, description, created_at)
-      `)
+    // Check if user is admin first - admins have access to everything
+    const { data: userRoles } = await supabaseClient
+      .from('user_roles')
+      .select('role')
       .eq('user_id', userId)
-      .eq('path_id', pathId)
-      .single();
+      .eq('is_active', true);
 
-    if (assignmentError || !assignment) {
-      return res.status(404).json({ error: 'Learning path assignment not found' });
+    const hasAdminAccess = userRoles?.some(role => 
+      ['admin', 'equipo_directivo', 'consultor'].includes(role.role)
+    );
+
+    let assignment = null;
+    let learningPath = null;
+
+    if (hasAdminAccess) {
+      // For admins, get the learning path directly without checking assignment
+      const { data: pathData, error: pathError } = await supabaseClient
+        .from('learning_paths')
+        .select('id, name, description, created_at')
+        .eq('id', pathId)
+        .single();
+
+      if (pathError || !pathData) {
+        return res.status(404).json({ error: 'Learning path not found' });
+      }
+
+      learningPath = pathData;
+      // Create a mock assignment for admin access
+      assignment = {
+        id: 'admin-access',
+        user_id: userId,
+        path_id: pathId,
+        assigned_at: new Date().toISOString(),
+        learning_paths: pathData
+      };
+    } else {
+      // For non-admin users, check assignment
+      const { data: assignmentData, error: assignmentError } = await supabaseClient
+        .from('learning_path_assignments')
+        .select(`
+          *,
+          learning_paths!inner(id, name, description, created_at)
+        `)
+        .eq('user_id', userId)
+        .eq('path_id', pathId)
+        .single();
+
+      if (assignmentError || !assignmentData) {
+        return res.status(404).json({ error: 'Learning path assignment not found' });
+      }
+
+      assignment = assignmentData;
+      learningPath = assignmentData.learning_paths;
     }
 
     // 2. Get all courses in this learning path

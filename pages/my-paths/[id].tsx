@@ -64,9 +64,11 @@ interface LearningPathDetails {
 
 interface PathDetailsPageProps {
   profileData: any;
+  user: any;
+  isAdmin: boolean;
 }
 
-export default function PathDetailsPage({ profileData }: PathDetailsPageProps) {
+export default function PathDetailsPage({ profileData, user, isAdmin }: PathDetailsPageProps) {
   const router = useRouter();
   const { id: pathId } = router.query;
   const [pathDetails, setPathDetails] = useState<LearningPathDetails | null>(null);
@@ -189,7 +191,12 @@ export default function PathDetailsPage({ profileData }: PathDetailsPageProps) {
 
   if (loading) {
     return (
-      <MainLayout profileData={profileData}>
+      <MainLayout 
+        user={user} 
+        currentPage="my-paths" 
+        profileData={profileData} 
+        isAdmin={isAdmin}
+      >
         <div className="p-6">
           <div className="flex justify-center items-center h-64">
             <div className="animate-pulse text-navy-600">Cargando detalles de la ruta...</div>
@@ -201,7 +208,12 @@ export default function PathDetailsPage({ profileData }: PathDetailsPageProps) {
 
   if (error || !pathDetails) {
     return (
-      <MainLayout profileData={profileData}>
+      <MainLayout 
+        user={user} 
+        currentPage="my-paths" 
+        profileData={profileData} 
+        isAdmin={isAdmin}
+      >
         <div className="p-6">
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
             {error || 'Ruta de aprendizaje no encontrada'}
@@ -220,7 +232,12 @@ export default function PathDetailsPage({ profileData }: PathDetailsPageProps) {
   }
 
   return (
-    <MainLayout profileData={profileData}>
+    <MainLayout 
+      user={user} 
+      currentPage="my-paths" 
+      profileData={profileData} 
+      isAdmin={isAdmin}
+    >
       <div className="p-6 max-w-6xl mx-auto">
         {/* Back button */}
         <Button 
@@ -487,9 +504,22 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
     };
   }
 
+  // Check if user has admin privileges
+  const { data: userRoles } = await supabase
+    .from('user_roles')
+    .select('role_type')
+    .eq('user_id', session.user.id)
+    .eq('is_active', true);
+
+  const isAdmin = userRoles?.some(role => 
+    ['admin', 'equipo_directivo', 'consultor'].includes(role.role_type)
+  ) || false;
+
   return {
     props: {
       profileData,
+      user: session.user,
+      isAdmin,
     },
   };
 };

@@ -3,7 +3,7 @@ import { getApiUser, createApiSupabaseClient, sendAuthError } from '../../../../
 
 /**
  * Enhanced progress endpoint for learning path detail page
- * Provides intelligent insights using pre-aggregated summary tables
+ * Simplified version that works with existing basic tables
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -21,79 +21,76 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const supabaseClient = await createApiSupabaseClient(req, res);
 
-    // 1. Get user's learning path summary
-    const { data: userSummary, error: summaryError } = await supabaseClient
-      .from('user_learning_path_summary')
-      .select('*')
+    // 1. Get user's learning path assignment
+    const { data: assignment, error: assignmentError } = await supabaseClient
+      .from('learning_path_assignments')
+      .select(`
+        *,
+        learning_paths!inner(id, name, description, created_at)
+      `)
       .eq('user_id', userId)
       .eq('path_id', pathId)
       .single();
 
-    if (summaryError || !userSummary) {
+    if (assignmentError || !assignment) {
       return res.status(404).json({ error: 'Learning path assignment not found' });
     }
 
-    // 2. Get path performance summary for peer comparison
-    const { data: pathPerformance, error: perfError } = await supabaseClient
-      .from('learning_path_performance_summary')
+    // 2. Get all courses in this learning path
+    const { data: pathCourses, error: coursesError } = await supabaseClient
+      .from('learning_path_courses')
       .select(`
-        *,
-        learning_paths!inner(name, description)
+        sequence_order,
+        course_id,
+        courses!inner(id, title, description, difficulty_level)
       `)
-      .eq('path_id', pathId)
-      .single();
+      .eq('learning_path_id', pathId)
+      .order('sequence_order', { ascending: true });
 
-    if (perfError) {
-      console.error('Performance summary error:', perfError);
+    if (coursesError) {
+      console.error('Courses error:', coursesError);
     }
 
-    // 3. Get recent daily summaries for trend analysis
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const { data: dailySummaries } = await supabaseClient
-      .from('learning_path_daily_summary')
-      .select('summary_date, total_active_users, avg_session_duration_minutes, completion_rate')
-      .eq('path_id', pathId)
-      .gte('summary_date', thirtyDaysAgo.toISOString().split('T')[0])
-      .order('summary_date', { ascending: true });
+    // 3. Get user's course enrollments for courses in this path
+    const courseIds = pathCourses?.map(pc => pc.course_id) || [];
+    let courseEnrollments = [];
+    if (courseIds.length > 0) {
+      const { data: enrollments } = await supabaseClient
+        .from('course_enrollments')
+        .select('course_id, progress_percentage, completed_at, created_at')
+        .eq('user_id', userId)
+        .in('course_id', courseIds);
+      
+      courseEnrollments = enrollments || [];
+    }
 
-    // 4. Get user's recent session pattern
-    const { data: recentSessions } = await supabaseClient
-      .from('learning_path_progress_sessions')
-      .select('session_start, time_spent_minutes, activity_type')
-      .eq('user_id', userId)
-      .eq('path_id', pathId)
-      .gte('session_start', thirtyDaysAgo.toISOString())
-      .order('session_start', { ascending: true });
+    // 4. Get basic path statistics for peer comparison
+    const { data: pathStats } = await supabaseClient
+      .from('learning_path_assignments')
+      .select(`
+        user_id,
+        assigned_at
+      `)
+      .eq('path_id', pathId);
 
-    // 5. Calculate intelligent insights
-    const insights = calculateLearningInsights(userSummary, pathPerformance, dailySummaries, recentSessions);
+    // 5. Calculate user progress based on existing data
+    const userProgress = calculateUserProgress(assignment, pathCourses, courseEnrollments);
+    const pathBenchmarks = calculatePathBenchmarks(pathStats || []);
+    const insights = calculateBasicInsights(userProgress, pathBenchmarks, assignment, pathCourses);
 
     res.status(200).json({
-      userProgress: {
-        status: userSummary.status,
-        overallProgress: userSummary.overall_progress_percentage,
-        totalTimeSpent: userSummary.total_time_spent_minutes,
-        totalSessions: userSummary.total_sessions,
-        avgSessionMinutes: userSummary.avg_session_minutes,
-        currentCourse: userSummary.current_course_sequence,
-        daysSinceLastActivity: userSummary.days_since_last_activity,
-        isAtRisk: userSummary.is_at_risk,
-        completionStreak: userSummary.completion_streak || 0,
-        startDate: userSummary.start_date,
-        estimatedCompletionDate: userSummary.estimated_completion_date
-      },
-      pathBenchmarks: pathPerformance ? {
-        avgCompletionRate: pathPerformance.overall_completion_rate,
-        avgCompletionTimeDays: pathPerformance.avg_completion_time_days,
-        totalEnrolledUsers: pathPerformance.total_enrolled_users,
-        totalCompletedUsers: pathPerformance.total_completed_users,
-        engagementScore: pathPerformance.engagement_score
-      } : null,
+      userProgress,
+      pathBenchmarks,
       insights,
-      trendData: dailySummaries || [],
-      recentActivity: (recentSessions || []).slice(-10) // Last 10 sessions
+      pathInfo: {
+        id: assignment.learning_paths.id,
+        name: assignment.learning_paths.name,
+        description: assignment.learning_paths.description,
+        totalCourses: pathCourses?.length || 0,
+        courses: pathCourses || []
+      },
+      trendData: [], // Placeholder for future analytics
+      recentActivity: [] // Placeholder for future session tracking
     });
 
   } catch (error: any) {
@@ -104,43 +101,127 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-function calculateLearningInsights(userSummary: any, pathPerformance: any, dailySummaries: any[], recentSessions: any[]) {
+function calculateUserProgress(assignment: any, pathCourses: any[], courseEnrollments: any[]) {
+  const totalCourses = pathCourses?.length || 0;
+  const completedCourses = courseEnrollments.filter(e => e.progress_percentage === 100).length;
+  const inProgressCourses = courseEnrollments.filter(e => e.progress_percentage > 0 && e.progress_percentage < 100).length;
+  
+  // Calculate overall progress percentage based on course completions
+  const overallProgress = totalCourses > 0 
+    ? Math.round((completedCourses / totalCourses) * 100)
+    : 0;
+  
+  // Determine status based on available data
+  let status = 'not_started';
+  if (overallProgress === 100) {
+    status = 'completed';
+  } else if (completedCourses > 0 || inProgressCourses > 0) {
+    status = 'in_progress';
+  }
+
+  // Calculate time since assignment (as a proxy for last activity since we don't have last_activity_at)
+  const daysSinceAssignment = assignment.assigned_at 
+    ? Math.floor((Date.now() - new Date(assignment.assigned_at).getTime()) / (24 * 60 * 60 * 1000))
+    : 0;
+
+  // Find the most recent course activity
+  const mostRecentActivity = courseEnrollments.length > 0
+    ? courseEnrollments.reduce((latest, enrollment) => {
+        const activityDate = enrollment.completed_at || enrollment.created_at;
+        return activityDate && (!latest || new Date(activityDate) > new Date(latest))
+          ? activityDate
+          : latest;
+      }, null)
+    : null;
+
+  const daysSinceLastActivity = mostRecentActivity
+    ? Math.floor((Date.now() - new Date(mostRecentActivity).getTime()) / (24 * 60 * 60 * 1000))
+    : daysSinceAssignment;
+
+  return {
+    status,
+    overallProgress,
+    totalTimeSpent: 0, // Not available in basic schema
+    totalSessions: 0, // Not available in basic schema
+    avgSessionMinutes: 0, // Not available in basic schema
+    currentCourse: 1, // Placeholder - could be calculated from course sequence
+    daysSinceLastActivity,
+    isAtRisk: daysSinceLastActivity > 7 && status === 'in_progress',
+    completionStreak: 0, // Not available in basic schema
+    startDate: mostRecentActivity || assignment.assigned_at, // Use first course activity or assignment date
+    estimatedCompletionDate: null, // Not available in basic schema
+    totalCourses,
+    completedCourses,
+    inProgressCourses,
+    enrolledCourses: courseEnrollments.length,
+    assignedAt: assignment.assigned_at
+  };
+}
+
+function calculatePathBenchmarks(pathStats: any[]) {
+  if (!pathStats || pathStats.length === 0) {
+    return null;
+  }
+
+  const totalUsers = pathStats.length;
+  
+  // Since we don't have started_at/completed_at in the basic schema,
+  // we'll provide basic statistics
+  const avgDaysSinceAssignment = pathStats.reduce((sum, s) => {
+    const days = Math.floor((Date.now() - new Date(s.assigned_at).getTime()) / (24 * 60 * 60 * 1000));
+    return sum + days;
+  }, 0) / totalUsers;
+
+  return {
+    totalEnrolledUsers: totalUsers,
+    totalStartedUsers: 0, // Not available in basic schema
+    totalCompletedUsers: 0, // Not available in basic schema
+    avgCompletionRate: 0, // Not available in basic schema
+    avgCompletionTimeDays: 0, // Not available in basic schema
+    avgDaysSinceAssignment: Math.round(avgDaysSinceAssignment),
+    engagementScore: 50 // Placeholder since we can't calculate properly without activity data
+  };
+}
+
+function calculateBasicInsights(userProgress: any, pathBenchmarks: any, assignment: any, pathCourses: any[]) {
   const insights = {
-    paceAnalysis: calculatePaceAnalysis(userSummary, pathPerformance),
-    engagementLevel: calculateEngagementLevel(userSummary, recentSessions),
-    timeForecasting: calculateTimeForecasting(userSummary, pathPerformance),
-    recommendations: generateRecommendations(userSummary, recentSessions, dailySummaries),
-    milestones: calculateMilestones(userSummary),
-    peerComparison: calculatePeerComparison(userSummary, pathPerformance),
-    sessionPattern: analyzeSessionPattern(recentSessions),
-    motivationalMetrics: calculateMotivationalMetrics(userSummary, recentSessions)
+    paceAnalysis: calculateBasicPaceAnalysis(userProgress, pathBenchmarks),
+    engagementLevel: calculateBasicEngagementLevel(userProgress),
+    recommendations: generateBasicRecommendations(userProgress, assignment),
+    milestones: calculateBasicMilestones(userProgress),
+    peerComparison: calculateBasicPeerComparison(userProgress, pathBenchmarks),
+    motivationalMetrics: calculateBasicMotivationalMetrics(userProgress)
   };
 
   return insights;
 }
 
-function calculatePaceAnalysis(userSummary: any, pathPerformance: any) {
-  if (!userSummary.start_date || !pathPerformance) {
-    return { status: 'insufficient_data', message: 'Calculando tu ritmo de aprendizaje...' };
+function calculateBasicPaceAnalysis(userProgress: any, pathBenchmarks: any) {
+  if (!userProgress.startDate || userProgress.overallProgress === 0) {
+    return { 
+      status: 'getting_started', 
+      message: 'Comienza tu primera lección para ver tu ritmo de aprendizaje',
+      color: 'text-gray-600'
+    };
   }
 
-  const startDate = new Date(userSummary.start_date);
+  const startDate = new Date(userProgress.startDate);
   const daysSinceStart = Math.floor((Date.now() - startDate.getTime()) / (24 * 60 * 60 * 1000));
-  const expectedProgress = Math.min(100, (daysSinceStart / (pathPerformance.avg_completion_time_days || 30)) * 100);
-  const actualProgress = userSummary.overall_progress_percentage;
-  const paceDifference = actualProgress - expectedProgress;
-
+  
+  // Simple pace analysis based on progress vs time
+  const dailyProgressRate = userProgress.overallProgress / Math.max(daysSinceStart, 1);
+  
   let status = 'on_track';
-  let message = 'Vas a un ritmo perfecto';
+  let message = 'Vas a un buen ritmo';
   let color = 'text-green-600';
 
-  if (paceDifference > 15) {
+  if (dailyProgressRate > 5) { // More than 5% per day
     status = 'ahead';
-    message = `¡Excelente! Vas ${Math.round(paceDifference)}% adelantado`;
+    message = '¡Excelente ritmo de aprendizaje!';
     color = 'text-blue-600';
-  } else if (paceDifference < -15) {
+  } else if (dailyProgressRate < 1) { // Less than 1% per day
     status = 'behind';
-    message = `Puedes acelerar un poco el ritmo (${Math.round(Math.abs(paceDifference))}% atrás)`;
+    message = 'Puedes acelerar un poco el ritmo';
     color = 'text-orange-600';
   }
 
@@ -149,117 +230,68 @@ function calculatePaceAnalysis(userSummary: any, pathPerformance: any) {
     message,
     color,
     daysSinceStart,
-    expectedProgress: Math.round(expectedProgress),
-    actualProgress,
-    paceDifference: Math.round(paceDifference)
+    dailyProgressRate: Math.round(dailyProgressRate * 100) / 100,
+    actualProgress: userProgress.overallProgress
   };
 }
 
-function calculateEngagementLevel(userSummary: any, recentSessions: any[]) {
-  const avgSessionTime = userSummary.avg_session_minutes || 0;
-  const sessionCount = recentSessions.length;
-  const totalRecentTime = recentSessions.reduce((sum, session) => sum + (session.time_spent_minutes || 0), 0);
+function calculateBasicEngagementLevel(userProgress: any) {
+  const { completedCourses, inProgressCourses, daysSinceLastActivity, isAtRisk } = userProgress;
   
   let level = 'moderate';
   let message = 'Mantén el buen ritmo de estudio';
   let color = 'text-yellow-600';
   let score = 50;
 
-  // Calculate engagement score (0-100)
-  if (avgSessionTime > 45 && sessionCount >= 5) {
+  if (completedCourses > 0 && !isAtRisk) {
     level = 'high';
     message = '¡Excelente nivel de compromiso!';
     color = 'text-green-600';
-    score = Math.min(100, 70 + (avgSessionTime / 60) * 20 + sessionCount * 2);
-  } else if (avgSessionTime < 15 || sessionCount < 2) {
+    score = Math.min(100, 70 + completedCourses * 10);
+  } else if (isAtRisk || daysSinceLastActivity > 7) {
     level = 'low';
-    message = 'Intenta dedicar más tiempo al estudio';
+    message = 'Intenta retomar tus estudios pronto';
     color = 'text-red-600';
-    score = Math.max(0, 30 - (15 - avgSessionTime));
-  } else {
-    score = 30 + (avgSessionTime / 60) * 30 + sessionCount * 3;
+    score = Math.max(0, 30 - daysSinceLastActivity);
   }
 
   return {
     level,
     message,
     color,
-    score: Math.round(score),
-    avgSessionMinutes: Math.round(avgSessionTime),
-    recentSessionCount: sessionCount,
-    totalRecentTimeHours: Math.round(totalRecentTime / 60 * 10) / 10
+    score,
+    completedCourses,
+    inProgressCourses,
+    daysSinceLastActivity
   };
 }
 
-function calculateTimeForecasting(userSummary: any, pathPerformance: any) {
-  if (!userSummary.start_date || userSummary.overall_progress_percentage === 0) {
-    return {
-      estimatedCompletionDate: null,
-      estimatedDaysRemaining: null,
-      message: 'Comienza tu primera sesión para ver predicciones'
-    };
-  }
-
-  const startDate = new Date(userSummary.start_date);
-  const daysSinceStart = Math.floor((Date.now() - startDate.getTime()) / (24 * 60 * 60 * 1000));
-  const progressRate = userSummary.overall_progress_percentage / daysSinceStart; // Progress per day
-  const remainingProgress = 100 - userSummary.overall_progress_percentage;
-  const estimatedDaysRemaining = Math.ceil(remainingProgress / Math.max(progressRate, 0.5)); // Min 0.5% per day
-
-  const estimatedCompletionDate = new Date();
-  estimatedCompletionDate.setDate(estimatedCompletionDate.getDate() + estimatedDaysRemaining);
-
-  // Compare with path average
-  const pathAvgDays = pathPerformance?.avg_completion_time_days || 30;
-  const totalEstimatedDays = daysSinceStart + estimatedDaysRemaining;
-  
-  let message = `A tu ritmo actual, terminarás en ${estimatedDaysRemaining} días`;
-  if (totalEstimatedDays < pathAvgDays * 0.8) {
-    message += ' (¡más rápido que el promedio!)';
-  } else if (totalEstimatedDays > pathAvgDays * 1.2) {
-    message += ' (considera aumentar el tiempo de estudio)';
-  }
-
-  return {
-    estimatedCompletionDate: estimatedCompletionDate.toISOString().split('T')[0],
-    estimatedDaysRemaining,
-    totalEstimatedDays,
-    pathAverageDays: pathAvgDays,
-    progressRate: Math.round(progressRate * 100) / 100,
-    message
-  };
-}
-
-function generateRecommendations(userSummary: any, recentSessions: any[], dailySummaries: any[]) {
+function generateBasicRecommendations(userProgress: any, assignment: any) {
   const recommendations = [];
 
   // Activity-based recommendations
-  if (userSummary.days_since_last_activity > 3) {
+  if (userProgress.daysSinceLastActivity > 3) {
     recommendations.push({
       type: 'activity',
       priority: 'high',
       title: 'Retoma tu aprendizaje',
-      message: `Han pasado ${userSummary.days_since_last_activity} días desde tu última sesión. ¡Es momento de continuar!`,
-      action: 'Empezar sesión',
+      message: `Han pasado ${userProgress.daysSinceLastActivity} días desde tu última actividad. ¡Es momento de continuar!`,
+      action: 'Empezar lección',
       icon: 'play'
     });
   }
 
-  // Session duration recommendations
-  const avgSession = userSummary.avg_session_minutes || 0;
-  if (avgSession < 20) {
-    recommendations.push({
-      type: 'duration',
-      priority: 'medium',
-      title: 'Sesiones más largas',
-      message: 'Trata de estudiar al menos 25-30 minutos por sesión para mejor retención',
-      action: 'Ver técnicas de estudio',
-      icon: 'clock'
-    });
-  }
-
   // Progress-based recommendations
-  if (userSummary.overall_progress_percentage > 0 && userSummary.overall_progress_percentage < 25) {
+  if (userProgress.overallProgress === 0) {
+    recommendations.push({
+      type: 'start',
+      priority: 'high',
+      title: 'Comienza tu primera lección',
+      message: 'Da el primer paso en tu ruta de aprendizaje',
+      action: 'Empezar ahora',
+      icon: 'rocket'
+    });
+  } else if (userProgress.overallProgress > 0 && userProgress.overallProgress < 25) {
     recommendations.push({
       type: 'progress',
       priority: 'medium',
@@ -271,12 +303,12 @@ function generateRecommendations(userSummary: any, recentSessions: any[], dailyS
   }
 
   // Milestone celebrations
-  if (userSummary.overall_progress_percentage >= 50 && userSummary.overall_progress_percentage < 55) {
+  if (userProgress.overallProgress >= 50 && userProgress.overallProgress < 75) {
     recommendations.push({
       type: 'celebration',
       priority: 'low',
       title: '¡Llegaste a la mitad!',
-      message: '¡Felicidades! Has completado el 50% de la ruta. ¡Sigue así!',
+      message: '¡Felicidades! Has completado más del 50% de la ruta. ¡Sigue así!',
       action: 'Ver progreso detallado',
       icon: 'award'
     });
@@ -285,8 +317,8 @@ function generateRecommendations(userSummary: any, recentSessions: any[], dailyS
   return recommendations;
 }
 
-function calculateMilestones(userSummary: any) {
-  const progress = userSummary.overall_progress_percentage;
+function calculateBasicMilestones(userProgress: any) {
+  const progress = userProgress.overallProgress;
   const milestones = [
     { threshold: 25, title: 'Primer cuarto', unlocked: progress >= 25, icon: '🌱' },
     { threshold: 50, title: 'A mitad de camino', unlocked: progress >= 50, icon: '🚀' },
@@ -305,111 +337,52 @@ function calculateMilestones(userSummary: any) {
   };
 }
 
-function calculatePeerComparison(userSummary: any, pathPerformance: any) {
-  if (!pathPerformance) {
-    return null;
+function calculateBasicPeerComparison(userProgress: any, pathBenchmarks: any) {
+  if (!pathBenchmarks) {
+    return {
+      progressComparison: 'no_data',
+      message: 'Datos de comparación no disponibles',
+      pathAvgCompletion: 0,
+      totalPeers: 0,
+      completedPeers: 0
+    };
   }
 
-  const userProgress = userSummary.overall_progress_percentage;
-  const userTimeSpent = userSummary.total_time_spent_minutes;
-  const avgCompletionRate = pathPerformance.overall_completion_rate;
+  const userProgressRate = userProgress.overallProgress;
+  const avgCompletionRate = pathBenchmarks.avgCompletionRate;
   
-  // Simple peer comparison metrics
-  const progressComparison = userProgress > avgCompletionRate ? 'above' : userProgress < avgCompletionRate * 0.8 ? 'below' : 'average';
-  
+  let progressComparison = 'average';
   let message = 'Tu progreso está en línea con otros estudiantes';
-  if (progressComparison === 'above') {
+  
+  if (userProgressRate > avgCompletionRate * 1.2) {
+    progressComparison = 'above';
     message = '¡Estás progresando mejor que el promedio!';
-  } else if (progressComparison === 'below') {
+  } else if (userProgressRate < avgCompletionRate * 0.8) {
+    progressComparison = 'below';
     message = 'Puedes ponerte al día con otros estudiantes';
   }
 
   return {
     progressComparison,
     message,
-    pathAvgCompletion: Math.round(avgCompletionRate),
-    totalPeers: pathPerformance.total_enrolled_users,
-    completedPeers: pathPerformance.total_completed_users
+    pathAvgCompletion: pathBenchmarks.avgCompletionRate,
+    totalPeers: pathBenchmarks.totalEnrolledUsers,
+    completedPeers: pathBenchmarks.totalCompletedUsers
   };
 }
 
-function analyzeSessionPattern(recentSessions: any[]) {
-  if (recentSessions.length < 3) {
-    return {
-      consistency: 'insufficient_data',
-      message: 'Completa más sesiones para ver tu patrón de estudio'
-    };
-  }
-
-  // Analyze session timing patterns
-  const sessionDays = recentSessions.map(session => {
-    const date = new Date(session.session_start);
-    return date.getDay(); // 0 = Sunday, 6 = Saturday
-  });
-
-  const dayFrequency = sessionDays.reduce((acc, day) => {
-    acc[day] = (acc[day] || 0) + 1;
-    return acc;
-  }, {} as Record<number, number>);
-
-  const mostActiveDay = Object.entries(dayFrequency)
-    .sort(([, a], [, b]) => b - a)[0];
+function calculateBasicMotivationalMetrics(userProgress: any) {
+  const totalTimeHours = Math.round(userProgress.totalTimeSpent / 60 * 10) / 10;
   
-  const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-  const preferredDay = mostActiveDay ? dayNames[parseInt(mostActiveDay[0])] : 'N/A';
-
-  // Calculate consistency score
-  const avgGapDays = calculateAverageGapDays(recentSessions);
-  let consistency = 'irregular';
-  let message = 'Trata de estudiar con más regularidad';
-
-  if (avgGapDays <= 2) {
-    consistency = 'excellent';
-    message = '¡Excelente consistencia en tus estudios!';
-  } else if (avgGapDays <= 4) {
-    consistency = 'good';
-    message = 'Buena regularidad en tus sesiones';
-  }
-
-  return {
-    consistency,
-    message,
-    preferredDay,
-    avgGapDays: Math.round(avgGapDays),
-    totalSessions: recentSessions.length,
-    dayFrequency
-  };
-}
-
-function calculateAverageGapDays(sessions: any[]) {
-  if (sessions.length < 2) return 0;
-
-  const gaps = [];
-  for (let i = 1; i < sessions.length; i++) {
-    const prevDate = new Date(sessions[i-1].session_start);
-    const currentDate = new Date(sessions[i].session_start);
-    const gapDays = Math.floor((currentDate.getTime() - prevDate.getTime()) / (24 * 60 * 60 * 1000));
-    gaps.push(gapDays);
-  }
-
-  return gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
-}
-
-function calculateMotivationalMetrics(userSummary: any, recentSessions: any[]) {
-  const totalTime = userSummary.total_time_spent_minutes;
-  const totalSessions = userSummary.total_sessions;
-  const streak = userSummary.completion_streak || 0;
-
   // Fun metrics for motivation
   const metrics = {
-    totalTimeHours: Math.round(totalTime / 60 * 10) / 10,
-    booksEquivalent: Math.round(totalTime / 180), // Assuming 3 hours per "book"
-    coffeeBreaksEquivalent: Math.round(totalTime / 15), // 15 min coffee breaks
-    totalSessions,
-    currentStreak: streak,
-    longestSession: recentSessions.length > 0 
-      ? Math.max(...recentSessions.map(s => s.time_spent_minutes || 0))
-      : 0
+    totalTimeHours,
+    coursesCompleted: userProgress.completedCourses,
+    coursesInProgress: userProgress.inProgressCourses,
+    totalCourses: userProgress.totalCourses,
+    progressPercentage: userProgress.overallProgress,
+    booksEquivalent: Math.round(userProgress.totalTimeSpent / 180), // Assuming 3 hours per "book"
+    coffeeBreaksEquivalent: Math.round(userProgress.totalTimeSpent / 15) // 15 min coffee breaks
   };
 
   return metrics;

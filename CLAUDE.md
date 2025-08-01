@@ -468,6 +468,32 @@ npm run dev  # MUST be port 3000
   - `/lib/notificationService.ts` (critical fallback URL fix)
 - **Status**: ✅ **DEPLOYED AND VERIFIED** - Unified learning experience operational with all notification bugs resolved
 
+### **CRITICAL BUG FIX: NETWORK MANAGEMENT BULK ASSIGNMENT 409 CONFLICTS (August 2025)**
+- **✅ PRODUCTION FIX DEPLOYED**: Resolved Error Report #A5D811D9 - Mora del Fresno unable to modify "Santa Marta" network schools
+- **Issue**: Network management bulk assignment API rejected entire operations if ANY school had existing assignment, causing 409 Conflict errors
+- **Root Cause**: `handleBulkAssignSchools()` function used blanket rejection approach - if any conflicts detected, entire operation failed
+- **Impact**: Network administrators completely unable to modify existing networks or add schools to networks with existing assignments
+- **User Experience**: Users got confusing error messages and no schools were assigned, even valid ones
+- **Solution Components**:
+  - **Smart Conflict Resolution**: Replace blanket 409 rejections with intelligent categorization of schools
+  - **Partial Assignment Success**: Process assignable schools, skip conflicts, return detailed results
+  - **Enhanced User Feedback**: Multi-level toast notifications with clear success/warning/error messages
+  - **Scalable Architecture**: Batch processing (max 100 schools), parallel database queries, atomic operations
+- **Technical Implementation**:
+  - **API Enhancement**: Complete rewrite of bulk assignment logic with smart categorization
+  - **Response Structure**: Detailed breakdown showing newly assigned, already assigned, and conflicted schools
+  - **Frontend UX**: Enhanced error handling with comprehensive user feedback and console logging
+  - **Database Optimization**: Parallel Promise.all() queries and efficient Map-based lookups
+- **New User Experience Flow**:
+  - **Before**: Select schools → "Guardar Cambios" → 409 Error → Nothing happens
+  - **After**: Select schools → "Guardar Cambios" → "✅ 2 escuelas asignadas, ℹ️ 3 ya estaban asignadas"
+- **Files Modified**:
+  - `/pages/api/admin/networks/schools.ts` (smart bulk assignment logic)
+  - `/pages/admin/network-management.tsx` (enhanced error handling and user feedback)
+  - `/scripts/proof-network-fix.js` (comprehensive fix verification)
+  - `/scripts/compare-api-behavior.js` (before/after behavior analysis)
+- **Status**: ✅ **DEPLOYED AND VERIFIED** - Network management now supports intelligent partial assignments with clear user feedback
+
 ### **CRITICAL BUG FIX: ENVIRONMENT VALIDATION BREAKING NAVIGATION PANEL (August 2025)**
 - **🚨 IN PROGRESS**: Navigation side panel not rendering for ANY users due to false environment validation errors
 - **Issue**: All users (students, teachers, admins) lost their navigation side panel completely

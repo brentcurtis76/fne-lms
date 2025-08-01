@@ -29,15 +29,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const supabaseClient = await createApiSupabaseClient(req, res);
 
     // Check if user is admin first - admins have access to everything
-    const { data: userRoles } = await supabaseClient
+    const { data: userRoles, error: rolesError } = await supabaseClient
       .from('user_roles')
       .select('role_type')
       .eq('user_id', userId)
       .eq('is_active', true);
 
+    console.log('[Session Start] User ID:', userId);
+    console.log('[Session Start] User roles query result:', userRoles);
+    console.log('[Session Start] Roles error:', rolesError);
+
     const hasAdminAccess = userRoles?.some(role => 
       ['admin', 'equipo_directivo', 'consultor'].includes(role.role_type)
     );
+
+    console.log('[Session Start] Has admin access:', hasAdminAccess);
+    console.log('[Session Start] User roles found:', userRoles?.map(r => r.role_type));
 
     if (!hasAdminAccess) {
       // For non-admin users, verify they have access to this learning path

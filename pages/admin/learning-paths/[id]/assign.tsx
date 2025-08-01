@@ -81,19 +81,19 @@ export default function AssignLearningPath() {
 
   // Search users when debounced query changes
   useEffect(() => {
-    if (debouncedUserQuery !== undefined) {
+    if (debouncedUserQuery !== undefined && learningPath && !loading) {
       setUserPage(1);
       searchAssignees('users', debouncedUserQuery, 1);
     }
-  }, [debouncedUserQuery]);
+  }, [debouncedUserQuery, learningPath, loading]);
 
   // Search groups when debounced query changes
   useEffect(() => {
-    if (debouncedGroupQuery !== undefined) {
+    if (debouncedGroupQuery !== undefined && learningPath && !loading) {
       setGroupPage(1);
       searchAssignees('groups', debouncedGroupQuery, 1);
     }
-  }, [debouncedGroupQuery]);
+  }, [debouncedGroupQuery, learningPath, loading]);
 
   const checkAuthAndLoadPath = async () => {
     try {
@@ -199,7 +199,14 @@ export default function AssignLearningPath() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to search assignees');
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('Search API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+          requestBody: { pathId, searchType, query, page, pageSize: 20 }
+        });
+        throw new Error(errorData.error || 'Failed to search assignees');
       }
 
       const data = await response.json();

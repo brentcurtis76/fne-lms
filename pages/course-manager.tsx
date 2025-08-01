@@ -8,6 +8,7 @@ import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalP
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
 import { FolderOpen } from 'lucide-react';
+import { getUserPrimaryRole } from '../utils/roleUtils';
 
 const CourseManagerPage: React.FC = () => {
   const router = useRouter();
@@ -48,27 +49,25 @@ const CourseManagerPage: React.FC = () => {
             setAvatarUrl(profileData.avatar_url);
           }
           
-          // Fetch assigned courses for all non-admin users
-          if (role !== 'admin') {
-            const { data: assignments } = await supabase
-              .from('course_assignments')
-              .select(`
-                course_id,
-                courses (
-                  id,
-                  title,
-                  description,
-                  thumbnail_url,
-                  instructor_id,
-                  created_at
-                )
-              `)
-              .eq('teacher_id', session.user.id);
-              
-            if (assignments) {
-              const courses = assignments.map(a => a.courses).filter(Boolean);
-              setAssignedCourses(courses);
-            }
+          // Fetch assigned courses for all users (including admins)
+          const { data: assignments } = await supabase
+            .from('course_assignments')
+            .select(`
+              course_id,
+              courses (
+                id,
+                title,
+                description,
+                thumbnail_url,
+                instructor_id,
+                created_at
+              )
+            `)
+            .eq('teacher_id', session.user.id);
+            
+          if (assignments) {
+            const courses = assignments.map(a => a.courses).filter(Boolean);
+            setAssignedCourses(courses);
           }
         }
       } catch (error) {
@@ -154,65 +153,92 @@ const CourseManagerPage: React.FC = () => {
               </div>
             )}
             
-            {/* Course List Section */}
-            <div className="bg-white rounded-lg shadow-md">
+            {/* Assigned Courses Section - For Everyone */}
+            <div className="bg-white rounded-lg shadow-md mb-8">
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-brand_blue">
-                  {isAdmin ? 'Todos los Cursos' : 'Mis Cursos Asignados'}
+                  Mis Cursos Asignados
                 </h2>
                 <p className="text-gray-500 text-sm mt-1">
-                  {isAdmin ? 'Gestiona todos los cursos del sistema' : 'Cursos que te han sido asignados'}
+                  Cursos que te han sido asignados para aprender
                 </p>
               </div>
               
               <div className="p-6">
-                {isAdmin ? (
-                  <CourseList 
-                    key={refreshTrigger}
-                    showInstructor={true}
-                    limit={20}
-                  />
-                ) : (
-                  <div className="space-y-4">
-                    {assignedCourses.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-gray-500">No tienes cursos asignados aún.</p>
-                        <p className="text-sm text-gray-400 mt-2">
-                          Los administradores pueden asignarte cursos para que puedas acceder a ellos.
-                        </p>
-                      </div>
-                    ) : (
-                      assignedCourses
-                        .filter(course => 
-                          !searchQuery || 
-                          course.title.toLowerCase().includes(searchQuery.toLowerCase())
-                        )
-                        .map(course => (
-                          <div key={course.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
+                <div className="space-y-4">
+                  {assignedCourses.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">No tienes cursos asignados aún.</p>
+                      <p className="text-sm text-gray-400 mt-2">
+                        Los administradores pueden asignarte cursos para que puedas acceder a ellos.
+                      </p>
+                    </div>
+                  ) : (
+                    assignedCourses
+                      .filter(course => 
+                        !searchQuery || 
+                        course.title.toLowerCase().includes(searchQuery.toLowerCase())
+                      )
+                      .map(course => (
+                        <div key={course.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
                                 <h3 className="text-lg font-semibold text-gray-900">{course.title}</h3>
-                                <p className="text-gray-600 mt-1">{course.description}</p>
-                                <p className="text-sm text-gray-500 mt-2">
-                                  Creado: {new Date(course.created_at).toLocaleDateString('es-ES')}
-                                </p>
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                                  Asignado
+                                </span>
                               </div>
-                              <div className="ml-4">
+                              <p className="text-gray-600 mt-1">{course.description}</p>
+                              <p className="text-sm text-gray-500 mt-2">
+                                Creado: {new Date(course.created_at).toLocaleDateString('es-ES')}
+                              </p>
+                            </div>
+                            <div className="ml-4 flex gap-2">
+                              <a
+                                href={`/student/course/${course.id}`}
+                                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+                              >
+                                Comenzar Curso
+                              </a>
+                              {isAdmin && (
                                 <a
                                   href={`/admin/course-builder/${course.id}`}
                                   className="inline-flex items-center px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700 transition"
                                 >
                                   Gestionar
                                 </a>
-                              </div>
+                              )}
                             </div>
                           </div>
-                        ))
-                    )}
-                  </div>
-                )}
+                        </div>
+                      ))
+                  )}
+                </div>
               </div>
             </div>
+
+            {/* All Courses Section - Admin Only */}
+            {isAdmin && (
+              <div className="bg-white rounded-lg shadow-md">
+                <div className="p-6 border-b border-gray-200">
+                  <h2 className="text-xl font-semibold text-brand_blue">
+                    Todos los Cursos del Sistema
+                  </h2>
+                  <p className="text-gray-500 text-sm mt-1">
+                    Gestiona todos los cursos del sistema
+                  </p>
+                </div>
+                
+                <div className="p-6">
+                  <CourseList 
+                    key={refreshTrigger}
+                    showInstructor={true}
+                    limit={20}
+                  />
+                </div>
+              </div>
+            )}
           </div>
       </div>
     </MainLayout>

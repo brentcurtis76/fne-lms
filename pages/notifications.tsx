@@ -263,7 +263,7 @@ export default function NotificationsPage() {
       if (notification.title.includes('Feedback') || notification.title.includes('feedback')) {
         fallbackUrl = '/admin/feedback';
       } else if (notification.title.includes('curso') || notification.title.includes('Course')) {
-        fallbackUrl = '/cursos';
+        fallbackUrl = '/course-manager';
       } else if (notification.title.includes('tarea') || notification.title.includes('assignment')) {
         fallbackUrl = '/tareas';
       } else if (notification.notification_type?.category) {
@@ -273,7 +273,7 @@ export default function NotificationsPage() {
             fallbackUrl = '/admin';
             break;
           case 'courses':
-            fallbackUrl = '/cursos';
+            fallbackUrl = '/course-manager';
             break;
           case 'assignments':
             fallbackUrl = '/tareas';

@@ -248,7 +248,7 @@ export default function AdminLearningPaths() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
+                        <div className={`text-sm ${path.created_by_name === 'Sistema' ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
                           {path.created_by_name || 'Desconocido'}
                         </div>
                       </td>

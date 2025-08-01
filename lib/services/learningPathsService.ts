@@ -152,7 +152,7 @@ export class LearningPathsService {
           ...path,
           created_by_name: creator 
             ? `${creator.first_name || ''} ${creator.last_name || ''}`.trim() || 'Unknown'
-            : 'Unknown',
+            : 'Sistema',
           course_count: countMap[path.id] || 0
         };
       });

@@ -1,6 +1,9 @@
 -- Fix column name inconsistency in learning path RPC functions
 -- The table uses 'learning_path_id' but the functions use 'path_id'
 
+-- Drop the existing function first to avoid return type conflicts
+DROP FUNCTION IF EXISTS "public"."create_full_learning_path"("p_name" "text", "p_description" "text", "p_course_ids" "uuid"[], "p_created_by" "uuid");
+
 -- Update create_full_learning_path function to use correct column names
 CREATE OR REPLACE FUNCTION "public"."create_full_learning_path"(
     "p_name" "text", 
@@ -79,6 +82,9 @@ EXCEPTION
         RAISE;
 END;
 $$;
+
+-- Drop the existing update function first
+DROP FUNCTION IF EXISTS "public"."update_full_learning_path"("p_path_id" "uuid", "p_name" "text", "p_description" "text", "p_course_ids" "uuid"[], "p_updated_by" "uuid");
 
 -- Update update_full_learning_path function to use correct column names
 CREATE OR REPLACE FUNCTION "public"."update_full_learning_path"(

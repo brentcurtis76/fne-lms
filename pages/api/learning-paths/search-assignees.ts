@@ -6,6 +6,7 @@ interface SearchAssigneesRequest {
   pathId: string;
   searchType: 'users' | 'groups';
   query: string;
+  schoolId?: string;
   page?: number;
   pageSize?: number;
 }
@@ -57,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Validate request body
-    const { pathId, searchType, query, page = 1, pageSize = 20 } = req.body as SearchAssigneesRequest;
+    const { pathId, searchType, query, schoolId, page = 1, pageSize = 20 } = req.body as SearchAssigneesRequest;
 
     if (!pathId || !searchType || typeof query !== 'string') {
       return res.status(400).json({ 
@@ -90,22 +91,69 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let totalCount = 0;
 
     if (searchType === 'users') {
-      // Search users
-      let userQuery = supabaseClient
-        .from('profiles')
-        .select('id, first_name, last_name, email', { count: 'exact' });
+      // Search users with optional school filtering
+      let users, count, usersError;
+      
+      if (schoolId) {
+        // Filter by school using a two-step approach to avoid relationship ambiguity
+        // First get user IDs from user_roles
+        const { data: userRoles } = await supabaseClient
+          .from('user_roles')
+          .select('user_id')
+          .eq('school_id', schoolId)
+          .eq('is_active', true);
 
-      // Apply search filter if query is not empty
-      if (searchQuery) {
-        userQuery = userQuery.or(
-          `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
-        );
+        if (!userRoles || userRoles.length === 0) {
+          users = [];
+          count = 0;
+          usersError = null;
+        } else {
+          const userIds = userRoles.map(ur => ur.user_id);
+          
+          // Then get profiles for those users
+          let userQuery = supabaseClient
+            .from('profiles')
+            .select('id, first_name, last_name, email', { count: 'exact' })
+            .in('id', userIds);
+
+          // Apply search filter if query is not empty
+          if (searchQuery) {
+            userQuery = userQuery.or(
+              `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
+            );
+          }
+
+          // Apply pagination
+          const result = await userQuery
+            .order('first_name')
+            .range(offset, offset + pageSize - 1);
+          
+          users = result.data;
+          count = result.count;
+          usersError = result.error;
+        }
+      } else {
+        // No school filter - search all users
+        let userQuery = supabaseClient
+          .from('profiles')
+          .select('id, first_name, last_name, email', { count: 'exact' });
+
+        // Apply search filter if query is not empty
+        if (searchQuery) {
+          userQuery = userQuery.or(
+            `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
+          );
+        }
+
+        // Apply pagination
+        const result = await userQuery
+          .order('first_name')
+          .range(offset, offset + pageSize - 1);
+        
+        users = result.data;
+        count = result.count;
+        usersError = result.error;
       }
-
-      // Apply pagination
-      const { data: users, count, error: usersError } = await userQuery
-        .order('first_name')
-        .range(offset, offset + pageSize - 1);
 
       if (usersError) throw usersError;
 
@@ -140,22 +188,68 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }));
 
     } else {
-      // Search groups (using community_workspaces table)
-      let groupQuery = supabaseClient
-        .from('community_workspaces')
-        .select('id, name, description, community_id', { count: 'exact' });
+      // Search groups (using community_workspaces table) with optional school filtering
+      let groups, count, groupsError;
+      
+      if (schoolId) {
+        // Filter by school using a two-step approach to avoid relationship ambiguity
+        // First get community IDs from communities table
+        const { data: communities } = await supabaseClient
+          .from('communities')
+          .select('id')
+          .eq('school_id', schoolId);
 
-      // Apply search filter if query is not empty
-      if (searchQuery) {
-        groupQuery = groupQuery.or(
-          `name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
-        );
+        if (!communities || communities.length === 0) {
+          groups = [];
+          count = 0;
+          groupsError = null;
+        } else {
+          const communityIds = communities.map(c => c.id);
+          
+          // Then get workspaces for those communities
+          let groupQuery = supabaseClient
+            .from('community_workspaces')
+            .select('id, name, description, community_id', { count: 'exact' })
+            .in('community_id', communityIds);
+
+          // Apply search filter if query is not empty
+          if (searchQuery) {
+            groupQuery = groupQuery.or(
+              `name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
+            );
+          }
+
+          // Apply pagination
+          const result = await groupQuery
+            .order('name')
+            .range(offset, offset + pageSize - 1);
+          
+          groups = result.data;
+          count = result.count;
+          groupsError = result.error;
+        }
+      } else {
+        // No school filter - search all groups
+        let groupQuery = supabaseClient
+          .from('community_workspaces')
+          .select('id, name, description, community_id', { count: 'exact' });
+
+        // Apply search filter if query is not empty
+        if (searchQuery) {
+          groupQuery = groupQuery.or(
+            `name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`
+          );
+        }
+
+        // Apply pagination
+        const result = await groupQuery
+          .order('name')
+          .range(offset, offset + pageSize - 1);
+        
+        groups = result.data;
+        count = result.count;
+        groupsError = result.error;
       }
-
-      // Apply pagination
-      const { data: groups, count, error: groupsError } = await groupQuery
-        .order('name')
-        .range(offset, offset + pageSize - 1);
 
       if (groupsError) throw groupsError;
 

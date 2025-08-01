@@ -47,6 +47,8 @@ export default function AssignLearningPath() {
   // Search state
   const [userSearchQuery, setUserSearchQuery] = useState('');
   const [groupSearchQuery, setGroupSearchQuery] = useState('');
+  const [selectedUserSchool, setSelectedUserSchool] = useState<string>('');
+  const [selectedGroupSchool, setSelectedGroupSchool] = useState<string>('');
   const debouncedUserQuery = useDebounce(userSearchQuery, 300);
   const debouncedGroupQuery = useDebounce(groupSearchQuery, 300);
   
@@ -61,6 +63,9 @@ export default function AssignLearningPath() {
   // Assignment counts for tabs
   const [totalAssignedUsers, setTotalAssignedUsers] = useState(0);
   const [totalAssignedGroups, setTotalAssignedGroups] = useState(0);
+  
+  // Schools for filtering
+  const [schools, setSchools] = useState<Array<{id: string, name: string}>>([]);
   
   // Loading states
   const [loading, setLoading] = useState(true);
@@ -95,6 +100,43 @@ export default function AssignLearningPath() {
       searchAssignees('groups', debouncedGroupQuery, 1);
     }
   }, [debouncedGroupQuery, learningPath, loading]);
+
+  // Search when school filter changes
+  useEffect(() => {
+    if (learningPath && !loading) {
+      if (activeTab === 'users') {
+        setUserPage(1);
+        searchAssignees('users', debouncedUserQuery || '', 1);
+      }
+    }
+  }, [selectedUserSchool, learningPath, loading, activeTab]);
+
+  useEffect(() => {
+    if (learningPath && !loading) {
+      if (activeTab === 'groups') {
+        setGroupPage(1);
+        searchAssignees('groups', debouncedGroupQuery || '', 1);
+      }
+    }
+  }, [selectedGroupSchool, learningPath, loading, activeTab]);
+
+  const loadSchools = async () => {
+    try {
+      const { data: schoolsData, error } = await supabase
+        .from('schools')
+        .select('id, name')
+        .order('name');
+
+      if (error) {
+        console.warn('Could not load schools for filtering:', error);
+        return;
+      }
+
+      setSchools(schoolsData || []);
+    } catch (error) {
+      console.warn('Error loading schools:', error);
+    }
+  };
 
   const checkAuthAndLoadPath = async () => {
     try {
@@ -140,6 +182,9 @@ export default function AssignLearningPath() {
       
       // Load assignment counts for tabs
       await loadAssignmentCounts(pathId as string);
+      
+      // Load schools for filtering
+      await loadSchools();
       
     } catch (error) {
       console.error('Error loading data:', error);
@@ -194,6 +239,7 @@ export default function AssignLearningPath() {
           pathId: pathId as string,
           searchType,
           query,
+          schoolId: searchType === 'users' ? selectedUserSchool || undefined : selectedGroupSchool || undefined,
           page,
           pageSize: 20
         }),
@@ -477,6 +523,26 @@ export default function AssignLearningPath() {
             <div className="bg-white rounded-lg shadow-sm p-6">
               {activeTab === 'users' ? (
                 <div>
+                  {/* User School Filter */}
+                  <div className="mb-4">
+                    <label htmlFor="userSchoolFilter" className="block text-sm font-medium text-gray-700 mb-2">
+                      Filtrar por Colegio
+                    </label>
+                    <select
+                      id="userSchoolFilter"
+                      value={selectedUserSchool}
+                      onChange={(e) => setSelectedUserSchool(e.target.value)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-brand_blue focus:border-brand_blue sm:text-sm"
+                    >
+                      <option value="">Todos los colegios</option>
+                      {schools.map((school) => (
+                        <option key={school.id} value={school.id}>
+                          {school.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* User Search */}
                   <div className="relative mb-4">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -574,6 +640,26 @@ export default function AssignLearningPath() {
                 </div>
               ) : (
                 <div>
+                  {/* Group School Filter */}
+                  <div className="mb-4">
+                    <label htmlFor="groupSchoolFilter" className="block text-sm font-medium text-gray-700 mb-2">
+                      Filtrar por Colegio
+                    </label>
+                    <select
+                      id="groupSchoolFilter"
+                      value={selectedGroupSchool}
+                      onChange={(e) => setSelectedGroupSchool(e.target.value)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-brand_blue focus:border-brand_blue sm:text-sm"
+                    >
+                      <option value="">Todos los colegios</option>
+                      {schools.map((school) => (
+                        <option key={school.id} value={school.id}>
+                          {school.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Group Search */}
                   <div className="relative mb-4">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

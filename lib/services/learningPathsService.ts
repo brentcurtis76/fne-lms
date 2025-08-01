@@ -415,12 +415,16 @@ export class LearningPathsService {
 
       if (error) throw error;
 
-      // Get unique paths
+      // Get unique paths - ensure the path ID is at the top level
       const pathMap = new Map();
       (assignments || []).forEach((assignment: any) => {
         if (assignment.path && !pathMap.has(assignment.path.id)) {
           pathMap.set(assignment.path.id, {
-            ...assignment.path,
+            id: assignment.path.id, // Explicitly set the ID at top level
+            name: assignment.path.name,
+            description: assignment.path.description,
+            created_at: assignment.path.created_at,
+            updated_at: assignment.path.updated_at,
             assigned_at: assignment.assigned_at,
             assignment_id: assignment.id
           });

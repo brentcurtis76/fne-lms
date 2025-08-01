@@ -192,19 +192,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       let groups, count, groupsError;
       
       if (schoolId) {
-        // Filter by school using a two-step approach to avoid relationship ambiguity
-        // First get community IDs from communities table
-        const { data: communities } = await supabaseClient
-          .from('communities')
-          .select('id')
-          .eq('school_id', schoolId);
+        // Filter by school using user_roles to find community_ids (communities table doesn't exist)
+        // First get community IDs from user_roles table for this school
+        const { data: userRoles } = await supabaseClient
+          .from('user_roles')
+          .select('community_id')
+          .eq('school_id', schoolId)
+          .not('community_id', 'is', null)
+          .eq('is_active', true);
 
-        if (!communities || communities.length === 0) {
+        if (!userRoles || userRoles.length === 0) {
           groups = [];
           count = 0;
           groupsError = null;
         } else {
-          const communityIds = communities.map(c => c.id);
+          // Extract unique community_ids
+          const communityIds = [...new Set(userRoles.map(ur => ur.community_id))];
           
           // Then get workspaces for those communities
           let groupQuery = supabaseClient

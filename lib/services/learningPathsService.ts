@@ -508,8 +508,8 @@ export class LearningPathsService {
   }
 
   /**
-   * Get detailed learning path information for a specific user (OPTIMIZED)
-   * Uses efficient RPC function to eliminate N+1 queries and perform all calculations database-side
+   * Get detailed learning path information for a specific user 
+   * Uses regular database queries instead of RPC functions
    */
   static async getLearningPathDetailsForUser(
     supabaseClient: any,
@@ -517,25 +517,185 @@ export class LearningPathsService {
     pathId: string
   ): Promise<any> {
     try {
-      // Use the efficient RPC function that performs all joins and calculations in one call
-      const { data, error } = await supabaseClient
-        .rpc('get_user_path_details_with_progress', {
-          p_user_id: userId,
-          p_path_id: pathId
-        });
+      console.log(`[LearningPathsService] Getting path details for user ${userId}, path ${pathId}`);
 
-      if (error) {
-        console.error('[LearningPathsService] RPC error:', error);
-        throw error;
+      // First, get user's community IDs (groups they belong to)
+      const { data: userRoles, error: rolesError } = await supabaseClient
+        .from('user_roles')
+        .select('community_id')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .not('community_id', 'is', null);
+
+      if (rolesError) throw rolesError;
+
+      const communityIds = (userRoles || []).map((role: any) => role.community_id);
+
+      // Now check for learning path assignment
+      let assignmentQuery = supabaseClient
+        .from('learning_path_assignments')
+        .select('*')
+        .eq('path_id', pathId);
+
+      // Add filters based on what we have
+      if (communityIds.length > 0) {
+        // User has communities, get both direct and group assignments
+        assignmentQuery = assignmentQuery.or(`user_id.eq.${userId},group_id.in.(${communityIds.join(',')})`);
+      } else {
+        // User has no communities, only get direct assignments
+        assignmentQuery = assignmentQuery.eq('user_id', userId);
       }
 
-      if (!data) {
+      const { data: assignment, error: assignmentError } = await assignmentQuery.maybeSingle();
+
+      if (assignmentError) {
+        console.error('[LearningPathsService] Assignment check error:', assignmentError);
+        throw assignmentError;
+      }
+
+      if (!assignment) {
+        throw new Error('Learning path not found or not assigned to user');
+      }
+
+      // Get the learning path details
+      const { data: pathData, error: pathError } = await supabaseClient
+        .from('learning_paths')
+        .select('*')
+        .eq('id', pathId)
+        .single();
+
+      if (pathError) {
+        console.error('[LearningPathsService] Path data error:', pathError);
+        throw pathError;
+      }
+
+      if (!pathData) {
         throw new Error('Learning path not found');
       }
 
-      // The RPC function returns a complete JSON object with all required data
-      // No additional processing needed - all calculations done database-side
-      return data;
+      // Get courses in the learning path with their details
+      const { data: pathCourses, error: coursesError } = await supabaseClient
+        .from('learning_path_courses')
+        .select(`
+          course_id,
+          sequence_order,
+          course:courses(
+            id,
+            title,
+            description,
+            estimated_duration_hours,
+            difficulty_level
+          )
+        `)
+        .eq('learning_path_id', pathId)
+        .order('sequence_order', { ascending: true });
+
+      if (coursesError) {
+        console.error('[LearningPathsService] Courses error:', coursesError);
+        throw coursesError;
+      }
+
+      const courses = pathCourses || [];
+      const courseIds = courses.map(pc => pc.course_id);
+
+      // Get user's enrollment status for all courses in the path
+      let enrollments = [];
+      if (courseIds.length > 0) {
+        const { data: enrollmentData, error: enrollmentError } = await supabaseClient
+          .from('course_enrollments')
+          .select('course_id, progress_percentage, completed_at, enrolled_at, status')
+          .eq('user_id', userId)
+          .in('course_id', courseIds);
+
+        if (enrollmentError) {
+          console.error('[LearningPathsService] Enrollment error:', enrollmentError);
+          // Don't throw here - user might not be enrolled in any courses yet
+        } else {
+          enrollments = enrollmentData || [];
+        }
+      }
+
+      // Create enrollment map for easy lookup
+      const enrollmentMap = new Map();
+      enrollments.forEach(enrollment => {
+        enrollmentMap.set(enrollment.course_id, enrollment);
+      });
+
+      // Calculate progress
+      const completedCourses = enrollments.filter(e => e.progress_percentage >= 100).length;
+      const totalCourses = courses.length;
+      const progressPercentage = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0;
+
+      // Build course details with user progress
+      const coursesWithProgress = courses.map((pathCourse, index) => {
+        const course = pathCourse.course;
+        const enrollment = enrollmentMap.get(pathCourse.course_id);
+        
+        // Determine status and button state
+        let status = 'not_started';
+        let buttonText = 'Comenzar curso';
+        let buttonVariant = 'default';
+        
+        if (enrollment) {
+          if (enrollment.progress_percentage >= 100) {
+            status = 'completed';
+            buttonText = 'Revisar curso';
+            buttonVariant = 'outline';
+          } else if (enrollment.progress_percentage > 0) {
+            status = 'in_progress';
+            buttonText = 'Continuar curso';
+            buttonVariant = 'default';
+          } else {
+            status = 'enrolled';
+            buttonText = 'Iniciar curso';
+            buttonVariant = 'default';
+          }
+        }
+
+        return {
+          sequence: pathCourse.sequence_order,
+          course_id: pathCourse.course_id,
+          title: course?.title || 'Curso sin título',
+          description: course?.description || '',
+          category: '', // Not used in the new structure
+          duration_hours: course?.estimated_duration_hours || 0,
+          difficulty_level: course?.difficulty_level || 'intermediate',
+          status,
+          completion_rate: enrollment?.progress_percentage || 0,
+          last_accessed: enrollment?.completed_at || enrollment?.enrolled_at || null,
+          enrolled_at: enrollment?.enrolled_at || null,
+          enrollment_status: enrollment?.status || null,
+          buttonText,
+          buttonVariant
+        };
+      });
+
+      // Build the final response structure expected by the frontend
+      const result = {
+        id: pathData.id,
+        name: pathData.name,
+        description: pathData.description,
+        created_at: pathData.created_at,
+        updated_at: pathData.updated_at,
+        courses: coursesWithProgress,
+        progress: {
+          total_courses: totalCourses,
+          completed_courses: completedCourses,
+          progress_percentage: progressPercentage
+        },
+        // Optional time tracking (placeholder for future implementation)
+        timeTracking: {
+          totalTimeSpent: 0,
+          estimatedCompletion: null,
+          startedAt: assignment.assigned_at,
+          completedAt: progressPercentage === 100 ? new Date().toISOString() : null,
+          lastActivity: null
+        }
+      };
+
+      console.log(`[LearningPathsService] Successfully built path details for ${pathData.name}`);
+      return result;
+
     } catch (error: any) {
       console.error('[LearningPathsService] Error in getLearningPathDetailsForUser:', error);
       throw new Error(`Failed to fetch learning path details: ${error.message}`);

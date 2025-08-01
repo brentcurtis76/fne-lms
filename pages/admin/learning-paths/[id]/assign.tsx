@@ -371,12 +371,11 @@ export default function AssignLearningPath() {
       // Refresh assignment counts
       await loadAssignmentCounts(pathId as string);
       
-      // Refresh search results to show updated assignment status
-      if (userSearchQuery) {
-        await searchAssignees('users', userSearchQuery, 1, false);
-      }
-      if (groupSearchQuery) {
-        await searchAssignees('groups', groupSearchQuery, 1, false);
+      // Force refresh search results to show updated assignment status
+      if (activeTab === 'users') {
+        await searchAssignees('users', userSearchQuery || '', 1, false);
+      } else if (activeTab === 'groups') {
+        await searchAssignees('groups', groupSearchQuery || '', 1, false);
       }
       
     } catch (error: any) {

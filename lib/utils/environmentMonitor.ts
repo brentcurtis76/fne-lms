@@ -17,6 +17,20 @@ export interface EnvironmentStatus {
 }
 
 export function validateEnvironment(): EnvironmentStatus {
+  // TEMPORARY FIX: Skip validation on client-side to restore navigation panel
+  // See CLAUDE.md for full context on this critical bug
+  if (typeof window !== 'undefined') {
+    // Client-side: Return valid status to prevent breaking navigation
+    // The env vars ARE available, but process.env[varName] doesn't work in browser
+    return {
+      isValid: true,
+      environment: 'production' as 'production' | 'test' | 'unknown',
+      warnings: [],
+      errors: []
+    };
+  }
+
+  // Server-side validation continues as normal
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const warnings: string[] = [];
   const errors: string[] = [];

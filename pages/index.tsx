@@ -99,7 +99,10 @@ export default function HomePage() {
           
           /* Video overlay gradient */
           .video-overlay {
-            background: linear-gradient(to right, rgba(255,255,255,0.3) 0%, transparent 50%);
+            background: linear-gradient(135deg, 
+              rgba(0,0,0,0.7) 0%, 
+              rgba(0,0,0,0.4) 40%, 
+              transparent 70%);
           }
           
           /* Header backdrop blur */
@@ -198,7 +201,12 @@ export default function HomePage() {
               <source src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Fondo%20web.mov" type="video/mp4" />
             </video>
             
-            <div className="video-overlay absolute inset-0"></div>
+            <div 
+              className="absolute inset-0" 
+              style={{
+                background: 'linear-gradient(135deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.4) 40%, transparent 70%)'
+              }}
+            ></div>
             
             <div className="relative z-10 h-full flex items-center">
               <div className="max-w-7xl mx-auto px-6">

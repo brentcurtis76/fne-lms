@@ -63,7 +63,7 @@ export default function HomePage() {
     <>
       <Head>
         <title>Fundación Nueva Educación - Transforma el Futuro del Aprendizaje</title>
-        <meta name="description" content="Acompañamos a las comunidades educativas de Chile y el mundo a dar el salto hacia una Nueva Educación basada en la relación, la colaboración y el sentido." />
+        <meta name="description" content="Acompañamos a las comunidades educativas a dar el salto hacia una Nueva Educación basada en la autonomía y la colaboración para la expresión plena del potencial de cada estudiante." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
         
@@ -203,11 +203,11 @@ export default function HomePage() {
                 <h1 className="text-5xl md:text-6xl lg:text-7xl font-black uppercase mb-6 text-white">
                   TRANSFORMA EL FUTURO<br />DEL APRENDIZAJE
                 </h1>
-                <p className="text-lg md:text-xl max-w-[480px] mb-6 text-white/90 leading-relaxed">
-                  Acompañamos a las comunidades educativas de Chile y el mundo a dar el salto hacia una Nueva Educación basada en la relación, la colaboración y el sentido.
+                <p className="text-lg md:text-xl max-w-[600px] mb-6 text-white/90 leading-relaxed">
+                  Acompañamos a las comunidades educativas a dar el salto hacia una Nueva Educación basada en la autonomía y la colaboración para la expresión plena del potencial de cada estudiante.
                 </p>
                 <p className="text-sm md:text-base max-w-[480px] mb-8 text-white/80">
-                  Agencia Técnica Educativa certificada por Mineduc
+                  ATE certificada por RPA Mineduc
                 </p>
               </div>
             </div>

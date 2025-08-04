@@ -193,9 +193,9 @@ export default function HomePage() {
               playsInline
               poster="https://images.unsplash.com/photo-1509062522246-3755977927d7?w=1920&h=1080&fit=crop"
             >
-              <source src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Video%20fondo%20web_light2.mov" type="video/quicktime" />
+              <source src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Fondo%20web.mov" type="video/quicktime" />
               {/* Fallback for browsers that don't support .mov */}
-              <source src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Video%20fondo%20web_light2.mov" type="video/mp4" />
+              <source src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Fondo%20web.mov" type="video/mp4" />
             </video>
             
             <div className="video-overlay absolute inset-0"></div>

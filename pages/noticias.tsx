@@ -198,7 +198,7 @@ export default function NewsPage() {
           <div 
             className="absolute inset-0 bg-cover bg-center bg-no-repeat"
             style={{
-              backgroundImage: `url('https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1920&h=1080&fit=crop&crop=center')`,
+              backgroundImage: `url('https://images.unsplash.com/photo-1509062522246-3755977927d7?w=1920&h=1080&fit=crop')`,
             }}
           ></div>
           

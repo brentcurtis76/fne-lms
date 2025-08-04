@@ -11,6 +11,7 @@ export type UserRoleType =
   | 'lider_generacion'    // Leaders of Tractor/Innova generations
   | 'lider_comunidad'     // Leaders of Growth Communities (2-16 teachers)
   | 'supervisor_de_red'   // Network supervisors with limited reporting access
+  | 'community_manager'   // Community managers with access to content and reports
   | 'docente';            // Regular teachers/course participants
 
 // Organizational entities
@@ -230,6 +231,21 @@ export const ROLE_HIERARCHY: Record<UserRoleType, RolePermissions> = {
     reporting_scope: 'network',
     feedback_scope: 'network'
   },
+  community_manager: {
+    can_create_courses: false,
+    can_edit_all_courses: false,
+    can_delete_courses: false,
+    can_assign_courses: false,
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_assign_roles: false,
+    can_manage_schools: false,
+    can_manage_generations: false,
+    can_manage_communities: false,
+    reporting_scope: 'individual',
+    feedback_scope: 'individual'
+  },
   docente: {
     can_create_courses: false,
     can_edit_all_courses: false,
@@ -255,6 +271,7 @@ export const ROLE_NAMES: Record<UserRoleType, string> = {
   lider_generacion: 'Líder de Generación',
   lider_comunidad: 'Líder de Comunidad',
   supervisor_de_red: 'Supervisor de Red',
+  community_manager: 'Community Manager',
   docente: 'Docente'
 };
 
@@ -266,11 +283,117 @@ export const ROLE_DESCRIPTIONS: Record<UserRoleType, string> = {
   lider_generacion: 'Líderes de generaciones Tractor/Innova. Pueden pertenecer a comunidades para colaboración.',
   lider_comunidad: 'Líderes de Comunidades de Crecimiento (2-16 miembros). Crean automáticamente su propia comunidad.',
   supervisor_de_red: 'Supervisores con acceso limitado a reportes de una red específica de colegios. Pueden inscribirse en cursos como estudiantes.',
+  community_manager: 'Gestores de comunidad con acceso a panel, perfil, aprendizaje, cursos y rendición de gastos.',
   docente: 'Docentes participantes en cursos. Pueden pertenecer a comunidades para colaboración.'
 };
 
 // Utility type for permission checking
 export type PermissionKey = keyof Omit<RolePermissions, 'reporting_scope' | 'feedback_scope'>;
+
+// Organizational scope requirements for role assignment
+export interface RoleOrganizationalRequirements {
+  requiresSchool: boolean;
+  requiresGeneration: boolean;
+  requiresCommunity: boolean;
+  description: string;
+}
+
+// Role organizational requirements definition
+export const ROLE_ORGANIZATIONAL_REQUIREMENTS: Record<UserRoleType, RoleOrganizationalRequirements> = {
+  admin: {
+    requiresSchool: false,
+    requiresGeneration: false,
+    requiresCommunity: false,
+    description: 'Global role - no organizational scope required'
+  },
+  consultor: {
+    requiresSchool: true,
+    requiresGeneration: false,
+    requiresCommunity: false,
+    description: 'Must be assigned to a specific school'
+  },
+  equipo_directivo: {
+    requiresSchool: true,
+    requiresGeneration: false,
+    requiresCommunity: false,
+    description: 'Must be assigned to a specific school'
+  },
+  lider_generacion: {
+    requiresSchool: true,
+    requiresGeneration: false,
+    requiresCommunity: false,
+    description: 'Must be assigned to a specific school and generation'
+  },
+  lider_comunidad: {
+    requiresSchool: true,
+    requiresGeneration: false,
+    requiresCommunity: false,
+    description: 'Must be assigned to a school (community auto-created)'
+  },
+  supervisor_de_red: {
+    requiresSchool: false,
+    requiresGeneration: false,
+    requiresCommunity: false,
+    description: 'Network-level role - no specific school required'
+  },
+  community_manager: {
+    requiresSchool: false,
+    requiresGeneration: false,
+    requiresCommunity: false,
+    description: 'Content management role - no organizational scope required'
+  },
+  docente: {
+    requiresSchool: true,
+    requiresGeneration: false,
+    requiresCommunity: false,
+    description: 'Must be assigned to a specific school'
+  }
+};
+
+// Validation function for role assignments
+export function validateRoleAssignment(
+  roleType: UserRoleType,
+  organizationalScope: {
+    schoolId?: string | null;
+    generationId?: string | null;
+    communityId?: string | null;
+  }
+): { isValid: boolean; error?: string } {
+  const requirements = ROLE_ORGANIZATIONAL_REQUIREMENTS[roleType];
+  
+  if (!requirements) {
+    return {
+      isValid: false,
+      error: `Unknown role type: ${roleType}`
+    };
+  }
+  
+  // Check school requirement
+  if (requirements.requiresSchool && !organizationalScope.schoolId) {
+    return {
+      isValid: false,
+      error: `Role "${ROLE_NAMES[roleType]}" requires a school assignment`
+    };
+  }
+  
+  // Check generation requirement (currently none require it directly)
+  if (requirements.requiresGeneration && !organizationalScope.generationId) {
+    return {
+      isValid: false,
+      error: `Role "${ROLE_NAMES[roleType]}" requires a generation assignment`
+    };
+  }
+  
+  // Check community requirement (currently none require it directly - lider_comunidad auto-creates)
+  if (requirements.requiresCommunity && !organizationalScope.communityId) {
+    return {
+      isValid: false,
+      error: `Role "${ROLE_NAMES[roleType]}" requires a community assignment`
+    };
+  }
+  
+  return { isValid: true };
+}
 
 // Migration helper types
 export interface LegacyProfile {

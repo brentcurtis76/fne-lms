@@ -29,7 +29,8 @@ import {
   OfficeBuildingIcon,
   ExclamationCircleIcon as BugIcon,
   MapIcon,
-  GlobeIcon as NetworkIcon
+  GlobeIcon as NetworkIcon,
+  NewspaperIcon
 } from '@heroicons/react/outline';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
@@ -104,7 +105,15 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: BookOpenIcon,
     href: '/admin/course-builder',
     description: 'Gestión de cursos',
-    adminOnly: true
+    restrictedRoles: ['admin', 'community_manager']
+  },
+  {
+    id: 'news',
+    label: 'Noticias',
+    icon: NewspaperIcon,
+    href: '/admin/news',
+    description: 'Gestión de noticias y artículos',
+    restrictedRoles: ['admin', 'consultor', 'community_manager']
   },
   {
     id: 'learning-paths',
@@ -166,7 +175,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Gestión',
     icon: ClipboardDocumentListIcon,
     description: 'Gestión empresarial',
-    adminOnly: true,
+    restrictedRoles: ['admin', 'community_manager'],
     children: [
       {
         id: 'contracts',

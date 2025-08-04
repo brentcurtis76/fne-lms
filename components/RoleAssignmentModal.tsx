@@ -64,6 +64,7 @@ export default function RoleAssignmentModal({
     'equipo_directivo',
     'lider_generacion',
     'lider_comunidad',
+    'community_manager',
     'docente'
   ];
 

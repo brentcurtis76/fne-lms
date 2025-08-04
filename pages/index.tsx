@@ -193,7 +193,9 @@ export default function HomePage() {
               playsInline
               poster="https://images.unsplash.com/photo-1509062522246-3755977927d7?w=1920&h=1080&fit=crop"
             >
-              <source src="placeholder-video.mp4" type="video/mp4" />
+              <source src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Video%20fondo%20web_light2.mov" type="video/quicktime" />
+              {/* Fallback for browsers that don't support .mov */}
+              <source src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Video%20fondo%20web_light2.mov" type="video/mp4" />
             </video>
             
             <div className="video-overlay absolute inset-0"></div>
@@ -201,7 +203,7 @@ export default function HomePage() {
             <div className="relative z-10 h-full flex items-center">
               <div className="max-w-7xl mx-auto px-6">
                 <h1 className="text-5xl md:text-6xl lg:text-7xl font-black uppercase mb-6 text-white">
-                  TRANSFORMA EL FUTURO<br />DEL APRENDIZAJE
+                  VIAJA AL FUTURO<br />DE LA EDUCACIÓN
                 </h1>
                 <p className="text-lg md:text-xl max-w-[600px] mb-6 text-white/90 leading-relaxed">
                   Acompañamos a las comunidades educativas a dar el salto hacia una Nueva Educación basada en la autonomía y la colaboración para la expresión plena del potencial de cada estudiante.

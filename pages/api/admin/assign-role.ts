@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
-import { UserRoleType } from '../../../types/roles';
+import { UserRoleType, validateRoleAssignment } from '../../../types/roles';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -62,10 +62,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Validate role type
-    const validRoles: UserRoleType[] = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'docente'];
+    const validRoles: UserRoleType[] = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'community_manager', 'docente'];
     if (!validRoles.includes(roleType)) {
       return res.status(400).json({ error: 'Invalid role type' });
     }
+
+    // Application-level validation for role organizational requirements
+    const organizationalScope = {
+      schoolId: schoolId || null,
+      generationId: generationId || null,
+      communityId: communityId || null
+    };
+
+    const validation = validateRoleAssignment(roleType, organizationalScope);
+    if (!validation.isValid) {
+      console.log('[assign-role API] Role validation failed:', {
+        roleType,
+        organizationalScope,
+        error: validation.error
+      });
+      return res.status(400).json({ 
+        error: validation.error 
+      });
+    }
+
+    console.log('[assign-role API] Role validation passed:', {
+      roleType,
+      organizationalScope
+    });
 
     let finalCommunityId = communityId;
 

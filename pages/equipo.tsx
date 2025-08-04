@@ -1,6 +1,7 @@
 import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import Footer from '../components/Footer';
 
 export default function EquipoPage() {
   return (
@@ -331,37 +332,7 @@ export default function EquipoPage() {
           </section>
         </main>
 
-        {/* Footer */}
-        <footer className="py-12 bg-white border-t border-gray-200">
-          <div className="max-w-6xl mx-auto px-6">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="mb-4 md:mb-0">
-                <p className="text-sm text-gray-600">© 2025 Fundación Nueva Educación</p>
-                <p className="text-xs text-gray-500">Agencia Técnica Educativa certificada</p>
-              </div>
-              <div className="flex items-center space-x-6">
-                <Link href="/" className="text-sm text-gray-600 hover:text-black transition-colors">
-                  Inicio
-                </Link>
-                <Link href="/#pasantias" className="text-sm text-gray-600 hover:text-black transition-colors">
-                  Pasantías
-                </Link>
-                <Link href="/#aula-generativa" className="text-sm text-gray-600 hover:text-black transition-colors">
-                  Aula Generativa
-                </Link>
-                <Link href="/noticias" className="text-sm text-gray-600 hover:text-black transition-colors">
-                  Noticias
-                </Link>
-                <Link href="/equipo" className="text-sm text-gray-600 hover:text-black transition-colors font-medium">
-                  Equipo
-                </Link>
-                <Link href="/login" className="text-sm text-gray-600 hover:text-black transition-colors border border-gray-300 rounded-full px-4 py-2">
-                  Acceder a la Plataforma
-                </Link>
-              </div>
-            </div>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </>
   );

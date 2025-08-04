@@ -1,9 +1,55 @@
 import React, { useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import Footer from '../components/Footer';
 
 export default function HomePage() {
   const [showFlipbook, setShowFlipbook] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [submitMessage, setSubmitMessage] = React.useState('');
+  const [submitError, setSubmitError] = React.useState('');
+
+  const handleContactSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitMessage('');
+    setSubmitError('');
+
+    const formData = new FormData(e.currentTarget);
+    const contactData = {
+      nombre: formData.get('nombre') as string,
+      email: formData.get('email') as string,
+      institucion: formData.get('institucion') as string,
+      cargo: formData.get('cargo') as string,
+      interes: formData.get('interes') as string,
+      mensaje: formData.get('mensaje') as string,
+    };
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(contactData),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setSubmitMessage(result.message || '¡Mensaje enviado exitosamente! Te responderemos pronto.');
+        // Reset form
+        (e.target as HTMLFormElement).reset();
+      } else {
+        setSubmitError(result.error || 'Error al enviar el mensaje. Por favor intenta nuevamente.');
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      setSubmitError('Error de conexión. Por favor verifica tu conexión a internet e intenta nuevamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     // Mobile menu functionality
@@ -142,6 +188,7 @@ export default function HomePage() {
               <nav className="hidden lg:flex items-center space-x-10">
                 <a href="#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</a>
                 <a href="#aula-generativa" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">AULA GENERATIVA</a>
+                <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS</Link>
                 <Link href="/equipo" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">EQUIPO</Link>
                 <a href="#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">CONTACTO</a>
               </nav>
@@ -177,6 +224,7 @@ export default function HomePage() {
             <nav className="flex flex-col space-y-6">
               <a href="#pasantias" className="text-xl font-medium">PASANTÍAS</a>
               <a href="#aula-generativa" className="text-xl font-medium">AULA GENERATIVA</a>
+              <Link href="/noticias" className="text-xl font-medium">NOTICIAS</Link>
               <Link href="/equipo" className="text-xl font-medium">EQUIPO</Link>
               <a href="#contacto" className="text-xl font-medium">CONTACTO</a>
               <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
@@ -400,10 +448,18 @@ export default function HomePage() {
                 {/* Left Column - Images */}
                 <div className="space-y-6">
                   <div className="relative overflow-hidden rounded-2xl shadow-xl">
-                    <img src="/los-pellines-team.gif" alt="Equipo Los Pellines" className="w-full h-64 object-cover" />
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/images/Steam.png" 
+                      alt="Estudiantes colaborando en proyecto STEAM de construcción" 
+                      className="w-full object-contain" 
+                    />
                   </div>
                   <div className="relative overflow-hidden rounded-2xl shadow-xl">
-                    <img src="/aula-generativa-activity.jpg" alt="Actividad colaborativa" className="w-full h-80 object-cover" />
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/images/hug.png" 
+                      alt="Estudiantes mostrando apoyo y compañerismo" 
+                      className="w-full h-80 object-cover" 
+                    />
                   </div>
                   
                   {/* Stats Card */}
@@ -473,69 +529,219 @@ export default function HomePage() {
           </section>
           
           {/* Section 4: Contacto */}
-          <section id="contacto" className="py-24 bg-[#F5F5F5]">
-            <div className="max-w-[1040px] mx-auto px-6">
-              <div className="lg:flex gap-12">
-                <div className="lg:w-[55%] mb-8 lg:mb-0">
-                  <h2 className="text-4xl font-black uppercase mb-6">CONTÁCTANOS</h2>
-                  <p className="text-lg leading-relaxed mb-8">
-                    ¿Listo para transformar tu institución educativa? Conversemos sobre cómo podemos acompañar tu proceso de transformación.
-                  </p>
-                  
-                  <div className="space-y-6">
-                    <div className="flex items-start">
-                      <svg className="w-6 h-6 text-gray-600 mr-3 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <section id="contacto" className="py-24 bg-white relative overflow-hidden">
+            {/* Background Element */}
+            <div className="absolute bottom-0 left-0 w-96 h-96 bg-black/5 rounded-full transform -translate-x-32 translate-y-32"></div>
+            
+            <div className="max-w-[1040px] mx-auto px-6 relative">
+              {/* Section Header */}
+              <div className="text-center mb-16">
+                <div className="inline-block bg-black text-white px-6 py-2 rounded-full text-sm font-medium uppercase tracking-wide mb-6">
+                  Conversemos
+                </div>
+                <h2 className="text-5xl lg:text-6xl font-black uppercase mb-6">
+                  CONTÁCTANOS
+                </h2>
+                <p className="text-xl leading-relaxed max-w-3xl mx-auto text-gray-700">
+                  ¿Listo para transformar tu institución educativa? Conversemos sobre cómo podemos acompañar tu proceso de transformación.
+                </p>
+              </div>
+
+              {/* Content Grid */}
+              <div className="grid lg:grid-cols-2 gap-16 items-start">
+                {/* Left Column - Contact Form */}
+                <div>
+                  {/* Contact Form */}
+                  <div className="bg-white border-2 border-black rounded-2xl p-8 mb-8">
+                    <h3 className="text-2xl font-bold mb-6">Cuéntanos sobre tu proyecto</h3>
+                    
+                    {/* Success Message */}
+                    {submitMessage && (
+                      <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6">
+                        <div className="flex items-center">
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                          </svg>
+                          <span>{submitMessage}</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Error Message */}
+                    {submitError && (
+                      <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
+                        <div className="flex items-center">
+                          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                          </svg>
+                          <span>{submitError}</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <form className="space-y-6" onSubmit={handleContactSubmit}>
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div>
+                          <label htmlFor="nombre" className="block text-sm font-medium text-gray-700 mb-2">
+                            Nombre *
+                          </label>
+                          <input
+                            type="text"
+                            id="nombre"
+                            name="nombre"
+                            required
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors"
+                            placeholder="Tu nombre completo"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                            Email *
+                          </label>
+                          <input
+                            type="email"
+                            id="email"
+                            name="email"
+                            required
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors"
+                            placeholder="tu@email.com"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div>
+                          <label htmlFor="institucion" className="block text-sm font-medium text-gray-700 mb-2">
+                            Institución *
+                          </label>
+                          <input
+                            type="text"
+                            id="institucion"
+                            name="institucion"
+                            required
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors"
+                            placeholder="Nombre de tu institución"
+                          />
+                        </div>
+                        <div>
+                          <label htmlFor="cargo" className="block text-sm font-medium text-gray-700 mb-2">
+                            Cargo
+                          </label>
+                          <input
+                            type="text"
+                            id="cargo"
+                            name="cargo"
+                            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors"
+                            placeholder="Tu cargo o función"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="interes" className="block text-sm font-medium text-gray-700 mb-2">
+                          ¿Qué te interesa? *
+                        </label>
+                        <select
+                          id="interes"
+                          name="interes"
+                          required
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors"
+                        >
+                          <option value="">Selecciona una opción</option>
+                          <option value="pasantias">Pasantías en Barcelona</option>
+                          <option value="aula-generativa">Aula Generativa</option>
+                          <option value="consultoria">Consultoría educativa</option>
+                          <option value="formacion">Formación de equipos</option>
+                          <option value="otro">Otro proyecto</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label htmlFor="mensaje" className="block text-sm font-medium text-gray-700 mb-2">
+                          Mensaje *
+                        </label>
+                        <textarea
+                          id="mensaje"
+                          name="mensaje"
+                          rows={4}
+                          required
+                          className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors resize-none"
+                          placeholder="Cuéntanos sobre tu institución y cómo podemos ayudarte a transformar la educación..."
+                        ></textarea>
+                      </div>
+
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="w-full bg-black text-white rounded-full px-8 py-4 font-medium hover:bg-gray-800 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                      >
+                        {isSubmitting ? (
+                          <div className="flex items-center justify-center">
+                            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Enviando...
+                          </div>
+                        ) : (
+                          'Enviar Mensaje'
+                        )}
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Contact Info Compact */}
+                  <div className="grid grid-cols-2 gap-6">
+                    <div className="bg-gray-50 rounded-xl p-6 text-center">
+                      <svg className="w-6 h-6 mx-auto mb-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
                       </svg>
-                      <div>
-                        <p className="font-semibold">Email</p>
-                        <a href="mailto:info@nuevaeducacion.org" className="text-gray-600 hover:text-black transition-colors">info@nuevaeducacion.org</a>
-                      </div>
+                      <p className="text-xs font-medium">Email</p>
+                      <p className="text-xs text-gray-600">info@nuevaeducacion.org</p>
                     </div>
-                    
-                    <div className="flex items-start">
-                      <svg className="w-6 h-6 text-gray-600 mr-3 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                      </svg>
-                      <div>
-                        <p className="font-semibold">Dirección</p>
-                        <p className="text-gray-600">Santiago, Chile</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-start">
-                      <svg className="w-6 h-6 text-gray-600 mr-3 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="bg-gray-50 rounded-xl p-6 text-center">
+                      <svg className="w-6 h-6 mx-auto mb-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                       </svg>
-                      <div>
-                        <p className="font-semibold">Certificación</p>
-                        <p className="text-gray-600">Agencia Técnica Educativa certificada</p>
-                      </div>
+                      <p className="text-xs font-medium">Certificación</p>
+                      <p className="text-xs text-gray-600">ATE certificada por RPA Mineduc</p>
                     </div>
                   </div>
                 </div>
-                
-                <div className="lg:w-[45%]">
-                  <div className="bg-white rounded-lg p-8 shadow-lg">
-                    <h3 className="text-2xl font-bold mb-6">Impacto en Cifras</h3>
-                    <div className="space-y-6">
-                      <div className="text-center">
-                        <div className="text-4xl font-black mb-2 text-gray-900">60+</div>
-                        <p className="text-base text-gray-600">Colegios en nuestra red</p>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-4xl font-black mb-2 text-gray-900">100 mil</div>
-                        <p className="text-base text-gray-600">Niños en diversos programas</p>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-4xl font-black mb-2 text-gray-900">9</div>
-                        <p className="text-base text-gray-600">Regiones de Chile</p>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-4xl font-black mb-2 text-gray-900">20+</div>
-                        <p className="text-base text-gray-600">Años de experiencia</p>
-                      </div>
+
+                {/* Right Column - Impact Stats */}
+                <div>
+                  {/* Stats Grid */}
+                  <div className="grid grid-cols-2 gap-6 mb-8">
+                    <div className="bg-white rounded-2xl p-8 shadow-xl text-center border border-gray-100">
+                      <div className="text-4xl font-black mb-3 text-black">60+</div>
+                      <p className="text-sm text-gray-600 font-medium">Colegios en nuestra red</p>
+                    </div>
+                    <div className="bg-white rounded-2xl p-8 shadow-xl text-center border border-gray-100">
+                      <div className="text-4xl font-black mb-3 text-black">100k+</div>
+                      <p className="text-sm text-gray-600 font-medium">Niños impactados</p>
+                    </div>
+                    <div className="bg-white rounded-2xl p-8 shadow-xl text-center border border-gray-100">
+                      <div className="text-4xl font-black mb-3 text-black">9</div>
+                      <p className="text-sm text-gray-600 font-medium">Regiones de Chile</p>
+                    </div>
+                    <div className="bg-white rounded-2xl p-8 shadow-xl text-center border border-gray-100">
+                      <div className="text-4xl font-black mb-3 text-black">20+</div>
+                      <p className="text-sm text-gray-600 font-medium">Años transformando</p>
+                    </div>
+                  </div>
+
+                  {/* Success Story Card */}
+                  <div className="bg-gray-50 rounded-2xl p-8">
+                    <h3 className="text-2xl font-bold mb-4">Nuestro Impacto</h3>
+                    <p className="text-gray-700 leading-relaxed mb-6">
+                      Más de dos décadas acompañando procesos de transformación educativa en Chile, formando equipos directivos y docentes comprometidos con una educación centrada en el crecimiento integral de cada estudiante.
+                    </p>
+                    <div className="flex items-center text-sm text-gray-600">
+                      <svg className="w-5 h-5 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                      </svg>
+                      <span className="font-medium">Resultados medibles y sostenibles</span>
                     </div>
                   </div>
                 </div>
@@ -594,25 +800,7 @@ export default function HomePage() {
           </div>
         )}
         
-        {/* Footer */}
-        <footer className="py-12 bg-white border-t border-gray-200">
-          <div className="max-w-[1040px] mx-auto px-6">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <div className="mb-4 md:mb-0">
-                <p className="text-sm text-gray-600">© 2025 Fundación Nueva Educación</p>
-                <p className="text-xs text-gray-500">Agencia Técnica Educativa certificada</p>
-              </div>
-              <div className="flex items-center space-x-6">
-                <a href="mailto:info@nuevaeducacion.org" className="text-sm text-gray-600 hover:text-black transition-colors">
-                  info@nuevaeducacion.org
-                </a>
-                <Link href="/login" className="text-sm text-gray-600 hover:text-black transition-colors border border-gray-300 rounded-full px-4 py-2">
-                  Acceder a la Plataforma
-                </Link>
-              </div>
-            </div>
-          </div>
-        </footer>
+        <Footer />
       </div>
     </>
   );

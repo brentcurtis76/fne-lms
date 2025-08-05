@@ -50,10 +50,13 @@ export default function NewsPage() {
       }
       
       const data = await response.json();
-      console.log('[News Page] Raw data received:', data.length || 0, 'articles');
+      
+      // Handle new API response format {articles: [], total: number}
+      const articles = data.articles || data; // Support both old and new formats
+      console.log('[News Page] Raw data received:', articles.length || 0, 'articles');
       
       // Filter only published articles
-      const publishedArticles = data.filter((article: NewsArticle) => article.is_published);
+      const publishedArticles = articles.filter((article: NewsArticle) => article.is_published);
       console.log('[News Page] Published articles:', publishedArticles.length);
       
       if (publishedArticles.length > 0) {

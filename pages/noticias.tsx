@@ -33,44 +33,81 @@ export default function NewsPage() {
     try {
       setError(null);
       console.log('[News Page] Starting to fetch articles...');
+      console.log('[News Page] Current loading state:', loading);
+      console.log('[News Page] Timestamp:', new Date().toISOString());
+      
+      // Add timeout to fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('[News Page] Fetch timeout - aborting request');
+        controller.abort();
+      }, 10000); // 10 second timeout
       
       const response = await fetch('/api/news', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
+        signal: controller.signal
       });
       
-      console.log('[News Page] Response status:', response.status);
+      clearTimeout(timeoutId);
+      console.log('[News Page] Response received - status:', response.status);
+      console.log('[News Page] Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         const errorText = await response.text();
         console.error('[News Page] Response not ok:', response.status, errorText);
-        throw new Error(`Error loading news: ${response.status}`);
+        throw new Error(`Error loading news: ${response.status} - ${errorText}`);
       }
       
       const data = await response.json();
+      console.log('[News Page] JSON data parsed successfully');
+      console.log('[News Page] Data type:', typeof data);
+      console.log('[News Page] Is array:', Array.isArray(data));
+      console.log('[News Page] Has articles property:', !!data.articles);
       
       // Handle new API response format {articles: [], total: number}
       const articles = data.articles || data; // Support both old and new formats
-      console.log('[News Page] Raw data received:', articles.length || 0, 'articles');
+      console.log('[News Page] Articles extracted:', Array.isArray(articles) ? articles.length : 'NOT ARRAY');
+      
+      if (!Array.isArray(articles)) {
+        console.error('[News Page] Articles is not an array:', articles);
+        throw new Error('Invalid response format - articles is not an array');
+      }
+      
+      console.log('[News Page] Raw articles count:', articles.length);
       
       // Filter only published articles
       const publishedArticles = articles.filter((article: NewsArticle) => article.is_published);
-      console.log('[News Page] Published articles:', publishedArticles.length);
+      console.log('[News Page] Published articles count:', publishedArticles.length);
       
       if (publishedArticles.length > 0) {
         console.log('[News Page] First article title:', publishedArticles[0].title);
+        console.log('[News Page] First article published:', publishedArticles[0].is_published);
       }
       
+      console.log('[News Page] About to set articles state...');
       setArticles(publishedArticles);
+      console.log('[News Page] Articles state set successfully');
+      
       setHasMore(false); // For now, load all articles at once
+      console.log('[News Page] Fetch completed successfully');
+      
     } catch (error) {
       console.error('[News Page] Error fetching articles:', error);
-      setError(error instanceof Error ? error.message : 'Error al cargar las noticias');
+      console.error('[News Page] Error stack:', error instanceof Error ? error.stack : 'No stack');
+      
+      if (error instanceof Error && error.name === 'AbortError') {
+        setError('La solicitud tardó demasiado en responder. Por favor, intenta nuevamente.');
+      } else {
+        setError(error instanceof Error ? error.message : 'Error al cargar las noticias');
+      }
       setArticles([]);
     } finally {
+      console.log('[News Page] Setting loading to false...');
       setLoading(false);
+      console.log('[News Page] Loading state updated to false');
     }
   };
 
@@ -254,6 +291,16 @@ export default function NewsPage() {
                 <div className="text-center py-16">
                   <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-black"></div>
                   <p className="mt-6 text-xl text-gray-600">Cargando noticias...</p>
+                  <div className="mt-8 p-4 bg-gray-100 rounded-lg text-left text-sm">
+                    <p className="font-bold mb-2">Debug Info:</p>
+                    <p>• Page loaded at: {new Date().toISOString()}</p>
+                    <p>• Loading state: {loading ? 'true' : 'false'}</p>
+                    <p>• Articles count: {articles.length}</p>
+                    <p>• Error state: {error || 'none'}</p>
+                    <p className="mt-2 text-xs text-gray-500">
+                      If this shows for more than 10 seconds, check browser console (F12) for errors.
+                    </p>
+                  </div>
                 </div>
               </div>
             </section>

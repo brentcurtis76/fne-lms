@@ -256,7 +256,7 @@ export default function EquipoPage() {
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Jordi%20Mussons.png"
                     alt="Jordi Mussons"
-                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                   />
                   <h3 className="text-lg font-bold mb-2">Jordi Mussons</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Director Escuela Sadako</p>
@@ -270,7 +270,7 @@ export default function EquipoPage() {
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Boris%20Mir.jpg"
                     alt="Boris Mir"
-                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                   />
                   <h3 className="text-lg font-bold mb-2">Boris Mir</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Director Instituto Angela Ferrer</p>
@@ -300,7 +300,7 @@ export default function EquipoPage() {
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Sandra%20Entrena.jpg"
                     alt="Sandra Entrena"
-                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                   />
                   <h3 className="text-lg font-bold mb-2">Sandra Entrena</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Directora Escuela Virolai</p>
@@ -314,7 +314,7 @@ export default function EquipoPage() {
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Anna%20Comas.png"
                     alt="Anna Comas"
-                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                   />
                   <h3 className="text-lg font-bold mb-2">Anna Comas</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Ex-Directora La Maquinista</p>
@@ -344,7 +344,7 @@ export default function EquipoPage() {
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Sergi%20Del%20Moral.jpg"
                     alt="Sergi Del Moral"
-                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                   />
                   <h3 className="text-lg font-bold mb-2">Sergi Del Moral</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Director Institut Escola Les Vinyes</p>
@@ -358,7 +358,7 @@ export default function EquipoPage() {
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Betlem%20Cuesta.jpg"
                     alt="Betlem Cuesta"
-                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                   />
                   <h3 className="text-lg font-bold mb-2">Betlem Cuesta</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Coordinadora Pedagógica Les Vinyes</p>

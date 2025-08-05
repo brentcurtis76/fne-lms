@@ -143,7 +143,7 @@ export default function EquipoPage() {
                     <img 
                       src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Arnoldo%20Cisternas.png"
                       alt="Arnoldo Cisternas"
-                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
                     />
                     <h3 className="text-lg font-bold mb-2">Arnoldo Cisternas</h3>
                     <p className="text-gray-600 mb-3 text-sm font-medium">Psicólogo y Fundador</p>
@@ -157,7 +157,7 @@ export default function EquipoPage() {
                     <img 
                       src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Joan%20Quintana.png"
                       alt="Joan Quintana"
-                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
                     />
                     <h3 className="text-lg font-bold mb-2">Joan Quintana</h3>
                     <p className="text-gray-600 mb-3 text-sm font-medium">Psicólogo y Director Instituto Relacional</p>
@@ -171,7 +171,7 @@ export default function EquipoPage() {
                     <img 
                       src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Gabriela%20Naranjo.jpg"
                       alt="Gabriela Naranjo"
-                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
                     />
                     <h3 className="text-lg font-bold mb-2">Gabriela Naranjo</h3>
                     <p className="text-gray-600 mb-3 text-sm font-medium">Directora Fundación Nueva Educación</p>
@@ -186,9 +186,9 @@ export default function EquipoPage() {
                     {/* Brent Curtis */}
                     <div className="text-center bg-white rounded-xl p-6 shadow-lg">
                       <img 
-                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Brent%20Curtis.jpg"
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Brent%20Curtis.JPG"
                         alt="Brent Curtis"
-                        className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                        className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
                       />
                       <h3 className="text-lg font-bold mb-2">Brent Curtis</h3>
                       <p className="text-gray-600 mb-3 text-sm font-medium">Teólogo y Director de Vinculación</p>
@@ -202,7 +202,7 @@ export default function EquipoPage() {
                       <img 
                         src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Mora%20Del%20Fresno.png"
                         alt="Mora Del Fresno"
-                        className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                        className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
                       />
                       <h3 className="text-lg font-bold mb-2">Mora Del Fresno</h3>
                       <p className="text-gray-600 mb-3 text-sm font-medium">Coordinadora Académica FNE</p>
@@ -229,7 +229,11 @@ export default function EquipoPage() {
               <div className="grid md:grid-cols-3 gap-6 mb-8">
                 {/* Coral Regí */}
                 <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                  <img 
+                    src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Coral%20Regi.png"
+                    alt="Coral Regí"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
+                  />
                   <h3 className="text-lg font-bold mb-2">Coral Regí</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Ex-Directora Escuela Virolai</p>
                   <p className="text-sm leading-relaxed text-gray-700">
@@ -269,7 +273,11 @@ export default function EquipoPage() {
               <div className="grid md:grid-cols-3 gap-6 mb-8">
                 {/* Pepe Menéndez */}
                 <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                  <img 
+                    src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Pepe%20Menendez.jpg"
+                    alt="Pepe Menéndez"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
+                  />
                   <h3 className="text-lg font-bold mb-2">Pepe Menéndez</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Ex-Director Adjunto Jesuitas Educació</p>
                   <p className="text-sm leading-relaxed text-gray-700">
@@ -309,7 +317,11 @@ export default function EquipoPage() {
               <div className="grid md:grid-cols-3 gap-6 mb-12">
                 {/* Elena Guillén */}
                 <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                  <img 
+                    src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Elena%20Guillen.png"
+                    alt="Elena Guillén"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
+                  />
                   <h3 className="text-lg font-bold mb-2">Elena Guillén</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Directora Escola Octavio Paz</p>
                   <p className="text-sm leading-relaxed text-gray-700">

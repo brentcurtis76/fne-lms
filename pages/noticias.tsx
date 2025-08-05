@@ -20,6 +20,7 @@ interface NewsArticle {
 export default function NewsPage() {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const limit = 9;
@@ -30,19 +31,41 @@ export default function NewsPage() {
 
   const fetchArticles = async (loadMore = false) => {
     try {
-      const response = await fetch('/api/news');
+      setError(null);
+      console.log('[News Page] Starting to fetch articles...');
       
-      if (!response.ok) throw new Error('Error loading news');
+      const response = await fetch('/api/news', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log('[News Page] Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[News Page] Response not ok:', response.status, errorText);
+        throw new Error(`Error loading news: ${response.status}`);
+      }
       
       const data = await response.json();
+      console.log('[News Page] Raw data received:', data.length || 0, 'articles');
       
       // Filter only published articles
       const publishedArticles = data.filter((article: NewsArticle) => article.is_published);
+      console.log('[News Page] Published articles:', publishedArticles.length);
+      
+      if (publishedArticles.length > 0) {
+        console.log('[News Page] First article title:', publishedArticles[0].title);
+      }
       
       setArticles(publishedArticles);
       setHasMore(false); // For now, load all articles at once
     } catch (error) {
-      console.error('Error fetching articles:', error);
+      console.error('[News Page] Error fetching articles:', error);
+      setError(error instanceof Error ? error.message : 'Error al cargar las noticias');
+      setArticles([]);
     } finally {
       setLoading(false);
     }
@@ -235,13 +258,44 @@ export default function NewsPage() {
             <section className="py-24">
               <div className="max-w-[1040px] mx-auto px-6">
                 <div className="bg-white rounded-lg shadow-lg p-16 text-center">
-                  <h2 className="text-3xl font-black uppercase mb-6">Sin Noticias Disponibles</h2>
-                  <p className="text-lg text-gray-600 mb-8">
-                    No hay noticias publicadas en este momento. ¡Vuelve pronto para ver las últimas novedades!
-                  </p>
-                  <Link href="/" className="inline-flex items-center border border-gray-300 rounded-full px-8 py-4 text-base font-medium hover:bg-gray-100 transition-all duration-300">
-                    Volver al Inicio
-                  </Link>
+                  {error ? (
+                    <>
+                      <h2 className="text-3xl font-black uppercase mb-6 text-red-600">Error al Cargar Noticias</h2>
+                      <p className="text-lg text-gray-600 mb-4">
+                        Hubo un problema al cargar las noticias: {error}
+                      </p>
+                      <p className="text-base text-gray-500 mb-8">
+                        Por favor, verifica tu conexión a internet e intenta nuevamente.
+                      </p>
+                      <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button 
+                          onClick={() => {
+                            setLoading(true);
+                            fetchArticles();
+                          }}
+                          className="inline-flex items-center bg-black text-white rounded-full px-8 py-4 text-base font-medium hover:bg-gray-800 transition-all duration-300"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                          </svg>
+                          Reintentar
+                        </button>
+                        <Link href="/" className="inline-flex items-center border border-gray-300 rounded-full px-8 py-4 text-base font-medium hover:bg-gray-100 transition-all duration-300">
+                          Volver al Inicio
+                        </Link>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <h2 className="text-3xl font-black uppercase mb-6">Sin Noticias Disponibles</h2>
+                      <p className="text-lg text-gray-600 mb-8">
+                        No hay noticias publicadas en este momento. ¡Vuelve pronto para ver las últimas novedades!
+                      </p>
+                      <Link href="/" className="inline-flex items-center border border-gray-300 rounded-full px-8 py-4 text-base font-medium hover:bg-gray-100 transition-all duration-300">
+                        Volver al Inicio
+                      </Link>
+                    </>
+                  )}
                 </div>
               </div>
             </section>

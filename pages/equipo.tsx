@@ -41,6 +41,16 @@ export default function EquipoPage() {
           html {
             scroll-behavior: smooth;
           }
+          
+          /* Black and white filter for team photos */
+          .team-photo {
+            filter: grayscale(100%);
+            transition: filter 0.3s ease;
+          }
+          
+          .team-photo:hover {
+            filter: grayscale(0%);
+          }
         `}</style>
       </Head>
 
@@ -143,7 +153,7 @@ export default function EquipoPage() {
                     <img 
                       src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Arnoldo%20Cisternas.png"
                       alt="Arnoldo Cisternas"
-                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
+                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                     />
                     <h3 className="text-lg font-bold mb-2">Arnoldo Cisternas</h3>
                     <p className="text-gray-600 mb-3 text-sm font-medium">Psicólogo y Fundador</p>
@@ -157,7 +167,7 @@ export default function EquipoPage() {
                     <img 
                       src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Joan%20Quintana.png"
                       alt="Joan Quintana"
-                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
+                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                     />
                     <h3 className="text-lg font-bold mb-2">Joan Quintana</h3>
                     <p className="text-gray-600 mb-3 text-sm font-medium">Psicólogo y Director Instituto Relacional</p>
@@ -171,7 +181,7 @@ export default function EquipoPage() {
                     <img 
                       src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Gabriela%20Naranjo.jpg"
                       alt="Gabriela Naranjo"
-                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
+                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                     />
                     <h3 className="text-lg font-bold mb-2">Gabriela Naranjo</h3>
                     <p className="text-gray-600 mb-3 text-sm font-medium">Directora Fundación Nueva Educación</p>
@@ -188,7 +198,7 @@ export default function EquipoPage() {
                       <img 
                         src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Brent%20Curtis.JPG"
                         alt="Brent Curtis"
-                        className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
+                        className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                       />
                       <h3 className="text-lg font-bold mb-2">Brent Curtis</h3>
                       <p className="text-gray-600 mb-3 text-sm font-medium">Teólogo y Director de Vinculación</p>
@@ -202,7 +212,7 @@ export default function EquipoPage() {
                       <img 
                         src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Mora%20Del%20Fresno.png"
                         alt="Mora Del Fresno"
-                        className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
+                        className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                       />
                       <h3 className="text-lg font-bold mb-2">Mora Del Fresno</h3>
                       <p className="text-gray-600 mb-3 text-sm font-medium">Coordinadora Académica FNE</p>
@@ -232,7 +242,7 @@ export default function EquipoPage() {
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Coral%20Regi.png"
                     alt="Coral Regí"
-                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                   />
                   <h3 className="text-lg font-bold mb-2">Coral Regí</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Ex-Directora Escuela Virolai</p>
@@ -276,7 +286,7 @@ export default function EquipoPage() {
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Pepe%20Menendez.jpg"
                     alt="Pepe Menéndez"
-                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                   />
                   <h3 className="text-lg font-bold mb-2">Pepe Menéndez</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Ex-Director Adjunto Jesuitas Educació</p>
@@ -320,7 +330,7 @@ export default function EquipoPage() {
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Elena%20Guillen.png"
                     alt="Elena Guillén"
-                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover grayscale"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover team-photo"
                   />
                   <h3 className="text-lg font-bold mb-2">Elena Guillén</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Directora Escola Octavio Paz</p>

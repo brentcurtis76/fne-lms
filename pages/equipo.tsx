@@ -140,7 +140,11 @@ export default function EquipoPage() {
                 <div className="grid md:grid-cols-3 gap-6 mb-8">
                   {/* Arnoldo Cisternas */}
                   <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Arnoldo%20Cisternas.png"
+                      alt="Arnoldo Cisternas"
+                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                    />
                     <h3 className="text-lg font-bold mb-2">Arnoldo Cisternas</h3>
                     <p className="text-gray-600 mb-3 text-sm font-medium">Psicólogo y Fundador</p>
                     <p className="text-sm leading-relaxed text-gray-700">
@@ -150,7 +154,11 @@ export default function EquipoPage() {
                   
                   {/* Joan Quintana */}
                   <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Joan%20Quintana.png"
+                      alt="Joan Quintana"
+                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                    />
                     <h3 className="text-lg font-bold mb-2">Joan Quintana</h3>
                     <p className="text-gray-600 mb-3 text-sm font-medium">Psicólogo y Director Instituto Relacional</p>
                     <p className="text-sm leading-relaxed text-gray-700">
@@ -160,7 +168,11 @@ export default function EquipoPage() {
                   
                   {/* Gabriela Naranjo */}
                   <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                    <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Gabriela%20Naranjo.jpg"
+                      alt="Gabriela Naranjo"
+                      className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                    />
                     <h3 className="text-lg font-bold mb-2">Gabriela Naranjo</h3>
                     <p className="text-gray-600 mb-3 text-sm font-medium">Directora Fundación Nueva Educación</p>
                     <p className="text-sm leading-relaxed text-gray-700">
@@ -173,7 +185,11 @@ export default function EquipoPage() {
                   <div className="grid md:grid-cols-2 gap-6 max-w-2xl">
                     {/* Brent Curtis */}
                     <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                      <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Brent%20Curtis.jpg"
+                        alt="Brent Curtis"
+                        className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                      />
                       <h3 className="text-lg font-bold mb-2">Brent Curtis</h3>
                       <p className="text-gray-600 mb-3 text-sm font-medium">Teólogo y Director de Vinculación</p>
                       <p className="text-sm leading-relaxed text-gray-700">
@@ -183,7 +199,11 @@ export default function EquipoPage() {
                     
                     {/* Mora Del Fresno */}
                     <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                      <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Mora%20Del%20Fresno.png"
+                        alt="Mora Del Fresno"
+                        className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                      />
                       <h3 className="text-lg font-bold mb-2">Mora Del Fresno</h3>
                       <p className="text-gray-600 mb-3 text-sm font-medium">Coordinadora Académica FNE</p>
                       <p className="text-sm leading-relaxed text-gray-700">
@@ -219,7 +239,11 @@ export default function EquipoPage() {
                 
                 {/* Jordi Mussons */}
                 <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                  <img 
+                    src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Jordi%20Mussons.png"
+                    alt="Jordi Mussons"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                  />
                   <h3 className="text-lg font-bold mb-2">Jordi Mussons</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Director Escuela Sadako</p>
                   <p className="text-sm leading-relaxed text-gray-700">
@@ -229,7 +253,11 @@ export default function EquipoPage() {
                 
                 {/* Boris Mir */}
                 <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                  <img 
+                    src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Boris%20Mir.jpg"
+                    alt="Boris Mir"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                  />
                   <h3 className="text-lg font-bold mb-2">Boris Mir</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Director Instituto Angela Ferrer</p>
                   <p className="text-sm leading-relaxed text-gray-700">
@@ -251,7 +279,11 @@ export default function EquipoPage() {
                 
                 {/* Sandra Entrena */}
                 <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                  <img 
+                    src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Sandra%20Entrena.jpg"
+                    alt="Sandra Entrena"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                  />
                   <h3 className="text-lg font-bold mb-2">Sandra Entrena</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Directora Escuela Virolai</p>
                   <p className="text-sm leading-relaxed text-gray-700">
@@ -261,7 +293,11 @@ export default function EquipoPage() {
                 
                 {/* Anna Comas */}
                 <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                  <img 
+                    src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Anna%20Comas.png"
+                    alt="Anna Comas"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                  />
                   <h3 className="text-lg font-bold mb-2">Anna Comas</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Ex-Directora La Maquinista</p>
                   <p className="text-sm leading-relaxed text-gray-700">
@@ -283,7 +319,11 @@ export default function EquipoPage() {
                 
                 {/* Sergi Del Moral */}
                 <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                  <img 
+                    src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Sergi%20Del%20Moral.jpg"
+                    alt="Sergi Del Moral"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                  />
                   <h3 className="text-lg font-bold mb-2">Sergi Del Moral</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Director Institut Escola Les Vinyes</p>
                   <p className="text-sm leading-relaxed text-gray-700">
@@ -293,7 +333,11 @@ export default function EquipoPage() {
                 
                 {/* Betlem Cuesta */}
                 <div className="text-center bg-white rounded-xl p-6 shadow-lg">
-                  <div className="w-32 h-32 bg-black rounded-full mx-auto mb-4"></div>
+                  <img 
+                    src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Betlem%20Cuesta.jpg"
+                    alt="Betlem Cuesta"
+                    className="w-32 h-32 rounded-full mx-auto mb-4 object-cover"
+                  />
                   <h3 className="text-lg font-bold mb-2">Betlem Cuesta</h3>
                   <p className="text-gray-600 mb-3 text-sm font-medium">Coordinadora Pedagógica Les Vinyes</p>
                   <p className="text-sm leading-relaxed text-gray-700">

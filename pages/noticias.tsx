@@ -232,7 +232,7 @@ export default function NewsPage() {
                 <Link href="/noticias" className="text-base font-medium text-black font-semibold">
                   NOTICIAS
                 </Link>
-                <Link href="/#equipo" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                <Link href="/equipo" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   EQUIPO
                 </Link>
                 <Link href="/#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
@@ -258,28 +258,17 @@ export default function NewsPage() {
         </header>
 
         {/* Hero Section */}
-        <section className="relative h-screen min-h-[600px] pt-24">
-          <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={{
-              backgroundImage: `url('https://images.unsplash.com/photo-1509062522246-3755977927d7?w=1920&h=1080&fit=crop')`,
-            }}
-          ></div>
-          
-          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent"></div>
-          
-          <div className="relative z-10 h-full flex items-center">
-            <div className="max-w-[1040px] mx-auto px-6">
-              <h1 className="text-5xl md:text-6xl lg:text-7xl font-black uppercase mb-6 text-white">
-                NOTICIAS Y<br />NOVEDADES
-              </h1>
-              <p className="text-lg md:text-xl max-w-[600px] mb-6 text-white/90 leading-relaxed">
-                Mantente informado sobre las últimas actividades, eventos y transformaciones que estamos impulsando en el mundo de la educación.
-              </p>
-              <p className="text-sm md:text-base max-w-[480px] mb-8 text-white/80">
-                Historias de cambio, innovación pedagógica y comunidades educativas en crecimiento
-              </p>
-            </div>
+        <section className="pt-64 pb-24 px-6">
+          <div className="max-w-6xl mx-auto text-center">
+            <h1 className="text-5xl md:text-7xl font-black text-gray-900 mb-6 leading-tight">
+              NOTICIAS Y<br />
+              NOVEDADES
+            </h1>
+            
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+              Mantente informado sobre las últimas actividades, eventos y transformaciones 
+              que estamos impulsando en el mundo de la educación
+            </p>
           </div>
         </section>
 

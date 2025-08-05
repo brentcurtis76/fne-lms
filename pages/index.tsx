@@ -273,7 +273,7 @@ export default function HomePage() {
           </section>
           
           {/* Section 1: Pasantías en Barcelona */}
-          <section id="pasantias" className="py-24 relative overflow-hidden">
+          <section id="pasantias" className="pt-40 pb-24 relative overflow-hidden">
             {/* Background Pattern */}
             <div className="absolute inset-0 opacity-5">
               <div className="absolute inset-0" style={{
@@ -284,9 +284,7 @@ export default function HomePage() {
             <div className="max-w-[1040px] mx-auto px-6 relative">
               {/* Section Header */}
               <div className="text-center mb-16">
-                <div className="inline-block bg-black text-white px-6 py-2 rounded-full text-sm font-medium uppercase tracking-wide mb-6">
-                  Experiencia Internacional
-                </div>
+                <div className="mb-6" style={{height: '32px'}}></div>
                 <h2 className="text-5xl lg:text-6xl font-black uppercase mb-6">
                   PASANTÍAS EN BARCELONA
                 </h2>
@@ -424,16 +422,14 @@ export default function HomePage() {
           </section>
           
           {/* Section 2: Aula Generativa */}
-          <section id="aula-generativa" className="py-24 bg-[#F8F8F8] relative overflow-hidden">
+          <section id="aula-generativa" className="pt-32 pb-24 bg-[#F8F8F8] relative overflow-hidden">
             {/* Subtle Background Element */}
             <div className="absolute top-0 right-0 w-96 h-96 bg-black/5 rounded-full transform translate-x-32 -translate-y-32"></div>
             
             <div className="max-w-[1040px] mx-auto px-6 relative">
               {/* Section Header */}
               <div className="text-center mb-16">
-                <div className="inline-block bg-black text-white px-6 py-2 rounded-full text-sm font-medium uppercase tracking-wide mb-6">
-                  Metodología Los Pellines
-                </div>
+                <div className="mb-6" style={{height: '32px'}}></div>
                 <h2 className="text-5xl lg:text-6xl font-black uppercase mb-6">
                   AULA GENERATIVA
                 </h2>
@@ -513,15 +509,6 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* CTA */}
-                  <div className="flex justify-end">
-                    <a href="/aula-generativa.pdf" target="_blank" className="inline-flex items-center bg-black text-white rounded-full px-8 py-4 font-medium hover:bg-gray-800 transition-all duration-300 transform hover:scale-105">
-                      <span>Descargar Programa Completo</span>
-                      <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                      </svg>
-                    </a>
-                  </div>
                 </div>
               </div>
             </div>
@@ -535,9 +522,7 @@ export default function HomePage() {
             <div className="max-w-[1040px] mx-auto px-6 relative">
               {/* Section Header */}
               <div className="text-center mb-16">
-                <div className="inline-block bg-black text-white px-6 py-2 rounded-full text-sm font-medium uppercase tracking-wide mb-6">
-                  Conversemos
-                </div>
+                <div className="mb-6" style={{height: '32px'}}></div>
                 <h2 className="text-5xl lg:text-6xl font-black uppercase mb-6">
                   CONTÁCTANOS
                 </h2>

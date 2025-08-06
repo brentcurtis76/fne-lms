@@ -349,7 +349,7 @@ export default function EquipoPage() {
             <div className="mb-20">
               <h2 className="text-4xl font-bold text-center mb-16 text-gray-900">Equipo FNE</h2>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['arnoldo-cisternas', 'brent-curtis', 'mora-del-fresno', 'gabriela-naranjo', 'joan-quintana'].map((memberKey) => {
+                {['arnoldo-cisternas', 'joan-quintana', 'mora-del-fresno', 'gabriela-naranjo', 'brent-curtis'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
@@ -384,7 +384,7 @@ export default function EquipoPage() {
             <div className="mb-20">
               <h2 className="text-4xl font-bold text-center mb-16 text-gray-900">Equipo Internacional</h2>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['anna-comas', 'abraham-de-la-fuente', 'sergi-del-moral', 'sandra-entrena', 'raul-martinez', 'pepe-menendez', 'boris-mir', 'jordi-mussons', 'coral-regi', 'ana-vicalvaro'].map((memberKey) => {
+                {['coral-regi', 'boris-mir', 'jordi-mussons', 'pepe-menendez', 'sandra-entrena', 'anna-comas', 'sergi-del-moral', 'abraham-de-la-fuente', 'raul-martinez', 'ana-vicalvaro'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
@@ -419,7 +419,7 @@ export default function EquipoPage() {
             <div className="mb-20">
               <h2 className="text-4xl font-bold text-center mb-16 text-gray-900">Asesores Técnicos</h2>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['andreu-basoli', 'marta-cardenas', 'laura-carmona', 'neus-colomer', 'betlem-cuesta', 'carlo-de-britos', 'estefania-del-ramon', 'begonya-folch', 'laia-garces', 'maria-latre', 'claudia-lopez', 'cristina-montes', 'marta-ortega', 'gemma-pariente', 'maite-pino', 'cristina-romanos', 'enrique-vergara'].map((memberKey) => {
+                {['carlo-de-britos', 'betlem-cuesta', 'begonya-folch', 'marta-cardenas', 'marta-ortega', 'maite-pino', 'andreu-basoli', 'laura-carmona', 'neus-colomer', 'estefania-del-ramon', 'laia-garces', 'maria-latre', 'claudia-lopez', 'cristina-montes', 'cristina-romanos', 'gemma-pariente', 'enrique-vergara'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">

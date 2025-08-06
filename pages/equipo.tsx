@@ -123,8 +123,8 @@ export default function EquipoPage() {
 
     // Asesores Técnicos
     'carlo-de-britos': {
-      name: 'Carlo de Britos',
-      role: 'Profesora Primaria Escola Virolai',
+      name: 'Carol de Britos',
+      role: 'Jefe de Estudios Primaria Virolai',
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Carol%20de%20Britos.png',
       description: 'Es profesora de Primaria en Escola Virolai, donde además he sido coordinadora pedagógica, y actualmente ejerce de Jefa de Estudios de la etapa. Su  ámbito es el de la ciencia, ya que además del Grado de Educación Primaria hizo algunos cursos de la licenciatura de Biología. Ha formado parte de diferentes proyectos conjuntos con universidades nacionales e internacionales, además de ser profesora adjunta de la UAB en el Grado de Ed. Primaria en lengua inglesa. Durante más de 10 años, ha formado a otros profesores en metodología CLIL, haciendo asesoramientos a centros y formaciones acreditadas por la Generalitat de Catalunya. Ha sido conferencista en ITWorldEdu, WebquestCat, STEAMconf... y he participado en la redacción de artículos en revistas como Guix y libros como Diseño y aplicación de la Flipped Classroom (Ed. Graó).'
     },
@@ -158,12 +158,6 @@ export default function EquipoPage() {
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Jordi%20Mussons.png',
       description: 'Jordi es maestro y director de la escuela Sadako de Barcelona, institución referente en innovación educativa a nivel internacional. Su tenacidad, perseverancia y compromiso con una transformación educativa que promueva una escuela de oportunidades para todo el mundo, lo han convertido en una personalidad muy relevante de la educación en nuestro país. Estudió Biología y encontró́ en el escultismo la clave para educar desde la responsabilidad y el compromiso sostenible y social, cualidades que ha intentado trasladar al proyecto educativo que lidera desde 2006. Desde hace unos años forma parte de la junta directiva de la AEC (Agrupació Escolar Catalana).'
     },
-    'marta-segura': {
-      name: 'Marta Segura',
-      role: 'Profesora Escuela Sadako',
-      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Marta%20Segura_Sadako.jpg',
-      description: 'Es profesora en la Escuela Sadako de Barcelona y además es tutora de primero de secundaria y profesora de Ciencias Sociales en 3o y 4o de secundaria. Ha trabajado en enseñanza de educación primaria y ha formado parte del equipo directivo. Además, ha realizado proyectos de comunicación dentro de la escuela y ha impartido formaciones sobre innovación educativa. Es licenciada en historia y diplomada en magisterio. Plantea que la educación de calidad debe centrarse en el uso de los conocimientos al servicio del bien común y de la idea de ciudadanía en mayúsculas.'
-    },
     'laia-garces': {
       name: 'Laia Garcés',
       role: 'Coordinadora Primaria Escuela Sadako',
@@ -182,12 +176,6 @@ export default function EquipoPage() {
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Cristina%20Montes.png',
       description: 'Profesora y tutora de primaria en la Escuela La Maquinista en Barcelona desde el año 2016. Es graduada en Magisterio de Educación Física, en Magisterio de Educación Infantil y Máster en Psicopedagogía. En la escuela, participa como miembro del grupo motor en el proyecto FAIG, impulsado por el CESIRE, un soporte a la innovación del Departamento de Educación de Catalunya. También posee formación por medio de la participación en proyectos y seminarios tales como: Cultura de las Matemáticas en niños/as (Universidad de Blanquerna), biblioteca escolar, Dificultades Específicas de la Lectoescritura, trabajo de la lengua en un entorno de trabajo globalizado, metodologías de enfoque globalizado, así como en la creación de espacios de aprendizaje.'
     },
-    'elena-guillen': {
-      name: 'Elena Guillén',
-      role: 'Ex-directora Escola Octavio Paz',
-      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Elena%20Guillen.png',
-      description: 'Fue directora de la Escola Octavio Paz de Barcelona una de las escuelas públicas ícono de cambio en Barcelona. La escuela Octavio Paz, hace ocho años inició un proceso de transformación que se fundamenta en las relaciones humanas, la cohesión de la comunidad educativa, la actualización de la línea pedagógica, el establecimiento de alianzas, la formación del equipo docente y el cambio de mirada sobre la evaluación. El corazón de este cambio está en la colaboración entre docentes, familias y comunidad para asegurar un ambiente de aprendizaje enriquecedor, fomentando el pensamiento crítico, la creatividad y la inclusión de todos los alumnos. Considera que hace falta desarrollar habilidades prácticas y sociales que preparen a los estudiantes para enfrentarse a los desafíos del mundo contemporáneo.'
-    },
     'estefania-del-ramon': {
       name: 'Estefanía del Ramón',
       role: 'Profesora Escola Octavio Paz',
@@ -199,6 +187,60 @@ export default function EquipoPage() {
       role: 'Profesora Escola Octavio Paz',
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Gemma%20Pariente.png',
       description: 'Es profesora de la Escuela Octavio Paz de Barcelona, una de las escuelas públicas más reconocidas y valoradas en Cataluña por su capacidad de innovación y cambio, transformándose en un referente mundial para la educación pública de calidad, ella ha sido parte activa del proceso de transformación metodológica desde hace 5 años. Es master en psicopedagogía, master en resolución de conflictos en el ámbito educativo, maestra de educación musical y licenciada como interprete profesional de piano. Es una persona comprometida con el bienestar y el éxito de sus estudiantes, posee un alto grado de compromiso con una educación de calidad, busca que la escuela los prepare a nivel personal, social y emocional para enfrentar los desafíos de la sociedad del siglo XXI con confianza y resiliencia.'
+    },
+    'abraham-de-la-fuente': {
+      name: 'Abraham de la Fuente',
+      role: 'Director Adjunto Institut Angeleta Ferrer',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Abraham%20De%20la%20Fuente.jpeg',
+      description: 'Doctor en Didáctica de las Matemáticas e investigador sobre la formación del profesorado. Es director adjunto de investigación educativa en el Institut Angeleta Ferrer, donde impulsa líneas de innovación pedagógica y evaluación formativa. Profesor asociado en la UAB desde 2014, forma a futuros docentes en el Grado de Educación Primaria y el Máster de Formación del Profesorado. Con más de 15 años de experiencia como profesor de matemáticas en secundaria y bachillerato, ha trabajado en centros de referencia como Saint Paul\'s School y Oak House School. Es miembro del equipo impulsor de los Betacamps y Edcamps en Catalunya, promoviendo espacios de formación docente colaborativa y horizontal.'
+    },
+    'ana-vicalvaro': {
+      name: 'Ana Vicálvaro',
+      role: 'Directora Escola Octavio Paz',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Ana%20Vicalvaro.jpeg',
+      description: 'Directora de la Escola Octavio Paz de Barcelona, una escuela pública emblemática del barrio de Navas que lidera procesos de transformación educativa. Graduada en Educación Infantil y Primaria con especialización en Lengua Inglesa por la Universidad de Barcelona y UNIR. Desde 2017 es profesora de inglés en centros públicos de Catalunya, donde ha desarrollado metodologías innovadoras para la enseñanza de lenguas extranjeras. Su liderazgo se caracteriza por promover una educación inclusiva y participativa, trabajando estrechamente con las familias y la comunidad educativa para crear espacios de aprendizaje que fomenten el desarrollo integral del alumnado.'
+    },
+    'raul-martinez': {
+      name: 'Raúl Martínez',
+      role: 'Director Escola La Maquinista',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Raul%20Martinez.jpg',
+      description: 'Director de la Escola La Maquinista de Barcelona desde 2020, donde lidera procesos de innovación educativa centrados en el aprendizaje del alumnado. Graduado como maestro en Lengua Extranjera por la Universidad de Barcelona, es un firme defensor de la escuela pública de calidad. Especialista en metodologías AICLE (Aprendizaje Integrado de Contenidos y Lenguas Extranjeras) y enfoques globalizados que sitúan al niño en el centro del proceso educativo. Con amplia experiencia en diversos centros públicos de Barcelona como Vila Olímpica y Baró de Viver, combina su pasión por la educación con su faceta artística como músico profesional, aportando una visión creativa e integral al proyecto educativo.'
+    },
+    'maria-latre': {
+      name: 'María Latre',
+      role: 'Coordinadora Primaria Virolai Reina Elisenda',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Maria%20Latre.png',
+      description: 'Coordinadora de la etapa de Primaria en la Escola Virolai Reina Elisenda, donde trabaja desde hace más de una década. Graduada en Educación Primaria por UNIR y en Periodismo por la UAB, aporta una visión única que combina pedagogía y comunicación. Especialista en integración de tecnologías educativas, lidera la implementación de iPads en el aula y forma a docentes en herramientas digitales y metodologías activas. Su experiencia como realizadora audiovisual le permite incorporar narrativas visuales en los procesos de aprendizaje. Desde 2012 es profesora de inglés en todos los niveles educativos y ha coordinado escuelas de verano para más de 200 estudiantes, promoviendo siempre enfoques comunicativos e innovadores.'
+    },
+    'andreu-basoli': {
+      name: 'Andreu Basolí',
+      role: 'Profesor Primaria Escola Sadako',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Andreu%20Basoli.png',
+      description: 'Maestro de Educación Primaria en la Escola Sadako de Barcelona, donde ejerce como tutor con una pedagogía centrada en el acompañamiento activo y la educación en valores. Graduado en Educación Primaria en inglés, combina su labor docente con una amplia trayectoria en el ocio educativo, habiendo sido director de colonias de verano y monitor durante más de 7 años en Can Colapi. Miembro activo del Moviment de Centres d\'Esplai Cristians Catalans, participa en el Ámbito Pedagógico y en la organización de encuentros juveniles. Ha sido mentor en programas de inclusión, voluntario internacional en Gambia y profesor en diversos proyectos educativos. Defiende una educación coherente, crítica y transformadora, creyendo firmemente en el poder del ocio como motor de desarrollo personal y comunitario.'
+    },
+    'neus-colomer': {
+      name: 'Neus Colomer',
+      role: 'Equipo Directivo Escola Sadako',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Neus%20Colomer.jpeg',
+      description: 'Miembro del equipo directivo de la Escola Sadako de Barcelona, donde también ejerce como maestra de Educación Primaria. Graduada en Educación Primaria con mención en diversidad por Blanquerna - Universitat Ramon Llull, ha orientado su carrera hacia la atención a la diversidad y la construcción de entornos escolares seguros y equitativos. Formada en prevención de abusos sexuales infantiles y en abordaje de violencias machistas, incorpora estos aprendizajes en la cultura organizativa del centro. Directora certificada de actividades de tiempo libre infantil y juvenil, su trayectoria en el ocio educativo refuerza su visión de una escuela que reconoce el valor del juego, el vínculo y la participación como pilares del aprendizaje. Es una educadora comprometida con el bienestar de la infancia y la transformación profunda de las prácticas escolares.'
+    },
+    'begonya-folch': {
+      name: 'Begonya Folch',
+      role: 'Formadora Departamento de Educación',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/begonya%20folch.jpg',
+      description: 'Profesora de Educación Secundaria y formadora del Departamento de Educación de Catalunya, comprometida con la transformación del sistema educativo. Experta en innovación pedagógica y la relación entre arte y educación, ha sido profesora asociada en la Universidad de Barcelona y docente en el Institut Angeleta Ferrer. Ha colaborado en la redacción del Currículum catalán y formó parte del equipo responsable del Programa Escuela 2.0 a través del proyecto eduCAT1x1. Como técnica del Consejo Escolar de Cataluña, ha impulsado políticas educativas innovadoras. Colabora activamente con Rosa Sensat, el ICE de la UAB, ICFO y la STEAM Conference Barcelona. En el Institut Quatre Cantons, como profesora de Música y Trabajo Globalizado, comparte sus experiencias didácticas promoviendo metodologías interdisciplinares y creativas.'
+    },
+    'laura-carmona': {
+      name: 'Laura Carmona',
+      role: 'Coordinadora Institut Angeleta Ferrer',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Laura%20Carmona.jpg',
+      description: 'Coordinadora del equipo docente y profesora de secundaria en el Institut Angeleta Ferrer, centro público de referencia en formación e investigación docente. Licenciada en Ciencias Políticas por la UAB y MSc en Desarrollo Social y Conflicto por la University of Wales. Formadora en el Máster de Profesorado de la UPF y Blanquerna, actualmente colabora con la UAB impartiendo la asignatura sobre desigualdades educativas. Miembro activo del grupo Perspectiva Feminista de Rosa Sensat, coordinó la 56ª Escola d\'Estiu sobre prácticas de educación feminista. Su enfoque pedagógico combina compromiso social, perspectiva de género y una visión crítica de la educación como herramienta de transformación y justicia social, promoviendo siempre la formación continua del profesorado.'
+    },
+    'cristina-romanos': {
+      name: 'Cristina Romanos',
+      role: 'Coordinadora Pedagógica Virolai Grimm',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Cristina%20Romanos.jpeg',
+      description: 'Coordinadora pedagógica de Virolai Grimm, el centro del ecosistema Virolai dedicado exclusivamente a Educación Infantil. Lidera procesos pedagógicos centrados en el desarrollo integral de los niños en sus primeros años, implementando metodologías activas y relacionales basadas en la curiosidad. Formada en Magisterio de Educación Infantil, Psicopedagogía y Logopedia por la UAB, está especializada en procesos de lectoescritura y comprensión lectora en la primera infancia. Defensora del uso consciente de la tecnología educativa, integra herramientas digitales y gamificación para enriquecer el aprendizaje. Su pedagogía se basa en el respeto, la escucha y la confianza en las capacidades de cada niño, promoviendo una escuela que aprende con y desde la infancia.'
     }
   };
 
@@ -307,14 +349,14 @@ export default function EquipoPage() {
             <div className="mb-20">
               <h2 className="text-4xl font-bold text-center mb-16 text-gray-900">Equipo FNE</h2>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['arnoldo-cisternas', 'joan-quintana', 'mora-del-fresno', 'gabriela-naranjo', 'brent-curtis'].map((memberKey) => {
+                {['arnoldo-cisternas', 'brent-curtis', 'mora-del-fresno', 'gabriela-naranjo', 'joan-quintana'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
-                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
-                      <div className="relative">
+                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
+                      <div className="relative flex-1 flex flex-col">
                         <div className="absolute inset-0 bg-gradient-to-br from-[#00365b]/10 to-[#00365b]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        <div className="p-8 text-center">
-                          <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden">
+                        <div className="p-8 text-center flex flex-col h-full">
+                          <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden flex-shrink-0">
                             <img
                               src={member.image}
                               alt={member.name}
@@ -323,7 +365,7 @@ export default function EquipoPage() {
                           </div>
                           <h3 className="text-2xl font-bold text-gray-900 mb-2">{member.name}</h3>
                           <p className="text-[#00365b] font-semibold mb-4">{member.role}</p>
-                          <p className="text-gray-600 line-clamp-3 mb-6">{member.description}</p>
+                          <p className="text-gray-600 line-clamp-3 mb-6 flex-grow">{member.description}</p>
                           <button
                             onClick={() => handleShowMore(memberKey)}
                             className="bg-gradient-to-r from-[#00365b] to-[#00365b]/80 text-white px-6 py-3 rounded-full hover:from-[#00365b]/90 hover:to-[#00365b] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -342,14 +384,14 @@ export default function EquipoPage() {
             <div className="mb-20">
               <h2 className="text-4xl font-bold text-center mb-16 text-gray-900">Equipo Internacional</h2>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['coral-regi', 'anna-comas', 'boris-mir', 'pepe-menendez', 'jordi-mussons', 'sandra-entrena', 'sergi-del-moral', 'elena-guillen', 'betlem-cuesta'].map((memberKey) => {
+                {['anna-comas', 'abraham-de-la-fuente', 'sergi-del-moral', 'sandra-entrena', 'raul-martinez', 'pepe-menendez', 'boris-mir', 'jordi-mussons', 'coral-regi', 'ana-vicalvaro'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
-                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
-                      <div className="relative">
+                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
+                      <div className="relative flex-1 flex flex-col">
                         <div className="absolute inset-0 bg-gradient-to-br from-[#fdb933]/10 to-[#fdb933]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        <div className="p-8 text-center">
-                          <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden">
+                        <div className="p-8 text-center flex flex-col h-full">
+                          <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden flex-shrink-0">
                             <img
                               src={member.image}
                               alt={member.name}
@@ -358,7 +400,7 @@ export default function EquipoPage() {
                           </div>
                           <h3 className="text-2xl font-bold text-gray-900 mb-2">{member.name}</h3>
                           <p className="text-[#fdb933] font-semibold mb-4">{member.role}</p>
-                          <p className="text-gray-600 line-clamp-3 mb-6">{member.description}</p>
+                          <p className="text-gray-600 line-clamp-3 mb-6 flex-grow">{member.description}</p>
                           <button
                             onClick={() => handleShowMore(memberKey)}
                             className="bg-gradient-to-r from-[#fdb933] to-[#fdb933]/80 text-white px-6 py-3 rounded-full hover:from-[#fdb933]/90 hover:to-[#fdb933] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -377,14 +419,14 @@ export default function EquipoPage() {
             <div className="mb-20">
               <h2 className="text-4xl font-bold text-center mb-16 text-gray-900">Asesores Técnicos</h2>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['carlo-de-britos', 'marta-cardenas', 'maite-pino', 'claudia-lopez', 'enrique-vergara', 'marta-segura', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente'].map((memberKey) => {
+                {['andreu-basoli', 'marta-cardenas', 'laura-carmona', 'neus-colomer', 'betlem-cuesta', 'carlo-de-britos', 'estefania-del-ramon', 'begonya-folch', 'laia-garces', 'maria-latre', 'claudia-lopez', 'cristina-montes', 'marta-ortega', 'gemma-pariente', 'maite-pino', 'cristina-romanos', 'enrique-vergara'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
-                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2">
-                      <div className="relative">
+                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
+                      <div className="relative flex-1 flex flex-col">
                         <div className="absolute inset-0 bg-gradient-to-br from-orange-600/10 to-red-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        <div className="p-8 text-center">
-                          <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden">
+                        <div className="p-8 text-center flex flex-col h-full">
+                          <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden flex-shrink-0">
                             <img
                               src={member.image}
                               alt={member.name}
@@ -393,7 +435,7 @@ export default function EquipoPage() {
                           </div>
                           <h3 className="text-2xl font-bold text-gray-900 mb-2">{member.name}</h3>
                           <p className="text-orange-600 font-semibold mb-4">{member.role}</p>
-                          <p className="text-gray-600 line-clamp-3 mb-6">{member.description}</p>
+                          <p className="text-gray-600 line-clamp-3 mb-6 flex-grow">{member.description}</p>
                           <button
                             onClick={() => handleShowMore(memberKey)}
                             className="bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-3 rounded-full hover:from-orange-700 hover:to-red-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
@@ -452,6 +494,11 @@ export default function EquipoPage() {
         
         .team-photo[alt="Brent Curtis"] {
           object-position: center top;
+        }
+        
+        .team-photo[alt="Neus Colomer"] {
+          transform: scale(1.5);
+          object-position: center 20%;
         }
         
         .line-clamp-3 {

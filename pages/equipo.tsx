@@ -98,7 +98,7 @@ export default function EquipoPage() {
     },
     'boris-mir': {
       name: 'Boris Mir',
-      role: 'Director de Institut Angeleta Ferrer',
+      role: 'Director Adjunto Institut Angeleta Ferrer',
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Boris%20Mir.jpg',
       description: 'Profesor de educación secundaria experto en aprendizaje y en transformación educativa. Fundador y director del Instituto Angelta Ferrer, colegio para la formación del profesorado de vanguardia en Cataluña. Promotor del Instituto-Escuela Les Vinyes de Castellbisbal, un centro de la red de institutos innovadores de la Universidad Autónoma de Barcelona. Fue director adjunto del Programa Escola Nova 21, una alianza de centros educativos y entidades para un sistema educativo avanzado, que responde a la llamada de la UNESCO para la participación de todos los sectores en un proceso inclusivo de mejora de la educación. Se creó en enero de 2016 mediante un convenio entre el Centro UNESCO de Catalunya, la Fundació Jaume Bofill y la Universitat Oberta de Catalunya, al que se sumaron la Fundació La Caixa y la Diputació de Barcelona. Ha impulsado proyectos de innovación educativa en torno a la evaluación formativa, las estrategias de aprendizaje y la creatividad en el aula. Es formador en diferentes universidades y consultor en organizaciones educativas sobre gestión del cambio y liderazgo.'
     },

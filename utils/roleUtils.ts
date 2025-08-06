@@ -101,6 +101,7 @@ export function getHighestRole(roles: UserRole[]): UserRoleType | null {
     'lider_generacion',
     'lider_comunidad',
     'supervisor_de_red',
+    'community_manager',
     'docente'
   ];
 
@@ -650,6 +651,8 @@ export async function getCommunityMembersByRole(supabase: SupabaseClient, commun
       equipo_directivo: [],
       lider_generacion: [],
       lider_comunidad: [],
+      supervisor_de_red: [],
+      community_manager: [],
       docente: []
     };
 
@@ -669,6 +672,8 @@ export async function getCommunityMembersByRole(supabase: SupabaseClient, commun
       equipo_directivo: [],
       lider_generacion: [],
       lider_comunidad: [],
+      supervisor_de_red: [],
+      community_manager: [],
       docente: []
     };
   }

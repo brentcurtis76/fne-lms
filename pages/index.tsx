@@ -5,6 +5,7 @@ import Footer from '../components/Footer';
 
 export default function HomePage() {
   const [showFlipbook, setShowFlipbook] = React.useState(false);
+  const [showDirectivesFlipbook, setShowDirectivesFlipbook] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [submitMessage, setSubmitMessage] = React.useState('');
   const [submitError, setSubmitError] = React.useState('');
@@ -404,17 +405,20 @@ export default function HomePage() {
                       onClick={() => setShowFlipbook(true)}
                       className="inline-flex items-center justify-center bg-black text-white rounded-full px-8 py-4 font-medium hover:bg-gray-800 transition-all duration-300 transform hover:scale-105 w-full"
                     >
-                      <span>Ver Programa Digital Interactivo</span>
+                      <span>Programa para líderes pedagógicos</span>
                       <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                       </svg>
                     </button>
-                    <a href="#contacto" className="inline-flex items-center justify-center border-2 border-black rounded-full px-8 py-4 font-medium hover:bg-black hover:text-white transition-all duration-300 w-full">
-                      <span>Solicitar Información</span>
+                    <button 
+                      onClick={() => setShowDirectivesFlipbook(true)}
+                      className="inline-flex items-center justify-center bg-black text-white rounded-full px-8 py-4 font-medium hover:bg-gray-800 transition-all duration-300 transform hover:scale-105 w-full"
+                    >
+                      <span>Programa Estratégico para Directivos</span>
                       <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                       </svg>
-                    </a>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -773,6 +777,56 @@ export default function HomePage() {
               <div className="absolute bottom-4 left-4">
                 <a 
                   href="https://heyzine.com/flip-book/9723a41fa1.html" 
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-gray-600 hover:text-black underline"
+                >
+                  Abrir en nueva pestaña →
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Directives Flipbook Modal */}
+        {showDirectivesFlipbook && (
+          <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg w-full max-w-6xl h-[85vh] relative">
+              {/* Modal Header */}
+              <div className="absolute top-0 left-0 right-0 bg-white rounded-t-lg border-b border-gray-200 p-4 flex items-center justify-between z-10">
+                <h3 className="text-lg font-bold">Programa Estratégico para Directivos</h3>
+                <button 
+                  onClick={() => setShowDirectivesFlipbook(false)}
+                  className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
+                  aria-label="Cerrar"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                  </svg>
+                </button>
+              </div>
+              
+              {/* Iframe Container */}
+              <div className="pt-16 h-full">
+                <iframe 
+                  allowFullScreen
+                  allow="clipboard-write" 
+                  scrolling="no" 
+                  className="fp-iframe" 
+                  style={{ 
+                    border: '1px solid lightgray', 
+                    width: '100%', 
+                    height: '100%',
+                    borderRadius: '0 0 0.5rem 0.5rem'
+                  }}
+                  src="https://heyzine.com/flip-book/562763b1bb.html"
+                />
+              </div>
+              
+              {/* External Link Option */}
+              <div className="absolute bottom-4 left-4">
+                <a 
+                  href="https://heyzine.com/flip-book/562763b1bb.html" 
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-gray-600 hover:text-black underline"

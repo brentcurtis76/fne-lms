@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import { PlusIcon, PencilIcon, TrashIcon, EyeIcon, EyeOffIcon } from '@heroicons/react/outline';
 import TipTapEditor from '@/src/components/TipTapEditor';
 import { uploadFile } from '@/utils/storage';
+import { getEnhancedUserInfo } from '@/utils/authHelpers';
 
 interface NewsArticle {
   id: string;
@@ -36,6 +37,10 @@ export default function NewsAdmin() {
   const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
   const [uploading, setUploading] = useState(false);
   
+  // Role detection state - FIXED: No more hardcoded isAdmin
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<string>('');
+  
   // Form state
   const [title, setTitle] = useState('');
   const [content, setContent] = useState<any>({});
@@ -46,6 +51,34 @@ export default function NewsAdmin() {
   useEffect(() => {
     fetchArticles();
   }, []);
+
+  // FIXED: Use enhanced auth detection with multiple fallback strategies
+  useEffect(() => {
+    console.log('🚀 [news.tsx] Enhanced auth detection triggered, user:', user?.id, user?.email);
+    
+    const detectUserRole = async () => {
+      try {
+        const userInfo = await getEnhancedUserInfo(user, supabase);
+        console.log('🔍 [news.tsx] Enhanced auth result:', userInfo);
+        
+        setUserRole(userInfo.userRole);
+        setIsAdmin(userInfo.isAdmin);
+        
+        if (userInfo.source === 'none') {
+          console.log('⚠️  [news.tsx] No auth source available - user may need to login');
+        } else {
+          console.log(`✅ [news.tsx] Auth detected via ${userInfo.source}: ${userInfo.userRole} (admin: ${userInfo.isAdmin})`);
+        }
+        
+      } catch (error) {
+        console.error('❌ [news.tsx] Enhanced auth detection failed:', error);
+        setIsAdmin(false);
+        setUserRole('');
+      }
+    };
+
+    detectUserRole();
+  }, [user, supabase]);
 
   const fetchArticles = async () => {
     try {
@@ -188,12 +221,20 @@ export default function NewsAdmin() {
     });
   };
 
+  console.log('🔍 [news.tsx] Rendering with props:', { isAdmin, userRole });
+  console.log('👤 [news.tsx] Current user state:', { 
+    hasUser: !!user, 
+    userId: user?.id, 
+    userEmail: user?.email 
+  });
+  
   return (
     <MainLayout 
       user={user} 
       currentPage="news"
       pageTitle="Gestión de Noticias"
-      isAdmin={true}
+      isAdmin={isAdmin}
+      userRole={userRole}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}

@@ -105,7 +105,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: BookOpenIcon,
     href: '/admin/course-builder',
     description: 'Gestión de cursos',
-    restrictedRoles: ['admin', 'community_manager']
+    restrictedRoles: ['admin'] // Only admin should access course-builder
   },
   {
     id: 'news',
@@ -357,10 +357,10 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         return false;
       }
       
-      // Check restricted roles
+      // Check restricted roles - user must have specific role listed
       if (item.restrictedRoles && item.restrictedRoles.length > 0) {
-        // If user role is not in the restricted roles list, hide the item
-        if (!item.restrictedRoles.includes(userRole || '') && !isAdmin) {
+        // Only show item if user's role is explicitly in the restrictedRoles list
+        if (!item.restrictedRoles.includes(userRole || '')) {
           return false;
         }
       }

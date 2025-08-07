@@ -223,11 +223,13 @@ export default function LoginPage() {
           <div className="relative z-10 flex flex-col justify-center items-center w-full px-12 text-white">
             {/* Logo */}
             <div className="mb-12 transform hover:scale-105 transition-transform duration-300">
-              <img 
-                src="/images/logo.png" 
-                alt="Fundación Nueva Educación" 
-                className="h-32 w-auto drop-shadow-2xl"
-              />
+              <Link href="/">
+                <img 
+                  src="/images/logo.png" 
+                  alt="Fundación Nueva Educación" 
+                  className="h-32 w-auto drop-shadow-2xl cursor-pointer"
+                />
+              </Link>
             </div>
             
             {/* Text Content */}
@@ -256,11 +258,13 @@ export default function LoginPage() {
         <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
           {/* Mobile Logo - Only shown on small screens */}
           <div className="lg:hidden absolute top-8 left-1/2 transform -translate-x-1/2">
-            <img 
-              src="/images/logo.png" 
-              alt="Fundación Nueva Educación" 
-              className="h-16 w-auto"
-            />
+            <Link href="/">
+              <img 
+                src="/images/logo.png" 
+                alt="Fundación Nueva Educación" 
+                className="h-16 w-auto cursor-pointer hover:opacity-80 transition-opacity duration-200"
+              />
+            </Link>
           </div>
           
           {/* Login Card */}

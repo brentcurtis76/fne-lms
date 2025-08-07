@@ -77,14 +77,29 @@ function getColumnIndices(
   const findIndex = (patterns: string[]) =>
     headers.findIndex(h => patterns.some(p => h.toLowerCase().includes(p)));
 
-  return {
+  // ENHANCED DIAGNOSTICS: Log column detection
+  console.log('[CSV-PARSER] Column detection:', {
+    originalHeaders: headers,
+    normalizedHeaders: headers.map(h => h.toLowerCase().trim())
+  });
+
+  const columnIndices = {
     email: mapping?.email ?? findIndex(['email', 'correo']),
-    firstName: mapping?.firstName ?? findIndex(['first', 'nombre']),
-    lastName: mapping?.lastName ?? findIndex(['last', 'apellido']),
+    firstName: mapping?.firstName ?? findIndex(['first', 'nombre', 'firstname']),
+    lastName: mapping?.lastName ?? findIndex(['last', 'apellido', 'lastname']),
     role: mapping?.role ?? findIndex(['role', 'rol']),
     rut: mapping?.rut ?? findIndex(['rut']),
     password: mapping?.password ?? findIndex(['password', 'contraseña']),
   };
+
+  console.log('[CSV-PARSER] Column indices:', columnIndices);
+  
+  // Validate critical columns
+  if (columnIndices.email === -1) {
+    console.error('[CSV-PARSER] CRITICAL: Email column not found in headers:', headers);
+  }
+
+  return columnIndices;
 }
 
 function parseUserRow(
@@ -99,6 +114,13 @@ function parseUserRow(
   const errors: string[] = [];
   const warnings: string[] = [];
 
+  // ENHANCED DIAGNOSTICS: Log row parsing details
+  console.log('[CSV-PARSER] Parsing row:', {
+    totalCells: cells.length,
+    cellValues: cells,
+    columnMapping: columns
+  });
+
   // Get raw values without trimming
   const rawEmail = cells[columns.email] || '';
   const rawFirstName = cells[columns.firstName] || '';
@@ -106,6 +128,14 @@ function parseUserRow(
   const rawRole = cells[columns.role] || '';
   const rawRut = cells[columns.rut] || '';
   const rawPassword = cells[columns.password] || '';
+
+  console.log('[CSV-PARSER] Extracted values:', {
+    email: rawEmail,
+    firstName: rawFirstName,
+    lastName: rawLastName,
+    role: rawRole,
+    password: rawPassword ? '***PRESENT***' : 'MISSING'
+  });
 
   // --- Validation Phase --- (on trimmed values)
   const emailForValidation = rawEmail.trim();

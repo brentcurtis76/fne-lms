@@ -43,7 +43,17 @@ export default function ArticlePage() {
         return;
       }
       
-      const articles = await response.json();
+      const data = await response.json();
+      
+      // Handle both response formats: direct array or object with articles property
+      const articles = Array.isArray(data) ? data : (data.articles || []);
+      
+      if (!Array.isArray(articles)) {
+        console.error('Invalid response format - expected array of articles, got:', data);
+        setError('Error al cargar el artículo');
+        return;
+      }
+      
       const foundArticle = articles.find((article: NewsArticle) => article.slug === slug);
       
       if (!foundArticle) {

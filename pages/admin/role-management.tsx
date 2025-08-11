@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import { isFeatureEnabled } from '../../lib/featureFlags';
+import MainLayout from '../../components/layout/MainLayout';
+import { supabase } from '../../lib/supabase';
 
 interface PermissionMatrix {
   [role: string]: {
@@ -13,12 +15,15 @@ export default function RoleManagement() {
   const router = useRouter();
   const user = useUser();
   const session = useSession();
-  const supabase = useSupabaseClient();
+  const supabaseClient = useSupabaseClient();
   const [loading, setLoading] = useState(true);
   const [isSuperadmin, setIsSuperadmin] = useState(false);
   const [permissions, setPermissions] = useState<PermissionMatrix>({});
   const [testMode, setTestMode] = useState(false);
   const [isMock, setIsMock] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     // Check feature flag
@@ -27,10 +32,38 @@ export default function RoleManagement() {
       return;
     }
 
-    if (session) {
+    if (session && user) {
       checkAccess();
+      fetchUserProfile();
     }
   }, [user, session]);
+
+  const fetchUserProfile = async () => {
+    if (!user) return;
+
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profile) {
+        setCurrentUser({
+          ...user,
+          ...profile
+        });
+        setAvatarUrl(profile.avatar_url || '');
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push('/login');
+  };
 
   const checkAccess = async () => {
     if (!user || !session) {
@@ -54,6 +87,7 @@ export default function RoleManagement() {
 
       const data = await response.json();
       setIsSuperadmin(data.is_superadmin);
+      setIsAdmin(data.is_superadmin); // Superadmins are also admins
 
       if (data.is_superadmin) {
         loadPermissions();
@@ -89,12 +123,21 @@ export default function RoleManagement() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando...</p>
+      <MainLayout 
+        user={currentUser} 
+        currentPage="rbac"
+        pageTitle="Gestión de Roles y Permisos"
+        isAdmin={isAdmin}
+        onLogout={handleLogout}
+        avatarUrl={avatarUrl}
+      >
+        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Cargando...</p>
+          </div>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
@@ -108,9 +151,17 @@ export default function RoleManagement() {
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-white shadow rounded-lg">
+    <MainLayout 
+      user={currentUser} 
+      currentPage="rbac"
+      pageTitle="Gestión de Roles y Permisos"
+      isAdmin={isAdmin}
+      onLogout={handleLogout}
+      avatarUrl={avatarUrl}
+    >
+      <div className="py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-white shadow rounded-lg">
           <div className="px-6 py-4 border-b border-gray-200">
             <h1 className="text-2xl font-bold text-gray-900">
               Gestión de Roles y Permisos
@@ -211,5 +262,6 @@ export default function RoleManagement() {
         </div>
       </div>
     </div>
+    </MainLayout>
   );
 }

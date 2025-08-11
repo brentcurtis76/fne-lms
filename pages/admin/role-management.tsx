@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useUser } from '@supabase/auth-helpers-react';
+import { useUser, useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import { isFeatureEnabled } from '../../lib/featureFlags';
 
 interface PermissionMatrix {
@@ -12,6 +12,8 @@ interface PermissionMatrix {
 export default function RoleManagement() {
   const router = useRouter();
   const user = useUser();
+  const session = useSession();
+  const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(true);
   const [isSuperadmin, setIsSuperadmin] = useState(false);
   const [permissions, setPermissions] = useState<PermissionMatrix>({});
@@ -25,11 +27,13 @@ export default function RoleManagement() {
       return;
     }
 
-    checkAccess();
-  }, [user]);
+    if (session) {
+      checkAccess();
+    }
+  }, [user, session]);
 
   const checkAccess = async () => {
-    if (!user) {
+    if (!user || !session) {
       router.push('/login');
       return;
     }
@@ -38,11 +42,12 @@ export default function RoleManagement() {
       // Check if user is superadmin
       const response = await fetch('/api/admin/auth/is-superadmin', {
         headers: {
-          'Authorization': `Bearer ${(window as any).supabase?.auth?.session()?.access_token}`
+          'Authorization': `Bearer ${session.access_token}`
         }
       });
 
       if (!response.ok) {
+        console.error('Failed to check superadmin status:', response.status);
         router.push('/dashboard');
         return;
       }
@@ -65,7 +70,7 @@ export default function RoleManagement() {
     try {
       const response = await fetch('/api/admin/roles/permissions', {
         headers: {
-          'Authorization': `Bearer ${(window as any).supabase?.auth?.session()?.access_token}`
+          'Authorization': `Bearer ${session?.access_token}`
         }
       });
 

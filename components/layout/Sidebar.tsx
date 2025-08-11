@@ -34,6 +34,7 @@ import {
 } from '@heroicons/react/outline';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
+import { isFeatureEnabled } from '../../lib/featureFlags';
 
 interface SidebarProps {
   user: User | null;
@@ -55,6 +56,7 @@ interface NavigationItem {
   description?: string;
   adminOnly?: boolean;
   consultantOnly?: boolean;
+  superadminOnly?: boolean;
   restrictedRoles?: string[];
   children?: NavigationChild[];
   isExpanded?: boolean;
@@ -249,6 +251,15 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     href: '/admin/configuration',
     description: 'Configuración del sistema',
     adminOnly: true
+  },
+  {
+    id: 'rbac',
+    label: 'Roles y Permisos',
+    icon: UserGroupIcon,
+    href: '/admin/role-management',
+    description: 'Gestión de roles y permisos',
+    adminOnly: true,
+    superadminOnly: true  // Will be filtered based on feature flag
   }
 ];
 
@@ -347,6 +358,19 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
   const filteredNavigationItems = useMemo(() => {
     return NAVIGATION_ITEMS.filter(item => {
+      // Check superadmin-only items (RBAC feature)
+      if (item.superadminOnly) {
+        // Only show if feature flag is enabled
+        if (!isFeatureEnabled('FEATURE_SUPERADMIN_RBAC')) {
+          return false;
+        }
+        // Will check actual superadmin status in Phase 2
+        // For now, just require admin role
+        if (!isAdmin) {
+          return false;
+        }
+      }
+      
       // Check admin-only items
       if (item.adminOnly && !isAdmin) {
         return false;

@@ -58,14 +58,20 @@ export default async function handler(
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
     if (sessionError || !session) {
+      console.log('[overlay] No session found');
       return res.status(401).json({ error: 'No autorizado' });
     }
 
-    // Verify superadmin status
+    // Verify superadmin status using admin client
     const { data: isSuperadmin } = await supabaseAdmin
-      .rpc('auth_is_superadmin', { check_user_id: session.user.id });
+      .from('superadmins')
+      .select('user_id')
+      .eq('user_id', session.user.id)
+      .eq('is_active', true)
+      .single();
 
     if (!isSuperadmin) {
+      console.log('[overlay] User is not superadmin:', session.user.id);
       return res.status(403).json({ error: 'Acceso denegado - solo superadministradores' });
     }
 
@@ -77,6 +83,8 @@ export default async function handler(
         error: 'Campos requeridos: role_type, permission_key, granted' 
       });
     }
+
+    console.log('[overlay] Processing request for:', { role_type, permission_key, granted, dry_run });
 
     // Check if idempotency key already used
     if (idempotency_key) {
@@ -94,38 +102,74 @@ export default async function handler(
       }
     }
 
-    // Enable test mode if not already enabled
-    const { data: testMode, error: testModeError } = await supabase
+    // Step 1: Check current test mode state
+    const { data: currentTestMode, error: testModeCheckError } = await supabase
       .from('test_mode_state')
       .select('enabled, test_run_id, expires_at')
       .eq('user_id', session.user.id)
       .single();
 
-    let testRunId = testMode?.test_run_id;
+    console.log('[overlay] Current test mode state:', currentTestMode ? 'exists' : 'not found');
 
-    if (!testMode?.enabled || !testRunId) {
-      // Enable test mode with 24-hour TTL
+    let testRunId: string;
+    let testModeExpires: string;
+
+    // Step 2: Enable or update test mode if needed
+    if (!currentTestMode?.enabled || !currentTestMode?.test_run_id) {
+      // Generate new test run ID
       testRunId = crypto.randomUUID();
       const expires = new Date();
       expires.setHours(expires.getHours() + 24);
+      testModeExpires = expires.toISOString();
 
-      const { error: enableError } = await supabase
+      console.log('[overlay] Creating new test mode with test_run_id:', testRunId);
+
+      // Upsert test mode state
+      const { error: upsertError } = await supabase
         .from('test_mode_state')
         .upsert({
           user_id: session.user.id,
           enabled: true,
           test_run_id: testRunId,
           enabled_at: new Date().toISOString(),
-          expires_at: expires.toISOString()
+          expires_at: testModeExpires
         });
 
-      if (enableError) {
-        console.error('Error enabling test mode:', enableError);
-        return res.status(500).json({ error: 'Error al habilitar modo de prueba' });
+      if (upsertError) {
+        console.error('[overlay] Error upserting test mode:', upsertError);
+        return res.status(500).json({ 
+          error: 'Error al habilitar modo de prueba',
+          details: upsertError.message,
+          code: upsertError.code
+        });
       }
+
+      // CRITICAL: Re-fetch to confirm the test_run_id was saved
+      const { data: confirmedTestMode, error: refetchError } = await supabase
+        .from('test_mode_state')
+        .select('enabled, test_run_id, expires_at')
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (refetchError || !confirmedTestMode?.test_run_id) {
+        console.error('[overlay] Failed to confirm test mode after upsert:', refetchError);
+        return res.status(500).json({ 
+          error: 'Error al confirmar modo de prueba',
+          details: refetchError?.message || 'test_run_id not found after upsert'
+        });
+      }
+
+      testRunId = confirmedTestMode.test_run_id;
+      testModeExpires = confirmedTestMode.expires_at;
+      console.log('[overlay] Confirmed test_run_id:', testRunId);
+    } else {
+      // Use existing test mode
+      testRunId = currentTestMode.test_run_id;
+      testModeExpires = currentTestMode.expires_at;
+      console.log('[overlay] Using existing test_run_id:', testRunId);
     }
 
-    // Dry run - just preview
+    // Step 3: Handle dry run
     if (dry_run) {
       return res.status(200).json({
         preview: {
@@ -135,93 +179,102 @@ export default async function handler(
           reason,
           test_run_id: testRunId,
           would_create: true,
-          expires_at: testMode?.expires_at
+          expires_at: testModeExpires
         }
       });
     }
 
-    // Check for existing overlay for this permission
-    const { data: existing } = await supabase
+    // Step 4: Check for existing overlay
+    const { data: existingOverlays, error: checkError } = await supabase
       .from('role_permissions')
       .select('*')
       .eq('role_type', role_type)
       .eq('permission_key', permission_key)
       .eq('test_run_id', testRunId)
-      .eq('active', true)
-      .single();
+      .eq('active', true);
 
-    // Determine what change is being made
-    let change = 'no_change';
-    if (!existing) {
-      change = granted ? 'grant_new' : 'revoke_new';
-    } else if (existing.granted !== granted) {
-      change = granted ? 'grant_override' : 'revoke_override';
-    }
+    console.log('[overlay] Existing overlays found:', existingOverlays?.length || 0);
 
-    // Delete existing active test overlay if there is one (RLS allows DELETE of test rows)
-    if (existing && change !== 'no_change' && existing.is_test) {
+    // Step 5: Delete existing overlays if any (avoid unique constraint violation)
+    if (existingOverlays && existingOverlays.length > 0) {
+      console.log('[overlay] Deleting existing overlays');
+      
       const { error: deleteError } = await supabase
         .from('role_permissions')
         .delete()
         .eq('role_type', role_type)
         .eq('permission_key', permission_key)
+        .eq('test_run_id', testRunId)
         .eq('active', true)
-        .eq('is_test', true)
-        .eq('test_run_id', testRunId);
+        .eq('is_test', true);
 
       if (deleteError) {
-        console.error('Error deleting existing overlay:', deleteError);
+        console.error('[overlay] Error deleting existing overlays:', deleteError);
+        // Continue anyway - the insert might still work
       }
     }
 
-    // Create new overlay (only if change needed)
-    if (change !== 'no_change') {
-      const expires = new Date();
-      expires.setHours(expires.getHours() + 24);
+    // Step 6: Create new overlay
+    const expires = new Date();
+    expires.setHours(expires.getHours() + 24);
 
-      const finalReason = idempotency_key 
-        ? `${reason} (idempotency:${idempotency_key})`
-        : reason;
+    const finalReason = idempotency_key 
+      ? `${reason} (idempotency:${idempotency_key})`
+      : reason || 'Manual overlay';
 
-      const { data: overlay, error: insertError } = await supabase
-        .from('role_permissions')
-        .insert({
-          role_type,
-          permission_key,
-          granted,
-          reason: finalReason,
-          created_by: session.user.id,
-          test_run_id: testRunId,
-          is_test: true,
-          active: true,
-          expires_at: expires.toISOString()
-        })
-        .select()
-        .single();
+    console.log('[overlay] Creating new overlay with test_run_id:', testRunId);
 
-      if (insertError) {
-        console.error('Error creating overlay:', insertError);
-        return res.status(500).json({ error: 'Error al crear overlay de permisos' });
-      }
+    const overlayData = {
+      role_type,
+      permission_key,
+      granted,
+      reason: finalReason,
+      created_by: session.user.id,
+      test_run_id: testRunId,
+      is_test: true,
+      active: true,
+      expires_at: expires.toISOString()
+    };
 
-      // Audit log entry is handled by database trigger - no need to insert here
-      // The audit_role_permission_change() trigger will automatically log this
+    console.log('[overlay] Insert payload:', JSON.stringify(overlayData, null, 2));
 
-      return res.status(200).json({
-        overlay,
-        change,
-        test_run_id: testRunId
+    const { data: overlay, error: insertError } = await supabase
+      .from('role_permissions')
+      .insert(overlayData)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('[overlay] Insert error:', {
+        message: insertError.message,
+        code: insertError.code,
+        details: insertError.details,
+        hint: insertError.hint
+      });
+      
+      return res.status(500).json({ 
+        error: 'Error al crear overlay de permisos',
+        details: insertError.message,
+        code: insertError.code,
+        hint: insertError.hint
       });
     }
 
+    console.log('[overlay] Successfully created overlay:', overlay?.id);
+
+    // Return success with all relevant data
     return res.status(200).json({
-      message: 'Sin cambios necesarios',
-      existing,
-      change
+      overlay,
+      test_run_id: testRunId,
+      expires_at: testModeExpires,
+      change: existingOverlays?.length > 0 ? 'updated' : 'created'
     });
 
-  } catch (error) {
-    console.error('Unexpected error:', error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
+  } catch (error: any) {
+    console.error('[overlay] Unexpected error:', error);
+    return res.status(500).json({ 
+      error: 'Error interno del servidor',
+      details: error?.message || 'Unknown error'
+    });
   }
 }

@@ -557,6 +557,7 @@ export default function NosotrosPage() {
                             <TeamMemberImage
                               src={member.image}
                               alt={member.name}
+                              name={member.name}
                               className="w-full h-full object-cover team-photo"
                             />
                           </div>
@@ -592,6 +593,7 @@ export default function NosotrosPage() {
                             <TeamMemberImage
                               src={member.image}
                               alt={member.name}
+                              name={member.name}
                               className="w-full h-full object-cover team-photo"
                             />
                           </div>
@@ -627,6 +629,7 @@ export default function NosotrosPage() {
                             <TeamMemberImage
                               src={member.image}
                               alt={member.name}
+                              name={member.name}
                               className="w-full h-full object-cover team-photo"
                             />
                           </div>

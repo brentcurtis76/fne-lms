@@ -69,7 +69,7 @@ export default function NosotrosPage() {
       name: 'Mora Del Fresno',
       role: 'Directora de Operaciones',
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Mora%20Del%20Fresno.png',
-      description: 'Coordina las operaciones de la Fundación en Barcelona y Chile. Es licenciada y profesora en Ciencias de la Educación (Universidad de San Andrés, Argentina), Máster en Neuroeducación (Universitat de Barcelona, España). Es especialista en gestión y liderazgo pedagógico, así como en Educación Relacional, ya que actualmente es responsable de la Unidad de Educación del Instituto Relacional en Barcelona. Ha trabajado como profesora y tutora escolar en nivel secundario. Colabora en diversos proyectos de acompañamiento de escuelas en procesos de transformación pedagógica en Argentina, Chile, España y Portugal.'
+      description: 'Dirige las operaciones de la Fundación en Barcelona y Chile. Es licenciada y profesora en Ciencias de la Educación (Universidad de San Andrés, Argentina), Máster en Neuroeducación (Universitat de Barcelona, España). Es especialista en gestión y liderazgo pedagógico, así como en Educación Relacional, ya que actualmente es responsable de la Unidad de Educación del Instituto Relacional en Barcelona. Ha trabajado como profesora y tutora escolar en nivel secundario. Colabora en diversos proyectos de acompañamiento de escuelas en procesos de transformación pedagógica en Argentina, Chile, España y Portugal.'
     },
     'gabriela-naranjo': {
       name: 'Gabriela Naranjo',

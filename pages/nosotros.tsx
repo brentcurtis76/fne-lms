@@ -81,7 +81,7 @@ export default function NosotrosPage() {
       name: 'Brent Curtis',
       role: 'Director de Innovación y Desarrollo',
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Brent%20Curtis.JPG',
-      description: 'Brent es Teólogo y está a cargo del diseño y la elaboración de los instrumentos tecnológicos que usamos para implementar nuestros procesos de cambio. Lidera la estrategia de innovación de la FNE, desarrollando plataformas digitales, herramientas de evaluación y sistemas de gestión del aprendizaje que potencian la transformación educativa. Su visión integra tecnología y pedagogía para crear soluciones que faciliten la implementación del aprendizaje centrado en el estudiante. Además, coordina la vinculación con la red de instituciones que conectan con el propósito de la FNE, posee un profundo interés por transformar la educación y favorecer la emergencia de un nicho de escuelas de vanguardia en Chile que pueda movilizar la transformación de todo el sistema educativo.'
+      description: 'Brent es Teólogo y está a cargo del diseño y la elaboración de los instrumentos tecnológicos que usamos para implementar nuestros procesos de cambio. Lidera la estrategia de innovación de la FNE, desarrollando plataformas digitales, herramientas de evaluación y sistemas de gestión del aprendizaje que potencian la transformación educativa. Su visión integra tecnología y pedagogía para crear soluciones que faciliten la implementación del aprendizaje centrado en el estudiante. Posee un profundo interés por transformar la educación y favorecer la emergencia de un nicho de escuelas de vanguardia en Chile que pueda movilizar la transformación de todo el sistema educativo.'
     },
     
     // Equipo Internacional

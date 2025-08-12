@@ -132,27 +132,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             subject: `Nuevo contacto de ${nombre} - ${institucion} (${interestText})`,
             from_name: nombre,
             email: email,
-            // Include all form data in the message
+            // Format message in plain text for better email compatibility
             message: `
-              <h2>Nuevo Mensaje de Contacto - FNE</h2>
-              
-              <h3>Información del contacto:</h3>
-              <ul>
-                <li><strong>Nombre:</strong> ${nombre}</li>
-                <li><strong>Email:</strong> ${email}</li>
-                <li><strong>Institución:</strong> ${institucion}</li>
-                ${cargo ? `<li><strong>Cargo:</strong> ${cargo}</li>` : ''}
-                <li><strong>Área de Interés:</strong> ${interestText}</li>
-              </ul>
-              
-              <h3>Mensaje:</h3>
-              <p>${mensaje.replace(/\n/g, '<br>')}</p>
-              
-              <hr>
-              <p style="color: #666; font-size: 12px;">
-                Este mensaje fue enviado desde el formulario de contacto de nuevaeducacion.org<br>
-                Fecha: ${new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })}
-              </p>
+NUEVO MENSAJE DE CONTACTO - FUNDACIÓN NUEVA EDUCACIÓN
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+INFORMACIÓN DEL CONTACTO:
+
+• Nombre: ${nombre}
+• Email: ${email}
+• Institución: ${institucion}
+${cargo ? `• Cargo: ${cargo}` : ''}
+• Área de Interés: ${interestText}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+MENSAJE:
+
+${mensaje}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Este mensaje fue enviado desde el formulario de contacto de nuevaeducacion.org
+Fecha: ${new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })}
             `,
           }),
         });

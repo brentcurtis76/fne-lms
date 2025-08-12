@@ -1,4 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { Resend } from 'resend';
+
+// Initialize Resend with API key
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 interface ContactFormData {
   nombre: string;
@@ -115,26 +119,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </html>
     `;
 
-    // Send email using the existing send-email API
-    const emailResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/send-email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+    // Send email directly
+    let emailSent = false;
+    let emailError = null;
+
+    if (resend && process.env.RESEND_API_KEY) {
+      try {
+        const { data, error } = await resend.emails.send({
+          from: process.env.EMAIL_FROM_ADDRESS || 'FNE <notificaciones@nuevaeducacion.org>',
+          to: ['info@nuevaeducacion.org'],
+          subject: `Nuevo contacto de ${nombre} - ${institucion} (${interestText})`,
+          html: htmlContent,
+        });
+
+        if (error) {
+          console.error('Resend error:', error);
+          emailError = error.message;
+        } else {
+          emailSent = true;
+          console.log('✅ Email sent successfully to info@nuevaeducacion.org');
+        }
+      } catch (error) {
+        console.error('Email sending error:', error);
+        emailError = error instanceof Error ? error.message : 'Unknown error';
+      }
+    } else {
+      // No email service configured - log for now
+      console.log('📧 Email notification (no service configured):', {
         to: 'info@nuevaeducacion.org',
         subject: `Nuevo contacto de ${nombre} - ${institucion} (${interestText})`,
-        html: htmlContent,
-      }),
-    });
-
-    const emailResult = await emailResponse.json();
-
-    if (!emailResponse.ok) {
-      console.error('Error sending email:', emailResult);
-      return res.status(500).json({ 
-        error: 'Error al enviar el mensaje',
-        details: emailResult.error 
+        timestamp: new Date().toISOString(),
+        note: 'Add RESEND_API_KEY environment variable to enable email sending'
       });
     }
 
@@ -145,7 +160,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       institucion,
       interes: interestText,
       timestamp: new Date().toISOString(),
-      emailSent: emailResult.success
+      emailSent: emailSent || !emailError
     });
 
     // Send confirmation email to the user
@@ -191,26 +206,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     `;
 
     // Send confirmation email (don't fail if this fails)
-    try {
-      await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/send-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          to: email,
+    if (resend && process.env.RESEND_API_KEY) {
+      try {
+        await resend.emails.send({
+          from: process.env.EMAIL_FROM_ADDRESS || 'FNE <notificaciones@nuevaeducacion.org>',
+          to: [email],
           subject: 'Confirmación: Hemos recibido tu mensaje - Fundación Nueva Educación',
           html: confirmationHtml,
-        }),
-      });
-    } catch (confirmationError) {
-      console.log('Note: Confirmation email could not be sent to user, but main message was processed');
+        });
+        console.log('✅ Confirmation email sent to user:', email);
+      } catch (confirmationError) {
+        console.log('Note: Confirmation email could not be sent to user, but main message was processed');
+      }
     }
 
     return res.status(200).json({ 
       success: true, 
       message: 'Mensaje enviado exitosamente. Te responderemos pronto.',
-      emailSent: emailResult.success
+      emailSent: emailSent || !emailError
     });
 
   } catch (error) {

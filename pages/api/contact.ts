@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { trackFormSubmission } from '../../lib/formSubmissionTracker';
 
 interface ContactFormData {
   nombre: string;
@@ -114,6 +115,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         </body>
       </html>
     `;
+
+    // Track form submission for limit monitoring
+    const trackingResult = await trackFormSubmission({
+      senderEmail: email,
+      senderName: nombre,
+      formType: 'contact'
+    });
+
+    // Log tracking info
+    if (trackingResult.message) {
+      console.log(trackingResult.message);
+    }
+
+    // Block submission if limit reached
+    if (trackingResult.count >= 50) {
+      return res.status(429).json({ 
+        error: 'Límite mensual alcanzado',
+        message: 'Hemos alcanzado el límite mensual de envíos. Por favor, contáctanos directamente a info@nuevaeducacion.org o intenta nuevamente el próximo mes.',
+        count: trackingResult.count,
+        limit: 50
+      });
+    }
 
     // Send email via Formspree
     let emailSent = false;

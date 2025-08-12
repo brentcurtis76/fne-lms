@@ -1,7 +1,17 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import Footer from '../components/Footer';
+import Script from 'next/script';
+import dynamic from 'next/dynamic';
+
+// Lazy load heavy components
+const Footer = dynamic(() => import('../components/Footer'), { 
+  loading: () => <div className="h-96 bg-gray-50 animate-pulse" />
+});
+const OptimizedVideo = dynamic(() => import('../components/OptimizedVideo'), {
+  loading: () => <div className="absolute inset-0 bg-black" />,
+  ssr: false
+});
 
 export default function HomePage() {
   const [showFlipbook, setShowFlipbook] = React.useState(false);
@@ -115,14 +125,6 @@ export default function HomePage() {
         <meta name="description" content="Acompañamos a las comunidades educativas a dar el salto hacia una Nueva Educación basada en la autonomía y la colaboración para la expresión plena del potencial de cada estudiante." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
-        
-        {/* Google Fonts Inter */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet" />
-        
-        {/* Tailwind CSS */}
-        <script src="https://cdn.tailwindcss.com"></script>
         
         <style jsx>{`
           body {
@@ -239,17 +241,13 @@ export default function HomePage() {
         <main>
           {/* Hero Section */}
           <section id="inicio" className="relative h-screen min-h-[600px] pt-24">
-            <video 
-              className="absolute inset-0 w-full h-full object-cover"
-              autoPlay 
-              loop 
-              muted 
-              playsInline
-            >
-              <source src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Video%20fondo%20web%20IIIb.mov" type="video/quicktime" />
-              {/* Fallback for browsers that don't support .mov */}
-              <source src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Video%20fondo%20web%20IIIb.mov" type="video/mp4" />
-            </video>
+            <div id="hero-video-container" className="absolute inset-0">
+              <OptimizedVideo
+                src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Video%20fondo%20web%20IIIb.mov"
+                className="absolute inset-0 w-full h-full object-cover"
+                poster="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k="
+              />
+            </div>
             
             <div 
               className="absolute inset-0" 
@@ -377,18 +375,18 @@ export default function HomePage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-4">
                       <div className="relative overflow-hidden rounded-2xl shadow-xl transform hover:scale-105 transition-transform duration-300">
-                        <img src="/barcelona-innovation.jpg" alt="Innovación Educativa" className="w-full h-48 object-cover" />
+                        <img src="/barcelona-innovation.jpg" alt="Innovación Educativa" className="w-full h-48 object-cover" loading="lazy" decoding="async" />
                       </div>
                       <div className="relative overflow-hidden rounded-2xl shadow-xl transform hover:scale-105 transition-transform duration-300">
-                        <img src="/barcelona-third.jpg" alt="Experiencia Educativa" className="w-full h-64 object-cover" />
+                        <img src="/barcelona-third.jpg" alt="Experiencia Educativa" className="w-full h-64 object-cover" loading="lazy" decoding="async" />
                       </div>
                     </div>
                     <div className="space-y-4 pt-8">
                       <div className="relative overflow-hidden rounded-2xl shadow-xl transform hover:scale-105 transition-transform duration-300">
-                        <img src="/barcelona-skyline.jpg" alt="Barcelona Skyline" className="w-full h-64 object-cover" />
+                        <img src="/barcelona-skyline.jpg" alt="Barcelona Skyline" className="w-full h-64 object-cover" loading="lazy" decoding="async" />
                       </div>
                       <div className="relative overflow-hidden rounded-2xl shadow-xl transform hover:scale-105 transition-transform duration-300">
-                        <img src="/barcelona-stats.jpg" alt="Estadísticas del Programa" className="w-full h-48 object-cover" />
+                        <img src="/barcelona-stats.jpg" alt="Estadísticas del Programa" className="w-full h-48 object-cover" loading="lazy" decoding="async" />
                       </div>
                     </div>
                   </div>
@@ -451,6 +449,8 @@ export default function HomePage() {
                       src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/images/Steam.png" 
                       alt="Estudiantes colaborando en proyecto STEAM de construcción" 
                       className="w-full object-contain" 
+                      loading="lazy"
+                      decoding="async"
                     />
                   </div>
                   <div className="relative overflow-hidden rounded-2xl shadow-xl">
@@ -458,6 +458,8 @@ export default function HomePage() {
                       src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/images/hug.png" 
                       alt="Estudiantes mostrando apoyo y compañerismo" 
                       className="w-full h-80 object-cover" 
+                      loading="lazy"
+                      decoding="async"
                     />
                   </div>
                   
@@ -840,6 +842,12 @@ export default function HomePage() {
         
         <Footer />
       </div>
+      
+      {/* Load Tailwind CSS with next/script for better performance */}
+      <Script 
+        src="https://cdn.tailwindcss.com" 
+        strategy="lazyOnload"
+      />
     </>
   );
 }

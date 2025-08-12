@@ -55,7 +55,8 @@ const TeamMemberImage: React.FC<TeamMemberImageProps> = ({ src, alt, name, class
     setIsLoading(false);
   };
 
-  if (imageError) {
+  // If no src provided or it's empty, show placeholder directly
+  if (!src || src === '' || imageError) {
     return (
       <div className={`relative ${className}`}>
         <img

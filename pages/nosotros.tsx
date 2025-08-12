@@ -100,7 +100,7 @@ export default function NosotrosPage() {
     'sandra-entrena': {
       name: 'Sandra Entrena',
       role: 'Directora Escola Virolai',
-      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Sandra%20Entrena.jpg',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Sandra%20Entrena%202.jpeg',
       description: 'Directora de la Escuela Virolai, una de las escuelas líderes del cambio hacia el nuevo paradigma educativo en Europa. Es una educadora de larga trayectoria como formadora de las nuevas generaciones de profesores en Barcelona. Ha sido uno de los pilares formativos del proyecto Escola Nova 21 y ha participado diseñando y ejecutando programas de formación en metodologías activas para el aprendizaje, evaluación formativa y formadora, innovación y liderazgo de procesos de cambio. El 2017 lideró uno de los proyectos finalistas en los Wise Awards, instancia británica que reconoce a proyectos innovadores que involucran y empoderan a mujeres en el ámbito de las ciencias y la tecnología en el Reino Unido y el resto de Europa.'
     },
     'boris-mir': {
@@ -137,26 +137,26 @@ export default function NosotrosPage() {
     // Nuevos miembros
     'marcelo-ruiz': {
       name: 'Marcelo Ruiz',
-      role: 'Asesor Educativo Internacional',
-      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/placeholder.jpg',
-      description: 'Experto en transformación educativa y asesor internacional en procesos de cambio cultural en instituciones educativas.'
+      role: 'Director Centro Los Pellines',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/marcelo-ruiz.png',
+      description: 'Licenciado en Educación con mención en Educación Física y Diplomado en Habilidades Directivas. Fundador y Director de Los Pellines, un centro de educación relacional al aire libre con más de 30 años de trayectoria, especializado en la formación de docentes y estudiantes en entornos naturales. Instructor de montaña con experiencia en seguridad y rescate. Aporta su vasta experiencia en educación al aire libre y metodologías activas, integrando el aprendizaje experiencial con el desarrollo personal y profesional de educadores y estudiantes.'
     },
     'ignacio-pavez': {
       name: 'Ignacio Pavéz',
-      role: 'Coordinador de Proyectos FNE',
-      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/placeholder.jpg',
-      description: 'Coordinador de proyectos educativos y especialista en implementación de metodologías innovadoras en el sistema educativo chileno.'
+      role: 'Consultor Internacional FNE',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Ignacio%20Pavez.JPG',
+      description: 'PhD en Comportamiento Organizacional por Case Western Reserve University (USA) e Ingeniero Civil de la Pontificia Universidad Católica de Chile. Consultor internacional, conferencista y profesor de postgrado en las principales universidades de Chile. Experto en liderazgo educativo, desarrollo de equipos de gestión, aprendizaje experiencial y gestión del cambio. Especializado en implementar procesos de cambio organizacional para avanzar hacia el paradigma del "aprendizaje centrado en el estudiante", con énfasis en la integración curricular mediante metodologías de vanguardia como el aprendizaje basado en proyectos y experiencias. Director de Relaciona Consultores, Co-creador del Instituto Diálogos e Indagación Apreciativa (IDeIA) y miembro del Steering Committee del "World Positive Education Accelerator".'
     },
     'marcela-molina': {
       name: 'Marcela Molina',
       role: 'Directora de Formación FNE',
-      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/placeholder.jpg',
+      image: '',
       description: 'Directora de programas de formación docente y especialista en desarrollo profesional continuo para educadores.'
     },
     'andrea-lagos': {
       name: 'Andrea Lagos',
       role: 'Coordinadora de Redes FNE',
-      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/placeholder.jpg',
+      image: '',
       description: 'Coordinadora de la red de colegios FNE y especialista en gestión de comunidades educativas colaborativas.'
     },
     
@@ -178,6 +178,12 @@ export default function NosotrosPage() {
       role: 'Director Escola La Maquinista',
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Raul%20Martinez.jpg',
       description: 'Director de la Escola La Maquinista de Barcelona desde 2020, donde lidera procesos de innovación educativa centrados en el aprendizaje del alumnado. Graduado como maestro en Lengua Extranjera por la Universidad de Barcelona, es un firme defensor de la escuela pública de calidad. Especialista en metodologías AICLE (Aprendizaje Integrado de Contenidos y Lenguas Extranjeras) y enfoques globalizados que sitúan al niño en el centro del proceso educativo. Con amplia experiencia en diversos centros públicos de Barcelona como Vila Olímpica y Baró de Viver, combina su pasión por la educación con su faceta artística como músico profesional, aportando una visión creativa e integral al proyecto educativo.'
+    },
+    'jorge-parra': {
+      name: 'Jorge Parra',
+      role: 'Formador Centro Los Pellines',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Sergi%20Del%20Moral.jpg',
+      description: 'Profesor de Educación Física y Magíster en Educación. Miembro del equipo de formación y gestión en el Centro de Experiencias de Aprendizaje Los Pellines, con más de una década de experiencia en diseño y facilitación de actividades de aprendizaje al aire libre. Ha sido relator en talleres de habilidades relacionales y formación de facilitadores. Se enfoca en la planificación y ejecución de actividades experienciales y colaborativas, utilizando su experiencia en metodologías de aprendizaje relacional y en contextos al aire libre.'
     },
     'carlo-de-britos': {
       name: 'Carol de Britos',
@@ -284,6 +290,31 @@ export default function NosotrosPage() {
         <meta name="description" content="Conoce a la Fundación Nueva Educación, nuestra misión de transformar la educación y el equipo de expertos comprometidos con el cambio educativo." />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
+        <style>{`
+          .team-photo {
+            filter: grayscale(100%);
+          }
+          
+          .team-photo[alt="Brent Curtis"] {
+            object-position: center top;
+          }
+          
+          .team-photo[alt="Neus Colomer"] {
+            transform: scale(1.5);
+            object-position: center 20%;
+          }
+          
+          .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+          
+          html {
+            scroll-behavior: smooth;
+          }
+        `}</style>
       </Head>
 
       <div className="bg-white text-black min-h-screen">
@@ -358,168 +389,120 @@ export default function NosotrosPage() {
             <h1 className="text-5xl md:text-7xl font-black text-gray-900 mb-6 leading-tight">
               NOSOTROS
             </h1>
-            
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              Liderando la transformación educativa desde la experiencia y el compromiso con el desarrollo integral
-            </p>
           </div>
         </section>
 
-        {/* Mission & Vision Section */}
-        <section className="py-24 px-6">
-          <div className="max-w-6xl mx-auto">
-            {/* Tab Navigation */}
-            <div className="flex flex-wrap justify-center gap-4 mb-16">
-              <button
-                onClick={() => setActiveTab('mision')}
-                className={`px-8 py-3 rounded-full font-medium transition-all ${
-                  activeTab === 'mision'
-                    ? 'bg-black text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Nuestra Misión
-              </button>
-              <button
-                onClick={() => setActiveTab('vision')}
-                className={`px-8 py-3 rounded-full font-medium transition-all ${
-                  activeTab === 'vision'
-                    ? 'bg-black text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Nuestra Visión
-              </button>
-              <button
-                onClick={() => setActiveTab('valores')}
-                className={`px-8 py-3 rounded-full font-medium transition-all ${
-                  activeTab === 'valores'
-                    ? 'bg-black text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Nuestros Valores
-              </button>
+        {/* Who We Are Section */}
+        <section className="py-24 px-6 bg-gradient-to-b from-white to-gray-50">
+          <div className="max-w-7xl mx-auto">
+            {/* Main Statement */}
+            <div className="max-w-4xl mx-auto mb-20">
+              <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-8 text-center">
+                Somos una red de profesionales que reflexiona y crea soluciones para la educación del siglo XXI
+              </h2>
+              <p className="text-xl text-gray-700 leading-relaxed text-center">
+                Conformada por un equipo multidisciplinario de expertos en facilitar procesos de Cambio Cultural 
+                en el mundo de la educación, pioneros en la aplicación de los principios de la Nueva Educación 
+                en programas de formación para estudiantes y programas de cambio en equipos directivos y docentes.
+              </p>
             </div>
 
-            {/* Tab Content */}
-            <div className="max-w-4xl mx-auto">
-              {activeTab === 'mision' && (
-                <div className="bg-white rounded-2xl shadow-lg p-12">
-                  <h2 className="text-3xl font-bold mb-6 text-gray-900">Nuestra Misión</h2>
-                  <p className="text-lg text-gray-700 leading-relaxed mb-6">
-                    Somos una red de profesionales apasionados por la educación del siglo XXI, comprometidos con la reflexión profunda y la creación de soluciones innovadoras para transformar el paradigma educativo actual.
-                  </p>
-                  <p className="text-lg text-gray-700 leading-relaxed mb-6">
-                    Conformados por un equipo multidisciplinario de expertos, facilitamos procesos de Cambio Cultural en las comunidades educativas, pioneros en la aplicación de los principios de la Nueva Educación en programas de formación para estudiantes y equipos directivos y docentes.
-                  </p>
-                  <div className="grid md:grid-cols-2 gap-6 mt-8">
-                    <div className="bg-gray-50 rounded-xl p-6">
-                      <h3 className="font-bold text-xl mb-3">🎯 Nuestro Enfoque</h3>
-                      <p className="text-gray-600">
-                        Transformación sistémica de la educación a través del acompañamiento personalizado y la innovación pedagógica basada en evidencia.
-                      </p>
-                    </div>
-                    <div className="bg-gray-50 rounded-xl p-6">
-                      <h3 className="font-bold text-xl mb-3">🌍 Nuestro Alcance</h3>
-                      <p className="text-gray-600">
-                        Trabajamos con más de 60 colegios en Chile, impactando a más de 100,000 estudiantes en 9 regiones del país.
-                      </p>
-                    </div>
-                  </div>
+            {/* Three Pillars */}
+            <div className="grid md:grid-cols-3 gap-8 mb-20">
+              <div className="bg-white rounded-3xl shadow-lg p-8 hover:shadow-xl transition-shadow border-2 border-gray-100">
+                <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center mb-6">
+                  <svg className="w-8 h-8 text-[#fdb933]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
                 </div>
-              )}
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Transformar</h3>
+                <p className="text-gray-700 leading-relaxed">
+                  Acompañamos a las comunidades educativas en procesos profundos de transformación cultural, 
+                  facilitando el cambio desde adentro. Trabajamos codo a codo con directivos, docentes, 
+                  estudiantes y familias para co-crear una nueva cultura escolar centrada en el desarrollo 
+                  integral y el bienestar de toda la comunidad.
+                </p>
+              </div>
 
-              {activeTab === 'vision' && (
-                <div className="bg-white rounded-2xl shadow-lg p-12">
-                  <h2 className="text-3xl font-bold mb-6 text-gray-900">Nuestra Visión</h2>
-                  <p className="text-lg text-gray-700 leading-relaxed mb-6">
-                    Aspiramos a ser el referente líder en la transformación educativa de América Latina, creando un ecosistema de escuelas innovadoras que sirvan como modelo para el cambio sistémico en la educación.
-                  </p>
-                  <p className="text-lg text-gray-700 leading-relaxed mb-6">
-                    Visualizamos un futuro donde cada estudiante pueda desarrollar su máximo potencial en ambientes de aprendizaje que fomenten la autonomía, la colaboración y el pensamiento crítico, preparándolos para los desafíos del siglo XXI.
-                  </p>
-                  <div className="bg-black text-white rounded-xl p-8 mt-8">
-                    <h3 className="font-bold text-xl mb-4">Hacia el 2030</h3>
-                    <ul className="space-y-3">
-                      <li className="flex items-start">
-                        <span className="mr-3">✓</span>
-                        <span>Red de 200+ escuelas transformadas en Chile y América Latina</span>
-                      </li>
-                      <li className="flex items-start">
-                        <span className="mr-3">✓</span>
-                        <span>Formación de 10,000+ docentes en metodologías innovadoras</span>
-                      </li>
-                      <li className="flex items-start">
-                        <span className="mr-3">✓</span>
-                        <span>Centro de investigación educativa de referencia internacional</span>
-                      </li>
-                    </ul>
-                  </div>
+              <div className="bg-white rounded-3xl shadow-lg p-8 hover:shadow-xl transition-shadow border-2 border-gray-100">
+                <div className="w-16 h-16 bg-[#fdb933] rounded-2xl flex items-center justify-center mb-6">
+                  <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
                 </div>
-              )}
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Conectar</h3>
+                <p className="text-gray-700 leading-relaxed">
+                  Sinergizamos redes vivas de colaboración entre escuelas innovadoras de Chile, España y 
+                  América Latina. Estas redes permiten que las comunidades educativas compartan sus 
+                  experiencias, aprendan unas de otras y co-construyan soluciones a desafíos comunes. 
+                  A través de pasantías internacionales, encuentros y programas formativos, creamos 
+                  un ecosistema de aprendizaje que trasciende fronteras.
+                </p>
+              </div>
 
-              {activeTab === 'valores' && (
-                <div className="bg-white rounded-2xl shadow-lg p-12">
-                  <h2 className="text-3xl font-bold mb-6 text-gray-900">Nuestros Valores</h2>
-                  <div className="grid gap-6">
-                    <div className="border-l-4 border-black pl-6">
-                      <h3 className="font-bold text-xl mb-2">Innovación Pedagógica</h3>
-                      <p className="text-gray-700">
-                        Promovemos metodologías activas y participativas que sitúan al estudiante en el centro del proceso de aprendizaje, fomentando su autonomía y creatividad.
-                      </p>
-                    </div>
-                    <div className="border-l-4 border-black pl-6">
-                      <h3 className="font-bold text-xl mb-2">Colaboración Transformadora</h3>
-                      <p className="text-gray-700">
-                        Creemos en el poder de las redes colaborativas para generar cambios significativos y sostenibles en las comunidades educativas.
-                      </p>
-                    </div>
-                    <div className="border-l-4 border-black pl-6">
-                      <h3 className="font-bold text-xl mb-2">Excelencia con Propósito</h3>
-                      <p className="text-gray-700">
-                        Buscamos la excelencia no como un fin en sí mismo, sino como un medio para desarrollar el máximo potencial de cada estudiante.
-                      </p>
-                    </div>
-                    <div className="border-l-4 border-black pl-6">
-                      <h3 className="font-bold text-xl mb-2">Aprendizaje Continuo</h3>
-                      <p className="text-gray-700">
-                        Fomentamos una cultura de mejora continua, donde el error es parte del proceso y la reflexión es fundamental para el crecimiento.
-                      </p>
-                    </div>
-                    <div className="border-l-4 border-black pl-6">
-                      <h3 className="font-bold text-xl mb-2">Impacto Social</h3>
-                      <p className="text-gray-700">
-                        Trabajamos para reducir las brechas educativas y crear oportunidades equitativas para todos los estudiantes, independientemente de su contexto.
-                      </p>
-                    </div>
-                  </div>
+              <div className="bg-white rounded-3xl shadow-lg p-8 hover:shadow-xl transition-shadow border-2 border-gray-100">
+                <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center mb-6">
+                  <svg className="w-8 h-8 text-[#fdb933]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
                 </div>
-              )}
+                <h3 className="text-2xl font-bold text-gray-900 mb-4">Innovar</h3>
+                <p className="text-gray-700 leading-relaxed">
+                  Desarrollamos herramientas e instrumentos propios para implementar, medir y ejecutar 
+                  procesos de transformación educativa. Creamos metodologías de diagnóstico, matrices 
+                  de evaluación, protocolos de implementación y sistemas de seguimiento que permiten 
+                  a las escuelas gestionar su cambio de manera sistemática, medible y sostenible 
+                  en el tiempo.
+                </p>
+              </div>
             </div>
-          </div>
-        </section>
 
-        {/* Statistics Section */}
-        <section className="py-24 px-6 bg-gray-50">
-          <div className="max-w-6xl mx-auto">
-            <h2 className="text-4xl font-bold text-center mb-16 text-gray-900">Nuestro Impacto</h2>
-            <div className="grid md:grid-cols-4 gap-8">
-              <div className="text-center">
-                <div className="text-5xl font-black text-black mb-3">60+</div>
-                <p className="text-gray-600 font-medium">Colegios en nuestra red</p>
+            {/* Impact Numbers */}
+            <div className="bg-gradient-to-br from-gray-900 via-black to-gray-800 rounded-3xl p-12 md:p-16 relative overflow-hidden">
+              <div className="absolute inset-0 opacity-20">
+                <div className="absolute -right-20 -top-20 w-80 h-80 bg-[#fdb933] rounded-full blur-3xl"></div>
+                <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-white rounded-full blur-3xl"></div>
               </div>
-              <div className="text-center">
-                <div className="text-5xl font-black text-black mb-3">100k+</div>
-                <p className="text-gray-600 font-medium">Estudiantes impactados</p>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl font-black text-black mb-3">9</div>
-                <p className="text-gray-600 font-medium">Regiones de Chile</p>
-              </div>
-              <div className="text-center">
-                <div className="text-5xl font-black text-black mb-3">20+</div>
-                <p className="text-gray-600 font-medium">Años de experiencia</p>
+              
+              <div className="relative z-10">
+                <h3 className="text-4xl md:text-5xl font-black text-white text-center mb-16">NUESTRO IMPACTO</h3>
+                
+                <div className="grid md:grid-cols-3 gap-8 md:gap-12">
+                  <div className="text-center group">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-10 border border-white/20 hover:bg-white/15 transform hover:-translate-y-2 transition-all duration-300">
+                      <div className="text-7xl font-black text-[#fdb933] mb-6">12</div>
+                      <div className="text-white font-bold text-xl leading-relaxed">
+                        Escuelas de vanguardia colaboradoras en Barcelona
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center group">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-10 border border-white/20 hover:bg-white/15 transform hover:-translate-y-2 transition-all duration-300">
+                      <div className="text-7xl font-black text-[#fdb933] mb-6">33</div>
+                      <div className="text-white font-bold text-xl leading-relaxed">
+                        Colegios han pasado por nuestros programas de transformación
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="text-center group">
+                    <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-10 border border-white/20 hover:bg-white/15 transform hover:-translate-y-2 transition-all duration-300">
+                      <div className="text-7xl font-black text-[#fdb933] mb-6">400+</div>
+                      <div className="text-white font-bold text-xl leading-relaxed">
+                        Pasantes internacionales a Barcelona
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-16 text-center">
+                  <div className="bg-[#fdb933]/20 backdrop-blur-sm rounded-2xl p-8 border border-[#fdb933]/30">
+                    <p className="text-xl md:text-2xl text-white font-medium">
+                      Más de <span className="font-black text-[#fdb933] text-3xl">40</span> colegios han confiado en nuestros programas de pasantías internacionales
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -551,7 +534,7 @@ export default function NosotrosPage() {
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
                       <div className="relative flex-1 flex flex-col">
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#00365b]/10 to-[#00365b]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(to bottom right, rgba(0, 54, 91, 0.1), rgba(0, 54, 91, 0.2))' }}></div>
                         <div className="p-8 text-center flex flex-col h-full">
                           <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden flex-shrink-0">
                             <TeamMemberImage
@@ -562,11 +545,14 @@ export default function NosotrosPage() {
                             />
                           </div>
                           <h3 className="text-2xl font-bold text-gray-900 mb-2">{member.name}</h3>
-                          <p className="text-[#00365b] font-semibold mb-4">{member.role}</p>
+                          <p className="text-gray-600 font-semibold mb-4">{member.role}</p>
                           <p className="text-gray-600 line-clamp-3 mb-6 flex-grow">{member.description}</p>
                           <button
                             onClick={() => handleShowMore(memberKey)}
-                            className="bg-gradient-to-r from-[#00365b] to-[#00365b]/80 text-white px-6 py-3 rounded-full hover:from-[#00365b]/90 hover:to-[#00365b] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+                            className="text-white px-6 py-3 rounded-full transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+                            style={{ backgroundColor: '#00365b' }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#002845'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#00365b'}
                           >
                             Ver más
                           </button>
@@ -598,11 +584,11 @@ export default function NosotrosPage() {
                             />
                           </div>
                           <h3 className="text-2xl font-bold text-gray-900 mb-2">{member.name}</h3>
-                          <p className="text-[#fdb933] font-semibold mb-4">{member.role}</p>
+                          <p className="text-gray-600 font-semibold mb-4">{member.role}</p>
                           <p className="text-gray-600 line-clamp-3 mb-6 flex-grow">{member.description}</p>
                           <button
                             onClick={() => handleShowMore(memberKey)}
-                            className="bg-gradient-to-r from-[#fdb933] to-[#fdb933]/80 text-white px-6 py-3 rounded-full hover:from-[#fdb933]/90 hover:to-[#fdb933] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+                            className="bg-[#fdb933] text-black px-6 py-3 rounded-full hover:bg-[#fdb933]/90 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
                           >
                             Ver más
                           </button>
@@ -618,12 +604,12 @@ export default function NosotrosPage() {
             <div className="mb-20">
               <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Asesores Internacionales</h3>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'betlem-cuesta', 'carlo-de-britos', 'marta-cardenas', 'maite-pino', 'claudia-lopez', 'enrique-vergara', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'begonya-folch', 'laura-carmona', 'cristina-romanos'].map((memberKey) => {
+                {['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'jorge-parra', 'betlem-cuesta', 'carlo-de-britos', 'marta-cardenas', 'maite-pino', 'claudia-lopez', 'enrique-vergara', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'begonya-folch', 'laura-carmona', 'cristina-romanos'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
                       <div className="relative flex-1 flex flex-col">
-                        <div className="absolute inset-0 bg-gradient-to-br from-orange-600/10 to-red-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-red-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         <div className="p-8 text-center flex flex-col h-full">
                           <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden flex-shrink-0">
                             <TeamMemberImage
@@ -634,11 +620,11 @@ export default function NosotrosPage() {
                             />
                           </div>
                           <h3 className="text-2xl font-bold text-gray-900 mb-2">{member.name}</h3>
-                          <p className="text-orange-600 font-semibold mb-4">{member.role}</p>
+                          <p className="text-gray-600 font-semibold mb-4">{member.role}</p>
                           <p className="text-gray-600 line-clamp-3 mb-6 flex-grow">{member.description}</p>
                           <button
                             onClick={() => handleShowMore(memberKey)}
-                            className="bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-3 rounded-full hover:from-orange-700 hover:to-red-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+                            className="bg-red-600 text-white px-6 py-3 rounded-full hover:bg-red-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
                           >
                             Ver más
                           </button>
@@ -663,7 +649,7 @@ export default function NosotrosPage() {
                     <h3 className="text-3xl font-bold text-gray-900 mb-2">
                       {teamMembers[selectedMember].name}
                     </h3>
-                    <p className="text-blue-600 font-semibold text-lg">
+                    <p className="text-[#fdb933] font-semibold text-lg">
                       {teamMembers[selectedMember].role}
                     </p>
                   </div>
@@ -692,6 +678,7 @@ export default function NosotrosPage() {
         src="https://cdn.tailwindcss.com" 
         strategy="lazyOnload"
       />
+
     </>
   );
 }

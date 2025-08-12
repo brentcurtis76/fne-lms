@@ -132,6 +132,148 @@ export default function NosotrosPage() {
       role: 'Director Escola Sadako',
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Jordi%20Mussons.png',
       description: 'Jordi es maestro y director de la escuela Sadako de Barcelona, institución referente en innovación educativa a nivel internacional. Su tenacidad, perseverancia y compromiso con una transformación educativa que promueva una escuela de oportunidades para todo el mundo, lo han convertido en una personalidad muy relevante de la educación en nuestro país. Estudió Biología y encontró́ en el escultismo la clave para educar desde la responsabilidad y el compromiso sostenible y social, cualidades que ha intentado trasladar al proyecto educativo que lidera desde 2006. Desde hace unos años forma parte de la junta directiva de la AEC (Agrupació Escolar Catalana).'
+    },
+    
+    // Nuevos miembros
+    'marcelo-ruiz': {
+      name: 'Marcelo Ruiz',
+      role: 'Asesor Educativo Internacional',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/placeholder.jpg',
+      description: 'Experto en transformación educativa y asesor internacional en procesos de cambio cultural en instituciones educativas.'
+    },
+    'ignacio-pavez': {
+      name: 'Ignacio Pavéz',
+      role: 'Coordinador de Proyectos FNE',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/placeholder.jpg',
+      description: 'Coordinador de proyectos educativos y especialista en implementación de metodologías innovadoras en el sistema educativo chileno.'
+    },
+    'marcela-molina': {
+      name: 'Marcela Molina',
+      role: 'Directora de Formación FNE',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/placeholder.jpg',
+      description: 'Directora de programas de formación docente y especialista en desarrollo profesional continuo para educadores.'
+    },
+    'andrea-lagos': {
+      name: 'Andrea Lagos',
+      role: 'Coordinadora de Redes FNE',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/placeholder.jpg',
+      description: 'Coordinadora de la red de colegios FNE y especialista en gestión de comunidades educativas colaborativas.'
+    },
+    
+    // Asesores Técnicos que necesitamos mantener
+    'abraham-de-la-fuente': {
+      name: 'Abraham de la Fuente',
+      role: 'Director Adjunto Institut Angeleta Ferrer',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Abraham%20De%20la%20Fuente.jpeg',
+      description: 'Doctor en Didáctica de las Matemáticas e investigador sobre la formación del profesorado. Es director adjunto de investigación educativa en el Institut Angeleta Ferrer, donde impulsa líneas de innovación pedagógica y evaluación formativa. Profesor asociado en la UAB desde 2014, forma a futuros docentes en el Grado de Educación Primaria y el Máster de Formación del Profesorado. Con más de 15 años de experiencia como profesor de matemáticas en secundaria y bachillerato, ha trabajado en centros de referencia como Saint Paul\'s School y Oak House School. Es miembro del equipo impulsor de los Betacamps y Edcamps en Catalunya, promoviendo espacios de formación docente colaborativa y horizontal.'
+    },
+    'ana-vicalvaro': {
+      name: 'Ana Vicálvaro',
+      role: 'Directora Escola Octavio Paz',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Ana%20Vicalvaro.jpeg',
+      description: 'Directora de la Escola Octavio Paz de Barcelona, una escuela pública emblemática del barrio de Navas que lidera procesos de transformación educativa. Graduada en Educación Infantil y Primaria con especialización en Lengua Inglesa por la Universidad de Barcelona y UNIR. Desde 2017 es profesora de inglés en centros públicos de Catalunya, donde ha desarrollado metodologías innovadoras para la enseñanza de lenguas extranjeras. Su liderazgo se caracteriza por promover una educación inclusiva y participativa, trabajando estrechamente con las familias y la comunidad educativa para crear espacios de aprendizaje que fomenten el desarrollo integral del alumnado.'
+    },
+    'raul-martinez': {
+      name: 'Raúl Martínez',
+      role: 'Director Escola La Maquinista',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Raul%20Martinez.jpg',
+      description: 'Director de la Escola La Maquinista de Barcelona desde 2020, donde lidera procesos de innovación educativa centrados en el aprendizaje del alumnado. Graduado como maestro en Lengua Extranjera por la Universidad de Barcelona, es un firme defensor de la escuela pública de calidad. Especialista en metodologías AICLE (Aprendizaje Integrado de Contenidos y Lenguas Extranjeras) y enfoques globalizados que sitúan al niño en el centro del proceso educativo. Con amplia experiencia en diversos centros públicos de Barcelona como Vila Olímpica y Baró de Viver, combina su pasión por la educación con su faceta artística como músico profesional, aportando una visión creativa e integral al proyecto educativo.'
+    },
+    'carlo-de-britos': {
+      name: 'Carol de Britos',
+      role: 'Jefa de Estudios Primaria Virolai',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Carol%20de%20Britos.png',
+      description: 'Es profesora de Primaria en Escola Virolai, donde además he sido coordinadora pedagógica, y actualmente ejerce de Jefa de Estudios de la etapa. Su  ámbito es el de la ciencia, ya que además del Grado de Educación Primaria hizo algunos cursos de la licenciatura de Biología. Ha formado parte de diferentes proyectos conjuntos con universidades nacionales e internacionales, además de ser profesora adjunta de la UAB en el Grado de Ed. Primaria en lengua inglesa. Durante más de 10 años, ha formado a otros profesores en metodología CLIL, haciendo asesoramientos a centros y formaciones acreditadas por la Generalitat de Catalunya. Ha sido conferencista en ITWorldEdu, WebquestCat, STEAMconf... y he participado en la redacción de artículos en revistas como Guix y libros como Diseño y aplicación de la Flipped Classroom (Ed. Graó).'
+    },
+    'marta-cardenas': {
+      name: 'Marta Cárdenas',
+      role: 'Coordinadora Educación Infantil Virolai',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Marta%20Cardenas.jpg',
+      description: 'Es coordinadora de la etapa de Educación Infantil en Virolai Reina Elisenda. Es educadora especializada en el trabajo con niños y niñas con necesidades educativas especiales, y cuenta con una sólida experiencia en el acompañamiento de la primera infancia. A lo largo de su trayectoria, ha impulsado propuestas pedagógicas inclusivas, trabajando estrechamente con las familias y los equipos docentes para garantizar una atención personalizada y respetuosa con los ritmos de cada niño.'
+    },
+    'maite-pino': {
+      name: 'Maite Pino',
+      role: 'Coordinadora Escola Virolai Reina Elisenda',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Maite%20Pino.jpg',
+      description: 'Es coordinadora de la Escola Virolai Reina Elisenda y maestra. Se formó como Maestra de Educación Infantil en la UAB y ha trabajado en distintos centros públicos y concertados, asumiendo tutorías en varios cursos y etapas. Ha sido educadora de apoyo en secundaria, coordinadora de comedor y monitora de acogida, y durante seis años fue cap d\'agrupament en los Minyons Escoltes i Guies. Tiene formación en inglés por la EOI Drassanes y en dirección de actividades de ocio por la Fundació Pere Tarrés. Actualmente impulsa el uso pedagógico de herramientas digitales en su centro.'
+    },
+    'claudia-lopez': {
+      name: 'Claudia López de Lamadrid',
+      role: 'Coordinadora Virolai Petit',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Claudia%20Lopez%20de%20Lamadrid%20%20.jpg',
+      description: 'Es coordinadora y responsable pedagógica de la escuela infantil de Virolai (Virolai Petit), donde trabaja desde 2003. Ha sido maestra de inglés y tutora en Educación Infantil y Primaria, acompañando a diversos grupos a lo largo de su trayectoria. Es licenciada en Psicopedagogía por la Universitat Oberta de Catalunya y está especializada en la primera infancia y en el trabajo en equipo con las familias y educadoras.'
+    },
+    'enrique-vergara': {
+      name: 'Enrique Vergara',
+      role: 'Coordinador Pedagógico Escola Virolai',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Enrique%20Vergara%20.jpg',
+      description: 'Es educador y coordinador pedagógico en la Escola Virolai, donde forma parte del equipo desde 2018. Licenciado en Ciencias Ambientales por la UAB, ha combinado su trayectoria educativa con experiencia en el ámbito ambiental y de inspección técnica. Actualmente es profesor en el Grado de Educación Infantil y en el Máster de Profesorado de Secundaria (especialidad Biología y Geología) en la Universitat de Barcelona. También ha sido director académico de programas de medio ambiente en IUSC. Su recorrido profesional refleja un fuerte compromiso con la sostenibilidad, la innovación educativa y el acompañamiento a jóvenes y docentes.'
+    },
+    'laia-garces': {
+      name: 'Laia Garcés',
+      role: 'Coordinadora Primaria Escuela Sadako',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Laila%20Garces.jpg',
+      description: 'Es coordinadora de la etapa de primaria en la Escuela Sadako de Barcelona, donde también ha sido tutora, es especialista de inglés y ha formado parte del equipo psicopedagógico. Forma parte del equipo directivo de Sadako, una escuela Inovadora y Changemaker, comprometida con el mundo que nos rodea, donde los niños y niñas tienen la oportunidad de aprender y ser felices, y de desarrollar una actitud para ser agentes de cambio. Es graduada en Educación Primaria por la Universidad de Barcelona con mención en lengua inglesa, ha trabajado en una escuela en Londres, durante un año, y así conocer más de cerca otro sistema educativo.'
+    },
+    'marta-ortega': {
+      name: 'Marta Ortega',
+      role: 'Coordinadora Primaria Escuela Sadako',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Marta%20Ortega.jpg',
+      description: 'Es coordinadora de la etapa de primaria en la Escuela Sadako de Barcelona, donde también ha sido tutora, es especialista de inglés y ha formado parte del equipo psicopedagógico. Forma parte del equipo directivo de Sadako, una escuela Inovadora y Changemaker, comprometida con el mundo que nos rodea, donde los niños y niñas tienen la oportunidad de aprender y ser felices, y de desarrollar una actitud para ser agentes de cambio. Es graduada en Educación Primaria por la Universidad de Barcelona con mención en lengua inglesa, ha trabajado en una escuela en Londres, durante un año, y así conocer más de cerca otro sistema educativo.'
+    },
+    'cristina-montes': {
+      name: 'Cristina Montes',
+      role: 'Profesora Escuela La Maquinista',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Cristina%20Montes.png',
+      description: 'Profesora y tutora de primaria en la Escuela La Maquinista en Barcelona desde el año 2016. Es graduada en Magisterio de Educación Física, en Magisterio de Educación Infantil y Máster en Psicopedagogía. En la escuela, participa como miembro del grupo motor en el proyecto FAIG, impulsado por el CESIRE, un soporte a la innovación del Departamento de Educación de Catalunya. También posee formación por medio de la participación en proyectos y seminarios tales como: Cultura de las Matemáticas en niños/as (Universidad de Blanquerna), biblioteca escolar, Dificultades Específicas de la Lectoescritura, trabajo de la lengua en un entorno de trabajo globalizado, metodologías de enfoque globalizado, así como en la creación de espacios de aprendizaje.'
+    },
+    'estefania-del-ramon': {
+      name: 'Estefanía del Ramón',
+      role: 'Profesora Escola Octavio Paz',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Estefania%20Del%20Ramon.jpg',
+      description: 'Es profesora de la Escuela Octavio Paz de Barcelona, una de las escuelas públicas más reconocidas y valoradas en Cataluña por su capacidad de innovación y cambio, transformándose en un referente mundial para la educación pública de calidad, ella ha sido parte activa del proceso de transformación metodológica desde hace 5 años. Es master en psicopedagogía, master en resolución de conflictos en el ámbito educativo, maestra de educación musical y licenciada como interprete profesional de piano. Es una persona comprometida con el bienestar y el éxito de sus estudiantes, posee un alto grado de compromiso con una educación de calidad, busca que la escuela los prepare a nivel personal, social y emocional para enfrentar los desafíos de la sociedad del siglo XXI con confianza y resiliencia.'
+    },
+    'gemma-pariente': {
+      name: 'Gemma Pariente',
+      role: 'Profesora Escola Octavio Paz',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Gemma%20Pariente.png',
+      description: 'Es profesora de la Escuela Octavio Paz de Barcelona, una de las escuelas públicas más reconocidas y valoradas en Cataluña por su capacidad de innovación y cambio, transformándose en un referente mundial para la educación pública de calidad, ella ha sido parte activa del proceso de transformación metodológica desde hace 5 años. Es master en psicopedagogía, master en resolución de conflictos en el ámbito educativo, maestra de educación musical y licenciada como interprete profesional de piano. Es una persona comprometida con el bienestar y el éxito de sus estudiantes, posee un alto grado de compromiso con una educación de calidad, busca que la escuela los prepare a nivel personal, social y emocional para enfrentar los desafíos de la sociedad del siglo XXI con confianza y resiliencia.'
+    },
+    'maria-latre': {
+      name: 'María Latre',
+      role: 'Coordinadora Primaria Virolai Reina Elisenda',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Maria%20Latre.png',
+      description: 'Coordinadora de la etapa de Primaria en la Escola Virolai Reina Elisenda, donde trabaja desde hace más de una década. Graduada en Educación Primaria por UNIR y en Periodismo por la UAB, aporta una visión única que combina pedagogía y comunicación. Especialista en integración de tecnologías educativas, lidera la implementación de iPads en el aula y forma a docentes en herramientas digitales y metodologías activas. Su experiencia como realizadora audiovisual le permite incorporar narrativas visuales en los procesos de aprendizaje. Desde 2012 es profesora de inglés en todos los niveles educativos y ha coordinado escuelas de verano para más de 200 estudiantes, promoviendo siempre enfoques comunicativos e innovadores.'
+    },
+    'andreu-basoli': {
+      name: 'Andreu Basolí',
+      role: 'Profesor Primaria Escola Sadako',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Andreu%20Basoli.png',
+      description: 'Maestro de Educación Primaria en la Escola Sadako de Barcelona, donde ejerce como tutor con una pedagogía centrada en el acompañamiento activo y la educación en valores. Graduado en Educación Primaria en inglés, combina su labor docente con una amplia trayectoria en el ocio educativo, habiendo sido director de colonias de verano y monitor durante más de 7 años en Can Colapi. Miembro activo del Moviment de Centres d\'Esplai Cristians Catalans, participa en el Ámbito Pedagógico y en la organización de encuentros juveniles. Ha sido mentor en programas de inclusión, voluntario internacional en Gambia y profesor en diversos proyectos educativos. Defiende una educación coherente, crítica y transformadora, creyendo firmemente en el poder del ocio como motor de desarrollo personal y comunitario.'
+    },
+    'neus-colomer': {
+      name: 'Neus Colomer',
+      role: 'Equipo Directivo Escola Sadako',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Neus%20Colomer.jpeg',
+      description: 'Miembro del equipo directivo de la Escola Sadako de Barcelona, donde también ejerce como maestra de Educación Primaria. Graduada en Educación Primaria con mención en diversidad por Blanquerna - Universitat Ramon Llull, ha orientado su carrera hacia la atención a la diversidad y la construcción de entornos escolares seguros y equitativos. Formada en prevención de abusos sexuales infantiles y en abordaje de violencias machistas, incorpora estos aprendizajes en la cultura organizativa del centro. Directora certificada de actividades de tiempo libre infantil y juvenil, su trayectoria en el ocio educativo refuerza su visión de una escuela que reconoce el valor del juego, el vínculo y la participación como pilares del aprendizaje. Es una educadora comprometida con el bienestar de la infancia y la transformación profunda de las prácticas escolares.'
+    },
+    'begonya-folch': {
+      name: 'Begonya Folch',
+      role: 'Formadora Departamento de Educación',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/begonya%20folch.jpg',
+      description: 'Profesora de Educación Secundaria y formadora del Departamento de Educación de Catalunya, comprometida con la transformación del sistema educativo. Experta en innovación pedagógica y la relación entre arte y educación, ha sido profesora asociada en la Universidad de Barcelona y docente en el Institut Angeleta Ferrer. Ha colaborado en la redacción del Currículum catalán y formó parte del equipo responsable del Programa Escuela 2.0 a través del proyecto eduCAT1x1. Como técnica del Consejo Escolar de Cataluña, ha impulsado políticas educativas innovadoras. Colabora activamente con Rosa Sensat, el ICE de la UAB, ICFO y la STEAM Conference Barcelona. En el Institut Quatre Cantons, como profesora de Música y Trabajo Globalizado, comparte sus experiencias didácticas promoviendo metodologías interdisciplinares y creativas.'
+    },
+    'laura-carmona': {
+      name: 'Laura Carmona',
+      role: 'Coordinadora Institut Angeleta Ferrer',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Laura%20Carmona.jpg',
+      description: 'Coordinadora del equipo docente y profesora de secundaria en el Institut Angeleta Ferrer, centro público de referencia en formación e investigación docente. Licenciada en Ciencias Políticas por la UAB y MSc en Desarrollo Social y Conflicto por la University of Wales. Formadora en el Máster de Profesorado de la UPF y Blanquerna, actualmente colabora con la UAB impartiendo la asignatura sobre desigualdades educativas. Miembro activo del grupo Perspectiva Feminista de Rosa Sensat, coordinó la 56ª Escola d\'Estiu sobre prácticas de educación feminista. Su enfoque pedagógico combina compromiso social, perspectiva de género y una visión crítica de la educación como herramienta de transformación y justicia social, promoviendo siempre la formación continua del profesorado.'
+    },
+    'cristina-romanos': {
+      name: 'Cristina Romanos',
+      role: 'Coordinadora Pedagógica Virolai Grimm',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Cristina%20Romanos.jpeg',
+      description: 'Coordinadora pedagógica de Virolai Grimm, el centro del ecosistema Virolai dedicado exclusivamente a Educación Infantil. Lidera procesos pedagógicos centrados en el desarrollo integral de los niños en sus primeros años, implementando metodologías activas y relacionales basadas en la curiosidad. Formada en Magisterio de Educación Infantil, Psicopedagogía y Logopedia por la UAB, está especializada en procesos de lectoescritura y comprensión lectora en la primera infancia. Defensora del uso consciente de la tecnología educativa, integra herramientas digitales y gamificación para enriquecer el aprendizaje. Su pedagogía se basa en el respeto, la escucha y la confianza en las capacidades de cada niño, promoviendo una escuela que aprende con y desde la infancia.'
     }
   };
 
@@ -400,11 +542,11 @@ export default function NosotrosPage() {
         <section className="py-16 px-6">
           <div className="max-w-7xl mx-auto">
             
-            {/* Equipo FNE */}
+            {/* Comité Internacional */}
             <div className="mb-20">
-              <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Equipo FNE</h3>
+              <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Comité Internacional</h3>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['arnoldo-cisternas', 'joan-quintana', 'mora-del-fresno', 'gabriela-naranjo', 'brent-curtis'].map((memberKey) => {
+                {['joan-quintana', 'coral-regi', 'boris-mir', 'anna-comas', 'pepe-menendez', 'sandra-entrena', 'jordi-mussons', 'marcelo-ruiz', 'arnoldo-cisternas'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
@@ -435,11 +577,11 @@ export default function NosotrosPage() {
               </div>
             </div>
 
-            {/* Equipo Internacional */}
+            {/* Equipo FNE */}
             <div className="mb-20">
-              <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Equipo Internacional</h3>
+              <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Equipo FNE</h3>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['coral-regi', 'boris-mir', 'jordi-mussons', 'pepe-menendez', 'sandra-entrena', 'anna-comas', 'sergi-del-moral', 'betlem-cuesta'].map((memberKey) => {
+                {['gabriela-naranjo', 'mora-del-fresno', 'brent-curtis', 'ignacio-pavez', 'marcela-molina', 'andrea-lagos'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
@@ -459,6 +601,41 @@ export default function NosotrosPage() {
                           <button
                             onClick={() => handleShowMore(memberKey)}
                             className="bg-gradient-to-r from-[#fdb933] to-[#fdb933]/80 text-white px-6 py-3 rounded-full hover:from-[#fdb933]/90 hover:to-[#fdb933] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+                          >
+                            Ver más
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Asesores Internacionales */}
+            <div className="mb-20">
+              <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Asesores Internacionales</h3>
+              <div className="grid md:grid-cols-3 gap-8 items-stretch">
+                {['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'betlem-cuesta', 'carlo-de-britos', 'marta-cardenas', 'maite-pino', 'claudia-lopez', 'enrique-vergara', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'begonya-folch', 'laura-carmona', 'cristina-romanos'].map((memberKey) => {
+                  const member = teamMembers[memberKey];
+                  return (
+                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
+                      <div className="relative flex-1 flex flex-col">
+                        <div className="absolute inset-0 bg-gradient-to-br from-orange-600/10 to-red-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="p-8 text-center flex flex-col h-full">
+                          <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden flex-shrink-0">
+                            <TeamMemberImage
+                              src={member.image}
+                              alt={member.name}
+                              className="w-full h-full object-cover team-photo"
+                            />
+                          </div>
+                          <h3 className="text-2xl font-bold text-gray-900 mb-2">{member.name}</h3>
+                          <p className="text-orange-600 font-semibold mb-4">{member.role}</p>
+                          <p className="text-gray-600 line-clamp-3 mb-6 flex-grow">{member.description}</p>
+                          <button
+                            onClick={() => handleShowMore(memberKey)}
+                            className="bg-gradient-to-r from-orange-600 to-red-600 text-white px-6 py-3 rounded-full hover:from-orange-700 hover:to-red-700 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
                           >
                             Ver más
                           </button>

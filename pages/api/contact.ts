@@ -1,8 +1,4 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { Resend } from 'resend';
-
-// Initialize Resend with API key
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 interface ContactFormData {
   nombre: string;
@@ -119,29 +115,60 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </html>
     `;
 
-    // Send email directly
+    // Send email via Web3Forms
     let emailSent = false;
     let emailError = null;
 
-    if (resend && process.env.RESEND_API_KEY) {
+    if (process.env.WEB3FORMS_ACCESS_KEY) {
       try {
-        const { data, error } = await resend.emails.send({
-          from: process.env.EMAIL_FROM_ADDRESS || 'FNE <notificaciones@nuevaeducacion.org>',
-          to: ['info@nuevaeducacion.org'],
-          subject: `Nuevo contacto de ${nombre} - ${institucion} (${interestText})`,
-          html: htmlContent,
+        const response = await fetch('https://api.web3forms.com/submit', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            access_key: process.env.WEB3FORMS_ACCESS_KEY,
+            to_email: 'info@nuevaeducacion.org',
+            subject: `Nuevo contacto de ${nombre} - ${institucion} (${interestText})`,
+            from_name: nombre,
+            email: email,
+            // Include all form data in the message
+            message: `
+              <h2>Nuevo Mensaje de Contacto - FNE</h2>
+              
+              <h3>Información del contacto:</h3>
+              <ul>
+                <li><strong>Nombre:</strong> ${nombre}</li>
+                <li><strong>Email:</strong> ${email}</li>
+                <li><strong>Institución:</strong> ${institucion}</li>
+                ${cargo ? `<li><strong>Cargo:</strong> ${cargo}</li>` : ''}
+                <li><strong>Área de Interés:</strong> ${interestText}</li>
+              </ul>
+              
+              <h3>Mensaje:</h3>
+              <p>${mensaje.replace(/\n/g, '<br>')}</p>
+              
+              <hr>
+              <p style="color: #666; font-size: 12px;">
+                Este mensaje fue enviado desde el formulario de contacto de nuevaeducacion.org<br>
+                Fecha: ${new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })}
+              </p>
+            `,
+          }),
         });
 
-        if (error) {
-          console.error('Resend error:', error);
-          emailError = error.message;
-        } else {
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
           emailSent = true;
-          console.log('✅ Email sent successfully to info@nuevaeducacion.org');
+          console.log('✅ Email sent successfully to info@nuevaeducacion.org via Web3Forms');
+        } else {
+          emailError = result.message || 'Email sending failed';
+          console.error('Web3Forms error:', result);
         }
-      } catch (error) {
-        console.error('Email sending error:', error);
-        emailError = error instanceof Error ? error.message : 'Unknown error';
+      } catch (error: any) {
+        console.error('Web3Forms error:', error);
+        emailError = error.message || 'Email sending failed';
       }
     } else {
       // No email service configured - log for now
@@ -149,7 +176,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         to: 'info@nuevaeducacion.org',
         subject: `Nuevo contacto de ${nombre} - ${institucion} (${interestText})`,
         timestamp: new Date().toISOString(),
-        note: 'Add RESEND_API_KEY environment variable to enable email sending'
+        note: 'Add WEB3FORMS_ACCESS_KEY environment variable to enable email sending'
       });
     }
 
@@ -205,20 +232,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </html>
     `;
 
-    // Send confirmation email (don't fail if this fails)
-    if (resend && process.env.RESEND_API_KEY) {
-      try {
-        await resend.emails.send({
-          from: process.env.EMAIL_FROM_ADDRESS || 'FNE <notificaciones@nuevaeducacion.org>',
-          to: [email],
-          subject: 'Confirmación: Hemos recibido tu mensaje - Fundación Nueva Educación',
-          html: confirmationHtml,
-        });
-        console.log('✅ Confirmation email sent to user:', email);
-      } catch (confirmationError) {
-        console.log('Note: Confirmation email could not be sent to user, but main message was processed');
-      }
-    }
+    // Note: Web3Forms doesn't support sending confirmation emails to users
+    // The user will see the success message on the form instead
 
     return res.status(200).json({ 
       success: true, 

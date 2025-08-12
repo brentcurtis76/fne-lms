@@ -115,25 +115,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       </html>
     `;
 
-    // Send email via Web3Forms
+    // Send email via Formspree
     let emailSent = false;
     let emailError = null;
 
-    if (process.env.WEB3FORMS_ACCESS_KEY) {
+    if (process.env.FORMSPREE_ENDPOINT) {
       try {
-        const response = await fetch('https://api.web3forms.com/submit', {
+        const response = await fetch(process.env.FORMSPREE_ENDPOINT, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Accept': 'application/json'
           },
           body: JSON.stringify({
-            access_key: process.env.WEB3FORMS_ACCESS_KEY,
-            to_email: 'info@nuevaeducacion.org',
-            subject: `Nuevo contacto de ${nombre} - ${institucion} (${interestText})`,
-            from_name: nombre,
             email: email,
-            // Format message in plain text for better email compatibility
-            message: `
+            name: nombre,
+            _replyto: email,
+            _subject: `Nuevo contacto de ${nombre} - ${institucion} (${interestText})`,
+            institucion: institucion,
+            cargo: cargo || 'No especificado',
+            interes: interestText,
+            message: mensaje,
+            _template: 'table', // Use table template for better formatting
+            // Additional formatted message
+            full_message: `
 NUEVO MENSAJE DE CONTACTO - FUNDACIÓN NUEVA EDUCACIÓN
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -162,21 +167,21 @@ Fecha: ${new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })}
 
         const result = await response.json();
         
-        console.log('Web3Forms Response:', {
+        console.log('Formspree Response:', {
           status: response.status,
           ok: response.ok,
           result: result
         });
         
-        if (response.ok && result.success) {
+        if (response.ok && result.ok) {
           emailSent = true;
-          console.log('✅ Email sent successfully to info@nuevaeducacion.org via Web3Forms');
+          console.log('✅ Email sent successfully to info@nuevaeducacion.org via Formspree');
         } else {
-          emailError = result.message || 'Email sending failed';
-          console.error('Web3Forms error:', result);
+          emailError = result.error || result.errors?.join(', ') || 'Email sending failed';
+          console.error('Formspree error:', result);
         }
       } catch (error: any) {
-        console.error('Web3Forms error:', error);
+        console.error('Formspree error:', error);
         emailError = error.message || 'Email sending failed';
       }
     } else {
@@ -185,7 +190,7 @@ Fecha: ${new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })}
         to: 'info@nuevaeducacion.org',
         subject: `Nuevo contacto de ${nombre} - ${institucion} (${interestText})`,
         timestamp: new Date().toISOString(),
-        note: 'Add WEB3FORMS_ACCESS_KEY environment variable to enable email sending'
+        note: 'Add FORMSPREE_ENDPOINT environment variable to enable email sending'
       });
     }
 

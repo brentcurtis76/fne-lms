@@ -143,7 +143,7 @@ export default function NosotrosPage() {
     },
     'ignacio-pavez': {
       name: 'Ignacio Pavéz',
-      role: 'Consultor Internacional FNE',
+      role: 'Director de Investigación',
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Ignacio%20Pavez.JPG',
       description: 'PhD en Comportamiento Organizacional por Case Western Reserve University (USA) e Ingeniero Civil de la Pontificia Universidad Católica de Chile. Consultor internacional, conferencista y profesor de postgrado en las principales universidades de Chile. Experto en liderazgo educativo, desarrollo de equipos de gestión, aprendizaje experiencial y gestión del cambio. Especializado en implementar procesos de cambio organizacional para avanzar hacia el paradigma del "aprendizaje centrado en el estudiante", con énfasis en la integración curricular mediante metodologías de vanguardia como el aprendizaje basado en proyectos y experiencias. Director de Relaciona Consultores, Co-creador del Instituto Diálogos e Indagación Apreciativa (IDeIA) y miembro del Steering Committee del "World Positive Education Accelerator".'
     },

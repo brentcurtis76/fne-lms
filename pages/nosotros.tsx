@@ -296,8 +296,8 @@ export default function NosotrosPage() {
           }
           
           .team-photo[alt="Brent Curtis"] {
-            object-position: center 30%;
-            transform: scale(0.8);
+            object-position: center -20%;
+            transform: scale(0.7);
           }
           
           .team-photo[alt="Neus Colomer"] {

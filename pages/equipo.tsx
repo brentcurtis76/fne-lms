@@ -62,7 +62,7 @@ export default function EquipoPage() {
       name: 'Mora Del Fresno',
       role: 'Coordinadora Pedagógica FNE - IR',
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Mora%20Del%20Fresno.png',
-      description: 'Es licenciada y profesora en Ciencias de la Educación (Universidad de San Andrés, Argentina), Máster en Neuroeducación (Universitat de Barcelona, España). Es especialista en gestión y liderazgo pedagógico, así como en Educación Relacional, ya que actualmente es responsable de la Unidad de Educación del Instituto Relacional en Barcelona. Ha trabajado como profesora y tutora escolar en nivel secundario. Colabora en diversos proyectos de acompañamiento de escuelas en procesos de transformación pedagógica en Argentina, Chile, España y Portugal.'
+      description: 'Coordina las operaciones de la Fundación en Barcelona y Chile. Es licenciada y profesora en Ciencias de la Educación (Universidad de San Andrés, Argentina), Máster en Neuroeducación (Universitat de Barcelona, España). Es especialista en gestión y liderazgo pedagógico, así como en Educación Relacional, ya que actualmente es responsable de la Unidad de Educación del Instituto Relacional en Barcelona. Ha trabajado como profesora y tutora escolar en nivel secundario. Colabora en diversos proyectos de acompañamiento de escuelas en procesos de transformación pedagógica en Argentina, Chile, España y Portugal.'
     },
     'gabriela-naranjo': {
       name: 'Gabriela Naranjo',
@@ -116,7 +116,7 @@ export default function EquipoPage() {
     },
     'betlem-cuesta': {
       name: 'Betlem Cuesta',
-      role: 'Jefe de Estudios Institut Les Vinyes',
+      role: 'Jefa de Estudios Institut Les Vinyes',
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Betlem%20Cuesta.jpg',
       description: 'Es coordinadora pedagógica del Institut Escola Les Vinyes, un centro deliberadamente innovador reconocido por el Departament d\'Educació, ha recibido los premios educativos catalanes más relevantes y formó parte de la alianza Escola Nova 21, es parte del Forum "Futurs de l\'educació" (CATESCO) que aglutina centros y personas con la intención de contribuir al debate sobre los futuros de la educación (UNESCO). Es profesora de secundaria, Licenciada en Filosofía, es Máster en Estudios Feministas y de las mujeres por la Universidad de Barcelona y Máster en Agentes, políticas y estrategias de Cooperación al Desarrollo y Globalización por la Universidad del País Vasco, Centro Hegoa. Participó en proyectos de cooperación y desarrollo comunitario en Kosovo y en Rwanda.'
     },
@@ -124,7 +124,7 @@ export default function EquipoPage() {
     // Asesores Técnicos
     'carlo-de-britos': {
       name: 'Carol de Britos',
-      role: 'Jefe de Estudios Primaria Virolai',
+      role: 'Jefa de Estudios Primaria Virolai',
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Carol%20de%20Britos.png',
       description: 'Es profesora de Primaria en Escola Virolai, donde además he sido coordinadora pedagógica, y actualmente ejerce de Jefa de Estudios de la etapa. Su  ámbito es el de la ciencia, ya que además del Grado de Educación Primaria hizo algunos cursos de la licenciatura de Biología. Ha formado parte de diferentes proyectos conjuntos con universidades nacionales e internacionales, además de ser profesora adjunta de la UAB en el Grado de Ed. Primaria en lengua inglesa. Durante más de 10 años, ha formado a otros profesores en metodología CLIL, haciendo asesoramientos a centros y formaciones acreditadas por la Generalitat de Catalunya. Ha sido conferencista en ITWorldEdu, WebquestCat, STEAMconf... y he participado en la redacción de artículos en revistas como Guix y libros como Diseño y aplicación de la Flipped Classroom (Ed. Graó).'
     },

@@ -8,10 +8,6 @@ import dynamic from 'next/dynamic';
 const Footer = dynamic(() => import('../components/Footer'), { 
   loading: () => <div className="h-96 bg-gray-50 animate-pulse" />
 });
-const OptimizedVideo = dynamic(() => import('../components/OptimizedVideo'), {
-  loading: () => <div className="absolute inset-0 bg-black" />,
-  ssr: false
-});
 
 export default function HomePage() {
   const [showFlipbook, setShowFlipbook] = React.useState(false);
@@ -241,13 +237,18 @@ export default function HomePage() {
         <main>
           {/* Hero Section */}
           <section id="inicio" className="relative h-screen min-h-[600px] pt-24">
-            <div id="hero-video-container" className="absolute inset-0">
-              <OptimizedVideo
-                src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Video%20fondo%20web%20IIIb.mov"
-                className="absolute inset-0 w-full h-full object-cover"
-                poster="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k="
-              />
-            </div>
+            <video 
+              className="absolute inset-0 w-full h-full object-cover"
+              autoPlay 
+              loop 
+              muted 
+              playsInline
+              poster="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCwAA8A/9k="
+            >
+              <source src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Video%20fondo%20web%20IIIb.mov" type="video/quicktime" />
+              {/* Fallback for browsers that don't support .mov */}
+              <source src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Videos/Video%20fondo%20web%20IIIb.mov" type="video/mp4" />
+            </video>
             
             <div 
               className="absolute inset-0" 

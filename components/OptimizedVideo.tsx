@@ -7,7 +7,7 @@ interface OptimizedVideoProps {
 }
 
 export default function OptimizedVideo({ src, poster, className }: OptimizedVideoProps) {
-  const [shouldLoad, setShouldLoad] = useState(false);
+  const [shouldLoad, setShouldLoad] = useState(true); // Changed to true for immediate loading
   const [videoError, setVideoError] = useState(false);
 
   useEffect(() => {
@@ -30,27 +30,8 @@ export default function OptimizedVideo({ src, poster, className }: OptimizedVide
       }
     }
 
-    // Use Intersection Observer to lazy load video
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setShouldLoad(true);
-            observer.disconnect();
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-
-    const videoElement = document.getElementById('hero-video-container');
-    if (videoElement) {
-      observer.observe(videoElement);
-    }
-
-    return () => {
-      observer.disconnect();
-    };
+    // For hero video, load immediately - no intersection observer needed
+    setShouldLoad(true);
   }, []);
 
   const handleVideoError = () => {

@@ -162,6 +162,12 @@ Fecha: ${new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })}
 
         const result = await response.json();
         
+        console.log('Web3Forms Response:', {
+          status: response.status,
+          ok: response.ok,
+          result: result
+        });
+        
         if (response.ok && result.success) {
           emailSent = true;
           console.log('✅ Email sent successfully to info@nuevaeducacion.org via Web3Forms');

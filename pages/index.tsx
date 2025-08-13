@@ -559,7 +559,7 @@ export default function HomePage() {
                   className="group relative bg-gray-50 rounded-2xl p-8 h-32 flex items-center justify-center hover:bg-white hover:shadow-lg transition-all duration-300 border border-gray-100"
                 >
                   <img 
-                    src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Los%20Pellines.png" 
+                    src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Los%20Pellines%20Aula%20Silvestre.png" 
                     alt="Los Pellines"
                     className="max-h-16 w-auto object-contain opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300"
                   />

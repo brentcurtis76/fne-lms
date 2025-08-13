@@ -155,9 +155,9 @@ export default function NosotrosPage() {
     },
     'andrea-lagos': {
       name: 'Andrea Lagos',
-      role: 'Coordinadora de Redes FNE',
-      image: '',
-      description: 'Coordinadora de la red de colegios FNE y especialista en gestión de comunidades educativas colaborativas.'
+      role: 'Encargada de Comunicaciones & Relaciones Institucionales',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Andrea%20Lagos.png',
+      description: 'Periodista parte del equipo fundador del The Clinic en 1998. Durante diez años escribió las entrevistas principales del periódico y fue editora del Suplemento de Cultura, "Caldo de Cultivo". Luego escribió artículos y entrevistas para la Revista Paula, la mítica Revista Fibra y recientemente para América Futura del Diario El País. Durante la última década fue editora del Suplemento de cultura www.suplementoku.cl de los Medios Regionales de El Mercurio. Actualmente desarrolla contenido audiovisual y comunicacional para Fundación Nueva Educación y Los Pellines.'
     },
     
     // Asesores Técnicos que necesitamos mantener

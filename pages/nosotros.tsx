@@ -149,7 +149,7 @@ export default function NosotrosPage() {
     },
     'marcela-molina': {
       name: 'Marcela Molina',
-      role: 'Directora de Formación FNE',
+      role: 'Investigadora',
       image: '',
       description: 'Directora de programas de formación docente y especialista en desarrollo profesional continuo para educadores.'
     },

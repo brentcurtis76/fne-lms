@@ -624,7 +624,8 @@ export default function HomePage() {
 
               {/* Catalunya Schools Logos */}
               <div className="mt-16 pt-16 border-t border-gray-200">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-12 gap-y-16 items-center justify-center">
+                {/* First row - 4 schools */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-12 gap-y-16 items-center justify-center">
                   {/* Escola Virolai */}
                   <a 
                     href="https://virolai.com/es/" 
@@ -653,7 +654,7 @@ export default function HomePage() {
                     />
                   </a>
                   
-                  {/* Institut Angeleta Ferrer */}
+                  {/* Institut Angeleta Ferrer - LARGER */}
                   <a 
                     href="https://agora.xtec.cat/iesangeleta/" 
                     target="_blank" 
@@ -661,9 +662,9 @@ export default function HomePage() {
                     className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
                   >
                     <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Angeleta%20Ferrer.jpg" 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Angeleta%20Ferrer%202.png" 
                       alt="Institut Angeleta Ferrer"
-                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                      className="max-h-36 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
                     />
                   </a>
                   
@@ -675,54 +676,58 @@ export default function HomePage() {
                     className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
                   >
                     <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Les%20Vinyes.gif" 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Les%20Vinyes%20-%20Edited.png" 
                       alt="Institut Escola Les Vinyes"
                       className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
                     />
                   </a>
-                  
-                  {/* Escola Octavio Paz */}
-                  <a 
-                    href="https://www.escolaoctaviopaz.cat/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
-                  >
-                    <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Octavio%20Paz.png" 
-                      alt="Escola Octavio Paz"
-                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
-                    />
-                  </a>
-                  
-                  {/* Escola La Maquinista */}
-                  <a 
-                    href="https://www.escolalamaquinista.cat/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
-                  >
-                    <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/La%20Maquinista.png" 
-                      alt="Escola La Maquinista"
-                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
-                    />
-                  </a>
-                  
-                  {/* Escola Cooperativa El Puig */}
-                  <a 
-                    href="https://escolaelpuig.cat/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
-                  >
-                    <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/El%20Puig.jpg" 
-                      alt="Escola Cooperativa El Puig"
-                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
-                    />
-                  </a>
-                  {/* More Catalunya schools will be added here */}
+                </div>
+                
+                {/* Second row - 3 schools centered */}
+                <div className="mt-16 flex justify-center">
+                  <div className="grid grid-cols-3 gap-x-12 items-center">
+                    {/* Escola Octavio Paz */}
+                    <a 
+                      href="https://www.escolaoctaviopaz.cat/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                    >
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Octavio%20Paz.png" 
+                        alt="Escola Octavio Paz"
+                        className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                      />
+                    </a>
+                    
+                    {/* Escola La Maquinista - LARGER */}
+                    <a 
+                      href="https://www.escolalamaquinista.cat/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                    >
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/La%20Maquinista.png" 
+                        alt="Escola La Maquinista"
+                        className="max-h-36 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                      />
+                    </a>
+                    
+                    {/* Escola Cooperativa El Puig */}
+                    <a 
+                      href="https://escolaelpuig.cat/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                    >
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/El%20Puig.jpg" 
+                        alt="Escola Cooperativa El Puig"
+                        className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                      />
+                    </a>
+                  </div>
                 </div>
               </div>
 

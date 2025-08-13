@@ -232,8 +232,8 @@ export default function NewsPage() {
                 <Link href="/noticias" className="text-base font-medium text-black font-semibold">
                   NOTICIAS
                 </Link>
-                <Link href="/equipo" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
-                  EQUIPO
+                <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                  NOSOTROS
                 </Link>
                 <Link href="/#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   CONTACTO

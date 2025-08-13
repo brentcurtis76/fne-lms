@@ -232,12 +232,18 @@ export default function NewsPage() {
                 <Link href="/#aula-generativa" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   AULA GENERATIVA
                 </Link>
+                <Link href="/equipo" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                  EQUIPO
+                </Link>
                 <Link href="/noticias" className="text-base font-medium text-black font-semibold">
                   NOTICIAS
                 </Link>
                 <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   NOSOTROS
                 </Link>
+                <a href="/#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                  RED
+                </a>
                 <Link href="/#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   CONTACTO
                 </Link>

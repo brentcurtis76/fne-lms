@@ -339,8 +339,10 @@ export default function NosotrosPage() {
               <nav className="hidden lg:flex items-center space-x-10">
                 <Link href="/#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</Link>
                 <Link href="/#aula-generativa" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">AULA GENERATIVA</Link>
+                <Link href="/equipo" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">EQUIPO</Link>
                 <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS</Link>
                 <Link href="/nosotros" className="text-base font-medium text-black font-semibold">NOSOTROS</Link>
+                <a href="/#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
                 <Link href="/#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">CONTACTO</Link>
               </nav>
               
@@ -375,8 +377,10 @@ export default function NosotrosPage() {
             <nav className="flex flex-col space-y-6">
               <Link href="/#pasantias" className="text-xl font-medium">PASANTÍAS</Link>
               <Link href="/#aula-generativa" className="text-xl font-medium">AULA GENERATIVA</Link>
+              <Link href="/equipo" className="text-xl font-medium">EQUIPO</Link>
               <Link href="/noticias" className="text-xl font-medium">NOTICIAS</Link>
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
+              <a href="/#red" className="text-xl font-medium">RED</a>
               <Link href="/#contacto" className="text-xl font-medium">CONTACTO</Link>
               <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
                 PLATAFORMA DE CRECIMIENTO

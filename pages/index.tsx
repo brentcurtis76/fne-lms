@@ -726,7 +726,7 @@ export default function HomePage() {
                   <div className="bg-gray-50 rounded-2xl p-8">
                     <h3 className="text-2xl font-bold mb-4">Nuestro Impacto</h3>
                     <p className="text-gray-700 leading-relaxed mb-6">
-                      Más de dos décadas acompañando procesos de transformación educativa en Chile, formando equipos directivos y docentes comprometidos con una educación centrada en el crecimiento integral de cada estudiante.
+                      Más de dos décadas acompañando procesos de transformación educativa en Chile, formando equipos directivos y docentes comprometidos con una educación centrada en el crecimiento de cada estudiante.
                     </p>
                     <div className="flex items-center text-sm text-gray-600">
                       <svg className="w-5 h-5 mr-2 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -336,7 +336,7 @@ export default function EquipoPage() {
             
             <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
               Expertos comprometidos con la innovación educativa y el desarrollo de metodologías 
-              que potencian el crecimiento integral de cada estudiante
+              que potencian el crecimiento de cada estudiante
             </p>
           </div>
         </section>

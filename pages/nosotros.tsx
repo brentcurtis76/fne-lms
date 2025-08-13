@@ -606,7 +606,7 @@ export default function NosotrosPage() {
             <div className="mb-20">
               <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Asesores Internacionales</h3>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'jorge-parra', 'juan-jose-flores', 'betlem-cuesta', 'carlo-de-britos', 'marta-cardenas', 'maite-pino', 'claudia-lopez', 'enrique-vergara', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'begonya-folch', 'laura-carmona', 'cristina-romanos'].map((memberKey) => {
+                {['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'jorge-parra', 'juan-jose-flores', 'betlem-cuesta', 'carlo-de-britos', 'marta-cardenas', 'begonya-folch', 'laura-carmona', 'maite-pino', 'claudia-lopez', 'enrique-vergara', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'cristina-romanos'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">

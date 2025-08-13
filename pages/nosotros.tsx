@@ -570,7 +570,7 @@ export default function NosotrosPage() {
             <div className="mb-20">
               <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Equipo FNE</h3>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['gabriela-naranjo', 'mora-del-fresno', 'brent-curtis', 'ignacio-pavez', 'marcela-molina', 'andrea-lagos'].map((memberKey) => {
+                {['gabriela-naranjo', 'mora-del-fresno', 'ignacio-pavez', 'brent-curtis', 'marcela-molina', 'andrea-lagos'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">

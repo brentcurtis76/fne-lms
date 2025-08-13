@@ -525,7 +525,7 @@ export default function NosotrosPage() {
             <div className="mb-20">
               <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Comité Internacional</h3>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['joan-quintana', 'coral-regi', 'boris-mir', 'anna-comas', 'pepe-menendez', 'sandra-entrena', 'jordi-mussons', 'marcelo-ruiz', 'arnoldo-cisternas'].map((memberKey) => {
+                {['joan-quintana', 'arnoldo-cisternas', 'coral-regi', 'boris-mir', 'pepe-menendez', 'jordi-mussons', 'sandra-entrena', 'anna-comas', 'marcelo-ruiz'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">

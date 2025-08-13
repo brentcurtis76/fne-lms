@@ -75,10 +75,12 @@ export default function Footer({ className = '' }: FooterProps) {
             <div>
               <h4 className="text-lg font-bold mb-6">Navegación</h4>
               <ul className="space-y-3">
-                <li><Link href="/#pasantias" className="text-white/70 hover:text-white transition-colors">Pasantías en Barcelona</Link></li>
+                <li><Link href="/#pasantias" className="text-white/70 hover:text-white transition-colors">Pasantías</Link></li>
                 <li><Link href="/#aula-generativa" className="text-white/70 hover:text-white transition-colors">Aula Generativa</Link></li>
-                <li><Link href="/noticias" className="text-white/70 hover:text-white transition-colors">Noticias</Link></li>
                 <li><Link href="/equipo" className="text-white/70 hover:text-white transition-colors">Equipo</Link></li>
+                <li><Link href="/noticias" className="text-white/70 hover:text-white transition-colors">Noticias</Link></li>
+                <li><Link href="/nosotros" className="text-white/70 hover:text-white transition-colors">Nosotros</Link></li>
+                <li><Link href="/#red" className="text-white/70 hover:text-white transition-colors">Red</Link></li>
                 <li><Link href="/#contacto" className="text-white/70 hover:text-white transition-colors">Contacto</Link></li>
               </ul>
             </div>
@@ -114,30 +116,6 @@ export default function Footer({ className = '' }: FooterProps) {
               </div>
             </div>
             
-          </div>
-        </div>
-        
-        {/* Impact Stats Bar */}
-        <div className="border-t border-white/10">
-          <div className="max-w-7xl mx-auto px-6 py-8">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
-              <div>
-                <div className="text-2xl font-bold text-white mb-1">60+</div>
-                <div className="text-sm text-white/70">Colegios en red</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-white mb-1">100k+</div>
-                <div className="text-sm text-white/70">Niños impactados</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-white mb-1">9</div>
-                <div className="text-sm text-white/70">Regiones</div>
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-white mb-1">20+</div>
-                <div className="text-sm text-white/70">Años transformando</div>
-              </div>
-            </div>
           </div>
         </div>
         

@@ -189,6 +189,7 @@ export default function HomePage() {
                 <a href="#aula-generativa" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">AULA GENERATIVA</a>
                 <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS</Link>
                 <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
+                <a href="#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
                 <a href="#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">CONTACTO</a>
               </nav>
               
@@ -516,6 +517,84 @@ export default function HomePage() {
                     </div>
                   </div>
 
+                </div>
+              </div>
+            </div>
+          </section>
+          
+          {/* Section: Nuestra Red */}
+          <section id="red" className="py-24 bg-gradient-to-b from-gray-50 to-white">
+            <div className="max-w-7xl mx-auto px-6">
+              {/* Section Header */}
+              <div className="text-center mb-16">
+                <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6">
+                  NUESTRA RED
+                </h2>
+                <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                  Organizaciones aliadas que comparten nuestra visión de transformación educativa y desarrollo integral
+                </p>
+              </div>
+
+              {/* Network Partners Grid */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 items-center">
+                {/* Instituto Relacional */}
+                <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow group">
+                  <div className="flex items-center justify-center h-24">
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Instituto%20Relacional.png" 
+                      alt="Instituto Relacional"
+                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
+                    />
+                  </div>
+                  <p className="text-center text-sm text-gray-600 mt-4 font-medium">Instituto Relacional</p>
+                </div>
+
+                {/* Los Pellines */}
+                <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow group">
+                  <div className="flex items-center justify-center h-24">
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Los%20Pellines.png" 
+                      alt="Los Pellines"
+                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
+                    />
+                  </div>
+                  <p className="text-center text-sm text-gray-600 mt-4 font-medium">Los Pellines</p>
+                </div>
+
+                {/* Relaciona Consultores */}
+                <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow group">
+                  <div className="flex items-center justify-center h-24">
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Relaciona-Consultores.png" 
+                      alt="Relaciona Consultores"
+                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
+                    />
+                  </div>
+                  <p className="text-center text-sm text-gray-600 mt-4 font-medium">Relaciona Consultores</p>
+                </div>
+
+                {/* Fundación Conserva Tu Bosque */}
+                <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow group">
+                  <div className="flex items-center justify-center h-24">
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Conserva-Tu-Bosque.png" 
+                      alt="Fundación Conserva Tu Bosque"
+                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
+                    />
+                  </div>
+                  <p className="text-center text-sm text-gray-600 mt-4 font-medium">Fundación Conserva Tu Bosque</p>
+                </div>
+
+                {/* Lodge Los Pellines */}
+                <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow group">
+                  <div className="flex items-center justify-center h-24">
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Lodge%20Los%20Pellines.png" 
+                      alt="Lodge Los Pellines"
+                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
+                    />
+                  </div>
+                  <p className="text-center text-sm text-gray-600 mt-4 font-medium">Lodge Los Pellines</p>
                 </div>
               </div>
             </div>

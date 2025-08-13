@@ -70,7 +70,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         <body>
           <div class="container">
             <div class="header">
-              <h1>Nuevo Mensaje de Contacto - FNE</h1>
+              <h1>📧 Contacto Vía Web - FNE</h1>
+              <p style="margin: 10px 0 0 0; font-size: 14px;">Mensaje recibido desde el formulario de contacto del sitio web</p>
             </div>
             
             <div class="content">
@@ -108,8 +109,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             </div>
             
             <div class="footer">
+              <p><strong>📧 Contacto Vía Web - Fundación Nueva Educación</strong></p>
               <p>Este mensaje fue enviado desde el formulario de contacto de nuevaeducacion.org</p>
               <p>Fecha: ${new Date().toLocaleString('es-CL', { timeZone: 'America/Santiago' })}</p>
+              <p style="margin-top: 10px; font-size: 11px; color: #999;">
+                Nota: Este email es enviado a través del servicio Formspree para garantizar la entrega.
+              </p>
             </div>
           </div>
         </body>
@@ -154,7 +159,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             email: email,
             name: nombre,
             _replyto: email,
-            _subject: `Nuevo contacto de ${nombre} - ${institucion} (${interestText})`,
+            _subject: `[Contacto Web FNE] ${nombre} - ${institucion} (${interestText})`,
             institucion: institucion,
             cargo: cargo || 'No especificado',
             interes: interestText,

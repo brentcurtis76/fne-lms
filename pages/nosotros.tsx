@@ -271,7 +271,7 @@ export default function NosotrosPage() {
     },
     'begonya-folch': {
       name: 'Begonya Folch',
-      role: 'Formadora Departamento de Educación',
+      role: 'Profesora del Institut Angeleta Ferrer',
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/begonya%20folch.jpg',
       description: 'Profesora de Educación Secundaria y formadora del Departamento de Educación de Catalunya, comprometida con la transformación del sistema educativo. Experta en innovación pedagógica y la relación entre arte y educación, ha sido profesora asociada en la Universidad de Barcelona y docente en el Institut Angeleta Ferrer. Ha colaborado en la redacción del Currículum catalán y formó parte del equipo responsable del Programa Escuela 2.0 a través del proyecto eduCAT1x1. Como técnica del Consejo Escolar de Cataluña, ha impulsado políticas educativas innovadoras. Colabora activamente con Rosa Sensat, el ICE de la UAB, ICFO y la STEAM Conference Barcelona. En el Institut Quatre Cantons, como profesora de Música y Trabajo Globalizado, comparte sus experiencias didácticas promoviendo metodologías interdisciplinares y creativas.'
     },

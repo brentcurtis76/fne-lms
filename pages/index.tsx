@@ -600,26 +600,6 @@ export default function HomePage() {
                 </a>
               </div>
 
-              {/* Call to Action */}
-              <div className="mt-20 flex flex-col md:flex-row items-center justify-between bg-gray-50 rounded-3xl p-8 md:p-12">
-                <div className="mb-6 md:mb-0">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                    ¿Quieres formar parte de nuestra red?
-                  </h3>
-                  <p className="text-gray-600">
-                    Únete a las organizaciones que están transformando la educación
-                  </p>
-                </div>
-                <a 
-                  href="#contacto" 
-                  className="inline-flex items-center px-8 py-4 bg-black text-white font-bold rounded-full hover:bg-gray-800 transition-colors"
-                >
-                  Contáctanos
-                  <svg className="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </a>
-              </div>
             </div>
           </section>
           

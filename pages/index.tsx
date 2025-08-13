@@ -705,20 +705,20 @@ export default function HomePage() {
                   {/* Stats Grid */}
                   <div className="grid grid-cols-2 gap-6 mb-8">
                     <div className="bg-white rounded-2xl p-8 shadow-xl text-center border border-gray-100">
-                      <div className="text-4xl font-black mb-3 text-black">60+</div>
-                      <p className="text-sm text-gray-600 font-medium">Colegios en nuestra red</p>
+                      <div className="text-4xl font-black mb-3 text-black">12</div>
+                      <p className="text-sm text-gray-600 font-medium">Escuelas de vanguardia en Barcelona</p>
                     </div>
                     <div className="bg-white rounded-2xl p-8 shadow-xl text-center border border-gray-100">
-                      <div className="text-4xl font-black mb-3 text-black">100k+</div>
-                      <p className="text-sm text-gray-600 font-medium">Niños impactados</p>
+                      <div className="text-4xl font-black mb-3 text-black">33</div>
+                      <p className="text-sm text-gray-600 font-medium">Colegios transformados</p>
                     </div>
                     <div className="bg-white rounded-2xl p-8 shadow-xl text-center border border-gray-100">
-                      <div className="text-4xl font-black mb-3 text-black">9</div>
-                      <p className="text-sm text-gray-600 font-medium">Regiones de Chile</p>
+                      <div className="text-4xl font-black mb-3 text-black">400+</div>
+                      <p className="text-sm text-gray-600 font-medium">Pasantes internacionales</p>
                     </div>
                     <div className="bg-white rounded-2xl p-8 shadow-xl text-center border border-gray-100">
-                      <div className="text-4xl font-black mb-3 text-black">20+</div>
-                      <p className="text-sm text-gray-600 font-medium">Años transformando</p>
+                      <div className="text-4xl font-black mb-3 text-black">40+</div>
+                      <p className="text-sm text-gray-600 font-medium">Colegios en pasantías</p>
                     </div>
                   </div>
 

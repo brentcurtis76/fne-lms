@@ -748,13 +748,13 @@ export default function HomePage() {
                     href="https://www.ipen-network.com/" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="group flex items-center justify-center h-20 relative"
+                    className="group flex items-center justify-center h-24 relative"
                     title="International Positive Education Network"
                   >
                     <img 
                       src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Alianzas/ipen.png" 
                       alt="IPEN"
-                      className="max-h-16 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
+                      className="max-h-20 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
                     />
                   </a>
 
@@ -793,13 +793,13 @@ export default function HomePage() {
                     href="https://fundaciobofill.cat/" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="group flex items-center justify-center h-20 relative"
+                    className="group flex items-center justify-center h-16 relative"
                     title="Fundació Jaume Bofill"
                   >
                     <img 
                       src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Alianzas/Fundacio%20Bofill.png" 
                       alt="Fundació Bofill"
-                      className="max-h-16 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
+                      className="max-h-12 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
                     />
                   </a>
 

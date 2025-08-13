@@ -185,6 +185,12 @@ export default function NosotrosPage() {
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Jorge%20Parra.png',
       description: 'Profesor de Educación Física y Magíster en Educación. Miembro del equipo de formación y gestión en el Centro de Experiencias de Aprendizaje Los Pellines, con más de una década de experiencia en diseño y facilitación de actividades de aprendizaje al aire libre. Ha sido relator en talleres de habilidades relacionales y formación de facilitadores. Se enfoca en la planificación y ejecución de actividades experienciales y colaborativas, utilizando su experiencia en metodologías de aprendizaje relacional y en contextos al aire libre.'
     },
+    'juan-jose-flores': {
+      name: 'Juan José Flores',
+      role: 'Formador Centro Los Pellines',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Juanjo%20Flores.png',
+      description: 'Profesor de Educación Física y Salud, Licenciado en Educación, actualmente cursando el Magíster en Ciencias de la Educación en la Universidad Católica de la Santísima Concepción. Apasionado por la educación y, en especial, por la implementación de metodologías relacionales que promuevan el aprendizaje significativo. Miembro del cuerpo docente del Centro de Educación Relacional al Aire Libre Los Pellines, participando en el diseño, dirección y ejecución de programas educativos dirigidos a escuelas y colegios de distintas regiones de Chile. Formado en Educación Relacional, con pasantías en Barcelona bajo la formación de la Fundación Nueva Educación, colaborando posteriormente con esta institución en la capacitación docente y en el desarrollo de experiencias de aprendizaje basadas en el diseño experiencial. Experiencia en contextos educativos diversos, incluyendo la docencia en talleres de Juegos y Habilidades Sociales, así como la implementación de programas y capacitaciones en colegios a lo largo del país.'
+    },
     'carlo-de-britos': {
       name: 'Carol de Britos',
       role: 'Jefa de Estudios Primaria Virolai',
@@ -600,7 +606,7 @@ export default function NosotrosPage() {
             <div className="mb-20">
               <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Asesores Internacionales</h3>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'jorge-parra', 'betlem-cuesta', 'carlo-de-britos', 'marta-cardenas', 'maite-pino', 'claudia-lopez', 'enrique-vergara', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'begonya-folch', 'laura-carmona', 'cristina-romanos'].map((memberKey) => {
+                {['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'jorge-parra', 'juan-jose-flores', 'betlem-cuesta', 'carlo-de-britos', 'marta-cardenas', 'maite-pino', 'claudia-lopez', 'enrique-vergara', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'begonya-folch', 'laura-carmona', 'cristina-romanos'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">

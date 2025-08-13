@@ -385,23 +385,14 @@ export default function NosotrosPage() {
           </div>
         </div>
 
-        {/* Hero Section */}
+        {/* Hero Section - Combined with Who We Are */}
         <section className="pt-64 pb-24 px-6 bg-gradient-to-b from-gray-50 to-white">
-          <div className="max-w-6xl mx-auto text-center">
-            <h1 className="text-5xl md:text-7xl font-black text-gray-900 mb-6 leading-tight">
-              NOSOTROS
-            </h1>
-          </div>
-        </section>
-
-        {/* Who We Are Section */}
-        <section className="py-24 px-6 bg-gradient-to-b from-white to-gray-50">
           <div className="max-w-7xl mx-auto">
             {/* Main Statement */}
             <div className="max-w-4xl mx-auto mb-20">
-              <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-8 text-center">
-                Somos una red de profesionales que reflexiona y crea soluciones para la educación del siglo XXI
-              </h2>
+              <h1 className="text-4xl md:text-5xl font-black text-gray-900 mb-8 text-center">
+                Somos una red que reflexiona y crea soluciones para la educación del siglo XXI
+              </h1>
               <p className="text-xl text-gray-700 leading-relaxed text-center">
                 Conformada por un equipo multidisciplinario de expertos en facilitar procesos de Cambio Cultural 
                 en el mundo de la educación, pioneros en la aplicación de los principios de la Nueva Educación 

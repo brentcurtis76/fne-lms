@@ -1,12 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
+import PrivacyPolicyModal from './PrivacyPolicyModal';
+import TermsOfUseModal from './TermsOfUseModal';
 
 interface FooterProps {
   className?: string;
 }
 
 export default function Footer({ className = '' }: FooterProps) {
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [showTermsOfUse, setShowTermsOfUse] = useState(false);
+
   return (
+    <>
     <footer className={`bg-black text-white relative overflow-hidden ${className}`}>
       {/* Background Pattern */}
       <div className="absolute inset-0 opacity-5">
@@ -127,8 +133,18 @@ export default function Footer({ className = '' }: FooterProps) {
                 © 2025 Fundación Nueva Educación. Todos los derechos reservados.
               </div>
               <div className="flex items-center space-x-6 text-sm">
-                <a href="/privacy" className="text-white/70 hover:text-white transition-colors">Política de Privacidad</a>
-                <a href="/terms" className="text-white/70 hover:text-white transition-colors">Términos de Uso</a>
+                <button 
+                  onClick={() => setShowPrivacyPolicy(true)}
+                  className="text-white/70 hover:text-white transition-colors"
+                >
+                  Política de Privacidad
+                </button>
+                <button 
+                  onClick={() => setShowTermsOfUse(true)}
+                  className="text-white/70 hover:text-white transition-colors"
+                >
+                  Términos de Uso
+                </button>
                 <span className="text-white/50">|</span>
                 <span className="text-white/70">ATE certificada por RPA Mineduc</span>
               </div>
@@ -137,5 +153,16 @@ export default function Footer({ className = '' }: FooterProps) {
         </div>
       </div>
     </footer>
+    
+    {/* Modals */}
+    <PrivacyPolicyModal 
+      isOpen={showPrivacyPolicy} 
+      onClose={() => setShowPrivacyPolicy(false)} 
+    />
+    <TermsOfUseModal 
+      isOpen={showTermsOfUse} 
+      onClose={() => setShowTermsOfUse(false)} 
+    />
+    </>
   );
 }

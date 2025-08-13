@@ -696,7 +696,7 @@ export default function HomePage() {
                       <img 
                         src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Octavio%20Paz.png" 
                         alt="Escola Octavio Paz"
-                        className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                        className="max-h-32 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
                       />
                     </a>
                     
@@ -724,7 +724,7 @@ export default function HomePage() {
                       <img 
                         src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/El%20Puig%20-%20Edited.png" 
                         alt="Escola Cooperativa El Puig"
-                        className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                        className="max-h-32 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
                       />
                     </a>
                   </div>

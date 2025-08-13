@@ -78,17 +78,17 @@ export default function NewsPage() {
       
       console.log('[News Page] Raw articles count:', articles.length);
       
-      // Filter only published articles
-      const publishedArticles = articles.filter((article: NewsArticle) => article.is_published);
-      console.log('[News Page] Published articles count:', publishedArticles.length);
+      // Articles are already filtered for published status by the API
+      // No need to filter again here
+      console.log('[News Page] Articles received from API:', articles.length);
       
-      if (publishedArticles.length > 0) {
-        console.log('[News Page] First article title:', publishedArticles[0].title);
-        console.log('[News Page] First article published:', publishedArticles[0].is_published);
+      if (articles.length > 0) {
+        console.log('[News Page] First article title:', articles[0].title);
+        console.log('[News Page] First article published:', articles[0].is_published);
       }
       
       console.log('[News Page] About to set articles state...');
-      setArticles(publishedArticles);
+      setArticles(articles);
       console.log('[News Page] Articles state set successfully');
       
       setHasMore(false); // For now, load all articles at once

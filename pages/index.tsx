@@ -706,19 +706,19 @@ export default function HomePage() {
                   <div className="grid grid-cols-2 gap-6 mb-8">
                     <div className="bg-white rounded-2xl p-8 shadow-xl text-center border border-gray-100">
                       <div className="text-4xl font-black mb-3 text-black">12</div>
-                      <p className="text-sm text-gray-600 font-medium">Escuelas de vanguardia en Barcelona</p>
+                      <p className="text-sm text-gray-600 font-medium">Escuelas colaboradoras en Barcelona</p>
                     </div>
                     <div className="bg-white rounded-2xl p-8 shadow-xl text-center border border-gray-100">
                       <div className="text-4xl font-black mb-3 text-black">33</div>
-                      <p className="text-sm text-gray-600 font-medium">Colegios transformados</p>
+                      <p className="text-sm text-gray-600 font-medium">Colegios en programas de transformación</p>
                     </div>
                     <div className="bg-white rounded-2xl p-8 shadow-xl text-center border border-gray-100">
                       <div className="text-4xl font-black mb-3 text-black">400+</div>
-                      <p className="text-sm text-gray-600 font-medium">Pasantes internacionales</p>
+                      <p className="text-sm text-gray-600 font-medium">Pasantes internacionales a Barcelona</p>
                     </div>
                     <div className="bg-white rounded-2xl p-8 shadow-xl text-center border border-gray-100">
                       <div className="text-4xl font-black mb-3 text-black">40+</div>
-                      <p className="text-sm text-gray-600 font-medium">Colegios en pasantías</p>
+                      <p className="text-sm text-gray-600 font-medium">Colegios en pasantías internacionales</p>
                     </div>
                   </div>
 

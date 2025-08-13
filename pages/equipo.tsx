@@ -280,7 +280,6 @@ export default function EquipoPage() {
               <nav className="hidden lg:flex items-center space-x-10">
                 <Link href="/#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</Link>
                 <Link href="/#aula-generativa" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">AULA GENERATIVA</Link>
-                <Link href="/equipo" className="text-base font-medium text-black font-semibold">EQUIPO</Link>
                 <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS</Link>
                 <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
                 <a href="/#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
@@ -288,7 +287,7 @@ export default function EquipoPage() {
               </nav>
               
               {/* Login Button */}
-              <div className="hidden lg:flex items-center space-x-4">
+              <div className="hidden lg:flex items-center">
                 <Link href="/login" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
                   PLATAFORMA DE CRECIMIENTO
                 </Link>
@@ -318,10 +317,8 @@ export default function EquipoPage() {
             <nav className="flex flex-col space-y-6">
               <Link href="/#pasantias" className="text-xl font-medium">PASANTÍAS</Link>
               <Link href="/#aula-generativa" className="text-xl font-medium">AULA GENERATIVA</Link>
-              <Link href="/equipo" className="text-xl font-medium">EQUIPO</Link>
               <Link href="/noticias" className="text-xl font-medium">NOTICIAS</Link>
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
-              <a href="/#red" className="text-xl font-medium">RED</a>
               <Link href="/#contacto" className="text-xl font-medium">CONTACTO</Link>
               <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
                 PLATAFORMA DE CRECIMIENTO

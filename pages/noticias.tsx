@@ -232,9 +232,6 @@ export default function NewsPage() {
                 <Link href="/#aula-generativa" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   AULA GENERATIVA
                 </Link>
-                <Link href="/equipo" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
-                  EQUIPO
-                </Link>
                 <Link href="/noticias" className="text-base font-medium text-black font-semibold">
                   NOTICIAS
                 </Link>
@@ -250,7 +247,7 @@ export default function NewsPage() {
               </nav>
               
               {/* Login Button */}
-              <div className="hidden lg:flex items-center space-x-4">
+              <div className="hidden lg:flex items-center">
                 <Link href="/login" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
                   PLATAFORMA DE CRECIMIENTO
                 </Link>

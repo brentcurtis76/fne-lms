@@ -277,7 +277,7 @@ export default function ArticlePage() {
               </nav>
               
               {/* Login Button */}
-              <div className="hidden lg:flex items-center space-x-4">
+              <div className="hidden lg:flex items-center">
                 <Link href="/login" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
                   PLATAFORMA DE CRECIMIENTO
                 </Link>

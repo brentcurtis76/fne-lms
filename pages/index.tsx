@@ -625,108 +625,122 @@ export default function HomePage() {
               {/* Catalunya Schools Logos */}
               <div className="mt-16 pt-16 border-t border-gray-200">
                 {/* First row - 4 schools */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-12 gap-y-16 items-center justify-center">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-x-12 gap-y-16 items-center justify-items-center">
                   {/* Escola Virolai */}
-                  <a 
-                    href="https://virolai.com/es/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
-                  >
-                    <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Virolai.png" 
-                      alt="Escola Virolai"
-                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
-                    />
-                  </a>
+                  <div className="flex items-center justify-center w-full h-36">
+                    <a 
+                      href="https://virolai.com/es/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                    >
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Virolai.png" 
+                        alt="Escola Virolai"
+                        className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                      />
+                    </a>
+                  </div>
                   
                   {/* Escola Sadako */}
-                  <a 
-                    href="https://escolasadako.cat/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
-                  >
-                    <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Sadako.png" 
-                      alt="Escola Sadako"
-                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
-                    />
-                  </a>
+                  <div className="flex items-center justify-center w-full h-36">
+                    <a 
+                      href="https://escolasadako.cat/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                    >
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Sadako.png" 
+                        alt="Escola Sadako"
+                        className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                      />
+                    </a>
+                  </div>
                   
                   {/* Institut Angeleta Ferrer - LARGER */}
-                  <a 
-                    href="https://agora.xtec.cat/iesangeleta/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
-                  >
-                    <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Angeleta%20Ferrer%202.png" 
-                      alt="Institut Angeleta Ferrer"
-                      className="max-h-36 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
-                    />
-                  </a>
+                  <div className="flex items-center justify-center w-full h-36">
+                    <a 
+                      href="https://agora.xtec.cat/iesangeleta/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                    >
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Angeleta%20Ferrer%202.png" 
+                        alt="Institut Angeleta Ferrer"
+                        className="max-h-36 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                      />
+                    </a>
+                  </div>
                   
                   {/* Institut Escola Les Vinyes */}
-                  <a 
-                    href="https://agora.xtec.cat/ielesvinyes/" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
-                  >
-                    <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Les%20Vinyes%20-%20Edited.png" 
-                      alt="Institut Escola Les Vinyes"
-                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
-                    />
-                  </a>
+                  <div className="flex items-center justify-center w-full h-36">
+                    <a 
+                      href="https://agora.xtec.cat/ielesvinyes/" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                    >
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Les%20Vinyes%20-%20Edited.png" 
+                        alt="Institut Escola Les Vinyes"
+                        className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                      />
+                    </a>
+                  </div>
                 </div>
                 
                 {/* Second row - 3 schools centered */}
                 <div className="mt-16 flex justify-center">
-                  <div className="grid grid-cols-3 gap-x-12 items-center">
+                  <div className="grid grid-cols-3 gap-x-12 items-center justify-items-center">
                     {/* Escola Octavio Paz */}
-                    <a 
-                      href="https://www.escolaoctaviopaz.cat/" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
-                    >
-                      <img 
-                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Octavio%20Paz.png" 
-                        alt="Escola Octavio Paz"
-                        className="max-h-32 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
-                      />
-                    </a>
+                    <div className="flex items-center justify-center w-full h-36">
+                      <a 
+                        href="https://www.escolaoctaviopaz.cat/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                      >
+                        <img 
+                          src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Octavio%20Paz.png" 
+                          alt="Escola Octavio Paz"
+                          className="max-h-32 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                        />
+                      </a>
+                    </div>
                     
                     {/* Escola La Maquinista - LARGER */}
-                    <a 
-                      href="https://www.escolalamaquinista.cat/" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
-                    >
-                      <img 
-                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/La%20Maquinista%20edited.png" 
-                        alt="Escola La Maquinista"
-                        className="max-h-36 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
-                      />
-                    </a>
+                    <div className="flex items-center justify-center w-full h-36">
+                      <a 
+                        href="https://www.escolalamaquinista.cat/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                      >
+                        <img 
+                          src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/La%20Maquinista%20edited.png" 
+                          alt="Escola La Maquinista"
+                          className="max-h-36 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                        />
+                      </a>
+                    </div>
                     
                     {/* Escola Cooperativa El Puig */}
-                    <a 
-                      href="https://escolaelpuig.cat/" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
-                    >
-                      <img 
-                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/El%20Puig%20-%20Edited.png" 
-                        alt="Escola Cooperativa El Puig"
-                        className="max-h-32 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
-                      />
-                    </a>
+                    <div className="flex items-center justify-center w-full h-36">
+                      <a 
+                        href="https://escolaelpuig.cat/" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                      >
+                        <img 
+                          src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/El%20Puig%20-%20Edited.png" 
+                          alt="Escola Cooperativa El Puig"
+                          className="max-h-32 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                        />
+                      </a>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -633,9 +633,11 @@ export default function HomePage() {
                     className="group flex items-center justify-center h-20 relative"
                     title="International Positive Education Network"
                   >
-                    <div className="px-6 py-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
-                      <span className="text-sm font-semibold text-gray-700">IPEN</span>
-                    </div>
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Alianzas/ipen.png" 
+                      alt="IPEN"
+                      className="max-h-16 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
+                    />
                   </a>
 
                   {/* David Cooperrider Center */}
@@ -646,9 +648,11 @@ export default function HomePage() {
                     className="group flex items-center justify-center h-20 relative"
                     title="David L. Cooperrider Center for Appreciative Inquiry"
                   >
-                    <div className="px-4 py-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors text-center">
-                      <span className="text-xs font-semibold text-gray-700">Cooperrider<br/>Center</span>
-                    </div>
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Alianzas/Cooperrider%20Center.png" 
+                      alt="Cooperrider Center"
+                      className="max-h-16 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
+                    />
                   </a>
 
                   {/* Els Futurs de l'Educació */}
@@ -659,9 +663,11 @@ export default function HomePage() {
                     className="group flex items-center justify-center h-20 relative"
                     title="Els Futurs de l'Educació"
                   >
-                    <div className="px-4 py-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors text-center">
-                      <span className="text-xs font-semibold text-gray-700">Els Futurs<br/>de l'Educació</span>
-                    </div>
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Alianzas/Forum%20Futurs%20de%20leducacio.png" 
+                      alt="Els Futurs de l'Educació"
+                      className="max-h-16 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
+                    />
                   </a>
 
                   {/* Fundació Bofill */}
@@ -672,9 +678,11 @@ export default function HomePage() {
                     className="group flex items-center justify-center h-20 relative"
                     title="Fundació Jaume Bofill"
                   >
-                    <div className="px-4 py-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
-                      <span className="text-sm font-semibold text-gray-700">Fundació Bofill</span>
-                    </div>
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Alianzas/Fundacio%20Bofill.png" 
+                      alt="Fundació Bofill"
+                      className="max-h-16 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
+                    />
                   </a>
 
                   {/* STEAMConf */}
@@ -685,9 +693,11 @@ export default function HomePage() {
                     className="group flex items-center justify-center h-20 relative"
                     title="STEAM Conference Barcelona"
                   >
-                    <div className="px-6 py-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
-                      <span className="text-sm font-semibold text-gray-700">STEAMConf</span>
-                    </div>
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Alianzas/SteamConf.png" 
+                      alt="STEAMConf"
+                      className="max-h-16 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
+                    />
                   </a>
 
                   {/* Innovamat */}
@@ -698,9 +708,11 @@ export default function HomePage() {
                     className="group flex items-center justify-center h-20 relative"
                     title="Innovamat - Mathematics Education"
                   >
-                    <div className="px-6 py-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
-                      <span className="text-sm font-semibold text-gray-700">Innovamat</span>
-                    </div>
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Alianzas/Innovamat.png" 
+                      alt="Innovamat"
+                      className="max-h-16 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
+                    />
                   </a>
                 </div>
               </div>

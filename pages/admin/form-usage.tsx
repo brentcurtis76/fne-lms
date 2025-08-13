@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { MainLayout } from '../../components/layout/MainLayout';
+import MainLayout from '../../components/layout/MainLayout';
 import { getUserPrimaryRole } from '../../utils/roleUtils';
 import { getMonthlyFormStats } from '../../lib/formSubmissionTracker';
 

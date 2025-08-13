@@ -708,7 +708,7 @@ export default function HomePage() {
                       className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
                     >
                       <img 
-                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/La%20Maquinista.png" 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/La%20Maquinista%20edited.png" 
                         alt="Escola La Maquinista"
                         className="max-h-36 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
                       />
@@ -722,7 +722,7 @@ export default function HomePage() {
                       className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
                     >
                       <img 
-                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/El%20Puig.jpg" 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/El%20Puig%20-%20Edited.png" 
                         alt="Escola Cooperativa El Puig"
                         className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
                       />

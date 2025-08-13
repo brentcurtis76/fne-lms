@@ -182,7 +182,7 @@ export default function NosotrosPage() {
     'jorge-parra': {
       name: 'Jorge Parra',
       role: 'Formador Centro Los Pellines',
-      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Sergi%20Del%20Moral.jpg',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Jorge%20Parra.png',
       description: 'Profesor de Educación Física y Magíster en Educación. Miembro del equipo de formación y gestión en el Centro de Experiencias de Aprendizaje Los Pellines, con más de una década de experiencia en diseño y facilitación de actividades de aprendizaje al aire libre. Ha sido relator en talleres de habilidades relacionales y formación de facilitadores. Se enfoca en la planificación y ejecución de actividades experienciales y colaborativas, utilizando su experiencia en metodologías de aprendizaje relacional y en contextos al aire libre.'
     },
     'carlo-de-britos': {

@@ -823,13 +823,13 @@ export default function HomePage() {
                     href="https://www.innovamat.com/" 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="group flex items-center justify-center h-20 relative"
+                    className="group flex items-center justify-center h-24 relative"
                     title="Innovamat - Mathematics Education"
                   >
                     <img 
                       src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Alianzas/Innovamat.png" 
                       alt="Innovamat"
-                      className="max-h-16 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
+                      className="max-h-20 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
                     />
                   </a>
                 </div>

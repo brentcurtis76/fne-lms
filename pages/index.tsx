@@ -547,7 +547,7 @@ export default function HomePage() {
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Instituto%20Relacional.png" 
                     alt="Instituto Relacional"
-                    className="max-h-20 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+                    className="max-h-14 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-300"
                   />
                 </a>
 

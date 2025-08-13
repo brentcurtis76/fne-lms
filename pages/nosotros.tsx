@@ -151,7 +151,7 @@ export default function NosotrosPage() {
       name: 'Marcela Molina',
       role: 'Investigadora',
       image: '',
-      description: 'Directora de programas de formación docente y especialista en desarrollo profesional continuo para educadores.'
+      description: 'Candidata a Doctora en Educación por la Universidad del Desarrollo, donde desarrolla su investigación doctoral sobre la medición de impactos de los procesos de transformación educativa en colegios que implementan metodologías de Nueva Educación. Su trabajo se centra en identificar y evaluar los cambios sistémicos que ocurren en las comunidades educativas durante su transición hacia modelos pedagógicos centrados en el estudiante. Con formación en psicología educacional y metodologías de investigación cualitativa y cuantitativa, aporta una mirada rigurosa y científica al análisis de los procesos de cambio educativo. Su investigación contribuye a generar evidencia empírica sobre la efectividad de las intervenciones de la FNE y a desarrollar instrumentos de evaluación que permitan medir el progreso de las escuelas en su camino hacia la transformación educativa.'
     },
     'andrea-lagos': {
       name: 'Andrea Lagos',

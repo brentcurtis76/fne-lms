@@ -539,7 +539,7 @@ export default function HomePage() {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
                 {/* Instituto Relacional */}
                 <a 
-                  href="https://institutorelacional.com" 
+                  href="https://www.institutorelacional.org/" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="group relative bg-gray-50 rounded-2xl p-8 h-32 flex items-center justify-center hover:bg-white hover:shadow-lg transition-all duration-300 border border-gray-100"
@@ -553,7 +553,9 @@ export default function HomePage() {
 
                 {/* Los Pellines */}
                 <a 
-                  href="#" 
+                  href="https://lospellines.cl/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
                   className="group relative bg-gray-50 rounded-2xl p-8 h-32 flex items-center justify-center hover:bg-white hover:shadow-lg transition-all duration-300 border border-gray-100"
                 >
                   <img 
@@ -565,7 +567,9 @@ export default function HomePage() {
 
                 {/* Relaciona Consultores */}
                 <a 
-                  href="#" 
+                  href="https://www.relaciona.cl/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
                   className="group relative bg-gray-50 rounded-2xl p-8 h-32 flex items-center justify-center hover:bg-white hover:shadow-lg transition-all duration-300 border border-gray-100"
                 >
                   <img 
@@ -577,7 +581,9 @@ export default function HomePage() {
 
                 {/* Fundación Conserva Tu Bosque */}
                 <a 
-                  href="#" 
+                  href="https://conservatubosque.cl/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
                   className="group relative bg-gray-50 rounded-2xl p-8 h-32 flex items-center justify-center hover:bg-white hover:shadow-lg transition-all duration-300 border border-gray-100"
                 >
                   <img 
@@ -589,7 +595,9 @@ export default function HomePage() {
 
                 {/* Lodge Los Pellines */}
                 <a 
-                  href="#" 
+                  href="https://www.pellineslodge.cl/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
                   className="group relative bg-gray-50 rounded-2xl p-8 h-32 flex items-center justify-center hover:bg-white hover:shadow-lg transition-all duration-300 border border-gray-100"
                 >
                   <img 

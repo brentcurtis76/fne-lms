@@ -286,7 +286,7 @@ export default function HomePage() {
               {/* Section Header */}
               <div className="text-center mb-16">
                 <div className="mb-6" style={{height: '32px'}}></div>
-                <h2 className="text-5xl lg:text-6xl font-black uppercase mb-6">
+                <h2 className="text-5xl lg:text-6xl font-black uppercase mb-6 transition-all duration-300 hover:text-[#FFC107] hover:scale-105 cursor-default">
                   PASANTÍAS EN BARCELONA
                 </h2>
                 <p className="text-xl leading-relaxed max-w-3xl mx-auto text-gray-700">
@@ -434,7 +434,7 @@ export default function HomePage() {
               {/* Section Header */}
               <div className="text-center mb-16">
                 <div className="mb-6" style={{height: '32px'}}></div>
-                <h2 className="text-5xl lg:text-6xl font-black uppercase mb-6">
+                <h2 className="text-5xl lg:text-6xl font-black uppercase mb-6 transition-all duration-300 hover:text-[#FFC107] hover:scale-105 cursor-default">
                   AULA GENERATIVA
                 </h2>
                 <p className="text-xl leading-relaxed max-w-3xl mx-auto text-gray-700">
@@ -531,7 +531,7 @@ export default function HomePage() {
             <div className="max-w-7xl mx-auto px-6 relative">
               {/* Section Header */}
               <div className="text-center mb-20">
-                <h2 className="text-6xl md:text-7xl font-black text-gray-900 mb-6">
+                <h2 className="text-6xl md:text-7xl font-black text-gray-900 mb-6 transition-all duration-300 hover:text-[#FFC107] hover:scale-105 cursor-default">
                   NUESTRA RED
                 </h2>
                 <div className="w-20 h-1 bg-black mx-auto mb-8"></div>
@@ -615,15 +615,17 @@ export default function HomePage() {
 
               {/* Escuelas aliadas en Catalunya */}
               <div className="mt-20 text-center">
-                <div className="inline-flex items-center gap-4 text-gray-400">
+                <div className="inline-flex items-center gap-4 text-gray-400 mb-2">
                   <div className="h-px w-20 bg-gray-300"></div>
-                  <span className="text-sm uppercase tracking-wider">Escuelas aliadas en Catalunya</span>
                   <div className="h-px w-20 bg-gray-300"></div>
+                </div>
+                <div>
+                  <span className="text-sm uppercase tracking-wider text-gray-400">Escuelas aliadas en Catalunya</span>
                 </div>
               </div>
 
               {/* Catalunya Schools Logos */}
-              <div className="mt-16 pt-16 border-t border-gray-200">
+              <div className="mt-8">
                 {/* First row - 4 schools */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-x-12 gap-y-16 items-center justify-items-center">
                   {/* Escola Virolai */}
@@ -747,15 +749,17 @@ export default function HomePage() {
 
               {/* Decorative element */}
               <div className="mt-20 text-center">
-                <div className="inline-flex items-center gap-4 text-gray-400">
+                <div className="inline-flex items-center gap-4 text-gray-400 mb-2">
                   <div className="h-px w-20 bg-gray-300"></div>
-                  <span className="text-sm uppercase tracking-wider">Alianzas Estratégicas</span>
                   <div className="h-px w-20 bg-gray-300"></div>
+                </div>
+                <div>
+                  <span className="text-sm uppercase tracking-wider text-gray-400">Alianzas Estratégicas</span>
                 </div>
               </div>
 
               {/* Alianzas Estratégicas Logos */}
-              <div className="mt-16 pt-16 border-t border-gray-200">
+              <div className="mt-8">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-10 gap-y-12 items-center">
                   {/* IPEN - International Positive Education Network */}
                   <a 
@@ -860,7 +864,7 @@ export default function HomePage() {
               {/* Section Header */}
               <div className="text-center mb-16">
                 <div className="mb-6" style={{height: '32px'}}></div>
-                <h2 className="text-5xl lg:text-6xl font-black uppercase mb-6">
+                <h2 className="text-5xl lg:text-6xl font-black uppercase mb-6 transition-all duration-300 hover:text-[#FFC107] hover:scale-105 cursor-default">
                   CONTÁCTANOS
                 </h2>
                 <p className="text-xl leading-relaxed max-w-3xl mx-auto text-gray-700">

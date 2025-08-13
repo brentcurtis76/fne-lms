@@ -523,79 +523,153 @@ export default function HomePage() {
           </section>
           
           {/* Section: Nuestra Red */}
-          <section id="red" className="py-24 bg-gradient-to-b from-gray-50 to-white">
-            <div className="max-w-7xl mx-auto px-6">
-              {/* Section Header */}
-              <div className="text-center mb-16">
-                <h2 className="text-4xl md:text-5xl font-black text-gray-900 mb-6">
-                  NUESTRA RED
+          {/* Network Section - Completely Redesigned with Modern Glass Morphism */}
+          <section id="red" className="py-32 bg-gradient-to-br from-black via-gray-900 to-black relative overflow-hidden">
+            {/* Animated background effects */}
+            <div className="absolute inset-0">
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-purple-600/10 to-cyan-600/20"></div>
+              <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-blue-500/20 rounded-full filter blur-[100px] animate-pulse"></div>
+              <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-purple-500/20 rounded-full filter blur-[100px] animate-pulse" style={{animationDelay: '2s'}}></div>
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-500/10 rounded-full filter blur-[150px]"></div>
+            </div>
+            
+            <div className="max-w-7xl mx-auto px-6 relative z-10">
+              {/* Section Header with animated gradient text */}
+              <div className="text-center mb-24">
+                <h2 className="text-6xl md:text-8xl font-black text-white mb-8 tracking-tight relative">
+                  <span>NUESTRA</span>{' '}
+                  <span className="relative inline-block">
+                    <span className="absolute inset-0 bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400 blur-xl opacity-70"></span>
+                    <span className="relative text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-cyan-400">RED</span>
+                  </span>
                 </h2>
-                <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                  Organizaciones aliadas que comparten nuestra visión de transformación educativa y desarrollo integral
+                
+                {/* Decorative line */}
+                <div className="flex items-center justify-center gap-6 mb-10">
+                  <div className="h-[2px] w-32 bg-gradient-to-r from-transparent via-blue-400 to-transparent"></div>
+                  <div className="relative">
+                    <div className="w-3 h-3 bg-white rounded-full"></div>
+                    <div className="absolute inset-0 w-3 h-3 bg-white rounded-full animate-ping"></div>
+                  </div>
+                  <div className="h-[2px] w-32 bg-gradient-to-r from-transparent via-purple-400 to-transparent"></div>
+                </div>
+                
+                <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed font-light">
+                  Alianzas estratégicas que impulsan la <span className="text-white font-medium">innovación educativa</span>
                 </p>
               </div>
-
-              {/* Network Partners Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 items-center">
+              
+              {/* Partners Grid - Ultra Modern Glass Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-20">
                 {/* Instituto Relacional */}
-                <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow group">
-                  <div className="flex items-center justify-center h-24">
-                    <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Instituto%20Relacional.png" 
-                      alt="Instituto Relacional"
-                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
-                    />
+                <div className="group relative transform transition-all duration-500 hover:-translate-y-2">
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-500/50 to-purple-500/50 rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-500 blur-2xl"></div>
+                  <div className="relative h-56 bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl p-8 flex flex-col items-center justify-center hover:bg-white/[0.08] transition-all duration-500 hover:border-white/30 overflow-hidden">
+                    {/* Gradient overlay */}
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-blue-400 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    
+                    {/* Logo */}
+                    <div className="flex-1 flex items-center justify-center">
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Instituto%20Relacional.png" 
+                        alt="Instituto Relacional"
+                        className="max-h-20 w-auto object-contain filter brightness-0 invert opacity-60 group-hover:opacity-100 transition-all duration-500 group-hover:scale-110"
+                      />
+                    </div>
+                    
+                    {/* Hover glow effect */}
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-blue-400/20 rounded-full filter blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   </div>
-                  <p className="text-center text-sm text-gray-600 mt-4 font-medium">Instituto Relacional</p>
                 </div>
 
                 {/* Los Pellines */}
-                <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow group">
-                  <div className="flex items-center justify-center h-24">
-                    <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Los%20Pellines.png" 
-                      alt="Los Pellines"
-                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
-                    />
+                <div className="group relative transform transition-all duration-500 hover:-translate-y-2">
+                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/50 to-teal-500/50 rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-500 blur-2xl"></div>
+                  <div className="relative h-56 bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl p-8 flex flex-col items-center justify-center hover:bg-white/[0.08] transition-all duration-500 hover:border-white/30 overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-400 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="flex-1 flex items-center justify-center">
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Los%20Pellines.png" 
+                        alt="Los Pellines"
+                        className="max-h-20 w-auto object-contain filter brightness-0 invert opacity-60 group-hover:opacity-100 transition-all duration-500 group-hover:scale-110"
+                      />
+                    </div>
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-cyan-400/20 rounded-full filter blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   </div>
-                  <p className="text-center text-sm text-gray-600 mt-4 font-medium">Los Pellines</p>
                 </div>
 
                 {/* Relaciona Consultores */}
-                <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow group">
-                  <div className="flex items-center justify-center h-24">
-                    <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Relaciona-Consultores.png" 
-                      alt="Relaciona Consultores"
-                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
-                    />
+                <div className="group relative transform transition-all duration-500 hover:-translate-y-2">
+                  <div className="absolute inset-0 bg-gradient-to-br from-rose-500/50 to-pink-500/50 rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-500 blur-2xl"></div>
+                  <div className="relative h-56 bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl p-8 flex flex-col items-center justify-center hover:bg-white/[0.08] transition-all duration-500 hover:border-white/30 overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-rose-400 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="flex-1 flex items-center justify-center">
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Relaciona-Consultores.png" 
+                        alt="Relaciona Consultores"
+                        className="max-h-20 w-auto object-contain filter brightness-0 invert opacity-60 group-hover:opacity-100 transition-all duration-500 group-hover:scale-110"
+                      />
+                    </div>
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-rose-400/20 rounded-full filter blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   </div>
-                  <p className="text-center text-sm text-gray-600 mt-4 font-medium">Relaciona Consultores</p>
                 </div>
 
                 {/* Fundación Conserva Tu Bosque */}
-                <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow group">
-                  <div className="flex items-center justify-center h-24">
-                    <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Conserva-Tu-Bosque.png" 
-                      alt="Fundación Conserva Tu Bosque"
-                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
-                    />
+                <div className="group relative transform transition-all duration-500 hover:-translate-y-2">
+                  <div className="absolute inset-0 bg-gradient-to-br from-green-500/50 to-emerald-500/50 rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-500 blur-2xl"></div>
+                  <div className="relative h-56 bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl p-8 flex flex-col items-center justify-center hover:bg-white/[0.08] transition-all duration-500 hover:border-white/30 overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-green-400 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="flex-1 flex items-center justify-center">
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Conserva-Tu-Bosque.png" 
+                        alt="Fundación Conserva Tu Bosque"
+                        className="max-h-20 w-auto object-contain filter brightness-0 invert opacity-60 group-hover:opacity-100 transition-all duration-500 group-hover:scale-110"
+                      />
+                    </div>
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-green-400/20 rounded-full filter blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   </div>
-                  <p className="text-center text-sm text-gray-600 mt-4 font-medium">Fundación Conserva Tu Bosque</p>
                 </div>
 
                 {/* Lodge Los Pellines */}
-                <div className="bg-white rounded-xl p-6 shadow-lg hover:shadow-xl transition-shadow group">
-                  <div className="flex items-center justify-center h-24">
-                    <img 
-                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Lodge%20Los%20Pellines.png" 
-                      alt="Lodge Los Pellines"
-                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform"
-                    />
+                <div className="group relative transform transition-all duration-500 hover:-translate-y-2">
+                  <div className="absolute inset-0 bg-gradient-to-br from-amber-500/50 to-orange-500/50 rounded-3xl opacity-0 group-hover:opacity-100 transition-all duration-500 blur-2xl"></div>
+                  <div className="relative h-56 bg-white/[0.03] backdrop-blur-xl border border-white/10 rounded-3xl p-8 flex flex-col items-center justify-center hover:bg-white/[0.08] transition-all duration-500 hover:border-white/30 overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-400 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                    <div className="flex-1 flex items-center justify-center">
+                      <img 
+                        src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Lodge%20Los%20Pellines.png" 
+                        alt="Lodge Los Pellines"
+                        className="max-h-20 w-auto object-contain filter brightness-0 invert opacity-60 group-hover:opacity-100 transition-all duration-500 group-hover:scale-110"
+                      />
+                    </div>
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-32 bg-amber-400/20 rounded-full filter blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   </div>
-                  <p className="text-center text-sm text-gray-600 mt-4 font-medium">Lodge Los Pellines</p>
                 </div>
+              </div>
+
+              {/* Call to action with animated button */}
+              <div className="text-center">
+                <p className="text-lg md:text-xl text-gray-400 mb-10">
+                  ¿Tu organización comparte nuestra visión educativa?
+                </p>
+                <a 
+                  href="#contacto" 
+                  className="group relative inline-flex items-center px-10 py-5 overflow-hidden rounded-full transition-all duration-300"
+                >
+                  {/* Button background gradient */}
+                  <span className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 transition-all duration-300 group-hover:scale-110"></span>
+                  
+                  {/* Button glow effect */}
+                  <span className="absolute inset-0 bg-gradient-to-r from-blue-500 via-purple-500 to-cyan-500 blur-xl opacity-50 group-hover:opacity-80 transition-opacity duration-300"></span>
+                  
+                  {/* Button content */}
+                  <span className="relative flex items-center text-white font-bold text-lg">
+                    <span>Únete a la Red</span>
+                    <svg className="ml-3 w-6 h-6 transform group-hover:translate-x-2 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </span>
+                </a>
               </div>
             </div>
           </section>

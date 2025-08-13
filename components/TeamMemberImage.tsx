@@ -6,9 +6,10 @@ interface TeamMemberImageProps {
   alt: string;
   name: string;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-const TeamMemberImage: React.FC<TeamMemberImageProps> = ({ src, alt, name, className = '' }) => {
+const TeamMemberImage: React.FC<TeamMemberImageProps> = ({ src, alt, name, className = '', style }) => {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   
@@ -87,6 +88,7 @@ const TeamMemberImage: React.FC<TeamMemberImageProps> = ({ src, alt, name, class
         src={src}
         alt={alt}
         className={`w-full h-full object-cover transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
+        style={style}
         onLoad={handleImageLoad}
         onError={handleImageError}
       />

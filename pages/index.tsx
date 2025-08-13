@@ -613,6 +613,119 @@ export default function HomePage() {
                 </a>
               </div>
 
+              {/* Escuelas aliadas en Catalunya */}
+              <div className="mt-20 text-center">
+                <div className="inline-flex items-center gap-4 text-gray-400">
+                  <div className="h-px w-20 bg-gray-300"></div>
+                  <span className="text-sm uppercase tracking-wider">Escuelas aliadas en Catalunya</span>
+                  <div className="h-px w-20 bg-gray-300"></div>
+                </div>
+              </div>
+
+              {/* Catalunya Schools Logos */}
+              <div className="mt-16 pt-16 border-t border-gray-200">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-12 gap-y-16 items-center justify-center">
+                  {/* Escola Virolai */}
+                  <a 
+                    href="https://virolai.com/es/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                  >
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Virolai.png" 
+                      alt="Escola Virolai"
+                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                    />
+                  </a>
+                  
+                  {/* Escola Sadako */}
+                  <a 
+                    href="https://escolasadako.cat/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                  >
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Sadako.png" 
+                      alt="Escola Sadako"
+                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                    />
+                  </a>
+                  
+                  {/* Institut Angeleta Ferrer */}
+                  <a 
+                    href="https://agora.xtec.cat/iesangeleta/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                  >
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Angeleta%20Ferrer.jpg" 
+                      alt="Institut Angeleta Ferrer"
+                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                    />
+                  </a>
+                  
+                  {/* Institut Escola Les Vinyes */}
+                  <a 
+                    href="https://agora.xtec.cat/ielesvinyes/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                  >
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Les%20Vinyes.gif" 
+                      alt="Institut Escola Les Vinyes"
+                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                    />
+                  </a>
+                  
+                  {/* Escola Octavio Paz */}
+                  <a 
+                    href="https://www.escolaoctaviopaz.cat/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                  >
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/Octavio%20Paz.png" 
+                      alt="Escola Octavio Paz"
+                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                    />
+                  </a>
+                  
+                  {/* Escola La Maquinista */}
+                  <a 
+                    href="https://www.escolalamaquinista.cat/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                  >
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/La%20Maquinista.png" 
+                      alt="Escola La Maquinista"
+                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                    />
+                  </a>
+                  
+                  {/* Escola Cooperativa El Puig */}
+                  <a 
+                    href="https://escolaelpuig.cat/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center transform transition-all duration-500 hover:scale-110"
+                  >
+                    <img 
+                      src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/escuelas/El%20Puig.jpg" 
+                      alt="Escola Cooperativa El Puig"
+                      className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500"
+                    />
+                  </a>
+                  {/* More Catalunya schools will be added here */}
+                </div>
+              </div>
+
               {/* Decorative element */}
               <div className="mt-20 text-center">
                 <div className="inline-flex items-center gap-4 text-gray-400">

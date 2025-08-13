@@ -621,6 +621,89 @@ export default function HomePage() {
                   <div className="h-px w-20 bg-gray-300"></div>
                 </div>
               </div>
+
+              {/* Alianzas Estratégicas Logos */}
+              <div className="mt-16 pt-16 border-t border-gray-200">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-x-10 gap-y-12 items-center">
+                  {/* IPEN - International Positive Education Network */}
+                  <a 
+                    href="https://www.ipen-network.com/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center h-20 relative"
+                    title="International Positive Education Network"
+                  >
+                    <div className="px-6 py-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
+                      <span className="text-sm font-semibold text-gray-700">IPEN</span>
+                    </div>
+                  </a>
+
+                  {/* David Cooperrider Center */}
+                  <a 
+                    href="https://appreciativeinquiry.champlain.edu/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center h-20 relative"
+                    title="David L. Cooperrider Center for Appreciative Inquiry"
+                  >
+                    <div className="px-4 py-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors text-center">
+                      <span className="text-xs font-semibold text-gray-700">Cooperrider<br/>Center</span>
+                    </div>
+                  </a>
+
+                  {/* Els Futurs de l'Educació */}
+                  <a 
+                    href="https://elsfutursdeleducacio.cat/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center h-20 relative"
+                    title="Els Futurs de l'Educació"
+                  >
+                    <div className="px-4 py-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors text-center">
+                      <span className="text-xs font-semibold text-gray-700">Els Futurs<br/>de l'Educació</span>
+                    </div>
+                  </a>
+
+                  {/* Fundació Bofill */}
+                  <a 
+                    href="https://fundaciobofill.cat/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center h-20 relative"
+                    title="Fundació Jaume Bofill"
+                  >
+                    <div className="px-4 py-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
+                      <span className="text-sm font-semibold text-gray-700">Fundació Bofill</span>
+                    </div>
+                  </a>
+
+                  {/* STEAMConf */}
+                  <a 
+                    href="https://www.steamconf.com/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center h-20 relative"
+                    title="STEAM Conference Barcelona"
+                  >
+                    <div className="px-6 py-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
+                      <span className="text-sm font-semibold text-gray-700">STEAMConf</span>
+                    </div>
+                  </a>
+
+                  {/* Innovamat */}
+                  <a 
+                    href="https://www.innovamat.com/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="group flex items-center justify-center h-20 relative"
+                    title="Innovamat - Mathematics Education"
+                  >
+                    <div className="px-6 py-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
+                      <span className="text-sm font-semibold text-gray-700">Innovamat</span>
+                    </div>
+                  </a>
+                </div>
+              </div>
             </div>
           </section>
           

@@ -522,32 +522,32 @@ export default function HomePage() {
             </div>
           </section>
           
-          {/* Section: Nuestra Red - Clean Redesign */}
-          <section id="red" className="py-32 bg-white relative">
-            <div className="max-w-7xl mx-auto px-6">
+          {/* Section: Nuestra Red - Professional Clean Design */}
+          <section id="red" className="py-24 bg-white">
+            <div className="max-w-6xl mx-auto px-6">
               {/* Section Header */}
-              <div className="mb-20">
-                <h2 className="text-5xl md:text-6xl font-black text-gray-900 mb-6">
+              <div className="mb-16">
+                <h2 className="text-5xl md:text-6xl font-black text-gray-900 mb-4">
                   NUESTRA RED
                 </h2>
-                <p className="text-xl text-gray-600 max-w-2xl">
+                <p className="text-xl text-gray-600">
                   Organizaciones aliadas en la transformación educativa
                 </p>
               </div>
 
-              {/* Network Partners - Clean Grid without redundant text */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+              {/* Network Partners - Clean, professional display */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 items-center">
                 {/* Instituto Relacional */}
                 <a 
                   href="https://www.institutorelacional.org/" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group relative bg-gray-50 rounded-2xl p-8 h-32 flex items-center justify-center hover:bg-white hover:shadow-lg transition-all duration-300 border border-gray-100"
+                  className="group flex items-center justify-center h-24 hover:scale-105 transition-transform duration-300"
                 >
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Instituto%20Relacional.png" 
                     alt="Instituto Relacional"
-                    className="max-h-16 w-auto object-contain opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300"
+                    className="max-h-20 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-300"
                   />
                 </a>
 
@@ -556,12 +556,12 @@ export default function HomePage() {
                   href="https://lospellines.cl/" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group relative bg-gray-50 rounded-2xl p-8 h-32 flex items-center justify-center hover:bg-white hover:shadow-lg transition-all duration-300 border border-gray-100"
+                  className="group flex items-center justify-center h-24 hover:scale-105 transition-transform duration-300"
                 >
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Los%20Pellines%20ASP.png" 
                     alt="Los Pellines"
-                    className="max-h-16 w-auto object-contain opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300"
+                    className="max-h-20 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-300"
                   />
                 </a>
 
@@ -570,12 +570,12 @@ export default function HomePage() {
                   href="https://www.relaciona.cl/" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group relative bg-gray-50 rounded-2xl p-8 h-32 flex items-center justify-center hover:bg-white hover:shadow-lg transition-all duration-300 border border-gray-100"
+                  className="group flex items-center justify-center h-24 hover:scale-105 transition-transform duration-300"
                 >
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Relaciona-Consultores.png" 
                     alt="Relaciona Consultores"
-                    className="max-h-16 w-auto object-contain opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300"
+                    className="max-h-20 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-300"
                   />
                 </a>
 
@@ -584,12 +584,12 @@ export default function HomePage() {
                   href="https://conservatubosque.cl/" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group relative bg-gray-50 rounded-2xl p-8 h-32 flex items-center justify-center hover:bg-white hover:shadow-lg transition-all duration-300 border border-gray-100"
+                  className="group flex items-center justify-center h-24 hover:scale-105 transition-transform duration-300"
                 >
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Conserva-Tu-Bosque.png" 
                     alt="Fundación Conserva Tu Bosque"
-                    className="max-h-16 w-auto object-contain opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300"
+                    className="max-h-20 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-300"
                   />
                 </a>
 
@@ -598,12 +598,12 @@ export default function HomePage() {
                   href="https://www.pellineslodge.cl/" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group relative bg-gray-50 rounded-2xl p-8 h-32 flex items-center justify-center hover:bg-white hover:shadow-lg transition-all duration-300 border border-gray-100"
+                  className="group flex items-center justify-center h-24 hover:scale-105 transition-transform duration-300"
                 >
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Lodge%20Los%20Pellines.png" 
                     alt="Lodge Los Pellines"
-                    className="max-h-16 w-auto object-contain opacity-70 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300"
+                    className="max-h-20 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-300"
                   />
                 </a>
               </div>

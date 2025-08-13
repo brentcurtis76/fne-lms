@@ -522,32 +522,37 @@ export default function HomePage() {
             </div>
           </section>
           
-          {/* Section: Nuestra Red - Professional Clean Design */}
-          <section id="red" className="py-24 bg-white">
-            <div className="max-w-6xl mx-auto px-6">
+          {/* Section: Nuestra Red - Bold and Dynamic */}
+          <section id="red" className="py-32 bg-gradient-to-b from-white via-gray-50 to-white relative overflow-hidden">
+            {/* Subtle background decoration */}
+            <div className="absolute top-20 right-0 w-96 h-96 bg-black/[0.02] rounded-full blur-3xl"></div>
+            <div className="absolute bottom-20 left-0 w-96 h-96 bg-black/[0.02] rounded-full blur-3xl"></div>
+            
+            <div className="max-w-7xl mx-auto px-6 relative">
               {/* Section Header */}
-              <div className="mb-16">
-                <h2 className="text-5xl md:text-6xl font-black text-gray-900 mb-4">
+              <div className="text-center mb-20">
+                <h2 className="text-6xl md:text-7xl font-black text-gray-900 mb-6">
                   NUESTRA RED
                 </h2>
-                <p className="text-xl text-gray-600">
+                <div className="w-20 h-1 bg-black mx-auto mb-8"></div>
+                <p className="text-2xl text-gray-700 font-light max-w-3xl mx-auto">
                   Organizaciones aliadas en la transformación educativa
                 </p>
               </div>
 
-              {/* Network Partners - Clean, professional display */}
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 items-center">
+              {/* Network Partners - Bigger, bolder display */}
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-x-12 gap-y-16 items-center">
                 {/* Instituto Relacional */}
                 <a 
                   href="https://www.institutorelacional.org/" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-center h-24 hover:scale-105 transition-transform duration-300"
+                  className="group flex items-center justify-center h-32 relative"
                 >
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Instituto%20Relacional.png" 
                     alt="Instituto Relacional"
-                    className="max-h-14 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+                    className="max-h-24 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
                   />
                 </a>
 
@@ -556,12 +561,12 @@ export default function HomePage() {
                   href="https://lospellines.cl/" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-center h-24 hover:scale-105 transition-transform duration-300"
+                  className="group flex items-center justify-center h-32 relative"
                 >
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Los%20Pellines%20ASP.png" 
                     alt="Los Pellines"
-                    className="max-h-20 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+                    className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
                   />
                 </a>
 
@@ -570,12 +575,12 @@ export default function HomePage() {
                   href="https://www.relaciona.cl/" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-center h-24 hover:scale-105 transition-transform duration-300"
+                  className="group flex items-center justify-center h-32 relative"
                 >
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Relaciona-Consultores.png" 
                     alt="Relaciona Consultores"
-                    className="max-h-20 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+                    className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
                   />
                 </a>
 
@@ -584,12 +589,12 @@ export default function HomePage() {
                   href="https://conservatubosque.cl/" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-center h-24 hover:scale-105 transition-transform duration-300"
+                  className="group flex items-center justify-center h-32 relative"
                 >
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Conserva-Tu-Bosque.png" 
                     alt="Fundación Conserva Tu Bosque"
-                    className="max-h-20 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+                    className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
                   />
                 </a>
 
@@ -598,16 +603,24 @@ export default function HomePage() {
                   href="https://www.pellineslodge.cl/" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="group flex items-center justify-center h-24 hover:scale-105 transition-transform duration-300"
+                  className="group flex items-center justify-center h-32 relative"
                 >
                   <img 
                     src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Red/Lodge%20Los%20Pellines.png" 
                     alt="Lodge Los Pellines"
-                    className="max-h-20 w-auto object-contain opacity-90 group-hover:opacity-100 transition-opacity duration-300"
+                    className="max-h-28 w-auto object-contain filter grayscale hover:grayscale-0 transition-all duration-500 group-hover:scale-110"
                   />
                 </a>
               </div>
 
+              {/* Decorative element */}
+              <div className="mt-20 text-center">
+                <div className="inline-flex items-center gap-4 text-gray-400">
+                  <div className="h-px w-20 bg-gray-300"></div>
+                  <span className="text-sm uppercase tracking-wider">Alianzas Estratégicas</span>
+                  <div className="h-px w-20 bg-gray-300"></div>
+                </div>
+              </div>
             </div>
           </section>
           

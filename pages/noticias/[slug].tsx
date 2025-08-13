@@ -71,11 +71,14 @@ export default function ArticlePage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-CL', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    // Use a consistent date formatting to avoid hydration errors
+    const date = new Date(dateString);
+    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
+                    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    const day = date.getUTCDate();
+    const month = months[date.getUTCMonth()];
+    const year = date.getUTCFullYear();
+    return `${day} de ${month} de ${year}`;
   };
 
   if (loading) {

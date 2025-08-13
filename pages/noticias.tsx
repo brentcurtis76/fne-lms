@@ -116,11 +116,14 @@ export default function NewsPage() {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-CL', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    // Use a consistent date formatting to avoid hydration errors
+    const date = new Date(dateString);
+    const months = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
+                    'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    const day = date.getUTCDate();
+    const month = months[date.getUTCMonth()];
+    const year = date.getUTCFullYear();
+    return `${day} de ${month} de ${year}`;
   };
 
   const getExcerpt = (html: string, length = 150) => {
@@ -280,16 +283,6 @@ export default function NewsPage() {
                 <div className="text-center py-16">
                   <div className="inline-block animate-spin rounded-full h-16 w-16 border-b-2 border-black"></div>
                   <p className="mt-6 text-xl text-gray-600">Cargando noticias...</p>
-                  <div className="mt-8 p-4 bg-gray-100 rounded-lg text-left text-sm">
-                    <p className="font-bold mb-2">Debug Info:</p>
-                    <p>• Page loaded at: {new Date().toISOString()}</p>
-                    <p>• Loading state: {loading ? 'true' : 'false'}</p>
-                    <p>• Articles count: {articles.length}</p>
-                    <p>• Error state: {error || 'none'}</p>
-                    <p className="mt-2 text-xs text-gray-500">
-                      If this shows for more than 10 seconds, check browser console (F12) for errors.
-                    </p>
-                  </div>
                 </div>
               </div>
             </section>

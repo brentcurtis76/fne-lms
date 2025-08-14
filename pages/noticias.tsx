@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import Footer from '../components/Footer';
 import EventsTimeline from '../components/EventsTimeline';
+import NewsSlider from '../components/NewsSlider';
 
 interface NewsArticle {
   id: string;
@@ -279,7 +280,7 @@ export default function NewsPage() {
             text-overflow: ellipsis;
           }
           
-          /* Timeline animations */
+          /* Timeline and card animations */
           @keyframes fadeInUp {
             from {
               opacity: 0;
@@ -288,6 +289,17 @@ export default function NewsPage() {
             to {
               opacity: 1;
               transform: translateY(0);
+            }
+          }
+          
+          @keyframes slideInFromRight {
+            from {
+              opacity: 0;
+              transform: translateX(50px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
             }
           }
           
@@ -589,64 +601,9 @@ export default function NewsPage() {
                 </section>
               )}
 
-              {/* Articles Grid Section */}
+              {/* Articles Slider Section */}
               {articles.length > 1 && (
-                <section className="py-24 bg-[#F5F5F5]">
-                  <div className="max-w-[1040px] mx-auto px-6">
-                    <div className="mb-12">
-                      <h2 className="text-4xl font-black uppercase mb-6">Más Noticias</h2>
-                      <p className="text-lg leading-relaxed max-w-2xl">
-                        Descubre todas las historias, eventos y transformaciones que estamos impulsando en el mundo educativo.
-                      </p>
-                    </div>
-                    
-                    <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-                      {articles.slice(1).map((article) => (
-                        <article key={article.id} className="bg-white rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
-                          {article.featured_image && (
-                            <Link href={`/noticias/${article.slug}`}>
-                              <img
-                                src={article.featured_image}
-                                alt={article.title}
-                                className="w-full h-48 object-cover hover:scale-105 transition-transform duration-300"
-                              />
-                            </Link>
-                          )}
-                          <div className="p-6 flex flex-col flex-1">
-                            <Link href={`/noticias/${article.slug}`}>
-                              <h3 className="text-xl font-bold text-gray-900 hover:text-gray-600 transition-colors mb-3 line-clamp-2">
-                                {article.title}
-                              </h3>
-                            </Link>
-                            
-                            <div className="flex items-center text-sm text-gray-600 mb-4">
-                              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                              </svg>
-                              <span>{formatDate(article.display_date || article.created_at)}</span>
-                            </div>
-                            
-                            <div className="text-gray-700 text-sm mb-6 overflow-hidden h-10" style={{
-                              wordWrap: 'break-word',
-                              wordBreak: 'break-all',
-                              overflowWrap: 'break-word',
-                              hyphens: 'auto'
-                            }}>
-                              {getExcerpt(article.content_html, 30)}
-                            </div>
-                            
-                            <Link href={`/noticias/${article.slug}`} className="inline-flex items-center underline text-base hover:text-gray-600 transition-colors mt-auto">
-                              <span>Leer más</span>
-                              <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3"></path>
-                              </svg>
-                            </Link>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                </section>
+                <NewsSlider articles={articles.slice(1)} />
               )}
             </>
           )}

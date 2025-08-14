@@ -554,6 +554,9 @@ export default function NewsAdmin() {
                         initialContent={content}
                         onChange={setContent}
                       />
+                      <p className="mt-2 text-xs text-gray-500">
+                        💡 Tip: Puedes pegar enlaces de YouTube directamente en el contenido y se mostrarán como videos reproducibles.
+                      </p>
                     </div>
 
                     {/* Publish Status */}

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Head from 'next/head';
 import Link from 'next/link';
 import Footer from '../../components/Footer';
+import ArticleContent from '../../components/ArticleContent';
 
 interface NewsArticle {
   id: string;
@@ -353,11 +354,8 @@ export default function ArticlePage() {
                 )}
               </div>
 
-              {/* Article Body */}
-              <div 
-                className="article-content"
-                dangerouslySetInnerHTML={{ __html: article.content_html }}
-              />
+              {/* Article Body with YouTube Support */}
+              <ArticleContent content={article.content_html} />
             </div>
           </section>
 

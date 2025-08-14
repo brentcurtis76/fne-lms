@@ -297,22 +297,8 @@ export default function ArticlePage() {
 
         {/* Article Content */}
         <main className="pt-32">
-          {/* Breadcrumb */}
-          <section className="py-8 bg-gray-50">
-            <div className="max-w-6xl mx-auto px-6">
-              <nav className="flex items-center space-x-2 text-sm text-gray-600">
-                <Link href="/" className="hover:text-black transition-colors">
-                  Inicio
-                </Link>
-                <span>/</span>
-                <Link href="/noticias" className="hover:text-black transition-colors">
-                  Noticias
-                </Link>
-                <span>/</span>
-                <span className="text-black truncate">{article.title}</span>
-              </nav>
-            </div>
-          </section>
+          {/* Spacer to replace breadcrumb */}
+          <div className="py-8"></div>
 
           {/* Article Content */}
           <section className="py-12">

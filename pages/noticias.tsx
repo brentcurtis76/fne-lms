@@ -542,32 +542,32 @@ export default function NewsPage() {
               {/* Featured Article Section */}
               {articles[0] && (
                 <section className="py-24">
-                  <div className="max-w-[1040px] mx-auto px-6">
-                    <div className="mb-8">
+                  <div className="max-w-4xl mx-auto px-6">
+                    <div className="text-center mb-8">
                       <div className="inline-block bg-black text-white px-4 py-2 rounded-full text-sm font-medium uppercase tracking-wide mb-4">
                         Destacado
                       </div>
                     </div>
                     
                     <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-                      <div className="lg:flex">
+                      <div className="flex flex-col">
                         {articles[0].featured_image && (
-                          <div className="lg:w-[55%]">
+                          <div className="w-full">
                             <img
                               src={articles[0].featured_image}
                               alt={articles[0].title}
-                              className="w-full h-64 lg:h-[500px] object-cover"
+                              className="w-full h-64 lg:h-[400px] object-cover"
                             />
                           </div>
                         )}
-                        <div className={`p-12 ${articles[0].featured_image ? 'lg:w-[45%]' : 'w-full'}`}>
+                        <div className="p-12 text-center">
                           <Link href={`/noticias/${articles[0].slug}`}>
                             <h2 className="text-3xl lg:text-4xl font-black uppercase mb-6 hover:text-gray-600 transition-colors cursor-pointer">
                               {articles[0].title}
                             </h2>
                           </Link>
                           
-                          <div className="flex items-center text-sm text-gray-600 mb-6">
+                          <div className="flex items-center justify-center text-sm text-gray-600 mb-6">
                             <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
                             </svg>

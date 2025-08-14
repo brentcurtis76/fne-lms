@@ -134,23 +134,27 @@ export default function NewsSlider({ articles }: NewsSliderProps) {
         
         {/* Gradient overlays for visual depth */}
         <div className="relative">
-          <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#F5F5F5] to-transparent z-10 pointer-events-none"></div>
-          <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#F5F5F5] to-transparent z-10 pointer-events-none"></div>
+          {articles.length > 3 && (
+            <>
+              <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-[#F5F5F5] to-transparent z-10 pointer-events-none"></div>
+              <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-[#F5F5F5] to-transparent z-10 pointer-events-none"></div>
+            </>
+          )}
           
           {/* Scrollable Container */}
           <div 
-            className="overflow-x-auto pb-6 news-slider-container scrollbar-thin" 
+            className={`${articles.length <= 3 ? '' : 'overflow-x-auto'} pb-6 news-slider-container scrollbar-thin`}
             ref={scrollContainerRef}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseLeave}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            style={{ cursor: 'grab' }}
+            onMouseDown={articles.length > 3 ? handleMouseDown : undefined}
+            onMouseMove={articles.length > 3 ? handleMouseMove : undefined}
+            onMouseUp={articles.length > 3 ? handleMouseUp : undefined}
+            onMouseLeave={articles.length > 3 ? handleMouseLeave : undefined}
+            onTouchStart={articles.length > 3 ? handleTouchStart : undefined}
+            onTouchMove={articles.length > 3 ? handleTouchMove : undefined}
+            onTouchEnd={articles.length > 3 ? handleTouchEnd : undefined}
+            style={{ cursor: articles.length > 3 ? 'grab' : 'default' }}
           >
-            <div className="flex space-x-6 px-6" style={{ width: 'max-content' }}>
+            <div className={`flex space-x-6 ${articles.length <= 3 ? 'justify-center mx-auto' : 'px-6'}`} style={{ width: articles.length <= 3 ? 'auto' : 'max-content' }}>
               {articles.map((article, index) => (
                 <article 
                   key={article.id} 

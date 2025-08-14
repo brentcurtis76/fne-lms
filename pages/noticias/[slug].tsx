@@ -262,15 +262,15 @@ export default function ArticlePage() {
                 <Link href="/#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   PASANTÍAS
                 </Link>
-                <Link href="/#aula-generativa" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
-                  AULA GENERATIVA
-                </Link>
                 <Link href="/noticias" className="text-base font-medium text-black font-semibold">
-                  NOTICIAS
+                  NOTICIAS Y EVENTOS
                 </Link>
                 <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   NOSOTROS
                 </Link>
+                <a href="/#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                  RED
+                </a>
                 <Link href="/#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   CONTACTO
                 </Link>

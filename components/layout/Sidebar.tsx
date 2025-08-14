@@ -32,6 +32,7 @@ import {
   GlobeIcon as NetworkIcon,
   NewspaperIcon
 } from '@heroicons/react/outline';
+import { CalendarIcon } from '@heroicons/react/solid';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
 import { isFeatureEnabled } from '../../lib/featureFlags';
@@ -116,6 +117,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     href: '/admin/news',
     description: 'Gestión de noticias y artículos',
     restrictedRoles: ['admin', 'consultor', 'community_manager']
+  },
+  {
+    id: 'events',
+    label: 'Eventos',
+    icon: CalendarIcon,
+    href: '/admin/events',
+    description: 'Gestión de eventos y línea de tiempo',
+    restrictedRoles: ['admin', 'community_manager']
   },
   {
     id: 'learning-paths',
@@ -357,6 +366,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   }, []);
 
   const filteredNavigationItems = useMemo(() => {
+    console.log('Sidebar: Filtering items, isAdmin:', isAdmin, 'userRole:', userRole);
     return NAVIGATION_ITEMS.filter(item => {
       // Check superadmin-only items (RBAC feature)
       if (item.superadminOnly) {
@@ -383,6 +393,20 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       
       // Check restricted roles - user must have specific role listed
       if (item.restrictedRoles && item.restrictedRoles.length > 0) {
+        if (item.id === 'events') {
+          console.log('Events item check:', {
+            itemId: item.id,
+            restrictedRoles: item.restrictedRoles,
+            userRole,
+            isAdmin,
+            includesAdmin: item.restrictedRoles.includes('admin'),
+            includesUserRole: item.restrictedRoles.includes(userRole || '')
+          });
+        }
+        // Admin has access to items that include 'admin' in restrictedRoles
+        if (isAdmin && item.restrictedRoles.includes('admin')) {
+          return true;
+        }
         // Only show item if user's role is explicitly in the restrictedRoles list
         if (!item.restrictedRoles.includes(userRole || '')) {
           return false;

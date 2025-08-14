@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Footer from '../components/Footer';
+import EventsTimeline from '../components/EventsTimeline';
 
 interface NewsArticle {
   id: string;
@@ -17,16 +18,59 @@ interface NewsArticle {
   };
 }
 
+interface Event {
+  id: string;
+  title: string;
+  location: string;
+  date_start: string;
+  date_end?: string;
+  time?: string;
+  description?: string;
+  link_url?: string;
+  link_display?: string;
+  is_published: boolean;
+}
+
 export default function NewsPage() {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
+  const [events, setEvents] = useState<{ pastEvents: Event[], futureEvents: Event[] }>({ pastEvents: [], futureEvents: [] });
   const [loading, setLoading] = useState(true);
+  const [eventsLoading, setEventsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [activeTab, setActiveTab] = useState<'noticias' | 'eventos'>('noticias');
   const limit = 9;
 
   useEffect(() => {
     fetchArticles();
+    fetchEvents();
+    
+    // Timeline animation on scroll
+    const observerOptions = {
+      root: null,
+      rootMargin: '0px',
+      threshold: 0.1
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry, index) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => {
+            entry.target.classList.add('animate-fade-in');
+            entry.target.classList.remove('opacity-0');
+          }, index * 100);
+        }
+      });
+    }, observerOptions);
+
+    // Observe all timeline events
+    const timelineEvents = document.querySelectorAll('.timeline-event');
+    timelineEvents.forEach(event => observer.observe(event));
+
+    return () => {
+      timelineEvents.forEach(event => observer.unobserve(event));
+    };
   }, []);
 
   const fetchArticles = async (loadMore = false) => {
@@ -111,8 +155,36 @@ export default function NewsPage() {
     }
   };
 
+  const fetchEvents = async () => {
+    try {
+      setEventsLoading(true);
+      const response = await fetch('/api/public/events');
+      
+      if (!response.ok) {
+        throw new Error('Error loading events');
+      }
+      
+      const data = await response.json();
+      setEvents({
+        pastEvents: data.pastEvents || [],
+        futureEvents: data.futureEvents || []
+      });
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      // Don't set an error state for events, just leave them empty
+    } finally {
+      setEventsLoading(false);
+    }
+  };
+
   const loadMore = () => {
     fetchArticles(true);
+  };
+
+  const formatEventDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
   const formatDate = (dateString: string) => {
@@ -205,6 +277,94 @@ export default function NewsPage() {
             overflow: hidden;
             text-overflow: ellipsis;
           }
+          
+          /* Timeline animations */
+          @keyframes fadeInUp {
+            from {
+              opacity: 0;
+              transform: translateY(30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+          
+          @keyframes slide {
+            0% {
+              transform: translateX(-100%);
+            }
+            100% {
+              transform: translateX(calc(100vw + 100%));
+            }
+          }
+          
+          @keyframes drawLineHorizontal {
+            from {
+              width: 0;
+            }
+            to {
+              width: 100%;
+            }
+          }
+          
+          @keyframes pulse {
+            0%, 100% {
+              transform: scale(1);
+              opacity: 1;
+            }
+            50% {
+              transform: scale(1.2);
+              opacity: 0.8;
+            }
+          }
+          
+          .animate-fade-in {
+            animation: fadeInUp 0.8s ease-out forwards;
+          }
+          
+          .timeline-line {
+            animation: drawLineHorizontal 1.5s ease-out forwards;
+          }
+          
+          /* Scrollbar styling for timeline */
+          .overflow-x-auto::-webkit-scrollbar {
+            height: 6px;
+          }
+          
+          .overflow-x-auto::-webkit-scrollbar-track {
+            background: #f3f4f6;
+            border-radius: 3px;
+          }
+          
+          .overflow-x-auto::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+          }
+          
+          .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+            background: #9ca3af;
+          }
+          
+          /* Drag functionality styles */
+          .timeline-container {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+          }
+          
+          .timeline-container.dragging {
+            cursor: grabbing !important;
+          }
+          
+          .timeline-event {
+            -webkit-user-drag: none;
+            -khtml-user-drag: none;
+            -moz-user-drag: none;
+            -o-user-drag: none;
+            user-drag: none;
+          }
         `}</style>
       </Head>
 
@@ -229,11 +389,8 @@ export default function NewsPage() {
                 <Link href="/#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   PASANTÍAS
                 </Link>
-                <Link href="/#aula-generativa" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
-                  AULA GENERATIVA
-                </Link>
                 <Link href="/noticias" className="text-base font-medium text-black font-semibold">
-                  NOTICIAS
+                  NOTICIAS Y EVENTOS
                 </Link>
                 <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   NOSOTROS
@@ -263,18 +420,51 @@ export default function NewsPage() {
           </div>
         </header>
 
-        {/* Hero Section */}
-        <section className="pt-64 pb-24 px-6">
-          <div className="max-w-6xl mx-auto text-center">
-            <h1 className="text-5xl md:text-7xl font-black text-gray-900 mb-6 leading-tight">
-              NOTICIAS Y<br />
-              NOVEDADES
-            </h1>
+        {/* Hero Section - Redesigned */}
+        <section className="pt-56 pb-32 px-6 relative overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 opacity-5">
+            <div className="absolute transform rotate-45 -left-40 -top-40 w-80 h-80 bg-gradient-to-br from-gray-900 to-transparent rounded-full"></div>
+            <div className="absolute transform rotate-45 -right-40 -bottom-40 w-96 h-96 bg-gradient-to-tl from-gray-900 to-transparent rounded-full"></div>
+          </div>
+          
+          <div className="max-w-5xl mx-auto text-center relative z-10">
+            {/* Decorative Line */}
+            <div className="w-24 h-1 bg-black mx-auto mb-12"></div>
             
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              Mantente informado sobre las últimas actividades, eventos y transformaciones 
-              que estamos impulsando en el mundo de la educación
+            <p className="text-2xl md:text-3xl lg:text-4xl text-gray-700 font-light leading-relaxed tracking-wide">
+              Mantente informado sobre las últimas 
+              <span className="font-bold text-black"> actividades</span>, 
+              <span className="font-bold text-black"> eventos</span> y 
+              <span className="font-bold text-black"> transformaciones</span> que 
+              estamos impulsando en el mundo de la educación
             </p>
+            
+            {/* Decorative dots */}
+            <div className="flex justify-center gap-2 mt-12">
+              <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+              <span className="w-2 h-2 bg-gray-600 rounded-full"></span>
+              <span className="w-2 h-2 bg-black rounded-full"></span>
+              <span className="w-2 h-2 bg-gray-600 rounded-full"></span>
+              <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+            </div>
+          </div>
+        </section>
+
+        {/* Events Timeline Section */}
+        <section className="py-16 bg-gray-50 overflow-hidden">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 className="text-4xl font-black uppercase mb-4">Próximos Eventos</h2>
+              <p className="text-lg text-gray-600">Únete a nuestras actividades de transformación educativa</p>
+            </div>
+            
+            {/* Timeline Component */}
+            <EventsTimeline 
+              pastEvents={events.pastEvents} 
+              futureEvents={events.futureEvents} 
+              loading={eventsLoading} 
+            />
           </div>
         </section>
 

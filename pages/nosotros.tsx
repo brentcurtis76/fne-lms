@@ -338,8 +338,7 @@ export default function NosotrosPage() {
               {/* Desktop Navigation */}
               <nav className="hidden lg:flex items-center space-x-10">
                 <Link href="/#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</Link>
-                <Link href="/#aula-generativa" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">AULA GENERATIVA</Link>
-                <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS</Link>
+                <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
                 <Link href="/nosotros" className="text-base font-medium text-black font-semibold">NOSOTROS</Link>
                 <a href="/#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
                 <Link href="/#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">CONTACTO</Link>

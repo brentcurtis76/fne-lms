@@ -186,8 +186,7 @@ export default function HomePage() {
               {/* Desktop Navigation */}
               <nav className="hidden lg:flex items-center space-x-10">
                 <a href="#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</a>
-                <a href="#aula-generativa" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">AULA GENERATIVA</a>
-                <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS</Link>
+                <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
                 <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
                 <a href="#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
                 <a href="#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">CONTACTO</a>
@@ -223,9 +222,9 @@ export default function HomePage() {
             </div>
             <nav className="flex flex-col space-y-6">
               <a href="#pasantias" className="text-xl font-medium">PASANTÍAS</a>
-              <a href="#aula-generativa" className="text-xl font-medium">AULA GENERATIVA</a>
-              <Link href="/noticias" className="text-xl font-medium">NOTICIAS</Link>
+              <Link href="/noticias" className="text-xl font-medium">NOTICIAS Y EVENTOS</Link>
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
+              <a href="#red" className="text-xl font-medium">RED</a>
               <a href="#contacto" className="text-xl font-medium">CONTACTO</a>
               <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
                 PLATAFORMA DE CRECIMIENTO

@@ -18,6 +18,7 @@ interface NewsArticle {
   is_published: boolean;
   created_at: string;
   updated_at: string;
+  display_date?: string;
   author?: {
     id: string;
     first_name?: string;
@@ -36,6 +37,8 @@ export default function NewsAdmin() {
   const [showModal, setShowModal] = useState(false);
   const [editingArticle, setEditingArticle] = useState<NewsArticle | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [editingDateId, setEditingDateId] = useState<string | null>(null);
+  const [tempDate, setTempDate] = useState('');
   
   // Role detection state - FIXED: No more hardcoded isAdmin
   const [isAdmin, setIsAdmin] = useState(false);
@@ -46,6 +49,7 @@ export default function NewsAdmin() {
   const [content, setContent] = useState<any>({});
   const [featuredImage, setFeaturedImage] = useState('');
   const [isPublished, setIsPublished] = useState(false);
+  const [displayDate, setDisplayDate] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -129,8 +133,8 @@ export default function NewsAdmin() {
     try {
       const method = editingArticle ? 'PUT' : 'POST';
       const body = editingArticle 
-        ? { id: editingArticle.id, title, content, featured_image: featuredImage, is_published: isPublished }
-        : { title, content, featured_image: featuredImage, is_published: isPublished };
+        ? { id: editingArticle.id, title, content, featured_image: featuredImage, is_published: isPublished, display_date: displayDate || undefined }
+        : { title, content, featured_image: featuredImage, is_published: isPublished, display_date: displayDate || undefined };
 
       const response = await fetch('/api/admin/news', {
         method,
@@ -194,12 +198,49 @@ export default function NewsAdmin() {
     }
   };
 
+  const handleQuickDateEdit = (article: NewsArticle) => {
+    const date = article.display_date || article.created_at;
+    setTempDate(date ? new Date(date).toISOString().split('T')[0] : '');
+    setEditingDateId(article.id);
+  };
+
+  const handleQuickDateSave = async (articleId: string) => {
+    try {
+      const response = await fetch('/api/admin/news', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: articleId,
+          display_date: tempDate
+        })
+      });
+
+      if (!response.ok) throw new Error('Error al actualizar fecha');
+
+      toast.success('Fecha actualizada');
+      setEditingDateId(null);
+      setTempDate('');
+      fetchArticles();
+    } catch (error) {
+      console.error('Error updating date:', error);
+      toast.error('Error al actualizar la fecha');
+    }
+  };
+
+  const handleQuickDateCancel = () => {
+    setEditingDateId(null);
+    setTempDate('');
+  };
+
   const openEditModal = (article: NewsArticle) => {
     setEditingArticle(article);
     setTitle(article.title);
     setContent(article.content);
     setFeaturedImage(article.featured_image || '');
     setIsPublished(article.is_published);
+    // Format date for input field (YYYY-MM-DD)
+    const date = article.display_date || article.created_at;
+    setDisplayDate(date ? new Date(date).toISOString().split('T')[0] : '');
     setShowModal(true);
   };
 
@@ -209,6 +250,7 @@ export default function NewsAdmin() {
     setContent({});
     setFeaturedImage('');
     setIsPublished(false);
+    setDisplayDate(new Date().toISOString().split('T')[0]); // Default to today
   };
 
   const formatDate = (dateString: string) => {
@@ -342,7 +384,53 @@ export default function NewsAdmin() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(article.created_at)}
+                        {editingDateId === article.id ? (
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="date"
+                              value={tempDate}
+                              onChange={(e) => setTempDate(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleQuickDateSave(article.id);
+                                } else if (e.key === 'Escape') {
+                                  handleQuickDateCancel();
+                                }
+                              }}
+                              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => handleQuickDateSave(article.id)}
+                              className="text-green-600 hover:text-green-800"
+                              title="Guardar"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                              </svg>
+                            </button>
+                            <button
+                              onClick={handleQuickDateCancel}
+                              className="text-red-600 hover:text-red-800"
+                              title="Cancelar"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <div 
+                            className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded transition-colors group flex items-center"
+                            onClick={() => handleQuickDateEdit(article)}
+                            title="Click para editar fecha"
+                          >
+                            <span>{formatDate(article.display_date || article.created_at)}</span>
+                            <svg className="w-3 h-3 ml-2 text-gray-400 group-hover:text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                            </svg>
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
@@ -438,6 +526,23 @@ export default function NewsAdmin() {
                           />
                         </div>
                       )}
+                    </div>
+
+                    {/* Display Date */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Fecha de Publicación
+                      </label>
+                      <input
+                        type="date"
+                        value={displayDate}
+                        onChange={(e) => setDisplayDate(e.target.value)}
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        title="Selecciona la fecha que aparecerá en el artículo"
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Esta es la fecha que se mostrará en el artículo. Útil para artículos migrados o programados.
+                      </p>
                     </div>
 
                     {/* Content Editor */}

@@ -147,7 +147,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     case 'GET':
       // Get all articles (including drafts) for admin
       try {
-        const { data, error } = await supabase
+        // Try to get with display_date first
+        let { data, error } = await supabase
           .from('news_articles')
           .select(`
             *,
@@ -171,7 +172,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     case 'POST':
       // Create new article
       try {
-        const { title, content, featured_image, is_published } = req.body;
+        const { title, content, featured_image, is_published, display_date } = req.body;
 
         if (!title || !content) {
           return res.status(400).json({ error: 'Título y contenido son requeridos' });
@@ -180,17 +181,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const slug = generateSlug(title);
         const content_html = tiptapToHtml(content);
 
+        const insertData: any = {
+          title,
+          slug,
+          content,
+          content_html,
+          featured_image,
+          is_published: is_published || false,
+          author_id: user.id
+        };
+
+        // Add display_date if provided, otherwise it will use the database default (NOW())
+        if (display_date) {
+          insertData.display_date = new Date(display_date).toISOString();
+        }
+
         const { data, error } = await supabase
           .from('news_articles')
-          .insert({
-            title,
-            slug,
-            content,
-            content_html,
-            featured_image,
-            is_published: is_published || false,
-            author_id: user.id
-          })
+          .insert(insertData)
           .select()
           .single();
 
@@ -208,7 +216,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     case 'PUT':
       // Update article
       try {
-        const { id, title, content, featured_image, is_published } = req.body;
+        const { id, title, content, featured_image, is_published, display_date } = req.body;
 
         if (!id) {
           return res.status(400).json({ error: 'ID del artículo requerido' });
@@ -225,6 +233,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         if (featured_image !== undefined) updates.featured_image = featured_image;
         if (is_published !== undefined) updates.is_published = is_published;
+        
+        // Only update display_date if it's provided and not undefined
+        // This prevents errors if the column doesn't exist yet
+        if (display_date !== undefined && display_date !== null) {
+          // First check if we can update display_date
+          try {
+            updates.display_date = new Date(display_date).toISOString();
+          } catch (e) {
+            console.log('[news API] Warning: Could not parse display_date:', display_date);
+            // Don't include display_date in updates if parsing fails
+          }
+        }
 
         const { data, error } = await supabase
           .from('news_articles')

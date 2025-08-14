@@ -19,8 +19,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Simple query without join - just get the articles
     let query = supabase
       .from('news_articles')
-      .select('id, title, slug, content_html, featured_image, is_published, created_at, updated_at, author_id')
-      .order('created_at', { ascending: false })
+      .select('id, title, slug, content_html, featured_image, is_published, created_at, updated_at, display_date, author_id')
+      .order('display_date', { ascending: false, nullsFirst: false })
       .limit(Number(limit))
       .range(Number(offset), Number(offset) + Number(limit) - 1);
 

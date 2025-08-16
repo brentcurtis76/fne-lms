@@ -163,8 +163,8 @@ export default function HomePage() {
       <div className="bg-white text-black">
         {/* Header */}
         <header id="header" className="fixed top-8 left-0 right-0 z-50 transition-all duration-300">
-          <div className="max-w-7xl mx-auto px-6">
-            <div className="bg-white/95 backdrop-blur-sm rounded-full shadow-lg px-8 py-3 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="bg-white/95 backdrop-blur-sm rounded-full shadow-lg px-6 lg:px-8 py-3 flex items-center justify-between">
               {/* Logo */}
               <div className="flex items-center">
                 <Link href="#inicio" className="flex items-center space-x-3">
@@ -184,18 +184,18 @@ export default function HomePage() {
               </div>
               
               {/* Desktop Navigation */}
-              <nav className="hidden lg:flex items-center space-x-10">
-                <a href="#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</a>
-                <Link href="/programas" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">PROGRAMAS</Link>
-                <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
-                <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
-                <a href="#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
-                <a href="#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">CONTACTO</a>
+              <nav className="hidden lg:flex items-center space-x-7 xl:space-x-9">
+                <a href="#pasantias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</a>
+                <Link href="/programas" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PROGRAMAS</Link>
+                <Link href="/noticias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
+                <Link href="/nosotros" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
+                <a href="#red" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
+                <a href="#contacto" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">CONTACTO</a>
               </nav>
               
               {/* Login Button */}
               <div className="hidden lg:flex items-center">
-                <Link href="/login" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
+                <Link href="/login" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
                   PLATAFORMA DE CRECIMIENTO
                 </Link>
               </div>
@@ -275,7 +275,7 @@ export default function HomePage() {
           </section>
           
           {/* Section 1: Pasantías en Barcelona */}
-          <section id="pasantias" className="pt-40 pb-24 relative overflow-hidden">
+          <section id="pasantias" className="pt-48 pb-24 relative overflow-hidden">
             {/* Background Pattern */}
             <div className="absolute inset-0 opacity-5">
               <div className="absolute inset-0" style={{
@@ -381,7 +381,7 @@ export default function HomePage() {
                         <img src="/barcelona-innovation.jpg" alt="Innovación Educativa" className="w-full h-48 object-cover" loading="lazy" decoding="async" />
                       </div>
                       <div className="relative overflow-hidden rounded-2xl shadow-xl transform hover:scale-105 transition-transform duration-300">
-                        <img src="/barcelona-third.jpg" alt="Experiencia Educativa" className="w-full h-64 object-cover" loading="lazy" decoding="async" />
+                        <img src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/images/Screenshot%202025-08-16%20at%2011.38.12%20AM.png" alt="Estudiantes trabajando con microscopio" className="w-full h-64 object-cover" loading="lazy" decoding="async" />
                       </div>
                     </div>
                     <div className="space-y-4 pt-8">
@@ -389,7 +389,7 @@ export default function HomePage() {
                         <img src="/barcelona-skyline.jpg" alt="Barcelona Skyline" className="w-full h-64 object-cover" loading="lazy" decoding="async" />
                       </div>
                       <div className="relative overflow-hidden rounded-2xl shadow-xl transform hover:scale-105 transition-transform duration-300">
-                        <img src="/barcelona-stats.jpg" alt="Estadísticas del Programa" className="w-full h-48 object-cover" loading="lazy" decoding="async" />
+                        <img src="https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/images/Screenshot%202025-08-16%20at%2011.37.26%20AM.png" alt="Aula de aprendizaje con trabajos estudiantiles" className="w-full h-48 object-cover" loading="lazy" decoding="async" />
                       </div>
                     </div>
                   </div>
@@ -524,7 +524,7 @@ export default function HomePage() {
           </section>
           
           {/* Section: Nuestra Red - Bold and Dynamic */}
-          <section id="red" className="py-32 bg-gradient-to-b from-white via-gray-50 to-white relative overflow-hidden">
+          <section id="red" className="pt-64 pb-32 bg-gradient-to-b from-white via-gray-50 to-white relative overflow-hidden">
             {/* Subtle background decoration */}
             <div className="absolute top-20 right-0 w-96 h-96 bg-black/[0.02] rounded-full blur-3xl"></div>
             <div className="absolute bottom-20 left-0 w-96 h-96 bg-black/[0.02] rounded-full blur-3xl"></div>
@@ -532,7 +532,7 @@ export default function HomePage() {
             <div className="max-w-7xl mx-auto px-6 relative">
               {/* Section Header */}
               <div className="text-center mb-20">
-                <h2 className="text-6xl md:text-7xl font-black text-gray-900 mb-6 transition-all duration-300 hover:text-[#FFC107] hover:scale-105 cursor-default">
+                <h2 className="text-5xl lg:text-6xl font-black uppercase mb-6 transition-all duration-300 hover:text-[#FFC107] hover:scale-105 cursor-default">
                   NUESTRA RED
                 </h2>
                 <div className="w-20 h-1 bg-black mx-auto mb-8"></div>
@@ -857,7 +857,7 @@ export default function HomePage() {
           </section>
           
           {/* Section 4: Contacto */}
-          <section id="contacto" className="py-24 bg-white relative overflow-hidden">
+          <section id="contacto" className="pt-64 pb-24 bg-white relative overflow-hidden">
             {/* Background Element */}
             <div className="absolute bottom-0 left-0 w-96 h-96 bg-black/5 rounded-full transform -translate-x-32 translate-y-32"></div>
             
@@ -974,11 +974,11 @@ export default function HomePage() {
                           className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors"
                         >
                           <option value="">Selecciona una opción</option>
-                          <option value="pasantias">Pasantías en Barcelona</option>
+                          <option value="inspira">Inspira (Pasantía en Barcelona)</option>
+                          <option value="inicia">Inicia</option>
+                          <option value="evoluciona">Evoluciona</option>
                           <option value="aula-generativa">Aula Generativa</option>
-                          <option value="consultoria">Consultoría educativa</option>
-                          <option value="formacion">Formación de equipos</option>
-                          <option value="otro">Otro proyecto</option>
+                          <option value="otro">Otro Proyecto</option>
                         </select>
                       </div>
 

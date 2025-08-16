@@ -277,17 +277,18 @@ export default function EquipoPage() {
               </div>
               
               {/* Desktop Navigation */}
-              <nav className="hidden lg:flex items-center space-x-10">
-                <Link href="/#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</Link>
-                <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
-                <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
-                <a href="/#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
-                <Link href="/#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">CONTACTO</Link>
+              <nav className="hidden lg:flex items-center space-x-7 xl:space-x-9">
+                <Link href="/#pasantias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</Link>
+                <Link href="/programas" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PROGRAMAS</Link>
+                <Link href="/noticias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
+                <Link href="/nosotros" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
+                <a href="/#red" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
+                <Link href="/#contacto" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">CONTACTO</Link>
               </nav>
               
               {/* Login Button */}
               <div className="hidden lg:flex items-center">
-                <Link href="/login" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
+                <Link href="/login" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
                   PLATAFORMA DE CRECIMIENTO
                 </Link>
               </div>
@@ -315,9 +316,10 @@ export default function EquipoPage() {
             </div>
             <nav className="flex flex-col space-y-6">
               <Link href="/#pasantias" className="text-xl font-medium">PASANTÍAS</Link>
-              <Link href="/#aula-generativa" className="text-xl font-medium">AULA GENERATIVA</Link>
-              <Link href="/noticias" className="text-xl font-medium">NOTICIAS</Link>
+              <Link href="/programas" className="text-xl font-medium">PROGRAMAS</Link>
+              <Link href="/noticias" className="text-xl font-medium">NOTICIAS Y EVENTOS</Link>
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
+              <Link href="/#red" className="text-xl font-medium">RED</Link>
               <Link href="/#contacto" className="text-xl font-medium">CONTACTO</Link>
               <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
                 PLATAFORMA DE CRECIMIENTO

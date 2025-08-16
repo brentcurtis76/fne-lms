@@ -56,6 +56,22 @@ export default function NewsPage() {
     fetchArticles();
     fetchEvents();
     
+    // Mobile menu functionality
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const closeMenuBtn = document.getElementById('close-menu-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+    
+    const openMenu = () => {
+      if (mobileMenu) mobileMenu.classList.remove('translate-x-full');
+    };
+    
+    const closeMenu = () => {
+      if (mobileMenu) mobileMenu.classList.add('translate-x-full');
+    };
+    
+    if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', openMenu);
+    if (closeMenuBtn) closeMenuBtn.addEventListener('click', closeMenu);
+    
     // Set up real-time subscription for events table
     const eventsSubscription = supabase
       .channel('events-changes')
@@ -101,6 +117,9 @@ export default function NewsPage() {
     timelineEvents.forEach(event => observer.observe(event));
 
     return () => {
+      // Clean up mobile menu event listeners
+      if (mobileMenuBtn) mobileMenuBtn.removeEventListener('click', openMenu);
+      if (closeMenuBtn) closeMenuBtn.removeEventListener('click', closeMenu);
       // Clean up real-time subscription
       eventsSubscription.unsubscribe();
       // Clean up observer
@@ -431,33 +450,36 @@ export default function NewsPage() {
               </div>
               
               {/* Desktop Navigation */}
-              <nav className="hidden lg:flex items-center space-x-10">
-                <Link href="/#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+              <nav className="hidden lg:flex items-center space-x-7 xl:space-x-9">
+                <Link href="/#pasantias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   PASANTÍAS
                 </Link>
-                <Link href="/noticias" className="text-base font-medium text-black font-semibold">
+                <Link href="/programas" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                  PROGRAMAS
+                </Link>
+                <Link href="/noticias" className="text-sm font-medium text-black font-semibold">
                   NOTICIAS Y EVENTOS
                 </Link>
-                <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                <Link href="/nosotros" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   NOSOTROS
                 </Link>
-                <a href="/#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                <a href="/#red" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   RED
                 </a>
-                <Link href="/#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                <Link href="/#contacto" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   CONTACTO
                 </Link>
               </nav>
               
               {/* Login Button */}
               <div className="hidden lg:flex items-center">
-                <Link href="/login" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
+                <Link href="/login" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
                   PLATAFORMA DE CRECIMIENTO
                 </Link>
               </div>
               
               {/* Mobile Menu Button */}
-              <button className="lg:hidden p-2 text-gray-800">
+              <button id="mobile-menu-btn" className="lg:hidden p-2 text-gray-800">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
                 </svg>
@@ -465,34 +487,45 @@ export default function NewsPage() {
             </div>
           </div>
         </header>
-
-        {/* Hero Section - Redesigned */}
-        <section className="pt-56 pb-32 px-6 relative overflow-hidden">
-          {/* Background Pattern */}
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute transform rotate-45 -left-40 -top-40 w-80 h-80 bg-gradient-to-br from-gray-900 to-transparent rounded-full"></div>
-            <div className="absolute transform rotate-45 -right-40 -bottom-40 w-96 h-96 bg-gradient-to-tl from-gray-900 to-transparent rounded-full"></div>
+        
+        {/* Mobile Menu Overlay */}
+        <div id="mobile-menu" className="fixed inset-0 bg-white z-50 transform translate-x-full transition-transform duration-300 lg:hidden">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-8">
+              <span className="text-2xl font-black">FNE</span>
+              <button id="close-menu-btn" className="p-2">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <nav className="flex flex-col space-y-6">
+              <a href="/#pasantias" className="text-xl font-medium">PASANTÍAS</a>
+              <Link href="/programas" className="text-xl font-medium">PROGRAMAS</Link>
+              <Link href="/noticias" className="text-xl font-medium">NOTICIAS Y EVENTOS</Link>
+              <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
+              <a href="/#red" className="text-xl font-medium">RED</a>
+              <a href="/#contacto" className="text-xl font-medium">CONTACTO</a>
+              <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
+                PLATAFORMA DE CRECIMIENTO
+              </Link>
+            </nav>
           </div>
-          
-          <div className="max-w-5xl mx-auto text-center relative z-10">
-            {/* Decorative Line */}
-            <div className="w-24 h-1 bg-black mx-auto mb-12"></div>
-            
-            <p className="text-2xl md:text-3xl lg:text-4xl text-gray-700 font-light leading-relaxed tracking-wide">
-              Mantente informado sobre las últimas 
-              <span className="font-bold text-black"> actividades</span>, 
-              <span className="font-bold text-black"> eventos</span> y 
-              <span className="font-bold text-black"> transformaciones</span> que 
-              estamos impulsando en el mundo de la educación
-            </p>
-            
-            {/* Decorative dots */}
-            <div className="flex justify-center gap-2 mt-12">
-              <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
-              <span className="w-2 h-2 bg-gray-600 rounded-full"></span>
-              <span className="w-2 h-2 bg-black rounded-full"></span>
-              <span className="w-2 h-2 bg-gray-600 rounded-full"></span>
-              <span className="w-2 h-2 bg-gray-400 rounded-full"></span>
+        </div>
+
+        {/* Hero Section - Matching Nosotros Style */}
+        <section className="pt-64 pb-24 px-6 bg-gradient-to-b from-gray-50 to-white">
+          <div className="max-w-7xl mx-auto">
+            {/* Main Statement */}
+            <div className="max-w-4xl mx-auto">
+              <h1 className="text-5xl lg:text-6xl font-black uppercase mb-8 text-center transition-all duration-300 hover:text-[#FFC107] hover:scale-105 cursor-default">
+                NOTICIAS Y EVENTOS
+              </h1>
+              <p className="text-xl text-gray-700 leading-relaxed text-center">
+                Mantente informado sobre las últimas actividades, eventos y transformaciones 
+                que estamos impulsando en el mundo de la educación. Descubre historias de cambio, 
+                innovación pedagógica y el impacto de nuestros programas en comunidades educativas.
+              </p>
             </div>
           </div>
         </section>

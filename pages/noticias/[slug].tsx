@@ -34,6 +34,28 @@ export default function ArticlePage() {
     if (slug) {
       fetchArticle();
     }
+    
+    // Mobile menu functionality
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const closeMenuBtn = document.getElementById('close-menu-btn');
+    const mobileMenu = document.getElementById('mobile-menu');
+    
+    const openMenu = () => {
+      if (mobileMenu) mobileMenu.classList.remove('translate-x-full');
+    };
+    
+    const closeMenu = () => {
+      if (mobileMenu) mobileMenu.classList.add('translate-x-full');
+    };
+    
+    if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', openMenu);
+    if (closeMenuBtn) closeMenuBtn.addEventListener('click', closeMenu);
+    
+    return () => {
+      // Clean up event listeners
+      if (mobileMenuBtn) mobileMenuBtn.removeEventListener('click', openMenu);
+      if (closeMenuBtn) closeMenuBtn.removeEventListener('click', closeMenu);
+    };
   }, [slug]);
 
   const fetchArticle = async () => {
@@ -260,33 +282,36 @@ export default function ArticlePage() {
               </div>
               
               {/* Desktop Navigation */}
-              <nav className="hidden lg:flex items-center space-x-10">
-                <Link href="/#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+              <nav className="hidden lg:flex items-center space-x-7 xl:space-x-9">
+                <Link href="/#pasantias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   PASANTÍAS
                 </Link>
-                <Link href="/noticias" className="text-base font-medium text-black font-semibold">
+                <Link href="/programas" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                  PROGRAMAS
+                </Link>
+                <Link href="/noticias" className="text-sm font-medium text-black font-semibold">
                   NOTICIAS Y EVENTOS
                 </Link>
-                <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                <Link href="/nosotros" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   NOSOTROS
                 </Link>
-                <a href="/#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                <a href="/#red" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   RED
                 </a>
-                <Link href="/#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">
+                <Link href="/#contacto" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   CONTACTO
                 </Link>
               </nav>
               
               {/* Login Button */}
               <div className="hidden lg:flex items-center">
-                <Link href="/login" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
+                <Link href="/login" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
                   PLATAFORMA DE CRECIMIENTO
                 </Link>
               </div>
               
               {/* Mobile Menu Button */}
-              <button className="lg:hidden p-2 text-gray-800">
+              <button id="mobile-menu-btn" className="lg:hidden p-2 text-gray-800">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
                 </svg>
@@ -294,6 +319,31 @@ export default function ArticlePage() {
             </div>
           </div>
         </header>
+        
+        {/* Mobile Menu Overlay */}
+        <div id="mobile-menu" className="fixed inset-0 bg-white z-50 transform translate-x-full transition-transform duration-300 lg:hidden">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-8">
+              <span className="text-2xl font-black">FNE</span>
+              <button id="close-menu-btn" className="p-2">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <nav className="flex flex-col space-y-6">
+              <a href="/#pasantias" className="text-xl font-medium">PASANTÍAS</a>
+              <Link href="/programas" className="text-xl font-medium">PROGRAMAS</Link>
+              <Link href="/noticias" className="text-xl font-medium">NOTICIAS Y EVENTOS</Link>
+              <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
+              <a href="/#red" className="text-xl font-medium">RED</a>
+              <a href="/#contacto" className="text-xl font-medium">CONTACTO</a>
+              <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
+                PLATAFORMA DE CRECIMIENTO
+              </Link>
+            </nav>
+          </div>
+        </div>
 
         {/* Article Content */}
         <main className="pt-32">

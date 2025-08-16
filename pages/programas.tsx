@@ -22,7 +22,7 @@ const programs: Program[] = [
     id: 'inspira',
     title: 'INSPIRA',
     subtitle: 'Viaja y sumérgete en una escuela de vanguardia educativa',
-    duration: '1 semana',
+    duration: '2 semanas',
     description: 'INSPIRA es una experiencia diseñada para ampliar la mirada pedagógica y entregar respuestas concretas sobre cómo alcanzar paso a paso una educación de vanguardia para Chile.',
     objectives: [
       'Visitas Pedagógicas: Jornadas en colegios de vanguardia para conocer el proyecto educativo',
@@ -127,11 +127,6 @@ const programs: Program[] = [
 export default function ProgramasPage() {
   const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
   const [activeTab, setActiveTab] = useState<'objectives' | 'activities' | 'results'>('objectives');
-  const [isVisible, setIsVisible] = useState(false);
-
-  useEffect(() => {
-    setIsVisible(true);
-  }, []);
 
   const handleProgramClick = (program: Program) => {
     setSelectedProgram(program);
@@ -179,18 +174,18 @@ export default function ProgramasPage() {
               </div>
               
               {/* Desktop Navigation */}
-              <nav className="hidden lg:flex items-center space-x-10">
-                <a href="/#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</a>
-                <Link href="/programas" className="text-base font-medium text-black">PROGRAMAS</Link>
-                <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
-                <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
-                <a href="/#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
-                <a href="/#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">CONTACTO</a>
+              <nav className="hidden lg:flex items-center space-x-7 xl:space-x-9">
+                <a href="/#pasantias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</a>
+                <Link href="/programas" className="text-sm font-medium text-black">PROGRAMAS</Link>
+                <Link href="/noticias" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
+                <Link href="/nosotros" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
+                <a href="/#red" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
+                <a href="/#contacto" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">CONTACTO</a>
               </nav>
               
               {/* Login Button */}
               <div className="hidden lg:flex items-center">
-                <Link href="/login" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
+                <Link href="/login" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
                   PLATAFORMA DE CRECIMIENTO
                 </Link>
               </div>
@@ -230,36 +225,19 @@ export default function ProgramasPage() {
           </div>
         </div>
 
-        {/* Hero Section with Animated Background */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-black via-gray-900 to-black">
-          {/* Animated geometric shapes */}
-          <div className="absolute inset-0">
-            <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
-            <div className="absolute top-40 right-10 w-72 h-72 bg-yellow-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
-            <div className="absolute -bottom-8 left-40 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
-          </div>
-          
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
-            <div className={`text-center transform transition-all duration-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
-              <h1 className="text-5xl md:text-7xl font-black text-white mb-6">
-                NUESTROS <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">PROGRAMAS</span>
+        {/* Hero Section - Matching Nosotros Style */}
+        <section className="pt-64 pb-24 px-6 bg-gradient-to-b from-gray-50 to-white">
+          <div className="max-w-7xl mx-auto">
+            {/* Main Statement */}
+            <div className="max-w-4xl mx-auto">
+              <h1 className="text-5xl lg:text-6xl font-black uppercase mb-8 text-center transition-all duration-300 hover:text-[#FFC107] hover:scale-105 cursor-default">
+                PROGRAMAS DE TRANSFORMACIÓN EDUCATIVA
               </h1>
-              <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto">
-                Rutas transformadoras hacia una nueva educación
+              <p className="text-xl text-gray-700 leading-relaxed text-center">
+                Rutas transformadoras hacia una nueva educación. Descubre nuestros programas diseñados 
+                para acompañar a las comunidades educativas en su viaje hacia la innovación pedagógica 
+                y el desarrollo integral de cada estudiante.
               </p>
-              <div className="mt-8 flex flex-wrap justify-center gap-4">
-                {programs.map((program, index) => (
-                  <div
-                    key={program.id}
-                    className={`transform transition-all duration-500 delay-${index * 100}`}
-                    style={{ transitionDelay: `${index * 100}ms` }}
-                  >
-                    <span className="inline-block bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium">
-                      {program.icon} {program.title}
-                    </span>
-                  </div>
-                ))}
-              </div>
             </div>
           </div>
         </section>
@@ -270,10 +248,7 @@ export default function ProgramasPage() {
             {programs.map((program, index) => (
               <div
                 key={program.id}
-                className={`group relative transform transition-all duration-700 hover:scale-105 cursor-pointer ${
-                  isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
-                }`}
-                style={{ transitionDelay: `${index * 150}ms` }}
+                className="group relative transform transition-all duration-700 hover:scale-105 cursor-pointer"
                 onClick={() => handleProgramClick(program)}
               >
                 <div className={`relative overflow-hidden rounded-3xl shadow-xl ${program.gradient} p-1`}>
@@ -465,9 +440,9 @@ export default function ProgramasPage() {
                 
                 {/* CTA Buttons */}
                 <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                  <button className="flex-1 bg-black text-white px-6 py-3 rounded-full font-semibold hover:bg-gray-800 transition-colors">
+                  <Link href="/#contacto" className="flex-1 bg-black text-white px-6 py-3 rounded-full font-semibold hover:bg-gray-800 transition-colors text-center">
                     Solicitar más información
-                  </button>
+                  </Link>
                   <button className="flex-1 border-2 border-black text-black px-6 py-3 rounded-full font-semibold hover:bg-black hover:text-white transition-colors">
                     Descargar brochure
                   </button>
@@ -526,8 +501,8 @@ export default function ProgramasPage() {
               Comienza hoy el viaje hacia una educación de vanguardia
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/contact" className="bg-white text-black px-8 py-4 rounded-full font-semibold hover:bg-gray-100 transition-colors">
-                Agenda una reunión
+              <Link href="/#contacto" className="bg-white text-black px-8 py-4 rounded-full font-semibold hover:bg-gray-100 transition-colors">
+                Contáctanos
               </Link>
               <Link href="/login" className="border-2 border-white text-white px-8 py-4 rounded-full font-semibold hover:bg-white hover:text-black transition-colors">
                 Accede a la plataforma
@@ -540,13 +515,6 @@ export default function ProgramasPage() {
       </div>
 
       <style jsx>{`
-        @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
-        }
-        
         @keyframes slideUp {
           from {
             opacity: 0;
@@ -561,18 +529,6 @@ export default function ProgramasPage() {
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
-        }
-        
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        
-        .animation-delay-4000 {
-          animation-delay: 4s;
         }
         
         .animate-slideUp {

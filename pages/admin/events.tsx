@@ -136,7 +136,16 @@ export default function EventsManagement() {
       setShowModal(false);
       resetForm();
       fetchEvents();
-      toast.success(editingEvent?.id ? 'Evento actualizado exitosamente' : 'Evento creado exitosamente');
+      
+      // Show specific success message for updates with timeline info
+      if (editingEvent?.id) {
+        toast.success('Evento actualizado exitosamente. La línea de tiempo se actualizará automáticamente.', {
+          duration: 5000,
+          icon: '✅'
+        });
+      } else {
+        toast.success('Evento creado exitosamente');
+      }
     } catch (error) {
       console.error('Error saving event:', error);
       toast.error('Error al guardar el evento');

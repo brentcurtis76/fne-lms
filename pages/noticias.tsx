@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Footer from '../components/Footer';
 import EventsTimeline from '../components/EventsTimeline';
 import NewsSlider from '../components/NewsSlider';
+import { createClient } from '@supabase/supabase-js';
 
 interface NewsArticle {
   id: string;
@@ -33,11 +34,18 @@ interface Event {
   is_published: boolean;
 }
 
+// Initialize Supabase client for real-time subscriptions
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
 export default function NewsPage() {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [events, setEvents] = useState<{ pastEvents: Event[], futureEvents: Event[] }>({ pastEvents: [], futureEvents: [] });
   const [loading, setLoading] = useState(true);
   const [eventsLoading, setEventsLoading] = useState(true);
+  const [eventsUpdating, setEventsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
@@ -47,6 +55,28 @@ export default function NewsPage() {
   useEffect(() => {
     fetchArticles();
     fetchEvents();
+    
+    // Set up real-time subscription for events table
+    const eventsSubscription = supabase
+      .channel('events-changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', // Listen to all changes (INSERT, UPDATE, DELETE)
+          schema: 'public', 
+          table: 'events' 
+        }, 
+        (payload) => {
+          console.log('[News Page] Real-time event change detected:', payload.eventType);
+          // Show updating indicator and refetch events
+          setEventsUpdating(true);
+          fetchEvents();
+          // Clear updating indicator after a short delay
+          setTimeout(() => setEventsUpdating(false), 2000);
+        }
+      )
+      .subscribe((status) => {
+        console.log('[News Page] Real-time subscription status:', status);
+      });
     
     // Timeline animation on scroll
     const observerOptions = {
@@ -71,6 +101,9 @@ export default function NewsPage() {
     timelineEvents.forEach(event => observer.observe(event));
 
     return () => {
+      // Clean up real-time subscription
+      eventsSubscription.unsubscribe();
+      // Clean up observer
       timelineEvents.forEach(event => observer.unobserve(event));
     };
   }, []);
@@ -476,7 +509,8 @@ export default function NewsPage() {
             <EventsTimeline 
               pastEvents={events.pastEvents} 
               futureEvents={events.futureEvents} 
-              loading={eventsLoading} 
+              loading={eventsLoading}
+              isUpdating={eventsUpdating} 
             />
           </div>
         </section>

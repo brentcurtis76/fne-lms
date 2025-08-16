@@ -39,6 +39,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Sort past events by date_start descending (most recent first)
+    pastEvents.sort((a, b) => {
+      const dateA = new Date(a.date_start).getTime();
+      const dateB = new Date(b.date_start).getTime();
+      return dateB - dateA; // Descending order
+    });
+
+    // Sort future events by date_start ascending (soonest first)
+    futureEvents.sort((a, b) => {
+      const dateA = new Date(a.date_start).getTime();
+      const dateB = new Date(b.date_start).getTime();
+      return dateA - dateB; // Ascending order
+    });
+
     return res.status(200).json({
       pastEvents,
       futureEvents,

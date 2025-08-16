@@ -155,27 +155,80 @@ export default function ProgramasPage() {
         <script src="https://cdn.tailwindcss.com"></script>
       </Head>
 
-      <div className="min-h-screen bg-gray-50">
-        {/* Navigation */}
-        <nav className="bg-white shadow-sm sticky top-0 z-40">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center h-16">
-              <Link href="/" className="flex items-center">
-                <img src="/logo-fne.png" alt="FNE" className="h-10" />
-              </Link>
-              <div className="hidden md:flex space-x-8">
-                <Link href="/" className="text-gray-700 hover:text-gray-900 transition-colors">Inicio</Link>
-                <Link href="/nosotros" className="text-gray-700 hover:text-gray-900 transition-colors">Nosotros</Link>
-                <Link href="/programas" className="text-black font-semibold">Programas</Link>
-                <Link href="/noticias" className="text-gray-700 hover:text-gray-900 transition-colors">Noticias</Link>
-                <Link href="/equipo" className="text-gray-700 hover:text-gray-900 transition-colors">Equipo</Link>
+      <div className="min-h-screen bg-white">
+        {/* Header - matching index.tsx style */}
+        <header id="header" className="fixed top-8 left-0 right-0 z-50 transition-all duration-300">
+          <div className="max-w-7xl mx-auto px-6">
+            <div className="bg-white/95 backdrop-blur-sm rounded-full shadow-lg px-8 py-3 flex items-center justify-between">
+              {/* Logo */}
+              <div className="flex items-center">
+                <Link href="/" className="flex items-center space-x-3">
+                  <img 
+                    src="/Logo BW.png?v=3" 
+                    alt="FNE" 
+                    className="h-12 w-auto py-1" 
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      if (e.currentTarget.nextElementSibling) {
+                        (e.currentTarget.nextElementSibling as HTMLElement).style.display = 'block';
+                      }
+                    }}
+                  />
+                  <span className="text-2xl font-black tracking-tight hidden">FNE</span>
+                </Link>
               </div>
-              <Link href="/login" className="bg-black text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors">
-                Acceder
-              </Link>
+              
+              {/* Desktop Navigation */}
+              <nav className="hidden lg:flex items-center space-x-10">
+                <a href="/#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</a>
+                <Link href="/programas" className="text-base font-medium text-black">PROGRAMAS</Link>
+                <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
+                <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
+                <a href="/#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
+                <a href="/#contacto" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">CONTACTO</a>
+              </nav>
+              
+              {/* Login Button */}
+              <div className="hidden lg:flex items-center">
+                <Link href="/login" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
+                  PLATAFORMA DE CRECIMIENTO
+                </Link>
+              </div>
+              
+              {/* Mobile Menu Button */}
+              <button id="mobile-menu-btn" className="lg:hidden p-2 text-gray-800">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                </svg>
+              </button>
             </div>
           </div>
-        </nav>
+        </header>
+        
+        {/* Mobile Menu Overlay */}
+        <div id="mobile-menu" className="fixed inset-0 bg-white z-50 transform translate-x-full transition-transform duration-300 lg:hidden">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-8">
+              <span className="text-2xl font-black">FNE</span>
+              <button id="close-menu-btn" className="p-2">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+            <nav className="flex flex-col space-y-6">
+              <a href="/#pasantias" className="text-xl font-medium">PASANTÍAS</a>
+              <Link href="/programas" className="text-xl font-medium">PROGRAMAS</Link>
+              <Link href="/noticias" className="text-xl font-medium">NOTICIAS Y EVENTOS</Link>
+              <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
+              <a href="/#red" className="text-xl font-medium">RED</a>
+              <a href="/#contacto" className="text-xl font-medium">CONTACTO</a>
+              <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
+                PLATAFORMA DE CRECIMIENTO
+              </Link>
+            </nav>
+          </div>
+        </div>
 
         {/* Hero Section with Animated Background */}
         <section className="relative overflow-hidden bg-gradient-to-br from-black via-gray-900 to-black">

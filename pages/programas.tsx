@@ -1,0 +1,549 @@
+import React, { useState, useEffect } from 'react';
+import Head from 'next/head';
+import Link from 'next/link';
+import Footer from '../components/Footer';
+
+interface Program {
+  id: string;
+  title: string;
+  subtitle: string;
+  duration?: string;
+  description: string;
+  objectives: string[];
+  activities: string[];
+  results?: string[];
+  icon: string;
+  color: string;
+  gradient: string;
+}
+
+const programs: Program[] = [
+  {
+    id: 'inspira',
+    title: 'INSPIRA',
+    subtitle: 'Viaja y sumérgete en una escuela de vanguardia educativa',
+    duration: '1 semana',
+    description: 'INSPIRA es una experiencia diseñada para ampliar la mirada pedagógica y entregar respuestas concretas sobre cómo alcanzar paso a paso una educación de vanguardia para Chile.',
+    objectives: [
+      'Visitas Pedagógicas: Jornadas en colegios de vanguardia para conocer el proyecto educativo',
+      'Estadia Pedagógica: Trabajo pedagógico en aula junto a un educador de vanguardia',
+      'Conversatorios con Expertos: Sesiones de diálogo con expertos en educación de Cataluña',
+      'Talleres de síntesis: Síntesis de aprendizajes y recursos compartidos',
+      'Plataforma de registro: Bitácora de viaje compartida con documentación del cambio'
+    ],
+    activities: [
+      'Jornadas de visitas a colegios de vanguardia',
+      'Trabajo pedagógico directo en aula',
+      'Diálogos con expertos educativos',
+      'Síntesis de aprendizajes y desafíos',
+      'Registro multimedia del viaje'
+    ],
+    icon: '✈️',
+    color: 'from-purple-600 to-pink-600',
+    gradient: 'bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400'
+  },
+  {
+    id: 'inicia',
+    title: 'INICIA',
+    subtitle: 'Introducción a la Nueva Educación',
+    duration: '40-80 horas',
+    description: 'Programa diseñado para establecimientos educacionales que desean conocer y discernir el inicio de un largo y profundo proceso de transformación de su cultura educativa.',
+    objectives: [
+      'Asesorar y formar al director y su equipo en liderazgo del cambio',
+      'Acompañamiento al equipo de gestión para el proceso cultural',
+      'Favorecer la emergencia de un sentido de urgencia compartido',
+      'Visualizar un horizonte de transformación compartido',
+      'Construir una línea base participativa rápida',
+      'Identificar necesidades para implementación futura'
+    ],
+    activities: [
+      'Asesoría Directiva y al equipo de gestión',
+      'Talleres de formación con líderes de base',
+      'Visitas internacionales a la escuela',
+      'Plataforma de formación con cursos introductorios'
+    ],
+    results: [
+      'Creación colectiva de proyecto de transformación',
+      'Construcción de línea base de cambio',
+      'Diseño de plan general para el primer año',
+      'Elección de personas para INSPIRA en BCN'
+    ],
+    icon: '🚀',
+    color: 'from-blue-600 to-cyan-600',
+    gradient: 'bg-gradient-to-br from-blue-600 via-cyan-500 to-teal-400'
+  },
+  {
+    id: 'evoluciona',
+    title: 'EVOLUCIONA',
+    subtitle: 'Transformación profunda de la cultura educativa',
+    description: 'Programa orientado hacia una profunda transformación de la cultura educativa de cada establecimiento de forma progresiva durante 3 años.',
+    objectives: [
+      'Asesoramiento en equipo de consultores expertos',
+      'Flexibilidad de Evolución Cultural PROPIA',
+      'Modelo universal para evolucionar con base en evolución cultural',
+      'Transformación a medida para cada establecimiento'
+    ],
+    activities: [
+      'Evolución del modelo pedagógico de Barcelona en flexibilidad',
+      'Gestión y monitoreo del proceso ejecutivo cultural',
+      'Asegurar apertura de servicios asesores y formación',
+      'Plan en caso múltiple según cultura'
+    ],
+    icon: '🦋',
+    color: 'from-green-600 to-emerald-600',
+    gradient: 'bg-gradient-to-br from-green-600 via-emerald-500 to-teal-400'
+  },
+  {
+    id: 'aula-generativa',
+    title: 'AULA GENERATIVA',
+    subtitle: 'Ecosistema de relaciones saludables para el crecimiento',
+    description: 'El aula generativa busca optimizar los procesos y elevar los resultados en el crecimiento y aprendizaje de cada estudiante, fortaleciendo la calidad de los vínculos entre pares.',
+    objectives: [
+      'Construcción de ecosistema de relaciones saludables en el aula',
+      'Desarrollo de autonomía, interdependencia y trabajo colaborativo',
+      'Orientación al crecimiento individual y colectivo',
+      'Desarrollo de mentalidad de crecimiento y valores'
+    ],
+    activities: [
+      'Programa de educación relacional',
+      'Programa de innovación pedagógica en el aula',
+      'Programa de crecimiento personal',
+      'Programa de prácticas generativas',
+      'Programa de comunidades de crecimiento'
+    ],
+    results: [
+      'Calidad de vida para educadores con aulas con motor propio',
+      'Vínculos seguros y prosociales entre pares',
+      'Conexión positiva con las familias',
+      'Superación de la dicotomía Convivencia/Aprendizaje',
+      'Síntesis hacia la mirada generativa'
+    ],
+    icon: '🌱',
+    color: 'from-yellow-600 to-orange-600',
+    gradient: 'bg-gradient-to-br from-yellow-500 via-orange-500 to-red-500'
+  }
+];
+
+export default function ProgramasPage() {
+  const [selectedProgram, setSelectedProgram] = useState<Program | null>(null);
+  const [activeTab, setActiveTab] = useState<'objectives' | 'activities' | 'results'>('objectives');
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
+
+  const handleProgramClick = (program: Program) => {
+    setSelectedProgram(program);
+    setActiveTab('objectives');
+  };
+
+  return (
+    <>
+      <Head>
+        <title>Programas - Fundación Nueva Educación</title>
+        <meta name="description" content="Programas de transformación educativa de la Fundación Nueva Educación" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="icon" href="/favicon.ico" />
+        
+        {/* Google Fonts */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet" />
+        
+        {/* Tailwind CSS */}
+        <script src="https://cdn.tailwindcss.com"></script>
+      </Head>
+
+      <div className="min-h-screen bg-gray-50">
+        {/* Navigation */}
+        <nav className="bg-white shadow-sm sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center h-16">
+              <Link href="/" className="flex items-center">
+                <img src="/logo-fne.png" alt="FNE" className="h-10" />
+              </Link>
+              <div className="hidden md:flex space-x-8">
+                <Link href="/" className="text-gray-700 hover:text-gray-900 transition-colors">Inicio</Link>
+                <Link href="/nosotros" className="text-gray-700 hover:text-gray-900 transition-colors">Nosotros</Link>
+                <Link href="/programas" className="text-black font-semibold">Programas</Link>
+                <Link href="/noticias" className="text-gray-700 hover:text-gray-900 transition-colors">Noticias</Link>
+                <Link href="/equipo" className="text-gray-700 hover:text-gray-900 transition-colors">Equipo</Link>
+              </div>
+              <Link href="/login" className="bg-black text-white px-6 py-2 rounded-full hover:bg-gray-800 transition-colors">
+                Acceder
+              </Link>
+            </div>
+          </div>
+        </nav>
+
+        {/* Hero Section with Animated Background */}
+        <section className="relative overflow-hidden bg-gradient-to-br from-black via-gray-900 to-black">
+          {/* Animated geometric shapes */}
+          <div className="absolute inset-0">
+            <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob"></div>
+            <div className="absolute top-40 right-10 w-72 h-72 bg-yellow-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-2000"></div>
+            <div className="absolute -bottom-8 left-40 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-blob animation-delay-4000"></div>
+          </div>
+          
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+            <div className={`text-center transform transition-all duration-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'}`}>
+              <h1 className="text-5xl md:text-7xl font-black text-white mb-6">
+                NUESTROS <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-orange-500">PROGRAMAS</span>
+              </h1>
+              <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto">
+                Rutas transformadoras hacia una nueva educación
+              </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-4">
+                {programs.map((program, index) => (
+                  <div
+                    key={program.id}
+                    className={`transform transition-all duration-500 delay-${index * 100}`}
+                    style={{ transitionDelay: `${index * 100}ms` }}
+                  >
+                    <span className="inline-block bg-white/10 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium">
+                      {program.icon} {program.title}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Programs Grid */}
+        <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {programs.map((program, index) => (
+              <div
+                key={program.id}
+                className={`group relative transform transition-all duration-700 hover:scale-105 cursor-pointer ${
+                  isVisible ? 'translate-y-0 opacity-100' : 'translate-y-10 opacity-0'
+                }`}
+                style={{ transitionDelay: `${index * 150}ms` }}
+                onClick={() => handleProgramClick(program)}
+              >
+                <div className={`relative overflow-hidden rounded-3xl shadow-xl ${program.gradient} p-1`}>
+                  <div className="bg-white rounded-3xl p-8 h-full">
+                    {/* Program Header */}
+                    <div className="flex items-start justify-between mb-6">
+                      <div>
+                        <span className="text-4xl mb-4 block">{program.icon}</span>
+                        <h3 className="text-3xl font-black text-gray-900 mb-2">{program.title}</h3>
+                        <p className="text-gray-600 font-medium">{program.subtitle}</p>
+                        {program.duration && (
+                          <span className="inline-block mt-2 bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
+                            ⏱ {program.duration}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Program Description */}
+                    <p className="text-gray-700 mb-6 line-clamp-3">{program.description}</p>
+                    
+                    {/* Preview of objectives */}
+                    <div className="space-y-2 mb-6">
+                      {program.objectives.slice(0, 2).map((objective, idx) => (
+                        <div key={idx} className="flex items-start">
+                          <span className="text-gray-400 mr-2">•</span>
+                          <span className="text-sm text-gray-600 line-clamp-1">{objective}</span>
+                        </div>
+                      ))}
+                      {program.objectives.length > 2 && (
+                        <span className="text-sm text-gray-500 italic">
+                          +{program.objectives.length - 2} más...
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* CTA */}
+                    <div className="flex items-center text-gray-900 font-semibold group-hover:translate-x-2 transition-transform">
+                      <span>Explorar programa</span>
+                      <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Hover effect glow */}
+                <div className={`absolute inset-0 rounded-3xl ${program.gradient} opacity-0 group-hover:opacity-20 blur-xl transition-opacity duration-500`}></div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Program Detail Modal/Section */}
+        {selectedProgram && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative animate-slideUp">
+              {/* Close button */}
+              <button
+                onClick={() => setSelectedProgram(null)}
+                className="absolute top-6 right-6 w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 transition-colors z-10"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              
+              {/* Header with gradient */}
+              <div className={`${selectedProgram.gradient} p-8 rounded-t-3xl`}>
+                <div className="text-white">
+                  <span className="text-5xl block mb-4">{selectedProgram.icon}</span>
+                  <h2 className="text-4xl font-black mb-2">{selectedProgram.title}</h2>
+                  <p className="text-xl opacity-90">{selectedProgram.subtitle}</p>
+                  {selectedProgram.duration && (
+                    <span className="inline-block mt-4 bg-white/20 backdrop-blur text-white px-4 py-2 rounded-full">
+                      ⏱ Duración: {selectedProgram.duration}
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              {/* Content */}
+              <div className="p-8">
+                {/* Description */}
+                <div className="mb-8">
+                  <p className="text-lg text-gray-700 leading-relaxed">{selectedProgram.description}</p>
+                </div>
+                
+                {/* Tabs */}
+                <div className="border-b border-gray-200 mb-6">
+                  <div className="flex space-x-8">
+                    <button
+                      onClick={() => setActiveTab('objectives')}
+                      className={`pb-3 px-1 relative font-semibold transition-colors ${
+                        activeTab === 'objectives' 
+                          ? 'text-black' 
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Objetivos
+                      {activeTab === 'objectives' && (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black"></div>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('activities')}
+                      className={`pb-3 px-1 relative font-semibold transition-colors ${
+                        activeTab === 'activities' 
+                          ? 'text-black' 
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                    >
+                      Actividades
+                      {activeTab === 'activities' && (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black"></div>
+                      )}
+                    </button>
+                    {selectedProgram.results && (
+                      <button
+                        onClick={() => setActiveTab('results')}
+                        className={`pb-3 px-1 relative font-semibold transition-colors ${
+                          activeTab === 'results' 
+                            ? 'text-black' 
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        Resultados
+                        {activeTab === 'results' && (
+                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-black"></div>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Tab Content */}
+                <div className="space-y-4 animate-fadeIn">
+                  {activeTab === 'objectives' && (
+                    <div className="space-y-3">
+                      {selectedProgram.objectives.map((objective, index) => (
+                        <div 
+                          key={index} 
+                          className="flex items-start p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                          style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                          <span className="flex-shrink-0 w-8 h-8 bg-black text-white rounded-full flex items-center justify-center text-sm font-bold mr-4">
+                            {index + 1}
+                          </span>
+                          <p className="text-gray-700">{objective}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {activeTab === 'activities' && (
+                    <div className="space-y-3">
+                      {selectedProgram.activities.map((activity, index) => (
+                        <div 
+                          key={index} 
+                          className="flex items-start p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                          style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                          <span className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-4">
+                            ✓
+                          </span>
+                          <p className="text-gray-700">{activity}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {activeTab === 'results' && selectedProgram.results && (
+                    <div className="space-y-3">
+                      {selectedProgram.results.map((result, index) => (
+                        <div 
+                          key={index} 
+                          className="flex items-start p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                          style={{ animationDelay: `${index * 50}ms` }}
+                        >
+                          <span className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-4">
+                            ★
+                          </span>
+                          <p className="text-gray-700">{result}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* CTA Buttons */}
+                <div className="mt-8 flex flex-col sm:flex-row gap-4">
+                  <button className="flex-1 bg-black text-white px-6 py-3 rounded-full font-semibold hover:bg-gray-800 transition-colors">
+                    Solicitar más información
+                  </button>
+                  <button className="flex-1 border-2 border-black text-black px-6 py-3 rounded-full font-semibold hover:bg-black hover:text-white transition-colors">
+                    Descargar brochure
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Timeline Section */}
+        <section className="py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-4xl font-black text-gray-900 mb-4">RUTA DE TRANSFORMACIÓN</h2>
+              <p className="text-xl text-gray-600">El camino recomendado hacia la nueva educación</p>
+            </div>
+            
+            <div className="relative">
+              {/* Timeline line */}
+              <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-blue-500 via-purple-500 to-orange-500"></div>
+              
+              {/* Timeline items */}
+              <div className="space-y-12">
+                {programs.map((program, index) => (
+                  <div key={program.id} className={`flex items-center ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
+                    <div className="flex-1">
+                      <div className={`p-6 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow ${index % 2 === 0 ? 'mr-8 text-right' : 'ml-8'}`}>
+                        <span className="text-3xl">{program.icon}</span>
+                        <h3 className="text-2xl font-bold mt-2 mb-2">{program.title}</h3>
+                        <p className="text-gray-600">{program.subtitle}</p>
+                      </div>
+                    </div>
+                    
+                    {/* Timeline dot */}
+                    <div className="relative z-10">
+                      <div className="w-12 h-12 bg-white border-4 border-black rounded-full flex items-center justify-center">
+                        <span className="text-sm font-bold">{index + 1}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1"></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section className="py-20 bg-gradient-to-br from-black via-gray-900 to-black">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h2 className="text-4xl font-black text-white mb-6">
+              ¿LISTO PARA TRANSFORMAR TU INSTITUCIÓN?
+            </h2>
+            <p className="text-xl text-gray-300 mb-8">
+              Comienza hoy el viaje hacia una educación de vanguardia
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/contact" className="bg-white text-black px-8 py-4 rounded-full font-semibold hover:bg-gray-100 transition-colors">
+                Agenda una reunión
+              </Link>
+              <Link href="/login" className="border-2 border-white text-white px-8 py-4 rounded-full font-semibold hover:bg-white hover:text-black transition-colors">
+                Accede a la plataforma
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <Footer />
+      </div>
+
+      <style jsx>{`
+        @keyframes blob {
+          0% { transform: translate(0px, 0px) scale(1); }
+          33% { transform: translate(30px, -50px) scale(1.1); }
+          66% { transform: translate(-20px, 20px) scale(0.9); }
+          100% { transform: translate(0px, 0px) scale(1); }
+        }
+        
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+        
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+        
+        .animate-slideUp {
+          animation: slideUp 0.5s ease-out;
+        }
+        
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+        
+        .line-clamp-1 {
+          display: -webkit-box;
+          -webkit-line-clamp: 1;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        
+        .line-clamp-3 {
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
+    </>
+  );
+}

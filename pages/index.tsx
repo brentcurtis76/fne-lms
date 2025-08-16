@@ -186,6 +186,7 @@ export default function HomePage() {
               {/* Desktop Navigation */}
               <nav className="hidden lg:flex items-center space-x-10">
                 <a href="#pasantias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">PASANTÍAS</a>
+                <Link href="/programas" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">PROGRAMAS</Link>
                 <Link href="/noticias" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOTICIAS Y EVENTOS</Link>
                 <Link href="/nosotros" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">NOSOTROS</Link>
                 <a href="#red" className="text-base font-medium text-gray-800 hover:text-gray-600 transition-colors">RED</a>
@@ -222,6 +223,7 @@ export default function HomePage() {
             </div>
             <nav className="flex flex-col space-y-6">
               <a href="#pasantias" className="text-xl font-medium">PASANTÍAS</a>
+              <Link href="/programas" className="text-xl font-medium">PROGRAMAS</Link>
               <Link href="/noticias" className="text-xl font-medium">NOTICIAS Y EVENTOS</Link>
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
               <a href="#red" className="text-xl font-medium">RED</a>

@@ -38,9 +38,9 @@ const programs: Program[] = [
       'Síntesis de aprendizajes y desafíos',
       'Registro multimedia del viaje'
     ],
-    icon: '✈️',
-    color: 'from-purple-600 to-pink-600',
-    gradient: 'bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400'
+    icon: 'plane',
+    color: 'from-black to-gray-800',
+    gradient: 'bg-gradient-to-br from-black via-gray-800 to-gray-700'
   },
   {
     id: 'inicia',
@@ -68,9 +68,9 @@ const programs: Program[] = [
       'Diseño de plan general para el primer año',
       'Elección de personas para INSPIRA en BCN'
     ],
-    icon: '🚀',
-    color: 'from-blue-600 to-cyan-600',
-    gradient: 'bg-gradient-to-br from-blue-600 via-cyan-500 to-teal-400'
+    icon: 'rocket',
+    color: 'from-[#0066CC] to-[#004499]',
+    gradient: 'bg-gradient-to-br from-[#0066CC] via-[#0055BB] to-[#004499]'
   },
   {
     id: 'evoluciona',
@@ -89,9 +89,9 @@ const programs: Program[] = [
       'Asegurar apertura de servicios asesores y formación',
       'Plan en caso múltiple según cultura'
     ],
-    icon: '🦋',
-    color: 'from-green-600 to-emerald-600',
-    gradient: 'bg-gradient-to-br from-green-600 via-emerald-500 to-teal-400'
+    icon: 'transform',
+    color: 'from-[#FFC107] to-[#FFA000]',
+    gradient: 'bg-gradient-to-br from-[#FFC107] via-[#FFB300] to-[#FFA000]'
   },
   {
     id: 'aula-generativa',
@@ -118,9 +118,9 @@ const programs: Program[] = [
       'Superación de la dicotomía Convivencia/Aprendizaje',
       'Síntesis hacia la mirada generativa'
     ],
-    icon: '🌱',
-    color: 'from-yellow-600 to-orange-600',
-    gradient: 'bg-gradient-to-br from-yellow-500 via-orange-500 to-red-500'
+    icon: 'growth',
+    color: 'from-gray-700 to-gray-900',
+    gradient: 'bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900'
   }
 ];
 
@@ -131,6 +131,38 @@ export default function ProgramasPage() {
   const handleProgramClick = (program: Program) => {
     setSelectedProgram(program);
     setActiveTab('objectives');
+  };
+
+  const renderIcon = (iconName: string, className: string = "w-10 h-10") => {
+    switch(iconName) {
+      case 'plane':
+        return (
+          <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+            <path d="M21 16v-2l-8-5V3.5A1.5 1.5 0 0011.5 2A1.5 1.5 0 0010 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+          </svg>
+        );
+      case 'rocket':
+        return (
+          <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+          </svg>
+        );
+      case 'transform':
+        return (
+          <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>
+          </svg>
+        );
+      case 'growth':
+        return (
+          <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none"/>
+          </svg>
+        );
+      default:
+        return null;
+    }
   };
 
   return (
@@ -256,12 +288,17 @@ export default function ProgramasPage() {
                     {/* Program Header */}
                     <div className="flex items-start justify-between mb-6">
                       <div>
-                        <span className="text-4xl mb-4 block">{program.icon}</span>
+                        <div className="mb-4 text-gray-900">
+                          {renderIcon(program.icon, "w-12 h-12")}
+                        </div>
                         <h3 className="text-3xl font-black text-gray-900 mb-2">{program.title}</h3>
                         <p className="text-gray-600 font-medium">{program.subtitle}</p>
                         {program.duration && (
                           <span className="inline-block mt-2 bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
-                            ⏱ {program.duration}
+                            <svg className="inline w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {program.duration}
                           </span>
                         )}
                       </div>
@@ -319,12 +356,17 @@ export default function ProgramasPage() {
               {/* Header with gradient */}
               <div className={`${selectedProgram.gradient} p-8 rounded-t-3xl`}>
                 <div className="text-white">
-                  <span className="text-5xl block mb-4">{selectedProgram.icon}</span>
+                  <div className="mb-4">
+                    {renderIcon(selectedProgram.icon, "w-16 h-16")}
+                  </div>
                   <h2 className="text-4xl font-black mb-2">{selectedProgram.title}</h2>
                   <p className="text-xl opacity-90">{selectedProgram.subtitle}</p>
                   {selectedProgram.duration && (
                     <span className="inline-block mt-4 bg-white/20 backdrop-blur text-white px-4 py-2 rounded-full">
-                      ⏱ Duración: {selectedProgram.duration}
+                      <svg className="inline w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Duración: {selectedProgram.duration}
                     </span>
                   )}
                 </div>
@@ -411,8 +453,10 @@ export default function ProgramasPage() {
                           className="flex items-start p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
                           style={{ animationDelay: `${index * 50}ms` }}
                         >
-                          <span className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-yellow-400 to-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-4">
-                            ✓
+                          <span className="flex-shrink-0 w-8 h-8 bg-[#0066CC] text-white rounded-full flex items-center justify-center text-sm font-bold mr-4">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                            </svg>
                           </span>
                           <p className="text-gray-700">{activity}</p>
                         </div>
@@ -428,8 +472,10 @@ export default function ProgramasPage() {
                           className="flex items-start p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
                           style={{ animationDelay: `${index * 50}ms` }}
                         >
-                          <span className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-4">
-                            ★
+                          <span className="flex-shrink-0 w-8 h-8 bg-[#FFC107] text-black rounded-full flex items-center justify-center text-sm font-bold mr-4">
+                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                            </svg>
                           </span>
                           <p className="text-gray-700">{result}</p>
                         </div>
@@ -441,7 +487,7 @@ export default function ProgramasPage() {
                 {/* CTA Buttons */}
                 <div className="mt-8 flex flex-col sm:flex-row gap-4">
                   <Link href="/#contacto" className="flex-1 bg-black text-white px-6 py-3 rounded-full font-semibold hover:bg-gray-800 transition-colors text-center">
-                    Solicitar más información
+                    Contáctanos
                   </Link>
                   <button className="flex-1 border-2 border-black text-black px-6 py-3 rounded-full font-semibold hover:bg-black hover:text-white transition-colors">
                     Descargar brochure
@@ -470,7 +516,11 @@ export default function ProgramasPage() {
                   <div key={program.id} className={`flex items-center ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
                     <div className="flex-1">
                       <div className={`p-6 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow ${index % 2 === 0 ? 'mr-8 text-right' : 'ml-8'}`}>
-                        <span className="text-3xl">{program.icon}</span>
+                        <div className={`mb-3 ${index % 2 === 0 ? 'flex justify-end' : 'flex justify-start'}`}>
+                          <div className="text-gray-800">
+                            {renderIcon(program.icon, "w-10 h-10")}
+                          </div>
+                        </div>
                         <h3 className="text-2xl font-bold mt-2 mb-2">{program.title}</h3>
                         <p className="text-gray-600">{program.subtitle}</p>
                       </div>

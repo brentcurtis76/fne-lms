@@ -226,28 +226,27 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                         </div>
                         <h3 className="text-base font-bold mb-2 text-gray-500 leading-tight">{event.title}</h3>
                         <p className="text-gray-400 text-sm mb-2">📍 {event.location}</p>
+                        {event.time && (
+                          <p className="text-gray-400 text-xs mb-2">⏰ {event.time}</p>
+                        )}
+                        {event.link_url && (
+                          <a 
+                            href={event.link_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-block mt-2 text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors underline relative"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {event.link_display || 'Ver más'} →
+                          </a>
+                        )}
+                        {!event.link_url && (
+                          <span className="inline-block mt-2 text-sm text-gray-400">Evento finalizado</span>
+                        )}
                         <div className="overflow-hidden max-h-0 group-hover:max-h-40 transition-all duration-500">
                           <div className="pt-4 border-t border-gray-200">
                             {event.description && (
                               <p className="text-gray-500 text-sm mb-2">{event.description}</p>
-                            )}
-                            {event.time && (
-                              <p className="text-gray-400 text-xs mb-2">⏰ {event.time}</p>
-                            )}
-                            {event.link_url && (
-                              <a 
-                                href={event.link_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="inline-block mt-3 text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors underline relative"
-                                style={{ zIndex: 30 }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {event.link_display || 'Ver más'} →
-                              </a>
-                            )}
-                            {!event.link_url && (
-                              <span className="inline-block mt-3 text-sm text-gray-400">Evento finalizado</span>
                             )}
                           </div>
                         </div>
@@ -277,28 +276,27 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                         </div>
                         <h3 className="text-base font-bold mb-2 text-gray-500 leading-tight">{event.title}</h3>
                         <p className="text-gray-400 text-sm mb-2">📍 {event.location}</p>
+                        {event.time && (
+                          <p className="text-gray-400 text-xs mb-2">⏰ {event.time}</p>
+                        )}
+                        {event.link_url && (
+                          <a 
+                            href={event.link_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-block mt-2 text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors underline relative"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {event.link_display || 'Ver más'} →
+                          </a>
+                        )}
+                        {!event.link_url && (
+                          <span className="inline-block mt-2 text-sm text-gray-400">Evento finalizado</span>
+                        )}
                         <div className="overflow-hidden max-h-0 group-hover:max-h-40 transition-all duration-500">
                           <div className="pt-4 border-t border-gray-200">
                             {event.description && (
                               <p className="text-gray-500 text-sm mb-2">{event.description}</p>
-                            )}
-                            {event.time && (
-                              <p className="text-gray-400 text-xs mb-2">⏰ {event.time}</p>
-                            )}
-                            {event.link_url && (
-                              <a 
-                                href={event.link_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="inline-block mt-3 text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors underline relative"
-                                style={{ zIndex: 30 }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {event.link_display || 'Ver más'} →
-                              </a>
-                            )}
-                            {!event.link_url && (
-                              <span className="inline-block mt-3 text-sm text-gray-400">Evento finalizado</span>
                             )}
                           </div>
                         </div>
@@ -354,25 +352,24 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                         </div>
                         <h3 className="text-base font-bold mb-2 group-hover:text-[#FFC107] transition-colors leading-tight relative z-10">{event.title}</h3>
                         <p className="text-gray-600 text-sm mb-2 relative z-10">📍 {event.location}</p>
-                        <div className="overflow-hidden max-h-0 group-hover:max-h-40 transition-all duration-500">
+                        {event.time && (
+                          <p className="text-gray-600 text-xs mb-2 relative z-10">⏰ {event.time}</p>
+                        )}
+                        {event.link_url && (
+                          <a 
+                            href={event.link_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-block mt-2 text-sm font-bold text-black hover:text-[#FFC107] transition-colors underline relative z-10"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {event.link_display || 'Más información'} →
+                          </a>
+                        )}
+                        <div className="overflow-hidden max-h-0 group-hover:max-h-40 transition-all duration-500 relative z-10">
                           <div className="pt-4 border-t border-gray-200">
                             {event.description && (
                               <p className="text-gray-700 text-sm mb-2">{event.description}</p>
-                            )}
-                            {event.time && (
-                              <p className="text-gray-600 text-xs mb-2">⏰ {event.time}</p>
-                            )}
-                            {event.link_url && (
-                              <a 
-                                href={event.link_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="inline-block mt-3 text-sm font-bold text-black hover:text-[#FFC107] transition-colors underline relative"
-                                style={{ zIndex: 30 }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {event.link_display || 'Más información'} →
-                              </a>
                             )}
                           </div>
                         </div>
@@ -418,25 +415,24 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                         </div>
                         <h3 className="text-base font-bold mb-2 group-hover:text-[#FFC107] transition-colors leading-tight relative z-10">{event.title}</h3>
                         <p className="text-gray-600 text-sm mb-2 relative z-10">📍 {event.location}</p>
-                        <div className="overflow-hidden max-h-0 group-hover:max-h-40 transition-all duration-500">
+                        {event.time && (
+                          <p className="text-gray-600 text-xs mb-2 relative z-10">⏰ {event.time}</p>
+                        )}
+                        {event.link_url && (
+                          <a 
+                            href={event.link_url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-block mt-2 text-sm font-bold text-black hover:text-[#FFC107] transition-colors underline relative z-10"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {event.link_display || 'Más información'} →
+                          </a>
+                        )}
+                        <div className="overflow-hidden max-h-0 group-hover:max-h-40 transition-all duration-500 relative z-10">
                           <div className="pt-4 border-t border-gray-200">
                             {event.description && (
                               <p className="text-gray-700 text-sm mb-2">{event.description}</p>
-                            )}
-                            {event.time && (
-                              <p className="text-gray-600 text-xs mb-2">⏰ {event.time}</p>
-                            )}
-                            {event.link_url && (
-                              <a 
-                                href={event.link_url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="inline-block mt-3 text-sm font-bold text-black hover:text-[#FFC107] transition-colors underline relative"
-                                style={{ zIndex: 30 }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {event.link_display || 'Más información'} →
-                              </a>
                             )}
                           </div>
                         </div>

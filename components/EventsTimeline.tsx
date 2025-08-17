@@ -175,10 +175,10 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
       <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-gray-50 to-transparent z-10 pointer-events-none"></div>
       
       {/* Timeline Line with gradient */}
-      <div className="absolute top-[215px] left-0 right-0 h-[3px] bg-gradient-to-r from-gray-200 via-gray-400 to-gray-200 timeline-line" style={{ zIndex: 1 }}></div>
+      <div className="absolute top-[280px] left-0 right-0 h-[3px] bg-gradient-to-r from-gray-200 via-gray-400 to-gray-200 timeline-line" style={{ zIndex: 1 }}></div>
       
       {/* Animated pulse on the line */}
-      <div className="absolute top-[214px] left-0 h-[5px] w-40 bg-gradient-to-r from-transparent via-yellow-400 to-transparent opacity-50 animate-pulse" 
+      <div className="absolute top-[279px] left-0 h-[5px] w-40 bg-gradient-to-r from-transparent via-yellow-400 to-transparent opacity-50 animate-pulse" 
            style={{ 
              zIndex: 2,
              animation: 'slide 8s linear infinite'
@@ -197,7 +197,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
         onTouchEnd={handleTouchEnd}
         style={{ cursor: 'grab' }}
       >
-        <div className="flex space-x-3 px-4" style={{ minWidth: 'max-content', minHeight: '450px', alignItems: 'stretch' }}>
+        <div className="flex space-x-3 px-4" style={{ minWidth: 'max-content', minHeight: '560px', alignItems: 'stretch' }}>
           
           {/* Past Events - Faded */}
           {pastEvents.map((event, index) => {
@@ -234,13 +234,27 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                             {event.time && (
                               <p className="text-gray-400 text-xs mb-2">⏰ {event.time}</p>
                             )}
-                            <span className="inline-block mt-3 text-sm text-gray-400">Evento finalizado</span>
+                            {event.link_url && (
+                              <a 
+                                href={event.link_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-block mt-3 text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors underline relative"
+                                style={{ zIndex: 30 }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {event.link_display || 'Ver más'} →
+                              </a>
+                            )}
+                            {!event.link_url && (
+                              <span className="inline-block mt-3 text-sm text-gray-400">Evento finalizado</span>
+                            )}
                           </div>
                         </div>
                       </div>
                     </div>
                     {/* Timeline dot with pulse effect */}
-                    <div className="absolute top-[200px] z-10">
+                    <div className="absolute top-[265px] z-10">
                       <div className="w-6 h-6 bg-gray-400 rounded-full border-4 border-gray-50 shadow-xl"></div>
                     </div>
                     <div className="flex-1"></div>
@@ -250,10 +264,10 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                     {/* Event below the line */}
                     <div className="flex-1"></div>
                     {/* Timeline dot with pulse effect */}
-                    <div className="absolute top-[200px] z-10">
+                    <div className="absolute top-[265px] z-10">
                       <div className="w-6 h-6 bg-gray-400 rounded-full border-4 border-gray-50 shadow-xl"></div>
                     </div>
-                    <div className="group cursor-pointer opacity-50 relative" style={{ marginTop: '60px' }}>
+                    <div className="group cursor-pointer opacity-50 relative" style={{ marginTop: '85px' }}>
                       <div className="bg-white rounded-lg shadow-lg p-4 transform transition-all duration-300 hover:scale-105 hover:shadow-xl hover:translate-y-4 border-2 border-gray-300" style={{ zIndex: 20, position: 'relative' }}>
                         <div className="flex justify-center mb-3">
                           <span className="bg-gray-500 text-white px-4 py-2 rounded-full text-sm font-bold">
@@ -271,7 +285,21 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                             {event.time && (
                               <p className="text-gray-400 text-xs mb-2">⏰ {event.time}</p>
                             )}
-                            <span className="inline-block mt-3 text-sm text-gray-400">Evento finalizado</span>
+                            {event.link_url && (
+                              <a 
+                                href={event.link_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="inline-block mt-3 text-sm font-bold text-gray-500 hover:text-gray-700 transition-colors underline relative"
+                                style={{ zIndex: 30 }}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {event.link_display || 'Ver más'} →
+                              </a>
+                            )}
+                            {!event.link_url && (
+                              <span className="inline-block mt-3 text-sm text-gray-400">Evento finalizado</span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -351,7 +379,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                       </div>
                     </div>
                     {/* Timeline dot with animation for future events */}
-                    <div className="absolute top-[196px] z-10">
+                    <div className="absolute top-[261px] z-10">
                       <div className="relative">
                         {index === 0 && (
                           <div className="absolute inset-0 w-8 h-8 bg-[#FFC107] rounded-full animate-ping opacity-30"></div>
@@ -366,13 +394,13 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                     {/* Event below the line */}
                     {/* "PRÓXIMO" badge for the first future event */}
                     {index === 0 && (
-                      <div className="absolute top-[240px] left-1/2 transform -translate-x-1/2 bg-[#FFC107] text-black px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide z-20">
+                      <div className="absolute top-[305px] left-1/2 transform -translate-x-1/2 bg-[#FFC107] text-black px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide z-20">
                         Próximo
                       </div>
                     )}
                     <div className="flex-1"></div>
                     {/* Timeline dot with animation for future events */}
-                    <div className="absolute top-[196px] z-10">
+                    <div className="absolute top-[261px] z-10">
                       <div className="relative">
                         {index === 0 && (
                           <div className="absolute inset-0 w-8 h-8 bg-[#FFC107] rounded-full animate-ping opacity-30"></div>

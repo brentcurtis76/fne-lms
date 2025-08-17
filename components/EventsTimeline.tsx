@@ -203,7 +203,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
           {pastEvents.map((event, index) => {
             const isEven = index % 2 === 0;
             return (
-              <div key={event.id} className="timeline-event opacity-0 relative flex flex-col items-center" style={{ minWidth: '240px' }}>
+              <div key={event.id} className="timeline-event opacity-0 relative flex flex-col items-center" style={{ width: '220px', flexShrink: 0 }}>
                 {isEven ? (
                   <>
                     {/* Event above the line */}
@@ -224,7 +224,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                             {event.date_end && event.date_end !== event.date_start && ` - ${formatEventDate(event.date_end)}`}
                           </span>
                         </div>
-                        <h3 className="text-lg font-bold uppercase mb-2 text-gray-500">{event.title}</h3>
+                        <h3 className="text-base font-bold mb-2 text-gray-500 leading-tight">{event.title}</h3>
                         <p className="text-gray-400 text-sm mb-2">📍 {event.location}</p>
                         <div className="overflow-hidden max-h-0 group-hover:max-h-40 transition-all duration-500">
                           <div className="pt-4 border-t border-gray-200">
@@ -253,15 +253,15 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                     <div className="absolute top-[200px] z-10">
                       <div className="w-6 h-6 bg-gray-400 rounded-full border-4 border-gray-50 shadow-xl"></div>
                     </div>
-                    <div className="group cursor-pointer opacity-50 mt-6">
-                      <div className="bg-white rounded-lg shadow-lg p-4 transform transition-all duration-300 hover:scale-105 hover:shadow-xl border-2 border-gray-300">
+                    <div className="group cursor-pointer opacity-50 relative" style={{ marginTop: '60px' }}>
+                      <div className="bg-white rounded-lg shadow-lg p-4 transform transition-all duration-300 hover:scale-105 hover:shadow-xl hover:translate-y-4 border-2 border-gray-300" style={{ zIndex: 20, position: 'relative' }}>
                         <div className="flex justify-center mb-3">
                           <span className="bg-gray-500 text-white px-4 py-2 rounded-full text-sm font-bold">
                             {formatEventDate(event.date_start)}
                             {event.date_end && event.date_end !== event.date_start && ` - ${formatEventDate(event.date_end)}`}
                           </span>
                         </div>
-                        <h3 className="text-lg font-bold uppercase mb-2 text-gray-500">{event.title}</h3>
+                        <h3 className="text-base font-bold mb-2 text-gray-500 leading-tight">{event.title}</h3>
                         <p className="text-gray-400 text-sm mb-2">📍 {event.location}</p>
                         <div className="overflow-hidden max-h-0 group-hover:max-h-40 transition-all duration-500">
                           <div className="pt-4 border-t border-gray-200">
@@ -289,7 +289,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
             const isEven = (totalPastEvents + index) % 2 === 0;
             
             return (
-              <div key={event.id} className="timeline-event opacity-0 relative flex flex-col items-center" style={{ minWidth: '240px' }}>
+              <div key={event.id} className="timeline-event opacity-0 relative flex flex-col items-center" style={{ width: '220px', flexShrink: 0 }}>
                 {isEven ? (
                   <>
                     {/* Event above the line */}
@@ -308,7 +308,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                       )}
                       {/* Decorative accent line */}
                       <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-[#FFC107] to-transparent"></div>
-                      <div className={`bg-white rounded-xl shadow-2xl p-4 transform transition-all duration-500 hover:scale-110 hover:shadow-3xl hover:-translate-y-3 border-2 relative overflow-hidden ${index === 0 ? 'border-[#FFC107] shadow-[#FFC107]/20' : 'border-transparent hover:border-[#FFC107]'}`}>
+                      <div className={`bg-white rounded-xl shadow-2xl p-4 transform transition-all duration-500 hover:scale-105 hover:shadow-3xl hover:-translate-y-4 border-2 relative overflow-hidden ${index === 0 ? 'border-[#FFC107] shadow-[#FFC107]/20' : 'border-transparent hover:border-[#FFC107]'}`} style={{ zIndex: 20 }}>
                         {/* Dynamic background gradient */}
                         <div className="absolute inset-0 bg-gradient-to-br from-white via-white to-yellow-50 opacity-50"></div>
                         {/* Subtle pattern overlay */}
@@ -324,7 +324,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                             {event.date_end && event.date_end !== event.date_start && ` - ${formatEventDate(event.date_end)}`}
                           </span>
                         </div>
-                        <h3 className="text-lg font-bold uppercase mb-2 group-hover:text-[#FFC107] transition-colors">{event.title}</h3>
+                        <h3 className="text-base font-bold mb-2 group-hover:text-[#FFC107] transition-colors leading-tight">{event.title}</h3>
                         <p className="text-gray-600 text-sm mb-2">📍 {event.location}</p>
                         <div className="overflow-hidden max-h-0 group-hover:max-h-40 transition-all duration-500">
                           <div className="pt-4 border-t border-gray-200">
@@ -339,7 +339,9 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                                 href={event.link_url} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="inline-block mt-3 text-sm font-bold text-black hover:text-[#FFC107] transition-colors underline"
+                                className="inline-block mt-3 text-sm font-bold text-black hover:text-[#FFC107] transition-colors underline relative"
+                                style={{ zIndex: 30 }}
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 {event.link_display || 'Más información'} →
                               </a>
@@ -378,15 +380,15 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                         <div className="w-8 h-8 bg-gradient-to-br from-black to-gray-800 rounded-full border-4 border-white shadow-2xl hover:from-[#FFC107] hover:to-[#FFB300] transition-all duration-300 hover:scale-125 cursor-pointer"></div>
                       </div>
                     </div>
-                    <div className="group cursor-pointer mt-6">
-                      <div className={`bg-white rounded-lg shadow-lg p-4 transform transition-all duration-300 hover:scale-105 hover:shadow-xl border-2 ${index === 0 ? 'border-[#FFC107]' : 'border-transparent hover:border-[#FFC107]'}`}>
+                    <div className="group cursor-pointer relative" style={{ marginTop: '60px' }}>
+                      <div className={`bg-white rounded-lg shadow-lg p-4 transform transition-all duration-300 hover:scale-105 hover:shadow-xl hover:translate-y-4 border-2 ${index === 0 ? 'border-[#FFC107]' : 'border-transparent hover:border-[#FFC107]'}`} style={{ zIndex: 20, position: 'relative' }}>
                         <div className="flex justify-center mb-3">
                           <span className="bg-black text-white px-4 py-2 rounded-full text-sm font-bold">
                             {formatEventDate(event.date_start)}
                             {event.date_end && event.date_end !== event.date_start && ` - ${formatEventDate(event.date_end)}`}
                           </span>
                         </div>
-                        <h3 className="text-lg font-bold uppercase mb-2 group-hover:text-[#FFC107] transition-colors">{event.title}</h3>
+                        <h3 className="text-base font-bold mb-2 group-hover:text-[#FFC107] transition-colors leading-tight">{event.title}</h3>
                         <p className="text-gray-600 text-sm mb-2">📍 {event.location}</p>
                         <div className="overflow-hidden max-h-0 group-hover:max-h-40 transition-all duration-500">
                           <div className="pt-4 border-t border-gray-200">
@@ -401,7 +403,9 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                                 href={event.link_url} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="inline-block mt-3 text-sm font-bold text-black hover:text-[#FFC107] transition-colors underline"
+                                className="inline-block mt-3 text-sm font-bold text-black hover:text-[#FFC107] transition-colors underline relative"
+                                style={{ zIndex: 30 }}
+                                onClick={(e) => e.stopPropagation()}
                               >
                                 {event.link_display || 'Más información'} →
                               </a>
@@ -418,7 +422,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
 
           {/* If no events */}
           {pastEvents.length === 0 && futureEvents.length === 0 && (
-            <div className="timeline-event opacity-0 relative flex flex-col items-center" style={{ minWidth: '240px' }}>
+            <div className="timeline-event opacity-0 relative flex flex-col items-center" style={{ width: '220px', flexShrink: 0 }}>
               <div className="bg-white rounded-lg shadow-lg p-4">
                 <div className="text-center">
                   <p className="text-gray-600">Próximamente nuevos eventos</p>

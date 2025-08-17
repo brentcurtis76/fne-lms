@@ -338,7 +338,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                       <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-[#FFC107] to-transparent"></div>
                       <div className={`bg-white rounded-xl shadow-2xl p-4 transform transition-all duration-500 hover:scale-105 hover:shadow-3xl hover:-translate-y-4 border-2 relative overflow-hidden ${index === 0 ? 'border-[#FFC107] shadow-[#FFC107]/20' : 'border-transparent hover:border-[#FFC107]'}`} style={{ zIndex: 20 }}>
                         {/* Dynamic background gradient */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-white via-white to-yellow-50 opacity-50"></div>
+                        <div className="absolute inset-0 bg-gradient-to-br from-white via-white to-yellow-50 opacity-20"></div>
                         {/* Subtle pattern overlay */}
                         <div className="absolute inset-0 opacity-5">
                           <div className="absolute inset-0" style={{
@@ -346,14 +346,14 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                             backgroundSize: '20px 20px'
                           }}></div>
                         </div>
-                        <div className="flex justify-center mb-3">
+                        <div className="flex justify-center mb-3 relative z-10">
                           <span className="bg-black text-white px-4 py-2 rounded-full text-sm font-bold">
                             {formatEventDate(event.date_start)}
                             {event.date_end && event.date_end !== event.date_start && ` - ${formatEventDate(event.date_end)}`}
                           </span>
                         </div>
-                        <h3 className="text-base font-bold mb-2 group-hover:text-[#FFC107] transition-colors leading-tight">{event.title}</h3>
-                        <p className="text-gray-600 text-sm mb-2">📍 {event.location}</p>
+                        <h3 className="text-base font-bold mb-2 group-hover:text-[#FFC107] transition-colors leading-tight relative z-10">{event.title}</h3>
+                        <p className="text-gray-600 text-sm mb-2 relative z-10">📍 {event.location}</p>
                         <div className="overflow-hidden max-h-0 group-hover:max-h-40 transition-all duration-500">
                           <div className="pt-4 border-t border-gray-200">
                             {event.description && (
@@ -410,14 +410,14 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                     </div>
                     <div className="group cursor-pointer relative" style={{ marginTop: '60px' }}>
                       <div className={`bg-white rounded-lg shadow-lg p-4 transform transition-all duration-300 hover:scale-105 hover:shadow-xl hover:translate-y-4 border-2 ${index === 0 ? 'border-[#FFC107]' : 'border-transparent hover:border-[#FFC107]'}`} style={{ zIndex: 20, position: 'relative' }}>
-                        <div className="flex justify-center mb-3">
+                        <div className="flex justify-center mb-3 relative z-10">
                           <span className="bg-black text-white px-4 py-2 rounded-full text-sm font-bold">
                             {formatEventDate(event.date_start)}
                             {event.date_end && event.date_end !== event.date_start && ` - ${formatEventDate(event.date_end)}`}
                           </span>
                         </div>
-                        <h3 className="text-base font-bold mb-2 group-hover:text-[#FFC107] transition-colors leading-tight">{event.title}</h3>
-                        <p className="text-gray-600 text-sm mb-2">📍 {event.location}</p>
+                        <h3 className="text-base font-bold mb-2 group-hover:text-[#FFC107] transition-colors leading-tight relative z-10">{event.title}</h3>
+                        <p className="text-gray-600 text-sm mb-2 relative z-10">📍 {event.location}</p>
                         <div className="overflow-hidden max-h-0 group-hover:max-h-40 transition-all duration-500">
                           <div className="pt-4 border-t border-gray-200">
                             {event.description && (

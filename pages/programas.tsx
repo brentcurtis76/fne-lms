@@ -90,8 +90,8 @@ const programs: Program[] = [
       'Plan en caso múltiple según cultura'
     ],
     icon: 'gears',
-    color: 'from-[#FFC107] to-[#FFA000]',
-    gradient: 'bg-gradient-to-br from-[#FFC107] via-[#FFB300] to-[#FFA000]'
+    color: 'from-[#0066CC] to-[#004499]',
+    gradient: 'bg-gradient-to-br from-[#0066CC] via-[#0055BB] to-[#004499]'
   },
   {
     id: 'aula-generativa',
@@ -118,9 +118,9 @@ const programs: Program[] = [
       'Superación de la dicotomía Convivencia/Aprendizaje',
       'Síntesis hacia la mirada generativa'
     ],
-    icon: 'network',
-    color: 'from-[#0066CC] to-[#004499]',
-    gradient: 'bg-gradient-to-br from-[#0066CC] via-[#0055BB] to-[#004499]'
+    icon: 'plant',
+    color: 'from-[#FFC107] to-[#FFA000]',
+    gradient: 'bg-gradient-to-br from-[#FFC107] via-[#FFB300] to-[#FFA000]'
   }
 ];
 
@@ -143,8 +143,18 @@ export default function ProgramasPage() {
         );
       case 'lightbulb':
         return (
-          <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+          <svg className={className} viewBox="0 0 24 24">
+            <rect x="3" y="4" width="4" height="4" fill="currentColor"/>
+            <rect x="11" y="4" width="4" height="4" fill="currentColor"/>
+            <rect x="19" y="4" width="2" height="4" fill="currentColor"/>
+            <rect x="7" y="8" width="4" height="4" fill="currentColor"/>
+            <rect x="15" y="8" width="4" height="4" fill="currentColor"/>
+            <rect x="3" y="12" width="4" height="4" fill="currentColor"/>
+            <rect x="11" y="12" width="4" height="4" fill="currentColor"/>
+            <rect x="19" y="12" width="2" height="4" fill="currentColor"/>
+            <rect x="7" y="16" width="4" height="3" fill="currentColor"/>
+            <rect x="15" y="16" width="4" height="3" fill="currentColor"/>
+            <path d="M3 4v15c0 0 3-1 6-1s6 1 9 1 3-1 3-1V4H3z" stroke="currentColor" strokeWidth="2" fill="none"/>
           </svg>
         );
       case 'gears':
@@ -154,10 +164,20 @@ export default function ProgramasPage() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
           </svg>
         );
-      case 'network':
+      case 'plant':
         return (
-          <svg className={className} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418"/>
+          <svg className={className} viewBox="0 0 24 24">
+            {/* Tree trunk */}
+            <rect x="11" y="14" width="2" height="8" fill="currentColor" opacity="0.8"/>
+            {/* Tree crown - main circle */}
+            <circle cx="12" cy="8" r="6" fill="currentColor"/>
+            {/* Tree crown - overlapping circles for fuller appearance */}
+            <circle cx="9" cy="10" r="4" fill="currentColor" opacity="0.9"/>
+            <circle cx="15" cy="10" r="4" fill="currentColor" opacity="0.9"/>
+            {/* Small decorative dots for texture */}
+            <circle cx="10" cy="7" r="1" fill="white" opacity="0.3"/>
+            <circle cx="14" cy="8" r="1" fill="white" opacity="0.3"/>
+            <circle cx="12" cy="10" r="1" fill="white" opacity="0.3"/>
           </svg>
         );
       default:

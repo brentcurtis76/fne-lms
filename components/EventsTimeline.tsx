@@ -207,7 +207,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                 {isEven ? (
                   <>
                     {/* Event above the line */}
-                    <div className="group cursor-pointer opacity-50 mb-6 relative">
+                    <div className="group cursor-pointer opacity-50 relative" style={{ marginBottom: '30px' }}>
                       {/* Decorative accent line */}
                       <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-gray-300 to-transparent opacity-50"></div>
                       <div className="bg-white rounded-xl shadow-xl p-4 transform transition-all duration-500 hover:scale-105 hover:shadow-2xl border-2 border-gray-300 hover:-translate-y-2 relative overflow-hidden">
@@ -266,7 +266,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                     <div className="absolute top-[265px] z-10">
                       <div className="w-6 h-6 bg-gray-400 rounded-full border-4 border-gray-50 shadow-xl"></div>
                     </div>
-                    <div className="group cursor-pointer opacity-50 relative" style={{ marginTop: '85px' }}>
+                    <div className="group cursor-pointer opacity-50 relative" style={{ marginTop: '30px' }}>
                       <div className="bg-white rounded-lg shadow-lg p-4 transform transition-all duration-300 hover:scale-105 hover:shadow-xl hover:translate-y-4 border-2 border-gray-300" style={{ zIndex: 20, position: 'relative' }}>
                         <div className="flex justify-center mb-3">
                           <span className="bg-gray-500 text-white px-4 py-2 rounded-full text-sm font-bold">
@@ -327,7 +327,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                         </div>
                       </div>
                     )}
-                    <div className="group cursor-pointer mb-6 relative">
+                    <div className="group cursor-pointer relative" style={{ marginBottom: '30px' }}>
                       {/* Glow effect for next event */}
                       {index === 0 && (
                         <div className="absolute inset-0 bg-gradient-to-r from-[#FFC107] to-[#FFD54F] rounded-xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity"></div>
@@ -405,7 +405,7 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                         <div className="w-8 h-8 bg-gradient-to-br from-black to-gray-800 rounded-full border-4 border-white shadow-2xl hover:from-[#FFC107] hover:to-[#FFB300] transition-all duration-300 hover:scale-125 cursor-pointer"></div>
                       </div>
                     </div>
-                    <div className="group cursor-pointer relative" style={{ marginTop: '60px' }}>
+                    <div className="group cursor-pointer relative" style={{ marginTop: '30px' }}>
                       <div className={`bg-white rounded-lg shadow-lg p-4 transform transition-all duration-300 hover:scale-105 hover:shadow-xl hover:translate-y-4 border-2 ${index === 0 ? 'border-[#FFC107]' : 'border-transparent hover:border-[#FFC107]'}`} style={{ zIndex: 20, position: 'relative' }}>
                         <div className="flex justify-center mb-3 relative z-10">
                           <span className="bg-black text-white px-4 py-2 rounded-full text-sm font-bold">

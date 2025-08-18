@@ -256,9 +256,8 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
                     className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
                     title="Copiar todos los detalles del error para Claude Code"
                   >
-                    <Code className="w-5 h-5" />
-                    <span className="font-medium">Copiar para Claude Code</span>
-                    <Copy className="w-4 h-4" />
+                    <Copy className="w-5 h-5" />
+                    <span className="font-medium">Copiar Detalles</span>
                   </button>
                 </div>
 

@@ -86,7 +86,6 @@ export default function Footer({ className = '' }: FooterProps) {
                 <li><Link href="/noticias" className="text-white/70 hover:text-white transition-colors">Noticias y Eventos</Link></li>
                 <li><Link href="/nosotros" className="text-white/70 hover:text-white transition-colors">Nosotros</Link></li>
                 <li><Link href="/equipo" className="text-white/70 hover:text-white transition-colors">Equipo</Link></li>
-                <li><Link href="/#red" className="text-white/70 hover:text-white transition-colors">Red</Link></li>
                 <li><Link href="/#contacto" className="text-white/70 hover:text-white transition-colors">Contacto</Link></li>
               </ul>
             </div>

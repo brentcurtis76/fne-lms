@@ -540,17 +540,18 @@ export default function ProgramasPage() {
         <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
-              <h2 className="text-4xl font-black text-gray-900 mb-4">RUTA DE TRANSFORMACIÓN</h2>
-              <p className="text-xl text-gray-600">El camino recomendado hacia la nueva educación</p>
+              <h2 className="text-4xl font-black text-gray-900 mb-4">EL VIAJE DE EVOLUCIÓN</h2>
+              <p className="text-xl text-gray-600 mb-3">Un modelo para armar tu propio viaje a la medida</p>
+              <p className="text-base text-gray-500 max-w-3xl mx-auto">Estos programas son autónomos y pueden combinarse según las necesidades de tu institución. Te presentamos un orden sugerido para iniciar y profundizar el cambio educativo.</p>
             </div>
             
             <div className="relative">
               {/* Timeline line */}
               <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-blue-500 via-purple-500 to-orange-500"></div>
               
-              {/* Timeline items */}
+              {/* Timeline items - reordered array */}
               <div className="space-y-12">
-                {programs.map((program, index) => (
+                {[programs[1], programs[0], programs[2], programs[3]].map((program, index) => (
                   <div key={program.id} className={`flex items-center ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
                     <div className="flex-1">
                       <div className={`p-6 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow ${index % 2 === 0 ? 'mr-8 text-right' : 'ml-8'}`}>
@@ -583,10 +584,10 @@ export default function ProgramasPage() {
         <section className="py-20 bg-gradient-to-br from-black via-gray-900 to-black">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             <h2 className="text-4xl font-black text-white mb-6">
-              ¿LISTO PARA TRANSFORMAR TU INSTITUCIÓN?
+              ¿LISTO PARA INICIAR ESTE VIAJE DE EVOLUCIÓN PARA TU INSTITUCIÓN?
             </h2>
             <p className="text-xl text-gray-300 mb-8">
-              Comienza hoy el viaje hacia una educación de vanguardia
+              Comienza hoy el camino hacia una educación de vanguardia
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/#contacto" className="bg-white text-black px-8 py-4 rounded-full font-semibold hover:bg-gray-100 transition-colors">

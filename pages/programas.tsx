@@ -104,8 +104,9 @@ const programs: Program[] = [
   {
     id: 'evoluciona',
     title: 'EVOLUCIONA',
-    subtitle: 'Transformación profunda de la cultura educativa',
-    description: 'Programa orientado hacia una profunda transformación de la cultura educativa de cada establecimiento de forma progresiva durante 3 años.',
+    subtitle: 'Hacia una transformación profunda de la cultura educativa',
+    duration: '5 años',
+    description: 'Programa de evolución progresiva, estimado en 5 años de duración. Se deberá considerar el tamaño de la comunidad educativa, la velocidad de implementación y la claridad política del centro para avanzar.',
     objectives: [
       'Asesoramiento en equipo de consultores expertos',
       'Flexibilidad de Evolución Cultural PROPIA',

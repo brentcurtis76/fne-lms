@@ -510,14 +510,11 @@ export default function ProgramasPage() {
                   )}
                 </div>
                 
-                {/* CTA Buttons */}
-                <div className="mt-8 flex flex-col sm:flex-row gap-4">
-                  <Link href="/#contacto" className="flex-1 bg-black text-white px-6 py-3 rounded-full font-semibold hover:bg-gray-800 transition-colors text-center">
+                {/* CTA Button */}
+                <div className="mt-8">
+                  <Link href="/#contacto" className="block w-full bg-black text-white px-6 py-3 rounded-full font-semibold hover:bg-gray-800 transition-colors text-center">
                     Contáctanos
                   </Link>
-                  <button className="flex-1 border-2 border-black text-black px-6 py-3 rounded-full font-semibold hover:bg-black hover:text-white transition-colors">
-                    Descargar brochure
-                  </button>
                 </div>
               </div>
             </div>

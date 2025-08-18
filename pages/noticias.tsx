@@ -5,6 +5,7 @@ import Footer from '../components/Footer';
 import EventsTimeline from '../components/EventsTimeline';
 import NewsSlider from '../components/NewsSlider';
 import { createClient } from '@supabase/supabase-js';
+import { formatEventDate } from '../utils/dateUtils';
 
 interface NewsArticle {
   id: string;
@@ -235,11 +236,6 @@ export default function NewsPage() {
     fetchArticles(true);
   };
 
-  const formatEventDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
-    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
-  };
 
   const formatDate = (dateString: string) => {
     // Use a consistent date formatting to avoid hydration errors

@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import MainLayout from '../../components/layout/MainLayout';
 import { getUserPrimaryRole } from '../../utils/roleUtils';
+import { formatEventDate, formatDateForInput } from '../../utils/dateUtils';
 import { toast } from 'react-hot-toast';
 
 interface Event {
@@ -103,7 +104,7 @@ export default function EventsManagement() {
         processedUrl = 'https://' + processedUrl;
       }
 
-      const eventData = {
+      const eventData: any = {
         title: formData.title,
         location: formData.location,
         date_start: formData.date_start,
@@ -112,52 +113,88 @@ export default function EventsManagement() {
         description: formData.description || null,  // Convert empty string to null
         link_url: processedUrl || null,
         link_display: formData.link_display || null,  // Convert empty string to null
-        is_published: formData.is_published,
-        created_by: user?.id
+        is_published: formData.is_published
       };
 
       if (editingEvent?.id) {
-        // Update existing event
-        const { error } = await supabase
+        // Update existing event - DO NOT include created_by in updates
+        console.log('Updating event:', editingEvent.id, eventData);
+        
+        const { data: updatedEvent, error } = await supabase
           .from('events')
           .update(eventData)
-          .eq('id', editingEvent.id);
+          .eq('id', editingEvent.id)
+          .select()
+          .single();
 
-        if (error) throw error;
-      } else {
-        // Create new event
-        const { error } = await supabase
-          .from('events')
-          .insert([eventData]);
-
-        if (error) throw error;
-      }
-
-      setShowModal(false);
-      resetForm();
-      fetchEvents();
-      
-      // Show specific success message for updates with timeline info
-      if (editingEvent?.id) {
+        if (error) {
+          console.error('Update error details:', error);
+          throw error;
+        }
+        
+        console.log('Event updated successfully:', updatedEvent);
+        
+        // Update the local state immediately with the returned data
+        setEvents(prevEvents => 
+          prevEvents.map(event => 
+            event.id === editingEvent.id ? updatedEvent : event
+          )
+        );
+        
         toast.success('Evento actualizado exitosamente. La línea de tiempo se actualizará automáticamente.', {
           duration: 5000,
           icon: '✅'
         });
       } else {
+        // Create new event - include created_by only for new events
+        eventData.created_by = user?.id;
+        
+        const { data: newEvent, error } = await supabase
+          .from('events')
+          .insert([eventData])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Insert error details:', error);
+          throw error;
+        }
+        
+        console.log('Event created successfully:', newEvent);
+        
+        // Add the new event to the local state immediately
+        setEvents(prevEvents => [newEvent, ...prevEvents]);
+        
         toast.success('Evento creado exitosamente');
       }
-    } catch (error) {
+
+      setShowModal(false);
+      resetForm();
+      
+      // Refresh the events list to ensure consistency
+      setTimeout(() => {
+        fetchEvents();
+      }, 500);
+      
+    } catch (error: any) {
       console.error('Error saving event:', error);
-      toast.error('Error al guardar el evento');
+      const errorMessage = error?.message || 'Error al guardar el evento';
+      toast.error(errorMessage);
     }
   };
 
   const handleEdit = (event: Event) => {
     setEditingEvent(event);
+    
     setFormData({
       ...event,
-      date_start: event.date_start ? new Date(event.date_start).toISOString().split('T')[0] : '',
-      date_end: event.date_end ? new Date(event.date_end).toISOString().split('T')[0] : ''
+      date_start: formatDateForInput(event.date_start),
+      date_end: formatDateForInput(event.date_end),
+      // Ensure other fields are properly set
+      time: event.time || '',
+      description: event.description || '',
+      link_url: event.link_url || '',
+      link_display: event.link_display || ''
     });
     setShowModal(true);
   };
@@ -209,11 +246,6 @@ export default function EventsManagement() {
     setEditingEvent(null);
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
-    return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
-  };
 
   if (!isAuthorized || loading) {
     return (
@@ -282,8 +314,8 @@ export default function EventsManagement() {
                   <tr key={event.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {formatDate(event.date_start)}
-                        {event.date_end && ` - ${formatDate(event.date_end)}`}
+                        {formatEventDate(event.date_start)}
+                        {event.date_end && ` - ${formatEventDate(event.date_end)}`}
                       </div>
                       {event.time && (
                         <div className="text-xs text-gray-500">{event.time}</div>

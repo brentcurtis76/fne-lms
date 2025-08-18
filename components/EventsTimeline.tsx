@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatEventDate } from '../utils/dateUtils';
 
 interface Event {
   id: string;
@@ -19,12 +20,6 @@ interface EventsTimelineProps {
   loading?: boolean;
   isUpdating?: boolean;
 }
-
-const formatEventDate = (dateString: string) => {
-  const date = new Date(dateString);
-  const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
-  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
-};
 
 export default function EventsTimeline({ pastEvents, futureEvents, loading, isUpdating }: EventsTimelineProps) {
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);

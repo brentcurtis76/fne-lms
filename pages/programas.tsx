@@ -281,12 +281,13 @@ export default function ProgramasPage() {
             {/* Main Statement */}
             <div className="max-w-4xl mx-auto">
               <h1 className="text-5xl lg:text-6xl font-black uppercase mb-8 text-center transition-all duration-300 hover:text-[#FFC107] hover:scale-105 cursor-default">
-                PROGRAMAS DE TRANSFORMACIÓN EDUCATIVA
+                PROGRAMAS DE EVOLUCIÓN EDUCATIVA
               </h1>
-              <p className="text-xl text-gray-700 leading-relaxed text-center">
-                Rutas transformadoras hacia una nueva educación. Descubre nuestros programas diseñados 
-                para acompañar a las comunidades educativas en su viaje hacia la innovación pedagógica 
-                y el desarrollo integral de cada estudiante.
+              <p className="text-xl text-gray-700 leading-relaxed text-center mb-6">
+                Descubre nuestros programas diseñados para acompañar a las comunidades educativas en su viaje hacia una educación de vanguardia.
+              </p>
+              <p className="text-lg text-gray-600 leading-relaxed text-center">
+                La "evolución de la cultura" de una escuela se basa en la conservación de su identidad, en la elevación de sus fortalezas y en la creación colectiva de una nueva mirada y nuevas habilidades.
               </p>
             </div>
           </div>

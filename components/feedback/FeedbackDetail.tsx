@@ -214,39 +214,54 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
 
   return (
     <>
-      <div className="fixed inset-0 z-50 overflow-y-auto">
-        <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-          <div 
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        {/* Backdrop */}
+        <div 
           className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" 
           onClick={onClose}
           data-testid="modal-overlay"
         />
 
-          <div className="inline-block w-full max-w-4xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b">
-              <div className="flex items-center gap-3">
-                {getTypeIcon(feedback.type)}
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Detalle de Feedback
-                </h3>
-                <span className="text-sm text-gray-500">
-                  #{feedback.id.slice(0, 8).toUpperCase()}
-                </span>
-              </div>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                data-testid="close-modal-button"
-                aria-label="Close modal"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        {/* Modal Container - constrained height with flexbox */}
+        <div className="relative w-full max-w-4xl max-h-[90vh] bg-white shadow-xl rounded-lg flex flex-col">
+          {/* Header - Fixed */}
+          <div className="flex items-center justify-between p-6 border-b flex-shrink-0">
+            <div className="flex items-center gap-3">
+              {getTypeIcon(feedback.type)}
+              <h3 className="text-lg font-semibold text-gray-900">
+                Detalle de Feedback
+              </h3>
+              <span className="text-sm text-gray-500">
+                #{feedback.id.slice(0, 8).toUpperCase()}
+              </span>
             </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              data-testid="close-modal-button"
+              aria-label="Close modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
 
-            <div className="flex flex-col lg:flex-row">
-              {/* Main Content */}
-              <div className="flex-1 p-6">
+          {/* Body - Scrollable */}
+          <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+            {/* Main Content - Scrollable */}
+            <div className="flex-1 p-6 overflow-y-auto">
+                {/* Copy Button - Always visible at top */}
+                <div className="mb-4 -mt-2">
+                  <button
+                    onClick={copyErrorDetailsForClaude}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
+                    title="Copiar todos los detalles del error para Claude Code"
+                  >
+                    <Code className="w-5 h-5" />
+                    <span className="font-medium">Copiar para Claude Code</span>
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+
                 {/* User Info */}
                 <div className="flex items-center gap-3 mb-4">
                   {feedback.profiles.avatar_url ? (
@@ -293,18 +308,7 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
 
                 {/* Technical Details */}
                 <div className="mb-6">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-medium text-gray-900">Detalles técnicos</h4>
-                    <button
-                      onClick={copyErrorDetailsForClaude}
-                      className="flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors group"
-                      title="Copiar detalles para Claude Code"
-                    >
-                      <Code className="w-4 h-4" />
-                      <span className="hidden sm:inline">Copiar para Claude Code</span>
-                      <Copy className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </button>
-                  </div>
+                  <h4 className="font-medium text-gray-900 mb-2">Detalles técnicos</h4>
                   <div className="space-y-2 text-sm text-gray-600">
                     <div className="flex items-center gap-2">
                       <ExternalLink className="w-4 h-4" />
@@ -371,14 +375,14 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
                 </div>
               </div>
 
-              {/* Activity Panel */}
-              <div className="lg:w-96 border-l bg-gray-50">
-                <div className="p-4 border-b bg-white">
+              {/* Activity Panel - Fixed height with proper scrolling */}
+              <div className="lg:w-96 border-l bg-gray-50 flex flex-col overflow-hidden">
+                <div className="p-4 border-b bg-white flex-shrink-0">
                   <h4 className="font-medium text-gray-900">Actividad</h4>
                 </div>
                 
-                <div className="flex flex-col h-[500px]">
-                  {/* Activities List */}
+                <div className="flex flex-col flex-1 overflow-hidden">
+                  {/* Activities List - Scrollable */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-3">
                     {activities.length === 0 ? (
                       <p className="text-center text-gray-500 py-8">
@@ -418,8 +422,8 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
                     )}
                   </div>
 
-                  {/* Comment Input */}
-                  <div className="p-4 border-t bg-white">
+                  {/* Comment Input - Fixed at bottom */}
+                  <div className="p-4 border-t bg-white flex-shrink-0">
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -445,7 +449,6 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
               </div>
             </div>
           </div>
-        </div>
       </div>
 
       {/* Full Screenshot Modal */}

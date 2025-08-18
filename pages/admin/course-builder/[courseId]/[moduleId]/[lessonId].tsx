@@ -152,10 +152,21 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
           } else {
             console.log(`[LessonEditor] Client-side refetch found ${blocksData?.length || 0} blocks:`, blocksData);
             if (blocksData && blocksData.length > 0) {
-              const parsedBlocks = blocksData.map(block => ({
-                ...block,
-                payload: block.payload
-              })) as Block[];
+              const parsedBlocks = blocksData.map(block => {
+                // Log group-assignment blocks to debug resource loading
+                if (block.type === 'group-assignment' && block.payload) {
+                  console.log('📥 Loading group-assignment block from DB:', {
+                    blockId: block.id,
+                    payload: block.payload,
+                    resourceCount: block.payload.resources?.length || 0,
+                    resources: block.payload.resources
+                  });
+                }
+                return {
+                  ...block,
+                  payload: block.payload
+                };
+              }) as Block[];
               setBlocks(parsedBlocks);
             }
           }
@@ -260,6 +271,37 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
           };
         }
         
+        // Special handling for group-assignment blocks to ensure resources are preserved
+        if (block.type === 'group-assignment' && payload) {
+          const groupPayload = payload as GroupAssignmentBlockPayload;
+          // Ensure resources array is properly preserved with all fields
+          payload = {
+            title: groupPayload.title || '',
+            description: groupPayload.description || '',
+            instructions: groupPayload.instructions || '',
+            resources: groupPayload.resources?.map(resource => ({
+              id: resource.id,
+              type: resource.type,
+              title: resource.title || '',
+              url: resource.url || '',
+              description: resource.description || ''
+            })) || []
+          };
+          
+          console.log('💾 Saving group-assignment block:', {
+            blockId: block.id,
+            resourceCount: groupPayload.resources?.length || 0,
+            resources: groupPayload.resources?.map(r => ({ 
+              id: r.id, 
+              type: r.type, 
+              title: r.title,
+              hasUrl: !!r.url,
+              urlLength: r.url?.length 
+            })),
+            timestamp: new Date().toISOString()
+          });
+        }
+        
         // Log bibliography blocks specifically
         if (block.type === 'bibliography') {
           console.log('💾 Saving bibliography block:', {
@@ -336,6 +378,30 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
               });
             }
             
+            // Log group-assignment blocks to debug resource persistence
+            if (localBlock.type === 'group-assignment') {
+              const localPayload = localBlock.payload as GroupAssignmentBlockPayload;
+              const savedPayload = savedBlock?.payload as GroupAssignmentBlockPayload | undefined;
+              console.log('🔄 Merging group-assignment block:', {
+                localId: localBlock.id,
+                savedId: savedBlock?.id,
+                localResourceCount: localPayload.resources?.length || 0,
+                savedResourceCount: savedPayload?.resources?.length || 0,
+                localResources: localPayload.resources?.map(r => ({ 
+                  id: r.id, 
+                  type: r.type, 
+                  title: r.title,
+                  hasUrl: !!r.url 
+                })),
+                savedResources: savedPayload?.resources?.map(r => ({ 
+                  id: r.id, 
+                  type: r.type, 
+                  title: r.title,
+                  hasUrl: !!r.url 
+                }))
+              });
+            }
+            
             if (savedBlock && localBlock.id.startsWith('new-')) {
               // For new blocks, use the database ID but keep our local payload
               return {
@@ -351,14 +417,24 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
             return localBlock;
           });
           
-          console.log('✅ Blocks merged after save, bibliography blocks:', 
-            mergedBlocks
+          console.log('✅ Blocks merged after save, special blocks:', {
+            bibliography: mergedBlocks
               .filter(b => b.type === 'bibliography')
               .map(b => ({
                 id: b.id,
                 itemsWithFiles: b.payload.items?.filter(i => i.filename).length || 0
-              }))
-          );
+              })),
+            groupAssignment: mergedBlocks
+              .filter(b => b.type === 'group-assignment')
+              .map(b => {
+                const payload = b.payload as GroupAssignmentBlockPayload;
+                return {
+                  id: b.id,
+                  resourceCount: payload.resources?.length || 0,
+                  documentsWithUrls: payload.resources?.filter(r => r.type === 'document' && r.url).length || 0
+                };
+              })
+          });
           
           setBlocks(mergedBlocks);
           
@@ -1202,10 +1278,20 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   console.log(`[GetServerSideProps] Blocks found:`, blocks?.length || 0);
   console.log(`[GetServerSideProps] Blocks data:`, blocks);
 
-  const parsedBlocks = (blocks || []).map(block => ({
-    ...block,
-    payload: block.payload
-  })).sort((a, b) => (a.position || 0) - (b.position || 0)) as Block[];
+  const parsedBlocks = (blocks || []).map(block => {
+    // Log group-assignment blocks during initial load
+    if (block.type === 'group-assignment' && block.payload) {
+      console.log('[GetServerSideProps] Group-assignment block:', {
+        blockId: block.id,
+        payload: JSON.stringify(block.payload),
+        resourceCount: block.payload.resources?.length || 0
+      });
+    }
+    return {
+      ...block,
+      payload: block.payload
+    };
+  }).sort((a, b) => (a.position || 0) - (b.position || 0)) as Block[];
 
   const initialLessonData: Lesson = {
     ...lessonResponse,

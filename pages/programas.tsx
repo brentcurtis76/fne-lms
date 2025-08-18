@@ -552,9 +552,9 @@ export default function ProgramasPage() {
               {/* Timeline items - reordered array */}
               <div className="space-y-12">
                 {/* Programas de Despegue */}
-                <div className="relative">
+                <div className="relative mb-8">
                   <div className="absolute left-1/2 transform -translate-x-1/2 -top-8">
-                    <span className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap">
+                    <span className="bg-black text-white px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap">
                       PROGRAMAS DE DESPEGUE
                     </span>
                   </div>
@@ -564,9 +564,9 @@ export default function ProgramasPage() {
                   <div key={program.id}>
                     {/* Add separator for Programas de Cambio Cultural */}
                     {index === 2 && (
-                      <div className="relative my-16">
-                        <div className="absolute left-1/2 transform -translate-x-1/2">
-                          <span className="bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap">
+                      <div className="relative py-12">
+                        <div className="absolute left-1/2 transform -translate-x-1/2 top-1/2 -translate-y-1/2">
+                          <span className="bg-[#FFC107] text-black px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap">
                             PROGRAMAS DE CAMBIO CULTURAL
                           </span>
                         </div>

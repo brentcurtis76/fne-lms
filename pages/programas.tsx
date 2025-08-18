@@ -551,7 +551,7 @@ export default function ProgramasPage() {
               
               {/* Timeline items - reordered array */}
               <div className="space-y-12">
-                {[programs[1], programs[0], programs[2], programs[3]].map((program, index) => (
+                {[programs[2], programs[1], programs[0], programs[3]].map((program, index) => (
                   <div key={program.id} className={`flex items-center ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
                     <div className="flex-1">
                       <div className={`p-6 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow ${index % 2 === 0 ? 'mr-8 text-right' : 'ml-8'}`}>

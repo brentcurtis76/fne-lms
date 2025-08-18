@@ -128,6 +128,18 @@ const programs: Program[] = [
       'Formación de Comunidades de Crecimiento',
       'Implementación de Plataforma de Crecimiento'
     ],
+    results: [
+      'Migración completa de pre-kinder a 4 medio en nivel de profundidad diverso',
+      'Amplia y apropiada implementación de nuevas prácticas y proceso pedagógicos',
+      'Estudiantes autónomos, colaborativos y generativos',
+      'Convivencia prosocial elevada',
+      'Familias integradas al proyecto educativo, disposición creativa y de apoyo constante',
+      'Una organización que ha hecho propio su proceso de cambio',
+      'Líderes de base potentes movilizando la evolución constante',
+      'Profesoras, profesores, profesionales y asistentes formados, integrados en equipos sinérgicos por etapas del desarrollo',
+      'Clima laboral lleno de sentido, empuje y auto realización',
+      'Procesos y recursos pedagógicos optimizados'
+    ],
     icon: 'gears',
     color: 'from-[#0066CC] to-[#004499]',
     gradient: 'bg-gradient-to-br from-[#0066CC] via-[#0055BB] to-[#004499]'

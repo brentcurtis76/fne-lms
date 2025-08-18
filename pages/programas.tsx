@@ -19,6 +19,35 @@ interface Program {
 
 const programs: Program[] = [
   {
+    id: 'aula-generativa',
+    title: 'AULA GENERATIVA',
+    subtitle: 'Ecosistema de relaciones saludables para el crecimiento',
+    description: 'El aula generativa busca optimizar los procesos y elevar los resultados en el crecimiento y aprendizaje de cada estudiante, fortaleciendo la calidad de los vínculos entre pares.',
+    objectives: [
+      'Construcción de ecosistema de relaciones saludables en el aula',
+      'Desarrollo de autonomía, interdependencia y trabajo colaborativo',
+      'Orientación al crecimiento individual y colectivo',
+      'Desarrollo de mentalidad de crecimiento y valores'
+    ],
+    activities: [
+      'Programa de educación relacional',
+      'Programa de innovación pedagógica en el aula',
+      'Programa de crecimiento personal',
+      'Programa de prácticas generativas',
+      'Programa de comunidades de crecimiento'
+    ],
+    results: [
+      'Calidad de vida para educadores con aulas con motor propio',
+      'Vínculos seguros y prosociales entre pares',
+      'Conexión positiva con las familias',
+      'Superación de la dicotomía Convivencia/Aprendizaje',
+      'Síntesis hacia la mirada generativa'
+    ],
+    icon: 'plant',
+    color: 'from-[#FFC107] to-[#FFA000]',
+    gradient: 'bg-gradient-to-br from-[#FFC107] via-[#FFB300] to-[#FFA000]'
+  },
+  {
     id: 'inspira',
     title: 'INSPIRA',
     subtitle: 'Viaja y sumérgete en una escuela de vanguardia educativa',
@@ -39,8 +68,8 @@ const programs: Program[] = [
       'Registro multimedia del viaje'
     ],
     icon: 'plane',
-    color: 'from-[#FFC107] to-[#FFA000]',
-    gradient: 'bg-gradient-to-br from-[#FFC107] via-[#FFB300] to-[#FFA000]'
+    color: 'from-[#0066CC] to-[#004499]',
+    gradient: 'bg-gradient-to-br from-[#0066CC] via-[#0055BB] to-[#004499]'
   },
   {
     id: 'inicia',
@@ -69,8 +98,8 @@ const programs: Program[] = [
       'Elección de personas para INSPIRA en BCN'
     ],
     icon: 'lightbulb',
-    color: 'from-[#0066CC] to-[#004499]',
-    gradient: 'bg-gradient-to-br from-[#0066CC] via-[#0055BB] to-[#004499]'
+    color: 'from-[#FFC107] to-[#FFA000]',
+    gradient: 'bg-gradient-to-br from-[#FFC107] via-[#FFB300] to-[#FFA000]'
   },
   {
     id: 'evoluciona',
@@ -92,35 +121,6 @@ const programs: Program[] = [
     icon: 'gears',
     color: 'from-[#0066CC] to-[#004499]',
     gradient: 'bg-gradient-to-br from-[#0066CC] via-[#0055BB] to-[#004499]'
-  },
-  {
-    id: 'aula-generativa',
-    title: 'AULA GENERATIVA',
-    subtitle: 'Ecosistema de relaciones saludables para el crecimiento',
-    description: 'El aula generativa busca optimizar los procesos y elevar los resultados en el crecimiento y aprendizaje de cada estudiante, fortaleciendo la calidad de los vínculos entre pares.',
-    objectives: [
-      'Construcción de ecosistema de relaciones saludables en el aula',
-      'Desarrollo de autonomía, interdependencia y trabajo colaborativo',
-      'Orientación al crecimiento individual y colectivo',
-      'Desarrollo de mentalidad de crecimiento y valores'
-    ],
-    activities: [
-      'Programa de educación relacional',
-      'Programa de innovación pedagógica en el aula',
-      'Programa de crecimiento personal',
-      'Programa de prácticas generativas',
-      'Programa de comunidades de crecimiento'
-    ],
-    results: [
-      'Calidad de vida para educadores con aulas con motor propio',
-      'Vínculos seguros y prosociales entre pares',
-      'Conexión positiva con las familias',
-      'Superación de la dicotomía Convivencia/Aprendizaje',
-      'Síntesis hacia la mirada generativa'
-    ],
-    icon: 'plant',
-    color: 'from-[#FFC107] to-[#FFA000]',
-    gradient: 'bg-gradient-to-br from-[#FFC107] via-[#FFB300] to-[#FFA000]'
   }
 ];
 

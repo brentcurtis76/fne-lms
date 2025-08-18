@@ -459,9 +459,6 @@ export default function NewsPage() {
                 <Link href="/nosotros" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   NOSOTROS
                 </Link>
-                <a href="/#red" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
-                  RED
-                </a>
                 <Link href="/#contacto" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors">
                   CONTACTO
                 </Link>
@@ -500,7 +497,6 @@ export default function NewsPage() {
               <Link href="/programas" className="text-xl font-medium">PROGRAMAS</Link>
               <Link href="/noticias" className="text-xl font-medium">NOTICIAS Y EVENTOS</Link>
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
-              <a href="/#red" className="text-xl font-medium">RED</a>
               <a href="/#contacto" className="text-xl font-medium">CONTACTO</a>
               <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
                 PLATAFORMA DE CRECIMIENTO

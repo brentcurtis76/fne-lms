@@ -120,10 +120,13 @@ const programs: Program[] = [
       'Institucionalizar los cambios y arraigar la nueva cultura'
     ],
     activities: [
-      'Evolución del modelo pedagógico de Barcelona en flexibilidad',
-      'Gestión y monitoreo del proceso ejecutivo cultural',
-      'Asegurar apertura de servicios asesores y formación',
-      'Plan en caso múltiple según cultura'
+      'Asesoría directiva para diseñar y liderar el cambio',
+      'Visitas de asesores internacionales en terreno',
+      'Asesoría técnica para la implementación de prácticas',
+      'Plataforma de formación asincrónica, individual y en equipos',
+      'Formación de líderes de base',
+      'Formación de Comunidades de Crecimiento',
+      'Implementación de Plataforma de Crecimiento'
     ],
     icon: 'gears',
     color: 'from-[#0066CC] to-[#004499]',

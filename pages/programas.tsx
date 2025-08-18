@@ -108,10 +108,16 @@ const programs: Program[] = [
     duration: '5 años',
     description: 'Programa de evolución progresiva, estimado en 5 años de duración. Se deberá considerar el tamaño de la comunidad educativa, la velocidad de implementación y la claridad política del centro para avanzar.',
     objectives: [
-      'Asesoramiento en equipo de consultores expertos',
-      'Flexibilidad de Evolución Cultural PROPIA',
-      'Modelo universal para evolucionar con base en evolución cultural',
-      'Transformación a medida para cada establecimiento'
+      'Transformar la mirada pedagógica y generar un alto sentido de urgencia respecto de la imperiosa necesidad de una educación nueva',
+      'Visualizar y ambicionar juntos un nuevo horizonte pedagógico',
+      'Construir y recorrer una ruta de evolución cultural que en las 7 vías de evolución declaradas: Propósito, Personalización, Aprendizaje, Evaluación, Liderazgo, Familias y Trabajo Docente',
+      'Alcanzar un diseño a la medida, progresivo y basado en victorias tempranas',
+      'Evolucionar a partir de las fortalezas preexistentes',
+      'Formar líderes capaces de conducir el cambio',
+      'Comunicar el proceso interna y externamente',
+      'Construir equipos de cambio misionarios y de alto desempeño',
+      'Soñar, diseñar, implementar, evaluar y rediseñar junto a los equipos de terreno',
+      'Institucionalizar los cambios y arraigar la nueva cultura'
     ],
     activities: [
       'Evolución del modelo pedagógico de Barcelona en flexibilidad',

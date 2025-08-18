@@ -551,28 +551,50 @@ export default function ProgramasPage() {
               
               {/* Timeline items - reordered array */}
               <div className="space-y-12">
+                {/* Programas de Despegue */}
+                <div className="relative">
+                  <div className="absolute left-1/2 transform -translate-x-1/2 -top-8">
+                    <span className="bg-blue-600 text-white px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap">
+                      PROGRAMAS DE DESPEGUE
+                    </span>
+                  </div>
+                </div>
+                
                 {[programs[2], programs[1], programs[0], programs[3]].map((program, index) => (
-                  <div key={program.id} className={`flex items-center ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
-                    <div className="flex-1">
-                      <div className={`p-6 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow ${index % 2 === 0 ? 'mr-8 text-right' : 'ml-8'}`}>
-                        <div className={`mb-3 ${index % 2 === 0 ? 'flex justify-end' : 'flex justify-start'}`}>
-                          <div className="text-gray-800">
-                            {renderIcon(program.icon, "w-10 h-10")}
-                          </div>
+                  <div key={program.id}>
+                    {/* Add separator for Programas de Cambio Cultural */}
+                    {index === 2 && (
+                      <div className="relative my-16">
+                        <div className="absolute left-1/2 transform -translate-x-1/2">
+                          <span className="bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap">
+                            PROGRAMAS DE CAMBIO CULTURAL
+                          </span>
                         </div>
-                        <h3 className="text-2xl font-bold mt-2 mb-2">{program.title}</h3>
-                        <p className="text-gray-600">{program.subtitle}</p>
                       </div>
-                    </div>
+                    )}
                     
-                    {/* Timeline dot */}
-                    <div className="relative z-10">
-                      <div className="w-12 h-12 bg-white border-4 border-black rounded-full flex items-center justify-center">
-                        <span className="text-sm font-bold">{index + 1}</span>
+                    <div className={`flex items-center ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
+                      <div className="flex-1">
+                        <div className={`p-6 bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow ${index % 2 === 0 ? 'mr-8 text-right' : 'ml-8'}`}>
+                          <div className={`mb-3 ${index % 2 === 0 ? 'flex justify-end' : 'flex justify-start'}`}>
+                            <div className="text-gray-800">
+                              {renderIcon(program.icon, "w-10 h-10")}
+                            </div>
+                          </div>
+                          <h3 className="text-2xl font-bold mt-2 mb-2">{program.title}</h3>
+                          <p className="text-gray-600">{program.subtitle}</p>
+                        </div>
                       </div>
+                      
+                      {/* Timeline dot */}
+                      <div className="relative z-10">
+                        <div className="w-12 h-12 bg-white border-4 border-black rounded-full flex items-center justify-center">
+                          <span className="text-sm font-bold">{index + 1}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1"></div>
                     </div>
-                    
-                    <div className="flex-1"></div>
                   </div>
                 ))}
               </div>

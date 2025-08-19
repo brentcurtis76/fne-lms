@@ -16,7 +16,16 @@ interface Course {
   id: string;
   title: string;
   description: string;
+  structure_type?: 'simple' | 'structured';
   // Add other course fields if needed
+}
+
+interface Lesson {
+  id: string;
+  title: string;
+  order_number: number;
+  module_id?: string;
+  course_id: string;
 }
 
 interface Module {
@@ -37,14 +46,18 @@ const CourseDetailPage = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
+  const [directLessons, setDirectLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
 
   const [showCreateModuleForm, setShowCreateModuleForm] = useState<boolean>(false);
+  const [showCreateLessonForm, setShowCreateLessonForm] = useState<boolean>(false);
   const [newModuleTitle, setNewModuleTitle] = useState<string>('');
   const [newModuleDescription, setNewModuleDescription] = useState<string>('');
+  const [newLessonTitle, setNewLessonTitle] = useState<string>('');
   const [isSubmittingModule, setIsSubmittingModule] = useState<boolean>(false);
+  const [isSubmittingLesson, setIsSubmittingLesson] = useState<boolean>(false);
 
   // State for delete confirmation modal
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -116,22 +129,39 @@ const CourseDetailPage = () => {
       if (!courseData) throw new Error('Curso no encontrado.');
       setCourse(courseData as Course);
 
-      const { data: modulesData, error: modulesError } = await supabase
-        .from('modules')
-        .select('*')
-        .eq('course_id', courseId as string)
-        .order('order_number', { ascending: true });
+      // Check if course is simple or structured
+      if (courseData.structure_type === 'simple') {
+        // Fetch direct lessons for simple courses
+        const { data: lessonsData, error: lessonsError } = await supabase
+          .from('lessons')
+          .select('*')
+          .eq('course_id', courseId as string)
+          .is('module_id', null)
+          .order('order_number', { ascending: true });
 
-      console.log('Fetched Modules Data for courseId:', courseId, modulesData);
-      if (modulesError) {
-        console.error('Error fetching modules:', modulesError);
+        if (lessonsError) throw lessonsError;
+        setDirectLessons(lessonsData as Lesson[]);
+        setModules([]); // No modules for simple courses
+      } else {
+        // Fetch modules for structured courses (default behavior)
+        const { data: modulesData, error: modulesError } = await supabase
+          .from('modules')
+          .select('*')
+          .eq('course_id', courseId as string)
+          .order('order_number', { ascending: true });
+
+        console.log('Fetched Modules Data for courseId:', courseId, modulesData);
+        if (modulesError) {
+          console.error('Error fetching modules:', modulesError);
+        }
+
+        if (modulesError) throw modulesError;
+        setModules(modulesData as Module[]);
+        setDirectLessons([]); // No direct lessons for structured courses
       }
 
-      if (modulesError) throw modulesError;
-      setModules(modulesData as Module[]);
-
     } catch (err: any) {
-      console.error('Error fetching course details or modules:', err);
+      console.error('Error fetching course details:', err);
       setError(err.message || 'Ocurrió un error al cargar los datos del curso.');
     }
     setLoading(false);
@@ -174,6 +204,45 @@ const CourseDetailPage = () => {
       toast.error(err.message || 'No se pudo crear el módulo.');
     } finally {
       setIsSubmittingModule(false);
+    }
+  };
+
+  const handleLessonSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLessonTitle.trim()) {
+      toast.error('El título de la lección es obligatorio.');
+      return;
+    }
+    if (!courseId) {
+      toast.error('ID del curso no encontrado. No se puede crear la lección.');
+      return;
+    }
+
+    setIsSubmittingLesson(true);
+    try {
+      const nextOrderNumber = directLessons.length + 1;
+      const { error: insertError } = await supabase.from('lessons').insert([
+        {
+          title: newLessonTitle,
+          course_id: courseId as string,
+          module_id: null, // Direct lesson without module
+          order_number: nextOrderNumber,
+        },
+      ]);
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      toast.success('Lección creada exitosamente!');
+      setNewLessonTitle('');
+      setShowCreateLessonForm(false);
+      await fetchCourseAndModules();
+    } catch (err: any) {
+      console.error('Error creating lesson:', err);
+      toast.error(err.message || 'No se pudo crear la lección.');
+    } finally {
+      setIsSubmittingLesson(false);
     }
   };
 
@@ -404,7 +473,11 @@ const CourseDetailPage = () => {
         icon={<Book />}
         title={course.title}
         subtitle={course.description}
-        primaryAction={{
+        primaryAction={course.structure_type === 'simple' ? {
+          label: 'Crear Lección',
+          onClick: () => setShowCreateLessonForm(true),
+          icon: <Plus className="w-4 h-4" />
+        } : {
           label: 'Crear Módulo',
           onClick: () => setShowCreateModuleForm(true),
           icon: <Plus className="w-4 h-4" />
@@ -427,10 +500,58 @@ const CourseDetailPage = () => {
       
       <div className="px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
       <div className="max-w-4xl mx-auto bg-white shadow-lg rounded-lg p-6">
-        <h2 className="text-2xl font-semibold text-brand_blue font-sans mb-4">Módulos del Curso</h2>
+        <h2 className="text-2xl font-semibold text-brand_blue font-sans mb-4">
+          {course.structure_type === 'simple' ? 'Lecciones del Curso' : 'Módulos del Curso'}
+        </h2>
         
-        {/* Form to create a new module (inline) */}
-        {showCreateModuleForm && (
+        {/* Form to create a new lesson for simple courses */}
+        {showCreateLessonForm && course.structure_type === 'simple' && (
+          <div className="bg-white p-6 rounded-lg shadow-md mb-6 border border-brand_blue/30">
+            <h3 className="text-xl font-semibold text-brand_blue font-sans mb-4">Crear Nueva Lección</h3>
+            <form onSubmit={handleLessonSubmit} className="space-y-4" acceptCharset="UTF-8">
+              <div>
+                <label htmlFor="newLessonTitle" className="block text-sm font-medium text-brand_blue mb-1">
+                  Título de la Lección <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="newLessonTitle"
+                  value={newLessonTitle}
+                  onChange={(e) => setNewLessonTitle(e.target.value)}
+                  className="w-full px-4 py-2 border border-brand_blue/50 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue"
+                  placeholder="Ej: Introducción al curso"
+                  required
+                  autoComplete="off"
+                  spellCheck="true"
+                  lang="es"
+                />
+              </div>
+              <div className="flex items-center justify-end space-x-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowCreateLessonForm(false);
+                    setNewLessonTitle('');
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-brand_blue hover:text-brand_yellow transition rounded-md border border-brand_blue/50 hover:border-brand_yellow"
+                  disabled={isSubmittingLesson}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium text-white bg-brand_blue rounded-md hover:bg-brand_yellow hover:text-brand_blue transition"
+                  disabled={isSubmittingLesson}
+                >
+                  {isSubmittingLesson ? 'Guardando...' : 'Guardar Lección'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Form to create a new module for structured courses */}
+        {showCreateModuleForm && course.structure_type !== 'simple' && (
           <div className="bg-white p-6 rounded-lg shadow-md mb-6 border border-brand_blue/30">
             <h3 className="text-xl font-semibold text-brand_blue font-sans mb-4">Crear Nuevo Módulo</h3>
             <form onSubmit={handleModuleSubmit} className="space-y-4" acceptCharset="UTF-8">
@@ -513,42 +634,75 @@ const CourseDetailPage = () => {
           </div>
         )}
 
-        {modules.length > 0 ? (
-          <ul className="space-y-4">
-            {modules.map((moduleItem) => (
-              <li key={moduleItem.id} className="bg-white p-4 rounded-md shadow-sm border border-brand_blue/20">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-xl font-semibold text-brand_blue font-sans">{moduleItem.order_number}. {moduleItem.title}</h3>
-                    {moduleItem.description && (
-                      <p className="text-brand_blue/80 mt-1 text-sm">{moduleItem.description}</p>
-                    )}
+        {/* Display content based on course structure type */}
+        {course.structure_type === 'simple' ? (
+          // Simple course: display direct lessons
+          directLessons.length > 0 ? (
+            <ul className="space-y-4">
+              {directLessons.map((lesson) => (
+                <li key={lesson.id} className="bg-white p-4 rounded-md shadow-sm border border-brand_blue/20">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-xl font-semibold text-brand_blue font-sans">{lesson.order_number}. {lesson.title}</h3>
+                    </div>
+                    <div className="flex flex-wrap space-x-2 gap-y-2 ml-4">
+                      <Link href={`/admin/course-builder/${courseId}/lesson/${lesson.id}`} legacyBehavior>
+                        <a className="px-3 py-2 bg-brand_yellow text-brand_blue font-sans text-xs md:text-sm rounded-md hover:bg-brand_blue hover:text-brand_yellow transition duration-150 whitespace-nowrap">
+                          Editar Contenido
+                        </a>
+                      </Link>
+                      <button
+                        className="px-3 py-2 bg-red-600 text-white font-sans text-xs md:text-sm rounded-md hover:bg-red-700 transition duration-150 whitespace-nowrap"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap space-x-2 gap-y-2 ml-4">
-                    <Link href={`/admin/course-builder/${courseId}/${moduleItem.id}`} legacyBehavior>
-                      <a className="px-3 py-2 bg-brand_yellow text-brand_blue font-sans text-xs md:text-sm rounded-md hover:bg-brand_blue hover:text-brand_yellow transition duration-150 whitespace-nowrap">
-                        Ver Lecciones
-                      </a>
-                    </Link>
-                    <button
-                      onClick={() => handleOpenEditModal(moduleItem)}
-                      className="px-3 py-2 bg-brand_blue text-white font-sans text-xs md:text-sm rounded-md hover:bg-brand_blue/90 transition duration-150 whitespace-nowrap"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => handleOpenDeleteModal(moduleItem)}
-                      className="px-3 py-2 bg-red-600 text-white font-sans text-xs md:text-sm rounded-md hover:bg-red-700 transition duration-150 whitespace-nowrap"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-brand_blue/80 font-sans">Este curso aún no tiene lecciones.</p>
+          )
         ) : (
-          <p className="text-brand_blue/80 font-sans">Este curso aún no tiene módulos.</p>
+          // Structured course: display modules
+          modules.length > 0 ? (
+            <ul className="space-y-4">
+              {modules.map((moduleItem) => (
+                <li key={moduleItem.id} className="bg-white p-4 rounded-md shadow-sm border border-brand_blue/20">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-xl font-semibold text-brand_blue font-sans">{moduleItem.order_number}. {moduleItem.title}</h3>
+                      {moduleItem.description && (
+                        <p className="text-brand_blue/80 mt-1 text-sm">{moduleItem.description}</p>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap space-x-2 gap-y-2 ml-4">
+                      <Link href={`/admin/course-builder/${courseId}/${moduleItem.id}`} legacyBehavior>
+                        <a className="px-3 py-2 bg-brand_yellow text-brand_blue font-sans text-xs md:text-sm rounded-md hover:bg-brand_blue hover:text-brand_yellow transition duration-150 whitespace-nowrap">
+                          Ver Lecciones
+                        </a>
+                      </Link>
+                      <button
+                        onClick={() => handleOpenEditModal(moduleItem)}
+                        className="px-3 py-2 bg-brand_blue text-white font-sans text-xs md:text-sm rounded-md hover:bg-brand_blue/90 transition duration-150 whitespace-nowrap"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleOpenDeleteModal(moduleItem)}
+                        className="px-3 py-2 bg-red-600 text-white font-sans text-xs md:text-sm rounded-md hover:bg-red-700 transition duration-150 whitespace-nowrap"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-brand_blue/80 font-sans">Este curso aún no tiene módulos.</p>
+          )
         )}
       </div>
       

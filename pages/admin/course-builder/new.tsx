@@ -21,6 +21,7 @@ export default function NewCourse() {
   const [description, setDescription] = useState('');
   const [instructor, setInstructor] = useState('');
   const [thumbnail, setThumbnail] = useState<File | null>(null);
+  const [structureType, setStructureType] = useState<'simple' | 'structured'>('structured');
   
   // Instructors data
   const [instructors, setInstructors] = useState<any[]>([]);
@@ -166,6 +167,7 @@ export default function NewCourse() {
         description,
         thumbnail_url: thumbnailUrl,
         created_by: session.user.id, // Add user ID who created the course
+        structure_type: structureType, // Add structure type
       };
 
       if (instructor) {
@@ -286,6 +288,50 @@ export default function NewCourse() {
                   placeholder="Describe el contenido y objetivos del curso..."
                   required
                 ></textarea>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-brand_blue mb-2">
+                  Estructura del Curso <span className="text-red-500">*</span>
+                </label>
+                <div className="space-y-2">
+                  <div className="flex items-start space-x-3">
+                    <input
+                      type="radio"
+                      id="structure-simple"
+                      name="structure"
+                      value="simple"
+                      checked={structureType === 'simple'}
+                      onChange={() => setStructureType('simple')}
+                      className="mt-1"
+                    />
+                    <label htmlFor="structure-simple" className="cursor-pointer">
+                      <div className="font-medium text-gray-900">Simple</div>
+                      <div className="text-sm text-gray-500">
+                        Las lecciones se organizan directamente en el curso sin módulos.
+                        Ideal para cursos cortos (1-5 lecciones).
+                      </div>
+                    </label>
+                  </div>
+                  <div className="flex items-start space-x-3">
+                    <input
+                      type="radio"
+                      id="structure-structured"
+                      name="structure"
+                      value="structured"
+                      checked={structureType === 'structured'}
+                      onChange={() => setStructureType('structured')}
+                      className="mt-1"
+                    />
+                    <label htmlFor="structure-structured" className="cursor-pointer">
+                      <div className="font-medium text-gray-900">Estructurado</div>
+                      <div className="text-sm text-gray-500">
+                        Las lecciones se organizan en módulos. 
+                        Ideal para cursos completos con múltiples temas.
+                      </div>
+                    </label>
+                  </div>
+                </div>
               </div>
               
               <div>

@@ -314,15 +314,15 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                 {isEven ? (
                   <>
                     {/* Event above the line */}
-                    {/* "PRÓXIMO" badge for the first future event */}
-                    {index === 0 && (
-                      <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 z-20">
-                        <div className="bg-gradient-to-r from-[#FFC107] to-[#FFD54F] text-black px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider shadow-lg animate-bounce">
-                          ⭐ Próximo Evento ⭐
-                        </div>
-                      </div>
-                    )}
                     <div className="group cursor-pointer relative" style={{ marginBottom: '30px' }}>
+                      {/* "PRÓXIMO" badge for the first future event */}
+                      {index === 0 && (
+                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 z-30">
+                          <div className="bg-[#FFC107] text-black px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-lg">
+                            PRÓXIMO
+                          </div>
+                        </div>
+                      )}
                       {/* Glow effect for next event */}
                       {index === 0 && (
                         <div className="absolute inset-0 bg-gradient-to-r from-[#FFC107] to-[#FFD54F] rounded-xl blur-xl opacity-30 group-hover:opacity-50 transition-opacity"></div>
@@ -384,12 +384,6 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                 ) : (
                   <>
                     {/* Event below the line */}
-                    {/* "PRÓXIMO" badge for the first future event */}
-                    {index === 0 && (
-                      <div className="absolute top-[305px] left-1/2 transform -translate-x-1/2 bg-[#FFC107] text-black px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide z-20">
-                        Próximo
-                      </div>
-                    )}
                     <div className="flex-1"></div>
                     {/* Timeline dot with animation for future events */}
                     <div className="absolute top-[261px] z-10">
@@ -401,6 +395,14 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
                       </div>
                     </div>
                     <div className="group cursor-pointer relative" style={{ marginTop: '30px' }}>
+                      {/* "PRÓXIMO" badge for the first future event */}
+                      {index === 0 && (
+                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 z-30">
+                          <div className="bg-[#FFC107] text-black px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-lg">
+                            PRÓXIMO
+                          </div>
+                        </div>
+                      )}
                       <div className={`bg-white rounded-lg shadow-lg p-4 transform transition-all duration-300 hover:scale-105 hover:shadow-xl hover:translate-y-4 border-2 ${index === 0 ? 'border-[#FFC107]' : 'border-transparent hover:border-[#FFC107]'}`} style={{ zIndex: 20, position: 'relative' }}>
                         <div className="flex justify-center mb-3 relative z-10">
                           <span className="bg-black text-white px-4 py-2 rounded-full text-sm font-bold">

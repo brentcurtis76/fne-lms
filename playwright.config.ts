@@ -140,9 +140,9 @@ export default defineConfig({
     },
   ],
 
-  /* Global setup and teardown */
-  globalSetup: require.resolve('./e2e/global-setup'),
-  globalTeardown: require.resolve('./e2e/global-teardown'),
+  /* Global setup and teardown - USING SAFE VERSION */
+  globalSetup: require.resolve('./e2e/global-setup-safe'),
+  globalTeardown: require.resolve('./e2e/global-teardown-safe'),
 
   /* Run your local dev server before starting the tests */
   webServer: process.env.SKIP_WEB_SERVER ? undefined : {

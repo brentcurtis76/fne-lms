@@ -8,6 +8,7 @@ import Link from 'next/link';
 import MainLayout from '../../../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 import { ConfirmModal } from '../../../../components/common/ConfirmModal';
+import ConvertStructureModal from '../../../../components/ConvertStructureModal';
 
 import { getUserPrimaryRole } from '../../../../utils/roleUtils';
 interface Course {
@@ -16,6 +17,7 @@ interface Course {
   description: string;
   thumbnail_url: string | null;
   instructor_id: string | null;
+  structure_type?: 'simple' | 'structured';
 }
 
 export default function EditCourse() {
@@ -38,6 +40,8 @@ export default function EditCourse() {
   const [instructor, setInstructor] = useState('');
   const [thumbnail, setThumbnail] = useState<File | null>(null);
   const [currentThumbnailUrl, setCurrentThumbnailUrl] = useState<string | null>(null);
+  const [structureType, setStructureType] = useState<'simple' | 'structured'>('structured');
+  const [hasExistingModules, setHasExistingModules] = useState(false);
   
   // Instructors data
   const [instructors, setInstructors] = useState<any[]>([]);
@@ -45,6 +49,12 @@ export default function EditCourse() {
   
   // Confirmation modal state
   const [showInstructorChangeModal, setShowInstructorChangeModal] = useState(false);
+  
+  // Structure conversion modal state
+  const [showConversionModal, setShowConversionModal] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
+  const [moduleCount, setModuleCount] = useState(0);
+  const [lessonCount, setLessonCount] = useState(0);
   const [pendingInstructorChange, setPendingInstructorChange] = useState<{
     oldName: string;
     newName: string;
@@ -104,12 +114,38 @@ export default function EditCourse() {
           setDescription(courseData.description);
           setInstructor(courseData.instructor_id || '');
           setCurrentThumbnailUrl(courseData.thumbnail_url);
+          setStructureType(courseData.structure_type || 'structured');
+          
+          // Check if course has existing modules and count them
+          const { data: modules, error: modulesError } = await supabase
+            .from('modules')
+            .select('id')
+            .eq('course_id', courseId as string);
+          
+          if (!modulesError && modules) {
+            setModuleCount(modules.length);
+            if (modules.length > 0) {
+              setHasExistingModules(true);
+            }
+          }
+          
+          // Count lessons
+          const { data: lessons, error: lessonsError } = await supabase
+            .from('lessons')
+            .select('id')
+            .eq('course_id', courseId as string);
+          
+          if (!lessonsError && lessons) {
+            setLessonCount(lessons.length);
+          }
           
           // Log for debugging instructor changes
           console.log('[EditCourse] Loaded course:', {
             id: courseData.id,
             title: courseData.title,
-            instructor_id: courseData.instructor_id
+            instructor_id: courseData.instructor_id,
+            structure_type: courseData.structure_type,
+            has_modules: modules?.length > 0
           });
           
           // Fetch instructors
@@ -186,7 +222,8 @@ export default function EditCourse() {
           title: title.trim(),
           description: description.trim(),
           instructor_id: instructor || null,
-          thumbnail_url: thumbnailUrl
+          thumbnail_url: thumbnailUrl,
+          structure_type: structureType
         })
         .eq('id', courseId as string);
         
@@ -198,6 +235,90 @@ export default function EditCourse() {
       router.push(`/admin/course-builder/${courseId}`);
     } catch (error: any) {
       throw error;
+    }
+  };
+
+  const handleStructureConversion = async () => {
+    if (!course || !courseId) return;
+    
+    setIsConverting(true);
+    const targetStructure = structureType === 'simple' ? 'structured' : 'simple';
+    
+    try {
+      // Perform the conversion
+      if (targetStructure === 'simple') {
+        // Converting to simple - flatten all module lessons
+        const { data: moduleLessons } = await supabase
+          .from('lessons')
+          .select('*')
+          .eq('course_id', courseId as string)
+          .not('module_id', 'is', null);
+        
+        if (moduleLessons && moduleLessons.length > 0) {
+          // Update all lessons to remove module_id
+          for (const lesson of moduleLessons) {
+            await supabase
+              .from('lessons')
+              .update({ module_id: null })
+              .eq('id', lesson.id);
+          }
+        }
+        
+        // Delete all modules
+        await supabase
+          .from('modules')
+          .delete()
+          .eq('course_id', courseId as string);
+          
+      } else {
+        // Converting to structured - create a default module
+        const { data: newModule } = await supabase
+          .from('modules')
+          .insert({
+            course_id: courseId as string,
+            title: 'Módulo Principal',
+            description: 'Módulo creado durante conversión de estructura',
+            order_number: 1
+          })
+          .select()
+          .single();
+        
+        if (newModule) {
+          // Move all direct lessons to the new module
+          const { data: directLessons } = await supabase
+            .from('lessons')
+            .select('*')
+            .eq('course_id', courseId as string)
+            .is('module_id', null);
+          
+          if (directLessons && directLessons.length > 0) {
+            for (const lesson of directLessons) {
+              await supabase
+                .from('lessons')
+                .update({ module_id: newModule.id })
+                .eq('id', lesson.id);
+            }
+          }
+        }
+      }
+      
+      // Update course structure type
+      await supabase
+        .from('courses')
+        .update({ structure_type: targetStructure })
+        .eq('id', courseId as string);
+      
+      toast.success(`Curso convertido a estructura ${targetStructure === 'simple' ? 'simple' : 'modular'} exitosamente`);
+      
+      // Reload the page to reflect changes
+      router.reload();
+      
+    } catch (error: any) {
+      console.error('Error converting structure:', error);
+      toast.error('Error al convertir la estructura del curso');
+    } finally {
+      setIsConverting(false);
+      setShowConversionModal(false);
     }
   };
 
@@ -376,6 +497,79 @@ export default function EditCourse() {
                   />
                 </div>
 
+                {/* Structure Type */}
+                <div>
+                  <label className="block text-sm font-medium text-brand_blue mb-2">
+                    Estructura del Curso
+                  </label>
+                  <div className="space-y-2">
+                    <div className="flex items-start space-x-3">
+                      <input
+                        type="radio"
+                        id="structure-simple"
+                        name="structure"
+                        value="simple"
+                        checked={structureType === 'simple'}
+                        onChange={() => setStructureType('simple')}
+                        disabled={hasExistingModules}
+                        className="mt-1"
+                      />
+                      <label htmlFor="structure-simple" className="cursor-pointer">
+                        <div className="font-medium text-gray-900">Simple</div>
+                        <div className="text-sm text-gray-500">
+                          Las lecciones se organizan directamente en el curso sin módulos.
+                          Ideal para cursos cortos con pocas lecciones.
+                        </div>
+                      </label>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <input
+                        type="radio"
+                        id="structure-structured"
+                        name="structure"
+                        value="structured"
+                        checked={structureType === 'structured'}
+                        onChange={() => setStructureType('structured')}
+                        className="mt-1"
+                      />
+                      <label htmlFor="structure-structured" className="cursor-pointer">
+                        <div className="font-medium text-gray-900">Estructurado</div>
+                        <div className="text-sm text-gray-500">
+                          Las lecciones se organizan en módulos. 
+                          Ideal para cursos completos con múltiples temas.
+                        </div>
+                      </label>
+                    </div>
+                    {hasExistingModules && (
+                      <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                        <p className="text-sm text-yellow-800">
+                          <strong>Nota:</strong> Este curso ya tiene módulos creados. 
+                          Para cambiar a estructura simple, primero debe eliminar todos los módulos.
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Conversion button - shown when structure differs from current */}
+                    {course.structure_type && course.structure_type !== structureType && (
+                      <div className="mt-4">
+                        <button
+                          type="button"
+                          onClick={() => setShowConversionModal(true)}
+                          className="inline-flex items-center px-4 py-2 border border-brand_blue text-brand_blue rounded-md hover:bg-brand_blue hover:text-white transition-colors"
+                        >
+                          <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Convertir a estructura {structureType === 'simple' ? 'simple' : 'modular'}
+                        </button>
+                        <p className="text-xs text-gray-500 mt-2">
+                          Esta acción reorganizará las lecciones del curso según la nueva estructura seleccionada.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Instructor */}
                 <div>
                   <label htmlFor="instructor" className="block text-sm font-medium text-brand_blue mb-2">
@@ -486,6 +680,19 @@ export default function EditCourse() {
           confirmText="Sí, cambiar"
           cancelText="Cancelar"
           isDangerous={false}
+        />
+        
+        {/* Structure Conversion Modal */}
+        <ConvertStructureModal
+          isOpen={showConversionModal}
+          onClose={() => setShowConversionModal(false)}
+          onConfirm={handleStructureConversion}
+          courseTitle={course.title}
+          currentStructure={course.structure_type || 'structured'}
+          targetStructure={structureType}
+          moduleCount={moduleCount}
+          lessonCount={lessonCount}
+          isConverting={isConverting}
         />
     </MainLayout>
   );

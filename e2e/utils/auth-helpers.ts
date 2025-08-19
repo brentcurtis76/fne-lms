@@ -12,28 +12,31 @@ export interface TestUser {
   name: string;
 }
 
+// Use namespaced test users to avoid affecting production
+const TEST_NAMESPACE = process.env.TEST_NAMESPACE || `e2e_test_${Date.now()}`;
+
 export const TEST_USERS = {
   admin: {
-    email: process.env.TEST_ADMIN_EMAIL || 'brent@perrotuertocm.cl',
-    password: process.env.TEST_ADMIN_PASSWORD || 'NuevaEdu2025!',
+    email: process.env.TEST_ADMIN_EMAIL || `admin_${TEST_NAMESPACE}@test.local`,
+    password: process.env.TEST_ADMIN_PASSWORD || 'TestAdmin123!',
     role: 'admin',
-    name: 'Brent Curtis'
+    name: 'Test Admin'
   },
   consultant: {
-    email: process.env.TEST_CONSULTANT_EMAIL || 'consultant@nuevaeducacion.org',
-    password: process.env.TEST_CONSULTANT_PASSWORD || 'test123456',
+    email: process.env.TEST_CONSULTANT_EMAIL || `consultant_${TEST_NAMESPACE}@test.local`,
+    password: process.env.TEST_CONSULTANT_PASSWORD || 'TestConsultant123!',
     role: 'consultor',
     name: 'Test Consultant'
   },
   student: {
-    email: process.env.TEST_STUDENT_EMAIL || 'student@nuevaeducacion.org',
-    password: process.env.TEST_STUDENT_PASSWORD || 'test123456',
+    email: process.env.TEST_STUDENT_EMAIL || `student_${TEST_NAMESPACE}@test.local`,
+    password: process.env.TEST_STUDENT_PASSWORD || 'TestStudent123!',
     role: 'docente',
     name: 'Test Student'
   },
   director: {
-    email: process.env.TEST_DIRECTOR_EMAIL || 'director@nuevaeducacion.org',
-    password: process.env.TEST_DIRECTOR_PASSWORD || 'test123456',
+    email: process.env.TEST_DIRECTOR_EMAIL || `director_${TEST_NAMESPACE}@test.local`,
+    password: process.env.TEST_DIRECTOR_PASSWORD || 'TestDirector123!',
     role: 'equipo_directivo',
     name: 'Test Director'
   }

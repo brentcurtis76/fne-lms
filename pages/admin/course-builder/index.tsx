@@ -568,9 +568,18 @@ const CourseBuilder: React.FC = () => {
                       )}
                     </div>
                     <div className="p-5 md:p-6 flex-grow">
-                      <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
-                        {course.title}
-                      </h2>
+                      <div className="flex items-start justify-between mb-2">
+                        <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate flex-1">
+                          {course.title}
+                        </h2>
+                        <span className={`ml-2 px-2 py-1 text-xs rounded-full font-medium ${
+                          course.structure_type === 'simple' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {course.structure_type === 'simple' ? 'Simple' : 'Modular'}
+                        </span>
+                      </div>
                       <p className="mt-2 text-sm text-gray-600 line-clamp-3 h-[3.75em]">
                         {course.description}
                       </p>

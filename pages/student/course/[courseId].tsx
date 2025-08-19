@@ -16,6 +16,7 @@ interface Course {
   id: string;
   title: string;
   description: string;
+  structure_type?: 'simple' | 'structured';
 }
 
 interface Module {
@@ -30,7 +31,8 @@ interface Lesson {
   id: string;
   title: string;
   order_number: number;
-  module_id: string;
+  module_id?: string;
+  course_id?: string;
   blocksCount?: number;
 }
 
@@ -49,6 +51,7 @@ export default function StudentCourseViewer() {
 
   const [course, setCourse] = useState<Course | null>(null);
   const [modules, setModules] = useState<Module[]>([]);
+  const [directLessons, setDirectLessons] = useState<Lesson[]>([]);
   const [progress, setProgress] = useState<Record<string, Progress>>({});
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
@@ -115,29 +118,21 @@ export default function StudentCourseViewer() {
         if (courseError) throw courseError;
         setCourse(courseData);
 
-        // Fetch modules with lessons
-        const { data: modulesData, error: modulesError } = await supabase
-          .from('modules')
-          .select('*')
-          .eq('course_id', courseId)
-          .order('order_number', { ascending: true });
-
-        if (modulesError) throw modulesError;
-
-        // Fetch lessons for each module
-        const modulesWithLessons: Module[] = [];
-        for (const module of modulesData || []) {
-          console.log(`=== FETCHING LESSONS FOR MODULE: ${module.id} ===`);
+        // Determine course structure and fetch appropriate content
+        if (courseData.structure_type === 'simple') {
+          console.log('Course is SIMPLE structure - fetching direct lessons');
           
+          // Fetch direct lessons for simple courses
           const { data: lessonsData, error: lessonsError } = await supabase
             .from('lessons')
             .select('*')
-            .eq('module_id', module.id)
+            .eq('course_id', courseId)
+            .is('module_id', null)
             .order('order_number', { ascending: true });
 
           if (lessonsError) throw lessonsError;
           
-          console.log('Raw lessons from DB:', lessonsData);
+          console.log('Raw direct lessons from DB:', lessonsData);
 
           // Get block count for each lesson
           const lessonsWithBlockCount: Lesson[] = [];
@@ -160,19 +155,104 @@ export default function StudentCourseViewer() {
             lessonsWithBlockCount.push(lessonWithCount);
           }
 
-          modulesWithLessons.push({
-            ...module,
-            lessons: lessonsWithBlockCount
-          });
+          setDirectLessons(lessonsWithBlockCount);
+          setModules([]); // No modules for simple courses
+          
+          console.log('DEBUG: Direct lessons loaded:', lessonsWithBlockCount);
+          
+        } else {
+          console.log('Course is STRUCTURED - fetching modules with lessons');
+          
+          // Fetch modules with lessons for structured courses
+          const { data: modulesData, error: modulesError } = await supabase
+            .from('modules')
+            .select('*')
+            .eq('course_id', courseId)
+            .order('order_number', { ascending: true });
+
+          if (modulesError) throw modulesError;
+
+          // Fetch lessons for each module
+          const modulesWithLessons: Module[] = [];
+          for (const module of modulesData || []) {
+            console.log(`=== FETCHING LESSONS FOR MODULE: ${module.id} ===`);
+            
+            const { data: lessonsData, error: lessonsError } = await supabase
+              .from('lessons')
+              .select('*')
+              .eq('module_id', module.id)
+              .order('order_number', { ascending: true });
+
+            if (lessonsError) throw lessonsError;
+            
+            console.log('Raw lessons from DB:', lessonsData);
+
+            // Get block count for each lesson
+            const lessonsWithBlockCount: Lesson[] = [];
+            for (const lesson of lessonsData || []) {
+              console.log(`Getting block count for lesson: ${lesson.id} (${lesson.title})`);
+              
+              const { count: blockCount } = await supabase
+                .from('blocks')
+                .select('*', { count: 'exact', head: true })
+                .eq('lesson_id', lesson.id);
+
+              console.log(`Block count for lesson ${lesson.id}: ${blockCount}`);
+
+              const lessonWithCount = {
+                ...lesson,
+                blocksCount: blockCount || 0
+              };
+              
+              console.log('Final lesson object:', lessonWithCount);
+              lessonsWithBlockCount.push(lessonWithCount);
+            }
+
+            modulesWithLessons.push({
+              ...module,
+              lessons: lessonsWithBlockCount
+            });
+          }
+
+          setModules(modulesWithLessons);
+          setDirectLessons([]); // No direct lessons for structured courses
+
+          // DEBUG: Log the modules and lessons data
+          console.log('DEBUG: Modules with lessons loaded:', modulesWithLessons);
         }
 
-        setModules(modulesWithLessons);
-
-        // DEBUG: Log the modules and lessons data
-        console.log('DEBUG: Modules with lessons loaded:', modulesWithLessons);
-
         // Fetch progress for all lessons in the course
-        const allLessonIds = modulesWithLessons.flatMap(m => m.lessons.map(l => l.id));
+        let allLessonIds: string[] = [];
+        let allLessonsWithBlockCounts: Lesson[] = [];
+        
+        if (courseData.structure_type === 'simple') {
+          // For simple courses, we already have the lessons in lessonsWithBlockCount
+          const { data: lessonsData } = await supabase
+            .from('lessons')
+            .select('*')
+            .eq('course_id', courseId)
+            .is('module_id', null)
+            .order('order_number', { ascending: true });
+            
+          if (lessonsData) {
+            for (const lesson of lessonsData) {
+              const { count: blockCount } = await supabase
+                .from('blocks')
+                .select('*', { count: 'exact', head: true })
+                .eq('lesson_id', lesson.id);
+              
+              allLessonsWithBlockCounts.push({
+                ...lesson,
+                blocksCount: blockCount || 0
+              });
+            }
+            allLessonIds = allLessonsWithBlockCounts.map(l => l.id);
+          }
+        } else {
+          // For structured courses, extract from modules
+          allLessonsWithBlockCounts = modulesWithLessons.flatMap(m => m.lessons);
+          allLessonIds = allLessonsWithBlockCounts.map(l => l.id);
+        }
         
         if (allLessonIds.length > 0) {
           const { data: progressData, error: progressError } = await supabase
@@ -187,15 +267,13 @@ export default function StudentCourseViewer() {
           const progressLookup: Record<string, Progress> = {};
           
           // Initialize progress for all lessons
-          modulesWithLessons.forEach(module => {
-            module.lessons.forEach(lesson => {
-              progressLookup[lesson.id] = {
-                lessonId: lesson.id,
-                completedBlocks: 0,
-                totalBlocks: lesson.blocksCount || 0,
-                isCompleted: false
-              };
-            });
+          allLessonsWithBlockCounts.forEach(lesson => {
+            progressLookup[lesson.id] = {
+              lessonId: lesson.id,
+              completedBlocks: 0,
+              totalBlocks: lesson.blocksCount || 0,
+              isCompleted: false
+            };
           });
 
           // Update with actual progress
@@ -240,6 +318,9 @@ export default function StudentCourseViewer() {
   }, [router.isReady, courseId]);
 
   const getTotalLessons = () => {
+    if (course?.structure_type === 'simple') {
+      return directLessons.length;
+    }
     return modules.reduce((total, module) => total + module.lessons.length, 0);
   };
 
@@ -260,16 +341,30 @@ export default function StudentCourseViewer() {
   };
 
   const getNextLesson = () => {
-    console.log('DEBUG: getNextLesson called, modules:', modules);
+    console.log('DEBUG: getNextLesson called');
+    console.log('DEBUG: Course structure type:', course?.structure_type);
     console.log('DEBUG: progress state:', progress);
     
-    for (const module of modules) {
-      for (const lesson of module.lessons) {
+    if (course?.structure_type === 'simple') {
+      console.log('DEBUG: Checking direct lessons:', directLessons);
+      for (const lesson of directLessons) {
         const lessonProgress = progress[lesson.id];
         console.log(`DEBUG: Checking lesson ${lesson.id} (${lesson.title}), progress:`, lessonProgress);
         if (!lessonProgress?.isCompleted) {
-          console.log('DEBUG: Found next lesson:', { module, lesson });
-          return { module, lesson };
+          console.log('DEBUG: Found next lesson:', lesson);
+          return { lesson, module: null };
+        }
+      }
+    } else {
+      console.log('DEBUG: Checking modules:', modules);
+      for (const module of modules) {
+        for (const lesson of module.lessons) {
+          const lessonProgress = progress[lesson.id];
+          console.log(`DEBUG: Checking lesson ${lesson.id} (${lesson.title}), progress:`, lessonProgress);
+          if (!lessonProgress?.isCompleted) {
+            console.log('DEBUG: Found next lesson:', { module, lesson });
+            return { module, lesson };
+          }
         }
       }
     }
@@ -370,9 +465,11 @@ export default function StudentCourseViewer() {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold mb-2">Continuar Aprendiendo</h2>
-                  <p className="text-blue-100 mb-1">
-                    Módulo {nextLesson.module.order_number}: {nextLesson.module.title}
-                  </p>
+                  {nextLesson.module && (
+                    <p className="text-blue-100 mb-1">
+                      Módulo {nextLesson.module.order_number}: {nextLesson.module.title}
+                    </p>
+                  )}
                   <p className="text-white font-medium">
                     Lección {nextLesson.lesson.order_number}: {nextLesson.lesson.title}
                   </p>
@@ -403,23 +500,24 @@ export default function StudentCourseViewer() {
             </div>
           )}
 
-          {/* Course Modules */}
+          {/* Course Content - Simple or Structured */}
           <div className="space-y-6">
-            {modules.map((module) => (
-              <div key={module.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+            {course?.structure_type === 'simple' ? (
+              // Simple Course: Display direct lessons
+              <div className="bg-white rounded-lg shadow-md overflow-hidden">
                 <div className="bg-gray-50 px-6 py-4 border-b">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="text-lg font-bold text-[#00365b]">
-                        Módulo {module.order_number}: {module.title}
+                        Lecciones del Curso
                       </h3>
-                      {module.description && (
-                        <p className="text-gray-600 text-sm mt-1">{module.description}</p>
-                      )}
+                      <p className="text-gray-600 text-sm mt-1">
+                        Este curso tiene {directLessons.length} {directLessons.length === 1 ? 'lección' : 'lecciones'}
+                      </p>
                     </div>
                     <div className="text-right">
                       <div className="text-sm text-gray-600">
-                        {module.lessons.filter(l => progress[l.id]?.isCompleted).length}/{module.lessons.length} lecciones
+                        {directLessons.filter(l => progress[l.id]?.isCompleted).length}/{directLessons.length} completadas
                       </div>
                     </div>
                   </div>
@@ -427,7 +525,7 @@ export default function StudentCourseViewer() {
 
                 <div className="p-6">
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {module.lessons.map((lesson) => {
+                    {directLessons.map((lesson) => {
                       const lessonProgress = progress[lesson.id];
                       const progressPercentage = getLessonProgressPercentage(lesson.id);
                       const isCompleted = lessonProgress?.isCompleted || false;
@@ -488,7 +586,93 @@ export default function StudentCourseViewer() {
                   </div>
                 </div>
               </div>
-            ))}
+            ) : (
+              // Structured Course: Display modules with lessons
+              modules.map((module) => (
+                <div key={module.id} className="bg-white rounded-lg shadow-md overflow-hidden">
+                  <div className="bg-gray-50 px-6 py-4 border-b">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-[#00365b]">
+                          Módulo {module.order_number}: {module.title}
+                        </h3>
+                        {module.description && (
+                          <p className="text-gray-600 text-sm mt-1">{module.description}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-600">
+                          {module.lessons.filter(l => progress[l.id]?.isCompleted).length}/{module.lessons.length} lecciones
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6">
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {module.lessons.map((lesson) => {
+                        const lessonProgress = progress[lesson.id];
+                        const progressPercentage = getLessonProgressPercentage(lesson.id);
+                        const isCompleted = lessonProgress?.isCompleted || false;
+                        const hasStarted = lessonProgress?.completedBlocks > 0;
+
+                        return (
+                          <Link
+                            key={lesson.id}
+                            href={`/student/lesson/${lesson.id}`}
+                            className="block bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition border-2 border-transparent hover:border-[#00365b]"
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center gap-2">
+                                <div className={`p-2 rounded-full ${
+                                  isCompleted ? 'bg-green-100' : hasStarted ? 'bg-blue-100' : 'bg-gray-200'
+                                }`}>
+                                  {isCompleted ? (
+                                    <CheckCircle className="text-green-600" size={16} />
+                                  ) : (
+                                    <BookOpen className={`${hasStarted ? 'text-blue-600' : 'text-gray-400'}`} size={16} />
+                                  )}
+                                </div>
+                                <span className="text-sm font-medium text-gray-600">
+                                  Lección {lesson.order_number}
+                                </span>
+                              </div>
+                              
+                              {lessonProgress?.lastAccessed && (
+                                <div className="text-xs text-gray-400">
+                                  <Clock size={12} className="inline mr-1" />
+                                  Reciente
+                                </div>
+                              )}
+                            </div>
+
+                            <h4 className="font-medium text-gray-900 mb-2 line-clamp-2">
+                              {lesson.title}
+                            </h4>
+
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-xs text-gray-500">
+                                <span>{lessonProgress?.totalBlocks || 0} bloques</span>
+                                <span>{progressPercentage}% completado</span>
+                              </div>
+                              
+                              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                <div 
+                                  className={`h-1.5 rounded-full transition-all ${
+                                    isCompleted ? 'bg-green-500' : hasStarted ? 'bg-blue-500' : 'bg-gray-300'
+                                  }`}
+                                  style={{ width: `${progressPercentage}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Course Completion */}

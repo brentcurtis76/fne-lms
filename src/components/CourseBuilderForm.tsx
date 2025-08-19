@@ -25,6 +25,7 @@ const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [selectedInstructorId, setSelectedInstructorId] = useState(instructorId || '');
+  const [structureType, setStructureType] = useState<'simple' | 'structured'>('structured');
   const [instructors, setInstructors] = useState<Instructor[]>([]);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -73,6 +74,7 @@ const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
         created_by: createdBy,
         thumbnail_url: null, // Set to null instead of placeholder URL
         status: 'draft',
+        structure_type: structureType,
       },
     ]);
 
@@ -136,6 +138,50 @@ const CourseBuilderForm: React.FC<CourseBuilderFormProps> = ({
             placeholder="Ingresa la descripción del curso"
             required
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Estructura del Curso
+          </label>
+          <div className="space-y-2">
+            <div className="flex items-start space-x-3">
+              <input
+                type="radio"
+                id="structure-simple"
+                name="structure"
+                value="simple"
+                checked={structureType === 'simple'}
+                onChange={() => setStructureType('simple')}
+                className="mt-1"
+              />
+              <label htmlFor="structure-simple" className="cursor-pointer">
+                <div className="font-medium text-gray-900">Simple</div>
+                <div className="text-sm text-gray-500">
+                  Las lecciones se organizan directamente en el curso sin módulos.
+                  Ideal para cursos cortos (1-5 lecciones).
+                </div>
+              </label>
+            </div>
+            <div className="flex items-start space-x-3">
+              <input
+                type="radio"
+                id="structure-structured"
+                name="structure"
+                value="structured"
+                checked={structureType === 'structured'}
+                onChange={() => setStructureType('structured')}
+                className="mt-1"
+              />
+              <label htmlFor="structure-structured" className="cursor-pointer">
+                <div className="font-medium text-gray-900">Modular</div>
+                <div className="text-sm text-gray-500">
+                  Las lecciones se organizan en módulos. 
+                  Ideal para cursos completos con múltiples temas.
+                </div>
+              </label>
+            </div>
+          </div>
         </div>
 
         <div>

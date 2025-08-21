@@ -723,8 +723,8 @@ export default function ContractsPage() {
                             </td>
                             <td className="py-4 px-4">
                               <div>
-                                <div className="font-medium text-gray-900">{contrato.clientes.nombre_fantasia}</div>
-                                <div className="text-sm text-gray-500">{contrato.clientes.rut}</div>
+                                <div className="font-medium text-gray-900">{contrato.clientes.nombre_legal}</div>
+                                <div className="text-sm text-gray-500">{contrato.clientes.nombre_fantasia}</div>
                               </div>
                             </td>
                             <td className="py-4 px-4">

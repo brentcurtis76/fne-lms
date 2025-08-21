@@ -33,13 +33,14 @@ npm run dev  # MUST be port 3000
 - **Network Management**: ✅ Supervisor de Red role with network-based access control
 - **Flexible Course Structure**: ✅ Simple and structured course types supported
 
-### **RECENT CRITICAL FIXES (2025)**
+### **RECENT CRITICAL FIXES & IMPROVEMENTS (2025)**
 
-#### **FLEXIBLE COURSE STRUCTURE - COMPLETE**
+#### **FLEXIBLE COURSE STRUCTURE - COMPLETE (January 2025)**
 - Database supports both simple and structured course types
-- Admin UI for safe conversion between structure types
+- Course creation form now includes structure type selection (Simple/Modular)
+- Admin UI for safe conversion between structure types post-creation
 - E2E tests with proper test isolation (no production data affected)
-- Files: `/components/ConvertStructureModal.tsx`, `/e2e/course-structure*.spec.ts`
+- Files: `/src/components/CourseBuilderForm.tsx`, `/components/ConvertStructureModal.tsx`, `/e2e/course-structure*.spec.ts`
 
 #### **CRITICAL SECURITY FIX: HARDCODED ADMIN PRIVILEGES**
 - Fixed vulnerability where ALL users received admin navigation
@@ -55,6 +56,28 @@ npm run dev  # MUST be port 3000
 - Consolidated "Mis Rutas" and "Mis Cursos" into single "Mi Aprendizaje" interface
 - Automatic redirects from old URLs maintain backwards compatibility
 - Files: `/pages/mi-aprendizaje.tsx`, `/components/layout/Sidebar.tsx`
+
+### **ACTIVE DEVELOPMENT - DYNAMIC SIDEBAR ROLES** 🚧
+**Status:** Planning Phase (January 19, 2025)  
+**Documentation:** See `SIDEBAR_DYNAMIC_ROLES_IMPLEMENTATION.md` for complete details  
+**Goal:** Transform hardcoded sidebar permissions into dynamic, database-driven system
+
+#### ⚠️ **IMPORTANT: NO PRODUCTION DEPLOYMENT UNTIL FULLY COMPLETE**
+This feature is being developed entirely in development environment. No changes will be pushed to production until all phases are complete and fully tested.
+
+#### Quick Summary:
+- Moving from hardcoded role checks to database-driven menu permissions
+- Admin UI to configure which roles see which menu items
+- Permissions loaded once at login (no re-rendering)
+- Hybrid approach: critical admin items remain hardcoded for safety
+- Currently in Phase 1: Creating database schema
+- **Branch:** `feature/dynamic-sidebar-roles` (DO NOT MERGE TO MAIN)
+
+**Next Session Should:**
+1. Check `SIDEBAR_DYNAMIC_ROLES_IMPLEMENTATION.md` for current status
+2. Continue from "Next Action" listed in document
+3. Update Progress Log with session work
+4. Keep all work in feature branch
 
 ### **MAINTENANCE TASKS**
 - ⏳ Quiz review system testing pending

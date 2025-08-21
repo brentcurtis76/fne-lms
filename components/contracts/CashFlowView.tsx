@@ -691,7 +691,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
             {(showAllOverdue ? overdueCuotas : overdueCuotas.slice(0, 5)).map(({ contrato, cuota }, index) => (
               <div key={`${contrato.id}-${cuota.id}`} className="flex items-center justify-between bg-white p-3 rounded border">
                 <div>
-                  <p className="font-medium text-gray-900">{contrato.clientes.nombre_fantasia}</p>
+                  <p className="font-medium text-gray-900">{contrato.clientes.nombre_legal}</p>
                   <p className="text-sm text-gray-600">
                     Contrato {contrato.numero_contrato} - Cuota {cuota.numero_cuota}
                   </p>
@@ -792,8 +792,8 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                           <td className="py-3 px-2 md:px-4 whitespace-nowrap text-sm">{formatDate(cuota.fecha_vencimiento)}</td>
                           <td className="py-3 px-2 md:px-4">
                             <div>
-                              <div className="font-medium text-sm">{contrato.clientes.nombre_fantasia}</div>
-                              <div className="text-xs text-gray-500">{contrato.clientes.rut}</div>
+                              <div className="font-medium text-sm">{contrato.clientes.nombre_legal}</div>
+                              <div className="text-xs text-gray-500">{contrato.clientes.nombre_fantasia}</div>
                             </div>
                           </td>
                           <td className="py-3 px-2 md:px-4 whitespace-nowrap text-sm">{contrato.numero_contrato}</td>

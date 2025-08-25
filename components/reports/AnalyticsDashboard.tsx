@@ -146,10 +146,10 @@ export default function AnalyticsDashboard({ userId, userRole, isAdmin, filters 
     try {
       setLoading(true);
       
-      const url = new URL('/api/reports/analytics', window.location.origin);
+      const url = new URL('/api/reports/analytics-data', window.location.origin);
       url.searchParams.set('user_id', userId);
-      url.searchParams.set('time_period', timePeriod);
-      url.searchParams.set('group_by', groupBy);
+      url.searchParams.set('timeRange', timePeriod);
+      url.searchParams.set('groupBy', groupBy);
       
       if (filters.school_id !== 'all') {
         url.searchParams.set('school_id', filters.school_id);

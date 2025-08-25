@@ -120,52 +120,77 @@ export default function StudentLessonViewer() {
         setLesson(lessonData);
 
         // Fetch next lesson in the course for navigation
-        if (lessonData?.module?.course_id) {
+        // Handle both structured (with modules) and simple courses
+        const courseId = lessonData?.module?.course_id || lessonData?.course_id;
+        
+        if (courseId) {
           try {
-            const { data: nextLessonData, error: nextLessonError } = await supabase
-              .from('lessons')
-              .select(`
-                id,
-                title,
-                order_number,
-                module:modules(
-                  id,
-                  title,
-                  order_number
-                )
-              `)
-              .eq('module_id', lessonData.module_id)
-              .gt('order_number', lessonData.order_number)
-              .order('order_number', { ascending: true })
-              .limit(1)
-              .single();
-
-            if (!nextLessonError && nextLessonData) {
-              setNextLesson(nextLessonData);
-            } else {
-              // Check if there's a next module with lessons
-              const { data: nextModuleData, error: nextModuleError } = await supabase
-                .from('modules')
-                .select(`
-                  id,
-                  title,
-                  lessons(id, title, order_number)
-                `)
-                .eq('course_id', lessonData.module.course_id)
-                .gt('order_number', lessonData.module.order_number)
+            // Check if this is a simple course (no modules)
+            if (!lessonData.module_id && lessonData.course_id) {
+              // Simple course: find next lesson directly by course_id
+              const { data: nextLessonData, error: nextLessonError } = await supabase
+                .from('lessons')
+                .select('id, title, order_number')
+                .eq('course_id', lessonData.course_id)
+                .is('module_id', null)
+                .gt('order_number', lessonData.order_number)
                 .order('order_number', { ascending: true })
                 .limit(1)
                 .single();
 
-              if (!nextModuleError && nextModuleData?.lessons?.length > 0) {
-                const firstLessonInNextModule = nextModuleData.lessons
-                  .sort((a: any, b: any) => a.order_number - b.order_number)[0];
-                setNextLesson({
-                  ...firstLessonInNextModule,
-                  module: { id: nextModuleData.id, title: nextModuleData.title }
-                });
+              if (!nextLessonError && nextLessonData) {
+                setNextLesson(nextLessonData);
               } else {
+                // No more lessons in simple course
                 setCourseCompleted(true);
+              }
+            } else if (lessonData?.module?.course_id) {
+              // Structured course: existing logic for modules
+              const { data: nextLessonData, error: nextLessonError } = await supabase
+                .from('lessons')
+                .select(`
+                  id,
+                  title,
+                  order_number,
+                  module:modules(
+                    id,
+                    title,
+                    order_number
+                  )
+                `)
+                .eq('module_id', lessonData.module_id)
+                .gt('order_number', lessonData.order_number)
+                .order('order_number', { ascending: true })
+                .limit(1)
+                .single();
+
+              if (!nextLessonError && nextLessonData) {
+                setNextLesson(nextLessonData);
+              } else {
+                // Check if there's a next module with lessons
+                const { data: nextModuleData, error: nextModuleError } = await supabase
+                  .from('modules')
+                  .select(`
+                    id,
+                    title,
+                    lessons(id, title, order_number)
+                  `)
+                  .eq('course_id', lessonData.module.course_id)
+                  .gt('order_number', lessonData.module.order_number)
+                  .order('order_number', { ascending: true })
+                  .limit(1)
+                  .single();
+
+                if (!nextModuleError && nextModuleData?.lessons?.length > 0) {
+                  const firstLessonInNextModule = nextModuleData.lessons
+                    .sort((a: any, b: any) => a.order_number - b.order_number)[0];
+                  setNextLesson({
+                    ...firstLessonInNextModule,
+                    module: { id: nextModuleData.id, title: nextModuleData.title }
+                  });
+                } else {
+                  setCourseCompleted(true);
+                }
               }
             }
           } catch (error) {

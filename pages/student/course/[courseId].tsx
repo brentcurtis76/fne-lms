@@ -250,7 +250,7 @@ export default function StudentCourseViewer() {
           }
         } else {
           // For structured courses, extract from modules
-          allLessonsWithBlockCounts = modulesWithLessons.flatMap(m => m.lessons);
+          allLessonsWithBlockCounts = modules.flatMap(m => m.lessons);
           allLessonIds = allLessonsWithBlockCounts.map(l => l.id);
         }
         
@@ -276,6 +276,9 @@ export default function StudentCourseViewer() {
             };
           });
 
+          // Track unique block completions to avoid counting duplicates
+          const completedBlockIds = new Set<string>();
+
           // Update with actual progress
           progressData?.forEach(p => {
             if (!progressLookup[p.lesson_id]) {
@@ -287,14 +290,23 @@ export default function StudentCourseViewer() {
               };
             }
 
-            if (p.completed_at) {
-              progressLookup[p.lesson_id].completedBlocks += 1;
+            // Only count unique block completions (users may retake lessons)
+            if (p.completed_at && p.block_id) {
+              completedBlockIds.add(`${p.lesson_id}-${p.block_id}`);
             }
 
             if (p.updated_at && (!progressLookup[p.lesson_id].lastAccessed || 
                 p.updated_at > progressLookup[p.lesson_id].lastAccessed!)) {
               progressLookup[p.lesson_id].lastAccessed = p.updated_at;
             }
+          });
+
+          // Update completed blocks count with unique blocks only
+          Object.keys(progressLookup).forEach(lessonId => {
+            const uniqueBlocks = Array.from(completedBlockIds)
+              .filter(id => id.startsWith(`${lessonId}-`))
+              .length;
+            progressLookup[lessonId].completedBlocks = uniqueBlocks;
           });
 
           // Determine completion status

@@ -396,6 +396,16 @@ export default function LearningQuizTaker({
         </div>
       </div>
       
+      {/* Description Section - NEW */}
+      {quiz.description && (
+        <div className="bg-gray-50 border-b border-gray-200 p-6">
+          <div className="flex-1">
+            <h3 className="font-semibold text-gray-900 mb-2">Descripción</h3>
+            <div className="text-gray-700 whitespace-pre-wrap">{quiz.description}</div>
+          </div>
+        </div>
+      )}
+      
       {/* Instructions Section - NEW */}
       {quiz.instructions && (
         <div className="bg-blue-50 border-b border-blue-200 p-6">

@@ -1,7 +1,7 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { useState, useEffect } from 'react';
 
-import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download, Building } from 'lucide-react';
+import { Plus, Trash2, Save, FileText, Calendar, DollarSign, Download, Building, Upload } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { toast } from 'react-hot-toast';
 
@@ -64,7 +64,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   const supabase = useSupabaseClient();
   // Form states
   const [loading, setLoading] = useState(false);
+  const [savingAsDraft, setSavingAsDraft] = useState(false);
   const [step, setStep] = useState<'cliente' | 'contrato' | 'cuotas'>('cliente');
+  const [esManual, setEsManual] = useState(false); // New state for manual contracts
   
   // Client form
   const [selectedClienteId, setSelectedClienteId] = useState(preSelectedClientId || '');
@@ -105,7 +107,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     fecha_fin: '',
     programa_id: '',
     precio_total_uf: 0,
-    tipo_moneda: 'UF' as 'UF' | 'CLP'
+    tipo_moneda: 'UF' as 'UF' | 'CLP',
+    descripcion_manual: '' // For manual contracts
   });
   
   // Installments form
@@ -363,6 +366,164 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     }
   };
 
+  // Save contract as draft
+  const handleSaveAsDraft = async () => {
+    try {
+      setSavingAsDraft(true);
+      
+      // Validate minimum required fields for draft
+      if (!contractForm.numero_contrato) {
+        alert('Por favor ingrese un número de contrato antes de guardar como borrador.');
+        setSavingAsDraft(false);
+        return;
+      }
+      
+      // Get or create clienteId
+      let clienteId = selectedClienteId || contractForm.cliente_id;
+      
+      if (!clienteId && (clienteForm.rut || clienteForm.nombre_legal)) {
+        // Create minimal client if we have some data
+        const clientData: any = {};
+        if (clienteForm.rut) clientData.rut = clienteForm.rut;
+        if (clienteForm.nombre_legal) clientData.nombre_legal = clienteForm.nombre_legal || 'Cliente Pendiente';
+        if (clienteForm.direccion) clientData.direccion = clienteForm.direccion;
+        if (clienteForm.comuna) clientData.comuna = clienteForm.comuna;
+        if (clienteForm.ciudad) clientData.ciudad = clienteForm.ciudad;
+        if (clienteForm.telefono) clientData.telefono = clienteForm.telefono;
+        if (clienteForm.email) clientData.email = clienteForm.email;
+        
+        // Check if client exists
+        if (clienteForm.rut) {
+          const { data: existingCliente } = await supabase
+            .from('clientes')
+            .select('id')
+            .eq('rut', clienteForm.rut)
+            .single();
+            
+          if (existingCliente) {
+            clienteId = existingCliente.id;
+          }
+        }
+        
+        if (!clienteId && Object.keys(clientData).length > 0) {
+          const { data: newCliente, error: clienteError } = await supabase
+            .from('clientes')
+            .insert([clientData])
+            .select()
+            .single();
+            
+          if (clienteError) {
+            console.error('Error creating client for draft:', clienteError);
+          } else {
+            clienteId = newCliente.id;
+          }
+        }
+      }
+      
+      // Prepare contract data (allow incomplete data for draft)
+      const contractData: any = {
+        numero_contrato: contractForm.numero_contrato,
+        estado: 'borrador',
+        es_manual: esManual
+      };
+      
+      // Add optional fields if they exist
+      if (contractForm.fecha_contrato) contractData.fecha_contrato = contractForm.fecha_contrato;
+      if (contractForm.fecha_fin) contractData.fecha_fin = contractForm.fecha_fin;
+      if (clienteId) contractData.cliente_id = clienteId;
+      if (!esManual && contractForm.programa_id) contractData.programa_id = contractForm.programa_id;
+      if (contractForm.precio_total_uf) contractData.precio_total_uf = contractForm.precio_total_uf;
+      if (contractForm.tipo_moneda) contractData.tipo_moneda = contractForm.tipo_moneda;
+      if (esManual && contractForm.descripcion_manual) contractData.descripcion_manual = contractForm.descripcion_manual;
+      
+      let contractId;
+      
+      // Check if we're updating an existing draft or contract
+      if (editingContract) {
+        // Update existing contract to draft status
+        const { data: updatedContract, error } = await supabase
+          .from('contratos')
+          .update(contractData)
+          .eq('id', editingContract.id)
+          .select()
+          .single();
+          
+        if (error) throw error;
+        contractId = updatedContract.id;
+      } else {
+        // Check if a draft already exists with this number
+        const { data: existingDraft } = await supabase
+          .from('contratos')
+          .select('id')
+          .eq('numero_contrato', contractForm.numero_contrato)
+          .eq('estado', 'borrador')
+          .single();
+          
+        if (existingDraft) {
+          // Update existing draft
+          const { data: updatedContract, error } = await supabase
+            .from('contratos')
+            .update(contractData)
+            .eq('id', existingDraft.id)
+            .select()
+            .single();
+            
+          if (error) throw error;
+          contractId = updatedContract.id;
+        } else {
+          // Create new draft
+          const { data: newContract, error } = await supabase
+            .from('contratos')
+            .insert([contractData])
+            .select()
+            .single();
+            
+          if (error) {
+            if (error.message.includes('duplicate key')) {
+              throw new Error('Ya existe un contrato con este número. Por favor use un número diferente.');
+            }
+            throw error;
+          }
+          contractId = newContract.id;
+        }
+      }
+      
+      // Save payment schedule if exists
+      if (cuotas.length > 0 && contractId) {
+        // Delete existing cuotas for this contract
+        await supabase
+          .from('cuotas')
+          .delete()
+          .eq('contrato_id', contractId);
+          
+        // Insert new cuotas
+        const cuotasData = cuotas.map(c => ({
+          contrato_id: contractId,
+          numero_cuota: c.numero_cuota,
+          fecha_vencimiento: c.fecha_vencimiento,
+          monto_uf: c.monto,
+          pagada: false
+        }));
+        
+        const { error: cuotasError } = await supabase
+          .from('cuotas')
+          .insert(cuotasData);
+          
+        if (cuotasError) {
+          console.error('Error saving payment schedule:', cuotasError);
+        }
+      }
+      
+      alert('✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.');
+      onSuccess();
+    } catch (error: any) {
+      console.error('Error saving draft:', error);
+      alert(error.message || 'Error al guardar el borrador. Por favor intente nuevamente.');
+    } finally {
+      setSavingAsDraft(false);
+    }
+  };
+
   // Save contract
   const handleSaveContract = async () => {
     setLoading(true);
@@ -405,9 +566,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             numero_contrato: contractForm.numero_contrato,
             fecha_contrato: contractForm.fecha_contrato,
             fecha_fin: contractForm.fecha_fin,
-            programa_id: contractForm.programa_id,
+            programa_id: esManual ? null : contractForm.programa_id,
             precio_total_uf: contractForm.precio_total_uf,
-            tipo_moneda: contractForm.tipo_moneda
+            tipo_moneda: contractForm.tipo_moneda,
+            es_manual: esManual,
+            descripcion_manual: esManual ? contractForm.descripcion_manual : null
           })
           .eq('id', editingContract.id);
 
@@ -531,9 +694,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             fecha_contrato: contractForm.fecha_contrato,
             fecha_fin: contractForm.fecha_fin,
             cliente_id: clienteId,
-            programa_id: contractForm.programa_id,
+            programa_id: esManual ? null : contractForm.programa_id, // NULL for manual contracts
             precio_total_uf: contractForm.precio_total_uf,
-            tipo_moneda: contractForm.tipo_moneda
+            tipo_moneda: contractForm.tipo_moneda,
+            es_manual: esManual,
+            descripcion_manual: esManual ? contractForm.descripcion_manual : null
           }])
           .select()
           .single();
@@ -716,10 +881,20 @@ export default function ContractForm({ programas, clientes, editingContract, pre
   const isStepValid = () => {
     switch (step) {
       case 'cliente':
+        // For manual contracts, require less information
+        if (esManual) {
+          return clienteForm.nombre_legal && clienteForm.rut && 
+                 clienteForm.nombre_contacto_administrativo && clienteForm.email_contacto_administrativo;
+        }
         return clienteForm.nombre_legal && clienteForm.nombre_fantasia && 
                clienteForm.rut && clienteForm.direccion && clienteForm.comuna && 
                clienteForm.ciudad && clienteForm.nombre_representante;
       case 'contrato':
+        // For manual contracts, validate description instead of program
+        if (esManual) {
+          return contractForm.numero_contrato && contractForm.fecha_contrato && 
+                 contractForm.fecha_fin && contractForm.descripcion_manual && contractForm.precio_total_uf > 0;
+        }
         return contractForm.numero_contrato && contractForm.fecha_contrato && 
                contractForm.fecha_fin && contractForm.programa_id && contractForm.precio_total_uf > 0;
       case 'cuotas':
@@ -769,6 +944,24 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             <div className="flex items-center space-x-2 mb-4">
               <FileText className="text-brand_blue" size={20} />
               <h3 className="text-lg font-semibold text-brand_blue">Información del Cliente</h3>
+            </div>
+
+            {/* Manual Contract Toggle */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={esManual}
+                  onChange={(e) => setEsManual(e.target.checked)}
+                  className="mr-3 h-4 w-4 text-brand_blue focus:ring-brand_blue border-gray-300 rounded"
+                />
+                <div>
+                  <span className="font-medium text-gray-900">Contrato Manual (Subir PDF existente)</span>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Marque esta opción para contratos creados fuera del sistema. Solo se solicitará información operativa.
+                  </p>
+                </div>
+              </label>
             </div>
 
             {/* Existing Client Selection */}
@@ -1009,7 +1202,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               </div>
             </div>
 
-            {/* Additional Legal Information */}
+            {/* Additional Legal Information - Hide for manual contracts */}
+            {!esManual && (
             <div className="border-t pt-6">
               <h4 className="text-md font-semibold text-brand_blue mb-4">Información Legal Adicional</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1052,8 +1246,10 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 </div>
               </div>
             </div>
+            )}
 
-            {/* Project Manager Information */}
+            {/* Project Manager Information - Hide for manual contracts */}
+            {!esManual && (
             <div className="border-t pt-6">
               <h4 className="text-md font-semibold text-brand_blue mb-4">Encargado del Proyecto</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1102,10 +1298,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 </p>
               </div>
             </div>
+            )}
 
-            {/* Administrative Contact Information */}
+            {/* Administrative Contact Information - ALWAYS SHOW for invoicing */}
             <div className="border-t pt-6">
-              <h4 className="text-md font-semibold text-brand_blue mb-4">Contacto Administrativo</h4>
+              <h4 className="text-md font-semibold text-brand_blue mb-4">Contacto Administrativo {esManual && '(Requerido para facturación)'}</h4>
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
@@ -1175,6 +1372,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               <h3 className="text-lg font-semibold text-brand_blue">Información del Contrato</h3>
             </div>
 
+            {/* Show notice for manual contracts */}
+            {esManual && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-blue-800">
+                  📄 <strong>Contrato Manual</strong> - Solo ingrese información necesaria para gestión operativa y pagos.
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1214,23 +1420,42 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 />
               </div>
               
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Programa Contratado *
-                </label>
-                <select
-                  value={contractForm.programa_id}
-                  onChange={(e) => setContractForm({ ...contractForm, programa_id: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
-                >
-                  <option value="">-- Seleccionar programa --</option>
-                  {programas.map(programa => (
-                    <option key={programa.id} value={programa.id}>
-                      {programa.nombre} ({programa.horas_totales}h - {programa.modalidad})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* For manual contracts, show description field instead of program selection */}
+              {esManual ? (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Descripción del Contrato *
+                  </label>
+                  <textarea
+                    value={contractForm.descripcion_manual}
+                    onChange={(e) => setContractForm({ ...contractForm, descripcion_manual: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    placeholder="Ej: Asesoría personalizada Q1 2025, Programa piloto región sur, Capacitación especial..."
+                    rows={3}
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Breve descripción del servicio o programa que cubre este contrato
+                  </p>
+                </div>
+              ) : (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Programa Contratado *
+                  </label>
+                  <select
+                    value={contractForm.programa_id}
+                    onChange={(e) => setContractForm({ ...contractForm, programa_id: e.target.value })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  >
+                    <option value="">-- Seleccionar programa --</option>
+                    {programas.map(programa => (
+                      <option key={programa.id} value={programa.id}>
+                        {programa.nombre} ({programa.horas_totales}h - {programa.modalidad})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1277,6 +1502,15 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 />
               </div>
             </div>
+
+            {/* PDF Upload Notice for Manual Contracts */}
+            {esManual && (
+              <div className="mt-6 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
+                <Upload size={32} className="mx-auto mb-3 text-gray-400" />
+                <p className="font-medium text-gray-900 mb-2">El PDF del contrato se subirá después de guardar</p>
+                <p className="text-sm text-gray-600">Una vez guardada la información, podrá cargar el PDF desde el listado de contratos</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -1416,18 +1650,41 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               </button>
             ) : (
               <div className="flex space-x-3">
+                {/* Save as Draft button */}
                 <button
                   type="button"
-                  onClick={() => {
-                    const pdf = generateContractPDF();
-                    pdf.save(`Contrato_${contractForm.numero_contrato}_${clienteForm.nombre_fantasia.replace(/\s+/g, '_')}.pdf`);
-                  }}
-                  disabled={!isStepValid()}
-                  className="flex items-center px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  onClick={handleSaveAsDraft}
+                  disabled={savingAsDraft}
+                  className="flex items-center px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  title="Guardar progreso sin finalizar el contrato"
                 >
-                  <Download size={16} className="mr-2" />
-                  Generar PDF
+                  {savingAsDraft ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Guardando borrador...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={16} className="mr-2" />
+                      Guardar Borrador
+                    </>
+                  )}
                 </button>
+                {/* Only show PDF generation for standard contracts */}
+                {!esManual && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const pdf = generateContractPDF();
+                      pdf.save(`Contrato_${contractForm.numero_contrato}_${clienteForm.nombre_fantasia.replace(/\s+/g, '_')}.pdf`);
+                    }}
+                    disabled={!isStepValid()}
+                    className="flex items-center px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    <Download size={16} className="mr-2" />
+                    Generar PDF
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleSaveContract}

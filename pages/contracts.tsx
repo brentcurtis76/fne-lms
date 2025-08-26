@@ -55,7 +55,7 @@ interface Contrato {
   precio_total_uf: number;
   tipo_moneda?: 'UF' | 'CLP';
   firmado?: boolean;
-  estado?: 'pendiente' | 'activo';
+  estado?: 'pendiente' | 'activo' | 'borrador';
   incluir_en_flujo?: boolean;
   contrato_url?: string;
   is_anexo?: boolean;
@@ -64,6 +64,8 @@ interface Contrato {
   anexo_fecha?: string;
   numero_participantes?: number;
   nombre_ciclo?: 'Primer Ciclo' | 'Segundo Ciclo' | 'Tercer Ciclo' | 'Equipo Directivo';
+  es_manual?: boolean; // New field for manual contracts
+  descripcion_manual?: string; // New field for manual contract description
   clientes: Cliente;
   programas: Programa;
   cuotas?: Cuota[];
@@ -719,12 +721,28 @@ export default function ContractsPage() {
                                     ANEXO
                                   </span>
                                 )}
+                                {contrato.es_manual && (
+                                  <span className="ml-2 px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">
+                                    MANUAL
+                                  </span>
+                                )}
+                                {contrato.estado === 'borrador' && (
+                                  <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                                    BORRADOR
+                                  </span>
+                                )}
                               </button>
                             </td>
                             <td className="py-4 px-4">
                               <div>
                                 <div className="font-medium text-gray-900">{contrato.clientes.nombre_legal}</div>
-                                <div className="text-sm text-gray-500">{contrato.clientes.nombre_fantasia}</div>
+                                <div className="text-sm text-gray-500">
+                                  {contrato.es_manual ? (
+                                    contrato.descripcion_manual || 'Contrato Manual'
+                                  ) : (
+                                    contrato.clientes.nombre_fantasia
+                                  )}
+                                </div>
                               </div>
                             </td>
                             <td className="py-4 px-4">
@@ -742,9 +760,11 @@ export default function ContractsPage() {
                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                                   contrato.estado === 'activo' 
                                     ? 'bg-green-100 text-green-800' 
-                                    : 'bg-yellow-100 text-yellow-800'
+                                    : contrato.estado === 'borrador'
+                                    ? 'bg-yellow-100 text-yellow-800'
+                                    : 'bg-gray-100 text-gray-600'
                                 }`}>
-                                  {contrato.estado === 'activo' ? 'Activo' : 'Pendiente'}
+                                  {contrato.estado === 'activo' ? 'Activo' : contrato.estado === 'borrador' ? 'Borrador' : 'Pendiente'}
                                 </span>
                                 {contrato.incluir_en_flujo && (
                                   <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">

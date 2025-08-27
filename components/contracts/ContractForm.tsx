@@ -56,11 +56,12 @@ interface ContractFormProps {
   clientes: Cliente[];
   editingContract?: any; // Contract being edited
   preSelectedClientId?: string;
+  extractedData?: any; // Data extracted from PDF
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export default function ContractForm({ programas, clientes, editingContract, preSelectedClientId, onSuccess, onCancel }: ContractFormProps) {
+export default function ContractForm({ programas, clientes, editingContract, preSelectedClientId, extractedData, onSuccess, onCancel }: ContractFormProps) {
   const supabase = useSupabaseClient();
   // Form states
   const [loading, setLoading] = useState(false);
@@ -164,6 +165,85 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       }
     }
   }, [preSelectedClientId, clientes]);
+
+  // Populate form with extracted PDF data
+  useEffect(() => {
+    if (extractedData) {
+      // Set form to manual mode since we're importing a PDF
+      setEsManual(true);
+      
+      // Populate contract form
+      setContractForm({
+        numero_contrato: extractedData.contract?.numero_contrato || '',
+        fecha_contrato: extractedData.contract?.fecha_contrato || new Date().toISOString().split('T')[0],
+        fecha_fin: extractedData.contract?.fecha_fin || '',
+        programa_id: '', // Will be selected manually or kept empty for manual contracts
+        precio_total_uf: extractedData.financial?.precio_total || 0,
+        tipo_moneda: extractedData.financial?.moneda || 'UF',
+        descripcion_manual: `Contrato importado desde PDF - ${extractedData.contract?.numero_contrato || 'Sin número'}`
+      });
+      
+      // Populate client form
+      // Use defaults for required fields
+      const today = new Date().toISOString().split('T')[0];
+      setClienteForm({
+        nombre_legal: extractedData.client?.nombre_legal || '',
+        nombre_fantasia: extractedData.client?.nombre_fantasia || extractedData.client?.nombre_legal || '',
+        rut: extractedData.client?.rut || '',
+        direccion: extractedData.client?.direccion || '',
+        comuna: extractedData.client?.comuna || '',
+        ciudad: extractedData.client?.ciudad || '',
+        nombre_representante: extractedData.client?.nombre_representante || '',
+        rut_representante: extractedData.client?.rut_representante || '11.111.111-1',
+        fecha_escritura: extractedData.client?.fecha_escritura || today,
+        nombre_notario: extractedData.client?.nombre_notario || 'Notario Público',
+        comuna_notaria: extractedData.client?.comuna_notaria || '',
+        nombre_encargado_proyecto: '',
+        telefono_encargado_proyecto: '',
+        email_encargado_proyecto: '',
+        nombre_contacto_administrativo: extractedData.client?.nombre_contacto || '',
+        telefono_contacto_administrativo: '',
+        email_contacto_administrativo: extractedData.client?.email_contacto || ''
+      });
+      
+      // Populate payment schedule if available
+      if (extractedData.payment_schedule && extractedData.payment_schedule.length > 0) {
+        setCuotas(extractedData.payment_schedule.map((payment: any) => ({
+          numero_cuota: payment.numero_cuota,
+          fecha_vencimiento: payment.fecha_vencimiento,
+          monto: payment.monto
+        })));
+      }
+      
+      // Check if client exists by RUT
+      if (extractedData.client?.rut) {
+        const existingClient = clientes.find(c => c.rut === extractedData.client.rut);
+        if (existingClient) {
+          setSelectedClienteId(existingClient.id);
+          // Update form with existing client data
+          setClienteForm({
+            nombre_legal: existingClient.nombre_legal || '',
+            nombre_fantasia: existingClient.nombre_fantasia || '',
+            rut: existingClient.rut || '',
+            direccion: existingClient.direccion || '',
+            comuna: existingClient.comuna || '',
+            ciudad: existingClient.ciudad || '',
+            nombre_representante: existingClient.nombre_representante || '',
+            rut_representante: existingClient.rut_representante || '',
+            fecha_escritura: existingClient.fecha_escritura || '',
+            nombre_notario: existingClient.nombre_notario || '',
+            comuna_notaria: existingClient.comuna_notaria || '',
+            nombre_encargado_proyecto: existingClient.nombre_encargado_proyecto || '',
+            telefono_encargado_proyecto: existingClient.telefono_encargado_proyecto || '',
+            email_encargado_proyecto: existingClient.email_encargado_proyecto || '',
+            nombre_contacto_administrativo: existingClient.nombre_contacto_administrativo || '',
+            telefono_contacto_administrativo: existingClient.telefono_contacto_administrativo || '',
+            email_contacto_administrativo: existingClient.email_contacto_administrativo || ''
+          });
+        }
+      }
+    }
+  }, [extractedData, clientes]);
 
   // Populate form when editing
   useEffect(() => {
@@ -605,9 +685,24 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         // First, save or update client
         if (!selectedClienteId) {
           // Prepare client data with school_id if selected
+          // Provide default values for required fields
+          const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
           const clientData = {
             ...clienteForm,
-            school_id: selectedSchoolId || null
+            school_id: selectedSchoolId || null,
+            // Required fields with defaults
+            nombre_fantasia: clienteForm.nombre_fantasia || clienteForm.nombre_legal, // Use legal name if no fantasy name
+            rut_representante: clienteForm.rut_representante || '11.111.111-1', // Default RUT if not provided
+            fecha_escritura: clienteForm.fecha_escritura || today, // Use today's date if not provided
+            nombre_notario: clienteForm.nombre_notario || 'Notario Público', // Default notary name
+            // Optional fields can be null
+            comuna_notaria: clienteForm.comuna_notaria || null,
+            nombre_encargado_proyecto: clienteForm.nombre_encargado_proyecto || null,
+            telefono_encargado_proyecto: clienteForm.telefono_encargado_proyecto || null,
+            email_encargado_proyecto: clienteForm.email_encargado_proyecto || null,
+            nombre_contacto_administrativo: clienteForm.nombre_contacto_administrativo || null,
+            telefono_contacto_administrativo: clienteForm.telefono_contacto_administrativo || null,
+            email_contacto_administrativo: clienteForm.email_contacto_administrativo || null
           };
           
           // Check if client with this RUT already exists
@@ -686,13 +781,13 @@ export default function ContractForm({ programas, clientes, editingContract, pre
 
         console.log('Creating contract with clienteId:', clienteId); // Debug log
 
-        // Save contract
+        // Save contract (ensure empty date strings become null)
         const { data: newContrato, error: contratoError } = await supabase
           .from('contratos')
           .insert([{
             numero_contrato: contractForm.numero_contrato,
-            fecha_contrato: contractForm.fecha_contrato,
-            fecha_fin: contractForm.fecha_fin,
+            fecha_contrato: contractForm.fecha_contrato || null,
+            fecha_fin: contractForm.fecha_fin || null,
             cliente_id: clienteId,
             programa_id: esManual ? null : contractForm.programa_id, // NULL for manual contracts
             precio_total_uf: contractForm.precio_total_uf,
@@ -715,7 +810,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         const cuotasData = cuotas.map(cuota => ({
           contrato_id: newContrato.id,
           numero_cuota: cuota.numero_cuota,
-          fecha_vencimiento: cuota.fecha_vencimiento,
+          fecha_vencimiento: cuota.fecha_vencimiento || null,
           monto_uf: cuota.monto,
           pagada: false
         }));
@@ -907,6 +1002,32 @@ export default function ContractForm({ programas, clientes, editingContract, pre
 
   return (
     <div className="bg-white rounded-lg shadow-md">
+      {/* Show notification if data was imported from PDF */}
+      {extractedData && (
+        <div className="bg-purple-50 border-b border-purple-200 px-6 py-3">
+          <div className="flex items-center">
+            <FileText className="text-purple-600 mr-3" size={20} />
+            <div className="flex-1">
+              <p className="text-purple-900 font-medium">Datos importados desde PDF</p>
+              <p className="text-purple-700 text-sm">
+                Los campos han sido pre-llenados con la información extraída. Por favor, revise y complete los campos faltantes.
+              </p>
+            </div>
+            {extractedData.overall_confidence && (
+              <div className="ml-4">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  extractedData.overall_confidence >= 0.8 ? 'bg-green-100 text-green-800' :
+                  extractedData.overall_confidence >= 0.6 ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                  Confianza: {Math.round(extractedData.overall_confidence * 100)}%
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
       {/* Progress Steps */}
       <div className="border-b border-gray-200 px-6 py-4">
         <div className="flex items-center space-x-4">
@@ -946,22 +1067,47 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               <h3 className="text-lg font-semibold text-brand_blue">Información del Cliente</h3>
             </div>
 
-            {/* Manual Contract Toggle */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={esManual}
-                  onChange={(e) => setEsManual(e.target.checked)}
-                  className="mr-3 h-4 w-4 text-brand_blue focus:ring-brand_blue border-gray-300 rounded"
-                />
-                <div>
-                  <span className="font-medium text-gray-900">Contrato Manual (Subir PDF existente)</span>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Marque esta opción para contratos creados fuera del sistema. Solo se solicitará información operativa.
-                  </p>
+            {/* Manual Contract Toggle and PDF Import Options */}
+            <div className="space-y-3">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={esManual}
+                    onChange={(e) => setEsManual(e.target.checked)}
+                    className="mr-3 h-4 w-4 text-brand_blue focus:ring-brand_blue border-gray-300 rounded"
+                  />
+                  <div>
+                    <span className="font-medium text-gray-900">Contrato Manual (Subir PDF existente)</span>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Marque esta opción para contratos creados fuera del sistema. Solo se solicitará información operativa.
+                    </p>
+                  </div>
+                </label>
+              </div>
+              
+              {/* AI PDF Import Button */}
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-purple-900">¿Tiene un PDF de contrato?</p>
+                    <p className="text-sm text-purple-700 mt-1">
+                      Use AI para extraer automáticamente la información del contrato
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Trigger PDF import modal from parent
+                      window.dispatchEvent(new CustomEvent('openPDFImporterFromForm'));
+                    }}
+                    className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors"
+                  >
+                    <Upload className="mr-2" size={16} />
+                    Importar con AI
+                  </button>
                 </div>
-              </label>
+              </div>
             </div>
 
             {/* Existing Client Selection */}

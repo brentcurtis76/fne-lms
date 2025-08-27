@@ -7,11 +7,12 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../components/layout/MainLayout';
-import { ArrowLeft, FileText, Plus, Calendar, DollarSign, Users, Eye, Download, Trash2, CheckSquare, Square, Upload, TrendingUp, Edit } from 'lucide-react';
+import { ArrowLeft, FileText, Plus, Calendar, DollarSign, Users, Eye, Download, Trash2, CheckSquare, Square, Upload, TrendingUp, Edit, FileUp } from 'lucide-react';
 import ContractForm from '../components/contracts/ContractForm';
 import AnnexForm from '../components/contracts/AnnexForm';
 import CashFlowView from '../components/contracts/CashFlowView';
 import ContractDetailsModal from '../components/contracts/ContractDetailsModal';
+import ContractPDFImporter from '../components/contracts/ContractPDFImporter';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 
 import { getUserPrimaryRole } from '../utils/roleUtils';
@@ -110,7 +111,22 @@ export default function ContractsPage() {
   const [deleteModalContrato, setDeleteModalContrato] = useState<Contrato | null>(null);
   const [preSelectedClientId, setPreSelectedClientId] = useState<string | null>(null);
   const [uploadingContrato, setUploadingContrato] = useState<string | null>(null);
+  const [showPDFImporter, setShowPDFImporter] = useState(false);
+  const [extractedContractData, setExtractedContractData] = useState<any>(null);
 
+  // Listen for PDF import event from contract form
+  useEffect(() => {
+    const handleOpenPDFImporter = () => {
+      setShowPDFImporter(true);
+    };
+    
+    window.addEventListener('openPDFImporterFromForm', handleOpenPDFImporter);
+    
+    return () => {
+      window.removeEventListener('openPDFImporterFromForm', handleOpenPDFImporter);
+    };
+  }, []);
+  
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -629,6 +645,14 @@ export default function ContractsPage() {
         >
           {/* Additional action buttons */}
           <button
+            onClick={() => setShowPDFImporter(true)}
+            className="inline-flex items-center px-4 py-2 border border-purple-600 text-sm font-medium rounded-md text-purple-600 bg-white hover:bg-purple-50"
+            title="Importar contrato desde PDF usando AI"
+          >
+            <FileUp size={16} className="mr-2" />
+            Importar PDF
+          </button>
+          <button
             onClick={() => setActiveTab('nuevo-anexo')}
             className="inline-flex items-center px-4 py-2 border border-[#00365b] text-sm font-medium rounded-md text-[#00365b] bg-white hover:bg-gray-50"
           >
@@ -811,14 +835,17 @@ export default function ContractsPage() {
                 programas={programas}
                 clientes={clientes}
                 preSelectedClientId={preSelectedClientId}
+                extractedData={extractedContractData}
                 onSuccess={() => {
                   setActiveTab('lista');
                   setPreSelectedClientId(null);
+                  setExtractedContractData(null);
                   loadContratos();
                 }}
                 onCancel={() => {
                   setActiveTab('lista');
                   setPreSelectedClientId(null);
+                  setExtractedContractData(null);
                 }}
               />
             )}
@@ -936,6 +963,19 @@ export default function ContractsPage() {
               onTogglePaymentStatus={handleTogglePaymentStatus}
               onDeleteInvoice={handleInvoiceDelete}
             />
+
+            {/* PDF Importer Modal */}
+            {showPDFImporter && (
+              <ContractPDFImporter
+                onExtract={(data) => {
+                  setExtractedContractData(data);
+                  setShowPDFImporter(false);
+                  setActiveTab('nuevo');
+                  toast.success('Datos extraídos del PDF. Complete la información faltante.');
+                }}
+                onCancel={() => setShowPDFImporter(false)}
+              />
+            )}
           </div>
         </div>
     </MainLayout>

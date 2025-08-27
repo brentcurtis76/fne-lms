@@ -514,35 +514,53 @@ export default function ContractDetailsModal({
           </div>
 
           {/* Program Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">Información del Programa</h3>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {contrato.es_manual ? (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">Información del Contrato</h3>
+              <div className="bg-gray-50 p-4 rounded-lg">
                 <div>
-                  <p className="text-sm text-gray-600">Nombre del Programa</p>
-                  <p className="font-medium">{contrato.programas.nombre}</p>
+                  <p className="text-sm text-gray-600">Tipo de Contrato</p>
+                  <p className="font-medium">Contrato Manual</p>
                 </div>
-                <div>
-                  <p className="text-sm text-gray-600">Código de Servicio</p>
-                  <p className="font-medium">{contrato.programas.codigo_servicio}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Modalidad</p>
-                  <p className="font-medium">{contrato.programas.modalidad}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Horas Totales</p>
-                  <p className="font-medium">{contrato.programas.horas_totales} horas</p>
-                </div>
+                {contrato.descripcion_manual && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-600">Descripción</p>
+                    <p className="text-sm">{contrato.descripcion_manual}</p>
+                  </div>
+                )}
               </div>
-              {contrato.programas.descripcion && (
-                <div className="mt-4">
-                  <p className="text-sm text-gray-600">Descripción</p>
-                  <p className="text-sm">{contrato.programas.descripcion}</p>
-                </div>
-              )}
             </div>
-          </div>
+          ) : contrato.programas ? (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">Información del Programa</h3>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-600">Nombre del Programa</p>
+                    <p className="font-medium">{contrato.programas.nombre}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Código de Servicio</p>
+                    <p className="font-medium">{contrato.programas.codigo_servicio}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Modalidad</p>
+                    <p className="font-medium">{contrato.programas.modalidad}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600">Horas Totales</p>
+                    <p className="font-medium">{contrato.programas.horas_totales} horas</p>
+                  </div>
+                </div>
+                {contrato.programas.descripcion && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-600">Descripción</p>
+                    <p className="text-sm">{contrato.programas.descripcion}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
 
           {/* Payment Schedule */}
           {contrato.cuotas && contrato.cuotas.length > 0 && (

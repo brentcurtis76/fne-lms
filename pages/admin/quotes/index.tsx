@@ -38,6 +38,14 @@ export default function QuotesManagementPage() {
     fetchQuotes();
   }, []);
 
+  // Debug: Log first quote to check if quote_number is present
+  useEffect(() => {
+    if (quotes.length > 0) {
+      console.log('First quote data:', quotes[0]);
+      console.log('Quote number:', quotes[0].quote_number);
+    }
+  }, [quotes]);
+
   const fetchQuotes = async () => {
     try {
       const { data, error } = await supabase
@@ -122,7 +130,8 @@ export default function QuotesManagementPage() {
   const filteredQuotes = quotes.filter(quote => {
     const matchesSearch = quote.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          quote.client_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         quote.client_institution?.toLowerCase().includes(searchTerm.toLowerCase());
+                         quote.client_institution?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         quote.quote_number?.toString().includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || quote.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -223,7 +232,7 @@ export default function QuotesManagementPage() {
               <Search className="absolute left-3 top-3 text-gray-400" size={20} />
               <input
                 type="text"
-                placeholder="Buscar por cliente, email o institución..."
+                placeholder="Buscar por N° cotización, cliente, email o institución..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 border rounded-lg focus:outline-none focus:border-black"
@@ -253,6 +262,9 @@ export default function QuotesManagementPage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    N° Cotización
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Cliente
                   </th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -275,6 +287,12 @@ export default function QuotesManagementPage() {
               <tbody className="divide-y">
                 {filteredQuotes.map((quote) => (
                   <tr key={quote.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="font-mono font-bold text-lg">#{quote.quote_number || '---'}</p>
+                        <p className="text-xs text-gray-500">{formatDate(quote.created_at)}</p>
+                      </div>
+                    </td>
                     <td className="px-6 py-4">
                       <div>
                         <p className="font-medium">{quote.client_name}</p>

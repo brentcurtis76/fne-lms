@@ -133,9 +133,14 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
       pdf.text(`Institución: ${quote.client_institution}`, 20, clientY + 6);
     }
     
-    // Right align dates
+    // Right align dates and quote number
     pdf.setFontSize(8);
     pdf.setTextColor(107, 114, 128);
+    if (quote.quote_number) {
+      pdf.setFont(undefined, 'bold');
+      pdf.text(`Cotización #${quote.quote_number}`, pageWidth - 20, clientY - 6, { align: 'right' });
+      pdf.setFont(undefined, 'normal');
+    }
     pdf.text(`Fecha: ${formatDate(quote.created_at)}`, pageWidth - 20, clientY, { align: 'right' });
     if (quote.valid_until) {
       pdf.text(`Válido hasta: ${formatDate(quote.valid_until)}`, pageWidth - 20, clientY + 6, { align: 'right' });
@@ -518,7 +523,15 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
       <div className="max-w-5xl mx-auto px-6 py-12">
         {/* Client Info */}
         <div className="bg-gray-50 rounded-2xl p-8 mb-8">
-          <h2 className="text-2xl font-bold mb-6">Información del Cliente</h2>
+          <div className="flex justify-between items-start mb-6">
+            <h2 className="text-2xl font-bold">Información del Cliente</h2>
+            {quote.quote_number && (
+              <div className="text-right">
+                <p className="text-sm text-gray-600 mb-1">N° Cotización</p>
+                <p className="text-2xl font-mono font-bold">#{quote.quote_number}</p>
+              </div>
+            )}
+          </div>
           <div className="grid md:grid-cols-2 gap-6">
             <div>
               <p className="text-sm text-gray-600 mb-1">Cliente</p>

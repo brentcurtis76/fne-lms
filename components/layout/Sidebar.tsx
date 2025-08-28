@@ -196,6 +196,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         icon: DocumentTextIcon
       },
       {
+        id: 'quotes',
+        label: 'Propuestas Pasantías',
+        href: '/admin/quotes',
+        description: 'Cotizaciones Barcelona',
+        icon: DocumentTextIcon,
+        adminOnly: true
+      },
+      {
         id: 'expense-reports',
         label: 'Rendición de Gastos',
         href: '/expense-reports',

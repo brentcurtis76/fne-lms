@@ -201,7 +201,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/admin/quotes',
         description: 'Cotizaciones Barcelona',
         icon: DocumentTextIcon,
-        adminOnly: true
+        restrictedRoles: ['admin', 'community_manager']
       },
       {
         id: 'expense-reports',

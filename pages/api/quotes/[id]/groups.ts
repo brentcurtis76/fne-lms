@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .select('role_type')
     .eq('user_id', session.user.id)
     .eq('is_active', true)
-    .in('role_type', ['admin', 'consultor'])
+    .in('role_type', ['admin', 'consultor', 'community_manager'])
     .single();
 
   if (!userRole) {

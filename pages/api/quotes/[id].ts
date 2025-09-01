@@ -105,15 +105,14 @@ async function handleUpdate(supabase: any, id: string, req: NextApiRequest, res:
     }
 
     // Check if user has permission
-    const { data: userRole } = await supabase
+    const { data: userRoles } = await supabase
       .from('user_roles')
       .select('role_type')
       .eq('user_id', session.user.id)
       .eq('is_active', true)
-      .in('role_type', ['admin', 'consultor', 'community_manager'])
-      .single();
+      .in('role_type', ['admin', 'consultor', 'community_manager']);
 
-    if (!userRole) {
+    if (!userRoles || userRoles.length === 0) {
       return res.status(403).json({ error: 'No tienes permisos para editar cotizaciones' });
     }
 

@@ -606,12 +606,17 @@ export async function getCommunityMembers(supabase: SupabaseClient, communityId:
     // Combine the data
     return roleData.map(roleItem => {
       const profile = profileData?.find(p => p.id === roleItem.user_id);
+      
+      // Handle name fields with fallbacks
+      const firstName = profile?.first_name || profile?.name?.split(' ')[0] || '';
+      const lastName = profile?.last_name || profile?.name?.split(' ').slice(1).join(' ') || '';
+      
       return {
         id: roleItem.user_id,
-        name: profile?.name, // Add the name field!
+        name: profile?.name,
         email: profile?.email,
-        first_name: profile?.first_name,
-        last_name: profile?.last_name,
+        first_name: firstName,
+        last_name: lastName,
         avatar_url: profile?.avatar_url,
         role: profile?.role,
         school_id: profile?.school_id,

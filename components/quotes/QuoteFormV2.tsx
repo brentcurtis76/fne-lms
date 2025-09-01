@@ -493,7 +493,11 @@ export default function QuoteFormV2({ initialData, onSubmit, isEditing = false }
                       <input
                         type="number"
                         value={singleRoomPrice}
-                        onChange={(e) => setSingleRoomPrice(Number(e.target.value))}
+                        onChange={(e) => {
+                          const newPrice = Number(e.target.value);
+                          setSingleRoomPrice(newPrice);
+                          setFormData(prev => ({ ...prev, single_room_price: newPrice }));
+                        }}
                         onClick={(e) => e.stopPropagation()}
                         min="0"
                         step="1000"
@@ -527,7 +531,11 @@ export default function QuoteFormV2({ initialData, onSubmit, isEditing = false }
                       <input
                         type="number"
                         value={doubleRoomPrice}
-                        onChange={(e) => setDoubleRoomPrice(Number(e.target.value))}
+                        onChange={(e) => {
+                          const newPrice = Number(e.target.value);
+                          setDoubleRoomPrice(newPrice);
+                          setFormData(prev => ({ ...prev, double_room_price: newPrice }));
+                        }}
                         onClick={(e) => e.stopPropagation()}
                         min="0"
                         step="1000"

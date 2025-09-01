@@ -37,6 +37,25 @@ export default function QuoteGroupsForm({
 }: QuoteGroupsFormProps) {
   const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set([0]));
 
+  // Update groups when room prices change
+  useEffect(() => {
+    if (groups.length === 0) return;
+    
+    const updatedGroups = groups.map(group => ({
+      ...group,
+      room_price_per_night: group.room_type === 'single' ? singleRoomPrice : doubleRoomPrice
+    }));
+    
+    // Only update if prices actually changed
+    const hasChanges = groups.some((group, index) => 
+      group.room_price_per_night !== updatedGroups[index].room_price_per_night
+    );
+    
+    if (hasChanges) {
+      onChange(updatedGroups);
+    }
+  }, [singleRoomPrice, doubleRoomPrice, groups.length]);
+
   // Calculate nights for a group
   const calculateNights = (arrival: string, departure: string): number => {
     if (!arrival || !departure) return 0;
@@ -58,7 +77,7 @@ export default function QuoteGroupsForm({
       room_price_per_night: doubleRoomPrice
     };
     onChange([...groups, newGroup]);
-    setExpandedGroups(new Set([...expandedGroups, groups.length]));
+    setExpandedGroups(new Set(Array.from(expandedGroups).concat(groups.length)));
   };
 
   // Remove a group

@@ -7,7 +7,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import MainLayout from '../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
-import { getUserRoles } from '../../utils/roleUtils';
+import { getUserRoles, getUserPrimaryRole } from '../../utils/roleUtils';
 import { UserRole, UserProfile } from '../../types/roles';
 import { ArrowLeft, Book, Calendar, User } from 'lucide-react';
 

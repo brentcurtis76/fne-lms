@@ -195,6 +195,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   } catch (error) {
     console.error('Error in create quote API:', error);
+    console.error('Full error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      body: req.body
+    });
     return res.status(500).json({ 
       error: 'Error interno del servidor',
       details: error instanceof Error ? error.message : 'Unknown error'

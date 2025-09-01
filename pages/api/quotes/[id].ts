@@ -179,17 +179,30 @@ async function handleDelete(supabase: any, id: string, req: NextApiRequest, res:
       return res.status(401).json({ error: 'No autorizado' });
     }
 
-    // Check if user is admin
+    // Check if user can delete quotes (admin, consultor, or community_manager can delete their own)
     const { data: userRole } = await supabase
       .from('user_roles')
       .select('role_type')
       .eq('user_id', session.user.id)
       .eq('is_active', true)
-      .eq('role_type', 'admin')
-      .single();
+      .in('role_type', ['admin', 'consultor', 'community_manager']);
 
-    if (!userRole) {
-      return res.status(403).json({ error: 'Solo los administradores pueden eliminar cotizaciones' });
+    if (!userRole || userRole.length === 0) {
+      return res.status(403).json({ error: 'No tienes permisos para eliminar cotizaciones' });
+    }
+    
+    // Check if the user owns the quote or is an admin
+    const isAdmin = userRole.some((r: any) => r.role_type === 'admin');
+    if (!isAdmin) {
+      const { data: quote } = await supabase
+        .from('pasantias_quotes')
+        .select('created_by')
+        .eq('id', id)
+        .single();
+        
+      if (!quote || quote.created_by !== session.user.id) {
+        return res.status(403).json({ error: 'Solo puedes eliminar tus propias cotizaciones' });
+      }
     }
 
     const { error } = await supabase

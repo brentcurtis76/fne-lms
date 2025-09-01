@@ -608,6 +608,7 @@ export async function getCommunityMembers(supabase: SupabaseClient, communityId:
       const profile = profileData?.find(p => p.id === roleItem.user_id);
       return {
         id: roleItem.user_id,
+        name: profile?.name, // Add the name field!
         email: profile?.email,
         first_name: profile?.first_name,
         last_name: profile?.last_name,

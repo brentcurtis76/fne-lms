@@ -280,27 +280,65 @@ export default function UserManagement() {
 
   const fetchUsers = async () => {
     try {
-      // First get all users with their school relationships
-      const { data: usersData, error } = await supabase
-        .from('profiles')
-        .select(`
-          id, 
-          email, 
-          first_name, 
-          last_name, 
-          school,
-          school_id,
-          created_at, 
-          approval_status,
-          school_relation:schools!school_id(id, name)
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching users:', error);
-        toast.error('Error al cargar usuarios');
+      // Use our direct database function to get ALL users (bypasses broken API)
+      const { data: allAuthUsers, error: authError } = await supabase
+        .rpc('get_all_auth_users', {});
+      
+      if (authError) {
+        console.error('Error fetching from get_all_auth_users, falling back to profiles:', authError);
+        // Fallback to original method if function doesn't exist
+        const { data: usersData, error } = await supabase
+          .from('profiles')
+          .select(`
+            id, 
+            email, 
+            first_name, 
+            last_name, 
+            school,
+            school_id,
+            created_at, 
+            approval_status,
+            school_relation:schools!school_id(id, name)
+          `)
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        
+        // Process fallback data as before
+        const usersWithRolesAndAssignments = await Promise.all(
+          (usersData || []).map(async (user) => {
+            const userRoles = await getUserRoles(supabase, user.id);
+            const consultantAssignments = await getConsultantAssignments(supabase, user.id);
+            return {
+              ...user,
+              user_roles: userRoles,
+              consultant_assignments: consultantAssignments
+            };
+          })
+        );
+        
+        setUsers(usersWithRolesAndAssignments);
         return;
       }
+      
+      // Transform the direct auth data to match our expected format
+      const usersData = allAuthUsers.map((authUser: any) => ({
+        id: authUser.id,
+        email: authUser.email,
+        first_name: authUser.first_name,
+        last_name: authUser.last_name,
+        school: authUser.school_name,
+        school_id: authUser.school_id,
+        created_at: authUser.created_at,
+        approval_status: authUser.approval_status || 'approved',
+        school_relation: authUser.school_name ? { 
+          id: authUser.school_id, 
+          name: authUser.school_name 
+        } : null,
+        role: authUser.role_type,
+        email_confirmed: authUser.email_confirmed_at ? true : false,
+        last_sign_in: authUser.last_sign_in_at
+      }));
 
       // Then get roles and assignments for each user
       const usersWithRolesAndAssignments = await Promise.all(

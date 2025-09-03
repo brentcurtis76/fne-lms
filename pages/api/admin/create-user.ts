@@ -42,15 +42,14 @@ export default async function handler(
       .from('user_roles')
       .select('role_type')
       .eq('user_id', user.id)
-      .eq('role_type', 'admin')
-      .eq('is_active', true);
+      .eq('role_type', 'admin');
 
     if (roleError || !userRoles || userRoles.length === 0) {
       return res.status(403).json({ error: 'Unauthorized. Only admins can create users.' });
     }
 
     // Get user data from request body
-    const { email, password, firstName, lastName, role } = req.body;
+    const { email, password, firstName, lastName, role, schoolId } = req.body;
 
     // Validate required fields
     if (!email || !password) {
@@ -79,56 +78,35 @@ export default async function handler(
       let roleCreated = false;
       
       try {
-        // Check if profile already exists
-        const { data: existingProfile } = await supabaseAdmin
+        // Profile is auto-created by trigger, so we always UPDATE (never INSERT)
+        // Update the auto-created profile with additional information
+        const updateData: any = {
+          email: email, // Ensure email is set
+          approval_status: 'approved', // Admin-created users are auto-approved
+          must_change_password: false // Don't force password change
+        };
+        
+        if (firstName) updateData.first_name = firstName;
+        if (lastName) updateData.last_name = lastName;
+        if (firstName && lastName) updateData.name = `${firstName} ${lastName}`;
+        if (schoolId) updateData.school_id = schoolId;
+        
+        const { error: updateError } = await supabaseAdmin
           .from('profiles')
-          .select('id')
-          .eq('id', newUser.user.id)
-          .single();
+          .update(updateData)
+          .eq('id', newUser.user.id);
 
-        if (!existingProfile) {
-          // Create profile (without role - that goes in user_roles table)
-          const { error: profileError } = await supabaseAdmin
-            .from('profiles')
-            .insert({
-              id: newUser.user.id,
-              email: email,
-              name: firstName && lastName ? `${firstName} ${lastName}` : null,
-              first_name: firstName,
-              last_name: lastName,
-              approval_status: 'approved', // Admin-created users are auto-approved
-              must_change_password: true // Flag to force password change on first login
-            });
-
-          if (profileError) {
-            throw profileError;
-          }
-          profileCreated = true;
-        } else {
-          // Update existing profile (without role - that goes in user_roles table)
-          const { error: updateError } = await supabaseAdmin
-            .from('profiles')
-            .update({
-              name: firstName && lastName ? `${firstName} ${lastName}` : null,
-              first_name: firstName,
-              last_name: lastName,
-              approval_status: 'approved',
-              must_change_password: true // Flag to force password change on first login
-            })
-            .eq('id', newUser.user.id);
-
-          if (updateError) throw updateError;
+        if (updateError) {
+          throw updateError;
         }
+        profileCreated = true;
 
         // Now create the user role in the user_roles table
         const { error: roleError } = await supabaseAdmin
           .from('user_roles')
           .insert({
             user_id: newUser.user.id,
-            role_type: role || 'docente',
-            is_active: true,
-            created_at: new Date().toISOString(),
-            assigned_by: user.id // The admin who created this user
+            role_type: role || 'docente'
           });
 
         if (roleError) {

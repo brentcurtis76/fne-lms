@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## FNE LMS Project Overview
 
-This is a comprehensive Learning Management System built with Next.js 14 and Supabase for Fundación Nueva Educación, supporting deep cultural change in Chilean schools through digital education.
+A comprehensive Learning Management System built with Next.js 14 and Supabase for Fundación Nueva Educación, supporting deep cultural change in Chilean schools through digital education.
 
 **Production URL:** https://fne-lms.vercel.app
 

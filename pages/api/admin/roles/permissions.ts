@@ -122,14 +122,123 @@ export default async function handler(
       .eq('user_id', user.id)
       .single();
 
-    // For now, return mock data (Phase 0 - read only)
-    // In Phase 2, this will query actual permissions
-    return res.status(200).json({
-      permissions: mockPermissions,
-      is_mock: false,
-      test_mode: testMode?.enabled || false,
-      test_run_id: testMode?.test_run_id || null
-    });
+    // Phase 0: Fetch from database when not in mock mode
+    try {
+      // Fetch role types catalog
+      const { data: roleTypes, error: roleTypesError } = await supabaseAdmin
+        .from('role_types')
+        .select('type, name, description')
+        .order('type');
+
+      if (roleTypesError) {
+        console.error('Error fetching role types:', roleTypesError);
+        // Fallback to mock if DB not ready
+        return res.status(200).json({
+          permissions: mockPermissions,
+          is_mock: true,
+          test_mode: false,
+          error: 'Database catalogs not ready'
+        });
+      }
+
+      // Fetch permissions catalog
+      const { data: permissionsCatalog, error: permissionsError } = await supabaseAdmin
+        .from('permissions')
+        .select('key, name, description, category')
+        .order('key');
+
+      if (permissionsError) {
+        console.error('Error fetching permissions:', permissionsError);
+        // Fallback to mock if DB not ready
+        return res.status(200).json({
+          permissions: mockPermissions,
+          is_mock: true,
+          test_mode: false,
+          error: 'Database catalogs not ready'
+        });
+      }
+
+      // Build permissions matrix using get_effective_permissions RPC
+      const permissionsMatrix: Record<string, Record<string, boolean>> = {};
+      const roles: string[] = [];
+
+      // If no role types in DB, fallback to mock
+      if (!roleTypes || roleTypes.length === 0) {
+        return res.status(200).json({
+          permissions: mockPermissions,
+          is_mock: true,
+          test_mode: testMode?.enabled || false,
+          test_run_id: testMode?.test_run_id || null,
+          note: 'No role types in database'
+        });
+      }
+
+      // For each role type, get effective permissions (baseline + overlays)
+      for (const roleType of roleTypes) {
+        roles.push(roleType.type);
+        
+        // Call get_effective_permissions RPC which now includes baseline
+        const { data: effectivePerms, error: rpcError } = await supabaseAdmin
+          .rpc('get_effective_permissions', {
+            p_role_type: roleType.type,
+            p_test_run_id: testMode?.test_run_id || null
+          });
+
+        if (rpcError) {
+          console.error(`Error getting permissions for ${roleType.type}:`, rpcError);
+          
+          // Try to get at least baseline permissions as fallback
+          const { data: baselinePerms, error: baselineError } = await supabaseAdmin
+            .from('role_permission_baseline')
+            .select('permission_key, granted')
+            .eq('role_type', roleType.type);
+          
+          if (!baselineError && baselinePerms) {
+            const rolePermissions: Record<string, boolean> = {};
+            for (const perm of baselinePerms) {
+              rolePermissions[perm.permission_key] = perm.granted || false;
+            }
+            permissionsMatrix[roleType.type] = rolePermissions;
+          } else {
+            // Initialize with empty permissions if both fail
+            permissionsMatrix[roleType.type] = {};
+          }
+          continue;
+        }
+
+        // Build permission map for this role from effective permissions
+        const rolePermissions: Record<string, boolean> = {};
+        
+        if (Array.isArray(effectivePerms)) {
+          for (const perm of effectivePerms) {
+            rolePermissions[perm.permission_key] = perm.granted || false;
+          }
+        }
+        
+        permissionsMatrix[roleType.type] = rolePermissions;
+      }
+
+      // Return DB-backed response
+      return res.status(200).json({
+        permissions: permissionsMatrix,
+        roles: roles,
+        permission_catalog: permissionsCatalog || [],
+        is_mock: false,
+        test_mode: testMode?.enabled || false,
+        test_run_id: testMode?.test_run_id || null
+      });
+
+    } catch (dbError) {
+      console.error('Database query error:', dbError);
+      // Fallback to mock on any DB error
+      return res.status(200).json({
+        permissions: mockPermissions,
+        is_mock: true,
+        test_mode: testMode?.enabled || false,
+        test_run_id: testMode?.test_run_id || null,
+        error: 'Database query failed'
+      });
+    }
   } catch (error) {
     console.error('Unexpected error:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });

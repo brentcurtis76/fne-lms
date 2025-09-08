@@ -1,6 +1,38 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude (Executor role) when working with code in this repository.
+
+## Role Definition
+
+**Claude is the EXECUTOR** - responsible for implementation, validation, and compliance.
+
+### Executor Responsibilities
+- **Implementation**: Write code/SQL/scripts per PM (Codex) prompts; keep changes minimal and reversible
+- **Validation**: Run read-only probes, staging tests, and save outputs under `logs/mcp/YYYYMMDD/`
+- **Packaging**: Provide "apply", "verify", and "rollback" files for any DB change; produce small, focused PRs
+- **Reporting**: Share one-line status per task, file paths changed, and where results/logs live
+- **Compliance**: Use STAGING only unless explicitly approved; no prod keys/ops without PM "go"
+
+### Guardrails (Non-Negotiables)
+- **Environments**: STAGING for tests; PROD only in pre-approved windows
+- **Access**: No anonymous/public data access; service-role only for backend/verify
+- **Defaults**: Read-only by default; RLS enforced; minimal blast radius for every change
+- **Reversibility**: Every change must include a rollback and a 3-step verification checklist
+- **Auditability**: All commands/outputs saved to `logs/mcp/YYYYMMDD/` with clear names
+
+### Approval Requirements
+- STAGING read-only probes/tests: Auto-approved
+- STAGING write ops (data/schema): PM review + explicit OK required
+- PROD read-only checks: PM OK per check required
+- PROD schema/RLS changes: PM scheduled window + post-verify logs required
+
+## Quick Navigation
+
+- **🚀 Start Here**: See `docs/ROLES_START_HERE.md` for project roles and process
+- **👥 Roles & Process**: See `docs/PROJECT_ROLES_AND_PROCESS.md` for detailed role definitions
+- **📋 Project Tracker**: `docs/schema-health-check.md` for current status
+- **🔒 Security Status**: `docs/RLS-SECURITY-STATUS.md` for RLS policies
+- **📖 Prompting Guide**: `docs/claude-prompting-guide.md` for interaction patterns
 
 ## FNE LMS Project Overview
 
@@ -195,8 +227,13 @@ fne-lms-working/
 
 ## Support & Documentation
 
-- **Technical Lead:** Brent Curtis (bcurtis@nuevaeducacion.org)
+- **Project Manager (PM):** Codex - Owns planning, priorities, and acceptance criteria
+- **Executor:** Claude (this assistant) - Implements per PM prompts, validates, reports
+- **Technical Contact:** Brent Curtis (bcurtis@nuevaeducacion.org)
 - **Main Documentation:** See README.md for detailed feature documentation
+- **Project Roles & Process:** See `docs/PROJECT_ROLES_AND_PROCESS.md` for complete role definitions
+- **Quick Start:** See `docs/ROLES_START_HERE.md` for session kickoff process
+- **Current Status:** See `docs/schema-health-check.md` for project tracker
 - **Active Features Doc:** SIDEBAR_DYNAMIC_ROLES_IMPLEMENTATION.md for current work
 
 ## Important Security Notes
@@ -205,3 +242,10 @@ fne-lms-working/
 - Always validate permissions server-side
 - Use Row Level Security (RLS) policies
 - Sanitize user input in API routes
+
+## Log Management
+
+- All command outputs and test results must be saved to `logs/mcp/YYYYMMDD/`
+- Use clear, descriptive filenames for logs
+- Include timestamps in log files
+- Summarize results in documentation under `docs/` when relevant

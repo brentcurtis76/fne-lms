@@ -205,3 +205,4 @@ fne-lms-working/
 - Always validate permissions server-side
 - Use Row Level Security (RLS) policies
 - Sanitize user input in API routes
+

@@ -35,7 +35,7 @@ describe('Discussion Counts Integration Tests', () => {
         try {
           // Get the discussion thread for this assignment and group
           const { data: thread } = await supabase
-            .from('community_threads')
+            .from('message_threads')
             .select('id')
             .eq('metadata->>assignmentId', assignment.id)
             .eq('metadata->>groupId', group.id)
@@ -70,7 +70,7 @@ describe('Discussion Counts Integration Tests', () => {
       });
 
       (supabase.from as any).mockImplementation((table: string) => {
-        if (table === 'community_threads') {
+        if (table === 'message_threads') {
           return {
             select: selectMock,
             eq: eqMock,
@@ -96,7 +96,7 @@ describe('Discussion Counts Integration Tests', () => {
       let messageCountQuery: any;
 
       (supabase.from as any).mockImplementation((table: string) => {
-        if (table === 'community_threads') {
+        if (table === 'message_threads') {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
@@ -129,7 +129,7 @@ describe('Discussion Counts Integration Tests', () => {
 
     it('should return 0 when thread does not exist', async () => {
       (supabase.from as any).mockImplementation((table: string) => {
-        if (table === 'community_threads') {
+        if (table === 'message_threads') {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
@@ -154,7 +154,7 @@ describe('Discussion Counts Integration Tests', () => {
       let callIndex = 0;
 
       (supabase.from as any).mockImplementation((table: string) => {
-        if (table === 'community_threads') {
+        if (table === 'message_threads') {
           const currentIndex = callIndex;
           return {
             select: vi.fn().mockReturnThis(),
@@ -188,7 +188,7 @@ describe('Discussion Counts Integration Tests', () => {
       const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       (supabase.from as any).mockImplementation((table: string) => {
-        if (table === 'community_threads') {
+        if (table === 'message_threads') {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
@@ -216,7 +216,7 @@ describe('Discussion Counts Integration Tests', () => {
       const selectSpy = vi.fn().mockReturnThis();
 
       (supabase.from as any).mockImplementation((table: string) => {
-        if (table === 'community_threads') {
+        if (table === 'message_threads') {
           return {
             select: selectSpy,
             eq: vi.fn().mockReturnThis(),
@@ -250,7 +250,7 @@ describe('Discussion Counts Integration Tests', () => {
 
       (supabase.from as any).mockImplementation((table: string) => {
         queryCount++;
-        if (table === 'community_threads') {
+        if (table === 'message_threads') {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
@@ -278,7 +278,7 @@ describe('Discussion Counts Integration Tests', () => {
           if (!group) continue;
 
           const { data: thread } = await supabase
-            .from('community_threads')
+            .from('message_threads')
             .select('id')
             .eq('metadata->>assignmentId', assignment.id)
             .eq('metadata->>groupId', group.id)

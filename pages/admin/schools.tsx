@@ -31,9 +31,7 @@ interface Generation {
   school_id: number; // Changed from string to number
   name: string;
   grade_range: string | null;
-  description: string | null;
   created_at: string;
-  updated_at: string;
   _count?: {
     profiles: number;
     communities: number;
@@ -83,8 +81,7 @@ export default function SchoolsManagement() {
 
   const [generationForm, setGenerationForm] = useState({
     name: '',
-    grade_range: '',
-    description: ''
+    grade_range: ''
   });
 
   useEffect(() => {
@@ -463,8 +460,7 @@ export default function SchoolsManagement() {
     setEditingGeneration(null);
     setGenerationForm({
       name: '',
-      grade_range: '',
-      description: ''
+      grade_range: ''
     });
     setShowGenerationModal(true);
   };
@@ -474,8 +470,7 @@ export default function SchoolsManagement() {
     setEditingGeneration(generation);
     setGenerationForm({
       name: generation.name,
-      grade_range: generation.grade_range || '',
-      description: generation.description || ''
+      grade_range: generation.grade_range || ''
     });
     setShowGenerationModal(true);
   };
@@ -518,33 +513,45 @@ export default function SchoolsManagement() {
           .from('generations')
           .update({
             name: generationForm.name,
-            grade_range: generationForm.grade_range || null,
-            description: generationForm.description || null,
-            updated_at: new Date().toISOString()
+            grade_range: generationForm.grade_range || null
           })
           .eq('id', editingGeneration.id);
 
         if (error) throw error;
         toast.success('Generación actualizada exitosamente');
       } else {
-        const { error } = await supabase
-          .from('generations')
-          .insert({
-            school_id: selectedSchool.id,
-            name: generationForm.name,
-            grade_range: generationForm.grade_range || null,
-            description: generationForm.description || null
-          });
+        console.log('Inserting generation with school_id:', selectedSchool.id, 'type:', typeof selectedSchool.id);
+        
+        // Call our API endpoint to handle the generation creation
+        const response = await fetch('/api/generations/create-bypass-rls', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            school_id: Number(selectedSchool.id),
+            name: generationForm.name.trim(),
+            grade_range: generationForm.grade_range?.trim() || null
+          })
+        });
 
-        if (error) throw error;
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Error creating generation');
+        }
+
+        const data = await response.json();
+        console.log('Generation created successfully:', data);
         toast.success('Generación creada exitosamente');
       }
 
       setShowGenerationModal(false);
-      fetchSchools();
-    } catch (error) {
+      console.log('SUCCESS: Generation created, skipping fetchSchools to isolate the error');
+      // fetchSchools();  // COMMENTED OUT TO TEST IF ERROR IS HERE
+    } catch (error: any) {
       console.error('Error saving generation:', error);
-      toast.error('Error al guardar la generación');
+      console.error('Error details:', error.message, error.details, error.hint, error.code);
+      toast.error(`Error al guardar la generación: ${error.message || 'Error desconocido'}`);
     }
   };
 
@@ -949,18 +956,6 @@ export default function SchoolsManagement() {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Descripción
-                </label>
-                <textarea
-                  value={generationForm.description}
-                  onChange={(e) => setGenerationForm({ ...generationForm, description: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
-                  placeholder="Descripción opcional"
-                  rows={3}
-                />
-              </div>
             </div>
 
             <div className="flex justify-end space-x-3 mt-6">

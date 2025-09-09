@@ -90,7 +90,7 @@ const GroupAssignmentsContent = ({ workspace, workspaceAccess, user, searchQuery
               if (!group) continue;
               
               const { data: thread } = await supabase
-                .from('community_threads')
+                .from('message_threads')
                 .select('id')
                 .eq('metadata->>assignmentId', assignment.id)
                 .eq('metadata->>groupId', group.id)
@@ -207,7 +207,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
           single: vi.fn().mockResolvedValue({ data: { role: 'docente' }, error: null })
         };
       }
-      if (table === 'community_threads') {
+      if (table === 'message_threads') {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -294,7 +294,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
           single: vi.fn().mockResolvedValue({ data: { role: 'docente' }, error: null })
         };
       }
-      if (table === 'community_threads') {
+      if (table === 'message_threads') {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
@@ -346,7 +346,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
 
       // Setup specific mocks for this test
       mockFrom.mockImplementation((table: string) => {
-        if (table === 'community_threads') {
+        if (table === 'message_threads') {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
@@ -393,7 +393,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
     it('should show "0 comentarios" when no comments exist', async () => {
       // Mock no thread found
       mockFrom.mockImplementation((table: string) => {
-        if (table === 'community_threads') {
+        if (table === 'message_threads') {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
@@ -428,7 +428,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
     it('should handle singular/plural correctly', async () => {
       // Mock 1 comment
       mockFrom.mockImplementation((table: string) => {
-        if (table === 'community_threads') {
+        if (table === 'message_threads') {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),
@@ -584,7 +584,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
     it('should handle errors when loading discussion counts', async () => {
       // Mock error in loading threads
       mockFrom.mockImplementation((table: string) => {
-        if (table === 'community_threads') {
+        if (table === 'message_threads') {
           return {
             select: vi.fn().mockReturnThis(),
             eq: vi.fn().mockReturnThis(),

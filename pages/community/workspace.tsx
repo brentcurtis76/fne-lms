@@ -2290,7 +2290,7 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
 
         // Get the discussion thread for this assignment and group
         const { data: thread } = await supabase
-          .from('community_threads')
+          .from('message_threads')
           .select('id')
           .eq('metadata->>assignmentId', assignment.id)
           .eq('metadata->>groupId', group.id)

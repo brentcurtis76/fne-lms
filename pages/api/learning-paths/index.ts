@@ -1,8 +1,17 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import typedHandler from './index-typed';
 import { LearningPathsService } from '../../../lib/services/learningPathsService';
 import { getApiUser, createApiSupabaseClient, sendAuthError } from '../../../lib/api-auth';
 
+// Wrapper to enable gradual rollout of typed routes
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (process.env.ENABLE_TYPED_ROUTES === 'true') {
+    return typedHandler(req, res);
+  }
+  return legacyHandler(req, res);
+}
+
+async function legacyHandler(req: NextApiRequest, res: NextApiResponse) {
   // Authenticate user using the standard api-auth pattern
   const { user, error } = await getApiUser(req, res);
   

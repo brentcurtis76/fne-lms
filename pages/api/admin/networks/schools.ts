@@ -6,6 +6,7 @@
  */
 
 import { NextApiRequest, NextApiResponse } from 'next';
+import typedHandler from './schools-typed';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { hasAdminPrivileges } from '../../../../utils/roleUtils';
 
@@ -24,7 +25,15 @@ interface BulkAssignSchoolsRequest {
   schoolIds: number[];
 }
 
+// Wrapper to enable gradual rollout of typed routes
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (process.env.ENABLE_TYPED_ROUTES === 'true') {
+    return typedHandler(req, res);
+  }
+  return legacyHandler(req, res);
+}
+
+async function legacyHandler(req: NextApiRequest, res: NextApiResponse) {
   const supabase = createServerSupabaseClient({ req, res });
 
   try {

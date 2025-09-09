@@ -357,6 +357,7 @@ export default function RoleManagement() {
                 {testRunId && (
                   <button
                     onClick={handleCleanup}
+                    data-testid="cleanup-button"
                     className="ml-4 px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                   >
                     Limpiar cambios de prueba
@@ -387,7 +388,7 @@ export default function RoleManagement() {
           {/* Permission matrix */}
           <div className="px-6 py-4">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+              <table className="min-w-full divide-y divide-gray-200" data-testid="permissions-matrix">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -423,6 +424,8 @@ export default function RoleManagement() {
                                 onClick={() => handlePermissionToggle(role, permission, isGranted)}
                                 className="focus:outline-none hover:opacity-75 transition-opacity"
                                 title={`Cambiar permiso: ${permission}`}
+                                data-testid={`perm-toggle-${role.replace(/[^a-z0-9-_]/gi,'-')}-${permission.replace(/[^a-z0-9-_]/gi,'-')}`}
+                                aria-label={`toggle-${role}-${permission}`}
                               >
                                 {isGranted ? (
                                   <span className="text-green-600">
@@ -510,6 +513,7 @@ export default function RoleManagement() {
               <button
                 type="button"
                 onClick={handleConfirmChange}
+                data-testid="confirm-apply-button"
                 className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
               >
                 Aplicar cambio

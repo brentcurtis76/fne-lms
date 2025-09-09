@@ -1,0 +1,4 @@
+email,password,firstname,lastname,school_id,role
+test.user1@example.com,Pass123!,Test,User1,3,docente
+test.user2@example.com,Pass123!,Test,User2,3,estudiante
+test.user3@example.com,,Test,User3,3,docente

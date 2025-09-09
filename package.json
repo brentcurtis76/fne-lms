@@ -28,6 +28,7 @@
     "e2e:groups": "playwright test e2e/tests/consultant-groups.spec.ts e2e/tests/student-groups.spec.ts",
     "e2e:groups:security": "playwright test e2e/tests/group-security.spec.ts",
     "e2e:groups:compat": "playwright test e2e/tests/backward-compatibility.spec.ts",
+    "security:check": "node scripts/security/run-security-check.js",
     "e2e:groups:all": "playwright test e2e/tests/*groups*.spec.ts e2e/tests/*compatibility*.spec.ts",
     "e2e:groups:debug": "playwright test --debug e2e/tests/consultant-groups.spec.ts",
     "test:db:reset": "./scripts/reset-test-db.sh",
@@ -60,7 +61,9 @@
     "seed:progress": "node -e \"const { generateProgress } = require('./scripts/data-seeding/generators/progress'); console.log('Progress generation would run here')\"",
     "seed:validate": "node -e \"console.log('Data validation would run here')\"",
     "seed:report": "node -e \"console.log('Report generation would run here')\"",
-    "seed:test-security": "node scripts/data-seeding/test-security.js"
+    "seed:test-security": "node scripts/data-seeding/test-security.js",
+    "typegen": "npx supabase gen types typescript --project-id=$SUPABASE_PROJECT_ID > types/database.generated.ts",
+    "typegen:check": "bash scripts/typegen-check.sh"
   },
   "keywords": [],
   "author": "",

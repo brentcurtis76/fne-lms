@@ -17,6 +17,7 @@ dist/
 .env.development
 .env.test
 .env.production
+.env.staging
 
 # IDE and Editor files
 .vscode/
@@ -82,6 +83,10 @@ run-*.mjs
 # Reports and Analysis
 *.md
 *.json
+
+# Exceptions - Allow docs to be tracked
+!docs/**/*.md
+!docs/**/*.json
 
 # Backups
 /backups/

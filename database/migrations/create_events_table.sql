@@ -23,15 +23,26 @@ CREATE POLICY "Public can view published events" ON public.events
     FOR SELECT
     USING (is_published = true);
 
--- Policy for admins, superadmins, and community managers to manage events
+-- Policy for admins and community managers to manage events
+-- Note: superadmin capability is checked separately via auth_is_superadmin()
 CREATE POLICY "Authorized roles can manage events" ON public.events
     FOR ALL
     USING (
+        auth_is_superadmin() OR
         EXISTS (
             SELECT 1 FROM public.user_roles ur
             WHERE ur.user_id = auth.uid()
             AND ur.is_active = true
-            AND ur.role_type IN ('admin', 'superadmin', 'community_manager')
+            AND ur.role_type IN ('admin', 'community_manager')
+        )
+    )
+    WITH CHECK (
+        auth_is_superadmin() OR
+        EXISTS (
+            SELECT 1 FROM public.user_roles ur
+            WHERE ur.user_id = auth.uid()
+            AND ur.is_active = true
+            AND ur.role_type IN ('admin', 'community_manager')
         )
     );
 

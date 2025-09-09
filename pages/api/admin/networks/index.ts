@@ -20,7 +20,11 @@ interface UpdateNetworkRequest {
   description?: string;
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+import typedHandler from './index-typed';
+import { wrapTypedRoute } from '../../../../utils/typedRoutesWrapper';
+
+// Legacy handler function
+async function legacyHandler(req: NextApiRequest, res: NextApiResponse) {
   const supabase = createServerSupabaseClient({ req, res });
 
   try {
@@ -377,3 +381,6 @@ async function handleDeleteNetwork(supabase: any, networkId: string, res: NextAp
     return res.status(500).json({ error: 'Error al eliminar la red' });
   }
 }
+
+// Export wrapped handler with feature flag
+export default wrapTypedRoute(legacyHandler, typedHandler);

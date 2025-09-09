@@ -45,17 +45,36 @@ export default async function handler(
   }
 
   try {
-    // Get session-bound client for RLS enforcement
-    const supabase = createServerSupabaseClient({ req, res });
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // Accept either Bearer token or cookie session for RLS-bound operations
+    const authHeader = req.headers.authorization;
+    let userId: string | null = null;
+    let supabaseRls: ReturnType<typeof createClient>;
 
-    if (sessionError || !session) {
-      return res.status(401).json({ error: 'No autorizado' });
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !user) {
+        return res.status(401).json({ error: 'No autorizado' });
+      }
+      userId = user.id;
+      supabaseRls = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { global: { headers: { Authorization: `Bearer ${token}` } } }
+      );
+    } else {
+      const supabaseFromCookies = createServerSupabaseClient({ req, res });
+      const { data: { session }, error: sessionError } = await supabaseFromCookies.auth.getSession();
+      if (sessionError || !session) {
+        return res.status(401).json({ error: 'No autorizado' });
+      }
+      userId = session.user.id;
+      supabaseRls = supabaseFromCookies as any;
     }
 
     // Verify superadmin status
     const { data: isSuperadmin } = await supabaseAdmin
-      .rpc('auth_is_superadmin', { check_user_id: session.user.id });
+      .rpc('auth_is_superadmin', { check_user_id: userId });
 
     if (!isSuperadmin) {
       return res.status(403).json({ error: 'Acceso denegado - solo superadministradores' });
@@ -68,7 +87,7 @@ export default async function handler(
     }
 
     // Get overlays for this test run
-    const { data: overlays, error: fetchError } = await supabase
+    const { data: overlays, error: fetchError } = await (supabaseRls as any)
       .from('role_permissions')
       .select('id, role_type, permission_key, granted')
       .eq('test_run_id', test_run_id)
@@ -98,7 +117,7 @@ export default async function handler(
     }
 
     // Get test mode state
-    const { data: testMode, error: testModeError } = await supabase
+    const { data: testMode, error: testModeError } = await (supabaseRls as any)
       .from('test_mode_state')
       .select('*')
       .eq('test_run_id', test_run_id)
@@ -112,7 +131,7 @@ export default async function handler(
 
     // Enforce owner-only cleanup to align with RLS
     // RLS requires user_id = auth.uid() for UPDATE on test_mode_state
-    if (testMode.user_id !== session.user.id) {
+    if (testMode.user_id !== userId) {
       return res.status(403).json({ 
         success: false,
         error: 'Solo puedes limpiar tus propios test runs'
@@ -120,12 +139,12 @@ export default async function handler(
     }
 
     // Delete the overlays (RLS allows DELETE of own test overlays)
-    const { error: deleteError } = await supabase
+    const { error: deleteError } = await (supabaseRls as any)
       .from('role_permissions')
       .delete()
       .eq('test_run_id', test_run_id)
       .eq('is_test', true)
-      .eq('created_by', session.user.id);
+      .eq('created_by', userId);
 
     if (deleteError) {
       console.error('Error deleting overlays:', deleteError);
@@ -133,14 +152,14 @@ export default async function handler(
     }
 
     // Disable test mode
-    const { error: updateError } = await supabase
+    const { error: updateError } = await (supabaseRls as any)
       .from('test_mode_state')
       .update({
         enabled: false,
         test_run_id: null,
         expires_at: null
       })
-      .eq('user_id', session.user.id);
+      .eq('user_id', userId);
 
     if (updateError) {
       console.error('Error updating test mode:', updateError);

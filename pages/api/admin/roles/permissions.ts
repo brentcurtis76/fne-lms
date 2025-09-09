@@ -84,7 +84,7 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Dev mock mode
+  // Dev mock mode - skip if explicitly false
   if (process.env.RBAC_DEV_MOCK === 'true') {
     return res.status(200).json({
       permissions: mockPermissions,
@@ -124,54 +124,77 @@ export default async function handler(
 
     // Phase 0: Fetch from database when not in mock mode
     try {
-      // Fetch role types catalog
-      const { data: roleTypes, error: roleTypesError } = await supabaseAdmin
+      // Fetch role types catalog (optional; will derive from baseline if missing)
+      let { data: roleTypes, error: roleTypesError } = await supabaseAdmin
         .from('role_types')
         .select('type, name, description')
         .order('type');
 
-      if (roleTypesError) {
-        console.error('Error fetching role types:', roleTypesError);
-        // Fallback to mock if DB not ready
-        return res.status(200).json({
-          permissions: mockPermissions,
-          is_mock: true,
-          test_mode: false,
-          error: 'Database catalogs not ready'
-        });
+      if (roleTypesError || !roleTypes || roleTypes.length === 0) {
+        // Derive roles from baseline table if catalog not present
+        const { data: baselineRoles, error: baselineRolesError } = await supabaseAdmin
+          .from('role_permission_baseline')
+          .select('role_type');
+
+        if (!baselineRolesError && baselineRoles) {
+          const uniqueRoles = Array.from(new Set(baselineRoles.map((r: any) => r.role_type))).sort();
+          roleTypes = uniqueRoles.map((r: string) => ({ type: r }));
+        } else {
+          console.error('Error deriving roles from baseline:', baselineRolesError);
+          return res.status(200).json({
+            permissions: mockPermissions,
+            is_mock: true,
+            test_mode: testMode?.enabled || false,
+            test_run_id: testMode?.test_run_id || null,
+            error: 'Role catalogs not ready and baseline unavailable'
+          });
+        }
       }
 
-      // Fetch permissions catalog
-      const { data: permissionsCatalog, error: permissionsError } = await supabaseAdmin
+      // Fetch permissions catalog (optional; will derive from baseline if missing)
+      let { data: permissionsCatalog, error: permissionsError } = await supabaseAdmin
         .from('permissions')
         .select('key, name, description, category')
         .order('key');
 
-      if (permissionsError) {
-        console.error('Error fetching permissions:', permissionsError);
-        // Fallback to mock if DB not ready
-        return res.status(200).json({
-          permissions: mockPermissions,
-          is_mock: true,
-          test_mode: false,
-          error: 'Database catalogs not ready'
-        });
+      if (permissionsError || !permissionsCatalog || permissionsCatalog.length === 0) {
+        // Derive permission catalog from baseline table if catalog not present
+        const { data: baselinePermsAll, error: baselinePermsAllError } = await supabaseAdmin
+          .from('role_permission_baseline')
+          .select('permission_key, metadata');
+        if (!baselinePermsAllError && baselinePermsAll) {
+          const seen = new Set<string>();
+          permissionsCatalog = [] as any[];
+          for (const row of baselinePermsAll) {
+            if (seen.has(row.permission_key)) continue;
+            seen.add(row.permission_key);
+            const meta = row.metadata || {};
+            (permissionsCatalog as any[]).push({
+              key: row.permission_key,
+              name: meta.name || row.permission_key,
+              description: meta.description || null,
+              category: meta.category || null
+            });
+          }
+          // sort by key for stability
+          (permissionsCatalog as any[]).sort((a, b) => (a.key > b.key ? 1 : a.key < b.key ? -1 : 0));
+        } else {
+          console.error('Error deriving permission catalog from baseline:', baselinePermsAllError);
+          return res.status(200).json({
+            permissions: mockPermissions,
+            is_mock: true,
+            test_mode: testMode?.enabled || false,
+            test_run_id: testMode?.test_run_id || null,
+            error: 'Permission catalogs not ready and baseline unavailable'
+          });
+        }
       }
 
       // Build permissions matrix using get_effective_permissions RPC
       const permissionsMatrix: Record<string, Record<string, boolean>> = {};
       const roles: string[] = [];
 
-      // If no role types in DB, fallback to mock
-      if (!roleTypes || roleTypes.length === 0) {
-        return res.status(200).json({
-          permissions: mockPermissions,
-          is_mock: true,
-          test_mode: testMode?.enabled || false,
-          test_run_id: testMode?.test_run_id || null,
-          note: 'No role types in database'
-        });
-      }
+      // roleTypes guaranteed populated (either catalog or derived)
 
       // For each role type, get effective permissions (baseline + overlays)
       for (const roleType of roleTypes) {

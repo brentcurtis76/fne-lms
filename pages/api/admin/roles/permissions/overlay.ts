@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,17 +53,38 @@ export default async function handler(
   }
 
   try {
-    // Get session-bound client for RLS enforcement
-    const supabase = createServerSupabaseClient({ req, res });
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // Accept either Bearer token or cookie session for RLS-bound operations
+    const authHeader = req.headers.authorization;
+    let userId: string | null = null;
+    let supabaseRls: ReturnType<typeof createClient>;
 
-    if (sessionError || !session) {
-      return res.status(401).json({ error: 'No autorizado' });
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !user) {
+        return res.status(401).json({ error: 'No autorizado' });
+      }
+      userId = user.id;
+      // Create RLS client bound to the user's auth token
+      supabaseRls = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        { global: { headers: { Authorization: `Bearer ${token}` } } }
+      );
+    } else {
+      // Cookie/session-based auth (browser flow)
+      const supabaseFromCookies = createPagesServerClient({ req, res });
+      const { data: { session }, error: sessionError } = await supabaseFromCookies.auth.getSession();
+      if (sessionError || !session) {
+        return res.status(401).json({ error: 'No autorizado' });
+      }
+      userId = session.user.id;
+      supabaseRls = supabaseFromCookies as any;
     }
 
-    // Verify superadmin status
+    // Verify superadmin status via admin RPC
     const { data: isSuperadmin } = await supabaseAdmin
-      .rpc('auth_is_superadmin', { check_user_id: session.user.id });
+      .rpc('auth_is_superadmin', { check_user_id: userId });
 
     if (!isSuperadmin) {
       return res.status(403).json({ error: 'Acceso denegado - solo superadministradores' });
@@ -80,7 +101,7 @@ export default async function handler(
 
     // Check if idempotency key already used
     if (idempotency_key) {
-      const { data: existing } = await supabase
+      const { data: existing } = await (supabaseRls as any)
         .from('role_permissions')
         .select('id')
         .eq('reason', `idempotency:${idempotency_key}`)
@@ -95,10 +116,10 @@ export default async function handler(
     }
 
     // Enable test mode if not already enabled
-    const { data: testMode, error: testModeError } = await supabase
+    const { data: testMode, error: testModeError } = await (supabaseRls as any)
       .from('test_mode_state')
       .select('enabled, test_run_id, expires_at')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .single();
 
     let testRunId = testMode?.test_run_id;
@@ -109,10 +130,10 @@ export default async function handler(
       const expires = new Date();
       expires.setHours(expires.getHours() + 24);
 
-      const { error: enableError } = await supabase
+      const { error: enableError } = await (supabaseRls as any)
         .from('test_mode_state')
         .upsert({
-          user_id: session.user.id,
+          user_id: userId,
           enabled: true,
           test_run_id: testRunId,
           enabled_at: new Date().toISOString(),
@@ -141,7 +162,7 @@ export default async function handler(
     }
 
     // Check for existing overlay for this permission
-    const { data: existing } = await supabase
+    const { data: existing } = await (supabaseRls as any)
       .from('role_permissions')
       .select('*')
       .eq('role_type', role_type)
@@ -160,7 +181,7 @@ export default async function handler(
 
     // Delete existing active test overlay if there is one (RLS allows DELETE of test rows)
     if (existing && change !== 'no_change' && existing.is_test) {
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await (supabaseRls as any)
         .from('role_permissions')
         .delete()
         .eq('role_type', role_type)
@@ -183,14 +204,14 @@ export default async function handler(
         ? `${reason} (idempotency:${idempotency_key})`
         : reason;
 
-      const { data: overlay, error: insertError } = await supabase
+      const { data: overlay, error: insertError } = await (supabaseRls as any)
         .from('role_permissions')
         .insert({
           role_type,
           permission_key,
           granted,
           reason: finalReason,
-          created_by: session.user.id,
+          created_by: userId,
           test_run_id: testRunId,
           is_test: true,
           active: true,

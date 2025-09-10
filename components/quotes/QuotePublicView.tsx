@@ -39,6 +39,10 @@ interface Quote {
   apply_early_bird_discount?: boolean;
   discount_amount?: number;
   original_program_total?: number;
+  viaticos_type?: 'daily' | 'total' | null;
+  viaticos_amount?: number;
+  viaticos_total?: number;
+  viaticos_display_amount?: number;
 }
 
 interface QuotePublicViewProps {
@@ -349,19 +353,37 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
     pdf.setTextColor(0, 0, 0);
     pdf.setFontSize(9);
     pdf.text(`$${programCostPerPerson.toLocaleString('es-CL')} CLP`, rightCol, lineY, { align: 'right' });
+    lineY += 7;
+    
+    // Viáticos if applicable
+    if (quote.viaticos_display_amount && quote.viaticos_display_amount > 0) {
+      pdf.setTextColor(75, 85, 99);
+      const viaticosLabel = quote.viaticos_type === 'daily' ? 
+        `Viáticos (${quote.nights + 1} días)` : 
+        'Viáticos (monto total)';
+      pdf.text(viaticosLabel, leftCol, lineY);
+      pdf.setTextColor(0, 0, 0);
+      const viaticosPerPerson = Math.round(quote.viaticos_display_amount / quote.num_pasantes);
+      pdf.text(`$${viaticosPerPerson.toLocaleString('es-CL')} CLP`, rightCol, lineY, { align: 'right' });
+      lineY += 7;
+    }
+    
+    // Adjust divider line position based on whether viáticos are included
+    const dividerY = quote.viaticos_display_amount && quote.viaticos_display_amount > 0 ? yPos + 59 : yPos + 52;
     
     // Divider line
     pdf.setDrawColor(200, 200, 200);
     pdf.setLineWidth(0.5);
-    pdf.line(leftCol, yPos + 52, rightCol, yPos + 52);
+    pdf.line(leftCol, dividerY, rightCol, dividerY);
     
     // Total per person
+    const totalY = quote.viaticos_display_amount && quote.viaticos_display_amount > 0 ? yPos + 66 : yPos + 59;
     pdf.setTextColor(0, 0, 0);
     pdf.setFontSize(10);
     pdf.setFont(undefined, 'bold');
-    pdf.text('Total por persona', leftCol, yPos + 59);
+    pdf.text('Total por persona', leftCol, totalY);
     pdf.setFontSize(11);
-    pdf.text(`$${quote.total_per_person.toLocaleString('es-CL')} CLP`, rightCol, yPos + 59, { align: 'right' });
+    pdf.text(`$${quote.total_per_person.toLocaleString('es-CL')} CLP`, rightCol, totalY, { align: 'right' });
     
     // Grand total yellow box with better spacing
     if (quote.num_pasantes > 1) {
@@ -715,6 +737,20 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
                     )}
                   </div>
                 </div>
+                
+                {/* Viáticos */}
+                {quote.viaticos_display_amount && quote.viaticos_display_amount > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-white/80">
+                      Viáticos {quote.viaticos_type === 'daily' ? 
+                        `(${quote.nights + 1} días)` : 
+                        '(monto total)'}
+                    </span>
+                    <span className="font-medium">
+                      ${Math.round(quote.viaticos_display_amount / quote.num_pasantes).toLocaleString('es-CL')} CLP
+                    </span>
+                  </div>
+                )}
                 
                 <div className="border-t border-white/20 pt-3 mt-3">
                   <div className="flex justify-between items-center text-xl">

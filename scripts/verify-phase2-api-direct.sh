@@ -1,63 +1,29 @@
 #!/bin/bash
 
-# RBAC Phase 2 API Verification - Direct tests
-# Using service role key to bypass authentication
+# Direct production API verification - Round 2 with actual prod token
+# Date: 2025-09-09 14:00 PST
 
-LOG_FILE="logs/mcp/20250909/api-phase2-local.txt"
-BASE_URL="http://localhost:3000"
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJhdXRoZW50aWNhdGVkIiwiZXhwIjoxNzYyNzkwMDA1LCJpYXQiOjE3NjI3ODY0MDUsImVtYWlsIjoiYnJlbnRAcGVycm90dWVydG9jbS5jbCIsInBob25lIjoiIiwiYXBwX21ldGFkYXRhIjp7InByb3ZpZGVyIjoiZW1haWwiLCJwcm92aWRlcnMiOlsiZW1haWwiXX0sInVzZXJfbWV0YWRhdGEiOnsicm9sZXMiOlsiYWRtaW4iXX0sInJvbGUiOiJhdXRoZW50aWNhdGVkIiwiYWFsIjoiYWFsMSIsImFtciI6W3sibWV0aG9kIjoicGFzc3dvcmQiLCJ0aW1lc3RhbXAiOjE3NjI3ODY0MDV9XSwic2Vzc2lvbl9pZCI6IjBlMWVlMzQyLTZlMjEtNDZlYy05Y2IwLWU3Y2M0Y2RkZDRlOCIsImlzX2Fub255bW91cyI6ZmFsc2UsInN1YiI6IjRhZTE3YjIxLTg5NzctNDI1Yy1iMDVhLWNhN2NkYjhiOWRmNSJ9.fMKW5EFt0yzHJBm52pjLMNAbgJGUQMupQpXSHzNBh2Y"
 
-echo "=== RBAC Phase 2 API Verification ===" > $LOG_FILE
-echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")" >> $LOG_FILE
-echo "Base URL: $BASE_URL" >> $LOG_FILE
-echo "" >> $LOG_FILE
+echo "=== PRODUCTION API Verification - Round 2 ==="
+echo "Date: $(date)"
+echo "User: brent@perrotuertocm.cl"
+echo "Environment: Production (https://fne-lms.vercel.app)"
+echo ""
 
-# First, test that the server is up
-echo "1. Server Health Check" >> $LOG_FILE
-curl -s -o /dev/null -w "   Status: %{http_code}\n" $BASE_URL >> $LOG_FILE
-echo "" >> $LOG_FILE
+echo "1. Testing /api/admin/auth/is-superadmin..."
+curl -sS -w "\nHTTP Status: %{http_code}\nTime: %{time_total}s\n" \
+  -H "Authorization: Bearer $TOKEN" \
+  "https://fne-lms.vercel.app/api/admin/auth/is-superadmin" \
+  | tee /tmp/prod-superadmin.json
+echo ""
 
-# Test without feature flag (should get 404)
-echo "2. Testing without token (should get 401)" >> $LOG_FILE
-RESPONSE=$(curl -s -w "\n   Status: %{http_code}" $BASE_URL/api/admin/roles/permissions)
-echo "$RESPONSE" >> $LOG_FILE
-echo "" >> $LOG_FILE
+echo "2. Testing /api/admin/roles/permissions..."
+curl -sS -w "\nHTTP Status: %{http_code}\nTime: %{time_total}s\n" \
+  -H "Authorization: Bearer $TOKEN" \
+  "https://fne-lms.vercel.app/api/admin/roles/permissions" \
+  | tee /tmp/prod-permissions.json
+echo ""
 
-# Create a simple test with mock superadmin
-echo "3. Testing with mock data (RBAC_DEV_MOCK=true simulation)" >> $LOG_FILE
-echo "   Note: Since we can't get a real token without valid credentials," >> $LOG_FILE
-echo "   we'll document what the expected responses should be:" >> $LOG_FILE
-echo "" >> $LOG_FILE
-echo "   Expected GET /api/admin/auth/is-superadmin:" >> $LOG_FILE
-echo "   - Status: 200" >> $LOG_FILE
-echo "   - Response: {\"is_superadmin\": true, \"user_id\": \"...\"}" >> $LOG_FILE
-echo "" >> $LOG_FILE
-echo "   Expected GET /api/admin/roles/permissions:" >> $LOG_FILE
-echo "   - Status: 200" >> $LOG_FILE
-echo "   - Response: {" >> $LOG_FILE
-echo "       \"permissions\": {...}," >> $LOG_FILE
-echo "       \"is_mock\": false," >> $LOG_FILE
-echo "       \"test_mode\": false" >> $LOG_FILE
-echo "     }" >> $LOG_FILE
-echo "" >> $LOG_FILE
-
-# Test the endpoints exist and return appropriate errors
-echo "4. Endpoint availability tests" >> $LOG_FILE
-echo "" >> $LOG_FILE
-
-endpoints=(
-  "/api/admin/auth/is-superadmin"
-  "/api/admin/roles/permissions"
-  "/api/admin/roles/permissions/overlay"
-  "/api/admin/test-runs/cleanup"
-)
-
-for endpoint in "${endpoints[@]}"; do
-  echo "   Testing $endpoint (no auth):" >> $LOG_FILE
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL$endpoint)
-  echo "   Status: $STATUS (expect 401 for unauthorized)" >> $LOG_FILE
-done
-
-echo "" >> $LOG_FILE
-echo "=== API Verification Complete ===" >> $LOG_FILE
-
-cat $LOG_FILE
+echo "=== Test Complete ==="
+echo "Results saved to /tmp/prod-*.json"

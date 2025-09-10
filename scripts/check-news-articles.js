@@ -1,4 +1,4 @@
-// Check if news articles exist in the database
+// Check news articles for La Fontaine image issue
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config({ path: '.env.local' });
 
@@ -13,98 +13,118 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function checkNewsArticles() {
-  console.log('🔍 CHECKING NEWS ARTICLES IN DATABASE');
+  console.log('🔍 CHECKING LA FONTAINE ARTICLE FOR IMAGE ISSUE');
   console.log('=' .repeat(50));
 
   try {
-    // 1. Check if news_articles table exists and get all articles
-    console.log('1. Checking all articles in news_articles table...');
-    const { data: allArticles, error: allError } = await supabase
+    // 1. Search for La Fontaine articles
+    console.log('1. Searching for La Fontaine articles...');
+    const { data: laFontaineArticles, error: searchError } = await supabase
       .from('news_articles')
       .select('*')
+      .ilike('title', '%La Fontaine%')
       .order('created_at', { ascending: false });
 
-    if (allError) {
-      console.log('❌ Error fetching articles:', allError.message);
-      console.log('   Code:', allError.code);
-      console.log('   Details:', allError.details);
+    if (searchError) {
+      console.log('❌ Error searching articles:', searchError.message);
       return;
     }
 
-    console.log(`✅ Found ${allArticles?.length || 0} total articles`);
+    console.log(`✅ Found ${laFontaineArticles?.length || 0} La Fontaine articles`);
     
-    if (allArticles && allArticles.length > 0) {
-      console.log('\n📋 ARTICLES LIST:');
-      allArticles.forEach((article, index) => {
-        console.log(`   ${index + 1}. "${article.title}"`);
+    if (laFontaineArticles && laFontaineArticles.length > 0) {
+      console.log('\n📋 LA FONTAINE ARTICLES:');
+      laFontaineArticles.forEach((article, index) => {
+        console.log(`\n   ${index + 1}. "${article.title}"`);
         console.log(`      ID: ${article.id}`);
         console.log(`      Slug: ${article.slug}`);
         console.log(`      Published: ${article.is_published ? 'YES' : 'NO'}`);
-        console.log(`      Created: ${article.created_at}`);
-        console.log(`      Author ID: ${article.author_id}`);
-        console.log('');
+        console.log(`      Featured Image: ${article.featured_image || '❌ NO IMAGE SET'}`);
+        
+        // Check for images in content
+        if (article.content_html) {
+          const imgMatches = article.content_html.match(/<img[^>]+src="([^"]+)"/g);
+          if (imgMatches) {
+            console.log(`      Images in content: ${imgMatches.length}`);
+            imgMatches.forEach((img, i) => {
+              const srcMatch = img.match(/src="([^"]+)"/);
+              if (srcMatch) {
+                console.log(`        - Image ${i + 1}: ${srcMatch[1]}`);
+              }
+            });
+          } else {
+            console.log('      Images in content: 0');
+          }
+        }
       });
     }
 
-    // 2. Check specifically published articles
-    console.log('2. Checking published articles only...');
-    const { data: publishedArticles, error: pubError } = await supabase
+    // 2. Check for exact article match
+    console.log('\n2. Searching for exact article...');
+    const exactTitle = 'Colegio La Fontaine celebró 32 años de vida con Seminario Internacional de Fundación Nueva Educación';
+    const { data: exactArticle, error: exactError } = await supabase
       .from('news_articles')
       .select('*')
-      .eq('is_published', true)
-      .order('created_at', { ascending: false });
+      .eq('title', exactTitle)
+      .single();
 
-    if (pubError) {
-      console.log('❌ Error fetching published articles:', pubError.message);
-    } else {
-      console.log(`✅ Found ${publishedArticles?.length || 0} published articles`);
+    if (exactError) {
+      console.log('❌ No exact match found');
+      console.log('   Trying partial match...');
       
-      if (publishedArticles && publishedArticles.length > 0) {
-        console.log('\n📰 PUBLISHED ARTICLES:');
-        publishedArticles.forEach((article, index) => {
-          console.log(`   ${index + 1}. "${article.title}" - Published`);
-        });
-      } else {
-        console.log('⚠️  No published articles found - this is why they\'re not showing on the public page');
+      const { data: partialMatch } = await supabase
+        .from('news_articles')
+        .select('*')
+        .ilike('title', '%32 años%')
+        .single();
+        
+      if (partialMatch) {
+        console.log('✅ Found partial match:');
+        console.log('   Title:', partialMatch.title);
+        console.log('   Featured Image:', partialMatch.featured_image || '❌ NO IMAGE');
       }
+    } else {
+      console.log('✅ Found exact article!');
+      console.log('   ID:', exactArticle.id);
+      console.log('   Featured Image:', exactArticle.featured_image || '❌ NO FEATURED IMAGE');
+      console.log('   Content length:', exactArticle.content_html?.length || 0);
     }
 
-    // 3. Test the exact query from the public API
-    console.log('\n3. Testing public API query with author join...');
-    const { data: apiArticles, error: apiError } = await supabase
-      .from('news_articles')
-      .select(`
-        *,
-        author:profiles!author_id (
-          id,
-          first_name,
-          last_name,
-          avatar_url
-        )
-      `)
-      .eq('is_published', true)
-      .order('created_at', { ascending: false });
-
-    if (apiError) {
-      console.log('❌ Public API query failed:', apiError.message);
-      console.log('   Code:', apiError.code);
-      console.log('   Details:', apiError.details);
+    // 3. Check what the API returns
+    console.log('\n3. Testing API endpoint...');
+    try {
+      const response = await fetch('http://localhost:3000/api/news');
+      const apiData = await response.json();
       
-      if (apiError.code === '42703') {
-        console.log('   🚨 DIAGNOSIS: Column does not exist in profiles table');
+      if (response.ok) {
+        const articles = apiData.articles || apiData;
+        console.log(`✅ API returned ${articles.length} articles`);
+        
+        // Find La Fontaine article in API response
+        const laFontaineInApi = articles.find(a => 
+          a.title && a.title.includes('La Fontaine')
+        );
+        
+        if (laFontaineInApi) {
+          console.log('\n🎯 LA FONTAINE ARTICLE IN API RESPONSE:');
+          console.log('   Title:', laFontaineInApi.title);
+          console.log('   Featured Image:', laFontaineInApi.featured_image || '❌ NO IMAGE');
+          console.log('   Has Author?:', !!laFontaineInApi.author);
+          
+          if (laFontaineInApi.featured_image) {
+            console.log('\n🔍 IMAGE URL ANALYSIS:');
+            console.log('   Full URL:', laFontaineInApi.featured_image);
+            console.log('   Is Supabase Storage?:', laFontaineInApi.featured_image.includes('supabase'));
+            console.log('   Is External URL?:', laFontaineInApi.featured_image.startsWith('http'));
+          }
+        } else {
+          console.log('⚠️  La Fontaine article not found in API response');
+        }
+      } else {
+        console.log('❌ API error:', apiData.error);
       }
-    } else {
-      console.log(`✅ Public API query succeeded - ${apiArticles?.length || 0} articles`);
-      
-      if (apiArticles && apiArticles.length > 0) {
-        console.log('\n📡 API RESPONSE PREVIEW:');
-        apiArticles.forEach((article, index) => {
-          console.log(`   ${index + 1}. "${article.title}"`);
-          console.log(`      Author: ${article.author ? 
-            (article.author.first_name + ' ' + article.author.last_name).trim() || 'No name' : 
-            'No author'}`);
-        });
-      }
+    } catch (error) {
+      console.log('❌ Failed to call API:', error.message);
     }
 
   } catch (error) {

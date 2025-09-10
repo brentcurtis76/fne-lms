@@ -13,6 +13,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    console.log('[Events API] Starting to fetch events...');
+    
     // Fetch all published events
     const { data: events, error } = await supabase
       .from('events')
@@ -21,9 +23,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .order('date_start', { ascending: true });
 
     if (error) {
-      console.error('Error fetching events:', error);
-      return res.status(500).json({ error: 'Error fetching events' });
+      console.error('[Events API] Error fetching events:', error);
+      console.error('[Events API] Error details:', JSON.stringify(error, null, 2));
+      return res.status(500).json({ error: 'Error fetching events', details: error.message });
     }
+    
+    console.log(`[Events API] Successfully fetched ${events?.length || 0} events`);
 
     // Separate past and future events
     // Events are only past after their entire day has finished

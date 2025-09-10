@@ -64,6 +64,10 @@ export default function QuoteFormV2({ initialData, onSubmit, isEditing = false }
     apply_early_bird_discount: initialData?.apply_early_bird_discount || false,
     early_bird_payment_date: initialData?.early_bird_payment_date || '2025-09-30',
     
+    // Viáticos (Per Diem) - in Chilean Pesos
+    viaticos_type: initialData?.viaticos_type || null,
+    viaticos_amount: initialData?.viaticos_amount || 0,
+    
     // Additional Information
     notes: initialData?.notes || 'Los valores de pasajes y estadía son referenciales. El precio definitivo a pagar se debe actualizar el día que se firme el contrato y realice el primer pago.',
     internal_notes: initialData?.internal_notes || '',
@@ -139,6 +143,8 @@ export default function QuoteFormV2({ initialData, onSubmit, isEditing = false }
     let flightTotal = 0;
     let totalParticipants = 0;
     let programTotal = 0;
+    let viaticosTotal = 0;
+    let viaticosDisplayAmount = 0;
 
     if (useGroups) {
       // Calculate from groups
@@ -195,11 +201,34 @@ export default function QuoteFormV2({ initialData, onSubmit, isEditing = false }
       programTotal = originalProgramTotal;
     }
 
+    // Calculate viáticos (per diem) with 15% surcharge
+    if (formData.viaticos_type && formData.viaticos_amount > 0) {
+      if (formData.viaticos_type === 'daily') {
+        // Daily rate: multiply by number of days (nights + 1 for single group, or calculated for groups)
+        const totalDays = useGroups ? 
+          groups.reduce((sum, group) => {
+            if (group.arrival_date && group.departure_date) {
+              const nights = Math.floor((new Date(group.departure_date).getTime() - new Date(group.arrival_date).getTime()) / (1000 * 60 * 60 * 24));
+              return sum + ((nights + 1) * group.num_participants);
+            }
+            return sum;
+          }, 0) : 
+          (nights + 1) * totalParticipants;
+        viaticosTotal = formData.viaticos_amount * totalDays;
+      } else if (formData.viaticos_type === 'total') {
+        // Total amount per participant
+        viaticosTotal = formData.viaticos_amount * totalParticipants;
+      }
+      
+      // Apply 15% surcharge (not itemized, just included in the display amount)
+      viaticosDisplayAmount = viaticosTotal * 1.15;
+    }
+
     const totalPerPerson = totalParticipants > 0 
-      ? (flightTotal + accommodationTotal + programTotal) / totalParticipants
+      ? (flightTotal + accommodationTotal + programTotal + viaticosDisplayAmount) / totalParticipants
       : 0;
     
-    const grandTotal = flightTotal + accommodationTotal + programTotal;
+    const grandTotal = flightTotal + accommodationTotal + programTotal + viaticosDisplayAmount;
 
     return {
       accommodationTotal,
@@ -207,6 +236,8 @@ export default function QuoteFormV2({ initialData, onSubmit, isEditing = false }
       originalProgramTotal,
       discountAmount,
       flightTotal,
+      viaticosTotal,
+      viaticosDisplayAmount,
       totalPerPerson,
       grandTotal,
       totalParticipants
@@ -265,7 +296,12 @@ export default function QuoteFormV2({ initialData, onSubmit, isEditing = false }
         // If using groups, calculate totals from groups
         num_pasantes: useGroups ? calculations.totalParticipants : formData.num_pasantes,
         grand_total: calculations.grandTotal,
-        total_per_person: calculations.totalPerPerson
+        total_per_person: calculations.totalPerPerson,
+        // Include viáticos data
+        viaticos_type: formData.viaticos_type,
+        viaticos_amount: formData.viaticos_amount,
+        viaticos_total: calculations.viaticosTotal,
+        viaticos_display_amount: calculations.viaticosDisplayAmount
       };
 
       await onSubmit(submitData);
@@ -662,6 +698,107 @@ export default function QuoteFormV2({ initialData, onSubmit, isEditing = false }
         </div>
       </div>
 
+      {/* Viáticos (Per Diem) */}
+      <div className="bg-white rounded-2xl border-2 border-black p-8">
+        <h3 className="text-2xl font-bold mb-6 flex items-center">
+          <DollarSign className="mr-3" size={28} />
+          Viáticos
+        </h3>
+        
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Tipo de Viático
+            </label>
+            <div className="grid md:grid-cols-3 gap-4">
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, viaticos_type: null, viaticos_amount: 0 }))}
+                className={`p-4 rounded-xl border-2 transition-all ${
+                  !formData.viaticos_type
+                    ? 'border-black bg-black text-white'
+                    : 'border-gray-200 hover:border-gray-400'
+                }`}
+              >
+                <div className="font-bold">Sin Viáticos</div>
+                <div className="text-sm opacity-80 mt-1">No incluir viáticos</div>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, viaticos_type: 'daily' }))}
+                className={`p-4 rounded-xl border-2 transition-all ${
+                  formData.viaticos_type === 'daily'
+                    ? 'border-black bg-black text-white'
+                    : 'border-gray-200 hover:border-gray-400'
+                }`}
+              >
+                <div className="font-bold">Monto Diario</div>
+                <div className="text-sm opacity-80 mt-1">Por día por persona</div>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, viaticos_type: 'total' }))}
+                className={`p-4 rounded-xl border-2 transition-all ${
+                  formData.viaticos_type === 'total'
+                    ? 'border-black bg-black text-white'
+                    : 'border-gray-200 hover:border-gray-400'
+                }`}
+              >
+                <div className="font-bold">Monto Total</div>
+                <div className="text-sm opacity-80 mt-1">Suma fija por persona</div>
+              </button>
+            </div>
+          </div>
+          
+          {formData.viaticos_type && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Monto de Viático {formData.viaticos_type === 'daily' ? 'Diario' : 'Total'} por Persona (CLP)
+              </label>
+              <div className="flex items-center space-x-4">
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    name="viaticos_amount"
+                    value={formData.viaticos_amount}
+                    onChange={handleInputChange}
+                    min="0"
+                    step="1000"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-black focus:outline-none transition-colors"
+                    placeholder={formData.viaticos_type === 'daily' ? 'Monto por día' : 'Monto total'}
+                  />
+                </div>
+                <div className="text-sm text-gray-600">
+                  {formData.viaticos_type === 'daily' && nights > 0 && (
+                    <span>× {nights + 1} días = ${((formData.viaticos_amount || 0) * (nights + 1)).toLocaleString('es-CL')} CLP</span>
+                  )}
+                </div>
+              </div>
+              
+              {formData.viaticos_amount > 0 && (
+                <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Viático base total ({calculations.totalParticipants} personas):</span>
+                      <span className="font-semibold">${calculations.viaticosTotal.toLocaleString('es-CL')} CLP</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Con gestión administrativa (15%):</span>
+                      <span className="font-bold text-blue-700">${calculations.viaticosDisplayAmount.toLocaleString('es-CL')} CLP</span>
+                    </div>
+                    <div className="text-xs text-blue-600 mt-2">
+                      * El monto incluye un 15% por gestión administrativa (no desglosado en la propuesta)
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Additional Notes */}
       <div className="bg-white rounded-2xl border-2 border-black p-8">
         <h3 className="text-2xl font-bold mb-6">Notas Adicionales</h3>
@@ -757,6 +894,20 @@ export default function QuoteFormV2({ initialData, onSubmit, isEditing = false }
               )}
             </div>
           </div>
+          
+          {/* Viáticos */}
+          {calculations.viaticosDisplayAmount > 0 && (
+            <div className="flex justify-between items-center pb-4 border-b border-white/20">
+              <span>
+                Viáticos {formData.viaticos_type === 'daily' ? 
+                  `(${nights + 1} días x ${calculations.totalParticipants} personas)` : 
+                  `(${calculations.totalParticipants} personas)`}:
+              </span>
+              <span className="font-bold">
+                ${calculations.viaticosDisplayAmount.toLocaleString('es-CL')} CLP
+              </span>
+            </div>
+          )}
           
           {formData.apply_early_bird_discount && calculations.discountAmount > 0 && (
             <div className="flex justify-between items-center pb-4 border-b border-white/20 text-green-400">

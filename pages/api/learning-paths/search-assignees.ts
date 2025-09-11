@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '../../../lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '../../../lib/api-auth';
 import { LearningPathsService } from '../../../lib/services/learningPathsService';
 
 interface SearchAssigneesRequest {
@@ -96,18 +96,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       if (schoolId) {
         // Filter by school using a two-step approach to avoid relationship ambiguity
-        // First get user IDs from user_roles
-        const { data: userRoles } = await supabaseClient
+        // Use service role client to bypass RLS restrictions on user_roles table
+        console.log(`[Search Assignees] Filtering users by school: ${schoolId}`);
+        
+        const serviceClient = createServiceRoleClient();
+        const { data: userRoles, error: rolesError } = await serviceClient
           .from('user_roles')
           .select('user_id')
           .eq('school_id', schoolId)
           .eq('is_active', true);
 
+        if (rolesError) {
+          console.error('[Search Assignees] Failed to query user roles for school filter:', rolesError);
+          throw new Error('No se pudo filtrar por colegio: error al consultar roles de usuario');
+        }
+
         if (!userRoles || userRoles.length === 0) {
+          console.log(`[Search Assignees] No users found for school: ${schoolId}`);
           users = [];
           count = 0;
           usersError = null;
         } else {
+          console.log(`[Search Assignees] Found ${userRoles.length} users in school: ${schoolId}`);
           const userIds = userRoles.map(ur => ur.user_id);
           
           // Then get profiles for those users
@@ -193,21 +203,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       
       if (schoolId) {
         // Filter by school using user_roles to find community_ids (communities table doesn't exist)
-        // First get community IDs from user_roles table for this school
-        const { data: userRoles } = await supabaseClient
+        // Use service role client to bypass RLS restrictions on user_roles table
+        console.log(`[Search Assignees] Filtering groups by school: ${schoolId}`);
+        
+        const serviceClient = createServiceRoleClient();
+        const { data: userRoles, error: rolesError } = await serviceClient
           .from('user_roles')
           .select('community_id')
           .eq('school_id', schoolId)
           .not('community_id', 'is', null)
           .eq('is_active', true);
 
+        if (rolesError) {
+          console.error('[Search Assignees] Failed to query user roles for group filter:', rolesError);
+          throw new Error('No se pudo filtrar grupos por colegio: error al consultar roles');
+        }
+
         if (!userRoles || userRoles.length === 0) {
+          console.log(`[Search Assignees] No groups found for school: ${schoolId}`);
           groups = [];
           count = 0;
           groupsError = null;
         } else {
           // Extract unique community_ids
-          const communityIds = [...new Set(userRoles.map(ur => ur.community_id))];
+          const communityIds = Array.from(new Set(userRoles.map((ur: any) => ur.community_id)));
+          console.log(`[Search Assignees] Found ${communityIds.length} unique communities in school: ${schoolId}`);
           
           // Then get workspaces for those communities
           let groupQuery = supabaseClient
@@ -306,12 +326,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       pageSize
     };
 
+    console.log(`[Search Assignees] Success:`, {
+      searchType,
+      query: query || '(empty)',
+      schoolId: schoolId || '(no filter)',
+      resultsCount: results.length,
+      totalCount,
+      page,
+      hasMore
+    });
+
     return res.status(200).json(response);
 
   } catch (error: any) {
-    console.error('Search assignees error:', error);
+    console.error('[Search Assignees] Error details:', {
+      error: error.message,
+      stack: error.stack,
+      pathId,
+      searchType,
+      query,
+      schoolId,
+      page,
+      pageSize
+    });
+    
+    // Return more specific error messages
+    if (error.message?.includes('No se pudo filtrar')) {
+      return res.status(500).json({ 
+        error: error.message,
+        details: 'Error al aplicar el filtro de colegio'
+      });
+    }
+    
     return res.status(500).json({ 
-      error: error.message || 'Failed to search assignees' 
+      error: error.message || 'Error al buscar asignados',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 }

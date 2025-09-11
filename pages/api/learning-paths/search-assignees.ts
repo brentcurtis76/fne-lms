@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '../../../lib/api-auth';
 import { LearningPathsService } from '../../../lib/services/learningPathsService';
+import { v4 as uuidv4 } from 'uuid';
 
 interface SearchAssigneesRequest {
   pathId: string;
@@ -26,6 +27,40 @@ interface SearchAssigneesResponse {
   totalCount: number;
   page: number;
   pageSize: number;
+}
+
+// Simple in-memory rate limiter
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+const RATE_LIMIT_WINDOW = 60000; // 1 minute
+const RATE_LIMIT_MAX_REQUESTS = 30; // 30 requests per minute
+
+function checkRateLimit(userId: string): boolean {
+  const now = Date.now();
+  const userLimit = rateLimitMap.get(userId);
+  
+  if (!userLimit || now > userLimit.resetTime) {
+    rateLimitMap.set(userId, { count: 1, resetTime: now + RATE_LIMIT_WINDOW });
+    return true;
+  }
+  
+  if (userLimit.count >= RATE_LIMIT_MAX_REQUESTS) {
+    return false;
+  }
+  
+  userLimit.count++;
+  return true;
+}
+
+// UUID validation helper
+function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
+
+// Sanitize search query
+function sanitizeQuery(query: string): string {
+  // Remove special characters that could break SQL
+  return query.replace(/[%_\\]/g, '\\$&').trim();
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

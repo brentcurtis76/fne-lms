@@ -2,6 +2,16 @@
 -- Purpose: Fix type mismatch issues with school_id (UUID) in RLS policies
 -- Author: System
 -- Date: 2024-01-11
+-- Note: This migration assumes school_id columns are UUID type
+
+-- First, check if the function already exists
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_proc WHERE proname = 'auth_has_school_access_uuid') THEN
+        RAISE NOTICE 'Function auth_has_school_access_uuid already exists, skipping creation';
+        RETURN;
+    END IF;
+END $$;
 
 BEGIN;
 

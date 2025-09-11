@@ -2,8 +2,7 @@
 -- Purpose: Optimize queries for school-filtered searches and member counts
 -- Author: System
 -- Date: 2024-01-11
-
-BEGIN;
+-- Note: CONCURRENTLY requires running outside transaction block
 
 -- ============================================================================
 -- PART 1: Indexes for user_roles table
@@ -120,29 +119,22 @@ WHERE school_id = 1
 AND is_active = true;
 */
 
-COMMIT;
-
 -- ============================================================================
 -- ROLLBACK SECTION (if needed)
 -- ============================================================================
--- To rollback this migration, run:
+-- To rollback this migration, run each DROP INDEX command:
 /*
-BEGIN;
-
--- Drop all created indexes
-DROP INDEX IF EXISTS idx_user_roles_school_active;
-DROP INDEX IF EXISTS idx_user_roles_community_active;
-DROP INDEX IF EXISTS idx_user_roles_user_school_active;
-DROP INDEX IF EXISTS idx_cw_community_id;
-DROP INDEX IF EXISTS idx_cw_name_trgm;
-DROP INDEX IF EXISTS idx_lpa_path_user;
-DROP INDEX IF EXISTS idx_lpa_path_group;
-DROP INDEX IF EXISTS idx_lpa_path_id_counts;
-DROP INDEX IF EXISTS idx_profiles_first_name_trgm;
-DROP INDEX IF EXISTS idx_profiles_last_name_trgm;
-DROP INDEX IF EXISTS idx_profiles_email_trgm;
-
-COMMIT;
+DROP INDEX CONCURRENTLY IF EXISTS idx_user_roles_school_active;
+DROP INDEX CONCURRENTLY IF EXISTS idx_user_roles_community_active;
+DROP INDEX CONCURRENTLY IF EXISTS idx_user_roles_user_school_active;
+DROP INDEX CONCURRENTLY IF EXISTS idx_cw_community_id;
+DROP INDEX CONCURRENTLY IF EXISTS idx_cw_name_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_lpa_path_user;
+DROP INDEX CONCURRENTLY IF EXISTS idx_lpa_path_group;
+DROP INDEX CONCURRENTLY IF EXISTS idx_lpa_path_id_counts;
+DROP INDEX CONCURRENTLY IF EXISTS idx_profiles_first_name_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_profiles_last_name_trgm;
+DROP INDEX CONCURRENTLY IF EXISTS idx_profiles_email_trgm;
 */
 
 -- ============================================================================

@@ -685,45 +685,47 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
         )}
 
         {/* Cost Summary */}
-        <div className="bg-black text-white rounded-2xl p-8 mb-8">
-          <h3 className="text-2xl font-bold mb-8 flex items-center">
-            <DollarSign className="mr-3" size={28} />
+        <div className="bg-black text-white rounded-2xl p-4 sm:p-8 mb-8">
+          <h3 className="text-xl sm:text-2xl font-bold mb-6 sm:mb-8 flex items-center">
+            <DollarSign className="mr-2 sm:mr-3" size={24} />
             Resumen de Costos
           </h3>
           
           <div className="space-y-6">
             {/* Breakdown per person */}
-            <div className="bg-white/10 rounded-xl p-6">
-              <h4 className="font-bold mb-4 text-lg">Costo por Persona</h4>
+            <div className="bg-white/10 rounded-xl p-4 sm:p-6">
+              <h4 className="font-bold mb-4 text-base sm:text-lg">Costo por Persona</h4>
               
               <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-white/80">Vuelo internacional</span>
-                  <span className="font-medium">${quote.flight_price.toLocaleString('es-CL')} CLP</span>
+                <div className="flex justify-between items-start gap-2">
+                  <span className="text-white/80 text-sm sm:text-base">Vuelo internacional</span>
+                  <span className="font-medium text-sm sm:text-base whitespace-nowrap">
+                    ${quote.flight_price.toLocaleString('es-CL')} CLP
+                  </span>
                 </div>
                 
-                <div className="flex justify-between items-center">
-                  <span className="text-white/80">
+                <div className="flex justify-between items-start gap-2">
+                  <span className="text-white/80 text-sm sm:text-base">
                     Alojamiento ({quote.nights} noches)
                   </span>
-                  <span className="font-medium">
+                  <span className="font-medium text-sm sm:text-base whitespace-nowrap">
                     ${(quote.accommodation_total / quote.num_pasantes).toLocaleString('es-CL')} CLP
                   </span>
                 </div>
                 
-                <div className="flex justify-between items-center">
-                  <span className="text-white/80">
+                <div className="flex justify-between items-start">
+                  <span className="text-white/80 flex-1">
                     Programas ({quote.programs?.length || 0})
                     {quote.apply_early_bird_discount && (
-                      <span className="text-green-400 text-xs ml-2">
+                      <span className="text-green-400 text-xs block sm:inline ml-0 sm:ml-2 mt-1 sm:mt-0">
                         (Descuento aplicado)
                       </span>
                     )}
                   </span>
-                  <div className="text-right">
+                  <div className="text-right ml-4 flex-shrink-0">
                     {quote.apply_early_bird_discount && quote.programs?.length > 0 ? (
                       <>
-                        <div className="text-xs line-through opacity-60">
+                        <div className="text-xs line-through opacity-60 hidden">
                           ${(quote.programs.reduce((sum, p) => sum + p.price, 0)).toLocaleString('es-CL')} CLP
                         </div>
                         <div className="font-medium">
@@ -740,23 +742,23 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
                 
                 {/* Viáticos */}
                 {quote.viaticos_display_amount && quote.viaticos_display_amount > 0 && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-white/80">
+                  <div className="flex justify-between items-start gap-2">
+                    <span className="text-white/80 text-sm sm:text-base">
                       Viáticos {quote.viaticos_type === 'daily' ? 
                         `(${quote.nights + 1} días)` : 
                         '(monto total)'}
                     </span>
-                    <span className="font-medium">
+                    <span className="font-medium text-sm sm:text-base whitespace-nowrap">
                       ${Math.round(quote.viaticos_display_amount / quote.num_pasantes).toLocaleString('es-CL')} CLP
                     </span>
                   </div>
                 )}
                 
                 <div className="border-t border-white/20 pt-3 mt-3">
-                  <div className="flex justify-between items-center text-xl">
-                    <span className="font-bold">Total por persona</span>
-                    <span className="font-bold text-2xl">
-                      ${quote.total_per_person.toLocaleString('es-CL')} CLP
+                  <div className="flex justify-between items-start gap-2">
+                    <span className="font-bold text-base sm:text-xl">Total por persona</span>
+                    <span className="font-bold text-lg sm:text-2xl whitespace-nowrap">
+                      ${quote.total_per_person.toLocaleString('es-CL')} <span className="text-sm sm:text-lg">CLP</span>
                     </span>
                   </div>
                 </div>
@@ -765,14 +767,14 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
             
             {/* Grand Total for multiple participants */}
             {quote.num_pasantes > 1 && (
-              <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-black rounded-xl p-6">
-                <div className="flex justify-between items-center">
+              <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-black rounded-xl p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
                   <div>
-                    <p className="font-bold text-2xl">TOTAL GENERAL</p>
-                    <p className="text-sm opacity-80">Para {quote.num_pasantes} personas</p>
+                    <p className="font-bold text-lg sm:text-2xl">TOTAL GENERAL</p>
+                    <p className="text-xs sm:text-sm opacity-80">Para {quote.num_pasantes} personas</p>
                   </div>
-                  <p className="font-black text-4xl">
-                    ${quote.grand_total.toLocaleString('es-CL')} CLP
+                  <p className="font-black text-2xl sm:text-4xl">
+                    ${quote.grand_total.toLocaleString('es-CL')} <span className="text-lg sm:text-2xl">CLP</span>
                   </p>
                 </div>
               </div>

@@ -121,7 +121,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const userIds = userRoles.map(ur => ur.user_id);
           
           // Then get profiles for those users
-          let userQuery = supabaseClient
+          // Use service role client for authorized users to ensure complete visibility
+          console.log(`[Search Assignees] Fetching profiles via service role for authorized user`);
+          const profileClient = createServiceRoleClient();
+          let userQuery = profileClient
             .from('profiles')
             .select('id, first_name, last_name, email', { count: 'exact' })
             .in('id', userIds);

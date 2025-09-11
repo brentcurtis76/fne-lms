@@ -103,68 +103,78 @@ export default function ArticleContent({ content }: ArticleContentProps) {
 
   // Process content to replace YouTube links with embedded players
   const processContent = (htmlContent: string): JSX.Element[] => {
-    // Split content by line breaks or paragraphs to process each section
-    const sections = htmlContent.split(/(<p>|<\/p>|<br>|<br\/>|<br \/>|\n)/);
     const processedContent: JSX.Element[] = [];
     let keyIndex = 0;
-
-    sections.forEach((section, index) => {
-      // Check if section contains a YouTube URL
-      const youtubeUrlPattern = /(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/(watch\?v=|embed\/|v\/|shorts\/)?([a-zA-Z0-9_-]{11})[^\s<]*/gi;
-      const matches = section.match(youtubeUrlPattern);
-      
-      if (matches) {
-        // Process each match in the section
-        let lastIndex = 0;
-        matches.forEach((match) => {
-          const matchIndex = section.indexOf(match, lastIndex);
-          
-          // Add text before the URL
-          if (matchIndex > lastIndex) {
-            const textBefore = section.substring(lastIndex, matchIndex);
-            if (textBefore.trim()) {
-              processedContent.push(
-                <div 
-                  key={`text-${keyIndex++}`}
-                  dangerouslySetInnerHTML={{ __html: textBefore }}
-                />
-              );
-            }
-          }
-          
-          // Add the video player
-          const videoId = getYouTubeId(match);
-          if (videoId) {
-            processedContent.push(
-              <VideoPlayer key={`video-${keyIndex++}`} videoId={videoId} />
-            );
-          }
-          
-          lastIndex = matchIndex + match.length;
+    
+    // Check if content contains any YouTube URLs
+    const youtubeUrlPattern = /(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/(watch\?v=|embed\/|v\/|shorts\/)?([a-zA-Z0-9_-]{11})[^\s<]*/gi;
+    const hasYouTubeUrls = youtubeUrlPattern.test(htmlContent);
+    
+    if (!hasYouTubeUrls) {
+      // No YouTube URLs - render the HTML content as-is to preserve all formatting
+      processedContent.push(
+        <div 
+          key={`content-${keyIndex++}`}
+          dangerouslySetInnerHTML={{ __html: htmlContent }}
+        />
+      );
+      return processedContent;
+    }
+    
+    // YouTube URLs found - need to process them while preserving formatting
+    // Reset the regex after test
+    youtubeUrlPattern.lastIndex = 0;
+    
+    // Find all YouTube URLs and their positions
+    const urlMatches: Array<{url: string, index: number, videoId: string}> = [];
+    let match;
+    while ((match = youtubeUrlPattern.exec(htmlContent)) !== null) {
+      const videoId = getYouTubeId(match[0]);
+      if (videoId) {
+        urlMatches.push({
+          url: match[0],
+          index: match.index,
+          videoId: videoId
         });
-        
-        // Add any remaining text after the last URL
-        if (lastIndex < section.length) {
-          const textAfter = section.substring(lastIndex);
-          if (textAfter.trim() && !textAfter.match(/^<\/?[a-z]+>$/i)) {
-            processedContent.push(
-              <div 
-                key={`text-${keyIndex++}`}
-                dangerouslySetInnerHTML={{ __html: textAfter }}
-              />
-            );
-          }
+      }
+    }
+    
+    // Process content with YouTube videos
+    let lastIndex = 0;
+    urlMatches.forEach((urlMatch) => {
+      // Add HTML content before the YouTube URL
+      if (urlMatch.index > lastIndex) {
+        const htmlBefore = htmlContent.substring(lastIndex, urlMatch.index);
+        if (htmlBefore.trim()) {
+          processedContent.push(
+            <div 
+              key={`html-${keyIndex++}`}
+              dangerouslySetInnerHTML={{ __html: htmlBefore }}
+            />
+          );
         }
-      } else if (section.trim() && !section.match(/^<\/?[a-z]+>$/i)) {
-        // No YouTube URL in this section, add it as is
+      }
+      
+      // Add the video player
+      processedContent.push(
+        <VideoPlayer key={`video-${keyIndex++}`} videoId={urlMatch.videoId} />
+      );
+      
+      lastIndex = urlMatch.index + urlMatch.url.length;
+    });
+    
+    // Add any remaining HTML content after the last YouTube URL
+    if (lastIndex < htmlContent.length) {
+      const htmlAfter = htmlContent.substring(lastIndex);
+      if (htmlAfter.trim()) {
         processedContent.push(
           <div 
-            key={`text-${keyIndex++}`}
-            dangerouslySetInnerHTML={{ __html: section }}
+            key={`html-${keyIndex++}`}
+            dangerouslySetInnerHTML={{ __html: htmlAfter }}
           />
         );
       }
-    });
+    }
 
     return processedContent;
   };

@@ -284,7 +284,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const communityIds = groups.map(g => g.community_id);
 
         // Get member counts (using community_id from workspaces)
-        const { data: memberCounts } = await supabaseClient
+        // Use service role client to get accurate counts regardless of RLS
+        const serviceClient = createServiceRoleClient();
+        const { data: memberCounts } = await serviceClient
           .from('user_roles')
           .select('community_id')
           .in('community_id', communityIds)

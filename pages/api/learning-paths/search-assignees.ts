@@ -64,6 +64,12 @@ function sanitizeQuery(query: string): string {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Generate request ID and start timer for observability
+  const requestId = uuidv4();
+  const startTime = Date.now();
+  
+  console.log(`[Search Assignees] Request started`, { requestId, method: req.method });
+  
   // Only allow POST method
   if (req.method !== 'POST') {
     return handleMethodNotAllowed(res, ['POST']);
@@ -73,7 +79,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { user, error } = await getApiUser(req, res);
   
   if (error || !user) {
+    console.log(`[Search Assignees] Auth failed`, { requestId });
     return sendAuthError(res, 'Authentication required');
+  }
+  
+  // Check rate limit
+  if (!checkRateLimit(user.id)) {
+    console.warn(`[Search Assignees] Rate limit exceeded`, { 
+      requestId, 
+      userId: user.id,
+      durationMs: Date.now() - startTime 
+    });
+    return res.status(429).json({ 
+      error: 'Demasiadas solicitudes. Inténtalo de nuevo en un momento.' 
+    });
   }
 
   // Create authenticated Supabase client
@@ -96,16 +115,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { pathId, searchType, query, schoolId, page = 1, pageSize = 20 } = req.body as SearchAssigneesRequest;
 
     if (!pathId || !searchType || typeof query !== 'string') {
+      console.log(`[Search Assignees] Missing required fields`, { requestId });
       return res.status(400).json({ 
         error: 'pathId, searchType, and query are required' 
       });
     }
 
     if (!['users', 'groups'].includes(searchType)) {
+      console.log(`[Search Assignees] Invalid searchType`, { requestId, searchType });
       return res.status(400).json({ 
         error: 'searchType must be either "users" or "groups"' 
       });
     }
+    
+    // Validate UUIDs
+    if (!isValidUUID(pathId)) {
+      console.log(`[Search Assignees] Invalid pathId UUID`, { requestId, pathId });
+      return res.status(400).json({ 
+        error: 'pathId inválido - debe ser un UUID válido' 
+      });
+    }
+    
+    if (schoolId && !isValidUUID(schoolId) && !/^\d+$/.test(schoolId)) {
+      console.log(`[Search Assignees] Invalid schoolId`, { requestId, schoolId });
+      return res.status(400).json({ 
+        error: 'schoolId inválido - debe ser un ID válido' 
+      });
+    }
+    
+    // Cap page size to maximum 50
+    const safePageSize = Math.min(Math.max(1, pageSize || 20), 50);
+    const safePage = Math.max(1, page);
+    
+    // Sanitize query
+    const sanitizedQuery = sanitizeQuery(query);
 
     // Verify the learning path exists
     const { data: path } = await supabaseClient
@@ -118,9 +161,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Learning path not found' });
     }
 
-    // Calculate pagination
-    const offset = (page - 1) * pageSize;
-    const searchQuery = query.trim().toLowerCase();
+    // Calculate pagination with safe values
+    const offset = (safePage - 1) * safePageSize;
+    const searchQuery = sanitizedQuery.toLowerCase();
 
     let results: SearchResult[] = [];
     let totalCount = 0;
@@ -174,7 +217,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           // Apply pagination
           const result = await userQuery
             .order('first_name')
-            .range(offset, offset + pageSize - 1);
+            .range(offset, offset + safePageSize - 1);
           
           users = result.data;
           count = result.count;
@@ -196,7 +239,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Apply pagination
         const result = await userQuery
           .order('first_name')
-          .range(offset, offset + pageSize - 1);
+          .range(offset, offset + safePageSize - 1);
         
         users = result.data;
         count = result.count;
@@ -283,7 +326,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           // Apply pagination
           const result = await groupQuery
             .order('name')
-            .range(offset, offset + pageSize - 1);
+            .range(offset, offset + safePageSize - 1);
           
           groups = result.data;
           count = result.count;
@@ -305,7 +348,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Apply pagination
         const result = await groupQuery
           .order('name')
-          .range(offset, offset + pageSize - 1);
+          .range(offset, offset + safePageSize - 1);
         
         groups = result.data;
         count = result.count;
@@ -356,38 +399,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Calculate if there are more pages
-    const hasMore = totalCount > offset + pageSize;
+    const hasMore = totalCount > offset + safePageSize;
 
     const response: SearchAssigneesResponse = {
       results,
       hasMore,
       totalCount,
-      page,
-      pageSize
+      page: safePage,
+      pageSize: safePageSize
     };
 
     console.log(`[Search Assignees] Success:`, {
+      requestId,
       searchType,
       query: query || '(empty)',
       schoolId: schoolId || '(no filter)',
       resultsCount: results.length,
       totalCount,
-      page,
-      hasMore
+      page: safePage,
+      pageSize: safePageSize,
+      hasMore,
+      durationMs: Date.now() - startTime
     });
 
     return res.status(200).json(response);
 
   } catch (error: any) {
     console.error('[Search Assignees] Error details:', {
+      requestId,
       error: error.message,
-      stack: error.stack,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
       pathId,
       searchType,
       query,
       schoolId,
-      page,
-      pageSize
+      page: safePage,
+      pageSize: safePageSize,
+      durationMs: Date.now() - startTime
     });
     
     // Return more specific error messages

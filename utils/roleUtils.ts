@@ -572,45 +572,49 @@ export async function getAvailableCommunitiesForAssignment(
 /**
  * Get all members in a specific community (all roles, not just teachers)
  */
-export async function getCommunityMembers(supabase: SupabaseClient, communityId: string): Promise<UserProfile[]> {
+export async function getCommunityMembers(_supabase: SupabaseClient, communityId: string): Promise<UserProfile[]> {
+  // Use secure API route to bypass RLS while enforcing access on server
   try {
-    // First get the user_roles for this community
-    const { data: roleData, error: roleError } = await supabase
+    const resp = await fetch(`/api/community/members?community_id=${encodeURIComponent(communityId)}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (resp.ok) {
+      const json = await resp.json();
+      const members = (json.members || []) as any[];
+      return members as UserProfile[];
+    }
+
+    // If API returns 403/401 or other, fall back to client-side best effort (may be RLS-limited)
+    console.warn('[getCommunityMembers] API route failed, falling back to direct query:', resp.status);
+  } catch (err) {
+    // Network or environment without API (tests), fall back
+    console.warn('[getCommunityMembers] API route error, falling back to direct query:', err);
+  }
+
+  try {
+    const supabase = _supabase;
+    const { data: roleData } = await supabase
       .from('user_roles')
       .select('user_id, role_type, id, assigned_at')
       .eq('community_id', communityId)
       .eq('is_active', true);
 
-    if (roleError) {
-      console.error('Error fetching community roles:', roleError);
-      return [];
-    }
-
     if (!roleData || roleData.length === 0) {
-      console.log('No roles found for community:', communityId);
       return [];
     }
 
-    // Then get the profile data for each user
     const userIds = roleData.map(role => role.user_id);
-    const { data: profileData, error: profileError } = await supabase
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
       .in('id', userIds);
 
-    if (profileError) {
-      console.error('Error fetching community member profiles:', profileError);
-      return [];
-    }
-
-    // Combine the data
     return roleData.map(roleItem => {
       const profile = profileData?.find(p => p.id === roleItem.user_id);
-      
-      // Handle name fields with fallbacks
       const firstName = profile?.first_name || profile?.name?.split(' ')[0] || '';
       const lastName = profile?.last_name || profile?.name?.split(' ').slice(1).join(' ') || '';
-      
       return {
         id: roleItem.user_id,
         name: profile?.name,
@@ -636,10 +640,10 @@ export async function getCommunityMembers(supabase: SupabaseClient, communityId:
           feedback_scope: {},
           created_at: roleItem.assigned_at
         }]
-      };
+      } as unknown as UserProfile;
     });
   } catch (error) {
-    console.error('Error in getCommunityMembers:', error);
+    console.error('Error in getCommunityMembers (fallback):', error);
     return [];
   }
 }

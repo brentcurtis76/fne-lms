@@ -81,20 +81,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Since we don't have session tracking tables, we'll just return success
-    // In the future, this would create records in learning_path_progress_sessions
+    // Create a real progress session via RPC (SECURITY DEFINER)
+    const { data: newSessionId, error: startErr } = await supabaseClient
+      .rpc('start_learning_path_session', {
+        p_user_id: userId,
+        p_path_id: pathId,
+        p_course_id: courseId || null,
+        p_activity_type: activityType,
+      });
 
-    // Generate a simple session ID for consistency with frontend expectations
-    const sessionId = `${userId}-${pathId}-${Date.now()}`;
+    if (startErr || !newSessionId) {
+      console.error('start_learning_path_session failed:', startErr);
+      return res.status(500).json({ error: 'Failed to start session' });
+    }
 
     // Return session details
     res.status(200).json({
-      sessionId,
+      sessionId: newSessionId,
       pathId,
       courseId: courseId || null,
       activityType,
       startedAt: new Date().toISOString(),
-      message: 'Session started successfully (simplified tracking)'
+      message: 'Session started successfully'
     });
 
   } catch (error: any) {

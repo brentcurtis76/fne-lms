@@ -55,20 +55,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error('Failed to end session');
     }
 
-    // Update assignment total time if we have a valid time spent value
+    // Update assignment total time if we have a valid time spent value (atomic via RPC)
     if (timeSpentMinutes && timeSpentMinutes > 0) {
-      const { error: updateError } = await supabaseClient
-        .from('learning_path_assignments')
-        .update({
-          total_time_spent_minutes: supabaseClient.raw(`COALESCE(total_time_spent_minutes, 0) + ${timeSpentMinutes}`),
-          last_activity_at: new Date().toISOString()
-        })
-        .eq('user_id', userId)
-        .eq('path_id', session.path_id);
+      const { data: incOk, error: incErr } = await supabaseClient
+        .rpc('increment_path_assignment_time', {
+          p_user_id: userId,
+          p_path_id: session.path_id,
+          p_minutes: timeSpentMinutes,
+        });
 
-      if (updateError) {
-        console.warn('Failed to update assignment time:', updateError);
-        // Don't fail the request, just log the warning
+      if (incErr || incOk !== true) {
+        console.warn('Failed to increment assignment time:', incErr);
+        // Don't fail the request for this
       }
     }
 

@@ -6,7 +6,7 @@ import Link from 'next/link';
 import MainLayout from '../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import Avatar from '../components/common/Avatar';
-import { getUserRoles, getCommunityMembers, getEffectiveRoleAndStatus } from '../utils/roleUtils';
+import { getUserRoles, getCommunityMembers, getEffectiveRoleAndStatus, metadataHasRole } from '../utils/roleUtils';
 import { UserRole, UserProfile } from '../types/roles';
 import { updateAvatarCache } from '../hooks/useAvatar';
 import { Home, Settings, Users } from 'lucide-react';
@@ -77,7 +77,7 @@ export default function Dashboard() {
           console.error('Error fetching user data:', userError);
         } else {
           // Check if user has admin role
-          const adminRole = userData?.user?.user_metadata?.role === 'admin';
+          const adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin');
           setIsAdmin(adminRole);
           
           // Always fetch profile data for all users (admin and non-admin)

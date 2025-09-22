@@ -42,6 +42,16 @@ BEGIN
   IF COALESCE(auth.jwt() -> 'user_metadata' ->> 'role', '') = 'admin' THEN
     RETURN true;
   END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements_text(
+      COALESCE((auth.jwt() -> 'user_metadata' -> 'roles')::jsonb, '[]'::jsonb)
+    ) AS role(value)
+    WHERE role.value = 'admin'
+  ) THEN
+    RETURN true;
+  END IF;
   
   -- Check if cache exists before trying to use it
   SELECT EXISTS (

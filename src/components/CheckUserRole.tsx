@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
+import { getPrimaryRoleFromMetadata } from '../../utils/roleUtils';
+
 const CheckUserRole = () => {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
@@ -32,7 +34,8 @@ const CheckUserRole = () => {
         
         if (user) {
           setUserEmail(user.email);
-          setUserRole(user.user_metadata?.role || 'not set');
+          const primaryRole = getPrimaryRoleFromMetadata(user.user_metadata);
+          setUserRole(primaryRole || 'not set');
         } else {
           setError('User data not found');
         }

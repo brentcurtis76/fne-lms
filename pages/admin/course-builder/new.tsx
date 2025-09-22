@@ -7,7 +7,7 @@ import Head from 'next/head';
 import MainLayout from '../../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 
-import { getUserPrimaryRole } from '../../../utils/roleUtils';
+import { getUserPrimaryRole, metadataHasRole } from '../../../utils/roleUtils';
 export default function NewCourse() {
   const supabase = useSupabaseClient();
   const router = useRouter();
@@ -51,7 +51,7 @@ export default function NewCourse() {
         }
         
         // Check for admin role in user metadata
-        const adminRole = userData?.user?.user_metadata?.role === 'admin';
+        const adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin');
         console.log('Admin from metadata:', adminRole);
         
         // Always check profiles table as well

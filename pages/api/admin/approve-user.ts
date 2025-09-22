@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 
+import { metadataHasRole } from '../../../utils/roleUtils';
+
 // Create admin client with service role key for elevated permissions
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,8 +51,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .limit(1)
       .maybeSingle();
 
-    const isAdminFromMetadata = user.user_metadata?.role === 'admin';
-    const isAdminFromProfile = adminRole !== null;
+    const isAdminFromMetadata = metadataHasRole(user.user_metadata, 'admin');
+    const isAdminFromRoles = adminRole !== null;
 
     if (!isAdminFromMetadata && !isAdminFromRoles) {
       return res.status(403).json({ error: 'Insufficient permissions. Admin access required.' });

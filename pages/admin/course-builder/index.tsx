@@ -11,7 +11,7 @@ import CourseBuilderForm from '../../../src/components/CourseBuilderForm';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { BookOpen, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 
-import { getUserPrimaryRole } from '../../../utils/roleUtils';
+import { extractRolesFromMetadata, metadataHasRole } from '../../../utils/roleUtils';
 interface CourseFromDB {
   id: string;
   title: string;
@@ -64,15 +64,17 @@ const CourseBuilder: React.FC = () => {
         .eq('id', session.user.id)
         .single();
 
+      const metadataRoles = extractRolesFromMetadata(session.user.user_metadata);
+
       console.log('Course builder auth check:', {
         userId: session.user.id,
         userEmail: session.user.email,
         profileData,
-        adminInMetadata: session.user.user_metadata?.role,
+        metadataRoles,
       });
 
       // Check admin status from both metadata and user_roles table
-      const adminInMetadata = session.user.user_metadata?.role === 'admin';
+      const adminInMetadata = metadataHasRole(session.user.user_metadata, 'admin');
       
       // Correctly check user_roles table for an active admin role
       const { data: userRoles } = await supabase

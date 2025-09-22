@@ -2288,25 +2288,12 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
         const group = groupsMap.get(assignment.id);
         if (!group) continue;
 
-        // Get the discussion thread for this assignment and group
-        const { data: thread } = await supabase
-          .from('community_threads')
-          .select('id')
-          .eq('metadata->>assignmentId', assignment.id)
-          .eq('metadata->>groupId', group.id)
-          .single();
+        const { commentCount } = await groupAssignmentsV2Service.getDiscussionStats(
+          assignment.id,
+          group.id
+        );
 
-        if (thread) {
-          // Count messages in this thread
-          const { count } = await supabase
-            .from('community_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('thread_id', thread.id);
-
-          counts.set(assignment.id, count || 0);
-        } else {
-          counts.set(assignment.id, 0);
-        }
+        counts.set(assignment.id, commentCount || 0);
       }
 
       setDiscussionCounts(counts);

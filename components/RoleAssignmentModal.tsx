@@ -17,7 +17,7 @@ import {
   Generation,
   GrowthCommunity 
 } from '../types/roles';
-import { assignRole, removeRole, getUserRoles, getAvailableCommunitiesForAssignment, assignRoleViaAPI, removeRoleViaAPI } from '../utils/roleUtils';
+import { getAvailableCommunitiesForAssignment, assignRoleViaAPI, removeRoleViaAPI } from '../utils/roleUtils';
 
 interface RoleAssignmentModalProps {
   isOpen: boolean;
@@ -104,13 +104,21 @@ export default function RoleAssignmentModal({
     setLoading(true);
     try {
       // Load user's current roles
-      const roles = await getUserRoles(supabase, userId);
+      const response = await fetch(`/api/admin/user-roles?userId=${userId}`);
+      if (!response.ok) {
+        throw new Error('Error fetching roles');
+      }
+      const data = await response.json();
+      const roles = data.roles || [];
       setUserRoles(roles);
       
       // If user has roles, select the first one by default
       if (roles.length > 0) {
         setSelectedRoleForView(roles[0]);
         setIsViewing(true);
+      } else {
+        setSelectedRoleForView(null);
+        setIsViewing(false);
       }
 
       // Load organizational data

@@ -2,6 +2,8 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabase-wrapper';
 import { createClient } from '@supabase/supabase-js';
 
+import { metadataHasRole } from '../../../utils/roleUtils';
+
 export interface NotificationType {
   id: string;
   name: string;
@@ -59,7 +61,7 @@ export default async function handler(
       .eq('id', user.id)
       .single();
 
-    const isAdmin = adminRole !== null || user.user_metadata?.role === 'admin';
+    const isAdmin = metadataHasRole(user.user_metadata, 'admin') || profileData?.role === 'admin';
     
     if (!isAdmin) {
       return res.status(403).json({

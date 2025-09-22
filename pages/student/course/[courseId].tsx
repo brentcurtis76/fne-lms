@@ -10,7 +10,7 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { GraduationCap, ChevronLeft } from 'lucide-react';
-import { getUserPrimaryRole } from '../../../utils/roleUtils';
+import { getUserPrimaryRole, metadataHasRole } from '../../../utils/roleUtils';
 
 interface Course {
   id: string;
@@ -80,7 +80,7 @@ export default function StudentCourseViewer() {
 
         // Check if user is admin and get profile data
         try {
-          const adminInMetadata = session.user?.user_metadata?.role === 'admin';
+          const adminInMetadata = metadataHasRole(session.user?.user_metadata, 'admin');
           if (adminInMetadata) {
             setIsAdmin(true);
           } else {

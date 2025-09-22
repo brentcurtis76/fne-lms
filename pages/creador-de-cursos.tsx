@@ -4,6 +4,8 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Head from 'next/head';
 import Header from '../components/layout/Header';
 
+import { metadataHasRole } from '../utils/roleUtils';
+
 export default function CreadorDeCursos() {
   const supabase = createClientComponentClient();
   const router = useRouter();
@@ -35,7 +37,7 @@ export default function CreadorDeCursos() {
         }
         
         // Check for admin role in user metadata
-        const adminRole = userData?.user?.user_metadata?.role === 'admin';
+        const adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin');
         
         if (!adminRole) {
           // If not found in metadata, check profiles table as fallback

@@ -8,6 +8,7 @@ import { ResponsiveFunctionalPageHeader } from '../../components/layout/Function
 import { Bell, Settings, Users, Palette, CheckCircle, XCircle, Loader2, RefreshCw, UserCog } from 'lucide-react';
 import UserPreferences from '../../components/configuration/UserPreferences';
 import FeedbackPermissionsManager from '../../components/admin/FeedbackPermissionsManager';
+import { metadataHasRole } from '../../utils/roleUtils';
 
 interface NotificationType {
   id: string;
@@ -78,7 +79,7 @@ export default function Configuration() {
       }
 
       // Check if user has admin role from user metadata
-      const adminFromMetadata = userData?.user?.user_metadata?.role === 'admin';
+      const adminFromMetadata = metadataHasRole(userData?.user?.user_metadata, 'admin');
       
       // Check user_roles table for admin role
       const { data: userRoles } = await supabase

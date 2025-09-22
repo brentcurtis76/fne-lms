@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
+import { metadataHasRole } from '../../utils/roleUtils';
+
 type Lesson = {
   id: string;
   title: string;
@@ -35,7 +37,7 @@ const LessonList = () => {
         }
         
         // Check for admin role in user metadata
-        let adminStatus = userData?.user?.user_metadata?.role === 'admin';
+        let adminStatus = metadataHasRole(userData?.user?.user_metadata, 'admin');
         
         // If not found in metadata, check profiles table as fallback
         if (!adminStatus) {

@@ -1,6 +1,6 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../../lib/supabase';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 
 import MainLayout from '../../components/layout/MainLayout';
@@ -12,7 +12,7 @@ import PasswordResetModal from '../../components/PasswordResetModal';
 import UnifiedUserManagement from '../../components/admin/UnifiedUserManagement';
 import BulkUserImportModal from '../../components/admin/BulkUserImportModal';
 import UserEditModal from '../../components/admin/UserEditModal';
-import { getUserRoles, getUserPrimaryRole } from '../../utils/roleUtils';
+import { getUserPrimaryRole, metadataHasRole } from '../../utils/roleUtils';
 import { ROLE_NAMES } from '../../types/roles';
 
 type User = {
@@ -21,14 +21,14 @@ type User = {
   first_name?: string;
   last_name?: string;
   role?: string;
-  school?: string;
+  school?: string | null;
   created_at?: string;
   approval_status: 'pending' | 'approved' | 'rejected';
   user_roles?: any[];
   consultant_assignments?: any[];
   student_assignments?: any[];
   course_assignments?: any[];
-  school_relation?: any;
+  school_relation?: { id: number; name: string } | null;
 };
 
 export default function UserManagement() {
@@ -39,6 +39,10 @@ export default function UserManagement() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const PAGE_SIZE = 25;
+  const [summary, setSummary] = useState({ total: 0, pending: 0, approved: 0 });
   
   // Add user form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -47,10 +51,15 @@ export default function UserManagement() {
   const [newUserFirstName, setNewUserFirstName] = useState('');
   const [newUserLastName, setNewUserLastName] = useState('');
   const [newUserRole, setNewUserRole] = useState('docente');
-  
+
   // Password reset modal state
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
   const [userToReset, setUserToReset] = useState<{ id: string; email: string; name: string } | null>(null);
+
+  const [searchInput, setSearchInput] = useState('');
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'approved'>('all');
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string>('');
   
   // Bulk import modal state
   const [showBulkImportModal, setShowBulkImportModal] = useState(false);
@@ -78,7 +87,7 @@ export default function UserManagement() {
   
   const handleRoleUpdate = () => {
     // Refresh users list after role update
-    fetchUsers();
+    fetchUsers(currentPage);
   };
 
   const handleOpenConsultantModal = (user: User) => {
@@ -93,7 +102,7 @@ export default function UserManagement() {
   
   const handleConsultantAssignmentCreated = () => {
     // Refresh users list after assignment update
-    fetchUsers();
+    fetchUsers(currentPage);
   };
   
   const handleEditUser = (user: User) => {
@@ -107,7 +116,7 @@ export default function UserManagement() {
   };
   
   const handleUserUpdated = () => {
-    fetchUsers();
+    fetchUsers(currentPage);
     setShowEditModal(false);
     setUserToEdit(null);
   };
@@ -125,6 +134,68 @@ export default function UserManagement() {
   // Consultant assignment modal state
   const [showConsultantModal, setShowConsultantModal] = useState(false);
   const [selectedUserForAssignment, setSelectedUserForAssignment] = useState<User | null>(null);
+  const fetchUsers = useCallback(async (page = 1, overrides?: {
+    search?: string;
+    status?: 'all' | 'pending' | 'approved';
+    communityId?: string;
+  }) => {
+    try {
+      setLoading(true);
+
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: PAGE_SIZE.toString(),
+      });
+
+      const searchTerm = overrides?.search ?? appliedSearchQuery;
+      const statusFilter = overrides?.status ?? selectedStatus;
+      const communityFilter = overrides?.communityId ?? selectedCommunityId;
+
+      if (searchTerm.trim()) {
+        params.append('search', searchTerm.trim());
+      }
+      if (statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+      if (communityFilter) {
+        params.append('communityId', communityFilter);
+      }
+
+      const response = await fetch(`/api/admin/users?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
+
+      const data = await response.json();
+      setUsers(data.users || []);
+      setTotalUsers(data.total || 0);
+      setCurrentPage(data.page || page);
+      if (data.summary) {
+        setSummary({
+          total: data.summary.total ?? 0,
+          pending: data.summary.pending ?? 0,
+          approved: data.summary.approved ?? 0
+        });
+      }
+    } catch (error) {
+      console.error('Unexpected error fetching users:', error);
+      toast.error('Error al cargar usuarios');
+    } finally {
+      setLoading(false);
+    }
+  }, [PAGE_SIZE, appliedSearchQuery, selectedStatus, selectedCommunityId]);
+
+
+  const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
+  const pageStart = totalUsers === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const pageEnd = totalUsers === 0 ? 0 : pageStart + users.length - 1;
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+    fetchUsers(page);
+  };
+
   
   // Approval functions
   const handleApproveUser = async (userId: string) => {
@@ -161,7 +232,7 @@ export default function UserManagement() {
       console.log('User approved successfully:', result.user);
       toast.success('Usuario aprobado correctamente');
       // Refresh users list
-      fetchUsers();
+      fetchUsers(currentPage);
     } catch (error: any) {
       console.error('Unexpected approval error:', error);
       toast.error('Error al aprobar usuario: ' + error.message);
@@ -221,7 +292,7 @@ export default function UserManagement() {
       console.log('User rejected successfully:', result.user);
       toast.success('Usuario rechazado');
       // Refresh users list
-      fetchUsers();
+      fetchUsers(currentPage);
     } catch (error: any) {
       console.error('Unexpected rejection error:', error);
       toast.error('Error al rechazar usuario: ' + error.message);
@@ -249,7 +320,7 @@ export default function UserManagement() {
 
       // Get user role from user_roles table
       const userRole = await getUserPrimaryRole(session.user.id);
-      const adminRole = userData?.user?.user_metadata?.role === 'admin' || userRole === 'admin';
+      const adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin') || userRole === 'admin';
       
       if (!adminRole) {
         router.push('/dashboard');
@@ -270,156 +341,53 @@ export default function UserManagement() {
       }
 
       // Fetch all users with roles and assignments
-      await fetchUsers();
+      await fetchUsers(1);
 
       setLoading(false);
     };
 
     checkAdminAndFetchUsers();
-  }, [router]);
+  }, [router, fetchUsers]);
 
-  const fetchUsers = async () => {
-    try {
-      // Use our direct database function to get ALL users (bypasses broken API)
-      const { data: allAuthUsers, error: authError } = await supabase
-        .rpc('get_all_auth_users', {});
-      
-      if (authError) {
-        console.error('Error fetching from get_all_auth_users, falling back to profiles:', authError);
-        // Fallback to original method if function doesn't exist
-        const { data: usersData, error } = await supabase
-          .from('profiles')
-          .select(`
-            id, 
-            email, 
-            first_name, 
-            last_name, 
-            school,
-            school_id,
-            created_at, 
-            approval_status,
-            school_relation:schools!school_id(id, name)
-          `)
-          .order('created_at', { ascending: false });
-          
-        if (error) throw error;
-        
-        // Process fallback data as before
-        const usersWithRolesAndAssignments = await Promise.all(
-          (usersData || []).map(async (user) => {
-            const userRoles = await getUserRoles(supabase, user.id);
-            const consultantAssignments = await getConsultantAssignments(supabase, user.id);
-            return {
-              ...user,
-              user_roles: userRoles,
-              consultant_assignments: consultantAssignments
-            };
-          })
-        );
-        
-        setUsers(usersWithRolesAndAssignments);
-        return;
-      }
-      
-      // Transform the direct auth data to match our expected format
-      const usersData = allAuthUsers.map((authUser: any) => ({
-        id: authUser.id,
-        email: authUser.email,
-        first_name: authUser.first_name,
-        last_name: authUser.last_name,
-        school: authUser.school_name,
-        school_id: authUser.school_id,
-        created_at: authUser.created_at,
-        approval_status: authUser.approval_status || 'approved',
-        school_relation: authUser.school_name ? { 
-          id: authUser.school_id, 
-          name: authUser.school_name 
-        } : null,
-        role: authUser.role_type,
-        email_confirmed: authUser.email_confirmed_at ? true : false,
-        last_sign_in: authUser.last_sign_in_at
-      }));
 
-      // Then get roles and assignments for each user
-      const usersWithRolesAndAssignments = await Promise.all(
-        (usersData || []).map(async (user) => {
-          // Get user roles
-          const userRoles = await getUserRoles(supabase, user.id);
-          
-          // Get consultant assignments (where user is the consultant)
-          const { data: consultantAssignments } = await supabase
-            .from('consultant_assignments')
-            .select(`
-              *,
-              student:student_id(id, first_name, last_name, email)
-            `)
-            .eq('consultant_id', user.id)
-            .eq('is_active', true);
 
-          // Get student assignments (where user is the student - including community assignments)
-          // First get direct assignments
-          const { data: directAssignments } = await supabase
-            .from('consultant_assignments')
-            .select(`
-              *,
-              consultant:consultant_id(id, first_name, last_name, email)
-            `)
-            .eq('student_id', user.id)
-            .eq('is_active', true);
-          
-          // Then check if user belongs to any communities with assignments
-          let communityAssignments = [];
-          if (userRoles.some(role => role.community_id)) {
-            const userCommunityIds = userRoles
-              .filter(role => role.community_id)
-              .map(role => role.community_id);
-            
-            const { data: commAssignments } = await supabase
-              .from('consultant_assignments')
-              .select(`
-                *,
-                consultant:consultant_id(id, first_name, last_name, email)
-              `)
-              .in('community_id', userCommunityIds)
-              .is('student_id', null) // Community assignments have null student_id
-              .eq('is_active', true);
-            
-            communityAssignments = commAssignments || [];
-          }
-          
-          // Combine both types of assignments
-          const studentAssignments = [...(directAssignments || []), ...communityAssignments];
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+  };
 
-          // Get course assignments for this user
-          const { data: courseAssignments } = await supabase
-            .from('course_assignments')
-            .select(`
-              course_id,
-              assigned_at,
-              course:courses!inner(
-                id,
-                title,
-                description
-              )
-            `)
-            .eq('teacher_id', user.id);
+  const handleSearchSubmit = () => {
+    const trimmed = searchInput.trim();
+    setAppliedSearchQuery(trimmed);
+    setCurrentPage(1);
+    fetchUsers(1, { search: trimmed });
+  };
 
-          return {
-            ...user,
-            approval_status: (user.approval_status as 'pending' | 'approved' | 'rejected') || 'pending',
-            user_roles: userRoles,
-            consultant_assignments: consultantAssignments || [],
-            student_assignments: studentAssignments || [],
-            course_assignments: courseAssignments || []
-          };
-        })
-      );
-
-      setUsers(usersWithRolesAndAssignments);
-    } catch (error) {
-      console.error('Unexpected error fetching users:', error);
-      toast.error('Error inesperado al cargar usuarios');
+  const handleSearchClear = () => {
+    if (!searchInput && !appliedSearchQuery) {
+      return;
     }
+    setSearchInput('');
+    setAppliedSearchQuery('');
+    setCurrentPage(1);
+    fetchUsers(1, { search: '' });
+  };
+
+  const handleStatusFilterChange = (value: 'all' | 'pending' | 'approved') => {
+    if (selectedStatus === value) {
+      return;
+    }
+    setSelectedStatus(value);
+    setCurrentPage(1);
+    fetchUsers(1, { status: value });
+  };
+
+  const handleCommunityFilterChange = (value: string) => {
+    if (selectedCommunityId === value) {
+      return;
+    }
+    setSelectedCommunityId(value);
+    setCurrentPage(1);
+    fetchUsers(1, { communityId: value });
   };
 
   const handleRoleChange = async (userId: string, newRole: string) => {
@@ -458,7 +426,7 @@ export default function UserManagement() {
       }
 
       // Update local state
-      setUsers(users.map(user => 
+      setUsers(prev => prev.map(user =>
         user.id === userId ? { ...user, role: newRole } : user
       ));
 
@@ -471,6 +439,7 @@ export default function UserManagement() {
         },
         icon: '✅',
       });
+      fetchUsers(currentPage);
     } catch (error: any) {
       console.error('Error updating role:', error);
       toast.error(`Error al actualizar rol: ${error.message}`, {
@@ -527,7 +496,7 @@ export default function UserManagement() {
       }
 
       // Update local state
-      setUsers(users.filter(user => user.id !== userToDelete.id));
+      setUsers(prev => prev.filter(user => user.id !== userToDelete.id));
       setShowDeleteModal(false);
       setUserToDelete(null);
       
@@ -541,6 +510,12 @@ export default function UserManagement() {
         },
         icon: '🗑️',
       });
+      if (users.length <= 1 && currentPage > 1) {
+        handlePageChange(currentPage - 1);
+      } else {
+        fetchUsers(currentPage);
+      }
+
     } catch (error: any) {
       console.error('Error deleting user:', error);
       toast.error(`Error al eliminar usuario: ${error.message}`, {
@@ -605,20 +580,6 @@ export default function UserManagement() {
       }
 
       if (result.success && result.user) {
-        // Add to local state
-        const newUser: User = {
-          id: result.user.id,
-          email: result.user.email,
-          first_name: result.user.firstName || undefined,
-          last_name: result.user.lastName || undefined,
-          role: result.user.role || undefined,
-          school: undefined,
-          created_at: new Date().toISOString(),
-          approval_status: 'approved' as const // Admin-created users are auto-approved
-        };
-
-        setUsers([newUser, ...users]);
-        
         // Reset form
         setNewUserEmail('');
         setNewUserPassword('');
@@ -626,7 +587,9 @@ export default function UserManagement() {
         setNewUserLastName('');
         setNewUserRole('docente');
         setShowAddForm(false);
-        
+        setCurrentPage(1);
+        fetchUsers(1);
+
         toast.success('Usuario creado correctamente. El usuario deberá cambiar su contraseña en el primer inicio de sesión.', {
           duration: 5000,
           position: 'top-right',
@@ -752,6 +715,16 @@ export default function UserManagement() {
       >
         <UnifiedUserManagement
           users={users}
+          summary={summary}
+          searchQuery={searchInput}
+          selectedStatus={selectedStatus}
+          selectedCommunityId={selectedCommunityId}
+          onSearchChange={handleSearchChange}
+          onSearchSubmit={handleSearchSubmit}
+          onClearSearch={handleSearchClear}
+          onStatusChange={handleStatusFilterChange}
+          onCommunityChange={handleCommunityFilterChange}
+          isLoading={loading}
           onApprove={handleApproveUser}
           onReject={handleRejectUser}
           onDelete={(user) => handleDeleteClick(user.id, user.email)}
@@ -771,6 +744,29 @@ export default function UserManagement() {
           onBulkImport={() => setShowBulkImportModal(true)}
           onEditUser={handleEditUser}
         />
+        <div className="flex items-center justify-between mt-6">
+          <span className="text-sm text-gray-500">
+            {totalUsers === 0 ? 'No hay usuarios para mostrar' : `Mostrando ${pageStart}-${pageEnd} de ${totalUsers} usuarios`}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1 || loading}
+              className="px-3 py-1 rounded border border-gray-300 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Anterior
+            </button>
+            <span className="text-sm text-gray-600">Página {currentPage} de {totalPages}</span>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages || loading}
+              className="px-3 py-1 rounded border border-gray-300 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+
         
         {/* Add User Form Modal */}
         {showAddForm && (
@@ -967,7 +963,7 @@ export default function UserManagement() {
         onClose={() => setShowBulkImportModal(false)}
         onImportComplete={() => {
           setShowBulkImportModal(false);
-          fetchUsers();
+          fetchUsers(currentPage);
         }}
       />
       

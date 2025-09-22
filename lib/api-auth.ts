@@ -9,7 +9,7 @@ import {
   ApiError,
   ApiSuccess
 } from './types/api-auth.types';
-import { hasAdminPrivileges } from '../utils/roleUtils';
+import { hasAdminPrivileges, extractRolesFromMetadata } from '../utils/roleUtils';
 
 // Create a consistent Supabase client for API routes
 export async function createApiSupabaseClient(
@@ -91,13 +91,15 @@ export async function getApiUser(
       return { user: null, error: new Error('No active session') };
     }
     
+    const metadataRoles = extractRolesFromMetadata(session.user.user_metadata);
+
     // Log successful auth (without sensitive data)
     console.log('[API Auth] User authenticated via session:', {
       userId: session.user.id,
       email: session.user.email?.split('@')[0] + '@***',
-      role: session.user.user_metadata?.role
+      roles: metadataRoles
     });
-    
+
     return { user: session.user, error: null };
   } catch (error) {
     console.error('[API Auth] Unexpected error:', error);

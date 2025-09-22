@@ -2,6 +2,8 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import NotificationService from '../../../lib/notificationService';
 
+import { metadataHasRole } from '../../../utils/roleUtils';
+
 // Create admin client with service role key for elevated permissions
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,7 +48,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .limit(1)
       .maybeSingle();
 
-    const isAdminFromMetadata = user.user_metadata?.role === 'admin';
+    const isAdminFromMetadata = metadataHasRole(user.user_metadata, 'admin');
     const isAdminFromRoles = adminRole !== null;
 
     if (!isAdminFromMetadata && !isAdminFromRoles) {

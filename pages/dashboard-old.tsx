@@ -6,6 +6,8 @@ import Link from 'next/link';
 import Header from '../components/layout/Header';
 import CheckUserRole from '../src/components/CheckUserRole';
 
+import { metadataHasRole } from '../utils/roleUtils';
+
 export default function Dashboard() {
   const supabase = createClientComponentClient();
   const router = useRouter();
@@ -33,7 +35,7 @@ export default function Dashboard() {
           console.error('Error fetching user data:', userError);
         } else {
           // Check if user has admin role
-          const adminRole = userData?.user?.user_metadata?.role === 'admin';
+          const adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin');
           setIsAdmin(adminRole);
           
           // Fallback: If role is not in metadata, check profiles table

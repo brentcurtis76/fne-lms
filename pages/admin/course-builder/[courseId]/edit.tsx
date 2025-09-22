@@ -10,7 +10,7 @@ import { toast } from 'react-hot-toast';
 import { ConfirmModal } from '../../../../components/common/ConfirmModal';
 import ConvertStructureModal from '../../../../components/ConvertStructureModal';
 
-import { getUserPrimaryRole } from '../../../../utils/roleUtils';
+import { getUserPrimaryRole, metadataHasRole } from '../../../../utils/roleUtils';
 interface Course {
   id: string;
   title: string;
@@ -79,7 +79,7 @@ export default function EditCourse() {
           .eq('id', session.user.id)
           .single();
           
-        const adminFromMetadata = session.user.user_metadata?.role === 'admin';
+        const adminFromMetadata = metadataHasRole(session.user.user_metadata, 'admin');
         const userRole = await getUserPrimaryRole(session.user.id);
         const adminFromProfile = userRole === 'admin';
         const isAdminUser = adminFromMetadata || adminFromProfile;

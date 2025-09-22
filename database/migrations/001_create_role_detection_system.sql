@@ -81,6 +81,17 @@ BEGIN
     IF (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin' THEN
         RETURN true;
     END IF;
+
+    -- Support multiple roles stored as an array in JWT metadata
+    IF EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(
+            COALESCE((auth.jwt() -> 'user_metadata' -> 'roles')::jsonb, '[]'::jsonb)
+        ) AS role(value)
+        WHERE role.value = 'admin'
+    ) THEN
+        RETURN true;
+    END IF;
     
     -- Then check the cache
     SELECT is_admin INTO v_is_admin
@@ -104,6 +115,16 @@ BEGIN
     IF (auth.jwt() -> 'user_metadata' ->> 'role') IN ('admin', 'consultor') THEN
         RETURN true;
     END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(
+            COALESCE((auth.jwt() -> 'user_metadata' -> 'roles')::jsonb, '[]'::jsonb)
+        ) AS role(value)
+        WHERE role.value IN ('admin', 'consultor')
+    ) THEN
+        RETURN true;
+    END IF;
     
     -- Then check the cache
     SELECT is_teacher INTO v_is_teacher
@@ -125,6 +146,19 @@ DECLARE
 BEGIN
     -- First check JWT metadata
     v_role := auth.jwt() -> 'user_metadata' ->> 'role';
+    IF v_role IS NOT NULL THEN
+        RETURN v_role;
+    END IF;
+
+    -- Fall back to roles array if provided
+    SELECT value
+    INTO v_role
+    FROM jsonb_array_elements_text(
+        COALESCE((auth.jwt() -> 'user_metadata' -> 'roles')::jsonb, '[]'::jsonb)
+    ) AS role(value)
+    ORDER BY CASE WHEN role.value = 'admin' THEN 0 ELSE 1 END
+    LIMIT 1;
+
     IF v_role IS NOT NULL THEN
         RETURN v_role;
     END IF;

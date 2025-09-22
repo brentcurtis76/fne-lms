@@ -263,6 +263,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al asignar rol' });
     }
 
+    // Ensure caches refresh so client queries see the new role immediately
+    const { error: cacheRefreshError } = await supabaseService
+      .rpc('refresh_user_roles_cache');
+
+    if (cacheRefreshError) {
+      console.error('[assign-role API] Failed to refresh user_roles_cache:', cacheRefreshError);
+    }
+
     // Return success with the created role and community ID if applicable
     return res.status(200).json({
       success: true,

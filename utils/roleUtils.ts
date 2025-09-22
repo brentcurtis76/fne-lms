@@ -4,11 +4,11 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { 
-  UserRoleType, 
-  UserRole, 
-  UserProfile, 
-  RolePermissions, 
+import {
+  UserRoleType,
+  UserRole,
+  UserProfile,
+  RolePermissions,
   ROLE_HIERARCHY,
   PermissionKey,
   GrowthCommunity,
@@ -16,6 +16,51 @@ import {
   RedDeColegios
 
 } from '../types/roles';
+
+/**
+ * Extract normalized role strings from Supabase user metadata
+ */
+export function extractRolesFromMetadata(metadata: any): string[] {
+  if (!metadata) {
+    return [];
+  }
+
+  const rolesArray = Array.isArray(metadata.roles)
+    ? metadata.roles.filter((value: unknown): value is string => typeof value === 'string')
+    : [];
+
+  if (typeof metadata.role === 'string' && metadata.role.length > 0) {
+    return rolesArray.includes(metadata.role)
+      ? rolesArray
+      : [metadata.role, ...rolesArray];
+  }
+
+  return rolesArray;
+}
+
+/**
+ * Check whether metadata contains a specific role
+ */
+export function metadataHasRole(metadata: any, role: string): boolean {
+  return extractRolesFromMetadata(metadata).includes(role);
+}
+
+/**
+ * Return the highest priority role available in metadata
+ */
+export function getPrimaryRoleFromMetadata(metadata: any): string | null {
+  const roles = extractRolesFromMetadata(metadata);
+  if (roles.length === 0) {
+    return null;
+  }
+
+  // Prioritise admin if present, otherwise return the first entry
+  if (roles.includes('admin')) {
+    return 'admin';
+  }
+
+  return roles[0];
+}
 
 
 /**
@@ -81,7 +126,82 @@ export async function getUserRoles(supabase: SupabaseClient, userId: string): Pr
       return [];
     }
 
-    return data || [];
+    if (data && data.length > 0) {
+      return data;
+    }
+
+    // Fallback to cache when direct query returns no rows (due to RLS or replication delays)
+    const { data: cacheData, error: cacheError } = await supabase
+      .from('user_roles_cache')
+      .select('*')
+      .eq('user_id', userId)
+      .order('role');
+
+    if (cacheError) {
+      console.error('Error fetching user roles from cache:', cacheError);
+      return [];
+    }
+
+    if (cacheData && cacheData.length > 0) {
+      const schoolIds = Array.from(
+        new Set(cacheData.map(row => row.school_id).filter(Boolean))
+      );
+      const generationIds = Array.from(
+        new Set(cacheData.map(row => row.generation_id).filter(Boolean))
+      );
+      const communityIds = Array.from(
+        new Set(cacheData.map(row => row.community_id).filter(Boolean))
+      );
+
+      const [schoolsRes, generationsRes, communitiesRes] = await Promise.all([
+        schoolIds.length
+          ? supabase.from('schools').select('*').in('id', schoolIds as number[])
+          : Promise.resolve({ data: [] as any[], error: null }),
+        generationIds.length
+          ? supabase.from('generations').select('*').in('id', generationIds as string[])
+          : Promise.resolve({ data: [] as any[], error: null }),
+        communityIds.length
+          ? supabase
+              .from('growth_communities')
+              .select('*, school:schools(*), generation:generations(*)')
+              .in('id', communityIds as string[])
+          : Promise.resolve({ data: [] as any[], error: null })
+      ]);
+
+      if (schoolsRes.error) {
+        console.error('role cache fallback: failed to load schools', schoolsRes.error);
+      }
+      if (generationsRes.error) {
+        console.error('role cache fallback: failed to load generations', generationsRes.error);
+      }
+      if (communitiesRes.error) {
+        console.error('role cache fallback: failed to load communities', communitiesRes.error);
+      }
+
+      const schoolsMap = new Map<number, any>((schoolsRes.data || []).map((item: any) => [item.id, item]));
+      const generationsMap = new Map<string, any>((generationsRes.data || []).map((item: any) => [item.id, item]));
+      const communitiesMap = new Map<string, any>((communitiesRes.data || []).map((item: any) => [item.id, item]));
+
+      return cacheData.map((cache) => ({
+        id: `${cache.user_id}-${cache.role}`,
+        user_id: cache.user_id,
+        role_type: cache.role as UserRoleType,
+        school_id: cache.school_id || null,
+        generation_id: cache.generation_id || null,
+        community_id: cache.community_id || null,
+        is_active: true,
+        assigned_at: null,
+        assigned_by: null,
+        reporting_scope: {},
+        feedback_scope: {},
+        created_at: null,
+        school: cache.school_id ? schoolsMap.get(cache.school_id) || null : null,
+        generation: cache.generation_id ? generationsMap.get(cache.generation_id) || null : null,
+        community: cache.community_id ? communitiesMap.get(cache.community_id) || null : null
+      } as unknown as UserRole));
+    }
+
+    return [];
   } catch (error) {
     console.error('Error in getUserRoles:', error);
     return [];

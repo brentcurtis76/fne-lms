@@ -18,11 +18,14 @@ import {
   User,
   Settings,
   Upload,
-  Edit
+  Edit,
+  Loader2,
+  X
 } from 'lucide-react';
 import { toastSuccess, toastError } from '../../utils/toastUtils';
 import { TOAST_MESSAGES } from '../../constants/toastMessages';
 import { ROLE_NAMES } from '../../types/roles';
+import { getHighestRole } from '../../utils/roleUtils';
 import { ConfirmModal } from '../common/ConfirmModal';
 
 interface UserType {
@@ -43,6 +46,15 @@ interface UserType {
 
 interface UnifiedUserManagementProps {
   users: UserType[];
+  summary?: { total: number; pending: number; approved: number };
+  searchQuery: string;
+  selectedStatus: 'all' | 'pending' | 'approved';
+  selectedCommunityId: string;
+  onSearchChange: (value: string) => void;
+  onSearchSubmit: () => void;
+  onClearSearch?: () => void;
+  onStatusChange: (value: 'all' | 'pending' | 'approved') => void;
+  onCommunityChange: (value: string) => void;
   onApprove: (userId: string) => void;
   onReject: (userId: string) => void;
   onDelete: (user: UserType) => void;
@@ -52,10 +64,31 @@ interface UnifiedUserManagementProps {
   onAddUser: () => void;
   onBulkImport: () => void;
   onEditUser: (user: UserType) => void;
+  isLoading?: boolean;
 }
+
+export const resolvePrimaryRole = (user: UserType): string | null => {
+  const highestRole = getHighestRole(user.user_roles || []);
+  if (highestRole) {
+    return highestRole;
+  }
+  if (user.role) {
+    return user.role;
+  }
+  return null;
+};
 
 export default function UnifiedUserManagement({
   users,
+  summary,
+  searchQuery,
+  selectedStatus,
+  selectedCommunityId,
+  onSearchChange,
+  onSearchSubmit,
+  onClearSearch,
+  onStatusChange,
+  onCommunityChange,
   onApprove,
   onReject,
   onDelete,
@@ -64,12 +97,10 @@ export default function UnifiedUserManagement({
   onPasswordReset,
   onAddUser,
   onBulkImport,
-  onEditUser
+  onEditUser,
+  isLoading
 }: UnifiedUserManagementProps) {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'approved'>('all');
-  const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; user: UserType | null }>({
     isOpen: false,
     user: null
@@ -97,22 +128,14 @@ export default function UnifiedUserManagement({
   };
 
   const getRoleDisplayName = (user: UserType) => {
-    if (user.user_roles && user.user_roles.length > 0) {
-      const primaryRole = user.user_roles[0];
-      return ROLE_NAMES[primaryRole.role_type as keyof typeof ROLE_NAMES] || primaryRole.role_type;
-    }
-    if (user.role) {
-      return user.role === 'admin' ? 'Administrador' : user.role === 'docente' ? 'Docente' : user.role;
+    const primaryRole = resolvePrimaryRole(user);
+    if (primaryRole) {
+      return ROLE_NAMES[primaryRole as keyof typeof ROLE_NAMES] || primaryRole;
     }
     return 'Sin rol';
   };
 
-  const getUserPrimaryRole = (user: UserType) => {
-    if (user.user_roles && user.user_roles.length > 0) {
-      return user.user_roles[0].role_type;
-    }
-    return user.role || null;
-  };
+  const getUserPrimaryRole = (user: UserType) => resolvePrimaryRole(user);
 
   const getAssignmentCount = (user: UserType) => {
     let count = 0;
@@ -164,31 +187,7 @@ export default function UnifiedUserManagement({
     );
   })();
 
-  // Filter users
-  const filteredUsers = users.filter(user => {
-    const matchesStatus = selectedStatus === 'all' || user.approval_status === selectedStatus;
-    
-    // Check community filter
-    const matchesCommunity = !selectedCommunityId || 
-      (user.user_roles && user.user_roles.some((role: any) => 
-        role.community?.id === selectedCommunityId
-      ));
-    
-    if (!searchQuery.trim()) return matchesStatus && matchesCommunity;
-    
-    const searchLower = searchQuery.toLowerCase();
-    const userName = getUserName(user).toLowerCase();
-    const userEmail = user.email.toLowerCase();
-    const userSchool = getUserPrimarySchool(user).toLowerCase();
-    
-    return matchesStatus && matchesCommunity && (
-      userName.includes(searchLower) ||
-      userEmail.includes(searchLower) ||
-      userSchool.includes(searchLower)
-    );
-  });
-
-  const stats = {
+  const stats = summary ?? {
     pending: users.filter(u => u.approval_status === 'pending').length,
     approved: users.filter(u => u.approval_status === 'approved').length,
     total: users.length
@@ -230,7 +229,7 @@ export default function UnifiedUserManagement({
         {/* Stats */}
         <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
           <button
-            onClick={() => setSelectedStatus('pending')}
+            onClick={() => onStatusChange('pending')}
             className={`p-4 rounded-lg border-2 transition-all ${
               selectedStatus === 'pending' 
                 ? 'border-amber-500 bg-amber-50' 
@@ -249,7 +248,7 @@ export default function UnifiedUserManagement({
           </button>
 
           <button
-            onClick={() => setSelectedStatus('approved')}
+            onClick={() => onStatusChange('approved')}
             className={`p-4 rounded-lg border-2 transition-all ${
               selectedStatus === 'approved' 
                 ? 'border-green-500 bg-green-50' 
@@ -268,7 +267,7 @@ export default function UnifiedUserManagement({
           </button>
 
           <button
-            onClick={() => setSelectedStatus('all')}
+            onClick={() => onStatusChange('all')}
             className={`p-4 rounded-lg border-2 transition-all ${
               selectedStatus === 'all' 
                 ? 'border-blue-500 bg-blue-50' 
@@ -290,18 +289,50 @@ export default function UnifiedUserManagement({
 
       {/* Search and Filters */}
       <div className="mb-6 space-y-4">
-        <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSearchSubmit();
+          }}
+          className="flex flex-col gap-3 sm:flex-row"
+        >
+          <div className="relative flex-1">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-5 w-5 text-gray-400" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-[#00365b] focus:border-[#00365b] text-sm"
+              placeholder="Buscar por nombre, email o escuela..."
+            />
           </div>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-[#00365b] focus:border-[#00365b] text-sm"
-            placeholder="Buscar por nombre, email o escuela..."
-          />
-        </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#00365b] text-white text-sm font-medium hover:bg-[#002844] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4 mr-2" />
+              )}
+              Buscar
+            </button>
+            {searchQuery && onClearSearch && (
+              <button
+                type="button"
+                onClick={onClearSearch}
+                className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+              >
+                <X className="w-4 h-4 mr-2" />
+                Limpiar
+              </button>
+            )}
+          </div>
+        </form>
 
         {/* Community Filter */}
         {uniqueCommunities.length > 0 && (
@@ -312,7 +343,7 @@ export default function UnifiedUserManagement({
             <select
               id="community-filter"
               value={selectedCommunityId || ''}
-              onChange={(e) => setSelectedCommunityId(e.target.value || null)}
+              onChange={(e) => onCommunityChange(e.target.value)}
               className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-[#00365b]"
             >
               <option value="">Todas las comunidades</option>
@@ -328,7 +359,7 @@ export default function UnifiedUserManagement({
 
       {/* Users List */}
       <div className="space-y-3">
-        {filteredUsers.length === 0 ? (
+        {users.length === 0 ? (
           <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
             <Users className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">No se encontraron usuarios</h3>
@@ -337,7 +368,7 @@ export default function UnifiedUserManagement({
             </p>
           </div>
         ) : (
-          filteredUsers.map((user) => (
+          users.map((user) => (
             <div key={user.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
               {/* User Row */}
               <div

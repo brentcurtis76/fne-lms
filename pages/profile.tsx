@@ -11,6 +11,7 @@ import MainLayout from '../components/layout/MainLayout';
 import { invalidateAvatarCache, updateAvatarCache } from '../hooks/useAvatar';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { User as UserIcon, PencilIcon } from 'lucide-react';
+import { metadataHasRole } from '../utils/roleUtils';
 
 type School = {
   id: number;
@@ -78,7 +79,7 @@ export default function ProfilePage() {
         console.error('Error fetching user data:', userError);
       } else {
         // Check if user has admin role in metadata
-        const adminRole = userData?.user?.user_metadata?.role === 'admin';
+        const adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin');
         console.log('Is admin from metadata:', adminRole);
         setIsAdmin(adminRole);
       }

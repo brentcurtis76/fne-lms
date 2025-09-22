@@ -11,7 +11,7 @@ import DeleteModuleModal from '../../../../components/DeleteModuleModal';
 import EditModuleModal from '../../../../components/EditModuleModal';
 import { Book, Plus, Edit, ArrowLeft } from 'lucide-react';
 
-import { getUserPrimaryRole } from '../../../../utils/roleUtils';
+import { getUserPrimaryRole, metadataHasRole } from '../../../../utils/roleUtils';
 interface Course {
   id: string;
   title: string;
@@ -94,7 +94,7 @@ const CourseDetailPage = () => {
           .eq('id', session.user.id)
           .single();
           
-        const adminFromMetadata = session.user.user_metadata?.role === 'admin';
+        const adminFromMetadata = metadataHasRole(session.user.user_metadata, 'admin');
         const userRole = await getUserPrimaryRole(session.user.id);
         const adminFromProfile = userRole === 'admin';
         setIsAdmin(adminFromMetadata || adminFromProfile);

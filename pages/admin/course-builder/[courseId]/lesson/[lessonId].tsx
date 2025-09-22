@@ -38,6 +38,7 @@ import FileDownloadBlockEditor from '@/components/blocks/FileDownloadBlockEditor
 import ExternalLinkBlockEditor from '@/components/blocks/ExternalLinkBlockEditor';
 import GroupAssignmentBlockEditor from '@/components/blocks/GroupAssignmentBlockEditor';
 import BibliographyBlockEditor from '@/components/blocks/BibliographyBlockEditor';
+import { metadataHasRole } from '@/utils/roleUtils';
 
 type Lesson = Database['public']['Tables']['lessons']['Row'] & {
   blocks?: Block[];
@@ -89,7 +90,7 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
         setUser(session.user);
         
         // Check admin status
-        const adminInMetadata = session.user?.user_metadata?.role === 'admin';
+        const adminInMetadata = metadataHasRole(session.user?.user_metadata, 'admin');
         
         const { data: userRoles } = await supabase
           .from('user_roles')

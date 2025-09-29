@@ -90,23 +90,40 @@ export default function ExpenseReportsPage() {
         
         setCurrentUser(session.user);
         
-        // Check if user is admin
+        // Check if user is admin or has explicit expense report access
         const { data: profile } = await supabase
           .from('profiles')
           .select('avatar_url')
           .eq('id', session.user.id)
           .single();
 
+        let hasAccess = false;
+
         if (profile) {
           const userRole = await getUserPrimaryRole(session.user.id);
-          setIsAdmin(userRole === 'admin');
+          const isAdminRole = userRole === 'admin';
+          setIsAdmin(isAdminRole);
           setAvatarUrl(profile.avatar_url || '');
-          
-          // Redirect non-admins away from expense reports
-          if (!userRole || userRole !== 'admin') {
-            router.push('/dashboard');
-            return;
+          hasAccess = isAdminRole;
+        }
+
+        if (!hasAccess) {
+          const { data: accessRecord, error: accessError } = await supabase
+            .from('expense_report_access')
+            .select('can_submit')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+
+          if (accessError) {
+            console.error('Error checking expense report access:', accessError);
           }
+
+          hasAccess = !!accessRecord?.can_submit;
+        }
+
+        if (!hasAccess) {
+          router.push('/dashboard');
+          return;
         }
 
         await Promise.all([

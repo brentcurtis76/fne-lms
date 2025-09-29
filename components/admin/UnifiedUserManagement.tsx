@@ -42,6 +42,8 @@ interface UserType {
   student_assignments?: any[];
   course_assignments?: any[];
   created_at?: string;
+  expense_access_enabled?: boolean;
+  is_global_admin?: boolean;
 }
 
 interface UnifiedUserManagementProps {
@@ -61,10 +63,12 @@ interface UnifiedUserManagementProps {
   onRoleChange: (user: UserType) => void;
   onAssign: (user: UserType) => void;
   onPasswordReset: (user: UserType) => void;
+  onExpenseAccessToggle: (user: UserType, enable: boolean) => void;
   onAddUser: () => void;
   onBulkImport: () => void;
   onEditUser: (user: UserType) => void;
   isLoading?: boolean;
+  expenseAccessUpdating?: Record<string, boolean>;
 }
 
 export const resolvePrimaryRole = (user: UserType): string | null => {
@@ -95,10 +99,12 @@ export default function UnifiedUserManagement({
   onRoleChange,
   onAssign,
   onPasswordReset,
+  onExpenseAccessToggle,
   onAddUser,
   onBulkImport,
   onEditUser,
-  isLoading
+  isLoading,
+  expenseAccessUpdating = {}
 }: UnifiedUserManagementProps) {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; user: UserType | null }>({
@@ -368,7 +374,13 @@ export default function UnifiedUserManagement({
             </p>
           </div>
         ) : (
-          users.map((user) => (
+          users.map((user) => {
+            const primaryRole = getUserPrimaryRole(user);
+            const isAdminRole = Boolean(user.is_global_admin || primaryRole === 'admin');
+            const expenseEnabled = isAdminRole ? true : !!user.expense_access_enabled;
+            const isUpdatingExpense = !!expenseAccessUpdating[user.id];
+
+            return (
             <div key={user.id} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
               {/* User Row */}
               <div
@@ -503,6 +515,35 @@ export default function UnifiedUserManagement({
                         
                         {user.approval_status === 'approved' && (
                           <>
+                            <div className="border border-gray-200 rounded-md p-3">
+                              <div className="text-xs font-medium text-gray-600 mb-2">Reportes de gastos</div>
+                              {isAdminRole ? (
+                                <span className="text-sm text-green-700">Admin - acceso total</span>
+                              ) : (
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-sm text-gray-700">
+                                    {expenseEnabled ? 'Habilitado' : 'Bloqueado'}
+                                  </span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onExpenseAccessToggle(user, !expenseEnabled);
+                                    }}
+                                    disabled={isUpdatingExpense}
+                                    className={`flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                                      expenseEnabled
+                                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    } ${isUpdatingExpense ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                                  >
+                                    {isUpdatingExpense && (
+                                      <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                                    )}
+                                    {expenseEnabled ? 'Deshabilitar' : 'Habilitar'}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -621,7 +662,8 @@ export default function UnifiedUserManagement({
                 </div>
               )}
             </div>
-          ))
+          );
+          })
         )}
       </div>
       

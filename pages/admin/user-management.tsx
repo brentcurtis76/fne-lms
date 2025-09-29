@@ -29,6 +29,8 @@ type User = {
   student_assignments?: any[];
   course_assignments?: any[];
   school_relation?: { id: number; name: string } | null;
+  expense_access_enabled?: boolean;
+  is_global_admin?: boolean;
 };
 
 export default function UserManagement() {
@@ -134,6 +136,7 @@ export default function UserManagement() {
   // Consultant assignment modal state
   const [showConsultantModal, setShowConsultantModal] = useState(false);
   const [selectedUserForAssignment, setSelectedUserForAssignment] = useState<User | null>(null);
+  const [expenseAccessUpdating, setExpenseAccessUpdating] = useState<Record<string, boolean>>({});
   const fetchUsers = useCallback(async (page = 1, overrides?: {
     search?: string;
     status?: 'all' | 'pending' | 'approved';
@@ -167,7 +170,34 @@ export default function UserManagement() {
       }
 
       const data = await response.json();
-      setUsers(data.users || []);
+
+      const fetchedUsers: User[] = data.users || [];
+      let expenseAccessMap: Record<string, boolean> = {};
+
+      const { data: expenseAccessData, error: expenseAccessError } = await supabase
+        .from('expense_report_access')
+        .select('user_id, can_submit');
+
+      if (expenseAccessError) {
+        console.error('Error fetching expense report access:', expenseAccessError);
+        toast.error('No se pudo cargar el acceso a reportes de gastos');
+      } else {
+        expenseAccessMap = (expenseAccessData || []).reduce<Record<string, boolean>>((acc, record) => {
+          acc[record.user_id] = record.can_submit;
+          return acc;
+        }, {});
+      }
+
+      const usersWithAccess = fetchedUsers.map(user => {
+        const isGlobalAdminRole = (user.user_roles || []).some((role: any) => role.role_type === 'admin') || user.role === 'admin';
+        return {
+          ...user,
+          is_global_admin: isGlobalAdminRole,
+          expense_access_enabled: isGlobalAdminRole ? true : !!expenseAccessMap[user.id]
+        };
+      });
+
+      setUsers(usersWithAccess);
       setTotalUsers(data.total || 0);
       setCurrentPage(data.page || page);
       if (data.summary) {
@@ -183,7 +213,7 @@ export default function UserManagement() {
     } finally {
       setLoading(false);
     }
-  }, [PAGE_SIZE, appliedSearchQuery, selectedStatus, selectedCommunityId]);
+  }, [PAGE_SIZE, appliedSearchQuery, selectedStatus, selectedCommunityId, supabase]);
 
 
   const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
@@ -450,6 +480,48 @@ export default function UserManagement() {
           color: 'white',
         },
         icon: '❌',
+      });
+    }
+  };
+
+  const handleToggleExpenseAccess = async (userId: string, enable: boolean) => {
+    try {
+      setExpenseAccessUpdating(prev => ({ ...prev, [userId]: true }));
+
+      const note = enable
+        ? 'Acceso habilitado desde panel de administración'
+        : 'Acceso deshabilitado desde panel de administración';
+
+      const { error } = await supabase
+        .from('expense_report_access')
+        .upsert(
+          {
+            user_id: userId,
+            can_submit: enable,
+            granted_by: currentUser?.id ?? null,
+            notes: note
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (error) throw error;
+
+      setUsers(prev => prev.map(user =>
+        user.id === userId
+          ? { ...user, expense_access_enabled: enable }
+          : user
+      ));
+
+      toast.success(enable
+        ? 'Acceso a reportes de gastos habilitado'
+        : 'Acceso a reportes de gastos deshabilitado');
+    } catch (error) {
+      console.error('Error updating expense report access:', error);
+      toast.error('No se pudo actualizar el acceso a reportes de gastos');
+    } finally {
+      setExpenseAccessUpdating(prev => {
+        const { [userId]: _, ...rest } = prev;
+        return rest;
       });
     }
   };
@@ -740,6 +812,8 @@ export default function UserManagement() {
             });
             setShowPasswordResetModal(true);
           }}
+          onExpenseAccessToggle={(user, enabled) => handleToggleExpenseAccess(user.id, enabled)}
+          expenseAccessUpdating={expenseAccessUpdating}
           onAddUser={() => setShowAddForm(true)}
           onBulkImport={() => setShowBulkImportModal(true)}
           onEditUser={handleEditUser}

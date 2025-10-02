@@ -533,11 +533,11 @@ export default function NosotrosPage() {
             {/* Comité Internacional */}
             <div className="mb-20">
               <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Comité Internacional</h3>
-              <div className="grid md:grid-cols-3 gap-8 items-stretch">
+              <div className="flex flex-wrap justify-center gap-8">
                 {['joan-quintana', 'arnoldo-cisternas', 'coral-regi', 'boris-mir', 'pepe-menendez', 'jordi-mussons', 'sandra-entrena', 'anna-comas', 'marcelo-ruiz'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
-                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
+                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col w-full md:w-[calc(33.333%-1.333rem)]">
                       <div className="relative flex-1 flex flex-col">
                         <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ background: 'linear-gradient(to bottom right, rgba(0, 54, 91, 0.1), rgba(0, 54, 91, 0.2))' }}></div>
                         <div className="p-8 text-center flex flex-col h-full">
@@ -608,11 +608,11 @@ export default function NosotrosPage() {
             {/* Asesores Internacionales */}
             <div className="mb-20">
               <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Asesores Internacionales</h3>
-              <div className="grid md:grid-cols-3 gap-8 items-stretch">
+              <div className="flex flex-wrap justify-center gap-8">
                 {['sergi-del-moral', 'abraham-de-la-fuente', 'ana-vicalvaro', 'raul-martinez', 'jorge-parra', 'juan-jose-flores', 'betlem-cuesta', 'carlo-de-britos', 'marta-cardenas', 'begonya-folch', 'laura-carmona', 'maite-pino', 'claudia-lopez', 'enrique-vergara', 'laia-garces', 'marta-ortega', 'cristina-montes', 'estefania-del-ramon', 'gemma-pariente', 'maria-latre', 'andreu-basoli', 'neus-colomer', 'cristina-romanos'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
-                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
+                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col w-full md:w-[calc(33.333%-1.333rem)]">
                       <div className="relative flex-1 flex flex-col">
                         <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-red-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         <div className="p-8 text-center flex flex-col h-full">

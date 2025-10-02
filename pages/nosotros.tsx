@@ -159,6 +159,18 @@ export default function NosotrosPage() {
       image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Andrea%20Lagos.png',
       description: 'Periodista parte del equipo fundador del The Clinic en 1998. Durante diez años escribió las entrevistas principales del periódico y fue editora del Suplemento de Cultura, "Caldo de Cultivo". Luego escribió artículos y entrevistas para la Revista Paula, la mítica Revista Fibra y recientemente para América Futura del Diario El País. Durante la última década fue editora del Suplemento de cultura www.suplementoku.cl de los Medios Regionales de El Mercurio. Actualmente desarrolla contenido audiovisual y comunicacional para Fundación Nueva Educación y Los Pellines.'
     },
+    'andres-bustamante': {
+      name: 'Andrés Bustamante',
+      role: 'Consultor',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Andres%20Bustamante.png',
+      description: 'Psicólogo Social y Coach relacional especializado en habilidades relacionales y gestión de equipos. Fundador de www.cruzadasur.cl, con más de 15 años de experiencia en consultoría organizacional, desarrollo de liderazgo y facilitación de procesos de cambio cultural. Es consultor del Programa Nueva Educación residente en la Región de Aysén desde 2018, colaborador académico del Instituto Relacional (Barcelona-Santiago), y Director Ejecutivo de Corporación Patagonia Viva. Combina su expertise en coaching organizacional con una profunda comprensión de las dinámicas relacionales en contextos educativos, apoyando procesos de transformación desde la identidad personal y el fortalecimiento de equipos. Presidente de la ONG Waka Patagonia, impulsa programas deportivos y sociales como instrumentos de desarrollo de habilidades para niños y jóvenes.'
+    },
+    'joaquin-aguirre': {
+      name: 'Joaquín Aguirre',
+      role: 'Consultor',
+      image: 'https://sxlogxqzmarhqsblxmtj.supabase.co/storage/v1/object/public/resources/Equipo/Joaquin%20Aguirre.jpeg',
+      description: 'Doctor en Ciencias de la Educación con 54 años de experiencia en el Ministerio de Educación como Supervisor Técnico Pedagógico. Especializado en Diseño Curricular y Evaluación Educativa, ha asesorado estratégicamente a equipos de gestión en instituciones educativas públicas y privadas, enfocándose en la mejora de procesos y prácticas pedagógicas. Licenciado en Educación con distinción máxima por la Universidad Metropolitana de Ciencias de la Educación, posee formación de postgrado en Investigación Educacional y Folklore en la Educación. Académico de la Universidad de Chile (1971-1981) y evaluador de proyectos culturales para el Consejo Nacional de la Cultura. Líder empático y flexible, aporta su experticia en liderazgo pedagógico, gestión del cambio e innovación educativa, orientando a directivos en la aplicación de políticas educativas y normativas vigentes.'
+    },
     
     // Asesores Técnicos que necesitamos mantener
     'abraham-de-la-fuente': {
@@ -561,7 +573,7 @@ export default function NosotrosPage() {
             <div className="mb-20">
               <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Equipo FNE</h3>
               <div className="grid md:grid-cols-3 gap-8 items-stretch">
-                {['gabriela-naranjo', 'mora-del-fresno', 'ignacio-pavez', 'brent-curtis', 'andrea-lagos', 'marcela-molina'].map((memberKey) => {
+                {['gabriela-naranjo', 'mora-del-fresno', 'ignacio-pavez', 'brent-curtis', 'andrea-lagos', 'andres-bustamante', 'joaquin-aguirre', 'marcela-molina'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">

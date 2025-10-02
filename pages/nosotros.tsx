@@ -572,11 +572,11 @@ export default function NosotrosPage() {
             {/* Equipo FNE */}
             <div className="mb-20">
               <h3 className="text-3xl font-bold text-center mb-12 text-gray-900">Equipo FNE</h3>
-              <div className="grid md:grid-cols-3 gap-8 items-stretch justify-items-center">
+              <div className="flex flex-wrap justify-center gap-8">
                 {['gabriela-naranjo', 'mora-del-fresno', 'ignacio-pavez', 'brent-curtis', 'andrea-lagos', 'marcela-molina', 'andres-bustamante', 'joaquin-aguirre'].map((memberKey) => {
                   const member = teamMembers[memberKey];
                   return (
-                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
+                    <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col w-full md:w-[calc(33.333%-1.333rem)]">
                       <div className="relative flex-1 flex flex-col">
                         <div className="absolute inset-0 bg-gradient-to-br from-[#fdb933]/10 to-[#fdb933]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         <div className="p-8 text-center flex flex-col h-full">

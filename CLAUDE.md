@@ -8,6 +8,8 @@ A comprehensive Learning Management System built with Next.js 14 and Supabase fo
 
 **Production URL:** https://fne-lms.vercel.app
 
+**Current Status:** MAINTENANCE MODE - Core features complete and stable
+
 ## Development Commands
 
 ```bash

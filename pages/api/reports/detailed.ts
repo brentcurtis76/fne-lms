@@ -79,20 +79,17 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     
     const { filters, sort, pagination, useSmartDefaults = true } = req.body;
     const { page = 1, limit = 20 } = pagination || {};
-    
-    // Smart defaults based on user role
-    let defaultSort = { field: 'last_activity_date', order: 'desc' };
+
+    // DEFAULT SORT: Always sort by activity_score (most active first)
+    // This shows users with most completion/activity at the top
+    let defaultSort = { field: 'activity_score', order: 'desc' };
     let defaultLimit = limit;
-    
+
+    // Note: useSmartDefaults retained for backward compatibility but now applies to all roles
     if (useSmartDefaults && highestRole === 'admin') {
-      // Admin default: Top 10 most active users by activity score
-      defaultSort = { field: 'activity_score', order: 'desc' };
       defaultLimit = Math.min(limit, 10); // Default to 10 for admin unless they specifically request more
-    } else if (useSmartDefaults && ['equipo_directivo', 'lider_generacion'].includes(highestRole)) {
-      // School leadership: Most active in their organization
-      defaultSort = { field: 'activity_score', order: 'desc' };
     }
-    
+
     const { field = defaultSort.field, order = defaultSort.order } = sort || {};
     const effectiveLimit = sort ? limit : defaultLimit; // Only use smart limit if no custom sort
 

@@ -227,10 +227,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
       console.error('Lesson progress data error:', lessonProgressError.message);
     }
 
-    // Get user roles for the reportable users
+    // Get user roles for the reportable users (including organizational assignments)
     const { data: reportableUserRoles, error: rolesError } = await supabase
       .from('user_roles')
-      .select('user_id, role_type')
+      .select('user_id, role_type, school_id, generation_id, community_id')
       .in('user_id', userIds)
       .eq('is_active', true);
 
@@ -238,10 +238,16 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
       console.error('Roles fetch error:', rolesError.message);
     }
 
-    // Create role mapping for quick lookup
+    // Create role and organizational mapping for quick lookup (use user_roles as source of truth)
     const roleMap = new Map();
+    const userRoleOrgMap = new Map();
     (reportableUserRoles || []).forEach(role => {
       roleMap.set(role.user_id, role.role_type);
+      userRoleOrgMap.set(role.user_id, {
+        school_id: role.school_id,
+        generation_id: role.generation_id,
+        community_id: role.community_id
+      });
     });
 
     // Process course assignment data
@@ -307,14 +313,17 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
         
         const activity_score = Math.round(lessonScore + timeScore + recentActivityScore + courseScore);
 
+        // Get organizational data from user_roles (source of truth) instead of profiles
+        const userRoleOrg = userRoleOrgMap.get(profile.id);
+
         return {
             user_id: profile.id,
             user_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
             user_email: profile.email,
             user_role: roleMap.get(profile.id) || 'Sin rol',
-            school_name: schoolsMap.get(profile.school_id)?.name,
-            generation_name: generationsMap.get(profile.generation_id)?.name,
-            community_name: communitiesMap.get(profile.community_id)?.name,
+            school_name: schoolsMap.get(userRoleOrg?.school_id)?.name,
+            generation_name: generationsMap.get(userRoleOrg?.generation_id)?.name,
+            community_name: communitiesMap.get(userRoleOrg?.community_id)?.name,
             total_courses_enrolled,
             completed_courses,
             courses_in_progress: total_courses_enrolled - completed_courses,

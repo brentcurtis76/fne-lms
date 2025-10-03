@@ -313,17 +313,21 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
         
         const activity_score = Math.round(lessonScore + timeScore + recentActivityScore + courseScore);
 
-        // Get organizational data from user_roles (source of truth) instead of profiles
+        // HYBRID APPROACH: Use user_roles as primary source, fallback to profiles
+        // This safely handles both old schools (profiles only) and new schools (user_roles)
         const userRoleOrg = userRoleOrgMap.get(profile.id);
+        const effectiveSchoolId = userRoleOrg?.school_id ?? profile.school_id;
+        const effectiveGenerationId = userRoleOrg?.generation_id ?? profile.generation_id;
+        const effectiveCommunityId = userRoleOrg?.community_id ?? profile.community_id;
 
         return {
             user_id: profile.id,
             user_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
             user_email: profile.email,
             user_role: roleMap.get(profile.id) || 'Sin rol',
-            school_name: schoolsMap.get(userRoleOrg?.school_id)?.name,
-            generation_name: generationsMap.get(userRoleOrg?.generation_id)?.name,
-            community_name: communitiesMap.get(userRoleOrg?.community_id)?.name,
+            school_name: schoolsMap.get(effectiveSchoolId)?.name,
+            generation_name: generationsMap.get(effectiveGenerationId)?.name,
+            community_name: communitiesMap.get(effectiveCommunityId)?.name,
             total_courses_enrolled,
             completed_courses,
             courses_in_progress: total_courses_enrolled - completed_courses,

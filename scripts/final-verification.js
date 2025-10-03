@@ -1,117 +1,35 @@
-// Final comprehensive verification of the news page issue
-const https = require('https');
+/**
+ * Final Verification - Confirm Migration Success
+ */
 
-function testWithCacheBusting() {
-  return new Promise((resolve, reject) => {
-    const timestamp = Date.now();
-    const options = {
-      hostname: 'fne-lms.vercel.app',
-      path: `/api/news?t=${timestamp}`, // Cache busting parameter
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-      }
-    };
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config({ path: '.env.local' });
 
-    const req = https.request(options, (res) => {
-      let data = '';
-      
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-      
-      res.on('end', () => {
-        try {
-          const jsonData = JSON.parse(data);
-          resolve({
-            statusCode: res.statusCode,
-            headers: res.headers,
-            data: jsonData
-          });
-        } catch (error) {
-          resolve({
-            statusCode: res.statusCode,
-            error: 'JSON Parse Error',
-            raw: data
-          });
-        }
-      });
-    });
-
-    req.on('error', (error) => {
-      reject(error);
-    });
-
-    req.end();
-  });
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 async function finalVerification() {
-  console.log('🔍 FINAL VERIFICATION OF NEWS PAGE ISSUE');
-  console.log('=' .repeat(60));
+  console.log('🔍 FINAL VERIFICATION\n');
   
-  console.log('🎯 SUMMARY OF INVESTIGATION:');
-  console.log('✅ Database: "Prueba de Noticias" article exists and is published');
-  console.log('✅ API: /api/news endpoint returns correct data structure');
-  console.log('✅ Frontend: Code has proper error handling and format compatibility');
-  console.log('✅ Debugging: Enhanced logging and visual debug panel deployed');
-  console.log('❌ Issue: Frontend still shows loading state instead of articles');
+  // Test 1: Los Pellines (should be 10 users)
+  const { data: lpSchool } = await supabase.from('schools').select('id').ilike('name', '%Los Pellines%').single();
+  const { data: lpRoles } = await supabase.from('user_roles').select('user_id').eq('school_id', lpSchool.id).eq('is_active', true);
+  const lpUsers = [...new Set(lpRoles?.map(r => r.user_id) || [])].length;
   
-  console.log('\n🧪 TESTING API WITH CACHE BUSTING:');
-  try {
-    const result = await testWithCacheBusting();
-    console.log(`   Status: ${result.statusCode}`);
-    
-    if (result.data) {
-      console.log(`   Response Format: ${result.data.articles ? 'Object with articles' : 'Direct array'}`);
-      const articles = result.data.articles || result.data;
-      console.log(`   Articles Count: ${Array.isArray(articles) ? articles.length : 'Not array'}`);
-      
-      if (Array.isArray(articles) && articles.length > 0) {
-        console.log(`   ✅ First Article: "${articles[0].title}"`);
-        console.log(`   ✅ Published: ${articles[0].is_published}`);
-      }
-    }
-  } catch (error) {
-    console.log(`   ❌ API Test Failed: ${error.message}`);
-  }
+  console.log(`TEST 1 - Los Pellines: ${lpUsers} users ${lpUsers === 10 ? '✅' : '❌ (expected 10)'}`);
   
-  console.log('\n🏥 FINAL DIAGNOSIS:');
-  console.log('The issue is confirmed to be CLIENT-SIDE, not server-side.');
-  console.log('Possible causes (in order of likelihood):');
-  console.log('1. 🕕 CDN/Edge Cache: Vercel edge cache serving stale JavaScript bundle');
-  console.log('2. 🌐 Browser Cache: User browser cached old version of JS');
-  console.log('3. 🐛 JavaScript Error: Silent error in React useEffect or state update');
-  console.log('4. ⚡ Race Condition: Multiple renders causing state inconsistency');
+  // Test 2: Migration count
+  const { count: c1 } = await supabase.from('user_roles').select('*', {count:'exact',head:true}).eq('school_id',17).eq('is_active',true);
+  const { count: c2 } = await supabase.from('user_roles').select('*', {count:'exact',head:true}).eq('school_id',3).eq('is_active',true);
+  const { count: c3 } = await supabase.from('user_roles').select('*', {count:'exact',head:true}).eq('school_id',11).eq('is_active',true);
+  const total = c1 + c2 + c3;
   
-  console.log('\n💡 IMMEDIATE SOLUTIONS TO TRY:');
-  console.log('1. Hard refresh in browser (Cmd+Shift+R or Ctrl+Shift+R)');
-  console.log('2. Open page in private/incognito browser window');
-  console.log('3. Clear browser cache and cookies for fne-lms.vercel.app');
-  console.log('4. Try different browser entirely');
-  console.log('5. Check browser console (F12) for JavaScript errors');
+  console.log(`TEST 2 - Migration: ${total} users ${total >= 106 ? '✅' : '❌ (expected 106+)'}`);
+  console.log(`   Liceo: ${c1}, Valdivia: ${c2}, Sweet: ${c3}`);
   
-  console.log('\n🔧 FOR DEVELOPER (if issue persists):');
-  console.log('1. Force Vercel deployment rebuild without code changes');
-  console.log('2. Add more aggressive cache headers to API responses');
-  console.log('3. Consider adding forced refresh mechanism to frontend');
-  console.log('4. Check Vercel deployment logs for build issues');
-  
-  console.log('\n✅ CONFIRMATION:');
-  console.log('The debug panel is now live at https://fne-lms.vercel.app/noticias');
-  console.log('Users can see real-time loading state, timestamp, and error info');
-  console.log('Console logs will show detailed fetch progress for debugging');
-  
-  return Promise.resolve();
+  console.log(total >= 106 && lpUsers === 10 ? '\n✅ ALL SYSTEMS GO!' : '\n⚠️  Issues detected');
 }
 
-finalVerification().then(() => {
-  console.log('\n🎯 VERIFICATION COMPLETE');
-  process.exit(0);
-}).catch(error => {
-  console.error('💥 Verification failed:', error);
-  process.exit(1);
-});
+finalVerification().catch(console.error);

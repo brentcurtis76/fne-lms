@@ -1,145 +1,125 @@
+/**
+ * Verify Current State of FNE Users
+ * Check exactly what data exists for the users in your screenshot
+ */
+
 const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config({ path: '.env.local' });
 
 const supabase = createClient(
-  'https://sxlogxqzmarhqsblxmtj.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4bG9neHF6bWFyaHFzYmx4bXRqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NzMyMjIyMSwiZXhwIjoyMDYyODk4MjIxfQ.OiyMUeIoCc_mH7G5xZms1AhDyYM3jXqqIjccSL0JmWI'
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 async function verifyCurrentState() {
-  console.log('🔍 VERIFYING CURRENT STATE OF SANTA MARTA DE TALCA');
-  console.log('=' + '='.repeat(70));
-  
-  // Get Katherine
-  const { data: katherine } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('email', 'kgonzalez@liceosantamartatalca.cl')
-    .single();
-    
-  console.log('\n👤 KATHERINE GONZÁLEZ:');
-  console.log('  ID:', katherine?.id);
-  console.log('  School ID:', katherine?.school_id);
-  console.log('  Email:', katherine?.email);
-  
-  if (!katherine) {
-    console.log('  ❌ User not found!');
-    return;
-  }
-  
-  // Check course assignments
-  const { data: assignments, count: assignmentCount } = await supabase
-    .from('course_assignments')
-    .select('*', { count: 'exact' })
-    .eq('teacher_id', katherine.id);
-    
-  console.log('\n📋 COURSE ASSIGNMENTS:');
-  console.log('  Total:', assignmentCount);
-  if (assignments && assignments.length > 0) {
-    assignments.slice(0, 3).forEach(a => {
-      console.log('    - Course ID:', a.course_id, '| Status:', a.status);
+  console.log('🔍 Verifying Current State for Screenshot Users\n');
+
+  // Get school IDs
+  const { data: schools } = await supabase
+    .from('schools')
+    .select('id, name')
+    .order('id');
+
+  console.log('📚 Schools in database:');
+  schools?.forEach(s => {
+    console.log(`   ${s.id}: ${s.name}`);
+  });
+  console.log('');
+
+  const fneSchool = schools?.find(s => s.name.includes('Fundación Nueva Educación'));
+  const liceoSchool = schools?.find(s => s.name.includes('Juana Ross'));
+
+  // Check the three users from screenshot
+  const testEmails = [
+    'mdelfresno@nuevaeducacion.org',
+    'brent@perrotuertocm.cl',
+    'tom@nuevaeducacion.org'
+  ];
+
+  console.log('👥 CHECKING SCREENSHOT USERS:\n');
+
+  for (const email of testEmails) {
+    console.log(`═══════════════════════════════════════════`);
+    console.log(`User: ${email}`);
+    console.log(`═══════════════════════════════════════════`);
+
+    // Get profile
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (!profile) {
+      console.log('❌ Profile not found\n');
+      continue;
+    }
+
+    console.log(`\n📋 PROFILE DATA:`);
+    console.log(`   ID: ${profile.id}`);
+    console.log(`   Name: ${profile.first_name} ${profile.last_name}`);
+    console.log(`   school_id: ${profile.school_id} ${profile.school_id ? `(${schools?.find(s => s.id === profile.school_id)?.name || 'Unknown'})` : '(NULL)'}`);
+    console.log(`   generation_id: ${profile.generation_id || 'NULL'}`);
+    console.log(`   community_id: ${profile.community_id || 'NULL'}`);
+
+    // Get user_roles
+    const { data: userRoles } = await supabase
+      .from('user_roles')
+      .select('*')
+      .eq('user_id', profile.id)
+      .eq('is_active', true);
+
+    console.log(`\n👤 USER_ROLES DATA (${userRoles?.length || 0} active roles):`);
+    userRoles?.forEach((role, index) => {
+      console.log(`   Role ${index + 1}:`);
+      console.log(`      role_type: ${role.role_type}`);
+      console.log(`      school_id: ${role.school_id} ${role.school_id ? `(${schools?.find(s => s.id === role.school_id)?.name || 'Unknown'})` : '(NULL)'}`);
+      console.log(`      generation_id: ${role.generation_id || 'NULL'}`);
+      console.log(`      community_id: ${role.community_id || 'NULL'}`);
+      console.log(`      created_at: ${role.created_at}`);
     });
+
+    // Determine what the API would show
+    const roleWithSchool = userRoles?.find(r => r.school_id);
+    const apiWouldShow = roleWithSchool?.school_id
+      ? schools?.find(s => s.id === roleWithSchool.school_id)?.name
+      : 'Sin escuela';
+
+    console.log(`\n🎯 WHAT API SHOWS NOW (after fix):`);
+    console.log(`   School: ${apiWouldShow}`);
+
+    console.log(`\n✅ CORRECT?`);
+    if (email.includes('@nuevaeducacion.org')) {
+      console.log(`   Should be FNE: ${apiWouldShow === fneSchool?.name ? '✅ YES' : '❌ NO'}`);
+    }
+
+    console.log('\n');
   }
-  
-  // Check course enrollments
-  const { data: enrollments, count: enrollmentCount } = await supabase
-    .from('course_enrollments')
-    .select('*', { count: 'exact' })
-    .eq('user_id', katherine.id);
-    
-  console.log('\n📚 COURSE ENROLLMENTS:');
-  console.log('  Total:', enrollmentCount);
-  if (enrollments && enrollments.length > 0) {
-    enrollments.slice(0, 3).forEach(e => {
-      console.log('    - Course ID:', e.course_id, '| Status:', e.status || 'N/A');
-    });
-  }
-  
-  // Check learning path assignments
-  const { data: lpAssignments } = await supabase
-    .from('learning_path_assignments')
-    .select(`
-      *,
-      path:learning_paths(name)
-    `)
-    .eq('user_id', katherine.id);
-    
-  console.log('\n🎯 LEARNING PATH ASSIGNMENTS:');
-  console.log('  Total:', lpAssignments?.length || 0);
-  if (lpAssignments && lpAssignments.length > 0) {
-    lpAssignments.forEach(lpa => {
-      console.log('    -', lpa.path?.name, '| Path ID:', lpa.path_id);
-    });
-  }
-  
-  // Check the learning path courses
-  const pathId = 'c47136ef-058b-4dd5-a2d9-2d470cfbe5e4';
-  const { data: pathCourses } = await supabase
-    .from('learning_path_courses')
-    .select(`
-      course_id,
-      sequence_order,
-      course:courses(title)
-    `)
-    .eq('learning_path_id', pathId)
-    .order('sequence_order');
-    
-  console.log('\n📖 COURSES IN "ELEMENTOS DEL PLAN PERSONAL":');
-  if (pathCourses && pathCourses.length > 0) {
-    pathCourses.forEach(pc => {
-      console.log(`    ${pc.sequence_order}. ${pc.course?.title}`);
-      console.log(`       Course ID: ${pc.course_id}`);
-    });
-    
-    // Check if Katherine is enrolled in these specific courses
-    const courseIds = pathCourses.map(pc => pc.course_id);
-    
-    const { data: pathEnrollments } = await supabase
-      .from('course_enrollments')
-      .select('course_id')
-      .eq('user_id', katherine.id)
-      .in('course_id', courseIds);
-      
-    console.log(`\n  Katherine enrolled in ${pathEnrollments?.length || 0}/${courseIds.length} of these courses`);
-    
-    // Check course assignments for these courses
-    const { data: pathAssignments } = await supabase
-      .from('course_assignments')
-      .select('course_id')
-      .eq('teacher_id', katherine.id)
-      .in('course_id', courseIds);
-      
-    console.log(`  Katherine assigned to ${pathAssignments?.length || 0}/${courseIds.length} of these courses`);
-  }
-  
-  // Overall Santa Marta stats
-  console.log('\n📊 SANTA MARTA DE TALCA STATISTICS:');
-  
-  const { count: totalUsers } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('school_id', 25);
-    
-  const { count: totalAssignments } = await supabase
-    .from('course_assignments')
-    .select('*', { count: 'exact', head: true })
-    .in('teacher_id', (await supabase.from('profiles').select('id').eq('school_id', 25)).data?.map(p => p.id) || []);
-    
-  console.log('  Total users with school_id=25:', totalUsers);
-  console.log('  Total course assignments for these users:', totalAssignments);
-  
-  console.log('\n🎯 DIAGNOSIS:');
-  if (assignmentCount === 0 && enrollmentCount === 0) {
-    console.log('  ❌ Katherine has NO course assignments or enrollments');
-    console.log('  This explains why she sees no courses');
-  } else if (assignmentCount > 0 && enrollmentCount === 0) {
-    console.log('  ⚠️ Katherine has assignments but no enrollments');
-    console.log('  Need to create enrollments from assignments');
-  } else if (assignmentCount === 0 && enrollmentCount > 0) {
-    console.log('  ⚠️ Katherine has enrollments but no assignments');
-    console.log('  Unusual state - enrollments without assignments');
-  } else {
-    console.log('  ✅ Katherine has both assignments and enrollments');
-    console.log('  She should be able to see courses');
+
+  // Now check if filtering by FNE returns these users
+  console.log('═══════════════════════════════════════════');
+  console.log('🔍 FILTER TEST: Users with FNE in user_roles');
+  console.log('═══════════════════════════════════════════\n');
+
+  const { data: fneRoleUsers } = await supabase
+    .from('user_roles')
+    .select('user_id, role_type, school_id')
+    .eq('school_id', fneSchool?.id)
+    .eq('is_active', true);
+
+  console.log(`Users with FNE in user_roles.school_id: ${fneRoleUsers?.length || 0}`);
+
+  for (const roleUser of fneRoleUsers || []) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, email')
+      .eq('id', roleUser.user_id)
+      .single();
+
+    if (profile) {
+      const isTestUser = testEmails.includes(profile.email);
+      console.log(`   ${profile.first_name} ${profile.last_name} (${profile.email})${isTestUser ? ' ⭐ SCREENSHOT USER' : ''}`);
+    }
   }
 }
 

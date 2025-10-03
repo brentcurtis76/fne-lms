@@ -86,7 +86,8 @@ export default function DetailedReports() {
   });
 
   // Table states
-  const [sortBy, setSortBy] = useState('last_activity');
+  // Default sort by activity_score to show most engaged users first
+  const [sortBy, setSortBy] = useState('activity_score');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
@@ -200,7 +201,7 @@ export default function DetailedReports() {
           filters,
           sort: { field: sortBy, order: sortOrder },
           pagination: { page: currentPage, limit: pageSize },
-          useSmartDefaults: currentPage === 1 && sortBy === 'last_activity_date' && sortOrder === 'desc', // Use smart defaults for initial load
+          useSmartDefaults: currentPage === 1 && sortBy === 'activity_score' && sortOrder === 'desc', // Use smart defaults for initial load
         }),
       });
 

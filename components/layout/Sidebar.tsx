@@ -223,22 +223,9 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     id: 'reports',
     label: 'Reportes',
     icon: ChartBarIcon,
+    href: '/detailed-reports',
     description: 'Análisis y reportes',
-    restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red'],
-    children: [
-      {
-        id: 'detailed-reports',
-        label: 'Reportes Detallados',
-        href: '/detailed-reports',
-        description: 'Análisis completo'
-      },
-      {
-        id: 'enhanced-reports',
-        label: 'Reportes Avanzados',
-        href: '/enhanced-reports',
-        description: 'Reportes mejorados'
-      }
-    ]
+    restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red']
   },
   {
     id: 'workspace',

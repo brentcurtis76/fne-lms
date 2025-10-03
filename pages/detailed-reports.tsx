@@ -554,6 +554,7 @@ export default function DetailedReports() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Escuela</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progreso</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Puntaje</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lecciones</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiempo</th>
                       </tr>
@@ -571,13 +572,16 @@ export default function DetailedReports() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                <div 
-                                  className="bg-blue-600 h-2 rounded-full" 
+                                <div
+                                  className="bg-blue-600 h-2 rounded-full"
                                   style={{ width: `${Math.min(100, userData.completion_percentage)}%` }}
                                 ></div>
                               </div>
                               <span className="text-sm text-gray-900">{userData.completion_percentage}%</span>
                             </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            {userData.activity_score || 0}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {userData.total_lessons_completed}
@@ -651,8 +655,19 @@ export default function DetailedReports() {
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Organización
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('completion_percentage')}>
                             Progreso
+                            {sortBy === 'completion_percentage' && (
+                              <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                            )}
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                              onClick={() => handleSort('activity_score')}>
+                            Puntaje de Actividad
+                            {sortBy === 'activity_score' && (
+                              <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                            )}
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Cursos
@@ -697,8 +712,8 @@ export default function DetailedReports() {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                  <div 
-                                    className="bg-blue-600 h-2 rounded-full" 
+                                  <div
+                                    className="bg-blue-600 h-2 rounded-full"
                                     style={{ width: `${Math.min(100, userData.completion_percentage)}%` }}
                                   ></div>
                                 </div>
@@ -706,6 +721,14 @@ export default function DetailedReports() {
                               </div>
                               <div className="text-xs text-gray-500 mt-1">
                                 {userData.total_lessons_completed} lecciones
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-semibold text-gray-900">
+                                {userData.activity_score || 0}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Lecciones + Tiempo + Recencia
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">

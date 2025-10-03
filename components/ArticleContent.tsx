@@ -191,6 +191,7 @@ export default function ArticleContent({ content }: ArticleContentProps) {
         .article-content p {
           margin-bottom: 1.5rem;
           color: #374151;
+          text-indent: 2rem;
         }
         
         .article-content h1,

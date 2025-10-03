@@ -104,9 +104,45 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
         });
     }
 
-    const userIds = reportableUsers;
+    let userIds = reportableUsers;
 
-    // Get user profile data with organizational info and apply filters
+    // FIX: Apply organizational filters using user_roles (source of truth)
+    if (filters) {
+      if (filters.school_id && filters.school_id !== 'all') {
+        const { data: schoolRoles } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('school_id', filters.school_id)
+          .eq('is_active', true);
+
+        const schoolUserIds = schoolRoles?.map(r => r.user_id) || [];
+        userIds = userIds.filter(id => schoolUserIds.includes(id));
+      }
+
+      if (filters.generation_id && filters.generation_id !== 'all') {
+        const { data: generationRoles } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('generation_id', filters.generation_id)
+          .eq('is_active', true);
+
+        const generationUserIds = generationRoles?.map(r => r.user_id) || [];
+        userIds = userIds.filter(id => generationUserIds.includes(id));
+      }
+
+      if (filters.community_id && filters.community_id !== 'all') {
+        const { data: communityRoles } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('community_id', filters.community_id)
+          .eq('is_active', true);
+
+        const communityUserIds = communityRoles?.map(r => r.user_id) || [];
+        userIds = userIds.filter(id => communityUserIds.includes(id));
+      }
+    }
+
+    // Get user profile data for display
     let profileQuery = supabase
       .from('profiles')
       .select(`
@@ -120,21 +156,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
       `)
       .in('id', userIds);
 
-    // Apply filters from frontend
-    if (filters) {
-      if (filters.school_id && filters.school_id !== 'all') {
-        profileQuery = profileQuery.eq('school_id', filters.school_id);
-      }
-      if (filters.generation_id && filters.generation_id !== 'all') {
-        profileQuery = profileQuery.eq('generation_id', filters.generation_id);
-      }
-      if (filters.community_id && filters.community_id !== 'all') {
-        profileQuery = profileQuery.eq('community_id', filters.community_id);
-      }
-      if (filters.search && filters.search.trim()) {
-        const searchTerm = `%${filters.search.trim()}%`;
-        profileQuery = profileQuery.or(`first_name.ilike.${searchTerm},last_name.ilike.${searchTerm},email.ilike.${searchTerm}`);
-      }
+    // Apply search filter on profiles (names/email)
+    if (filters?.search && filters.search.trim()) {
+      const searchTerm = `%${filters.search.trim()}%`;
+      profileQuery = profileQuery.or(`first_name.ilike.${searchTerm},last_name.ilike.${searchTerm},email.ilike.${searchTerm}`);
     }
 
     const { data: userProfiles, error: profilesError } = await profileQuery;
@@ -416,51 +441,69 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
       return assignments?.map(a => a.student_id) || [];
     } else if (userRole === 'equipo_directivo') {
       // School leadership can see users from their school
-      const { data: requesterProfile } = await supabase
-        .from('profiles')
+      // FIX: Use user_roles as source of truth for school assignments
+      const { data: requesterRoles } = await supabase
+        .from('user_roles')
         .select('school_id')
-        .eq('id', userId)
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .not('school_id', 'is', null)
+        .limit(1)
         .single();
-      
-      if (requesterProfile?.school_id) {
-        const { data: schoolUsers } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('school_id', requesterProfile.school_id);
-        
-        return schoolUsers?.map(u => u.id) || [];
+
+      if (requesterRoles?.school_id) {
+        const { data: schoolUserRoles } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('school_id', requesterRoles.school_id)
+          .eq('is_active', true);
+
+        // Return unique user IDs
+        return [...new Set(schoolUserRoles?.map(r => r.user_id) || [])];
       }
     } else if (userRole === 'lider_generacion') {
       // Generation leaders can see users from their generation
-      const { data: requesterProfile } = await supabase
-        .from('profiles')
+      // FIX: Use user_roles as source of truth for generation assignments
+      const { data: requesterRoles } = await supabase
+        .from('user_roles')
         .select('generation_id')
-        .eq('id', userId)
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .not('generation_id', 'is', null)
+        .limit(1)
         .single();
-      
-      if (requesterProfile?.generation_id) {
-        const { data: generationUsers } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('generation_id', requesterProfile.generation_id);
-        
-        return generationUsers?.map(u => u.id) || [];
+
+      if (requesterRoles?.generation_id) {
+        const { data: generationUserRoles } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('generation_id', requesterRoles.generation_id)
+          .eq('is_active', true);
+
+        // Return unique user IDs
+        return [...new Set(generationUserRoles?.map(r => r.user_id) || [])];
       }
     } else if (userRole === 'lider_comunidad') {
       // Community leaders can see users from their community
-      const { data: requesterProfile } = await supabase
-        .from('profiles')
+      // FIX: Use user_roles as source of truth for community assignments
+      const { data: requesterRoles } = await supabase
+        .from('user_roles')
         .select('community_id')
-        .eq('id', userId)
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .not('community_id', 'is', null)
+        .limit(1)
         .single();
-      
-      if (requesterProfile?.community_id) {
-        const { data: communityUsers } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('community_id', requesterProfile.community_id);
-        
-        return communityUsers?.map(u => u.id) || [];
+
+      if (requesterRoles?.community_id) {
+        const { data: communityUserRoles } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('community_id', requesterRoles.community_id)
+          .eq('is_active', true);
+
+        // Return unique user IDs
+        return [...new Set(communityUserRoles?.map(r => r.user_id) || [])];
       }
     } else if (userRole === 'supervisor_de_red') {
       // Network supervisors can see users from schools in their network
@@ -468,15 +511,18 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
         .from('red_escuelas')
         .select('school_id')
         .eq('supervisor_id', userId);
-      
+
       if (networkSchools && networkSchools.length > 0) {
         const schoolIds = networkSchools.map(ns => ns.school_id);
-        const { data: networkUsers } = await supabase
-          .from('profiles')
-          .select('id')
-          .in('school_id', schoolIds);
-        
-        return networkUsers?.map(u => u.id) || [];
+        // FIX: Use user_roles to get users from these schools
+        const { data: networkUserRoles } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .in('school_id', schoolIds)
+          .eq('is_active', true);
+
+        // Return unique user IDs
+        return [...new Set(networkUserRoles?.map(r => r.user_id) || [])];
       }
     }
     

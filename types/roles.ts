@@ -28,7 +28,9 @@ export interface Generation {
   school_id: string;
   name: string; // 'Tractor' or 'Innova'
   grade_range?: string; // e.g., 'PreK-2nd' or '3rd-12th'
+  description?: string; // Optional description for the generation
   created_at?: string;
+  updated_at?: string;
   school?: School;
 }
 

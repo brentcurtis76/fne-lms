@@ -57,6 +57,18 @@ export default function RoleAssignmentModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showNewRoleForm, setShowNewRoleForm] = useState(false);
 
+  const normalizeId = (value: string | number | null | undefined) =>
+    value === null || value === undefined ? '' : String(value);
+
+  const idsEqual = (a: string | number | null | undefined, b: string) =>
+    b !== '' && normalizeId(a) === b;
+
+  const findSchoolById = (id: string) =>
+    id ? schools.find((school) => idsEqual(school.id, id)) : undefined;
+
+  const getGenerationsForSchool = (id: string) =>
+    id ? generations.filter((generation) => idsEqual(generation.school_id, id)) : [];
+
   // Available role types
   const availableRoles: UserRoleType[] = [
     'admin',
@@ -156,7 +168,7 @@ export default function RoleAssignmentModal({
 
       // Validation: Don't allow generation leader role for schools without generations
       if (selectedRole === 'lider_generacion' && selectedSchool) {
-        const school = schools.find(s => s.id === selectedSchool);
+        const school = findSchoolById(selectedSchool);
         if (school?.has_generations === false) {
           toast.error('No se puede asignar Líder de Generación en escuelas sin generaciones');
           setLoading(false);
@@ -166,8 +178,8 @@ export default function RoleAssignmentModal({
 
       // Validation: Community leader role requires generation for schools with generations
       if (selectedRole === 'lider_comunidad' && selectedSchool) {
-        const school = schools.find(s => s.id === selectedSchool);
-        const schoolGenerations = generations.filter(gen => gen.school_id === selectedSchool);
+        const school = findSchoolById(selectedSchool);
+        const schoolGenerations = getGenerationsForSchool(selectedSchool);
         const schoolHasGenerations = school?.has_generations === true;
         
         if (schoolHasGenerations && !selectedGeneration) {
@@ -281,9 +293,9 @@ export default function RoleAssignmentModal({
     setIsViewing(false);
     setSelectedRoleForView(null);
     setSelectedRole(role.role_type);
-    setSelectedSchool(role.school_id || '');
-    setSelectedGeneration(role.generation_id || '');
-    setSelectedCommunity(role.community_id || '');
+    setSelectedSchool(normalizeId(role.school_id));
+    setSelectedGeneration(normalizeId(role.generation_id));
+    setSelectedCommunity(normalizeId(role.community_id));
   };
 
   const handleStartNewRole = () => {
@@ -613,7 +625,7 @@ export default function RoleAssignmentModal({
                               >
                                 <option value="">{selectedRole === 'admin' ? 'Sin colegio específico' : 'Seleccionar colegio'}</option>
                                 {schools.map((school) => (
-                                  <option key={school.id} value={school.id}>
+                                  <option key={normalizeId(school.id)} value={normalizeId(school.id)}>
                                     {school.name}
                                   </option>
                                 ))}
@@ -629,8 +641,8 @@ export default function RoleAssignmentModal({
                             {(['lider_generacion', 'lider_comunidad'].includes(selectedRole)) && (
                               <div>
                                 {(() => {
-                                  const school = schools.find(s => s.id === selectedSchool);
-                                  const schoolGenerations = generations.filter(gen => gen.school_id === selectedSchool);
+                                  const school = findSchoolById(selectedSchool);
+                                  const schoolGenerations = getGenerationsForSchool(selectedSchool);
                                   const schoolHasGenerations = school?.has_generations === true;
                                   const isRequired = selectedRole === 'lider_comunidad' && schoolHasGenerations;
                                   const cannotAssignGenLeader = selectedRole === 'lider_generacion' && selectedSchool && !schoolHasGenerations;
@@ -671,7 +683,7 @@ export default function RoleAssignmentModal({
                                               {isRequired ? 'Seleccionar generación (requerido)' : 'Seleccionar generación'}
                                             </option>
                                             {schoolGenerations.map((generation) => (
-                                              <option key={generation.id} value={generation.id}>
+                                              <option key={normalizeId(generation.id)} value={normalizeId(generation.id)}>
                                                 {generation.name} ({generation.grade_range})
                                               </option>
                                             ))}
@@ -716,31 +728,20 @@ export default function RoleAssignmentModal({
                                     <option value="">Sin asignar a comunidad específica</option>
                                     {availableCommunities
                                       .filter(comm => {
-                                        // If a school is selected, filter by school
-                                        // Convert selectedSchool to integer to match database type
-                                        if (selectedSchool) {
-                                          const schoolIdInt = parseInt(selectedSchool);
-                                          if (!isNaN(schoolIdInt)) {
-                                            const schoolMatch = comm.school_id === schoolIdInt;
-                                            if (!schoolMatch) return false;
-                                          } else {
-                                            // If selectedSchool is not a valid integer, no match
-                                            return false;
-                                          }
+                                        if (selectedSchool && !idsEqual(comm.school_id, selectedSchool)) {
+                                          return false;
                                         }
-                                        
-                                        // If a generation is selected AND the school has generations, filter by generation
-                                        if (selectedGeneration) {
-                                          const generationMatch = comm.generation_id === selectedGeneration;
-                                          if (!generationMatch) return false;
+
+                                        if (selectedGeneration && !idsEqual(comm.generation_id, selectedGeneration)) {
+                                          return false;
                                         }
-                                        
+
                                         // If no generation is selected but school is selected, 
                                         // show all communities for that school (including those without generations)
                                         return true;
                                       })
                                       .map((community) => (
-                                        <option key={community.id} value={community.id}>
+                                        <option key={normalizeId(community.id)} value={normalizeId(community.id)}>
                                           {community.name}
                                         </option>
                                       ))}
@@ -774,8 +775,8 @@ export default function RoleAssignmentModal({
                           ) : showNewRoleForm ? (
                             (() => {
                               // Check if form is valid for submission
-                              const school = schools.find(s => s.id === selectedSchool);
-                              const schoolGenerations = generations.filter(gen => gen.school_id === selectedSchool);
+                              const school = findSchoolById(selectedSchool);
+                              const schoolGenerations = getGenerationsForSchool(selectedSchool);
                               const schoolHasGenerations = school?.has_generations === true;
                               
                               // Validation rules

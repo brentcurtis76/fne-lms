@@ -27,6 +27,7 @@ export default function Dashboard() {
   const [userRole, setUserRole] = useState<string>('');
   const [allCourses, setAllCourses] = useState<any[]>([]);
   const [myCourses, setMyCourses] = useState<any[]>([]);
+  const [learningPaths, setLearningPaths] = useState<any[]>([]);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [communityMembers, setCommunityMembers] = useState<Record<string, UserProfile[]>>({});
   const [searchQuery, setSearchQuery] = useState('');
@@ -282,10 +283,115 @@ export default function Dashboard() {
                   setMyCourses([]);
                 }
               }
+
+              // Fetch learning paths for all users (admin and non-admin)
+              if (userData?.user?.id) {
+                try {
+                  const response = await fetch('/api/learning-paths/my-paths', {
+                    headers: {
+                      'Content-Type': 'application/json',
+                    },
+                  });
+
+                  if (response.ok) {
+                    const pathsData = await response.json();
+                    // API returns array directly, not wrapped in {paths: []}
+                    const paths = Array.isArray(pathsData) ? pathsData : [];
+                    setLearningPaths(paths);
+                    console.log('Learning paths loaded:', paths.length);
+
+                    // Fetch courses from learning paths and add to allCourses
+                    if (paths.length > 0 && !isAdminUser) {
+                      const pathCourseIds = new Set<string>();
+
+                      // Get all course IDs from learning paths
+                      for (const path of paths) {
+                        const { data: pathCoursesData } = await supabase
+                          .from('learning_path_courses')
+                          .select('course_id')
+                          .eq('learning_path_id', path.id);
+
+                        if (pathCoursesData) {
+                          pathCoursesData.forEach(pc => pathCourseIds.add(pc.course_id));
+                        }
+                      }
+
+                      if (pathCourseIds.size > 0) {
+                        // Fetch course details for all courses in learning paths
+                        const { data: learningPathCourses } = await supabase
+                          .from('courses')
+                          .select(`
+                            *,
+                            instructors(full_name)
+                          `)
+                          .in('id', Array.from(pathCourseIds));
+
+                        if (learningPathCourses) {
+                          // Fetch enrollment data for these courses
+                          const { data: enrollments } = await supabase
+                            .from('course_enrollments')
+                            .select('course_id, progress_percentage, is_completed, enrolled_at')
+                            .eq('user_id', userData.user.id)
+                            .in('course_id', Array.from(pathCourseIds));
+
+                          // Create enrollment map for quick lookup
+                          const enrollmentMap = new Map();
+                          if (enrollments) {
+                            enrollments.forEach(e => {
+                              enrollmentMap.set(e.course_id, e);
+                            });
+                          }
+
+                          const formattedLPCourses = learningPathCourses.map(course => {
+                            const enrollment = enrollmentMap.get(course.id);
+                            return {
+                              ...course,
+                              // @ts-ignore
+                              instructor_name: course.instructors?.full_name || 'Sin instructor',
+                              // @ts-ignore
+                              thumbnail_url: (course.thumbnail_url && course.thumbnail_url !== 'default-thumbnail.png') ? course.thumbnail_url : null,
+                              from_learning_path: true, // Flag to identify source
+                              // Add enrollment data for filtering
+                              progress_percentage: enrollment?.progress_percentage || 0,
+                              is_completed: enrollment?.is_completed || false,
+                              enrolled_at: enrollment?.enrolled_at || null
+                            };
+                          });
+
+                          // Merge with existing courses, avoiding duplicates
+                          setAllCourses(prevCourses => {
+                            const courseMap = new Map();
+
+                            // Add existing courses first
+                            prevCourses.forEach(course => courseMap.set(course.id, course));
+
+                            // Add learning path courses (won't override if already exists)
+                            formattedLPCourses.forEach(course => {
+                              if (!courseMap.has(course.id)) {
+                                courseMap.set(course.id, course);
+                              }
+                            });
+
+                            return Array.from(courseMap.values());
+                          });
+
+                          console.log('Learning path courses added:', formattedLPCourses.length);
+                        }
+                      }
+                    }
+                  } else {
+                    console.error('Failed to fetch learning paths:', response.status);
+                    setLearningPaths([]);
+                  }
+                } catch (error) {
+                  console.error('Error fetching learning paths:', error);
+                  setLearningPaths([]);
+                }
+              }
             }
           }
         }
-        
+
         setLoading(false);
       } catch (error) {
         console.error('Error in checkSession:', error);
@@ -396,6 +502,7 @@ export default function Dashboard() {
                             <span key={role.id} className="inline-block bg-brand_yellow text-brand_blue px-2 py-1 rounded-full text-xs font-medium">
                               {role.role_type === 'admin' && 'Administrador Global'}
                               {role.role_type === 'consultor' && 'Consultor FNE'}
+                              {role.role_type === 'community_manager' && 'Community Manager'}
                               {role.role_type === 'equipo_directivo' && 'Equipo Directivo'}
                               {role.role_type === 'lider_generacion' && 'Líder de Generación'}
                               {role.role_type === 'lider_comunidad' && 'Líder de Comunidad'}
@@ -652,6 +759,25 @@ export default function Dashboard() {
                 {/* Teacher-specific actions */}
                 {!isAdmin && (
                   <>
+                    {learningPaths.length > 0 && filterQuickActionsBySearch({ title: 'Mis Rutas de Aprendizaje', description: 'Rutas estructuradas' }) && (
+                      <Link
+                        href="#mis-rutas"
+                        className="block p-6 bg-white rounded-lg shadow-md border-l-4 border-brand_yellow hover:shadow-lg hover:border-l-brand_yellow transition-all duration-200"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          document.getElementById('mis-rutas')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                      >
+                        <div className="flex items-center gap-3 mb-2">
+                          <svg className="w-6 h-6 text-brand_yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                          </svg>
+                          <h3 className="text-lg font-semibold text-brand_blue">Mis Rutas de Aprendizaje</h3>
+                        </div>
+                        <p className="text-sm text-gray-600">{learningPaths.length} {learningPaths.length === 1 ? 'ruta asignada' : 'rutas asignadas'}</p>
+                      </Link>
+                    )}
+
                     {filterQuickActionsBySearch({ title: 'Todos mis cursos', description: 'Ver todos los cursos' }) && (
                       <Link
                         href="#todos-mis-cursos"
@@ -676,7 +802,7 @@ export default function Dashboard() {
                         }}
                       >
                         <h3 className="text-lg font-semibold mb-2 text-brand_blue">Cursos Abiertos</h3>
-                        <p className="text-sm text-gray-600">Cursos en progreso ({allCourses.length})</p>
+                        <p className="text-sm text-gray-600">Cursos en progreso ({allCourses.filter(c => !c.is_completed && (c.enrolled_at || c.progress_percentage > 0)).length})</p>
                       </Link>
                     )}
 
@@ -690,13 +816,85 @@ export default function Dashboard() {
                         }}
                       >
                         <h3 className="text-lg font-semibold mb-2 text-brand_blue">Cursos Finalizados</h3>
-                        <p className="text-sm text-gray-600">Cursos completados (0)</p>
+                        <p className="text-sm text-gray-600">Cursos completados ({allCourses.filter(c => c.is_completed === true).length})</p>
                       </Link>
                     )}
                   </>
                 )}
               </div>
             </div>
+
+            {/* Learning Paths Section - All Users */}
+            {learningPaths.length > 0 && (
+              <div id="mis-rutas" className="mb-8">
+                <h2 className="text-xl font-semibold mb-4 text-brand_blue">Mis Rutas de Aprendizaje ({learningPaths.length})</h2>
+                <p className="text-gray-600 mb-4">Rutas de aprendizaje estructuradas asignadas a ti</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                  {learningPaths.map((path) => (
+                    <div key={path.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl border-l-4 border-brand_yellow">
+                      <Link href={`/mi-aprendizaje/ruta/${path.id}`} legacyBehavior>
+                        <a className="block group p-6">
+                          {/* Header */}
+                          <div className="flex items-start justify-between mb-4">
+                            <div className="flex-1">
+                              <h3 className="text-lg font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150">
+                                {path.name}
+                              </h3>
+                              <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                                {path.description || 'Ruta de aprendizaje'}
+                              </p>
+                            </div>
+                            <svg className="w-8 h-8 text-brand_yellow flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                            </svg>
+                          </div>
+
+                          {/* Progress */}
+                          {path.progress && (
+                            <div className="mb-4">
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-sm font-medium text-gray-700">Progreso</span>
+                                <span className="text-sm text-gray-500">
+                                  {path.progress.completed_courses || 0} de {path.progress.total_courses || 0} cursos
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-brand_yellow h-2 rounded-full transition-all duration-300"
+                                  style={{ width: `${path.progress.progress_percentage || 0}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-gray-500 mt-1 block">
+                                {path.progress.progress_percentage || 0}% completado
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Course Count Badge */}
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
+                            </svg>
+                            <span>{path.progress?.total_courses || 0} {(path.progress?.total_courses || 0) === 1 ? 'curso' : 'cursos'}</span>
+                          </div>
+                        </a>
+                      </Link>
+
+                      {/* Action Button */}
+                      <div className="p-4 bg-gray-50 border-t border-gray-200 mt-auto">
+                        <Link
+                          href={`/mi-aprendizaje/ruta/${path.id}`}
+                          className="block text-center px-4 py-2 bg-brand_yellow text-brand_blue rounded hover:bg-brand_blue hover:text-white transition-colors text-sm font-medium"
+                        >
+                          Continuar Ruta
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* My Courses Section - Admin Only */}
             {isAdmin && (
@@ -849,12 +1047,16 @@ export default function Dashboard() {
 
                 {/* Cursos Abiertos - Teacher */}
                 <div id="cursos-abiertos" className="mb-8">
-                  <h2 className="text-xl font-semibold mb-4 text-brand_blue">Cursos Abiertos ({allCourses.length})</h2>
-                  <p className="text-gray-600 mb-4">Cursos que estás cursando actualmente</p>
-                  
-                  {allCourses.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                      {filterCoursesBySearch(allCourses).map((course) => (
+                  {(() => {
+                    const openCourses = allCourses.filter(c => !c.is_completed && (c.enrolled_at || c.progress_percentage > 0));
+                    return (
+                      <>
+                        <h2 className="text-xl font-semibold mb-4 text-brand_blue">Cursos Abiertos ({openCourses.length})</h2>
+                        <p className="text-gray-600 mb-4">Cursos que estás cursando actualmente</p>
+
+                        {openCourses.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                            {filterCoursesBySearch(openCourses).map((course) => (
                         <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl border-l-4 border-brand_yellow">
                           <Link href={`/student/course/${course.id}`} legacyBehavior>
                             <a className="block group">
@@ -910,23 +1112,102 @@ export default function Dashboard() {
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <div className="text-center py-8 bg-brand_beige border border-brand_blue/20 rounded-lg">
-                      <p className="text-brand_blue mb-2">No tienes cursos en progreso.</p>
-                      <p className="text-gray-600 text-sm">Los cursos aparecerán aquí cuando comiences a estudiar.</p>
-                    </div>
-                  )}
+                          ) : (
+                            <div className="text-center py-8 bg-brand_beige border border-brand_blue/20 rounded-lg">
+                              <p className="text-brand_blue mb-2">No tienes cursos en progreso.</p>
+                              <p className="text-gray-600 text-sm">Los cursos aparecerán aquí cuando comiences a estudiar.</p>
+                            </div>
+                          )}
+                      </>
+                    );
+                  })()}
                 </div>
 
                 {/* Cursos Finalizados - Teacher */}
                 <div id="cursos-finalizados" className="mb-8">
-                  <h2 className="text-xl font-semibold mb-4 text-brand_blue">Cursos Finalizados (0)</h2>
-                  <p className="text-gray-600 mb-4">Cursos que has completado exitosamente</p>
-                  
-                  <div className="text-center py-8 bg-brand_beige border border-brand_blue/20 rounded-lg">
-                    <p className="text-brand_blue mb-2">No has completado ningún curso aún.</p>
-                    <p className="text-gray-600 text-sm">Los cursos completados aparecerán aquí con tu certificado de finalización.</p>
-                  </div>
+                  {(() => {
+                    const finishedCourses = allCourses.filter(c => c.is_completed === true);
+                    return (
+                      <>
+                        <h2 className="text-xl font-semibold mb-4 text-brand_blue">Cursos Finalizados ({finishedCourses.length})</h2>
+                        <p className="text-gray-600 mb-4">Cursos que has completado exitosamente</p>
+
+                        {finishedCourses.length > 0 ? (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                            {filterCoursesBySearch(finishedCourses).map((course) => (
+                              <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl border-l-4 border-green-500">
+                                <Link href={`/student/course/${course.id}`} legacyBehavior>
+                                  <a className="block group">
+                                    {/* Thumbnail Section */}
+                                    <div className="aspect-[16/9] w-full bg-brand_blue/5 flex items-center justify-center">
+                                      {course.thumbnail_url ? (
+                                        <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                                      ) : (
+                                        <svg className="w-16 h-16 text-brand_blue/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                                        </svg>
+                                      )}
+                                    </div>
+                                    {/* Content Section */}
+                                    <div className="p-5 md:p-6 flex-grow">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
+                                          {course.title}
+                                        </h2>
+                                        <div className="flex items-center gap-2">
+                                          <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                                            course.structure_type === 'simple'
+                                              ? 'bg-green-100 text-green-800'
+                                              : 'bg-blue-100 text-blue-800'
+                                          }`}>
+                                            {course.structure_type === 'simple' ? 'Simple' : 'Modular'}
+                                          </span>
+                                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium flex items-center gap-1">
+                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                            Completado
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <p className="mt-2 text-sm text-gray-600 line-clamp-3 h-[3.75em]">
+                                        {course.description || 'Sin descripción'}
+                                      </p>
+                                      <p className="mt-3 text-xs text-gray-500">
+                                        Instructor: {course.instructor_name || 'Sin instructor'}
+                                      </p>
+                                      <div className="mt-3">
+                                        <div className="w-full bg-gray-200 rounded-full h-2">
+                                          <div className="bg-green-500 h-2 rounded-full" style={{ width: '100%' }} />
+                                        </div>
+                                        <p className="text-xs text-green-600 font-medium mt-1">100% completado</p>
+                                      </div>
+                                    </div>
+                                  </a>
+                                </Link>
+                                {/* Action Buttons */}
+                                <div className="p-4 md:p-5 bg-gray-50 border-t border-gray-200 mt-auto">
+                                  <div className="flex space-x-2">
+                                    <Link
+                                      href={`/student/course/${course.id}`}
+                                      className="w-full text-center px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-sm font-medium"
+                                    >
+                                      Ver Curso
+                                    </Link>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 bg-brand_beige border border-brand_blue/20 rounded-lg">
+                            <p className="text-brand_blue mb-2">No has completado ningún curso aún.</p>
+                            <p className="text-gray-600 text-sm">Los cursos completados aparecerán aquí con tu certificado de finalización.</p>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               </>
             )}

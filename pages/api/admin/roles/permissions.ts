@@ -122,10 +122,37 @@ export default async function handler(
       .eq('user_id', user.id)
       .single();
 
-    // For now, return mock data (Phase 0 - read only)
-    // In Phase 2, this will query actual permissions
+    // Phase 2: Query actual permissions from database
+    const { data: permissionsData, error: permsError } = await supabaseAdmin
+      .from('role_permissions')
+      .select('role_type, permission_key, granted')
+      .eq('is_test', false)
+      .eq('active', true);
+
+    if (permsError) {
+      console.error('Error fetching permissions:', permsError);
+      // Fallback to mock data if database query fails
+      return res.status(200).json({
+        permissions: mockPermissions,
+        is_mock: true,
+        test_mode: testMode?.enabled || false,
+        test_run_id: testMode?.test_run_id || null,
+        error: 'Failed to load permissions from database'
+      });
+    }
+
+    // Transform flat permission list into nested object structure
+    const permissions: { [role: string]: { [permission: string]: boolean } } = {};
+
+    for (const perm of permissionsData || []) {
+      if (!permissions[perm.role_type]) {
+        permissions[perm.role_type] = {};
+      }
+      permissions[perm.role_type][perm.permission_key] = perm.granted;
+    }
+
     return res.status(200).json({
-      permissions: mockPermissions,
+      permissions,
       is_mock: false,
       test_mode: testMode?.enabled || false,
       test_run_id: testMode?.test_run_id || null

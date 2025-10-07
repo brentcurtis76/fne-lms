@@ -36,6 +36,7 @@ import { CalendarIcon } from '@heroicons/react/solid';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
 import { navigationManager } from '../../utils/navigationManager';
 import { isFeatureEnabled } from '../../lib/featureFlags';
+import { usePermissions } from '../../contexts/PermissionContext';
 
 interface SidebarProps {
   user: User | null;
@@ -59,6 +60,8 @@ interface NavigationItem {
   consultantOnly?: boolean;
   superadminOnly?: boolean;
   restrictedRoles?: string[];
+  permission?: string | string[]; // Required permission(s)
+  requireAllPermissions?: boolean; // If true, require ALL permissions (AND logic)
   children?: NavigationChild[];
   isExpanded?: boolean;
 }
@@ -69,6 +72,8 @@ interface NavigationChild {
   href: string;
   description?: string;
   adminOnly?: boolean;
+  permission?: string | string[]; // Required permission(s)
+  requireAllPermissions?: boolean;
   icon?: React.ComponentType<any>;
 }
 
@@ -108,7 +113,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: BookOpenIcon,
     href: '/admin/course-builder',
     description: 'Gestión de cursos',
-    restrictedRoles: ['admin'] // Only admin should access course-builder
+    permission: ['view_courses_all', 'view_courses_school', 'view_courses_own']
   },
   {
     id: 'news',
@@ -116,7 +121,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: NewspaperIcon,
     href: '/admin/news',
     description: 'Gestión de noticias y artículos',
-    restrictedRoles: ['admin', 'consultor', 'community_manager']
+    permission: 'view_news_all'
   },
   {
     id: 'events',
@@ -124,7 +129,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: CalendarIcon,
     href: '/admin/events',
     description: 'Gestión de eventos y línea de tiempo',
-    restrictedRoles: ['admin', 'community_manager']
+    permission: 'view_events_all'
   },
   {
     id: 'learning-paths',
@@ -132,7 +137,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: MapIcon,
     href: '/admin/learning-paths',
     description: 'Gestión de rutas de aprendizaje',
-    restrictedRoles: ['admin', 'equipo_directivo', 'consultor']
+    permission: ['view_learning_paths_all', 'view_learning_paths_school', 'view_learning_paths_own']
   },
   {
     id: 'users',
@@ -140,7 +145,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: UsersIcon,
     href: '/admin/user-management',
     description: 'Administrar usuarios',
-    adminOnly: true
+    permission: ['view_users_all', 'view_users_school', 'view_users_network']
   },
   {
     id: 'schools',
@@ -148,7 +153,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: OfficeBuildingIcon,
     href: '/admin/schools',
     description: 'Gestión de escuelas y generaciones',
-    adminOnly: true
+    permission: ['view_schools_all', 'view_schools_network']
   },
   {
     id: 'networks',
@@ -156,21 +161,21 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: NetworkIcon,
     href: '/admin/network-management',
     description: 'Gestión de redes y supervisores',
-    adminOnly: true
+    permission: 'manage_networks'
   },
   {
     id: 'consultants',
     label: 'Consultorías',
     icon: UserIcon,
     description: 'Gestión de consultorías',
-    restrictedRoles: ['admin', 'consultor'],
+    permission: 'view_consultants_all',
     children: [
       {
         id: 'consultant-assignments',
         label: 'Asignación de Consultores',
         href: '/admin/consultant-assignments',
         description: 'Gestionar asignaciones',
-        adminOnly: true
+        permission: 'assign_consultants_all'
       },
       {
         id: 'assignment-overview',
@@ -186,14 +191,15 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Gestión',
     icon: ClipboardDocumentListIcon,
     description: 'Gestión empresarial',
-    restrictedRoles: ['admin', 'community_manager'],
+    permission: ['view_contracts_all', 'view_internship_proposals_all', 'view_expense_reports_all'],
     children: [
       {
         id: 'contracts',
         label: 'Contratos',
         href: '/contracts',
         description: 'Gestión de contratos',
-        icon: DocumentTextIcon
+        icon: DocumentTextIcon,
+        permission: 'view_contracts_all'
       },
       {
         id: 'quotes',
@@ -201,21 +207,23 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/admin/quotes',
         description: 'Cotizaciones Barcelona',
         icon: DocumentTextIcon,
-        restrictedRoles: ['admin', 'community_manager']
+        permission: 'view_internship_proposals_all'
       },
       {
         id: 'expense-reports',
         label: 'Rendición de Gastos',
         href: '/expense-reports',
         description: 'Reportes de gastos',
-        icon: CurrencyDollarIcon
+        icon: CurrencyDollarIcon,
+        permission: 'view_expense_reports_all'
       },
       {
         id: 'feedback',
         label: 'Soporte Técnico',
         href: '/admin/feedback',
         description: 'Gestión de errores y solicitudes',
-        icon: BugIcon
+        icon: BugIcon,
+        permission: 'manage_system_settings'
       }
     ]
   },
@@ -225,7 +233,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: ChartBarIcon,
     href: '/detailed-reports',
     description: 'Análisis y reportes',
-    restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red']
+    permission: ['view_reports_all', 'view_reports_network', 'view_reports_school', 'view_reports_generation', 'view_reports_community']
   },
   {
     id: 'workspace',
@@ -244,7 +252,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         label: 'Gestión Comunidades',
         href: '/community/workspace?section=communities',
         description: 'Administrar comunidades',
-        adminOnly: true
+        permission: 'manage_communities_all'
       }
     ]
   },
@@ -254,7 +262,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: CogIcon,
     href: '/admin/configuration',
     description: 'Configuración del sistema',
-    adminOnly: true
+    permission: 'manage_system_settings'
   },
   {
     id: 'rbac',
@@ -262,8 +270,8 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: UserGroupIcon,
     href: '/admin/role-management',
     description: 'Gestión de roles y permisos',
-    adminOnly: true,
-    superadminOnly: true  // Will be filtered based on feature flag
+    superadminOnly: true,
+    permission: 'manage_permissions'
   }
 ];
 
@@ -280,8 +288,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 }) => {
   const supabase = useSupabaseClient();
   const router = useRouter();
+  const { hasPermission, hasAnyPermission, hasAllPermissions, loading: permissionsLoading } = usePermissions();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [newFeedbackCount, setNewFeedbackCount] = useState(0);
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
+  const [superadminCheckDone, setSuperadminCheckDone] = useState(false);
 
   const fetchNewFeedbackCount = useCallback(async () => {
     try {
@@ -297,6 +308,34 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       console.error('Error fetching feedback count:', error);
     }
   }, [supabase]);
+
+  // Check if user is superadmin
+  useEffect(() => {
+    const checkSuperadmin = async () => {
+      if (!user || !isAdmin) {
+        setIsSuperadmin(false);
+        setSuperadminCheckDone(true);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('superadmins')
+          .select('is_active')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .single();
+
+        setIsSuperadmin(!error && !!data);
+      } catch (error) {
+        setIsSuperadmin(false);
+      } finally {
+        setSuperadminCheckDone(true);
+      }
+    };
+
+    checkSuperadmin();
+  }, [user, isAdmin, supabase]);
 
   // Fetch new feedback count for admins
   useEffect(() => {
@@ -361,7 +400,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   }, []);
 
   const filteredNavigationItems = useMemo(() => {
-    console.log('Sidebar: Filtering items, isAdmin:', isAdmin, 'userRole:', userRole);
+    console.log('Sidebar: Filtering items, isAdmin:', isAdmin, 'userRole:', userRole, 'permissionsLoading:', permissionsLoading, 'isSuperadmin:', isSuperadmin, 'superadminCheckDone:', superadminCheckDone);
     return NAVIGATION_ITEMS.filter(item => {
       // Check superadmin-only items (RBAC feature)
       if (item.superadminOnly) {
@@ -369,23 +408,26 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         if (!isFeatureEnabled('FEATURE_SUPERADMIN_RBAC')) {
           return false;
         }
-        // Will check actual superadmin status in Phase 2
-        // For now, just require admin role
-        if (!isAdmin) {
+        // Hide RBAC menu until superadmin check is complete
+        if (!superadminCheckDone) {
+          return false;
+        }
+        // Only show to actual superadmins
+        if (!isSuperadmin) {
           return false;
         }
       }
-      
+
       // Check admin-only items
       if (item.adminOnly && !isAdmin) {
         return false;
       }
-      
+
       // Check consultant-only items
       if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
         return false;
       }
-      
+
       // Check restricted roles - user must have specific role listed
       if (item.restrictedRoles && item.restrictedRoles.length > 0) {
         if (item.id === 'events') {
@@ -407,10 +449,34 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
           return false;
         }
       }
-      
+
+      // Check RBAC permissions (admins bypass)
+      // Don't show items while loading to prevent security risk
+      if (item.permission && !isAdmin) {
+        if (Array.isArray(item.permission)) {
+          // Multiple permissions - check if user has ANY (OR logic by default)
+          if (item.requireAllPermissions) {
+            // Require ALL permissions (AND logic)
+            if (!hasAllPermissions(item.permission)) {
+              return false;
+            }
+          } else {
+            // Require ANY permission (OR logic)
+            if (!hasAnyPermission(item.permission)) {
+              return false;
+            }
+          }
+        } else {
+          // Single permission
+          if (!hasPermission(item.permission)) {
+            return false;
+          }
+        }
+      }
+
       return true;
     });
-  }, [isAdmin, userRole]);
+  }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone]);
 
   const SidebarItem: React.FC<{ item: NavigationItem }> = React.memo(({ item }) => {
     const [showCollapsedMenu, setShowCollapsedMenu] = useState(false);
@@ -431,13 +497,38 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       }
     }, [showCollapsedMenu]);
     
-    // Filter children based on admin status
-    const filteredChildren = item.children?.filter(child => 
-      !child.adminOnly || isAdmin
-    ) || [];
+    // Filter children based on admin status and permissions
+    const filteredChildren = item.children?.filter(child => {
+      // Check admin-only restriction
+      if (child.adminOnly && !isAdmin) {
+        return false;
+      }
+
+      // Check RBAC permissions (admins bypass)
+      if (child.permission && !isAdmin) {
+        if (Array.isArray(child.permission)) {
+          // Multiple permissions
+          if (child.requireAllPermissions) {
+            return hasAllPermissions(child.permission);
+          } else {
+            return hasAnyPermission(child.permission);
+          }
+        } else {
+          // Single permission
+          return hasPermission(child.permission);
+        }
+      }
+
+      return true;
+    }) || [];
     
     const hasChildren = filteredChildren.length > 0;
     const isActive = item.href ? isItemActive(item.href, router.pathname) : false;
+
+    // Don't render parent items that have children but all children are filtered out
+    if (item.children && !hasChildren && !item.href) {
+      return null;
+    }
 
     const handleClick = useCallback(async () => {
       if (isCollapsed && hasChildren) {

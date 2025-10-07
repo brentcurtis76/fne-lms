@@ -173,8 +173,21 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
 export function usePermissions() {
   const context = useContext(PermissionContext);
 
+  // During SSR or if provider is missing, return safe defaults
   if (context === undefined) {
-    throw new Error('usePermissions must be used within a PermissionProvider');
+    // Only throw error in development client-side
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      console.warn('usePermissions used outside PermissionProvider - returning defaults');
+    }
+
+    return {
+      permissions: {},
+      loading: true,
+      hasPermission: () => false,
+      hasAnyPermission: () => false,
+      hasAllPermissions: () => false,
+      refetch: async () => {}
+    };
   }
 
   return context;

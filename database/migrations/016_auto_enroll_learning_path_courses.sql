@@ -82,7 +82,8 @@ BEGIN
                     enrollment_type,
                     enrolled_by,
                     enrolled_at,
-                    status
+                    status,
+                    total_lessons
                 )
                 VALUES (
                     v_course_id,
@@ -90,7 +91,8 @@ BEGIN
                     'assigned',
                     p_assigned_by,
                     NOW(),
-                    'active'
+                    'active',
+                    (SELECT COUNT(*) FROM lessons WHERE course_id = v_course_id)
                 )
                 ON CONFLICT (course_id, user_id) DO NOTHING;
 
@@ -146,7 +148,8 @@ BEGIN
                         enrollment_type,
                         enrolled_by,
                         enrolled_at,
-                        status
+                        status,
+                        total_lessons
                     )
                     VALUES (
                         v_course_id,
@@ -154,7 +157,8 @@ BEGIN
                         'assigned',
                         p_assigned_by,
                         NOW(),
-                        'active'
+                        'active',
+                        (SELECT COUNT(*) FROM lessons WHERE course_id = v_course_id)
                     )
                     ON CONFLICT (course_id, user_id) DO NOTHING;
 

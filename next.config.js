@@ -4,7 +4,12 @@ const crypto = require('crypto');
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  
+
+  // Force new build ID to bust CDN cache
+  generateBuildId: async () => {
+    return `build-${Date.now()}`
+  },
+
   // EMERGENCY: Ignore errors for deployment
   eslint: {
     ignoreDuringBuilds: true,

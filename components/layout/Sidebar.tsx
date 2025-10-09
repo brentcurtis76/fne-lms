@@ -451,8 +451,12 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       }
 
       // Check RBAC permissions (admins bypass)
-      // Don't show items while loading to prevent security risk
       if (item.permission && !isAdmin) {
+        // While loading, hide all permission-based items for security
+        if (permissionsLoading) {
+          return false;
+        }
+
         if (Array.isArray(item.permission)) {
           // Multiple permissions - check if user has ANY (OR logic by default)
           if (item.requireAllPermissions) {

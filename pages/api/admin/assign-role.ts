@@ -263,6 +263,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al asignar rol' });
     }
 
+    // Update user's profile school_id if assigning a school-level role
+    if (schoolId && ['equipo_directivo', 'lider_generacion', 'lider_comunidad', 'docente', 'community_manager'].includes(roleType)) {
+      console.log('[assign-role API] Updating profile school_id:', { targetUserId, schoolId });
+
+      // Get school name for backward compatibility with profile.school field
+      const { data: schoolData } = await supabaseService
+        .from('schools')
+        .select('name')
+        .eq('id', schoolId)
+        .single();
+
+      const { error: profileUpdateError } = await supabaseService
+        .from('profiles')
+        .update({
+          school_id: schoolId,
+          school: schoolData?.name || null
+        })
+        .eq('id', targetUserId);
+
+      if (profileUpdateError) {
+        console.error('[assign-role API] Failed to update profile school_id:', profileUpdateError);
+        // Don't fail the whole request, but log it
+      } else {
+        console.log('[assign-role API] Profile school_id updated successfully');
+      }
+    }
+
     // Ensure caches refresh so client queries see the new role immediately
     const { error: cacheRefreshError } = await supabaseService
       .rpc('refresh_user_roles_cache');

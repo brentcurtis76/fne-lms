@@ -72,10 +72,11 @@ export default function RoleAssignmentModal({
   // Available role types
   const availableRoles: UserRoleType[] = [
     'admin',
-    'consultor', 
+    'consultor',
     'equipo_directivo',
     'lider_generacion',
     'lider_comunidad',
+    'supervisor_de_red',
     'community_manager',
     'docente'
   ];
@@ -197,8 +198,13 @@ export default function RoleAssignmentModal({
 
       // Use the API-based function to bypass RLS
       const result = await assignRoleViaAPI(userId, selectedRole, organizationalScope);
-      
+
       if (result.success) {
+        // Clear the user's permission cache so they see updated permissions on next login
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(`permissions_${userId}`);
+        }
+
         if (selectedRole === 'lider_comunidad' && result.communityId) {
           toast.success('Rol asignado y comunidad creada correctamente');
         } else {
@@ -243,11 +249,16 @@ export default function RoleAssignmentModal({
   const handleRemoveRole = async (roleId: string) => {
     try {
       setLoading(true);
-      
+
       // Use the API-based function to bypass RLS
       const result = await removeRoleViaAPI(roleId);
-      
+
       if (result.success) {
+        // Clear the user's permission cache so they see updated permissions on next login
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(`permissions_${userId}`);
+        }
+
         toast.success('Rol removido correctamente');
         await loadData(); // Refresh roles
         onRoleUpdate(); // Notify parent component
@@ -331,8 +342,13 @@ export default function RoleAssignmentModal({
       };
 
       const assignResult = await assignRoleViaAPI(userId, selectedRole, organizationalScope);
-      
+
       if (assignResult.success) {
+        // Clear the user's permission cache so they see updated permissions on next login
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem(`permissions_${userId}`);
+        }
+
         toast.success('Rol actualizado correctamente');
         await loadData(); // Refresh roles
         onRoleUpdate(); // Notify parent component

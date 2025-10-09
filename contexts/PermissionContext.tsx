@@ -64,6 +64,7 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
       if (rolesError) {
         console.error('[PermissionContext] Error fetching user roles:', rolesError);
         setPermissions({});
+        setLoading(false);
         return;
       }
 
@@ -72,6 +73,7 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
       if (!userRoles || userRoles.length === 0) {
         console.warn('[PermissionContext] User has no active roles');
         setPermissions({});
+        setLoading(false);
         return;
       }
 
@@ -89,6 +91,7 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
       if (permsError) {
         console.error('[PermissionContext] Error fetching permissions:', permsError);
         setPermissions({});
+        setLoading(false);
         return;
       }
 

@@ -7,6 +7,8 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { Plus, FileText, Eye, Edit, Trash2, Send, Clock, CheckCircle, Copy, ExternalLink, Calendar, Users, DollarSign, Search } from 'lucide-react';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
+import { PermissionGuard, HasPermission } from '../../../components/permissions/PermissionGuard';
+import { usePermissions } from '../../../contexts/PermissionContext';
 
 interface Quote {
   id: string;
@@ -24,9 +26,10 @@ interface Quote {
   viewed_at?: string;
 }
 
-export default function QuotesManagementPage() {
+function QuotesManagementPageContent() {
   const supabase = useSupabaseClient();
   const router = useRouter();
+  const { hasPermission } = usePermissions();
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -166,13 +169,15 @@ export default function QuotesManagementPage() {
               </p>
             </div>
             
-            <Link
-              href="/admin/quotes/new"
-              className="flex items-center px-6 py-3 bg-black text-white rounded-full font-medium hover:bg-gray-800 transition-colors"
-            >
-              <Plus className="mr-2" size={20} />
-              Nueva Cotización
-            </Link>
+            <HasPermission permission="create_internship_proposals_all">
+              <Link
+                href="/admin/quotes/new"
+                className="flex items-center px-6 py-3 bg-black text-white rounded-full font-medium hover:bg-gray-800 transition-colors"
+              >
+                <Plus className="mr-2" size={20} />
+                Nueva Cotización
+              </Link>
+            </HasPermission>
           </div>
         </div>
 
@@ -417,5 +422,16 @@ export default function QuotesManagementPage() {
         </div>
       )}
     </MainLayout>
+  );
+}
+
+export default function QuotesManagementPage() {
+  return (
+    <PermissionGuard
+      permission="view_internship_proposals_all"
+      redirectTo="/admin"
+    >
+      <QuotesManagementPageContent />
+    </PermissionGuard>
   );
 }

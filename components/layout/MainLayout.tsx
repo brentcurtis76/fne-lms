@@ -11,6 +11,8 @@ import { User } from '@supabase/supabase-js';
 import Sidebar from './Sidebar';
 import Avatar from '../common/Avatar';
 import { useAvatar } from '../../hooks/useAvatar';
+import { useAuth } from '../../hooks/useAuth';
+import { getHighestRole } from '../../utils/roleUtils';
 import { LogOut } from 'lucide-react';
 import FeedbackButtonWithPermissions from '../feedback/FeedbackButtonWithPermissions';
 
@@ -35,18 +37,29 @@ interface MainLayoutProps {
 
 const MainLayout: React.FC<MainLayoutProps> = ({
   children,
-  user,
+  user: userProp,
   currentPage,
   pageTitle,
   breadcrumbs = [],
-  isAdmin = false,
-  userRole,
-  onLogout,
-  avatarUrl,
+  isAdmin: isAdminProp,
+  userRole: userRoleProp,
+  onLogout: onLogoutProp,
+  avatarUrl: avatarUrlProp,
   profileData,
   className = ''
 }) => {
   const router = useRouter();
+
+  // Use useAuth if props aren't provided (for pages that don't pass props)
+  const auth = useAuth();
+
+  // Prefer props if provided, otherwise use auth hook
+  const user = userProp || auth.user;
+  const isAdmin = isAdminProp !== undefined ? isAdminProp : auth.isAdmin;
+  const highestRole = getHighestRole(auth.userRoles);
+  const userRole = userRoleProp || highestRole || '';
+  const avatarUrl = avatarUrlProp || auth.avatarUrl;
+  const onLogout = onLogoutProp || auth.logout;
   
   // Sidebar state with localStorage persistence
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

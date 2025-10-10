@@ -9,7 +9,7 @@ import MainLayout from '../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
 import { getUserRoles, getUserPrimaryRole } from '../../utils/roleUtils';
 import { UserRole, UserProfile } from '../../types/roles';
-import { ArrowLeft, Book, Calendar, User } from 'lucide-react';
+import { ArrowLeft, Book, Calendar, User as UserIcon } from 'lucide-react';
 
 export default function UserProfileView() {
   const supabase = useSupabaseClient();
@@ -216,7 +216,7 @@ export default function UserProfileView() {
       </Head>
       
       <ResponsiveFunctionalPageHeader
-        icon={<User />}
+        icon={<UserIcon />}
         title={`${profileData.first_name} ${profileData.last_name}`}
         subtitle="Perfil de usuario"
       />

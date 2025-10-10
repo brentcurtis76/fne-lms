@@ -66,9 +66,10 @@ interface PathDetailsPageProps {
   profileData: any;
   user: any;
   isAdmin: boolean;
+  userRole?: string | null;
 }
 
-export default function PathDetailsPage({ profileData, user, isAdmin }: PathDetailsPageProps) {
+export default function PathDetailsPage({ profileData, user, isAdmin, userRole }: PathDetailsPageProps) {
   const router = useRouter();
   const { id: pathId } = router.query;
   const [pathDetails, setPathDetails] = useState<LearningPathDetails | null>(null);
@@ -196,6 +197,7 @@ export default function PathDetailsPage({ profileData, user, isAdmin }: PathDeta
         currentPage="my-paths" 
         profileData={profileData} 
         isAdmin={isAdmin}
+        userRole={userRole || undefined}
       >
         <div className="p-6">
           <div className="flex justify-center items-center h-64">
@@ -208,12 +210,13 @@ export default function PathDetailsPage({ profileData, user, isAdmin }: PathDeta
 
   if (error || !pathDetails) {
     return (
-      <MainLayout 
-        user={user} 
-        currentPage="my-paths" 
-        profileData={profileData} 
-        isAdmin={isAdmin}
-      >
+    <MainLayout 
+      user={user} 
+      currentPage="my-paths" 
+      profileData={profileData} 
+      isAdmin={isAdmin}
+      userRole={userRole || undefined}
+    >
         <div className="p-6">
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
             {error || 'Ruta de aprendizaje no encontrada'}
@@ -509,17 +512,20 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
     .from('user_roles')
     .select('role_type')
     .eq('user_id', session.user.id)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .order('role_type');
 
-  const isAdmin = userRoles?.some(role => 
-    ['admin', 'equipo_directivo', 'consultor'].includes(role.role_type)
-  ) || false;
+  const primaryRole = userRoles?.find(role => role.role_type === 'admin')?.role_type
+    || userRoles?.[0]?.role_type
+    || null;
+  const isAdmin = userRoles?.some(role => role.role_type === 'admin') || false;
 
   return {
     props: {
       profileData,
       user: session.user,
       isAdmin,
+      userRole: primaryRole,
     },
   };
 };

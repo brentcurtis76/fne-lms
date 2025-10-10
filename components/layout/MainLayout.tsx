@@ -12,7 +12,7 @@ import Sidebar from './Sidebar';
 import Avatar from '../common/Avatar';
 import { useAvatar } from '../../hooks/useAvatar';
 import { useAuth } from '../../hooks/useAuth';
-import { getHighestRole } from '../../utils/roleUtils';
+import { getHighestRole, extractRolesFromMetadata } from '../../utils/roleUtils';
 import { LogOut } from 'lucide-react';
 import FeedbackButtonWithPermissions from '../feedback/FeedbackButtonWithPermissions';
 
@@ -55,11 +55,31 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
   // Prefer props if provided, otherwise use auth hook
   const user = userProp || auth.user;
-  const isAdmin = isAdminProp !== undefined ? isAdminProp : auth.isAdmin;
+  const rawIsAdmin = isAdminProp !== undefined ? isAdminProp : auth.isAdmin;
   const highestRole = getHighestRole(auth.userRoles);
   const userRole = userRoleProp || highestRole || '';
   const avatarUrl = avatarUrlProp || auth.avatarUrl;
   const onLogout = onLogoutProp || auth.logout;
+  const collectedRoles = new Set<string>();
+
+  if (userRole) {
+    collectedRoles.add(userRole);
+  }
+
+  if (Array.isArray(auth.userRoles)) {
+    auth.userRoles.forEach(role => collectedRoles.add(role.role_type));
+  }
+
+  if (profileData?.role) {
+    collectedRoles.add(profileData.role);
+  }
+
+  if (user?.user_metadata) {
+    extractRolesFromMetadata(user.user_metadata).forEach((role) => collectedRoles.add(role));
+  }
+
+  const hasAdminRole = collectedRoles.has('admin') || auth.isGlobalAdmin;
+  const effectiveIsAdmin = hasAdminRole || (rawIsAdmin && collectedRoles.size === 0);
   
   // Sidebar state with localStorage persistence
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -149,7 +169,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           user={user}
           currentPage={currentPage}
           isCollapsed={sidebarCollapsed}
-          isAdmin={isAdmin}
+          isAdmin={effectiveIsAdmin}
           userRole={userRole}
           avatarUrl={avatarUrl || cachedAvatarUrl || fetchedAvatarUrl}
           onToggle={handleSidebarToggle}
@@ -194,7 +214,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                         <p className="text-xs text-gray-500">
                           {profileData?.growth_community 
                             ? profileData.growth_community 
-                            : isAdmin ? 'Administrador' : 'Usuario'}
+                            : effectiveIsAdmin ? 'Administrador' : 'Usuario'}
                         </p>
                       </div>
                     </Link>

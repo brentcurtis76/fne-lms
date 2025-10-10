@@ -264,7 +264,7 @@ export default function Dashboard() {
 
                 if (assignedCoursesData && !assignedCoursesError) {
                   // Extract course data from the join and format with instructor names
-                  const teacherCourses = assignedCoursesData
+                  const baseCourses = assignedCoursesData
                     .map(assignment => assignment.courses)
                     .filter(course => course !== null) // Filter out null courses
                     .map(course => ({
@@ -274,7 +274,34 @@ export default function Dashboard() {
                       // @ts-ignore - Ensure thumbnail_url is a string or null, and specifically handle 'default-thumbnail.png'
                       thumbnail_url: (course?.thumbnail_url && course?.thumbnail_url !== 'default-thumbnail.png') ? course?.thumbnail_url : null 
                     }));
-                  
+
+                  const courseIds = baseCourses.map(course => course.id);
+                  let teacherCourses = baseCourses;
+
+                  if (courseIds.length > 0) {
+                    const { data: enrollments } = await supabase
+                      .from('course_enrollments')
+                      .select('course_id, progress_percentage, is_completed, enrolled_at, completed_at')
+                      .eq('user_id', userData.user.id)
+                      .in('course_id', courseIds);
+
+                    const enrollmentMap = new Map();
+                    enrollments?.forEach(enrollment => {
+                      enrollmentMap.set(enrollment.course_id, enrollment);
+                    });
+
+                    teacherCourses = baseCourses.map(course => {
+                      const enrollment = enrollmentMap.get(course.id);
+                      return {
+                        ...course,
+                        progress_percentage: enrollment?.progress_percentage || 0,
+                        is_completed: enrollment?.is_completed || false,
+                        enrolled_at: enrollment?.enrolled_at || null,
+                        completed_at: enrollment?.completed_at || null
+                      };
+                    });
+                  }
+
                   setAllCourses(teacherCourses);
                   setMyCourses([]); // Teachers don't have "my courses" - only assigned courses
                 } else {
@@ -354,7 +381,8 @@ export default function Dashboard() {
                               // Add enrollment data for filtering
                               progress_percentage: enrollment?.progress_percentage || 0,
                               is_completed: enrollment?.is_completed || false,
-                              enrolled_at: enrollment?.enrolled_at || null
+                              enrolled_at: enrollment?.enrolled_at || null,
+                              completed_at: enrollment?.completed_at || null
                             };
                           });
 
@@ -365,10 +393,20 @@ export default function Dashboard() {
                             // Add existing courses first
                             prevCourses.forEach(course => courseMap.set(course.id, course));
 
-                            // Add learning path courses (won't override if already exists)
+                            // Merge in learning path courses, enriching progress data when available
                             formattedLPCourses.forEach(course => {
                               if (!courseMap.has(course.id)) {
                                 courseMap.set(course.id, course);
+                              } else {
+                                const existingCourse = courseMap.get(course.id) || {};
+                                courseMap.set(course.id, {
+                                  ...existingCourse,
+                                  ...course,
+                                  progress_percentage: course.progress_percentage ?? existingCourse.progress_percentage ?? 0,
+                                  is_completed: course.is_completed ?? existingCourse.is_completed ?? false,
+                                  enrolled_at: course.enrolled_at || existingCourse.enrolled_at || null,
+                                  completed_at: course.completed_at || existingCourse.completed_at || null
+                                });
                               }
                             });
 

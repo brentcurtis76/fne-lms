@@ -80,6 +80,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Failed to create course assignments: ' + error.message });
       }
 
+      // Ensure course enrollments exist for assigned users so progress tracking works
+      try {
+        const enrollmentPayload = teacherIds.map(teacherId => ({
+          course_id: courseId,
+          user_id: teacherId,
+          enrollment_type: 'assigned',
+          enrolled_by: user.id,
+          status: 'active'
+        }));
+
+        if (enrollmentPayload.length > 0) {
+          const { error: enrollmentError } = await supabaseAdmin
+            .from('course_enrollments')
+            .upsert(enrollmentPayload, { onConflict: 'course_id,user_id' });
+
+          if (enrollmentError) {
+            console.error('Error ensuring course enrollments:', enrollmentError);
+          }
+        }
+      } catch (enrollmentException) {
+        console.error('Unexpected error creating course enrollments:', enrollmentException);
+      }
+
       // Get course details for notification
       const { data: courseData } = await supabaseAdmin
         .from('courses')

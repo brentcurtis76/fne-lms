@@ -39,6 +39,9 @@ interface Course {
   enrollment_status: string | null;
   buttonText: string;
   buttonVariant: string;
+  buttonHref: string;
+  buttonTargetCourseId?: string | null;
+  buttonDisabled?: boolean;
 }
 
 interface LearningPathDetails {
@@ -454,19 +457,31 @@ export default function PathDetailsPage({ profileData, user, isAdmin, userRole }
 
                     {/* Action button */}
                     <div className="mt-4">
-                      <Link href={`/student/course/${course.course_id}`}>
+                      {course.buttonDisabled ? (
                         <Button 
                           variant={course.buttonVariant as any}
                           size="sm"
-                          onClick={() => {
-                            // Track course start activity
-                            updateActivity('course_start', course.course_id);
-                          }}
+                          disabled
                         >
                           <BookOpen className="w-4 h-4 mr-2" />
                           {course.buttonText}
                         </Button>
-                      </Link>
+                      ) : (
+                        <Link href={course.buttonHref}>
+                          <Button 
+                            variant={course.buttonVariant as any}
+                            size="sm"
+                            onClick={() => {
+                              if (course.buttonTargetCourseId) {
+                                updateActivity('course_start', course.buttonTargetCourseId);
+                              }
+                            }}
+                          >
+                            <BookOpen className="w-4 h-4 mr-2" />
+                            {course.buttonText}
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                   </div>
                 </div>

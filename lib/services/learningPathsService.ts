@@ -626,8 +626,8 @@ export class LearningPathsService {
       const totalCourses = courses.length;
       const progressPercentage = totalCourses > 0 ? Math.round((completedCourses / totalCourses) * 100) : 0;
 
-      // Build course details with user progress
-      const coursesWithProgress = courses.map((pathCourse, index) => {
+      // Build course details with user progress (initial pass)
+      const coursesWithProgressBase = courses.map((pathCourse, index) => {
         const course = pathCourse.course;
         const enrollment = enrollmentMap.get(pathCourse.course_id);
         
@@ -666,7 +666,119 @@ export class LearningPathsService {
           enrolled_at: enrollment?.enrolled_at || null,
           enrollment_status: enrollment?.status || null,
           buttonText,
-          buttonVariant
+          buttonVariant,
+          buttonHref: `/student/course/${pathCourse.course_id}`,
+          buttonTargetCourseId: pathCourse.course_id,
+          buttonDisabled: false
+        };
+      });
+
+      const allCoursesCompleted = coursesWithProgressBase.every(course => course.status === 'completed');
+
+      let fallbackCourse: { course_id: string; title?: string | null } | null = null;
+
+      if (allCoursesCompleted) {
+        // Try to find another incomplete course assigned to the user (outside this path)
+        const { data: otherEnrollments } = await supabaseClient
+          .from('course_enrollments')
+          .select('course_id, progress_percentage, courses(title)')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: true });
+
+        if (otherEnrollments && otherEnrollments.length > 0) {
+          const courseIdsSet = new Set(courseIds);
+          const nextIncomplete = otherEnrollments.find(enrollment => 
+            enrollment.progress_percentage < 100 && !courseIdsSet.has(enrollment.course_id)
+          );
+
+          if (nextIncomplete) {
+            fallbackCourse = {
+              course_id: nextIncomplete.course_id,
+              title: (nextIncomplete as any)?.courses?.title || null
+            };
+          }
+        }
+
+        if (!fallbackCourse) {
+          const { data: assignments } = await supabaseClient
+            .from('course_assignments')
+            .select('course_id, courses(title)')
+            .eq('teacher_id', userId);
+
+          if (assignments && assignments.length > 0) {
+            const courseIdsSet = new Set(courseIds);
+            const assignment = assignments.find(item => !courseIdsSet.has(item.course_id));
+            if (assignment) {
+              fallbackCourse = {
+                course_id: assignment.course_id,
+                title: (assignment as any)?.courses?.title || null
+              };
+            }
+          }
+        }
+      }
+
+      // Enhance course actions with next-course logic
+      const coursesWithProgress = coursesWithProgressBase.map((course, index, array) => {
+        const nextInPath = array
+          .filter(other => other.sequence > course.sequence)
+          .find(other => other.status !== 'completed');
+
+        let buttonText = course.buttonText;
+        let buttonVariant = course.buttonVariant;
+        let buttonHref = course.buttonHref;
+        let buttonTargetCourseId = course.buttonTargetCourseId;
+        let buttonDisabled = course.buttonDisabled;
+
+        if (course.status === 'completed') {
+          buttonVariant = 'outline';
+          buttonText = 'Revisar curso';
+          buttonHref = `/student/course/${course.course_id}`;
+          buttonTargetCourseId = course.course_id;
+
+          if (nextInPath) {
+            buttonVariant = 'default';
+            buttonText = 'Ir al siguiente curso';
+            buttonHref = `/student/course/${nextInPath.course_id}`;
+            buttonTargetCourseId = nextInPath.course_id;
+          } else if (fallbackCourse) {
+            buttonVariant = 'default';
+            buttonText = fallbackCourse.title
+              ? `Ir a ${fallbackCourse.title}`
+              : 'Ir al siguiente curso disponible';
+            buttonHref = `/student/course/${fallbackCourse.course_id}`;
+            buttonTargetCourseId = fallbackCourse.course_id;
+          } else {
+            buttonVariant = 'outline';
+            buttonText = 'No tienes más cursos asignados';
+            buttonHref = '#';
+            buttonTargetCourseId = null;
+            buttonDisabled = true;
+          }
+        } else if (course.status === 'not_started') {
+          buttonText = 'Comenzar curso';
+          buttonVariant = 'default';
+          buttonHref = `/student/course/${course.course_id}`;
+          buttonTargetCourseId = course.course_id;
+        } else if (course.status === 'enrolled') {
+          buttonText = 'Iniciar curso';
+          buttonVariant = 'default';
+          buttonHref = `/student/course/${course.course_id}`;
+          buttonTargetCourseId = course.course_id;
+        } else if (course.status === 'in_progress') {
+          buttonText = 'Continuar curso';
+          buttonVariant = 'default';
+          buttonHref = `/student/course/${course.course_id}`;
+          buttonTargetCourseId = course.course_id;
+        }
+
+        return {
+          ...course,
+          buttonText,
+          buttonVariant,
+          buttonHref,
+          buttonTargetCourseId,
+          buttonDisabled
         };
       });
 

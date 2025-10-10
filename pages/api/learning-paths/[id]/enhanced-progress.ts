@@ -116,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 5. Calculate user progress based on existing data
     const userProgress = calculateUserProgress(assignment, pathCourses, courseEnrollments);
     const pathBenchmarks = calculatePathBenchmarks(pathStats || []);
-    const insights = calculateBasicInsights(userProgress, pathBenchmarks, assignment, pathCourses);
+    const insights = calculateBasicInsights(userProgress, pathBenchmarks, assignment, pathCourses, courseEnrollments);
 
     res.status(200).json({
       userProgress,
@@ -223,13 +223,15 @@ function calculatePathBenchmarks(pathStats: any[]) {
   };
 }
 
-function calculateBasicInsights(userProgress: any, pathBenchmarks: any, assignment: any, pathCourses: any[]) {
+function calculateBasicInsights(userProgress: any, pathBenchmarks: any, assignment: any, pathCourses: any[], courseEnrollments: any[]) {
   const insights = {
     paceAnalysis: calculateBasicPaceAnalysis(userProgress, pathBenchmarks),
     engagementLevel: calculateBasicEngagementLevel(userProgress),
+    timeForecasting: calculateBasicTimeForecasting(userProgress, pathBenchmarks),
     recommendations: generateBasicRecommendations(userProgress, assignment),
     milestones: calculateBasicMilestones(userProgress),
     peerComparison: calculateBasicPeerComparison(userProgress, pathBenchmarks),
+    sessionPattern: calculateBasicSessionPattern(userProgress, courseEnrollments),
     motivationalMetrics: calculateBasicMotivationalMetrics(userProgress)
   };
 
@@ -265,13 +267,18 @@ function calculateBasicPaceAnalysis(userProgress: any, pathBenchmarks: any) {
     color = 'text-orange-600';
   }
 
+  const expectedProgress = Math.min(100, Math.round(daysSinceStart * 3));
+  const paceDifference = Math.round((userProgress.overallProgress - expectedProgress) * 10) / 10;
+
   return {
     status,
     message,
     color,
     daysSinceStart,
     dailyProgressRate: Math.round(dailyProgressRate * 100) / 100,
-    actualProgress: userProgress.overallProgress
+    actualProgress: userProgress.overallProgress,
+    expectedProgress,
+    paceDifference
   };
 }
 
@@ -302,7 +309,94 @@ function calculateBasicEngagementLevel(userProgress: any) {
     score,
     completedCourses,
     inProgressCourses,
-    daysSinceLastActivity
+    daysSinceLastActivity,
+    avgSessionMinutes: userProgress.avgSessionMinutes || 0,
+    recentSessionCount: userProgress.totalSessions || 0,
+    totalRecentTimeHours: Math.round((userProgress.totalTimeSpent || 0) / 60 * 10) / 10
+  };
+}
+
+function calculateBasicTimeForecasting(userProgress: any, pathBenchmarks: any) {
+  if (userProgress.overallProgress >= 100) {
+    return {
+      estimatedCompletionDate: userProgress.startDate,
+      estimatedDaysRemaining: 0,
+      totalEstimatedDays: null,
+      pathAverageDays: pathBenchmarks?.avgCompletionTimeDays || null,
+      progressRate: 0,
+      message: '¡Ruta completada!'
+    };
+  }
+
+  if (!userProgress.startDate || userProgress.overallProgress <= 0) {
+    return {
+      estimatedCompletionDate: null,
+      estimatedDaysRemaining: null,
+      totalEstimatedDays: null,
+      pathAverageDays: pathBenchmarks?.avgCompletionTimeDays || null,
+      progressRate: 0,
+      message: 'Necesitamos más progreso para estimar tu fecha de finalización'
+    };
+  }
+
+  const startDate = new Date(userProgress.startDate);
+  const daysSinceStart = Math.max(1, Math.floor((Date.now() - startDate.getTime()) / (24 * 60 * 60 * 1000)));
+  const progressRate = userProgress.overallProgress / daysSinceStart;
+  const remainingProgress = Math.max(0, 100 - userProgress.overallProgress);
+  const estimatedDaysRemaining = progressRate > 0 
+    ? Math.ceil(remainingProgress / Math.max(progressRate, 0.5))
+    : null;
+
+  let estimatedCompletionDate = null;
+  let totalEstimatedDays = null;
+  if (estimatedDaysRemaining !== null) {
+    const completionDate = new Date();
+    completionDate.setDate(completionDate.getDate() + estimatedDaysRemaining);
+    estimatedCompletionDate = completionDate.toISOString();
+    totalEstimatedDays = daysSinceStart + estimatedDaysRemaining;
+  }
+
+  const fasterThanAverage = pathBenchmarks?.avgCompletionTimeDays
+    ? (estimatedDaysRemaining || 0) < pathBenchmarks.avgCompletionTimeDays
+    : false;
+
+  return {
+    estimatedCompletionDate,
+    estimatedDaysRemaining,
+    totalEstimatedDays,
+    pathAverageDays: pathBenchmarks?.avgCompletionTimeDays || null,
+    progressRate: Math.round(progressRate * 100) / 100,
+    message: estimatedDaysRemaining !== null
+      ? `A tu ritmo actual, terminarás en ${estimatedDaysRemaining} días${fasterThanAverage ? ' (¡más rápido que el promedio!)' : ''}`
+      : 'Necesitamos más datos para estimar tu fecha de finalización'
+  };
+}
+
+function calculateBasicSessionPattern(userProgress: any, courseEnrollments: any[]) {
+  const totalSessions = userProgress.totalSessions || 0;
+  let consistency = 'insufficient_data';
+  let message = 'Aún no registramos suficientes sesiones para analizar tu patrón de estudio';
+
+  if (totalSessions > 0) {
+    if (userProgress.daysSinceLastActivity <= 2) {
+      consistency = 'excellent';
+      message = '¡Excelente consistencia en tus estudios!';
+    } else if (userProgress.daysSinceLastActivity <= 5) {
+      consistency = 'good';
+      message = 'Tu ritmo es bueno, mantente activo.';
+    } else {
+      consistency = 'irregular';
+      message = 'Intenta programar sesiones más frecuentes para mantener el ritmo.';
+    }
+  }
+
+  return {
+    consistency,
+    message,
+    preferredDay: null,
+    avgGapDays: userProgress.daysSinceLastActivity || null,
+    totalSessions,
+    dayFrequency: {}
   };
 }
 
@@ -422,7 +516,10 @@ function calculateBasicMotivationalMetrics(userProgress: any) {
     totalCourses: userProgress.totalCourses,
     progressPercentage: userProgress.overallProgress,
     booksEquivalent: Math.round(userProgress.totalTimeSpent / 180), // Assuming 3 hours per "book"
-    coffeeBreaksEquivalent: Math.round(userProgress.totalTimeSpent / 15) // 15 min coffee breaks
+    coffeeBreaksEquivalent: Math.round(userProgress.totalTimeSpent / 15), // 15 min coffee breaks
+    totalSessions: userProgress.totalSessions || 0,
+    currentStreak: userProgress.completionStreak || 0,
+    longestSession: userProgress.avgSessionMinutes || 0
   };
 
   return metrics;

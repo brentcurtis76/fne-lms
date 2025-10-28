@@ -191,7 +191,17 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Gestión',
     icon: ClipboardDocumentListIcon,
     description: 'Gestión empresarial',
-    permission: ['view_contracts_all', 'view_internship_proposals_all', 'view_expense_reports_all'],
+    permission: [
+      'view_contracts_all',
+      'view_contracts_school',
+      'view_contracts_own',
+      'view_internship_proposals_all',
+      'view_internship_proposals_school',
+      'view_internship_proposals_own',
+      'view_expense_reports_all',
+      'view_expense_reports_school',
+      'view_expense_reports_own'
+    ],
     children: [
       {
         id: 'contracts',
@@ -199,7 +209,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/contracts',
         description: 'Gestión de contratos',
         icon: DocumentTextIcon,
-        permission: 'view_contracts_all'
+        permission: ['view_contracts_all', 'view_contracts_school', 'view_contracts_own']
       },
       {
         id: 'quotes',
@@ -207,7 +217,11 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/admin/quotes',
         description: 'Cotizaciones Barcelona',
         icon: DocumentTextIcon,
-        permission: 'view_internship_proposals_all'
+        permission: [
+          'view_internship_proposals_all',
+          'view_internship_proposals_school',
+          'view_internship_proposals_own'
+        ]
       },
       {
         id: 'expense-reports',
@@ -215,7 +229,11 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/expense-reports',
         description: 'Reportes de gastos',
         icon: CurrencyDollarIcon,
-        permission: 'view_expense_reports_all'
+        permission: [
+          'view_expense_reports_all',
+          'view_expense_reports_school',
+          'view_expense_reports_own'
+        ]
       },
       {
         id: 'feedback',
@@ -252,6 +270,13 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         label: 'Gestión Comunidades',
         href: '/community/workspace?section=communities',
         description: 'Administrar comunidades',
+        permission: 'manage_communities_all'
+      },
+      {
+        id: 'transformation-access',
+        label: 'Vías de Transformación',
+        href: '/admin/transformation',
+        description: 'Gestión de acceso a vías',
         permission: 'manage_communities_all'
       }
     ]

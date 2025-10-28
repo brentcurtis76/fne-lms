@@ -1,11 +1,12 @@
 import React from 'react';
-import { 
-  HomeIcon, 
-  UsersIcon, 
-  DocumentTextIcon, 
-  ChatAlt2Icon, 
+import {
+  HomeIcon,
+  UsersIcon,
+  DocumentTextIcon,
+  ChatAlt2Icon,
   ClipboardCheckIcon,
-  CalendarIcon 
+  CalendarIcon,
+  LightningBoltIcon,
 } from '@heroicons/react/outline';
 
 interface Tab {
@@ -19,12 +20,14 @@ interface WorkspaceTabNavigationProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
   isAdmin?: boolean;
+  hasTransformationAccess?: boolean;
 }
 
 const WorkspaceTabNavigation: React.FC<WorkspaceTabNavigationProps> = ({
   activeSection,
   onSectionChange,
-  isAdmin = false
+  isAdmin = false,
+  hasTransformationAccess = false
 }) => {
   const tabs: Tab[] = [
     { id: 'overview', name: 'Vista General', icon: HomeIcon, show: true },
@@ -32,6 +35,7 @@ const WorkspaceTabNavigation: React.FC<WorkspaceTabNavigationProps> = ({
     { id: 'documents', name: 'Documentos', icon: DocumentTextIcon, show: true },
     { id: 'messaging', name: 'Mensajes', icon: ChatAlt2Icon, show: true },
     { id: 'group-assignments', name: 'Tareas Grupales', icon: ClipboardCheckIcon, show: true },
+    { id: 'transformation', name: 'Vías de Transformación', icon: LightningBoltIcon, show: hasTransformationAccess },
     { id: 'communities', name: 'Gestión', icon: UsersIcon, show: isAdmin }
   ].filter(tab => tab.show);
 

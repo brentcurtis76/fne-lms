@@ -901,32 +901,41 @@ export default function SchoolsManagement() {
                   </optgroup>
                   <optgroup label="Desde P1">
                     <option value="P1-2do">P1-2do</option>
+                    <option value="P1-3ro">P1-3ro</option>
                     <option value="P1-4to">P1-4to</option>
+                    <option value="P1-5to">P1-5to</option>
                     <option value="P1-6to">P1-6to</option>
                     <option value="P1-8vo">P1-8vo</option>
                     <option value="P1-12vo">P1-12vo</option>
                   </optgroup>
                   <optgroup label="Desde PreKinder">
                     <option value="PreKinder-2do">PreKinder-2do</option>
+                    <option value="PreKinder-3ro">PreKinder-3ro</option>
                     <option value="PreKinder-4to">PreKinder-4to</option>
+                    <option value="PreKinder-5to">PreKinder-5to</option>
                     <option value="PreKinder-6to">PreKinder-6to</option>
                     <option value="PreKinder-8vo">PreKinder-8vo</option>
                     <option value="PreKinder-12vo">PreKinder-12vo</option>
                   </optgroup>
                   <optgroup label="Desde Kinder">
                     <option value="Kinder-2do">Kinder-2do</option>
+                    <option value="Kinder-3ro">Kinder-3ro</option>
                     <option value="Kinder-4to">Kinder-4to</option>
+                    <option value="Kinder-5to">Kinder-5to</option>
                     <option value="Kinder-6to">Kinder-6to</option>
                     <option value="Kinder-8vo">Kinder-8vo</option>
                     <option value="Kinder-12vo">Kinder-12vo</option>
                   </optgroup>
                   <optgroup label="Educación Básica">
                     <option value="1ro-2do">1ro-2do</option>
+                    <option value="1ro-3ro">1ro-3ro</option>
                     <option value="1ro-4to">1ro-4to</option>
+                    <option value="1ro-5to">1ro-5to</option>
                     <option value="1ro-6to">1ro-6to</option>
                     <option value="1ro-8vo">1ro-8vo</option>
                     <option value="1ro-12vo">1ro-12vo</option>
                     <option value="3ro-4to">3ro-4to</option>
+                    <option value="3ro-5to">3ro-5to</option>
                     <option value="3ro-6to">3ro-6to</option>
                     <option value="3ro-8vo">3ro-8vo</option>
                     <option value="3ro-12vo">3ro-12vo</option>

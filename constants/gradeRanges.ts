@@ -14,32 +14,41 @@ export const GRADE_RANGES = [
   
   // P1 to primary/secondary
   { value: 'P1-2do', label: 'P1-2do' },
+  { value: 'P1-3ro', label: 'P1-3ro' },
   { value: 'P1-4to', label: 'P1-4to' },
+  { value: 'P1-5to', label: 'P1-5to' },
   { value: 'P1-6to', label: 'P1-6to' },
   { value: 'P1-8vo', label: 'P1-8vo' },
   { value: 'P1-12vo', label: 'P1-12vo' },
   
   // PreKinder to primary/secondary
   { value: 'PreKinder-2do', label: 'PreKinder-2do' },
+  { value: 'PreKinder-3ro', label: 'PreKinder-3ro' },
   { value: 'PreKinder-4to', label: 'PreKinder-4to' },
+  { value: 'PreKinder-5to', label: 'PreKinder-5to' },
   { value: 'PreKinder-6to', label: 'PreKinder-6to' },
   { value: 'PreKinder-8vo', label: 'PreKinder-8vo' },
   { value: 'PreKinder-12vo', label: 'PreKinder-12vo' },
   
   // Kinder to primary/secondary
   { value: 'Kinder-2do', label: 'Kinder-2do' },
+  { value: 'Kinder-3ro', label: 'Kinder-3ro' },
   { value: 'Kinder-4to', label: 'Kinder-4to' },
+  { value: 'Kinder-5to', label: 'Kinder-5to' },
   { value: 'Kinder-6to', label: 'Kinder-6to' },
   { value: 'Kinder-8vo', label: 'Kinder-8vo' },
   { value: 'Kinder-12vo', label: 'Kinder-12vo' },
   
   // Primary ranges
   { value: '1ro-2do', label: '1ro-2do' },
+  { value: '1ro-3ro', label: '1ro-3ro' },
   { value: '1ro-4to', label: '1ro-4to' },
+  { value: '1ro-5to', label: '1ro-5to' },
   { value: '1ro-6to', label: '1ro-6to' },
   { value: '1ro-8vo', label: '1ro-8vo' },
   { value: '1ro-12vo', label: '1ro-12vo' },
   { value: '3ro-4to', label: '3ro-4to' },
+  { value: '3ro-5to', label: '3ro-5to' },
   { value: '3ro-6to', label: '3ro-6to' },
   { value: '3ro-8vo', label: '3ro-8vo' },
   { value: '3ro-12vo', label: '3ro-12vo' },

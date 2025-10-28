@@ -124,12 +124,13 @@ import {
   SwitchVerticalIcon,
   MenuIcon,
   ClipboardCheckIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  LightningBoltIcon
 } from '@heroicons/react/outline';
 import { X, Users, CheckCircle, Settings } from 'lucide-react';
 import { navigationManager } from '../../utils/navigationManager';
 
-type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'group-assignments';
+type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'group-assignments' | 'transformation';
 
 // Sidebar state management
 interface SidebarState {
@@ -150,9 +151,20 @@ const CommunityWorkspacePage: React.FC = () => {
   const [error, setError] = useState<string>('');
   const [communityMembers, setCommunityMembers] = useState<any[]>([]);
   const [showMembers, setShowMembers] = useState(false);
-  
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Transformation state
+  const [transformationAssessments, setTransformationAssessments] = useState<Array<{
+    id: string;
+    area: string;
+    status: 'in_progress' | 'completed' | 'archived';
+    started_at?: string | null;
+    updated_at?: string | null;
+  }>>([]);
+  const [transformationLoading, setTransformationLoading] = useState(false);
+  const [hasTransformationAccess, setHasTransformationAccess] = useState(false);
 
   // Load community members when workspace changes
   useEffect(() => {
@@ -297,6 +309,58 @@ const CommunityWorkspacePage: React.FC = () => {
     }
   }, [selectedCommunityId, workspaceAccess]);
 
+  // Check transformation access and load assessments
+  useEffect(() => {
+    const communityId = currentWorkspace?.community_id;
+    if (!communityId) {
+      setTransformationAssessments([]);
+      setHasTransformationAccess(false);
+      return;
+    }
+
+    const fetchAssessments = async () => {
+      setTransformationLoading(true);
+
+      // Check if community has transformation access
+      const { data: accessData, error: accessError } = await supabase
+        .from('growth_community_transformation_access')
+        .select('is_active')
+        .eq('growth_community_id', communityId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (accessError) {
+        console.error('Error checking transformation access:', accessError);
+        setHasTransformationAccess(false);
+      } else {
+        setHasTransformationAccess(!!accessData);
+      }
+
+      // Only fetch assessments if has access
+      if (accessData) {
+        const { data, error } = await supabase
+          .from('transformation_assessments')
+          .select('id, area, status, started_at, updated_at')
+          .eq('growth_community_id', communityId)
+          .order('updated_at', { ascending: false })
+          .limit(20);
+
+        if (error) {
+          console.error('Error loading transformation assessments:', error);
+          setTransformationAssessments([]);
+        } else {
+          setTransformationAssessments(data ?? []);
+        }
+      } else {
+        setTransformationAssessments([]);
+      }
+
+      setTransformationLoading(false);
+    };
+
+    fetchAssessments();
+  }, [currentWorkspace?.community_id, supabase]);
+
   const initializeWorkspace = async () => {
     if (!user) return;
 
@@ -314,10 +378,24 @@ const CommunityWorkspacePage: React.FC = () => {
         return;
       }
 
-      // Set default community
-      if (access.defaultCommunityId) {
+      // Set default community (check sessionStorage first for returns from assessment)
+      const returnCommunityId = typeof window !== 'undefined'
+        ? sessionStorage.getItem('workspace_return_community')
+        : null;
+
+      // Clear the return community from sessionStorage after reading
+      if (returnCommunityId) {
+        sessionStorage.removeItem('workspace_return_community');
+      }
+
+      if (returnCommunityId && access.availableCommunities.some(c => c.id === returnCommunityId)) {
+        // Use community from sessionStorage (coming back from assessment)
+        setSelectedCommunityId(returnCommunityId);
+      } else if (access.defaultCommunityId) {
+        // Use default
         setSelectedCommunityId(access.defaultCommunityId);
       } else if (access.availableCommunities.length > 0) {
+        // Fallback to first community
         setSelectedCommunityId(access.availableCommunities[0].id);
       }
 
@@ -360,10 +438,33 @@ const CommunityWorkspacePage: React.FC = () => {
     }
   };
 
+  const goToAssessment = (communityId: string) => {
+    // Store current community in sessionStorage so we can return to it
+    sessionStorage.setItem('workspace_return_community', communityId);
+
+    navigationManager
+      .navigate(async () => {
+        await router.push(`/community/transformation/assessment?communityId=${communityId}`);
+      })
+      .catch(async () => {
+        await router.push(`/community/transformation/assessment?communityId=${communityId}`);
+      });
+  };
+
+  const createNewAssessment = async () => {
+    if (!currentWorkspace?.community_id) {
+      toast.error('No se pudo identificar la comunidad');
+      return;
+    }
+
+    // Simply navigate to the assessment page - it will create the assessment automatically
+    goToAssessment(currentWorkspace.community_id);
+  };
+
   const handleCommunityChange = (communityId: string) => {
     setSelectedCommunityId(communityId);
     setShowCommunitySelector(false);
-    
+
     // Reset workspace when changing communities
     setCurrentWorkspace(null);
   };
@@ -630,6 +731,59 @@ const CommunityWorkspacePage: React.FC = () => {
                 )}
               </div>
 
+              {/* Transformation Card */}
+              {hasTransformationAccess && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-full bg-[#fdb933]/20 flex items-center justify-center text-[#00365b]">
+                      <LightningBoltIcon className="h-6 w-6" />
+                    </div>
+                    <div className="flex-1">
+                      <h2 className="text-lg font-semibold text-[#00365b]">Vías de Transformación</h2>
+                      <p className="text-sm text-gray-600 mt-1">
+                        Evalúa el avance de la comunidad con el asistente conversacional. Revisa las dimensiones
+                        y registra el nivel alcanzado junto al equipo.
+                      </p>
+                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                        {transformationAssessments.length > 0 ? (
+                          transformationAssessments[0].status === 'completed' ? (
+                            <Link
+                              href={`/community/transformation/results/${transformationAssessments[0].id}`}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-500 transition"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                              </svg>
+                              Ver Resultados
+                            </Link>
+                          ) : (
+                            <button
+                              onClick={() => currentWorkspace?.community_id && goToAssessment(currentWorkspace.community_id)}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition"
+                            >
+                              Continuar evaluación
+                            </button>
+                          )
+                        ) : (
+                          <button
+                            onClick={createNewAssessment}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition"
+                          >
+                            Crear primera evaluación
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setActiveSection('transformation')}
+                          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-sm font-semibold rounded-lg text-gray-700 hover:bg-gray-100 transition"
+                        >
+                          Ver todas
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Instagram-style Feed */}
               <FeedContainer
                 workspaceId={currentWorkspace.id}
@@ -871,6 +1025,7 @@ const CommunityWorkspacePage: React.FC = () => {
           activeSection={activeSection}
           onSectionChange={handleSectionChange}
           isAdmin={isAdmin}
+          hasTransformationAccess={hasTransformationAccess}
         />
 
         {/* Current Workspace Info (for sections that need it) */}

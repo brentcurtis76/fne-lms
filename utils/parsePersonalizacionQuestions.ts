@@ -26,7 +26,7 @@ export interface PersonalizacionQuestions {
 }
 
 /**
- * Parse PERSONALIZACIÓN.MD content and extract structured questions
+ * Parse PERSONALIZACION.md content and extract structured questions
  * @param content - The file content as a string
  */
 export function parsePersonalizacionMD(content: string): PersonalizacionQuestions {

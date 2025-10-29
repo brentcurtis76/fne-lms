@@ -8,11 +8,11 @@ import path from 'path';
 import { parsePersonalizacionMD, getFlattenedSections } from '../utils/parsePersonalizacionQuestions';
 
 // Read the file content
-const filePath = path.join(process.cwd(), 'PERSONALIZACIÓN.MD');
+const filePath = path.join(process.cwd(), 'PERSONALIZACION.md');
 const fileContent = fs.readFileSync(filePath, 'utf-8');
 
 try {
-  console.log('🔍 Parsing PERSONALIZACIÓN.MD...\n');
+  console.log('🔍 Parsing PERSONALIZACION.md...\n');
 
   // Parse the content
   const result = parsePersonalizacionMD(fileContent);

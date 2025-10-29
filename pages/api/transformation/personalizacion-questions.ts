@@ -12,7 +12,7 @@ export default async function handler(
   }
 
   try {
-    const filePath = path.join(process.cwd(), 'PERSONALIZACIÓN.MD');
+    const filePath = path.join(process.cwd(), 'PERSONALIZACION.md');
     const fileContent = fs.readFileSync(filePath, 'utf-8');
     const questions = parsePersonalizacionMD(fileContent);
     const flattened = getFlattenedSections(questions);

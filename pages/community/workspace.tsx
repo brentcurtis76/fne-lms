@@ -843,13 +843,113 @@ const CommunityWorkspacePage: React.FC = () => {
         </div>
 
         <div style={{ display: activeSection === 'group-assignments' ? 'block' : 'none' }}>
-          <GroupAssignmentsContent 
-            workspace={currentWorkspace} 
-            workspaceAccess={workspaceAccess} 
-            user={user} 
+          <GroupAssignmentsContent
+            workspace={currentWorkspace}
+            workspaceAccess={workspaceAccess}
+            user={user}
             searchQuery={searchQuery}
             router={router}
           />
+        </div>
+
+        <div style={{ display: activeSection === 'transformation' ? 'block' : 'none' }}>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-2xl font-bold text-[#00365b] mb-4">
+              Vías de Transformación
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Evalúa el progreso de tu comunidad de crecimiento a través de evaluaciones de transformación guiadas.
+            </p>
+
+            {transformationLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00365b] mx-auto mb-4"></div>
+                <p className="text-gray-600">Cargando evaluaciones...</p>
+              </div>
+            ) : transformationAssessments.length > 0 ? (
+              <div className="space-y-4">
+                {transformationAssessments.map(assessment => (
+                  <div key={assessment.id} className="border border-gray-200 rounded-lg p-4 hover:border-[#00365b] transition">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900">
+                          Evaluación de Personalización
+                        </h3>
+                        <div className="mt-2 flex items-center gap-4 text-sm text-gray-600">
+                          <span className="flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Iniciado: {assessment.started_at ? new Date(assessment.started_at).toLocaleDateString('es-CL') : 'N/A'}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Última actualización: {assessment.updated_at ? new Date(assessment.updated_at).toLocaleDateString('es-CL') : 'N/A'}
+                          </span>
+                        </div>
+                        <div className="mt-2">
+                          {assessment.status === 'completed' ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                              Completada
+                            </span>
+                          ) : assessment.status === 'in_progress' ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              En progreso
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                              {assessment.status}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {assessment.status === 'completed' ? (
+                          <Link
+                            href={`/community/transformation/results/${assessment.id}`}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-500 transition"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            Ver Resultados
+                          </Link>
+                        ) : (
+                          <button
+                            onClick={() => currentWorkspace?.community_id && goToAssessment(currentWorkspace.community_id)}
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition"
+                          >
+                            Continuar evaluación
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
+                <div className="h-16 w-16 rounded-full bg-[#fdb933]/20 flex items-center justify-center mx-auto mb-4">
+                  <LightningBoltIcon className="h-8 w-8 text-[#00365b]" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No hay evaluaciones todavía
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  Comienza tu primera evaluación de transformación para medir el progreso de tu comunidad.
+                </p>
+                <button
+                  onClick={createNewAssessment}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition"
+                >
+                  <LightningBoltIcon className="h-5 w-5" />
+                  Crear primera evaluación
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </>
     );

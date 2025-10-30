@@ -68,6 +68,18 @@ comprehensive_fix.js
 direct_fix.js
 fix_*.js
 
+# Diagnostic and test scripts (may contain hardcoded credentials)
+scripts/apply-*.js
+scripts/check-*.js
+scripts/diagnose-*.js
+scripts/test-*.js
+scripts/verify-*.js
+scripts/create-*.js
+scripts/delete-*.js
+scripts/prove-*.js
+scripts/simulate-*.js
+APPLY_*.md
+
 # Backup files
 *.backup
 *.bak

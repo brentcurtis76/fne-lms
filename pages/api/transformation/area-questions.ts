@@ -4,30 +4,29 @@
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import fs from 'fs';
-import path from 'path';
 import { parsePersonalizacionMD } from '@/utils/parsePersonalizacionQuestions';
 import { parseAprendizajeMD } from '@/utils/parseAprendizajeQuestions';
 import { getFlattenedSections as getFlatPersonalizacion } from '@/utils/parsePersonalizacionQuestions';
 import { getFlattenedSections as getFlatAprendizaje } from '@/utils/parseAprendizajeQuestions';
+import { getPersonalizacionMarkdown, getAprendizajeMarkdown } from '@/lib/transformation/rubricData';
 
 const VALID_AREAS = ['personalizacion', 'aprendizaje'] as const;
 type ValidArea = typeof VALID_AREAS[number];
 
 interface AreaConfig {
-  fileName: string;
+  getContent: () => string;
   parser: (content: string) => { acciones: any[]; totalSections: number };
   flattener: (data: any) => any[];
 }
 
 const AREA_CONFIGS: Record<ValidArea, AreaConfig> = {
   personalizacion: {
-    fileName: 'public/data/PERSONALIZACION.md',
+    getContent: getPersonalizacionMarkdown,
     parser: parsePersonalizacionMD,
     flattener: getFlatPersonalizacion,
   },
   aprendizaje: {
-    fileName: 'public/data/PROGRESION-APRENDIZAJE.md',
+    getContent: getAprendizajeMarkdown,
     parser: parseAprendizajeMD,
     flattener: getFlatAprendizaje,
   },
@@ -62,16 +61,8 @@ export default async function handler(
     // Get configuration for this área
     const config = AREA_CONFIGS[area as ValidArea];
 
-    // Read and parse the markdown file
-    const filePath = path.join(process.cwd(), config.fileName);
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(500).json({
-        error: `Archivo no encontrado: ${config.fileName}`,
-      });
-    }
-
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
+    // Get markdown content (cached after first load)
+    const fileContent = config.getContent();
 
     // Parse content using área-specific parser
     const questions = config.parser(fileContent);

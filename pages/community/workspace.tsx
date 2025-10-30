@@ -361,11 +361,7 @@ const CommunityWorkspacePage: React.FC = () => {
             status,
             started_at,
             updated_at,
-            created_by,
-            creator:created_by (
-              first_name,
-              last_name
-            )
+            created_by
           `)
           .eq('growth_community_id', communityId)
           .order('updated_at', { ascending: false })
@@ -375,13 +371,33 @@ const CommunityWorkspacePage: React.FC = () => {
           console.error('Error loading transformation assessments:', error);
           setTransformationAssessments([]);
         } else {
-          // Map the data to include creator_name
-          const assessmentsWithCreator = (data ?? []).map((assessment: any) => ({
-            ...assessment,
-            creator_name: assessment.creator
-              ? `${assessment.creator.first_name || ''} ${assessment.creator.last_name || ''}`.trim()
-              : null
-          }));
+          // Fetch profiles for all creators
+          const creatorIds = [...new Set((data ?? []).map(a => a.created_by).filter(Boolean))];
+          let profilesMap: Record<string, any> = {};
+
+          if (creatorIds.length > 0) {
+            const { data: profilesData, error: profilesError } = await supabase
+              .from('profiles')
+              .select('id, first_name, last_name, email')
+              .in('id', creatorIds);
+
+            if (!profilesError && profilesData) {
+              profilesMap = Object.fromEntries(
+                profilesData.map(p => [p.id, p])
+              );
+            }
+          }
+
+          // Map to include creator_name
+          const assessmentsWithCreator = (data ?? []).map((assessment: any) => {
+            const profile = profilesMap[assessment.created_by];
+            return {
+              ...assessment,
+              creator_name: profile
+                ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email
+                : 'Usuario desconocido'
+            };
+          });
           setTransformationAssessments(assessmentsWithCreator);
         }
       } else {

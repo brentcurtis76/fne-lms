@@ -164,6 +164,8 @@ const CommunityWorkspacePage: React.FC = () => {
     status: 'in_progress' | 'completed' | 'archived';
     started_at?: string | null;
     updated_at?: string | null;
+    created_by?: string | null;
+    creator_name?: string | null;
   }>>([]);
   const [transformationLoading, setTransformationLoading] = useState(false);
   const [hasTransformationAccess, setHasTransformationAccess] = useState(false);
@@ -353,7 +355,18 @@ const CommunityWorkspacePage: React.FC = () => {
       if (accessData) {
         const { data, error } = await supabase
           .from('transformation_assessments')
-          .select('id, area, status, started_at, updated_at')
+          .select(`
+            id,
+            area,
+            status,
+            started_at,
+            updated_at,
+            created_by,
+            creator:created_by (
+              first_name,
+              last_name
+            )
+          `)
           .eq('growth_community_id', communityId)
           .order('updated_at', { ascending: false })
           .limit(20);
@@ -362,7 +375,14 @@ const CommunityWorkspacePage: React.FC = () => {
           console.error('Error loading transformation assessments:', error);
           setTransformationAssessments([]);
         } else {
-          setTransformationAssessments(data ?? []);
+          // Map the data to include creator_name
+          const assessmentsWithCreator = (data ?? []).map((assessment: any) => ({
+            ...assessment,
+            creator_name: assessment.creator
+              ? `${assessment.creator.first_name || ''} ${assessment.creator.last_name || ''}`.trim()
+              : null
+          }));
+          setTransformationAssessments(assessmentsWithCreator);
         }
       } else {
         setTransformationAssessments([]);
@@ -873,6 +893,16 @@ const CommunityWorkspacePage: React.FC = () => {
                         <h3 className="text-lg font-semibold text-gray-900">
                           Evaluación de {assessment.area === 'personalizacion' ? 'Personalización' : 'Aprendizaje'}
                         </h3>
+                        {assessment.creator_name && (
+                          <p className="mt-1 text-sm text-gray-600">
+                            <span className="flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              Realizada por: <span className="font-medium">{assessment.creator_name}</span>
+                            </span>
+                          </p>
+                        )}
                         <div className="mt-2 flex items-center gap-4 text-sm text-gray-600">
                           <span className="flex items-center gap-1">
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -767,65 +767,6 @@ const CommunityWorkspacePage: React.FC = () => {
                 )}
               </div>
 
-              {/* Transformation Card */}
-              {hasTransformationAccess && (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-full bg-[#fdb933]/20 flex items-center justify-center text-[#00365b]">
-                      <LightningBoltIcon className="h-6 w-6" />
-                    </div>
-                    <div className="flex-1">
-                      <h2 className="text-lg font-semibold text-[#00365b]">Vías de Transformación</h2>
-                      <p className="text-sm text-gray-600 mt-1">
-                        Evalúa el avance de la comunidad con el asistente conversacional. Revisa las dimensiones
-                        y registra el nivel alcanzado junto al equipo.
-                      </p>
-                      <div className="mt-4 flex flex-wrap items-center gap-3">
-                        {transformationAssessments.length > 0 ? (
-                          transformationAssessments[0].status === 'completed' ? (
-                            <Link
-                              href={`/community/transformation/results/${transformationAssessments[0].id}`}
-                              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-500 transition"
-                            >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2z" />
-                              </svg>
-                              Ver Resultados
-                            </Link>
-                          ) : (
-                            <button
-                              onClick={() =>
-                                currentWorkspace?.community_id &&
-                                goToAssessment(
-                                  currentWorkspace.community_id,
-                                  transformationAssessments[0].area as 'personalizacion' | 'aprendizaje'
-                                )
-                              }
-                              className="inline-flex items-center gap-2 px-4 py-2 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition"
-                            >
-                              Continuar evaluación
-                            </button>
-                          )
-                        ) : (
-                          <button
-                            onClick={createNewAssessment}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition"
-                          >
-                            Crear primera evaluación
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setActiveSection('transformation')}
-                          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-sm font-semibold rounded-lg text-gray-700 hover:bg-gray-100 transition"
-                        >
-                          Ver todas
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Instagram-style Feed */}
               <FeedContainer
                 workspaceId={currentWorkspace.id}

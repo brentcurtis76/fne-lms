@@ -22,12 +22,12 @@ interface AreaConfig {
 
 const AREA_CONFIGS: Record<ValidArea, AreaConfig> = {
   personalizacion: {
-    fileName: 'PERSONALIZACION.md',
+    fileName: 'public/data/PERSONALIZACION.md',
     parser: parsePersonalizacionMD,
     flattener: getFlatPersonalizacion,
   },
   aprendizaje: {
-    fileName: 'PROGRESION-APRENDIZAJE.md',
+    fileName: 'public/data/PROGRESION-APRENDIZAJE.md',
     parser: parseAprendizajeMD,
     flattener: getFlatAprendizaje,
   },

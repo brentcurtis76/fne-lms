@@ -296,7 +296,10 @@ Responde ÚNICAMENTE con un objeto JSON válido siguiendo esta estructura exacta
   ]
 }
 
-IMPORTANTE: Responde SOLO con el JSON, sin texto adicional antes o después.`;
+IMPORTANTE:
+- Responde SOLO con el JSON, sin texto adicional antes o después
+- DEBES escapar correctamente las comillas dobles dentro de los valores de texto usando \"
+- Ejemplo: "evidence_quote": "El docente dijo \\"esto es importante\\" en su respuesta"`;
 }
 
 // Keep old const for backward compatibility
@@ -388,6 +391,112 @@ export class RubricEvaluator {
     }
 
     console.log('✅ RubricEvaluator constructor complete');
+  }
+
+  /**
+   * Sanitize Claude's JSON response to fix common formatting issues
+   * Specifically handles unescaped quotes in string values that cause parse errors
+   */
+  private sanitizeClaudeJSON(jsonText: string): string {
+    try {
+      // Strategy: Use a lenient JSON repair approach
+      // 1. Try to parse as-is first
+      try {
+        JSON.parse(jsonText);
+        return jsonText; // Already valid JSON
+      } catch (e) {
+        // Continue to repair attempts
+      }
+
+      // 2. Common issue: Unescaped quotes within string values
+      // Replace problematic patterns in string contexts
+      // This is a heuristic approach - we look for patterns like:
+      // "evidence_quote": "text with "unescaped" quotes"
+
+      let sanitized = jsonText;
+
+      // Find all string values and escape internal quotes
+      // Match pattern: "key": "value with potential "internal quotes" here"
+      // We need to be careful not to break valid JSON structure
+
+      // More robust approach: Parse character by character, tracking context
+      let result = '';
+      let inString = false;
+      let inKey = false;
+      let afterColon = false;
+      let braceDepth = 0;
+      let escapeNext = false;
+
+      for (let i = 0; i < sanitized.length; i++) {
+        const char = sanitized[i];
+        const prevChar = i > 0 ? sanitized[i - 1] : '';
+        const nextChar = i < sanitized.length - 1 ? sanitized[i + 1] : '';
+
+        // Handle escape sequences
+        if (escapeNext) {
+          result += char;
+          escapeNext = false;
+          continue;
+        }
+
+        if (char === '\\') {
+          result += char;
+          escapeNext = true;
+          continue;
+        }
+
+        // Track JSON structure depth
+        if (!inString) {
+          if (char === '{' || char === '[') braceDepth++;
+          if (char === '}' || char === ']') braceDepth--;
+        }
+
+        // Handle quote characters
+        if (char === '"') {
+          if (!inString) {
+            // Starting a new string
+            inString = true;
+            inKey = !afterColon; // If we haven't seen a colon yet, this is a key
+            result += char;
+          } else {
+            // Potentially ending a string
+            // Check if this is actually the end or a quote inside the value
+            // Heuristic: Look ahead for comma, close brace/bracket, or colon
+            const lookAhead = sanitized.substring(i + 1, i + 10).trim();
+            const isRealEnd = lookAhead.startsWith(',') ||
+                             lookAhead.startsWith('}') ||
+                             lookAhead.startsWith(']') ||
+                             lookAhead.startsWith(':');
+
+            if (isRealEnd || inKey) {
+              // This is the actual end of the string
+              inString = false;
+              if (inKey) afterColon = false;
+              result += char;
+            } else {
+              // This is an internal quote that should be escaped
+              result += '\\"';
+            }
+          }
+        } else {
+          result += char;
+          if (char === ':' && !inString) {
+            afterColon = true;
+          }
+          if (char === ',' && !inString) {
+            afterColon = false;
+            inKey = false;
+          }
+        }
+      }
+
+      console.log('🔧 JSON sanitization applied');
+      return result;
+
+    } catch (sanitizeError) {
+      console.warn('⚠️ JSON sanitization failed, returning original:', sanitizeError);
+      return jsonText; // Return original if sanitization fails
+    }
   }
 
   /**
@@ -782,6 +891,11 @@ export class RubricEvaluator {
       }
       jsonText = jsonText.trim();
     }
+
+    // Sanitize JSON to fix common issues from Claude responses
+    // Specifically: unescaped quotes in string values
+    console.log('✅ Sanitizing JSON response...');
+    jsonText = this.sanitizeClaudeJSON(jsonText);
 
     try {
       console.log('✅ Parsing JSON...');

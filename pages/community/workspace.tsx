@@ -850,8 +850,23 @@ const CommunityWorkspacePage: React.FC = () => {
                 <p className="text-gray-600">Cargando evaluaciones...</p>
               </div>
             ) : transformationAssessments.length > 0 ? (
-              <div className="space-y-4">
-                {transformationAssessments.map(assessment => (
+              <>
+                {/* Create New Assessment Button */}
+                <div className="mb-6">
+                  <button
+                    onClick={createNewAssessment}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition shadow-sm"
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    Nueva Evaluación
+                  </button>
+                </div>
+
+                {/* Existing Assessments List */}
+                <div className="space-y-4">
+                  {transformationAssessments.map(assessment => (
                   <div key={assessment.id} className="border border-gray-200 rounded-lg p-4 hover:border-[#00365b] transition">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -917,7 +932,8 @@ const CommunityWorkspacePage: React.FC = () => {
                     </div>
                   </div>
                 ))}
-              </div>
+                </div>
+              </>
             ) : (
               <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
                 <div className="h-16 w-16 rounded-full bg-[#fdb933]/20 flex items-center justify-center mx-auto mb-4">

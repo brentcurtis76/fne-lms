@@ -514,7 +514,22 @@ const CommunityWorkspacePage: React.FC = () => {
 
     setShowAreaSelectionModal(false);
     setPreferredArea(null);
-    goToAssessment(currentWorkspace.community_id, selectedArea);
+
+    // Navigate with forceNew=true to ensure a new assessment is created
+    const searchParams = new URLSearchParams();
+    searchParams.set('communityId', currentWorkspace.community_id);
+    searchParams.set('area', selectedArea);
+    searchParams.set('forceNew', 'true');
+
+    const targetUrl = `/community/transformation/assessment?${searchParams.toString()}`;
+
+    navigationManager
+      .navigate(async () => {
+        await router.push(targetUrl);
+      })
+      .catch(async () => {
+        await router.push(targetUrl);
+      });
   };
 
   const handleCommunityChange = (communityId: string) => {

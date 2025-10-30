@@ -115,7 +115,7 @@ function formatTimeAgo(date: Date): string {
 
 export default function TransformationAssessmentPage() {
   const router = useRouter();
-  const { communityId: rawCommunityId, area: rawArea } = router.query;
+  const { communityId: rawCommunityId, area: rawArea, forceNew: rawForceNew } = router.query;
   const supabase = useSupabaseClient();
   const { user, profile, loading: authLoading } = useAuth();
 
@@ -129,6 +129,9 @@ export default function TransformationAssessmentPage() {
     requestedAreaParam === 'personalizacion' || requestedAreaParam === 'aprendizaje'
       ? requestedAreaParam
       : null;
+
+  const forceNewParam = Array.isArray(rawForceNew) ? rawForceNew[0] : rawForceNew;
+  const forceNew = forceNewParam === 'true';
 
   const [loading, setLoading] = useState(true);
   const [isSavingPreAssessment, setIsSavingPreAssessment] = useState(false);
@@ -251,9 +254,20 @@ export default function TransformationAssessmentPage() {
           throw new Error(`Error al verificar evaluación: ${fetchError.message}`);
         }
 
-        // For now, load the most recent assessment (future: allow selecting between multiple)
+        // Handle assessment loading logic
         const assessmentsList = existingAssessments ?? [];
 
+        // If forceNew=true, always create a new assessment regardless of existing ones
+        if (forceNew && requestedArea) {
+          console.log('🆕 forceNew=true - creando nueva evaluación para área:', requestedArea);
+          setPreferredArea(requestedArea);
+          setShowAreaSelection(true);
+          setLoading(false);
+          hasInitialized.current = true;
+          return;
+        }
+
+        // Normal flow: check for existing assessments
         if (requestedArea) {
           const matchingAssessment = assessmentsList.find(
             (assessment) => assessment.area === requestedArea

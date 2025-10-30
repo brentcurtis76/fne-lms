@@ -840,14 +840,14 @@ export class RubricEvaluator {
     console.log('✅ Calling Anthropic API for objective evaluation...');
     const MODEL = 'claude-sonnet-4-20250514';
     console.log('📋 Using model:', MODEL);
-    console.log('📋 Max tokens: 4000'); // Smaller since we don't need overall summary
+    console.log('📋 Max tokens: 8000'); // Increased to handle detailed evidence_quote fields
     console.log('📋 Temperature: 0.3');
 
     let message;
     try {
       message = await this.anthropic.messages.create({
         model: MODEL,
-        max_tokens: 4000, // Smaller for objective-level evaluation
+        max_tokens: 8000, // Increased from 4000 to prevent truncation
         temperature: 0.3,
         messages: [
           {
@@ -861,6 +861,18 @@ export class RubricEvaluator {
         inputTokens: message.usage?.input_tokens || 0,
         outputTokens: message.usage?.output_tokens || 0
       });
+      console.log('📊 Stop reason:', message.stop_reason);
+
+      // CRITICAL: Check if response was truncated due to token limit
+      if (message.stop_reason === 'max_tokens') {
+        console.error('❌ RESPONSE TRUNCATED: Hit max_tokens limit');
+        console.error('📊 Token usage:', message.usage);
+        throw new Error(
+          `La respuesta del AI fue truncada por límite de tokens. ` +
+          `Objetivo ${objectiveNumber} requiere más tokens para completar la evaluación. ` +
+          `Por favor, contacte al administrador del sistema.`
+        );
+      }
     } catch (apiError: any) {
       console.error('❌ ANTHROPIC API ERROR in evaluateObjective:');
       console.error('Error message:', apiError.message);
@@ -890,6 +902,23 @@ export class RubricEvaluator {
         jsonText = jsonText.substring(0, lastBacktickIndex);
       }
       jsonText = jsonText.trim();
+    }
+
+    // Validate JSON completeness before sanitization
+    // Check for basic JSON structure completeness
+    const jsonTrimmed = jsonText.trim();
+    const startsWithBrace = jsonTrimmed.startsWith('{');
+    const endsWithBrace = jsonTrimmed.endsWith('}');
+
+    if (!startsWithBrace || !endsWithBrace) {
+      console.error('❌ JSON appears truncated or malformed');
+      console.error('Starts with {:', startsWithBrace);
+      console.error('Ends with }:', endsWithBrace);
+      console.error('Last 100 chars:', jsonTrimmed.slice(-100));
+      throw new Error(
+        `Respuesta JSON incompleta del AI (truncada o malformada). ` +
+        `Esto puede indicar que el límite de tokens fue alcanzado durante la generación.`
+      );
     }
 
     // Sanitize JSON to fix common issues from Claude responses

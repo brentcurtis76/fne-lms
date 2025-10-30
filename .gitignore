@@ -94,6 +94,7 @@ run-*.mjs
 # Reports and Analysis
 *.md
 !PERSONALIZACION.md  # Questions file for production transformation API (exception must come AFTER wildcard)
+!PROGRESION-APRENDIZAJE.md  # Questions file for aprendizaje transformation API
 *.json
 
 # Backups

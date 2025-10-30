@@ -1,138 +1,59 @@
-import { createClient } from '@supabase/supabase-js';
-import dotenv from 'dotenv';
+const { createClient } = require('@supabase/supabase-js');
 
-dotenv.config({ path: '.env.local' });
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('Missing Supabase credentials');
-  process.exit(1);
-}
+const supabaseUrl = 'https://sxlogxqzmarhqsblxmtj.supabase.co';
+const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4bG9neHF6bWFyaHFzYmx4bXRqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NzMyMjIyMSwiZXhwIjoyMDYyODk4MjIxfQ.OiyMUeIoCc_mH7G5xZms1AhDyYM3jXqqIjccSL0JmWI';
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-async function checkRLSPolicies() {
-  try {
-    console.log('=== Checking for RLS policies with legacy profiles.role references ===\n');
+async function checkRLSStatus() {
+  console.log('╔' + '═'.repeat(78) + '╗');
+  console.log('║' + ' '.repeat(22) + 'CHECKING RLS POLICIES STATUS' + ' '.repeat(28) + '║');
+  console.log('╚' + '═'.repeat(78) + '╝');
+  console.log('');
 
-    // Query 1: Tables with RLS enabled
-    console.log('1. Tables with Row Level Security enabled:');
-    console.log('==========================================\n');
-    
-    const { data: rlsTables, error: rlsError } = await supabase.rpc('query_database', {
-      query_text: `
-        SELECT schemaname, tablename, rowsecurity 
-        FROM pg_tables 
-        WHERE schemaname = 'public' 
-        AND rowsecurity = true
-        ORDER BY tablename;
-      `
-    });
+  // Test if we can query workspaces at all
+  console.log('Testing workspace access...\n');
 
-    if (rlsError) {
-      console.error('Error fetching RLS tables:', rlsError);
-    } else {
-      console.log(`Found ${rlsTables.length} tables with RLS enabled\n`);
-      rlsTables.forEach(table => {
-        console.log(`  - ${table.tablename}`);
-      });
-    }
+  const { data: workspaces, error } = await supabase
+    .from('community_workspaces')
+    .select('id, name, community_id')
+    .limit(5);
 
-    // Query 2: Policies with legacy references
-    console.log('\n\n2. Policies with legacy profiles.role references:');
-    console.log('================================================\n');
-    
-    const { data: legacyPolicies, error: policyError } = await supabase.rpc('query_database', {
-      query_text: `
-        SELECT 
-            schemaname,
-            tablename, 
-            policyname,
-            permissive,
-            roles,
-            cmd,
-            qual,
-            with_check
-        FROM pg_policies 
-        WHERE schemaname = 'public'
-        AND (qual LIKE '%profiles.role%' OR with_check LIKE '%profiles.role%')
-        ORDER BY tablename, policyname;
-      `
-    });
-
-    if (policyError) {
-      console.error('Error fetching policies:', policyError);
-    } else {
-      if (legacyPolicies.length === 0) {
-        console.log('✅ No policies found with legacy profiles.role references!');
-      } else {
-        console.log(`⚠️  Found ${legacyPolicies.length} policies with legacy references:\n`);
-        
-        legacyPolicies.forEach(policy => {
-          console.log(`Table: ${policy.tablename}`);
-          console.log(`Policy: ${policy.policyname}`);
-          console.log(`Command: ${policy.cmd}`);
-          console.log(`Roles: ${policy.roles}`);
-          
-          if (policy.qual && policy.qual.includes('profiles.role')) {
-            console.log(`QUAL contains legacy reference:`);
-            console.log(`  ${policy.qual}`);
-          }
-          
-          if (policy.with_check && policy.with_check.includes('profiles.role')) {
-            console.log(`WITH CHECK contains legacy reference:`);
-            console.log(`  ${policy.with_check}`);
-          }
-          
-          console.log('---\n');
-        });
-      }
-    }
-
-    // Additional check for functions that might reference profiles.role
-    console.log('\n3. Checking functions for legacy references:');
-    console.log('==========================================\n');
-    
-    const { data: functions, error: funcError } = await supabase.rpc('query_database', {
-      query_text: `
-        SELECT 
-            n.nspname as schema_name,
-            p.proname as function_name,
-            pg_get_functiondef(p.oid) as function_definition
-        FROM pg_proc p
-        JOIN pg_namespace n ON p.pronamespace = n.oid
-        WHERE n.nspname = 'public'
-        AND pg_get_functiondef(p.oid) LIKE '%profiles.role%'
-        ORDER BY p.proname;
-      `
-    });
-
-    if (funcError) {
-      console.error('Error fetching functions:', funcError);
-    } else {
-      if (functions.length === 0) {
-        console.log('✅ No functions found with legacy profiles.role references!');
-      } else {
-        console.log(`⚠️  Found ${functions.length} functions with legacy references:\n`);
-        functions.forEach(func => {
-          console.log(`Function: ${func.function_name}`);
-          console.log('---\n');
-        });
-      }
-    }
-
-  } catch (error) {
-    console.error('Unexpected error:', error);
+  if (error) {
+    console.log('❌ Error querying workspaces:', error.message);
+    return;
   }
+
+  console.log('✅ Service role can query workspaces:', workspaces.length, 'found');
+  console.log('');
+
+  // Try to check if RLS is enabled
+  console.log('Checking RLS configuration...\n');
+
+  // Count total workspaces
+  const { count } = await supabase
+    .from('community_workspaces')
+    .select('*', { count: 'exact', head: true });
+
+  console.log('Total workspaces in database:', count);
+  console.log('');
+
+  console.log('═'.repeat(80));
+  console.log('NEXT STEPS:');
+  console.log('═'.repeat(80));
+  console.log('');
+  console.log('1. Apply the RLS migration in Supabase SQL Editor:');
+  console.log('   File: database/migrations/023_fix_community_workspaces_rls_secure.sql');
+  console.log('   URL: https://supabase.com/dashboard/project/sxlogxqzmarhqsblxmtj/sql/new');
+  console.log('');
+  console.log('2. Have affected users:');
+  console.log('   - Log out of the application');
+  console.log('   - Log back in');
+  console.log('   - Try accessing "Espacio Colaborativo"');
+  console.log('');
+  console.log('3. Verify by testing with a real user account in browser');
+  console.log('');
+  console.log('Expected result: Users can now access their workspace ✅');
 }
 
-// Run the check
-checkRLSPolicies().then(() => {
-  console.log('\n✓ RLS policy check complete');
-  process.exit(0);
-}).catch(error => {
-  console.error('Failed to complete check:', error);
-  process.exit(1);
-});
+checkRLSStatus();

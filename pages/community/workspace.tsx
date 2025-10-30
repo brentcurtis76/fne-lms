@@ -38,6 +38,8 @@ import GroupSubmissionModalV2 from '../../components/assignments/GroupSubmission
 import WorkspaceSettingsModal from '../../components/community/WorkspaceSettingsModal';
 import FeedContainer from '../../components/feed/FeedContainer';
 import WorkspaceTabNavigation from '../../components/workspace/WorkspaceTabNavigation';
+import { AreaSelectionModal } from '../../components/transformation/AreaSelectionModal';
+import { getAvailableAreas, getAreaMetadata, TransformationArea } from '../../types/transformation';
 import { useAuth } from '../../hooks/useAuth';
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
 import { communityWorkspaceService } from '../../lib/services/communityWorkspace';
@@ -165,6 +167,17 @@ const CommunityWorkspacePage: React.FC = () => {
   }>>([]);
   const [transformationLoading, setTransformationLoading] = useState(false);
   const [hasTransformationAccess, setHasTransformationAccess] = useState(false);
+  const [showAreaSelectionModal, setShowAreaSelectionModal] = useState(false);
+  const [preferredArea, setPreferredArea] = useState<'personalizacion' | 'aprendizaje' | null>(null);
+
+  const availableTransformationAreas = getAvailableAreas().filter(
+    (area): area is 'personalizacion' | 'aprendizaje' =>
+      area === 'personalizacion' || area === 'aprendizaje'
+  );
+
+  const missingTransformationAreas = availableTransformationAreas.filter(
+    (area) => !transformationAssessments.some((assessment) => assessment.area === area)
+  );
 
   // Load community members when workspace changes
   useEffect(() => {
@@ -438,16 +451,27 @@ const CommunityWorkspacePage: React.FC = () => {
     }
   };
 
-  const goToAssessment = (communityId: string) => {
+  const goToAssessment = (
+    communityId: string,
+    area?: 'personalizacion' | 'aprendizaje'
+  ) => {
     // Store current community in sessionStorage so we can return to it
     sessionStorage.setItem('workspace_return_community', communityId);
 
+    const searchParams = new URLSearchParams();
+    searchParams.set('communityId', communityId);
+    if (area) {
+      searchParams.set('area', area);
+    }
+
+    const targetUrl = `/community/transformation/assessment?${searchParams.toString()}`;
+
     navigationManager
       .navigate(async () => {
-        await router.push(`/community/transformation/assessment?communityId=${communityId}`);
+        await router.push(targetUrl);
       })
       .catch(async () => {
-        await router.push(`/community/transformation/assessment?communityId=${communityId}`);
+        await router.push(targetUrl);
       });
   };
 
@@ -457,8 +481,20 @@ const CommunityWorkspacePage: React.FC = () => {
       return;
     }
 
-    // Simply navigate to the assessment page - it will create the assessment automatically
-    goToAssessment(currentWorkspace.community_id);
+    // Show área selection modal
+    setPreferredArea(null);
+    setShowAreaSelectionModal(true);
+  };
+
+  const handleAreaSelection = (selectedArea: 'personalizacion' | 'aprendizaje') => {
+    if (!currentWorkspace?.community_id) {
+      toast.error('No se pudo identificar la comunidad');
+      return;
+    }
+
+    setShowAreaSelectionModal(false);
+    setPreferredArea(null);
+    goToAssessment(currentWorkspace.community_id, selectedArea);
   };
 
   const handleCommunityChange = (communityId: string) => {
@@ -752,13 +788,19 @@ const CommunityWorkspacePage: React.FC = () => {
                               className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-500 transition"
                             >
                               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2z" />
                               </svg>
                               Ver Resultados
                             </Link>
                           ) : (
                             <button
-                              onClick={() => currentWorkspace?.community_id && goToAssessment(currentWorkspace.community_id)}
+                              onClick={() =>
+                                currentWorkspace?.community_id &&
+                                goToAssessment(
+                                  currentWorkspace.community_id,
+                                  transformationAssessments[0].area as 'personalizacion' | 'aprendizaje'
+                                )
+                              }
                               className="inline-flex items-center gap-2 px-4 py-2 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition"
                             >
                               Continuar evaluación
@@ -873,7 +915,7 @@ const CommunityWorkspacePage: React.FC = () => {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-900">
-                          Evaluación de Personalización
+                          Evaluación de {assessment.area === 'personalizacion' ? 'Personalización' : 'Aprendizaje'}
                         </h3>
                         <div className="mt-2 flex items-center gap-4 text-sm text-gray-600">
                           <span className="flex items-center gap-1">
@@ -918,7 +960,13 @@ const CommunityWorkspacePage: React.FC = () => {
                           </Link>
                         ) : (
                           <button
-                            onClick={() => currentWorkspace?.community_id && goToAssessment(currentWorkspace.community_id)}
+                            onClick={() =>
+                              currentWorkspace?.community_id &&
+                              goToAssessment(
+                                currentWorkspace.community_id,
+                                assessment.area as 'personalizacion' | 'aprendizaje'
+                              )
+                            }
                             className="inline-flex items-center gap-2 px-4 py-2 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition"
                           >
                             Continuar evaluación
@@ -947,6 +995,44 @@ const CommunityWorkspacePage: React.FC = () => {
                   <LightningBoltIcon className="h-5 w-5" />
                   Crear primera evaluación
                 </button>
+              </div>
+            )}
+
+            {missingTransformationAreas.length > 0 && (
+              <div className="mt-6 space-y-4">
+                {missingTransformationAreas.map((area) => {
+                  const metadata = getAreaMetadata(area as TransformationArea);
+                  return (
+                    <div
+                      key={`missing-${area}`}
+                      className="border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50"
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-2xl" aria-hidden>{metadata.icon}</span>
+                        <h4 className="text-base font-semibold text-gray-900">
+                          Inicia la evaluación de {metadata.label}
+                        </h4>
+                      </div>
+                      <p className="text-sm text-gray-600 mb-4">
+                        {metadata.description}
+                      </p>
+                      <button
+                        onClick={() => {
+                          if (!currentWorkspace?.community_id) {
+                            toast.error('No se pudo identificar la comunidad');
+                            return;
+                          }
+                          setPreferredArea(area);
+                          setShowAreaSelectionModal(true);
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition"
+                      >
+                        <LightningBoltIcon className="w-4 h-4" />
+                        Iniciar evaluación de {metadata.label}
+                      </button>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1194,6 +1280,15 @@ const CommunityWorkspacePage: React.FC = () => {
             });
             toast.success('Configuración actualizada');
           }}
+        />
+      )}
+
+      {/* Área Selection Modal */}
+      {showAreaSelectionModal && (
+        <AreaSelectionModal
+          onSelect={handleAreaSelection}
+          initialArea={preferredArea}
+          onCancel={() => setShowAreaSelectionModal(false)}
         />
       )}
     </MainLayout>

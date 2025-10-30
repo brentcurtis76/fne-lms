@@ -146,7 +146,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'API key no configurada' });
     }
 
-    const evaluator = new RubricEvaluator(apiKey);
+    const evaluator = new RubricEvaluator(apiKey, assessment.area as 'personalizacion' | 'aprendizaje');
 
     // Evaluate this objective
     console.log(`🤖 Evaluating Objective ${objectiveNumber}...`);

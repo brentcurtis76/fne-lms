@@ -1,7 +1,11 @@
+/**
+ * DEPRECATED: This endpoint is deprecated in favor of /api/transformation/area-questions
+ * Redirects to the new dynamic endpoint for backward compatibility
+ *
+ * @deprecated Use /api/transformation/area-questions?area=personalizacion instead
+ */
+
 import { NextApiRequest, NextApiResponse } from 'next';
-import fs from 'fs';
-import path from 'path';
-import { parsePersonalizacionMD, getFlattenedSections } from '@/utils/parsePersonalizacionQuestions';
 
 export default async function handler(
   req: NextApiRequest,
@@ -11,19 +15,6 @@ export default async function handler(
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
-  try {
-    const filePath = path.join(process.cwd(), 'PERSONALIZACION.md');
-    const fileContent = fs.readFileSync(filePath, 'utf-8');
-    const questions = parsePersonalizacionMD(fileContent);
-    const flattened = getFlattenedSections(questions);
-
-    return res.status(200).json({
-      acciones: questions.acciones,
-      totalSections: questions.totalSections,
-      flattened,
-    });
-  } catch (error) {
-    console.error('Error parsing personalizacion questions:', error);
-    return res.status(500).json({ error: 'Error al cargar preguntas' });
-  }
+  // Redirect to new dynamic endpoint
+  return res.redirect(307, '/api/transformation/area-questions?area=personalizacion');
 }

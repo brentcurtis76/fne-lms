@@ -171,11 +171,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('✅ API key configured:', apiKey.substring(0, 15) + '...');
 
-    // 5. Create evaluator and run evaluation
-    console.log('✅ Initializing RubricEvaluator...');
+    // 5. Create evaluator and run evaluation (pass assessment's área)
+    console.log('✅ Initializing RubricEvaluator with área:', assessment.area);
     let evaluator;
     try {
-      evaluator = new RubricEvaluator(apiKey);
+      evaluator = new RubricEvaluator(apiKey, assessment.area as 'personalizacion' | 'aprendizaje');
       console.log('✅ RubricEvaluator initialized successfully');
     } catch (evalError: any) {
       console.error('❌ Error initializing evaluator:', evalError);

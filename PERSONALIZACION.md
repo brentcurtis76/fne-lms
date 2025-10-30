@@ -1,12 +1,12 @@
 OBJETIVO 1: La escuela construye condiciones para personalizar el aprendizaje, reconociendo y acompañando la singularidad de cada estudiante en su trayectoria							
-    ACCIÓN 1: Se ha implementado un modelo propio de plan personal que registra metas, avances y reflexiones de cada estudiante.
+    ACCIÓN 1: Se ha implementado un modelo propio de plan personal de crecimiento (PPC) que registra metas, avances y reflexiones de cada estudiante.
         PREGUNTAS ABIERTAS:
-            ¿Tienen un modelo propio de plan personal implementado?
+            ¿Tienen un modelo propio de plan personal de crecimiento implementado?
             ¿Qué tipo de elementos recoge el plan (metas, evidencias, reflexiones, otros)?
     
     COBERTURA:
         PREGUNTAS ABIERTAS: 
-            ¿En qué niveles o cursos se está implementando actualmente el plan personal
+            ¿En qué niveles o cursos se está implementando actualmente el plan personal?
             ¿Se aplica solo en la generación tractor o en todos los niveles?
             ¿Todos los docentes lo utilizan del mismo modo, o hay diferencias?
         AUTOEVALUACIÓN: 
@@ -78,9 +78,9 @@ OBJETIVO 2: La escuela estructura un sistema de tutoría personalizada que garan
             Consolidado: las entrevistas se basan en una pauta común que integra lo académico, personal, relacional y vocacional; los acuerdos se registran y dan continuidad en el tiempo, involucrando cuando corresponde a la familia.
 
 
-OBJETIVO 3: La escuela forma personas capaces de reconocer su singularidad, tomar decisiones conscientes sobre su aprendizaje y su vida, y vincular lo escolar con su proyecto vital							
-    ACCIÓN 1: Los estudiantes realizan proyectos de autoconocimiento estructurados por sus docentes
-        PREGUNTAS ABIERTAS: ¿Existen proyectos de autoconocimiento diseñados por los docentes para los estudiantes?
+OBJETIVO 3: La escuela forma personas capaces de reconocer su singularidad y de tomar decisiones conscientes sobre su vida y aprendizaje, y vincular lo escolar con su proyecto vital.							
+    ACCIÓN 1: Los estudiantes realizan proyectos de autoconocimiento.
+        PREGUNTAS ABIERTAS: ¿Existen proyectos de autoconocimiento diseñados para el crecimiento de los estudiantes?
     
     COBERTURA:
         PREGUNTAS ABIERTAS: 

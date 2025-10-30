@@ -36,6 +36,7 @@ export type ObjectiveResponse = SectionResponse;
 
 interface SequentialQuestionsProps {
   assessmentId: string;
+  area: 'personalizacion' | 'aprendizaje';
   onComplete: () => void;
   initialResponses?: Record<string, SectionResponse>;
   onSavingStateChange?: (isSaving: boolean) => void;
@@ -45,6 +46,7 @@ interface SequentialQuestionsProps {
 
 export function SequentialQuestions({
   assessmentId,
+  area,
   onComplete,
   initialResponses,
   onSavingStateChange,
@@ -90,20 +92,23 @@ export function SequentialQuestions({
         setIsLoadingQuestions(true);
         setLoadError(null);
 
-        const response = await fetch('/api/transformation/personalizacion-questions');
+        const response = await fetch(`/api/transformation/area-questions?area=${area}`);
         if (!response.ok) {
           throw new Error(`API returned ${response.status}: ${response.statusText}`);
         }
 
         const data = await response.json();
 
-        // Validation: Ensure we have exactly 44 sections
-        if (!data.flattened || data.flattened.length !== 44) {
+        // Validation: Ensure we have sections data
+        if (!data.flattened || data.flattened.length === 0) {
           throw new Error(
-            `Data integrity error: Expected 44 sections, received ${data.flattened?.length || 0}. ` +
+            `Data integrity error: No sections received. ` +
             `ACCIONes count: ${data.acciones?.length || 0}`
           );
         }
+
+        // Log section count for debugging
+        console.log(`✅ Loaded ${data.flattened.length} sections for área: ${area}`);
 
         // Validation: Ensure all sections have required fields
         const invalidSections = data.flattened.filter((s: FlattenedSection) =>
@@ -155,7 +160,7 @@ export function SequentialQuestions({
     };
 
     loadQuestions();
-  }, [initialResponses]);
+  }, [area, initialResponses]);
 
   // Load saved response for current section
   // IMPORTANT: Only run when section changes, NOT when responses update (to avoid overwriting user input)

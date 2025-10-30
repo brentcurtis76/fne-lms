@@ -46,13 +46,59 @@ interface AssessmentEvaluation {
   recommendations: string[];
 }
 
-const EVALUATION_PROMPT = `Eres un experto en evaluación educativa especializado en transformación escolar en Chile.
+/**
+ * Área-specific focus and terminology for evaluation prompts
+ */
+const AREA_FOCUS = {
+  personalizacion: `
+## ENFOQUE: PERSONALIZACIÓN
 
-Tu tarea es evaluar las respuestas de una comunidad educativa sobre su nivel de transformación en la vía de Personalización.
+Esta vía se centra en:
+- **Individualización del aprendizaje**: Planes Personales de Crecimiento (PPC)
+- **Autoconocimiento del estudiante**: Reflexión sobre fortalezas, intereses y metas
+- **Tutorías y acompañamiento**: Espacios de mentoría 1:1 o pequeños grupos
+- **Flexibilidad de trayectorias**: Rutas diferenciadas según ritmo y estilo
+
+**Terminología clave Personalización:**
+- "Plan Personal de Crecimiento (PPC)": Documento donde estudiante define metas y estrategias
+- "Tutorías": Espacios de acompañamiento individual o grupal
+- "Portafolio de aprendizaje": Colección de evidencias del estudiante
+- "Diseño Universal para el Aprendizaje (DUA)": Estrategias inclusivas en el aula
+`,
+  aprendizaje: `
+## ENFOQUE: APRENDIZAJE
+
+Esta vía se centra en:
+- **Metodologías activas**: Aprendizaje Basado en Proyectos (ABP), aprendizaje cooperativo
+- **Estudiante en el centro**: Exploración, indagación, construcción de conocimiento
+- **Interdisciplinariedad**: Proyectos que integran múltiples asignaturas
+- **Ambientes de aprendizaje**: Espacios físicos y virtuales que facilitan la colaboración
+
+**Terminología clave Aprendizaje:**
+- "ABP (Aprendizaje Basado en Proyectos)": Metodología donde estudiantes investigan y resuelven problemas reales
+- "Proyectos interdisciplinarios": Integran objetivos de múltiples asignaturas
+- "Cajas de aprendizaje": Recursos organizados por tema/proyecto para elección de estudiantes
+- "Brújulas": Documentos guía para proyectos y evaluación
+- "Equipos base": Grupos estables de estudiantes que colaboran durante el año
+- "Ambientes de aprendizaje": Espacios flexibles que fomentan colaboración y autonomía
+`,
+};
+
+/**
+ * Build area-specific evaluation prompt
+ */
+function buildEvaluationPrompt(area: 'personalizacion' | 'aprendizaje'): string {
+  const areaLabel = area === 'personalizacion' ? 'Personalización' : 'Aprendizaje';
+  const areaFocus = AREA_FOCUS[area];
+
+  return `Eres un experto en evaluación educativa especializado en transformación escolar en Chile.
+
+Tu tarea es evaluar las respuestas de una comunidad educativa sobre su nivel de transformación en la vía de ${areaLabel}.
+${areaFocus}
 
 ## CONTEXTO EDUCATIVO CHILENO
 
-**Terminología importante:**
+**Terminología general:**
 - "Generación Tractor (GT)": Los primeros cursos donde la escuela decide enfocar la transformación educativa de manera radical y rápida. Típicamente Pre-Kinder a 2º Básico, pero puede extenderse hasta 4º Básico. Cada año se agrega un nuevo curso a GT. La velocidad varía por escuela.
 - "Generación Innova (GI)": Todos los cursos que NO son GT. La transformación es planificada e intencional, pero más lenta y medida.
 - "Curso": Equivalente a un grado o año escolar (ej: 5º básico)
@@ -151,11 +197,22 @@ Responde ÚNICAMENTE con un objeto JSON válido siguiendo esta estructura exacta
 }
 
 IMPORTANTE: Responde SOLO con el JSON, sin texto adicional antes o después.`;
+}
 
-// Simplified prompt for objective-level evaluation (no overall summary needed)
-const OBJECTIVE_EVALUATION_PROMPT = `Eres un experto en evaluación educativa especializado en transformación escolar en Chile.
+// Keep old const for backward compatibility (defaults to Personalización)
+const EVALUATION_PROMPT = buildEvaluationPrompt('personalizacion');
 
-Tu tarea es evaluar las respuestas de una comunidad educativa para UN SOLO OBJETIVO de la vía de Personalización.
+/**
+ * Build area-specific objective evaluation prompt (simplified, no overall summary)
+ */
+function buildObjectiveEvaluationPrompt(area: 'personalizacion' | 'aprendizaje'): string {
+  const areaLabel = area === 'personalizacion' ? 'Personalización' : 'Aprendizaje';
+  const areaFocus = AREA_FOCUS[area];
+
+  return `Eres un experto en evaluación educativa especializado en transformación escolar en Chile.
+
+Tu tarea es evaluar las respuestas de una comunidad educativa para UN SOLO OBJETIVO de la vía de ${areaLabel}.
+${areaFocus}
 
 ## CONTEXTO EDUCATIVO CHILENO
 
@@ -240,13 +297,85 @@ Responde ÚNICAMENTE con un objeto JSON válido siguiendo esta estructura exacta
 }
 
 IMPORTANTE: Responde SOLO con el JSON, sin texto adicional antes o después.`;
+}
+
+// Keep old const for backward compatibility
+const OBJECTIVE_EVALUATION_PROMPT = buildObjectiveEvaluationPrompt('personalizacion');
+
+/**
+ * Build area-specific summary prompt for objective-by-objective evaluation
+ */
+function buildSummaryPrompt(area: 'personalizacion' | 'aprendizaje', dimensionEvaluations: any[]): string {
+  const areaLabel = area === 'personalizacion' ? 'Personalización' : 'Aprendizaje';
+
+  return `Eres un experto en evaluación educativa especializado en transformación escolar en Chile.
+
+Has evaluado las respuestas de una comunidad educativa sobre su nivel de transformación en la vía de ${areaLabel}.
+
+A continuación se presentan las evaluaciones detalladas de cada dimensión que ya has realizado.
+
+Tu tarea ahora es generar un resumen ejecutivo que incluya:
+1. Nivel general de transformación (1-4)
+2. Fortalezas principales (3-5 puntos)
+3. Áreas de crecimiento (3-5 puntos)
+4. Resumen ejecutivo (2-3 oraciones)
+5. Recomendaciones prioritarias (3-5 puntos)
+
+## EVALUACIONES POR DIMENSIÓN
+
+${dimensionEvaluations.map((dimEval, idx) => `
+**Dimensión ${idx + 1}: ${dimEval.dimension}**
+- Nivel asignado: ${dimEval.level}
+- Justificación: ${dimEval.reasoning}
+- Evidencia: "${dimEval.evidence_quote}"
+`).join('\n')}
+
+## CRITERIOS PARA NIVEL GENERAL
+
+El nivel general debe reflejar el promedio ponderado de todas las dimensiones, considerando:
+- **Nivel 1 - Incipiente**: Promedio 1.0-1.5 - Conciencia inicial, intentos aislados
+- **Nivel 2 - Emergente**: Promedio 1.6-2.5 - Prácticas comenzando, resultados iniciales
+- **Nivel 3 - Avanzado**: Promedio 2.6-3.5 - Implementación generalizada, prácticas institucionalizadas
+- **Nivel 4 - Consolidado**: Promedio 3.6-4.0 - Excelencia sostenida, innovación continua
+
+## FORMATO DE SALIDA
+
+Responde ÚNICAMENTE con un objeto JSON válido siguiendo esta estructura exacta:
+
+{
+  "overall_stage": 2,
+  "overall_stage_label": "Emergente",
+  "strengths": [
+    "Fortaleza identificada 1",
+    "Fortaleza identificada 2",
+    "Fortaleza identificada 3"
+  ],
+  "growth_areas": [
+    "Área de crecimiento 1",
+    "Área de crecimiento 2",
+    "Área de crecimiento 3"
+  ],
+  "summary": "Resumen ejecutivo del estado general de transformación en 2-3 oraciones completas y coherentes.",
+  "recommendations": [
+    "Recomendación prioritaria 1",
+    "Recomendación prioritaria 2",
+    "Recomendación prioritaria 3"
+  ]
+}
+
+IMPORTANTE: Responde SOLO con el JSON, sin texto adicional antes o después.`;
+}
 
 export class RubricEvaluator {
   private anthropic: Anthropic;
+  private area: 'personalizacion' | 'aprendizaje';
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, area: 'personalizacion' | 'aprendizaje' = 'personalizacion') {
     console.log('🔧 RubricEvaluator constructor called');
     console.log('📊 API key length:', apiKey.length);
+    console.log('🎯 Área:', area);
+
+    this.area = area;
 
     try {
       this.anthropic = new Anthropic({
@@ -400,8 +529,9 @@ export class RubricEvaluator {
       console.warn('⚠️ WARNING: Context might be too large!', evaluationContext.length, 'characters');
     }
 
-    // Combine prompt and context
-    const fullPrompt = `${EVALUATION_PROMPT}\n\n${evaluationContext}`;
+    // Combine prompt and context (use área-specific prompt)
+    const areaPrompt = buildEvaluationPrompt(this.area);
+    const fullPrompt = `${areaPrompt}\n\n${evaluationContext}`;
     console.log('📏 Full prompt length:', fullPrompt.length, 'characters');
 
     // 🔍 DIAGNOSTIC: Log the first 5000 characters of the prompt to see what Claude receives
@@ -592,8 +722,9 @@ export class RubricEvaluator {
     const evaluationContext = this.buildEvaluationContext(mappedResponses, objectiveItems);
     console.log('✅ Context built. Length:', evaluationContext.length, 'characters');
 
-    // Combine prompt and context (using simpler objective-level prompt)
-    const fullPrompt = `${OBJECTIVE_EVALUATION_PROMPT}\n\n${evaluationContext}`;
+    // Combine prompt and context (using simpler objective-level prompt with área)
+    const areaPrompt = buildObjectiveEvaluationPrompt(this.area);
+    const fullPrompt = `${areaPrompt}\n\n${evaluationContext}`;
     console.log('📏 Full prompt length:', fullPrompt.length, 'characters');
 
     // Call Claude API
@@ -704,63 +835,8 @@ export class RubricEvaluator {
 
     console.log('📊 Total dimension evaluations:', allDimensionEvaluations.length);
 
-    // Build summary prompt
-    const summaryPrompt = `Eres un experto en evaluación educativa especializado en transformación escolar en Chile.
-
-Has evaluado las respuestas de una comunidad educativa sobre su nivel de transformación en la vía de Personalización.
-
-A continuación se presentan las evaluaciones detalladas de cada dimensión que ya has realizado.
-
-Tu tarea ahora es generar un resumen ejecutivo que incluya:
-1. Nivel general de transformación (1-4)
-2. Fortalezas principales (3-5 puntos)
-3. Áreas de crecimiento (3-5 puntos)
-4. Resumen ejecutivo (2-3 oraciones)
-5. Recomendaciones prioritarias (3-5 puntos)
-
-## EVALUACIONES POR DIMENSIÓN
-
-${allDimensionEvaluations.map((dimEval, idx) => `
-**Dimensión ${idx + 1}: ${dimEval.dimension}**
-- Nivel asignado: ${dimEval.level}
-- Justificación: ${dimEval.reasoning}
-- Evidencia: "${dimEval.evidence_quote}"
-`).join('\n')}
-
-## CRITERIOS PARA NIVEL GENERAL
-
-El nivel general debe reflejar el promedio ponderado de todas las dimensiones, considerando:
-- **Nivel 1 - Incipiente**: Promedio 1.0-1.5 - Conciencia inicial, intentos aislados
-- **Nivel 2 - Emergente**: Promedio 1.6-2.5 - Prácticas comenzando, resultados iniciales
-- **Nivel 3 - Avanzado**: Promedio 2.6-3.5 - Implementación generalizada, prácticas institucionalizadas
-- **Nivel 4 - Consolidado**: Promedio 3.6-4.0 - Excelencia sostenida, innovación continua
-
-## FORMATO DE SALIDA
-
-Responde ÚNICAMENTE con un objeto JSON válido siguiendo esta estructura exacta:
-
-{
-  "overall_stage": 2,
-  "overall_stage_label": "Emergente",
-  "strengths": [
-    "Fortaleza identificada 1",
-    "Fortaleza identificada 2",
-    "Fortaleza identificada 3"
-  ],
-  "growth_areas": [
-    "Área de crecimiento 1",
-    "Área de crecimiento 2",
-    "Área de crecimiento 3"
-  ],
-  "summary": "Resumen ejecutivo del estado general de transformación en 2-3 oraciones completas y coherentes.",
-  "recommendations": [
-    "Recomendación prioritaria 1",
-    "Recomendación prioritaria 2",
-    "Recomendación prioritaria 3"
-  ]
-}
-
-IMPORTANTE: Responde SOLO con el JSON, sin texto adicional antes o después.`;
+    // Build summary prompt (use área-specific builder)
+    const summaryPrompt = buildSummaryPrompt(this.area, allDimensionEvaluations);
 
     // Call Claude API
     console.log('✅ Calling Anthropic API for overall summary...');

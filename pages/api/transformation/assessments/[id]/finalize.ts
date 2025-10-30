@@ -192,7 +192,7 @@ export default async function handler(
       return res.status(500).json({ error: 'API key no configurada' });
     }
 
-    const evaluator = new RubricEvaluator(apiKey);
+    const evaluator = new RubricEvaluator(apiKey, assessment.area as 'personalizacion' | 'aprendizaje');
 
     // Generate overall summary
     console.log('[finalize] Generating overall summary...');

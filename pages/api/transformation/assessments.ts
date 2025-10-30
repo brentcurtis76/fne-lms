@@ -21,9 +21,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(401).json({ error: 'No autorizado' });
   }
 
-  const { communityId, area = 'personalizacion' } = req.body ?? {};
+  // Validate required fields
+  const { communityId, area } = req.body ?? {};
+
   if (!communityId) {
     return res.status(400).json({ error: 'Debes indicar communityId.' });
+  }
+
+  // Validate área (required field, must be valid value)
+  const VALID_AREAS = ['personalizacion', 'aprendizaje'] as const;
+  if (!area) {
+    return res.status(400).json({
+      error: 'El campo "area" es requerido',
+      validAreas: VALID_AREAS,
+    });
+  }
+
+  if (!VALID_AREAS.includes(area as any)) {
+    return res.status(400).json({
+      error: `Área inválida: "${area}"`,
+      validAreas: VALID_AREAS,
+    });
   }
 
   // Check if community exists

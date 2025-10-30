@@ -57,8 +57,8 @@ export const AREA_ICONS: Record<TransformationArea, string> = {
 export type AreaAvailability = 'available' | 'coming_soon';
 
 export const AREA_STATUS: Record<TransformationArea, AreaAvailability> = {
-  aprendizaje: 'coming_soon',
-  personalizacion: 'available', // Solo esta está lista actualmente
+  aprendizaje: 'available', // Disponible: parser + markdown implementados
+  personalizacion: 'available', // Disponible: rúbricas en DB + parser
   evaluacion: 'coming_soon',
   proposito: 'coming_soon',
   familias: 'coming_soon',

@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { PreAssessmentQuestions, PreAssessmentAnswers } from '@/components/transformation/PreAssessmentQuestions';
 import { SequentialQuestions, QuestionResponse } from '@/components/transformation/SequentialQuestions';
 import { ResultsDisplay } from '@/components/transformation/ResultsDisplay';
+import { AreaSelectionModal } from '@/components/transformation/AreaSelectionModal';
 
 // Type definitions for transformation assessment
 interface Assessment {
@@ -14,8 +15,7 @@ interface Assessment {
   status: 'in_progress' | 'completed' | 'archived';
   context_metadata: Record<string, any>;
   conversation_history?: Array<{ role: string; content: string }>;
-  started_at?: string;
-  created_at: string;
+  started_at: string;
   updated_at: string;
   completed_at?: string;
 }
@@ -115,7 +115,7 @@ function formatTimeAgo(date: Date): string {
 
 export default function TransformationAssessmentPage() {
   const router = useRouter();
-  const { communityId: rawCommunityId } = router.query;
+  const { communityId: rawCommunityId, area: rawArea } = router.query;
   const supabase = useSupabaseClient();
   const { user, profile, loading: authLoading } = useAuth();
 
@@ -123,6 +123,12 @@ export default function TransformationAssessmentPage() {
   const communityId = Array.isArray(rawCommunityId)
     ? rawCommunityId[0]
     : rawCommunityId;
+
+  const requestedAreaParam = Array.isArray(rawArea) ? rawArea[0] : rawArea;
+  const requestedArea: 'personalizacion' | 'aprendizaje' | null =
+    requestedAreaParam === 'personalizacion' || requestedAreaParam === 'aprendizaje'
+      ? requestedAreaParam
+      : null;
 
   const [loading, setLoading] = useState(true);
   const [isSavingPreAssessment, setIsSavingPreAssessment] = useState(false);
@@ -139,6 +145,11 @@ export default function TransformationAssessmentPage() {
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [needsRegeneration, setNeedsRegeneration] = useState(false);
   const [, setTimeAgoTick] = useState(0);
+
+  // Área selection state (only for new assessments)
+  const [selectedArea, setSelectedArea] = useState<'personalizacion' | 'aprendizaje' | null>(null);
+  const [showAreaSelection, setShowAreaSelection] = useState(false);
+  const [preferredArea, setPreferredArea] = useState<'personalizacion' | 'aprendizaje' | null>(null);
 
   // Use ref instead of state to prevent triggering useEffect
   const hasInitialized = useRef(false);
@@ -226,45 +237,51 @@ export default function TransformationAssessmentPage() {
 
         setCommunity(communityData);
 
-        // Check if assessment already exists
-        const { data: existingAssessment, error: fetchError } = await supabase
+        // Check if assessment already exists (any área)
+        const { data: existingAssessments, error: fetchError } = await supabase
           .from('transformation_assessments')
           .select('*')
           .eq('growth_community_id', communityId)
-          .eq('area', 'personalizacion')
-          .maybeSingle();
+          .order('started_at', { ascending: false });
 
         if (fetchError) {
           throw new Error(`Error al verificar evaluación: ${fetchError.message}`);
         }
 
-        if (existingAssessment) {
-          // Load existing assessment
-          setAssessment(existingAssessment);
-          console.log('📋 Evaluación existente cargada:', existingAssessment.id);
-          hasInitialized.current = true; // Mark as initialized
-        } else {
-          // Create new assessment via API
-          const response = await fetch('/api/transformation/assessments', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              communityId: communityId,  // API expects 'communityId', not 'growth_community_id'
-              area: 'personalizacion',
-            }),
-          });
+        // For now, load the most recent assessment (future: allow selecting between multiple)
+        const assessmentsList = existingAssessments ?? [];
 
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error || 'Error al crear evaluación');
+        if (requestedArea) {
+          const matchingAssessment = assessmentsList.find(
+            (assessment) => assessment.area === requestedArea
+          );
+
+          if (matchingAssessment) {
+            setAssessment(matchingAssessment);
+            setSelectedArea(requestedArea);
+            console.log('📋 Evaluación existente cargada:', matchingAssessment.id, 'área:', matchingAssessment.area);
+            hasInitialized.current = true;
+          } else {
+            console.log('🎯 No existe evaluación para el área solicitada, mostrando selección:', requestedArea);
+            setPreferredArea(requestedArea);
+            setShowAreaSelection(true);
+            setLoading(false);
+            hasInitialized.current = true;
+            return;
           }
-
-          const newAssessment = await response.json();
-          setAssessment(newAssessment);
-          console.log('✨ Nueva evaluación creada:', newAssessment.id);
-          hasInitialized.current = true; // Mark as initialized
+        } else if (assessmentsList.length > 0) {
+          const existingAssessment = assessmentsList[0];
+          setAssessment(existingAssessment);
+          setSelectedArea(existingAssessment.area as 'personalizacion' | 'aprendizaje');
+          console.log('📋 Evaluación existente cargada:', existingAssessment.id, 'área:', existingAssessment.area);
+          hasInitialized.current = true;
+        } else {
+          console.log('🎯 No hay evaluación existente, mostrando selección de área');
+          setShowAreaSelection(true);
+          setPreferredArea(null);
+          setLoading(false);
+          hasInitialized.current = true;
+          return;
         }
       } catch (err) {
         console.error('❌ Error al inicializar evaluación:', err);
@@ -280,16 +297,61 @@ export default function TransformationAssessmentPage() {
     initializeAssessment();
   }, [router.isReady, user, communityId, supabase]);
 
+  // Handle área selection when creating new assessment
+  const handleAreaSelect = useCallback(async (area: 'personalizacion' | 'aprendizaje') => {
+    if (!communityId) {
+      console.error('No communityId available for assessment creation');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setShowAreaSelection(false);
+      setSelectedArea(area);
+
+      console.log('✨ Creando nueva evaluación con área:', area);
+
+      // Create new assessment via API
+      const response = await fetch('/api/transformation/assessments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          communityId: communityId,
+          area: area,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al crear evaluación');
+      }
+
+      const newAssessment = await response.json();
+      setAssessment(newAssessment);
+      setPreferredArea(null);
+      console.log('✅ Nueva evaluación creada:', newAssessment.id, 'área:', area);
+
+    } catch (err) {
+      console.error('❌ Error al crear evaluación:', err);
+      setPageError(err instanceof Error ? err.message : 'Error al crear evaluación');
+      setShowAreaSelection(true); // Show modal again on error
+    } finally {
+      setLoading(false);
+    }
+  }, [communityId]);
+
   // Load rubric items when moving to results step
   useEffect(() => {
     const loadRubricItems = async () => {
-      if (currentStep === 'results' && rubricItems.length === 0) {
+      if (currentStep === 'results' && rubricItems.length === 0 && assessment?.area) {
         try {
           const { data, error } = await supabase
             .from('transformation_rubric')
             .select('*')
-            .eq('area', 'personalizacion')
-            .order('display_order', { ascending: true });
+            .eq('area', assessment.area)
+            .order('display_order', { ascending: true});
 
           if (error) {
             console.error('Error loading rubric items:', error);
@@ -303,7 +365,7 @@ export default function TransformationAssessmentPage() {
     };
 
     loadRubricItems();
-  }, [currentStep, rubricItems.length, supabase]);
+  }, [currentStep, rubricItems.length, assessment?.area, supabase]);
 
   // Set initial step based on assessment status and data
   useEffect(() => {
@@ -758,6 +820,11 @@ export default function TransformationAssessmentPage() {
     );
   }
 
+  // Show área selection modal (only for new assessments)
+  if (showAreaSelection) {
+    return <AreaSelectionModal onSelect={handleAreaSelect} initialArea={preferredArea} />;
+  }
+
   // Show error state
   if (pageError) {
     return (
@@ -779,6 +846,13 @@ export default function TransformationAssessmentPage() {
   // Main assessment page UI
   const firstName = profile?.first_name || 'Usuario';
   const communityName = community?.name || 'Comunidad';
+  const activeArea =
+    (assessment?.area as 'personalizacion' | 'aprendizaje' | undefined) ??
+    selectedArea ??
+    preferredArea ??
+    'personalizacion';
+
+  const areaLabel = activeArea === 'aprendizaje' ? 'Aprendizaje' : 'Personalización';
   const stepInfo = getStepInfo();
   const isSaving = isSavingPreAssessment || isSavingSequential;
   const lastSavedLabel = lastSavedAt ? formatTimeAgo(lastSavedAt) : null;
@@ -791,7 +865,7 @@ export default function TransformationAssessmentPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Evaluación de Transformación: Personalización
+                Evaluación de Transformación: {areaLabel}
               </h1>
               <p className="text-lg text-gray-600 mb-1">
                 Hola, {firstName}
@@ -932,6 +1006,7 @@ export default function TransformationAssessmentPage() {
         {currentStep === 'questions' && assessment && (
           <SequentialQuestions
             assessmentId={assessment.id}
+            area={assessment.area as 'personalizacion' | 'aprendizaje'}
             onComplete={handleQuestionsComplete}
             initialResponses={assessment.context_metadata?.responses as Record<string, QuestionResponse> | undefined}
             onSavingStateChange={handleSequentialSavingState}
@@ -1017,7 +1092,7 @@ export default function TransformationAssessmentPage() {
                   assessment={{
                     ...assessment,
                     conversation_history: assessment.conversation_history || [],
-                    started_at: assessment.started_at || assessment.created_at,
+                    started_at: assessment.started_at,
                     finalized_at: assessment.completed_at,
                   }}
                   rubricItems={rubricItems}

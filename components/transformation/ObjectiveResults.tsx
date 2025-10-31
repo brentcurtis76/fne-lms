@@ -18,6 +18,7 @@ interface RubricItem {
 interface DimensionResponse {
   rubricItemId: string;
   response: string;
+  answer?: string;  // Legacy field name from database
   suggestedLevel: number | null;
   confirmedLevel: number | null;
   lastUpdated: string;
@@ -126,6 +127,17 @@ export function ObjectiveResults({ objective, responses, viewMode, evaluation }:
         const coberturaResponse = responses[action.dimensions.cobertura.id];
         const frecuenciaResponse = responses[action.dimensions.frecuencia.id];
         const profundidadResponse = responses[action.dimensions.profundidad.id];
+
+        // Normalize legacy 'answer' field to 'response' field
+        if (coberturaResponse && !coberturaResponse.response && coberturaResponse.answer) {
+          coberturaResponse.response = coberturaResponse.answer;
+        }
+        if (frecuenciaResponse && !frecuenciaResponse.response && frecuenciaResponse.answer) {
+          frecuenciaResponse.response = frecuenciaResponse.answer;
+        }
+        if (profundidadResponse && !profundidadResponse.response && profundidadResponse.answer) {
+          profundidadResponse.response = profundidadResponse.answer;
+        }
 
         // 🔍 DIAGNOSTIC: Log response lookup for this action
         console.log('🔍 DIAGNOSTIC: Looking up responses for action:', {

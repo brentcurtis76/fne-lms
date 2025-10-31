@@ -84,7 +84,7 @@ export const getServerSideProps: GetServerSideProps<ResultsPageProps> = async (c
   if (!session) {
     return {
       redirect: {
-        destination: `/auth/login?redirect=/community/transformation/results/${assessmentId}`,
+        destination: `/login?redirect=/community/transformation/results/${assessmentId}`,
         permanent: false,
       },
     };
@@ -156,7 +156,7 @@ export const getServerSideProps: GetServerSideProps<ResultsPageProps> = async (c
         id: assessment.id,
         area: assessment.area,
         status: assessment.status,
-        context_metadata: assessment.context_metadata || {},
+        context_metadata: JSON.parse(JSON.stringify(assessment.context_metadata || {})),
         conversation_history: assessment.conversation_history || [],
         started_at: assessment.started_at,
         updated_at: assessment.updated_at,

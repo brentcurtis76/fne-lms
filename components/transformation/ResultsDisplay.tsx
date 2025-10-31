@@ -163,7 +163,15 @@ export function ResultsDisplay({ assessment, rubricItems, responses, evaluation 
 
     if (isUUID) {
       console.log('✅ ResultsDisplay: Responses already in UUID format');
-      return responses;
+      // STILL NEED TO NORMALIZE answer → response for legacy data!
+      const normalized: Record<string, DimensionResponse> = {};
+      for (const [key, value] of Object.entries(responses)) {
+        normalized[key] = {
+          ...value,
+          response: value.response || value.answer || '',  // Normalize legacy 'answer' field
+        };
+      }
+      return normalized;
     }
 
     // Map semantic keys to UUIDs

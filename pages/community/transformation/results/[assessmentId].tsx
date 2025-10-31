@@ -22,6 +22,7 @@ interface RubricItem {
 interface DimensionResponse {
   rubricItemId: string;
   response: string;
+  answer?: string;  // Legacy field name from database
   suggestedLevel: number | null;
   confirmedLevel: number | null;
   lastUpdated: string;
@@ -204,7 +205,11 @@ export default function TransformationResultsPage({
   const evaluation = assessment.context_metadata?.evaluation;
   const totalDimensions = rubricItems.length;
   const completedDimensions = Object.values(responses).filter(
-    (r) => r.response.trim().length > 0
+    (r) => {
+      // Handle both legacy 'answer' field and new 'response' field
+      const text = (r as any).response || (r as any).answer || '';
+      return text.trim().length > 0;
+    }
   ).length;
   const progressPercent = totalDimensions > 0 ? Math.round((completedDimensions / totalDimensions) * 100) : 0;
 

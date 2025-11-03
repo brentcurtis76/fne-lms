@@ -142,8 +142,12 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
 
     const result = permissions[permission] === true;
 
+    // Only log permission denials in development when explicitly enabled
+    // Set NEXT_PUBLIC_DEBUG_PERMISSIONS=true in .env.local to enable
     if (!result && !loading) {
-      console.warn(`[PermissionContext] Permission denied: ${permission}`);
+      if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DEBUG_PERMISSIONS === 'true') {
+        console.warn(`[PermissionContext] Permission denied: ${permission}`);
+      }
     }
 
     return result;

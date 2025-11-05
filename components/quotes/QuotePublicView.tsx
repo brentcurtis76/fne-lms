@@ -903,6 +903,13 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
+            onClick={generatePDF}
+            className="flex items-center justify-center px-8 py-4 bg-yellow-500 text-black rounded-full font-medium hover:bg-yellow-600 transition-all duration-300"
+          >
+            <Download className="mr-2" size={20} />
+            Descargar PDF
+          </button>
+          <button
             onClick={handleContact}
             className="flex items-center justify-center px-8 py-4 bg-black text-white rounded-full font-medium hover:bg-gray-800 transition-all duration-300"
           >

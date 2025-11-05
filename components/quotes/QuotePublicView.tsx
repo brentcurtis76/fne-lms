@@ -519,14 +519,14 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
 
       {/* Status Bar */}
       {quote.status === 'sent' || quote.status === 'viewed' ? (
-        <div className="bg-green-50 border-b-2 border-green-200 py-3">
+        <div className="bg-yellow-50 border-b-2 border-yellow-200 py-3">
           <div className="max-w-5xl mx-auto px-6 flex items-center justify-between">
-            <div className="flex items-center text-green-700">
+            <div className="flex items-center text-yellow-700">
               <CheckCircle className="mr-2" size={20} />
               <span className="font-medium">Cotización activa</span>
             </div>
             {quote.valid_until && (
-              <div className="text-sm text-green-600">
+              <div className="text-sm text-yellow-600">
                 Válida hasta: {formatDate(quote.valid_until)}
               </div>
             )}
@@ -655,7 +655,7 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <h4 className="font-bold text-lg mb-2 flex items-center">
-                        <CheckCircle className="mr-2 text-green-600" size={20} />
+                        <CheckCircle className="mr-2 text-yellow-600" size={20} />
                         {program.name}
                       </h4>
                       {program.description && (
@@ -717,7 +717,7 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
                   <span className="text-white/80 flex-1">
                     Programas ({quote.programs?.length || 0})
                     {quote.apply_early_bird_discount && (
-                      <span className="text-green-400 text-xs block sm:inline ml-0 sm:ml-2 mt-1 sm:mt-0">
+                      <span className="text-yellow-600 text-xs block sm:inline ml-0 sm:ml-2 mt-1 sm:mt-0">
                         (Descuento aplicado)
                       </span>
                     )}
@@ -784,17 +784,17 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
 
         {/* Early Bird Discount Notice */}
         {quote.apply_early_bird_discount && (
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-8 mb-8 border-2 border-green-300">
+          <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-2xl p-8 mb-8 border-2 border-yellow-300">
             <div className="flex items-start">
               <div className="text-3xl mr-4">🎉</div>
               <div className="flex-1">
-                <h3 className="text-xl font-bold mb-2 text-green-800">
+                <h3 className="text-xl font-bold mb-2 text-yellow-800">
                   Descuento por Pago Anticipado Aplicado
                 </h3>
-                <p className="text-green-700 mb-2">
+                <p className="text-yellow-700 mb-2">
                   Se ha aplicado un descuento de <strong>${(500000 * (quote.programs?.length || 0)).toLocaleString('es-CL')} CLP por persona</strong> en los programas seleccionados.
                 </p>
-                <p className="text-sm text-green-600">
+                <p className="text-sm text-yellow-700">
                   Este descuento es válido realizando el pago antes del <strong>30 de noviembre de 2025</strong>.
                 </p>
               </div>
@@ -816,7 +816,7 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
           
           <div className="grid md:grid-cols-2 gap-4">
             <div className="flex items-start">
-              <CheckCircle className="mr-3 text-green-600 flex-shrink-0 mt-1" size={20} />
+              <CheckCircle className="mr-3 text-yellow-600 flex-shrink-0 mt-1" size={20} />
               <div>
                 <p className="font-medium">Codocencia en Aulas</p>
                 <p className="text-sm text-gray-600">
@@ -824,9 +824,9 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-start">
-              <CheckCircle className="mr-3 text-green-600 flex-shrink-0 mt-1" size={20} />
+              <CheckCircle className="mr-3 text-yellow-600 flex-shrink-0 mt-1" size={20} />
               <div>
                 <p className="font-medium">Visitas a Escuelas</p>
                 <p className="text-sm text-gray-600">
@@ -834,9 +834,9 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-start">
-              <CheckCircle className="mr-3 text-green-600 flex-shrink-0 mt-1" size={20} />
+              <CheckCircle className="mr-3 text-yellow-600 flex-shrink-0 mt-1" size={20} />
               <div>
                 <p className="font-medium">Talleres Especializados</p>
                 <p className="text-sm text-gray-600">
@@ -844,9 +844,9 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-start">
-              <CheckCircle className="mr-3 text-green-600 flex-shrink-0 mt-1" size={20} />
+              <CheckCircle className="mr-3 text-yellow-600 flex-shrink-0 mt-1" size={20} />
               <div>
                 <p className="font-medium">Certificación Internacional</p>
                 <p className="text-sm text-gray-600">
@@ -870,19 +870,19 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
               </p>
               <ul className="space-y-2 text-sm">
                 <li className="flex items-center">
-                  <CheckCircle className="mr-2 text-green-600" size={16} />
+                  <CheckCircle className="mr-2 text-yellow-600" size={16} />
                   Ciudad cosmopolita y multicultural
                 </li>
                 <li className="flex items-center">
-                  <CheckCircle className="mr-2 text-green-600" size={16} />
+                  <CheckCircle className="mr-2 text-yellow-600" size={16} />
                   Hub de innovación educativa
                 </li>
                 <li className="flex items-center">
-                  <CheckCircle className="mr-2 text-green-600" size={16} />
+                  <CheckCircle className="mr-2 text-yellow-600" size={16} />
                   Red de escuelas colaboradoras
                 </li>
                 <li className="flex items-center">
-                  <CheckCircle className="mr-2 text-green-600" size={16} />
+                  <CheckCircle className="mr-2 text-yellow-600" size={16} />
                   Experiencia cultural enriquecedora
                 </li>
               </ul>

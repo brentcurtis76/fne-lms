@@ -436,7 +436,7 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
       pdf.setTextColor(0, 0, 0);
       const savings = 500000 * (quote.programs?.length || 0);
       pdf.text(`Ahorro de $${savings.toLocaleString('es-CL')} CLP por persona`, 25, yPos + 15);
-      pdf.text('Válido pagando antes del 30 de septiembre de 2025', 25, yPos + 21);
+      pdf.text('Válido pagando antes del 30 de noviembre de 2025', 25, yPos + 21);
       
       yPos += 30;
     }
@@ -795,7 +795,7 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
                   Se ha aplicado un descuento de <strong>${(500000 * (quote.programs?.length || 0)).toLocaleString('es-CL')} CLP por persona</strong> en los programas seleccionados.
                 </p>
                 <p className="text-sm text-green-600">
-                  Este descuento es válido realizando el pago antes del <strong>30 de septiembre de 2025</strong>.
+                  Este descuento es válido realizando el pago antes del <strong>30 de noviembre de 2025</strong>.
                 </p>
               </div>
             </div>

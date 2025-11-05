@@ -78,416 +78,427 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
   const programCostPerPerson = calculateProgramCostPerPerson();
 
   const generatePDF = () => {
-    const pdf = new jsPDF();
-    const pageWidth = pdf.internal.pageSize.width;
-    const pageHeight = pdf.internal.pageSize.height;
-    let yPos = 20;
-    
-    // Helper function to add rounded rectangles with shadow effect
-    const addRoundedRect = (x: number, y: number, width: number, height: number, radius: number, fillColor?: [number, number, number], strokeColor?: [number, number, number]) => {
-      if (fillColor) {
-        pdf.setFillColor(fillColor[0], fillColor[1], fillColor[2]);
-        pdf.roundedRect(x, y, width, height, radius, radius, 'F');
-      }
-      if (strokeColor) {
-        pdf.setDrawColor(strokeColor[0], strokeColor[1], strokeColor[2]);
-        pdf.roundedRect(x, y, width, height, radius, radius, 'S');
-      } else if (!fillColor) {
-        pdf.roundedRect(x, y, width, height, radius, radius);
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 56;
+    const contentWidth = pageWidth - margin * 2;
+
+    const primaryColor: [number, number, number] = [28, 35, 53];
+    const textColor: [number, number, number] = [42, 47, 55];
+    const mutedText: [number, number, number] = [120, 125, 133];
+    const dividerColor: [number, number, number] = [218, 222, 229];
+    const neutralBg: [number, number, number] = [246, 247, 249];
+
+    let cursorY = margin;
+
+    const ensureSpace = (height: number) => {
+      if (cursorY + height > pageHeight - margin) {
+        pdf.addPage();
+        cursorY = margin;
       }
     };
-    
-    // Helper to wrap text
-    const wrapText = (text: string, maxWidth: number): string[] => {
-      return pdf.splitTextToSize(text, maxWidth);
+
+    const formatCurrencyClp = (value: number) => {
+      return `$${Math.round(value).toLocaleString('es-CL')} CLP`;
     };
-    
-    // HEADER - Black background with more padding
-    addRoundedRect(15, yPos, pageWidth - 30, 40, 6, [0, 0, 0]);
-    
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(20);
-    pdf.setFont(undefined, 'bold');
-    pdf.text('FUNDACIÓN NUEVA EDUCACIÓN', pageWidth / 2, yPos + 14, { align: 'center' });
-    
-    pdf.setFontSize(12);
-    pdf.setFont(undefined, 'normal');
-    pdf.text('Propuesta Pasantía Internacional - Barcelona 2025', pageWidth / 2, yPos + 26, { align: 'center' });
-    pdf.setTextColor(0, 0, 0);
-    yPos += 55; // More spacing
-    
-    // CLIENT INFO SECTION with better spacing
-    pdf.setFillColor(249, 250, 251);
-    pdf.setDrawColor(229, 231, 235);
-    pdf.setLineWidth(1);
-    addRoundedRect(15, yPos, pageWidth - 30, quote.client_institution ? 32 : 26, 5, [249, 250, 251], [229, 231, 235]);
-    
-    pdf.setFontSize(10);
-    pdf.setFont(undefined, 'bold');
-    pdf.setTextColor(75, 85, 99);
-    pdf.text('INFORMACIÓN DEL CLIENTE', 20, yPos + 8);
-    
-    pdf.setFont(undefined, 'normal');
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFontSize(9);
-    
-    const clientY = yPos + 16;
-    pdf.text(`Cliente: ${quote.client_name}`, 20, clientY);
-    if (quote.client_institution) {
-      pdf.text(`Institución: ${quote.client_institution}`, 20, clientY + 6);
-    }
-    
-    // Right align dates and quote number
-    pdf.setFontSize(8);
-    pdf.setTextColor(107, 114, 128);
-    if (quote.quote_number) {
-      pdf.setFont(undefined, 'bold');
-      pdf.text(`Cotización #${quote.quote_number}`, pageWidth - 20, clientY - 6, { align: 'right' });
-      pdf.setFont(undefined, 'normal');
-    }
-    pdf.text(`Fecha: ${formatDate(quote.created_at)}`, pageWidth - 20, clientY, { align: 'right' });
-    if (quote.valid_until) {
-      pdf.text(`Válido hasta: ${formatDate(quote.valid_until)}`, pageWidth - 20, clientY + 6, { align: 'right' });
-    }
-    
-    pdf.setTextColor(0, 0, 0);
-    yPos += (quote.client_institution ? 42 : 36);
-    
-    // TRAVEL DETAILS - Better spacing and layout
-    pdf.setFontSize(13);
-    pdf.setFont(undefined, 'bold');
-    pdf.text('Detalles del Viaje', 20, yPos);
-    yPos += 10;
-    
-    // Travel info cards with better spacing
-    const cardSpacing = 5;
-    const totalCardWidth = pageWidth - 30 - (cardSpacing * 2);
-    const cardWidth = totalCardWidth / 3;
-    const cardHeight = 28;
-    
-    // Card 1: Dates
-    pdf.setFillColor(255, 255, 255);
-    pdf.setDrawColor(209, 213, 219);
-    pdf.setLineWidth(1);
-    addRoundedRect(15, yPos, cardWidth, cardHeight, 4, [255, 255, 255], [209, 213, 219]);
-    
-    pdf.setFontSize(8);
-    pdf.setFont(undefined, 'bold');
-    pdf.setTextColor(59, 130, 246);
-    pdf.text('FECHAS', 20, yPos + 7);
-    
-    pdf.setFont(undefined, 'normal');
-    pdf.setTextColor(55, 65, 81);
-    pdf.setFontSize(8);
-    pdf.text(`Llegada: ${formatDate(quote.arrival_date)}`, 20, yPos + 14);
-    pdf.text(`Salida: ${formatDate(quote.departure_date)}`, 20, yPos + 21);
-    
-    // Card 2: Accommodation
-    addRoundedRect(15 + cardWidth + cardSpacing, yPos, cardWidth, cardHeight, 4, [255, 255, 255], [209, 213, 219]);
-    pdf.setFont(undefined, 'bold');
-    pdf.setTextColor(239, 68, 68);
-    pdf.text('ALOJAMIENTO', 20 + cardWidth + cardSpacing, yPos + 7);
-    
-    pdf.setFont(undefined, 'normal');
-    pdf.setTextColor(55, 65, 81);
-    pdf.text(`${quote.nights} noches`, 20 + cardWidth + cardSpacing, yPos + 14);
-    pdf.text(`Habitación ${quote.room_type === 'single' ? 'Individual' : 'Doble'}`, 20 + cardWidth + cardSpacing, yPos + 21);
-    
-    // Card 3: Participants
-    addRoundedRect(15 + (cardWidth + cardSpacing) * 2, yPos, cardWidth, cardHeight, 4, [255, 255, 255], [209, 213, 219]);
-    pdf.setFont(undefined, 'bold');
-    pdf.setTextColor(34, 197, 94);
-    pdf.text('PARTICIPANTES', 20 + (cardWidth + cardSpacing) * 2, yPos + 7);
-    
-    pdf.setFontSize(11);
-    pdf.setFont(undefined, 'bold');
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(`${quote.num_pasantes} personas`, 20 + (cardWidth + cardSpacing) * 2, yPos + 16);
-    
-    pdf.setFont(undefined, 'normal');
-    pdf.setTextColor(0, 0, 0);
-    yPos += cardHeight + 15;
-    
-    // PROGRAMS SECTION
-    if (quote.programs && quote.programs.length > 0) {
-      // Check if we need a new page for programs section
-      const totalProgramsHeight = quote.programs.length * 40; // Approximate height
-      if (yPos + totalProgramsHeight > pageHeight - 100) {
-        pdf.addPage();
-        yPos = 20;
-      }
-      
-      pdf.setFontSize(13);
-      pdf.setFont(undefined, 'bold');
-      pdf.text('Programas Seleccionados', 20, yPos);
-      yPos += 10;
-      
-      quote.programs.forEach((program, index) => {
-        // Check for page break before each program
-        if (index > 0 && yPos + 40 > pageHeight - 80) {
-          pdf.addPage();
-          yPos = 20;
-        }
-        
-        // Program card with white background and border
-        const programCardHeight = 32;
-        pdf.setFillColor(255, 255, 255);
-        pdf.setDrawColor(59, 130, 246);
-        pdf.setLineWidth(1.5);
-        addRoundedRect(15, yPos, pageWidth - 30, programCardHeight, 5, [255, 255, 255], [59, 130, 246]);
-        
-        // Check mark circle
-        pdf.setFillColor(34, 197, 94);
-        pdf.circle(25, yPos + 10, 4, 'F');
-        pdf.setTextColor(255, 255, 255);
-        pdf.setFontSize(10);
-        pdf.text('✓', 25, yPos + 11, { align: 'center' });
-        
-        // Program name
-        pdf.setTextColor(0, 0, 0);
-        pdf.setFont(undefined, 'bold');
-        pdf.setFontSize(11);
-        pdf.text(program.name, 35, yPos + 10);
-        
-        // Price (right aligned)
-        pdf.setFont(undefined, 'bold');
-        pdf.setFontSize(12);
-        pdf.setTextColor(59, 130, 246);
-        const priceText = quote.apply_early_bird_discount ? '$2.000.000' : '$2.500.000';
-        pdf.text(`${priceText} CLP`, pageWidth - 20, yPos + 10, { align: 'right' });
-        
-        // Per person text
-        pdf.setFont(undefined, 'normal');
-        pdf.setFontSize(8);
-        pdf.setTextColor(107, 114, 128);
-        pdf.text('por persona', pageWidth - 20, yPos + 16, { align: 'right' });
-        
-        // Description (wrapped and limited)
-        pdf.setFontSize(8);
-        pdf.setTextColor(75, 85, 99);
-        const shortDesc = program.description.substring(0, 100) + '...';
-        const wrappedDesc = wrapText(shortDesc, pageWidth - 60);
-        pdf.text(wrappedDesc[0] || '', 35, yPos + 18);
-        if (wrappedDesc[1]) {
-          pdf.text(wrappedDesc[1], 35, yPos + 24);
-        }
-        
-        pdf.setTextColor(0, 0, 0);
-        yPos += programCardHeight + 8;
-      });
-    }
-    
-    yPos += 8;
-    
-    // Check if we need a new page for cost summary
-    const costBoxHeight = quote.num_pasantes > 1 ? 95 : 75;
-    if (yPos + costBoxHeight > pageHeight - 40) {
-      pdf.addPage();
-      yPos = 20;
-    }
-    
-    // COST SUMMARY - Black box with improved contrast
-    addRoundedRect(10, yPos, pageWidth - 20, costBoxHeight, 5, [0, 0, 0]);
-    
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(14);
-    pdf.setFont(undefined, 'bold');
-    pdf.text('Resumen de Costos', 20, yPos + 12);
-    
-    // Cost breakdown box - lighter gray for better contrast
-    pdf.setFillColor(255, 255, 255);
-    pdf.setDrawColor(200, 200, 200);
-    pdf.setLineWidth(0.5);
-    addRoundedRect(15, yPos + 18, pageWidth - 30, 45, 3, [255, 255, 255], [200, 200, 200]);
-    
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFontSize(10);
-    pdf.setFont(undefined, 'bold');
-    pdf.text('Costo por Persona', 20, yPos + 26);
-    
-    pdf.setFont(undefined, 'normal');
-    pdf.setFontSize(9);
-    
-    const leftCol = 20;
-    const rightCol = pageWidth - 25;
-    let lineY = yPos + 34;
-    
-    // Flight cost
-    pdf.setTextColor(75, 85, 99);
-    pdf.text('Vuelo internacional', leftCol, lineY);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(`$${quote.flight_price.toLocaleString('es-CL')} CLP`, rightCol, lineY, { align: 'right' });
-    lineY += 7;
-    
-    // Accommodation cost
-    const accommodationPerPerson = quote.accommodation_total / quote.num_pasantes;
-    pdf.setTextColor(75, 85, 99);
-    pdf.text(`Alojamiento (${quote.nights} noches)`, leftCol, lineY);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text(`$${Math.round(accommodationPerPerson).toLocaleString('es-CL')} CLP`, rightCol, lineY, { align: 'right' });
-    lineY += 7;
-    
-    // Programs cost with discount indication
-    pdf.setTextColor(75, 85, 99);
-    let programLabel = `Programas (${quote.programs?.length || 0})`;
-    if (quote.apply_early_bird_discount) {
-      programLabel += ' - Descuento aplicado';
-      pdf.setTextColor(34, 197, 94); // Green for discount
-    }
-    pdf.text(programLabel, leftCol, lineY);
-    
-    // Show strikethrough original price if discounted
-    if (quote.apply_early_bird_discount && quote.programs?.length > 0) {
-      const originalPerPerson = quote.programs.reduce((sum, p) => sum + p.price, 0);
-      pdf.setTextColor(156, 163, 175);
-      pdf.setFontSize(8);
-      const strikeX = rightCol - 40;
-      pdf.text(`$${originalPerPerson.toLocaleString('es-CL')}`, strikeX, lineY - 2, { align: 'right' });
-      // Draw strikethrough line
-      pdf.setDrawColor(156, 163, 175);
-      pdf.setLineWidth(0.3);
-      const textWidth = pdf.getTextWidth(`$${originalPerPerson.toLocaleString('es-CL')}`);
-      pdf.line(strikeX - textWidth, lineY - 3, strikeX, lineY - 3);
-    }
-    
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFontSize(9);
-    pdf.text(`$${programCostPerPerson.toLocaleString('es-CL')} CLP`, rightCol, lineY, { align: 'right' });
-    lineY += 7;
-    
-    // Viáticos if applicable
-    if (quote.viaticos_display_amount && quote.viaticos_display_amount > 0) {
-      pdf.setTextColor(75, 85, 99);
-      const viaticosLabel = quote.viaticos_type === 'daily' ? 
-        `Viáticos (${quote.nights + 1} días)` : 
-        'Viáticos (monto total)';
-      pdf.text(viaticosLabel, leftCol, lineY);
-      pdf.setTextColor(0, 0, 0);
-      const viaticosPerPerson = Math.round(quote.viaticos_display_amount / quote.num_pasantes);
-      pdf.text(`$${viaticosPerPerson.toLocaleString('es-CL')} CLP`, rightCol, lineY, { align: 'right' });
-      lineY += 7;
-    }
-    
-    // Adjust divider line position based on whether viáticos are included
-    const dividerY = quote.viaticos_display_amount && quote.viaticos_display_amount > 0 ? yPos + 59 : yPos + 52;
-    
-    // Divider line
-    pdf.setDrawColor(200, 200, 200);
-    pdf.setLineWidth(0.5);
-    pdf.line(leftCol, dividerY, rightCol, dividerY);
-    
-    // Total per person
-    const totalY = quote.viaticos_display_amount && quote.viaticos_display_amount > 0 ? yPos + 66 : yPos + 59;
-    pdf.setTextColor(0, 0, 0);
-    pdf.setFontSize(10);
-    pdf.setFont(undefined, 'bold');
-    pdf.text('Total por persona', leftCol, totalY);
-    pdf.setFontSize(11);
-    pdf.text(`$${quote.total_per_person.toLocaleString('es-CL')} CLP`, rightCol, totalY, { align: 'right' });
-    
-    // Grand total yellow box with better spacing
-    if (quote.num_pasantes > 1) {
-      yPos += 67;
-      
-      // Gradient-like yellow box
-      pdf.setFillColor(255, 193, 7);
-      pdf.setDrawColor(255, 160, 0);
-      pdf.setLineWidth(1);
-      addRoundedRect(15, yPos, pageWidth - 30, 20, 4, [255, 193, 7], [255, 160, 0]);
-      
-      pdf.setTextColor(0, 0, 0);
-      pdf.setFontSize(10);
-      pdf.setFont(undefined, 'bold');
-      pdf.text('TOTAL GENERAL', 20, yPos + 8);
-      
-      pdf.setFontSize(8);
-      pdf.setFont(undefined, 'normal');
-      pdf.text(`Para ${quote.num_pasantes} personas`, 20, yPos + 14);
-      
-      pdf.setFontSize(13);
-      pdf.setFont(undefined, 'bold');
-      pdf.text(`$${quote.grand_total.toLocaleString('es-CL')} CLP`, rightCol, yPos + 11, { align: 'right' });
-      
-      yPos += 25;
-    } else {
-      yPos += costBoxHeight + 10;
-    }
-    
-    // Early bird notice if applicable
-    if (quote.apply_early_bird_discount) {
-      // Check if we need a new page for early bird notice
-      if (yPos + 25 > pageHeight - 40) {
-        pdf.addPage();
-        yPos = 20;
-      }
-      
-      pdf.setDrawColor(34, 197, 94); // Green
-      pdf.setLineWidth(1.5);
-      pdf.setFillColor(240, 253, 244); // Light green bg
-      addRoundedRect(10, yPos, pageWidth - 20, 25, 4, [240, 253, 244]);
-      
-      pdf.setTextColor(34, 197, 94);
-      pdf.setFontSize(10);
-      pdf.setFont(undefined, 'bold');
-      pdf.text('Descuento por Pago Anticipado Aplicado', 15, yPos + 8);
-      
-      pdf.setFont(undefined, 'normal');
+
+    const drawDefinitionCell = (
+      label: string,
+      value: string,
+      x: number,
+      y: number,
+      width: number
+    ) => {
+      pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(9);
-      pdf.setTextColor(0, 0, 0);
-      const savings = 500000 * (quote.programs?.length || 0);
-      pdf.text(`Ahorro de $${savings.toLocaleString('es-CL')} CLP por persona`, 25, yPos + 15);
-      pdf.text('Válido pagando antes del 30 de noviembre de 2025', 25, yPos + 21);
-      
-      yPos += 30;
-    }
-    
-    // Additional notes if any
-    if (quote.notes && yPos < pageHeight - 50) {
-      // Calculate dynamic height based on content
-      const wrappedNotes = wrapText(quote.notes, pageWidth - 40);
-      const notesHeight = Math.min(40, 10 + (wrappedNotes.length * 5));
-      
-      // Light gray background with border
-      pdf.setFillColor(249, 250, 251);
-      pdf.setDrawColor(229, 231, 235);
+      pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
+      pdf.text(label.toUpperCase(), x, y);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+      const lines = pdf.splitTextToSize(value, width);
+      lines.forEach((line, index) => {
+        pdf.text(line, x, y + 15 + index * 13);
+      });
+      return 15 + (lines.length - 1) * 13 + 16;
+    };
+
+    const drawDefinitionList = (
+      items: { label: string; value: string }[],
+      columns = 2
+    ) => {
+      if (!items.length) return;
+      const spacing = 24;
+      const columnWidth = (contentWidth - spacing * (columns - 1)) / columns;
+      let columnIndex = 0;
+      let rowTop = cursorY;
+      let rowHeight = 0;
+
+      items.forEach((item, index) => {
+        const x = margin + (columnWidth + spacing) * columnIndex;
+        const height = drawDefinitionCell(item.label, item.value, x, rowTop, columnWidth);
+        rowHeight = Math.max(rowHeight, height);
+        columnIndex += 1;
+
+        const isRowBreak = columnIndex === columns || index === items.length - 1;
+        if (isRowBreak) {
+          rowTop += rowHeight;
+          cursorY = rowTop;
+          columnIndex = 0;
+          rowHeight = 0;
+          ensureSpace(0);
+        }
+      });
+
+      cursorY += 12;
+    };
+
+    const drawSectionTitle = (title: string) => {
+      ensureSpace(40);
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      pdf.text(title.toUpperCase(), margin, cursorY);
+      cursorY += 14;
+      pdf.setDrawColor(dividerColor[0], dividerColor[1], dividerColor[2]);
       pdf.setLineWidth(0.5);
-      addRoundedRect(10, yPos, pageWidth - 20, notesHeight, 4, [249, 250, 251], [229, 231, 235]);
-      
-      pdf.setTextColor(55, 65, 81);
-      pdf.setFontSize(10);
-      pdf.setFont(undefined, 'bold');
-      pdf.text('Información Adicional', 15, yPos + 8);
-      
-      pdf.setFont(undefined, 'normal');
-      pdf.setFontSize(9);
-      pdf.setTextColor(75, 85, 99);
-      let noteY = yPos + 15;
-      wrappedNotes.slice(0, 5).forEach(line => {
-        pdf.text(line, 15, noteY);
-        noteY += 5;
+      pdf.line(margin, cursorY, pageWidth - margin, cursorY);
+      cursorY += 20;
+    };
+
+    const drawParagraph = (text: string, maxWidth: number) => {
+      const lines = pdf.splitTextToSize(text, maxWidth);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+      lines.forEach((line) => {
+        ensureSpace(18);
+        pdf.text(line, margin, cursorY);
+        cursorY += 15;
       });
-      
-      yPos += notesHeight + 10;
-    }
-    
-    // Contact Information Section
-    if (yPos < pageHeight - 30) {
-      // Professional contact card
-      pdf.setFillColor(0, 0, 0);
-      addRoundedRect(10, pageHeight - 30, pageWidth - 20, 20, 4, [0, 0, 0]);
-      
-      pdf.setTextColor(255, 255, 255);
+      cursorY += 4;
+    };
+
+    const addFooter = () => {
+      const footerY = pageHeight - margin + 24;
+      pdf.setDrawColor(dividerColor[0], dividerColor[1], dividerColor[2]);
+      pdf.line(margin, footerY - 18, pageWidth - margin, footerY - 18);
+
+      pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(9);
-      pdf.setFont(undefined, 'normal');
-      pdf.text('Email: info@nuevaeducacion.org', 20, pageHeight - 18);
-      pdf.text('Tel: +56 9 4162 3577', pageWidth / 2 - 20, pageHeight - 18);
-      pdf.text('Web: www.nuevaeducacion.org', pageWidth - 60, pageHeight - 18);
-      
-      pdf.setFontSize(8);
-      pdf.text('© 2025 Fundación Nueva Educación', pageWidth / 2, pageHeight - 10, { align: 'center' });
+      pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
+
+      pdf.text('Email: info@nuevaeducacion.org', margin, footerY);
+      pdf.text('Tel: +56 9 4162 3577', pageWidth / 2, footerY, { align: 'center' });
+      pdf.text('Web: www.nuevaeducacion.org', pageWidth - margin, footerY, { align: 'right' });
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.text('© 2025 Fundación Nueva Educación', pageWidth / 2, footerY + 14, { align: 'center' });
+    };
+
+    const moveCursorNearFooter = () => {
+      if (cursorY < pageHeight - margin - 80) {
+        cursorY = pageHeight - margin - 80;
+      }
+    };
+
+    // Header
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(18);
+    pdf.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    pdf.text('FUNDACIÓN NUEVA EDUCACIÓN', margin, cursorY);
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(12);
+    pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
+    pdf.text('Propuesta Pasantía Internacional · Barcelona 2025', margin, cursorY + 18);
+
+    if (quote.quote_number || quote.created_at || quote.valid_until) {
+      const rightX = pageWidth - margin;
+      let detailY = cursorY;
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+      if (quote.quote_number) {
+        pdf.text(`#${quote.quote_number}`, rightX, detailY, { align: 'right' });
+        detailY += 16;
+      }
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
+      if (quote.created_at) {
+        pdf.text(`Emitida: ${formatDate(quote.created_at)}`, rightX, detailY, { align: 'right' });
+        detailY += 14;
+      }
+      if (quote.valid_until) {
+        pdf.text(`Válida hasta: ${formatDate(quote.valid_until)}`, rightX, detailY, { align: 'right' });
+      }
     }
-    
-    // Save with a nice filename
+
+    cursorY += 46;
+    pdf.setDrawColor(dividerColor[0], dividerColor[1], dividerColor[2]);
+    pdf.line(margin, cursorY, pageWidth - margin, cursorY);
+    cursorY += 24;
+
+    // Client information
+    drawSectionTitle('Información del cliente');
+    const clientItems: { label: string; value: string }[] = [
+      { label: 'Cliente', value: quote.client_name },
+      quote.client_institution
+        ? { label: 'Institución', value: quote.client_institution }
+        : null,
+      quote.client_email ? { label: 'Email', value: quote.client_email } : null,
+      quote.client_phone ? { label: 'Teléfono', value: quote.client_phone } : null,
+    ].filter(Boolean) as { label: string; value: string }[];
+    drawDefinitionList(clientItems, 2);
+
+    // Travel details
+    drawSectionTitle('Detalles del viaje');
+    const travelItems: { label: string; value: string }[] = [
+      { label: 'Fecha de llegada', value: formatDate(quote.arrival_date) },
+      { label: 'Fecha de salida', value: formatDate(quote.departure_date) },
+      {
+        label: 'Duración',
+        value: `${quote.nights} ${quote.nights === 1 ? 'noche' : 'noches'}`,
+      },
+      {
+        label: 'Participantes',
+        value: `${quote.num_pasantes} ${
+          quote.num_pasantes === 1 ? 'persona' : 'personas'
+        }`,
+      },
+      {
+        label: 'Tipo de habitación',
+        value:
+          quote.room_type === 'single'
+            ? 'Individual'
+            : quote.room_type === 'triple'
+            ? 'Triple'
+            : 'Doble',
+      },
+    ];
+    drawDefinitionList(travelItems, 2);
+
+    // Programs
+    if (quote.programs && quote.programs.length > 0) {
+      drawSectionTitle('Programas seleccionados');
+      quote.programs.forEach((program, index) => {
+        ensureSpace(48);
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(12);
+        pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+        pdf.text(program.name, margin, cursorY);
+
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(11);
+        pdf.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+        pdf.text(
+          `${formatCurrencyClp(program.price)}`,
+          pageWidth - margin,
+          cursorY,
+          { align: 'right' }
+        );
+
+        cursorY += 16;
+
+        if (program.description) {
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(10);
+          pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
+          const descLines = pdf.splitTextToSize(program.description, contentWidth);
+          descLines.forEach((line) => {
+            ensureSpace(18);
+            pdf.text(line, margin, cursorY);
+            cursorY += 14;
+          });
+        }
+
+        cursorY += 6;
+
+        if (index < quote.programs.length - 1) {
+          pdf.setDrawColor(dividerColor[0], dividerColor[1], dividerColor[2]);
+          pdf.line(margin, cursorY, pageWidth - margin, cursorY);
+          cursorY += 12;
+        }
+      });
+
+      cursorY += 8;
+    }
+
+    // Cost summary
+    drawSectionTitle('Resumen de costos');
+    const accommodationPerPerson = quote.accommodation_total / quote.num_pasantes;
+    const viaticosPerPerson =
+      quote.viaticos_display_amount && quote.viaticos_display_amount > 0
+        ? Math.round(quote.viaticos_display_amount / quote.num_pasantes)
+        : 0;
+    const discountPerPerson =
+      quote.discount_amount && quote.num_pasantes > 0
+        ? Math.round(quote.discount_amount / quote.num_pasantes)
+        : quote.apply_early_bird_discount
+        ? 500000 * (quote.programs?.length || 0)
+        : 0;
+
+    const costRows: { label: string; value: string; hint?: string }[] = [
+      { label: 'Vuelo internacional', value: formatCurrencyClp(quote.flight_price) },
+      {
+        label: `Alojamiento (${quote.nights} ${
+          quote.nights === 1 ? 'noche' : 'noches'
+        })`,
+        value: formatCurrencyClp(accommodationPerPerson),
+      },
+      {
+        label: `Programas (${quote.programs?.length || 0})`,
+        value: formatCurrencyClp(programCostPerPerson),
+        hint: quote.apply_early_bird_discount
+          ? 'Incluye descuento por pago anticipado'
+          : undefined,
+      },
+    ];
+
+    if (viaticosPerPerson > 0) {
+      costRows.push({
+        label:
+          quote.viaticos_type === 'daily'
+            ? `Viáticos (${quote.nights + 1} días)`
+            : 'Viáticos (monto total)',
+        value: formatCurrencyClp(viaticosPerPerson),
+      });
+    }
+
+    const tableLeft = margin;
+    const tableRight = pageWidth - margin;
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(10);
+    pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
+    pdf.text('Concepto', tableLeft + 10, cursorY);
+    pdf.text('Monto', tableRight - 10, cursorY, { align: 'right' });
+    cursorY += 12;
+    pdf.setDrawColor(dividerColor[0], dividerColor[1], dividerColor[2]);
+    pdf.line(tableLeft, cursorY, tableRight, cursorY);
+
+    costRows.forEach((row) => {
+      const rowHeight = row.hint ? 30 : 24;
+      ensureSpace(rowHeight + 4);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+      pdf.text(row.label, tableLeft + 10, cursorY + 18);
+
+      if (row.hint) {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(9);
+        pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
+        pdf.text(row.hint, tableLeft + 10, cursorY + 30);
+      }
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+      pdf.text(row.value, tableRight - 10, cursorY + 18, { align: 'right' });
+
+      cursorY += rowHeight;
+      pdf.setDrawColor(dividerColor[0], dividerColor[1], dividerColor[2]);
+      pdf.line(tableLeft, cursorY, tableRight, cursorY);
+    });
+
+    cursorY += 16;
+
+    ensureSpace(48);
+    pdf.setFillColor(neutralBg[0], neutralBg[1], neutralBg[2]);
+    pdf.setDrawColor(dividerColor[0], dividerColor[1], dividerColor[2]);
+    pdf.roundedRect(tableLeft, cursorY, contentWidth, 40, 6, 6, 'FD');
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+    pdf.text('Total por persona', tableLeft + 14, cursorY + 26);
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.text(
+      formatCurrencyClp(quote.total_per_person),
+      tableRight - 14,
+      cursorY + 26,
+      { align: 'right' }
+    );
+
+    cursorY += 56;
+
+    if (quote.num_pasantes > 1) {
+      ensureSpace(30);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(11);
+      pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
+      pdf.text(
+        `Total general para ${quote.num_pasantes} ${
+          quote.num_pasantes === 1 ? 'persona' : 'personas'
+        }`,
+        tableLeft,
+        cursorY
+      );
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+      pdf.text(
+        formatCurrencyClp(quote.grand_total),
+        tableRight,
+        cursorY,
+        { align: 'right' }
+      );
+      cursorY += 28;
+    }
+
+    if (discountPerPerson > 0) {
+      ensureSpace(60);
+      pdf.setFillColor(neutralBg[0], neutralBg[1], neutralBg[2]);
+      pdf.rect(tableLeft, cursorY, contentWidth, 54, 'F');
+
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(11);
+      pdf.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      pdf.text('Descuento por pago anticipado', tableLeft + 14, cursorY + 20);
+
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(10);
+      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+      pdf.text(
+        `Ahorro de ${formatCurrencyClp(discountPerPerson)} por persona`,
+        tableLeft + 14,
+        cursorY + 36
+      );
+      pdf.text(
+        'Válido pagando antes del 30 de noviembre de 2025',
+        tableLeft + 14,
+        cursorY + 48
+      );
+
+      cursorY += 72;
+    }
+
+    if (quote.notes) {
+      moveCursorNearFooter();
+      addFooter();
+      pdf.addPage();
+      cursorY = margin;
+
+      drawSectionTitle('Información adicional');
+      drawParagraph(quote.notes, contentWidth);
+
+      moveCursorNearFooter();
+      addFooter();
+    } else {
+      moveCursorNearFooter();
+      addFooter();
+    }
+
     const date = new Date().toISOString().split('T')[0];
     pdf.save(`Propuesta_Barcelona_${quote.client_name.replace(/\s+/g, '_')}_${date}.pdf`);
     toast.success('PDF descargado exitosamente');
@@ -903,7 +914,8 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <button
-            onClick={generatePDF}
+            type="button"
+            onClick={() => generatePDF()}
             className="flex items-center justify-center px-8 py-4 bg-yellow-500 text-black rounded-full font-medium hover:bg-yellow-600 transition-all duration-300"
           >
             <Download className="mr-2" size={20} />

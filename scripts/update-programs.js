@@ -24,7 +24,7 @@ async function updatePrograms() {
     const programs = [
       {
         name: 'Programa para Líderes Pedagógicos',
-        description: 'Pasantía internacional para líderes educativos con visitas a escuelas innovadoras, talleres especializados y certificación internacional. Precio regular: $2.500.000 CLP. Precio especial: $2.000.000 CLP si se paga antes del 30 de septiembre de 2025.',
+        description: 'Pasantía internacional para líderes educativos con visitas a escuelas innovadoras, talleres especializados y certificación internacional. Precio regular: $2.500.000 CLP. Precio especial: $2.000.000 CLP si se paga antes del 30 de noviembre de 2025.',
         price: 2500000,
         pdf_url: 'https://heyzine.com/flip-book/9723a41fa1.html',
         display_order: 1,
@@ -32,7 +32,7 @@ async function updatePrograms() {
       },
       {
         name: 'Programa Estratégico para Directivos',
-        description: 'Experiencia intensiva de liderazgo educativo y gestión del cambio para equipos directivos. Precio regular: $2.500.000 CLP. Precio especial: $2.000.000 CLP si se paga antes del 30 de septiembre de 2025.',
+        description: 'Experiencia intensiva de liderazgo educativo y gestión del cambio para equipos directivos. Precio regular: $2.500.000 CLP. Precio especial: $2.000.000 CLP si se paga antes del 30 de noviembre de 2025.',
         price: 2500000,
         pdf_url: 'https://heyzine.com/flip-book/562763b1bb.html',
         display_order: 2,

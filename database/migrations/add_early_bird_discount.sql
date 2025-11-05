@@ -6,7 +6,7 @@ ALTER TABLE public.pasantias_quotes
     ADD COLUMN IF NOT EXISTS original_program_total DECIMAL(10,2) DEFAULT 0;
 
 -- Add comment to explain the discount
-COMMENT ON COLUMN public.pasantias_quotes.apply_early_bird_discount IS 'Si aplica el descuento por pago anticipado (antes del 30 de septiembre 2025)';
+COMMENT ON COLUMN public.pasantias_quotes.apply_early_bird_discount IS 'Si aplica el descuento por pago anticipado (antes del 30 de noviembre 2025)';
 COMMENT ON COLUMN public.pasantias_quotes.early_bird_payment_date IS 'Fecha límite para aplicar el descuento';
 COMMENT ON COLUMN public.pasantias_quotes.discount_amount IS 'Monto total del descuento aplicado';
 COMMENT ON COLUMN public.pasantias_quotes.original_program_total IS 'Precio original de los programas sin descuento';

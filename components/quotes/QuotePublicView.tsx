@@ -785,19 +785,16 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
         {/* Early Bird Discount Notice */}
         {quote.apply_early_bird_discount && (
           <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-2xl p-8 mb-8 border-2 border-yellow-300">
-            <div className="flex items-start">
-              <div className="text-3xl mr-4">🎉</div>
-              <div className="flex-1">
-                <h3 className="text-xl font-bold mb-2 text-yellow-800">
-                  Descuento por Pago Anticipado Aplicado
-                </h3>
-                <p className="text-yellow-700 mb-2">
-                  Se ha aplicado un descuento de <strong>${(500000 * (quote.programs?.length || 0)).toLocaleString('es-CL')} CLP por persona</strong> en los programas seleccionados.
-                </p>
-                <p className="text-sm text-yellow-700">
-                  Este descuento es válido realizando el pago antes del <strong>30 de noviembre de 2025</strong>.
-                </p>
-              </div>
+            <div>
+              <h3 className="text-xl font-bold mb-2 text-yellow-800">
+                Descuento por Pago Anticipado Aplicado
+              </h3>
+              <p className="text-yellow-700 mb-2">
+                Se ha aplicado un descuento de <strong>${(500000 * (quote.programs?.length || 0)).toLocaleString('es-CL')} CLP por persona</strong> en los programas seleccionados.
+              </p>
+              <p className="text-sm text-yellow-700">
+                Este descuento es válido realizando el pago antes del <strong>30 de noviembre de 2025</strong>.
+              </p>
             </div>
           </div>
         )}

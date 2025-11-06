@@ -1105,14 +1105,14 @@ export default function HomePage() {
                     height: '100%',
                     borderRadius: '0 0 0.5rem 0.5rem'
                   }}
-                  src="https://heyzine.com/flip-book/9723a41fa1.html"
+                  src="https://heyzine.com/flip-book/fb8cf2cfb1.html"
                 />
               </div>
               
               {/* External Link Option */}
               <div className="absolute bottom-4 left-4">
                 <a 
-                  href="https://heyzine.com/flip-book/9723a41fa1.html" 
+                  href="https://heyzine.com/flip-book/fb8cf2cfb1.html" 
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-gray-600 hover:text-black underline"
@@ -1155,14 +1155,14 @@ export default function HomePage() {
                     height: '100%',
                     borderRadius: '0 0 0.5rem 0.5rem'
                   }}
-                  src="https://heyzine.com/flip-book/562763b1bb.html"
+                  src="https://heyzine.com/flip-book/92bf9eb5ee.html"
                 />
               </div>
               
               {/* External Link Option */}
               <div className="absolute bottom-4 left-4">
                 <a 
-                  href="https://heyzine.com/flip-book/562763b1bb.html" 
+                  href="https://heyzine.com/flip-book/92bf9eb5ee.html" 
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-sm text-gray-600 hover:text-black underline"

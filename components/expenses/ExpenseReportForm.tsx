@@ -215,27 +215,36 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
 
     try {
       // Extract file name from URL to delete from storage
+      // Handle both signed URLs (with ?token=...) and regular URLs
       const urlParts = item.receipt_url.split('/');
-      const fileName = urlParts[urlParts.length - 1];
-      
+      const fileNameWithParams = urlParts[urlParts.length - 1];
+
+      // Remove query parameters if present (e.g., ?token=...)
+      const fileName = fileNameWithParams.split('?')[0];
+
+      console.log('🗑️ Attempting to delete file:', fileName);
+
       // Delete from Supabase Storage
       const { error: deleteError } = await supabase.storage
         .from('boletas')
         .remove([fileName]);
 
       if (deleteError) {
-        console.warn('Error deleting file from storage:', deleteError);
-        // Continue anyway - might be already deleted or not exist
+        console.error('❌ Error deleting file from storage:', deleteError);
+        toast.error('Error al eliminar la boleta del servidor: ' + deleteError.message);
+        return;
       }
+
+      console.log('✅ File deleted successfully from storage');
 
       // Clear the receipt from the form
       updateExpenseItem(index, 'receipt_url', '');
       updateExpenseItem(index, 'receipt_filename', '');
-      
+
       toast.success('Boleta eliminada');
-      
+
     } catch (error) {
-      console.error('Error deleting receipt:', error);
+      console.error('❌ Error deleting receipt:', error);
       toast.error('Error al eliminar la boleta');
     }
   };

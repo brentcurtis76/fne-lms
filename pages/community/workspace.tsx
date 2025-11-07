@@ -2806,9 +2806,9 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
                       <div className="flex items-center gap-2">
                         <UsersIcon className="h-4 w-4 text-gray-500" />
                         <span className="text-sm text-gray-600">
-                          {group ? `Grupo: ${group.name}` : 
-                           consultantManagedAssignments.has(assignment.id) ? 
-                           'Esperando asignación del consultor' : 
+                          {group ? group.name :
+                           consultantManagedAssignments.has(assignment.id) ?
+                           'Esperando asignación del consultor' :
                            'Sin grupo asignado'}
                         </span>
                       </div>

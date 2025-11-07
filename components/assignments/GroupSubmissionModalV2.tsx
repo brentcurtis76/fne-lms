@@ -263,20 +263,20 @@ export default function GroupSubmissionModalV2({
                 <div className="grid grid-cols-2 gap-2">
                   {groupMembers.map((member) => (
                     <div key={member.user_id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                      {member.user.avatar_url ? (
+                      {member.user?.avatar_url ? (
                         <img
                           src={member.user.avatar_url}
-                          alt={member.user.full_name}
+                          alt={member.user?.full_name || 'User'}
                           className="w-8 h-8 rounded-full"
                         />
                       ) : (
                         <div className="w-8 h-8 bg-[#fdb933] rounded-full flex items-center justify-center">
                           <span className="text-[#00365b] text-sm font-medium">
-                            {member.user.full_name?.charAt(0).toUpperCase()}
+                            {member.user?.full_name?.charAt(0).toUpperCase() || '?'}
                           </span>
                         </div>
                       )}
-                      <span className="text-sm text-gray-700">{member.user.full_name}</span>
+                      <span className="text-sm text-gray-700">{member.user?.full_name || 'Usuario desconocido'}</span>
                     </div>
                   ))}
                 </div>

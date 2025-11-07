@@ -267,14 +267,20 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
       }
 
       // Clear the receipt from the form state
-      const updatedItems = [...expenseItems];
-      updatedItems[index] = {
-        ...updatedItems[index],
-        receipt_url: '',
-        receipt_filename: ''
-      };
+      // Force a complete state refresh by creating entirely new objects
+      const updatedItems = expenseItems.map((item, i) => {
+        if (i === index) {
+          return {
+            ...item,
+            receipt_url: '',
+            receipt_filename: '',
+            _forceUpdate: Date.now() // Force React to detect change
+          };
+        }
+        return { ...item }; // Clone other items too to ensure new references
+      });
       setExpenseItems(updatedItems);
-      console.log('✅ Form state updated, receipt removed from UI');
+      console.log('✅ Form state updated, receipt removed from UI', updatedItems[index]);
 
       toast.success('Boleta eliminada');
 

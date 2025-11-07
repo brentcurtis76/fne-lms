@@ -43,7 +43,6 @@ import { getAvailableAreas, getAreaMetadata, TransformationArea } from '../../ty
 import { useAuth } from '../../hooks/useAuth';
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
 import { communityWorkspaceService } from '../../lib/services/communityWorkspace';
-import { ChatAlt2Icon as ChatIcon } from '@heroicons/react/outline';
 import { 
   getUserWorkspaceAccess, 
   getOrCreateWorkspace, 
@@ -2567,7 +2566,6 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
   const [userGroups, setUserGroups] = useState<Map<string, any>>(new Map());
   const [isConsultantView, setIsConsultantView] = useState(false);
   const [students, setStudents] = useState<any[]>([]);
-  const [discussionCounts, setDiscussionCounts] = useState<Map<string, number>>(new Map());
   const [consultantManagedAssignments, setConsultantManagedAssignments] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -2634,39 +2632,12 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
         }
         setUserGroups(groupsMap);
         setConsultantManagedAssignments(consultantManaged);
-
-        // Load discussion comment counts
-        await loadDiscussionCounts(fetchedAssignments, groupsMap);
       }
     } catch (error) {
       console.error('Error loading group assignments:', error);
       toast.error('Error al cargar las tareas grupales');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadDiscussionCounts = async (assignments: any[], groupsMap: Map<string, any>) => {
-    if (!workspace) return;
-    
-    try {
-      const counts = new Map<string, number>();
-      
-      for (const assignment of assignments) {
-        const group = groupsMap.get(assignment.id);
-        if (!group) continue;
-
-        const { commentCount } = await groupAssignmentsV2Service.getDiscussionStats(
-          assignment.id,
-          group.id
-        );
-
-        counts.set(assignment.id, commentCount || 0);
-      }
-
-      setDiscussionCounts(counts);
-    } catch (error) {
-      console.error('Error loading discussion counts:', error);
     }
   };
 
@@ -2874,33 +2845,6 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
                         </p>
                       </div>
                     )}
-
-                    {/* Discussion Link with Comment Count */}
-                    <div className="mt-4 pt-3 border-t border-gray-100">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          router.push(`/community/workspace/assignments/${assignment.id}/discussion`);
-                        }}
-                        className="flex items-center justify-between w-full group hover:bg-gray-50 -mx-2 px-2 py-1 rounded transition-colors"
-                      >
-                        <div className="flex items-center gap-2">
-                          <ChatIcon className="h-4 w-4 text-gray-500 group-hover:text-[#00365b]" />
-                          <span className="text-sm text-gray-600 group-hover:text-[#00365b]">
-                            Discusión del grupo
-                          </span>
-                        </div>
-                        {discussionCounts.get(assignment.id) !== undefined && (
-                          <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${
-                            discussionCounts.get(assignment.id)! > 0 
-                              ? 'bg-[#fdb933]/20 text-[#00365b]' 
-                              : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            {discussionCounts.get(assignment.id)} comentario{discussionCounts.get(assignment.id) !== 1 ? 's' : ''}
-                          </span>
-                        )}
-                      </button>
-                    </div>
                   </>
                 )}
               </div>

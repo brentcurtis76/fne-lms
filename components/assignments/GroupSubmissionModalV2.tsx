@@ -115,11 +115,70 @@ export default function GroupSubmissionModalV2({
     }
   };
 
+  const normalizeUrl = (rawUrl?: string | null) => {
+    if (!rawUrl) return null;
+    const trimmed = rawUrl.trim();
+    if (/^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+    if (trimmed.startsWith('www.')) {
+      return `https://${trimmed}`;
+    }
+    return trimmed;
+  };
+
+  const preventModalPropagation = (event: React.SyntheticEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent.stopImmediatePropagation?.();
+  };
+
+  const suppressAssignmentCardClick = () => {
+    if (typeof window !== 'undefined') {
+      (window as any).__suppressAssignmentCardClick = true;
+    }
+  };
+
+  const handleResourceClick = (
+    event: React.MouseEvent,
+    resource: { url?: string | null; type?: string; title?: string }
+  ) => {
+    // CRITICAL: Stop event propagation to prevent triggering parent assignment card click
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent.stopImmediatePropagation();
+
+    preventModalPropagation(event);
+    suppressAssignmentCardClick();
+
+    const normalizedUrl = normalizeUrl(resource?.url);
+    if (!normalizedUrl) {
+      if (resource?.type === 'document') {
+        toast.error('Este recurso no tiene un archivo disponible. Solicita al instructor que vuelva a cargarlo.');
+      } else {
+        toast.error('El recurso no tiene un enlace disponible');
+      }
+      return;
+    }
+
+    window.open(normalizedUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const isSubmitted = existingSubmission?.status === 'submitted' || existingSubmission?.status === 'graded';
 
+  const handleOverlayClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.stopPropagation();
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      onClick={handleOverlayClick}
+    >
+      <div
+        className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div>
@@ -159,13 +218,16 @@ export default function GroupSubmissionModalV2({
                   <div className="mt-4 pt-3 border-t border-gray-200">
                     <h4 className="font-medium text-gray-900 text-sm mb-2">Recursos:</h4>
                     <div className="space-y-2">
-                      {assignment.resources.map((resource: any) => (
-                        <a
+                      {assignment.resources
+                        .filter((resource: any) => normalizeUrl(resource.url))
+                        .map((resource: any) => (
+                        <button
                           key={resource.id}
-                          href={resource.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md transition-colors"
+                          type="button"
+                          onMouseDownCapture={preventModalPropagation}
+                          onMouseUpCapture={preventModalPropagation}
+                          onClick={(e) => handleResourceClick(e, resource)}
+                          className="w-full text-left flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md transition-colors"
                         >
                           {resource.type === 'link' ? (
                             <ExternalLink className="w-4 h-4 text-blue-600 flex-shrink-0" />
@@ -182,8 +244,11 @@ export default function GroupSubmissionModalV2({
                               </p>
                             )}
                           </div>
-                        </a>
-                      ))}
+                        </button>
+                        ))}
+                      {assignment.resources.filter((resource: any) => normalizeUrl(resource.url)).length === 0 && (
+                        <p className="text-sm text-gray-500">No hay recursos disponibles actualmente.</p>
+                      )}
                     </div>
                   </div>
                 )}
@@ -242,15 +307,22 @@ export default function GroupSubmissionModalV2({
                   {existingSubmission.file_url && (
                     <div>
                       <h4 className="font-medium text-gray-900 mb-2">Archivo Adjunto:</h4>
-                      <a
-                        href={existingSubmission.file_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={(e) =>
+                          handleResourceClick(e, {
+                            url: existingSubmission.file_url,
+                            type: 'document',
+                            title: 'archivo adjunto'
+                          })
+                        }
+                        onMouseDownCapture={preventModalPropagation}
+                        onMouseUpCapture={preventModalPropagation}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors"
                       >
                         <FileText className="h-4 w-4" />
                         Ver archivo adjunto
-                      </a>
+                      </button>
                     </div>
                   )}
 

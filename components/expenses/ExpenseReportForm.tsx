@@ -254,11 +254,27 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
         }
 
         console.log('✅ Database updated successfully');
+
+        // CRITICAL: Update the editingReport prop to prevent stale data
+        if (editingReport && editingReport.expense_items) {
+          const itemToUpdate = editingReport.expense_items.find((ei: any) => ei.id === item.id);
+          if (itemToUpdate) {
+            itemToUpdate.receipt_url = null;
+            itemToUpdate.receipt_filename = null;
+            console.log('✅ Updated editingReport object to prevent stale data');
+          }
+        }
       }
 
       // Clear the receipt from the form state
-      updateExpenseItem(index, 'receipt_url', '');
-      updateExpenseItem(index, 'receipt_filename', '');
+      const updatedItems = [...expenseItems];
+      updatedItems[index] = {
+        ...updatedItems[index],
+        receipt_url: '',
+        receipt_filename: ''
+      };
+      setExpenseItems(updatedItems);
+      console.log('✅ Form state updated, receipt removed from UI');
 
       toast.success('Boleta eliminada');
 

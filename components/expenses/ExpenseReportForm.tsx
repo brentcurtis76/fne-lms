@@ -237,7 +237,26 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
 
       console.log('✅ File deleted successfully from storage');
 
-      // Clear the receipt from the form
+      // If this is a saved item (has an ID), update the database
+      if (item.id) {
+        const { error: dbError } = await supabase
+          .from('expense_items')
+          .update({
+            receipt_url: null,
+            receipt_filename: null
+          })
+          .eq('id', item.id);
+
+        if (dbError) {
+          console.error('❌ Error updating database:', dbError);
+          toast.error('Error al actualizar la base de datos');
+          return;
+        }
+
+        console.log('✅ Database updated successfully');
+      }
+
+      // Clear the receipt from the form state
       updateExpenseItem(index, 'receipt_url', '');
       updateExpenseItem(index, 'receipt_filename', '');
 

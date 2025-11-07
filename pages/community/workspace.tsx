@@ -316,7 +316,7 @@ const CommunityWorkspacePage: React.FC = () => {
         window.location.href = '/login';
       });
     }
-  }, [user, authLoading, router]);
+  }, [user?.id, authLoading, router]);
 
   useEffect(() => {
     if (selectedCommunityId && workspaceAccess) {
@@ -1350,7 +1350,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
       loadMeetings();
       checkManagementPermissions();
     }
-  }, [workspace, user, filters, sort]);
+  }, [workspace, user?.id, filters, sort]);
 
   const loadMeetings = async () => {
     if (!workspace) return;
@@ -1677,7 +1677,7 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
       loadDocuments();
       loadPermissions();
     }
-  }, [workspace, user, currentFolder, filters]);
+  }, [workspace, user?.id, currentFolder, filters]);
 
   const loadDocuments = async () => {
     if (!workspace) return;
@@ -2056,11 +2056,11 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       loadCommunityMembers();
       setupRealtimeSubscription();
     }
-    
+
     return () => {
       // Cleanup realtime subscription
     };
-  }, [workspace, user]);
+  }, [workspace, user?.id]);
 
   useEffect(() => {
     if (workspace && selectedThread) {
@@ -2574,7 +2574,7 @@ const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({
     if (user) {
       loadGroupAssignments();
     }
-  }, [user]);
+  }, [user?.id]);
 
   const loadGroupAssignments = async () => {
     if (!user?.id) return;

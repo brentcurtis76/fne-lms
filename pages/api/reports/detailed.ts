@@ -307,12 +307,18 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
           allActivities.sort().reverse()[0] : null;
 
         // Calculate activity score for smart sorting
-        // REBALANCED WEIGHTS: lessons (50%), time (20%), recent activity (20%), course enrollments (10%)
-        const lessonScore = Math.min(total_lessons_completed * 10, 500); // Max 500 points for lessons (50%)
-        const timeScore = Math.min(total_time_spent_minutes * 1.33, 200); // Max 200 points for time (20%, requires 150min to max)
+        // REBALANCED WEIGHTS: lessons (60%), time (12%), recent activity (20%), course enrollments (8%)
+        // Lesson completions now heavily dominate to prevent idle time from outweighing real progress
+        const lessonScore = Math.min(total_lessons_completed * 60, 600); // Max 600 points for lessons (60%)
+
+        // Time uses diminishing returns (sqrt curve) to cap its influence
+        // Examples: 25min=40pts, 100min=80pts, 225min=120pts (max)
+        // This prevents users from gaming the system by leaving pages open
+        const timeScore = Math.min(Math.round(Math.sqrt(total_time_spent_minutes) * 8), 120); // Max 120 points for time (12%)
+
         const recentActivityScore = lastActivity ?
           Math.max(200 - Math.floor((Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24 * 7)), 0) : 0; // 200 points max (20%), decreases weekly
-        const courseScore = Math.min(total_courses_enrolled * 10, 100); // Max 100 points for courses (10%)
+        const courseScore = Math.min(total_courses_enrolled * 10, 80); // Max 80 points for courses (8%)
 
         const activity_score = Math.round(lessonScore + timeScore + recentActivityScore + courseScore);
 

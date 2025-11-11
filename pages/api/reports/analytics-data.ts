@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { supabase } from '../../../lib/supabase-wrapper';
+import { countUserLessonPairs } from '../../../lib/utils/lessonProgressUtils';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -192,13 +193,14 @@ async function getProgressTrends(timeRange: string, groupBy: string, userProfile
       if (!acc[key]) {
         acc[key] = {
           period: key,
-          completedLessons: 0,
+          uniqueLessons: new Set(), // Track unique (user_id, lesson_id) pairs
           activeUsers: new Set(),
           totalTimeSpent: 0
         };
       }
 
-      acc[key].completedLessons++;
+      // Deduplicate by (user_id, lesson_id) - lesson_progress is block-level
+      acc[key].uniqueLessons.add(`${item.user_id}_${item.lesson_id}`);
       acc[key].activeUsers.add(item.user_id);
       acc[key].totalTimeSpent += item.time_spent || 0;
 
@@ -206,13 +208,16 @@ async function getProgressTrends(timeRange: string, groupBy: string, userProfile
     }, {} as any) || {};
 
     // Convert to array and calculate completion rates
-    const trends = Object.values(grouped).map((group: any) => ({
-      period: group.period,
-      completedLessons: group.completedLessons,
-      activeUsers: group.activeUsers.size,
-      avgCompletionRate: group.completedLessons > 0 ? Math.min(95, 60 + (group.completedLessons * 2)) : 0,
-      totalTimeSpent: Math.round(group.totalTimeSpent / 60) // Convert to hours
-    }));
+    const trends = Object.values(grouped).map((group: any) => {
+      const completedLessons = group.uniqueLessons.size; // Deduplicated count
+      return {
+        period: group.period,
+        completedLessons,
+        activeUsers: group.activeUsers.size,
+        avgCompletionRate: completedLessons > 0 ? Math.min(95, 60 + (completedLessons * 2)) : 0,
+        totalTimeSpent: Math.round(group.totalTimeSpent / 60) // Convert to hours
+      };
+    });
 
     return trends.sort((a, b) => a.period.localeCompare(b.period));
   } catch (error) {
@@ -248,7 +253,7 @@ async function getCompletionRatesByOrganization(userProfile: any, filters: any =
             .eq('school_id', school.id);
 
           const userIds = schoolUsers?.map(u => u.id) || [];
-          
+
           if (userIds.length === 0) {
             return {
               name: school.name,
@@ -264,13 +269,14 @@ async function getCompletionRatesByOrganization(userProfile: any, filters: any =
             const userBatch = userIds.slice(i, i + batchSize);
             const { data: batchData } = await supabase
               .from('lesson_progress')
-              .select('user_id, completed_at')
+              .select('user_id, lesson_id, completed_at')
               .in('user_id', userBatch)
               .not('completed_at', 'is', null);
             if (batchData) progressData.push(...batchData);
           }
 
-          const completions = progressData?.length || 0;
+          // Deduplicate by (user_id, lesson_id) - lesson_progress is block-level
+          const completions = countUserLessonPairs(progressData);
           const totalStudents = userIds.length;
           const completionRate = totalStudents > 0 ? Math.round((completions / totalStudents) * 5) : 0; // Adjusted scale
 
@@ -310,7 +316,7 @@ async function getCompletionRatesByOrganization(userProfile: any, filters: any =
             .eq('community_id', community.id);
 
           const userIds = communityUsers?.map(u => u.id) || [];
-          
+
           if (userIds.length === 0) {
             return {
               name: community.name,
@@ -326,13 +332,14 @@ async function getCompletionRatesByOrganization(userProfile: any, filters: any =
             const userBatch = userIds.slice(i, i + batchSize);
             const { data: batchData } = await supabase
               .from('lesson_progress')
-              .select('user_id, completed_at')
+              .select('user_id, lesson_id, completed_at')
               .in('user_id', userBatch)
               .not('completed_at', 'is', null);
             if (batchData) progressData.push(...batchData);
           }
 
-          const completions = progressData?.length || 0;
+          // Deduplicate by (user_id, lesson_id) - lesson_progress is block-level
+          const completions = countUserLessonPairs(progressData);
           const totalStudents = userIds.length;
           const completionRate = totalStudents > 0 ? Math.round((completions / totalStudents) * 5) : 0; // Adjusted scale
 
@@ -420,7 +427,7 @@ async function getPerformanceDistribution(userProfile: any, filters: any = {}) {
       
       const { data: batchData, error: batchError } = await supabase
         .from('lesson_progress')
-        .select('user_id, time_spent, completed_at')
+        .select('user_id, lesson_id, time_spent, completed_at')
         .not('completed_at', 'is', null)
         .in('user_id', userBatch);
       
@@ -440,30 +447,33 @@ async function getPerformanceDistribution(userProfile: any, filters: any = {}) {
     }
 
     // Group by user and calculate completion efficiency
+    // NOTE: lesson_progress is block-level, must deduplicate by lesson_id
     const userStats = progressData.reduce((acc, item) => {
       const userId = item.user_id;
       if (!acc[userId]) {
         acc[userId] = {
-          completions: 0,
+          uniqueLessons: new Set(), // Track unique lessons
           totalTime: 0,
           avgTime: 0
         };
       }
-      acc[userId].completions++;
+      // Deduplicate by lesson_id
+      acc[userId].uniqueLessons.add(item.lesson_id);
       acc[userId].totalTime += item.time_spent || 0;
       return acc;
     }, {} as any);
 
     // Calculate performance scores based on efficiency (completions vs time)
     const performanceScores = Object.values(userStats).map((user: any) => {
-      const avgTimePerCompletion = user.completions > 0 ? user.totalTime / user.completions : 0;
+      const completions = user.uniqueLessons.size; // Deduplicated count
+      const avgTimePerCompletion = completions > 0 ? user.totalTime / completions : 0;
       // Performance score: more completions and less time = higher score
       // Scale from 0-100 based on completions (max 10) and efficiency
-      const completionScore = Math.min(user.completions * 10, 60); // Up to 60 points for completions
-      const efficiencyScore = avgTimePerCompletion > 0 
+      const completionScore = Math.min(completions * 10, 60); // Up to 60 points for completions
+      const efficiencyScore = avgTimePerCompletion > 0
         ? Math.max(0, 40 - (avgTimePerCompletion / 3600) * 20) // Up to 40 points for efficiency
         : 20;
-      
+
       return Math.min(100, completionScore + efficiencyScore);
     });
 
@@ -520,7 +530,8 @@ async function getTimeSpentTrends(timeRange: string, groupBy: string, userProfil
         .select(`
           completed_at,
           time_spent,
-          user_id
+          user_id,
+          lesson_id
         `)
         .gte('completed_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString())
         .not('time_spent', 'is', null)
@@ -543,10 +554,11 @@ async function getTimeSpentTrends(timeRange: string, groupBy: string, userProfil
     }
 
     // Group data by time period
+    // NOTE: lesson_progress is block-level, must deduplicate by (user_id, lesson_id)
     const grouped = timeData.reduce((acc, item) => {
       const date = new Date(item.completed_at);
       let key = '';
-      
+
       if (groupBy === 'day') {
         key = date.toISOString().split('T')[0];
       } else if (groupBy === 'week') {
@@ -561,25 +573,28 @@ async function getTimeSpentTrends(timeRange: string, groupBy: string, userProfil
         acc[key] = {
           period: key,
           totalMinutes: 0,
-          sessions: 0,
+          uniqueSessions: new Set(), // Track unique (user_id, lesson_id) pairs
           users: new Set()
         };
       }
 
       acc[key].totalMinutes += item.time_spent || 0;
-      acc[key].sessions++;
+      acc[key].uniqueSessions.add(`${item.user_id}_${item.lesson_id}`); // Deduplicate
       acc[key].users.add(item.user_id);
 
       return acc;
     }, {} as any);
 
     // Convert to trends array
-    const trends = Object.values(grouped).map((group: any) => ({
-      period: group.period,
-      totalHours: Math.round(group.totalMinutes / 60),
-      avgHoursPerUser: group.users.size > 0 ? Math.round((group.totalMinutes / 60) / group.users.size * 10) / 10 : 0,
-      peakHours: Math.round(group.totalMinutes / group.sessions / 60 * 10) / 10 || 0
-    }));
+    const trends = Object.values(grouped).map((group: any) => {
+      const sessions = group.uniqueSessions.size; // Deduplicated session count
+      return {
+        period: group.period,
+        totalHours: Math.round(group.totalMinutes / 60),
+        avgHoursPerUser: group.users.size > 0 ? Math.round((group.totalMinutes / 60) / group.users.size * 10) / 10 : 0,
+        peakHours: sessions > 0 ? Math.round(group.totalMinutes / sessions / 60 * 10) / 10 : 0
+      };
+    });
 
     return trends.sort((a, b) => a.period.localeCompare(b.period));
   } catch (error) {
@@ -633,19 +648,31 @@ async function getQuizPerformanceAnalytics(userProfile: any, filters: any = {}) 
     }
 
     // Group by user and calculate performance metrics based on lesson completion patterns
+    // NOTE: lesson_progress is block-level, must deduplicate by lesson_id
     const userPerformance = progressData.reduce((acc, completion) => {
       const userId = completion.user_id;
-      
+
       if (!acc[userId]) {
         acc[userId] = {
           userId,
-          completions: [],
+          lessonCompletions: new Map(), // Map of lesson_id -> earliest completion record
           totalTime: 0,
           lessons: new Set()
         };
       }
 
-      acc[userId].completions.push(completion);
+      // Track only unique lessons (keep earliest completion per lesson)
+      const lessonId = completion.lesson_id;
+      if (!acc[userId].lessonCompletions.has(lessonId)) {
+        acc[userId].lessonCompletions.set(lessonId, completion);
+      } else {
+        // Keep earlier completion
+        const existing = acc[userId].lessonCompletions.get(lessonId);
+        if (new Date(completion.completed_at) < new Date(existing.completed_at)) {
+          acc[userId].lessonCompletions.set(lessonId, completion);
+        }
+      }
+
       acc[userId].totalTime += completion.time_spent || 0;
       acc[userId].lessons.add(completion.lesson_id);
 
@@ -654,25 +681,31 @@ async function getQuizPerformanceAnalytics(userProfile: any, filters: any = {}) 
 
     // Calculate performance metrics based on completion patterns
     const performance = Object.values(userPerformance).map((user: any) => {
-      const completions = user.completions.length;
+      // Use deduplicated lesson completions
       const uniqueLessons = user.lessons.size;
-      const avgTimePerLesson = completions > 0 ? user.totalTime / completions : 0;
-      
+      const lessonArray = Array.from(user.lessonCompletions.values());
+      const avgTimePerLesson = uniqueLessons > 0 ? user.totalTime / uniqueLessons : 0;
+
       // Performance score based on efficiency (less time per lesson = higher score)
       // Scale: 60-100 based on average completion time
-      const efficiencyScore = avgTimePerLesson > 0 
+      const efficiencyScore = avgTimePerLesson > 0
         ? Math.max(60, Math.min(100, 100 - (avgTimePerLesson / 60) * 10))
         : 75;
-      
+
       // Calculate improvement trend based on time efficiency over time
       let improvementTrend = 0;
-      if (completions >= 6) {
-        const firstHalf = user.completions.slice(0, Math.floor(completions / 2));
-        const secondHalf = user.completions.slice(Math.floor(completions / 2));
-        
+      if (uniqueLessons >= 6) {
+        // Sort by completion date for chronological comparison
+        const sortedLessons = lessonArray.sort((a, b) =>
+          new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime()
+        );
+
+        const firstHalf = sortedLessons.slice(0, Math.floor(uniqueLessons / 2));
+        const secondHalf = sortedLessons.slice(Math.floor(uniqueLessons / 2));
+
         const firstAvgTime = firstHalf.reduce((sum: number, c: any) => sum + (c.time_spent || 0), 0) / firstHalf.length;
         const secondAvgTime = secondHalf.reduce((sum: number, c: any) => sum + (c.time_spent || 0), 0) / secondHalf.length;
-        
+
         // Improvement = reduction in time (negative trend = getting faster = positive improvement)
         improvementTrend = firstAvgTime > 0 ? Math.round(((firstAvgTime - secondAvgTime) / firstAvgTime) * 100) : 0;
       }
@@ -750,6 +783,7 @@ async function getKPIData(timeRange: string, userProfile: any, filters: any = {}
       })() : Promise.resolve({ data: [] }),
       
       // Time spent - using lesson_progress table (batched)
+      // NOTE: Must include user_id and lesson_id for deduplication
       filteredUsers.length > 0 ? (async () => {
         let timeSpentData = [];
         const batchSize = 50;
@@ -757,7 +791,7 @@ async function getKPIData(timeRange: string, userProfile: any, filters: any = {}
           const userBatch = filteredUsers.slice(i, i + batchSize);
           const { data: batchData } = await supabase
             .from('lesson_progress')
-            .select('time_spent')
+            .select('time_spent, user_id, lesson_id')
             .gte('completed_at', periodStart.toISOString())
             .not('time_spent', 'is', null)
             .in('user_id', userBatch);
@@ -778,11 +812,21 @@ async function getKPIData(timeRange: string, userProfile: any, filters: any = {}
       progressData.reduce((sum, item) => sum + (item.lessons_completed || 0), 0) / progressData.length : 0;
     
     const coursesCompleted = progressData.reduce((sum, item) => sum + (item.courses_completed || 0), 0);
-    
+
+    // Deduplicate time data by (user_id, lesson_id) before summing
     const timeData = timeSpentResult.data || [];
-    const totalTimeSpent = Math.round(
-      timeData.reduce((sum, item) => sum + (item.time_spent || 0), 0) / 60
-    );
+    const deduplicatedTime = countUserLessonPairs(timeData) > 0
+      ? timeData.reduce((acc, item) => {
+          const key = `${item.user_id}_${item.lesson_id}`;
+          if (!acc.seen.has(key)) {
+            acc.seen.add(key);
+            acc.total += item.time_spent || 0;
+          }
+          return acc;
+        }, { seen: new Set(), total: 0 })
+      : { total: 0 };
+
+    const totalTimeSpent = Math.round(deduplicatedTime.total / 60);
 
     const currentPeriod = {
       totalUsers,

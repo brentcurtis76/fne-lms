@@ -279,21 +279,20 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
         // FIXED: Calculate completion based on actual lesson progress, not stale course progress
         // Get total lessons completed for this user's assigned courses
         const assignedCourseIds = userAssignments.map(a => a.course_id);
-        const lessonsInAssignedCourses = userLessons.filter(l => {
-          // We need to check if the lesson belongs to one of the assigned courses
-          // For now, assume any completed lesson counts toward overall progress
-          return l.completed_at;
-        });
-        
-        // Calculate completion percentage based on actual lesson completions
+        const completedBlocks = userLessons.filter(l => l.completed_at);
+
+        // Count UNIQUE lessons (not blocks) - lesson_progress is block-level
+        const uniqueCompletedLessons = new Set(completedBlocks.map(l => l.lesson_id));
+        const uniqueLessonCount = uniqueCompletedLessons.size;
+
+        // Calculate completion percentage based on unique lesson completions
         // This is a rough estimate - ideally we'd know total lessons per course
-        const completion_percentage = lessonsInAssignedCourses.length > 0 ? 
-          Math.min(Math.round((lessonsInAssignedCourses.length / Math.max(total_courses_enrolled * 5, 1)) * 100), 100) : 0;
+        const completion_percentage = uniqueLessonCount > 0 ?
+          Math.min(Math.round((uniqueLessonCount / Math.max(total_courses_enrolled * 5, 1)) * 100), 100) : 0;
         
         // Calculate actual lesson progress data
         // NOTE: lesson_progress is block-level, so count unique lessons not blocks
-        const completedBlocks = userLessons.filter(l => l.completed_at);
-        const uniqueCompletedLessons = new Set(completedBlocks.map(l => l.lesson_id));
+        // (reusing uniqueCompletedLessons from completion_percentage calculation above)
         const total_lessons_completed = uniqueCompletedLessons.size;
 
         const total_time_spent_minutes = Math.round(

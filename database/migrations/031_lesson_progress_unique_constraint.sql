@@ -13,8 +13,9 @@
 --
 -- SOLUTION:
 -- 1. Clean up existing duplicates (keep earliest completion)
--- 2. Add unique constraint on natural key (user_id, lesson_id, block_id)
--- 3. Add index for query performance
+-- 2. Add NOT NULL constraints on (user_id, lesson_id, block_id)
+-- 3. Add unique constraint on natural key (user_id, lesson_id, block_id)
+-- 4. Add indexes for query performance
 
 -- Step 1: Clean up existing duplicates
 -- Keep the earliest completion per (user_id, lesson_id, block_id)
@@ -35,19 +36,28 @@ WHERE id IN (
   SELECT id FROM duplicates WHERE rn > 1
 );
 
--- Step 2: Add unique constraint on natural key
+-- Step 2: Add NOT NULL constraints on key columns
+-- This is required before adding UNIQUE constraint to prevent NULL duplicates
+-- PostgreSQL treats NULL as distinct, so without NOT NULL, users could have:
+-- (user_id=1, lesson_id=NULL, block_id=5) multiple times
+ALTER TABLE lesson_progress
+ALTER COLUMN user_id SET NOT NULL,
+ALTER COLUMN lesson_id SET NOT NULL,
+ALTER COLUMN block_id SET NOT NULL;
+
+-- Step 3: Add unique constraint on natural key
 -- This ensures each (user, lesson, block) combination has at most one record
 ALTER TABLE lesson_progress
 ADD CONSTRAINT lesson_progress_user_lesson_block_unique
 UNIQUE (user_id, lesson_id, block_id);
 
--- Step 3: Add index for common query patterns (user + lesson lookups)
+-- Step 4: Add index for common query patterns (user + lesson lookups)
 -- This improves performance for dashboard and progress queries
 CREATE INDEX IF NOT EXISTS idx_lesson_progress_user_lesson_lookup
 ON lesson_progress(user_id, lesson_id, completed_at)
 WHERE completed_at IS NOT NULL;
 
--- Step 4: Add index for user-specific queries (used heavily in reports)
+-- Step 5: Add index for user-specific queries (used heavily in reports)
 CREATE INDEX IF NOT EXISTS idx_lesson_progress_user_completed
 ON lesson_progress(user_id, completed_at)
 WHERE completed_at IS NOT NULL;

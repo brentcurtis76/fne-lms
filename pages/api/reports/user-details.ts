@@ -94,12 +94,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       summary: {
         total_courses: courseProgress.length,
         completed_courses: courseProgress.filter(c => c.completion_rate >= 100).length,
-        avg_completion_rate: courseProgress.length > 0 
-          ? courseProgress.reduce((sum, c) => sum + (c.completion_rate || 0), 0) / courseProgress.length 
+        avg_completion_rate: courseProgress.length > 0
+          ? courseProgress.reduce((sum, c) => sum + (c.completion_rate || 0), 0) / courseProgress.length
           : 0,
-        total_lessons_completed: lessonCompletions.length,
-        avg_quiz_score: quizResults.length > 0 
-          ? quizResults.reduce((sum, q) => sum + (q.percentage_score || 0), 0) / quizResults.length 
+        // Count unique lessons, not blocks (lesson_progress is block-level)
+        total_lessons_completed: new Set(lessonCompletions.map(lc => lc.lesson_id)).size,
+        avg_quiz_score: quizResults.length > 0
+          ? quizResults.reduce((sum, q) => sum + (q.percentage_score || 0), 0) / quizResults.length
           : 0,
         total_time_minutes: timeSpent.reduce((sum, t) => sum + (t.time_spent_minutes || 0), 0),
         last_activity: recentActivity[0]?.completed_at || null

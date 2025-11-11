@@ -278,6 +278,7 @@ export default function StudentLessonViewer() {
       setProgress(prev => ({ ...prev, [blockId]: updatedProgress }));
 
       // Save to database
+      // Use onConflict to update existing block records instead of creating duplicates
       const { error } = await supabase
         .from('lesson_progress')
         .upsert({
@@ -287,6 +288,8 @@ export default function StudentLessonViewer() {
           completed_at: data.completed ? new Date().toISOString() : null,
           time_spent: updatedProgress.timeSpent || 0,
           completion_data: updatedProgress.completionData || {}
+        }, {
+          onConflict: 'user_id,lesson_id,block_id'
         });
 
       if (error) throw error;

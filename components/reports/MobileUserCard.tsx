@@ -17,6 +17,14 @@ interface MobileUserCardProps {
     total_time_spent_minutes: number;
     average_quiz_score?: number;
     last_activity_date?: string;
+    activity_score?: number;
+    engagement_quality?: 'high' | 'medium' | 'low' | 'passive';
+    score_breakdown?: {
+      lessons: number;
+      time: number;
+      recency: number;
+      courses: number;
+    };
   };
   onUserClick: (userId: string) => void;
   formatTime: (minutes: number) => string;
@@ -79,14 +87,27 @@ const MobileUserCard: React.FC<MobileUserCardProps> = ({
           <span className="text-xs text-gray-600">{user.completion_percentage}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+          <div
+            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
             style={{ width: `${Math.min(100, user.completion_percentage)}%` }}
           ></div>
         </div>
-        <p className="text-xs text-gray-500 mt-1">
-          {user.total_lessons_completed} lecciones completadas
-        </p>
+        <div className="flex items-center justify-between mt-1">
+          <p className="text-xs text-gray-500">
+            {user.total_lessons_completed} lecciones completadas
+          </p>
+          {/* Quality indicator */}
+          {user.engagement_quality === 'passive' && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+              ⚠️ Revisar
+            </span>
+          )}
+          {user.engagement_quality === 'high' && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+              ✓ Activo
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Stats Grid */}

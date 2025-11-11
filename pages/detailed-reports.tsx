@@ -32,6 +32,13 @@ interface ProgressUser {
   average_quiz_score?: number;
   last_activity_date?: string;
   activity_score?: number;
+  engagement_quality?: 'high' | 'medium' | 'low' | 'passive';
+  score_breakdown?: {
+    lessons: number;
+    time: number;
+    recency: number;
+    courses: number;
+  };
 }
 
 interface Summary {
@@ -724,11 +731,27 @@ export default function DetailedReports() {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-semibold text-gray-900">
-                                {userData.activity_score || 0}
+                              <div className="flex items-center space-x-2">
+                                <div className="text-sm font-semibold text-gray-900">
+                                  {userData.activity_score || 0}
+                                </div>
+                                {/* Quality indicator */}
+                                {userData.engagement_quality === 'passive' && (
+                                  <span
+                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800"
+                                    title="Alto tiempo registrado sin lecciones completadas"
+                                  >
+                                    ⚠️ Revisar
+                                  </span>
+                                )}
+                                {userData.engagement_quality === 'high' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                    ✓ Activo
+                                  </span>
+                                )}
                               </div>
                               <div className="text-xs text-gray-500 mt-1">
-                                Lecciones + Tiempo + Recencia
+                                {userData.total_lessons_completed || 0} lecciones • {Math.round((userData.total_time_spent_minutes || 0) / 60)}h
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">

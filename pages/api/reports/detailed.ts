@@ -304,14 +304,42 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
           allActivities.sort().reverse()[0] : null;
 
         // Calculate activity score for smart sorting
-        // Factors: lessons completed (40%), time spent (30%), recent activity (20%), course enrollments (10%)
-        const lessonScore = Math.min(total_lessons_completed * 10, 400); // Max 400 points for lessons
-        const timeScore = Math.min(total_time_spent_minutes * 2, 300); // Max 300 points for time 
-        const recentActivityScore = lastActivity ? 
-          Math.max(200 - Math.floor((Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24 * 7)), 0) : 0; // 200 points max, decreases weekly
-        const courseScore = Math.min(total_courses_enrolled * 10, 100); // Max 100 points for courses
-        
+        // REBALANCED WEIGHTS: lessons (50%), time (20%), recent activity (20%), course enrollments (10%)
+        const lessonScore = Math.min(total_lessons_completed * 10, 500); // Max 500 points for lessons (50%)
+        const timeScore = Math.min(total_time_spent_minutes * 1.33, 200); // Max 200 points for time (20%, requires 150min to max)
+        const recentActivityScore = lastActivity ?
+          Math.max(200 - Math.floor((Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24 * 7)), 0) : 0; // 200 points max (20%), decreases weekly
+        const courseScore = Math.min(total_courses_enrolled * 10, 100); // Max 100 points for courses (10%)
+
         const activity_score = Math.round(lessonScore + timeScore + recentActivityScore + courseScore);
+
+        // Calculate engagement quality indicator
+        const engagement_quality = (() => {
+          // RED FLAG: Lots of time but no completion
+          if (total_time_spent_minutes > 120 && total_lessons_completed === 0) {
+            return 'passive';
+          }
+
+          // HIGH: Good completion rate
+          if (completion_percentage > 50 && total_lessons_completed > 10) {
+            return 'high';
+          }
+
+          // MEDIUM: Some progress
+          if (total_lessons_completed > 5 || completion_percentage > 20) {
+            return 'medium';
+          }
+
+          return 'low';
+        })();
+
+        // Score breakdown for transparency
+        const score_breakdown = {
+          lessons: Math.round(lessonScore),
+          time: Math.round(timeScore),
+          recency: Math.round(recentActivityScore),
+          courses: Math.round(courseScore)
+        };
 
         // HYBRID APPROACH: Use user_roles as primary source, fallback to profiles
         // This safely handles both old schools (profiles only) and new schools (user_roles)
@@ -337,6 +365,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
             total_lessons_completed,
             average_quiz_score: 0, // Not available in current schema
             activity_score, // Add activity score for smart sorting
+            engagement_quality, // Quality indicator (high/medium/low/passive)
+            score_breakdown, // Breakdown of score components
         };
     });
 

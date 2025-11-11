@@ -291,7 +291,11 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
           Math.min(Math.round((lessonsInAssignedCourses.length / Math.max(total_courses_enrolled * 5, 1)) * 100), 100) : 0;
         
         // Calculate actual lesson progress data
-        const total_lessons_completed = userLessons.filter(l => l.completed_at).length;
+        // NOTE: lesson_progress is block-level, so count unique lessons not blocks
+        const completedBlocks = userLessons.filter(l => l.completed_at);
+        const uniqueCompletedLessons = new Set(completedBlocks.map(l => l.lesson_id));
+        const total_lessons_completed = uniqueCompletedLessons.size;
+
         const total_time_spent_minutes = Math.round(
           userLessons.reduce((sum, l) => sum + (l.time_spent || 0), 0) / 60
         ); // Convert seconds to minutes

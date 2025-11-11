@@ -64,6 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       userBasicInfo,
       courseProgress,
       lessonCompletions,
+      totalLessonsCompleted,
       quizResults,
       timeSpent,
       consultantAssignments,
@@ -72,6 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       getUserBasicInfo(userId as string),
       getCourseProgress(userId as string),
       getLessonCompletions(userId as string),
+      getTotalLessonsCompleted(userId as string),
       getQuizResults(userId as string),
       getTimeSpent(userId as string),
       getConsultantAssignments(userId as string),
@@ -97,8 +99,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         avg_completion_rate: courseProgress.length > 0
           ? courseProgress.reduce((sum, c) => sum + (c.completion_rate || 0), 0) / courseProgress.length
           : 0,
-        // Count unique lessons, not blocks (lesson_progress is block-level)
-        total_lessons_completed: new Set(lessonCompletions.map(lc => lc.lesson_id)).size,
+        // Use uncapped query result (counts ALL unique lessons, not limited to 20)
+        // NOTE: lesson_progress is block-level, already deduplicated in getTotalLessonsCompleted()
+        total_lessons_completed: totalLessonsCompleted,
         avg_quiz_score: quizResults.length > 0
           ? quizResults.reduce((sum, q) => sum + (q.percentage_score || 0), 0) / quizResults.length
           : 0,
@@ -301,6 +304,21 @@ async function getLessonCompletions(userId: string) {
       } : null
     };
   });
+}
+
+async function getTotalLessonsCompleted(userId: string): Promise<number> {
+  // Get ALL lesson progress data (no limit) to count unique lessons
+  // NOTE: lesson_progress is block-level, must deduplicate by lesson_id
+  const { data: progressData } = await supabase
+    .from('lesson_progress')
+    .select('lesson_id')
+    .eq('user_id', userId)
+    .not('completed_at', 'is', null);
+
+  if (!progressData?.length) return 0;
+
+  // Count unique lesson_ids
+  return new Set(progressData.map(p => p.lesson_id)).size;
 }
 
 async function getQuizResults(userId: string) {

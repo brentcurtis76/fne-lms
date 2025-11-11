@@ -2,6 +2,7 @@ import React from 'react';
 import { Calendar, Users, Plane, Building, DollarSign, FileText, MapPin, Clock, CheckCircle, ExternalLink, Download, Mail, Phone } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { toast } from 'react-hot-toast';
+import { parseLocalDate } from '@/utils/dateUtils';
 
 interface Program {
   id: string;
@@ -51,7 +52,7 @@ interface QuotePublicViewProps {
 
 export default function QuotePublicView({ quote }: QuotePublicViewProps) {
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+    const date = parseLocalDate(dateString);
     return date.toLocaleDateString('es-ES', {
       day: 'numeric',
       month: 'long',

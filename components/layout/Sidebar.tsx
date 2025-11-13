@@ -97,7 +97,16 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Mi Aprendizaje',
     icon: BookOpenIcon,
     href: '/mi-aprendizaje',
-    description: 'Rutas y cursos asignados'
+    description: 'Rutas y cursos asignados',
+    children: [
+      {
+        id: 'my-assignments',
+        label: 'Mis Tareas',
+        href: '/mi-aprendizaje/tareas',
+        icon: ClipboardDocumentCheckIcon,
+        description: 'Tareas de todas mis comunidades'
+      }
+    ]
   },
   {
     id: 'quiz-reviews',

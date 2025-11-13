@@ -562,7 +562,6 @@ const ReportsPage: React.FC = () => {
                   school_id: selectedSchool || 'all',
                   generation_id: selectedGeneration || 'all',
                   community_id: selectedCommunity || 'all',
-                  course_id: 'all',
                   status: 'all',
                   date_from: '',
                   date_to: ''

@@ -17,21 +17,19 @@ export interface TestGroup {
 }
 
 /**
- * Navigate to community workspace and group assignments tab
+ * Navigate to the tareas (assignments) page
+ * Updated to use new Mi Aprendizaje page instead of workspace tab
  */
 export async function navigateToGroupAssignments(page: Page, communityId?: string) {
-  // Navigate to community workspace
+  // Navigate to Mi Aprendizaje tareas page
   if (communityId) {
-    await page.goto(`/community/workspace?id=${communityId}`);
+    await page.goto(`/mi-aprendizaje/tareas?communityId=${communityId}`);
   } else {
-    await page.goto('/community/workspace');
+    await page.goto('/mi-aprendizaje/tareas');
   }
-  
-  // Click on group assignments tab
-  await page.click('text=Tareas Grupales');
-  
+
   // Wait for assignments to load
-  await page.waitForSelector('[data-testid="group-assignments"], text=Tareas Grupales', { timeout: 10000 });
+  await page.waitForSelector('[data-testid="group-assignments"], text=Tareas Grupales, text=Mis Tareas', { timeout: 10000 });
 }
 
 /**

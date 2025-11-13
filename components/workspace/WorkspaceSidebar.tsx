@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { useRouter } from 'next/router';
-import { 
+import {
   CalendarIcon,
   DocumentTextIcon,
   ChatAlt2Icon,
@@ -17,8 +17,7 @@ import {
   ChevronRightIcon,
   HomeIcon,
   OfficeBuildingIcon,
-  ArrowLeftIcon,
-  ClipboardCheckIcon
+  ArrowLeftIcon
 } from '@heroicons/react/outline';
 import { CommunityWorkspace, WorkspaceAccess, CommunityInfo } from '../../utils/workspaceUtils';
 
@@ -26,7 +25,7 @@ interface WorkspaceSidebarProps {
   currentWorkspace: CommunityWorkspace | null;
   workspaceAccess: WorkspaceAccess | null;
   communities: CommunityInfo[];
-  activeSection: 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'feed' | 'group-assignments';
+  activeSection: 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'feed';
   onSectionChange: (section: string) => void;
   onWorkspaceChange: (workspaceId: string) => void;
   isCollapsed: boolean;
@@ -144,13 +143,6 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
           icon: ChatAlt2Icon,
           section: 'messaging',
           description: 'Comunicación en tiempo real'
-        },
-        {
-          id: 'group-assignments',
-          label: 'Tareas Grupales',
-          icon: ClipboardCheckIcon,
-          section: 'group-assignments',
-          description: 'Trabajo colaborativo'
         },
         {
           id: 'feed',

@@ -7,7 +7,6 @@ interface AdvancedFiltersProps {
     school_id: string;
     generation_id: string;
     community_id: string;
-    course_id: string;
     status: string;
     date_from: string;
     date_to: string;
@@ -29,7 +28,6 @@ export default function AdvancedFilters({
   const [schools, setSchools] = useState<any[]>([]);
   const [generations, setGenerations] = useState<any[]>([]);
   const [communities, setCommunities] = useState<any[]>([]);
-  const [courses, setCourses] = useState<any[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -59,12 +57,11 @@ export default function AdvancedFilters({
         throw new Error(errorData.error || 'Failed to fetch filter options');
       }
 
-      const { schools, generations, communities, courses } = await response.json();
-      
+      const { schools, generations, communities } = await response.json();
+
       setSchools(schools || []);
       setGenerations(generations || []);
       setCommunities(communities || []);
-      setCourses(courses || []);
 
     } catch (error) {
       console.error('Error fetching filter data:', error);
@@ -72,7 +69,6 @@ export default function AdvancedFilters({
       setSchools([]);
       setGenerations([]);
       setCommunities([]);
-      setCourses([]);
     }
   };
 
@@ -97,7 +93,6 @@ export default function AdvancedFilters({
       school_id: 'all',
       generation_id: 'all',
       community_id: 'all',
-      course_id: 'all',
       status: 'all',
       date_from: '',
       date_to: ''
@@ -124,20 +119,20 @@ export default function AdvancedFilters({
           {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
-              className="text-sm text-red-600 hover:text-red-800 font-medium px-3 py-1 rounded border border-red-200 hover:bg-red-50"
+              className="text-sm text-brand_blue hover:text-brand_yellow font-medium px-3 py-1 rounded border border-brand_blue/20 hover:bg-brand_beige transition-colors"
             >
               Limpiar Filtros
             </button>
           )}
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center justify-center px-3 py-1 rounded border border-blue-200 hover:bg-blue-50"
+            className="text-sm text-brand_blue hover:text-brand_yellow font-medium flex items-center justify-center px-3 py-1 rounded border border-brand_blue/20 hover:bg-brand_beige transition-colors"
           >
             {showAdvanced ? 'Ocultar' : 'Mostrar'} {isMobile ? '' : 'Filtros'} Avanzados
-            <svg 
+            <svg
               className={`w-4 h-4 ml-1 transform transition-transform ${showAdvanced ? 'rotate-180' : ''}`}
-              fill="none" 
-              stroke="currentColor" 
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -157,7 +152,7 @@ export default function AdvancedFilters({
             <select
               value={filters.school_id}
               onChange={(e) => handleFilterChange('school_id', e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand_blue"
             >
               <option value="all">Todas las escuelas</option>
               {schools.map((school) => (
@@ -178,8 +173,8 @@ export default function AdvancedFilters({
             <select
               value={filters.generation_id}
               onChange={(e) => handleFilterChange('generation_id', e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={!isAdmin && filters.school_id === 'all'}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand_blue"
+              disabled={filteredGenerations.length === 0}
             >
               <option value="all">Todas las generaciones</option>
               {filteredGenerations.map((generation) => (
@@ -200,8 +195,8 @@ export default function AdvancedFilters({
             <select
               value={filters.community_id}
               onChange={(e) => handleFilterChange('community_id', e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={filters.generation_id === 'all'}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand_blue"
+              disabled={filteredCommunities.length === 0}
             >
               <option value="all">Todas las comunidades</option>
               {filteredCommunities.map((community) => (
@@ -228,24 +223,6 @@ export default function AdvancedFilters({
             <option value="inactive">Inactivos (30+ días)</option>
           </select>
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            📚 Curso
-          </label>
-          <select
-            value={filters.course_id}
-            onChange={(e) => handleFilterChange('course_id', e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">Todos los cursos</option>
-            {courses.map((course) => (
-              <option key={course.id} value={course.id}>
-                {course.title}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       {/* Applied Filters Display */}
@@ -256,11 +233,11 @@ export default function AdvancedFilters({
             
             {/* Search Filter */}
             {filters.search && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-brand_blue/10 text-brand_blue">
                 🔍 "{filters.search}"
                 <button
                   onClick={() => handleFilterChange('search', '')}
-                  className="ml-2 text-blue-600 hover:text-blue-800"
+                  className="ml-2 text-brand_blue hover:text-brand_yellow"
                 >
                   ×
                 </button>
@@ -269,11 +246,11 @@ export default function AdvancedFilters({
 
             {/* School Filter */}
             {filters.school_id !== 'all' && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-brand_blue/10 text-brand_blue">
                 🏫 {schools.find(s => s.id === filters.school_id)?.name || 'Escuela seleccionada'}
                 <button
                   onClick={() => handleFilterChange('school_id', 'all')}
-                  className="ml-2 text-green-600 hover:text-green-800"
+                  className="ml-2 text-brand_blue hover:text-brand_yellow"
                 >
                   ×
                 </button>
@@ -282,11 +259,11 @@ export default function AdvancedFilters({
 
             {/* Generation Filter */}
             {filters.generation_id !== 'all' && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-brand_blue/10 text-brand_blue">
                 👥 {generations.find(g => g.id === filters.generation_id)?.name || 'Generación seleccionada'}
                 <button
                   onClick={() => handleFilterChange('generation_id', 'all')}
-                  className="ml-2 text-purple-600 hover:text-purple-800"
+                  className="ml-2 text-brand_blue hover:text-brand_yellow"
                 >
                   ×
                 </button>
@@ -295,11 +272,11 @@ export default function AdvancedFilters({
 
             {/* Community Filter */}
             {filters.community_id !== 'all' && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-brand_yellow/20 text-yellow-800">
                 👥 {communities.find(c => c.id === filters.community_id)?.name || 'Comunidad seleccionada'}
                 <button
                   onClick={() => handleFilterChange('community_id', 'all')}
-                  className="ml-2 text-yellow-600 hover:text-yellow-800"
+                  className="ml-2 text-yellow-700 hover:text-yellow-900"
                 >
                   ×
                 </button>
@@ -308,26 +285,13 @@ export default function AdvancedFilters({
 
             {/* Status Filter */}
             {filters.status !== 'all' && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                📊 {filters.status === 'active' ? 'Activos' : 
-                     filters.status === 'completed' ? 'Completados' : 
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-brand_blue/10 text-brand_blue">
+                📊 {filters.status === 'active' ? 'Activos' :
+                     filters.status === 'completed' ? 'Completados' :
                      filters.status === 'inactive' ? 'Inactivos' : filters.status}
                 <button
                   onClick={() => handleFilterChange('status', 'all')}
-                  className="ml-2 text-indigo-600 hover:text-indigo-800"
-                >
-                  ×
-                </button>
-              </span>
-            )}
-
-            {/* Course Filter */}
-            {filters.course_id !== 'all' && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                📚 {courses.find(c => c.id === filters.course_id)?.title || 'Curso seleccionado'}
-                <button
-                  onClick={() => handleFilterChange('course_id', 'all')}
-                  className="ml-2 text-orange-600 hover:text-orange-800"
+                  className="ml-2 text-brand_blue hover:text-brand_yellow"
                 >
                   ×
                 </button>
@@ -336,14 +300,14 @@ export default function AdvancedFilters({
 
             {/* Date Range Filters */}
             {(filters.date_from || filters.date_to) && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-pink-100 text-pink-800">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-brand_yellow/20 text-yellow-800">
                 📅 {filters.date_from} {filters.date_from && filters.date_to ? ' - ' : ''} {filters.date_to}
                 <button
                   onClick={() => {
                     handleFilterChange('date_from', '');
                     handleFilterChange('date_to', '');
                   }}
-                  className="ml-2 text-pink-600 hover:text-pink-800"
+                  className="ml-2 text-yellow-700 hover:text-yellow-900"
                 >
                   ×
                 </button>
@@ -353,7 +317,7 @@ export default function AdvancedFilters({
             {/* Clear All Button */}
             <button
               onClick={clearAllFilters}
-              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 hover:bg-red-200"
+              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-brand_yellow/20 text-yellow-800 hover:bg-brand_yellow/30 transition-colors"
             >
               🗑️ Limpiar todos
             </button>
@@ -363,30 +327,31 @@ export default function AdvancedFilters({
 
       {/* Advanced Filters */}
       {showAdvanced && (
-        <div className="border-t border-gray-200 pt-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="border-t border-brand_blue/20 pt-6 mt-4">
+          <h4 className="text-sm font-semibold text-brand_blue mb-4">Filtros por Fecha</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Date Range Filters - Advanced only */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-brand_blue/80 mb-2">
                 📅 Fecha Desde
               </label>
               <input
                 type="date"
                 value={filters.date_from}
                 onChange={(e) => handleFilterChange('date_from', e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-brand_blue/30 rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-transparent transition-all bg-white hover:border-brand_blue/50"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-brand_blue/80 mb-2">
                 📅 Fecha Hasta
               </label>
               <input
                 type="date"
                 value={filters.date_to}
                 onChange={(e) => handleFilterChange('date_to', e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full border border-brand_blue/30 rounded-lg px-4 py-2.5 text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-transparent transition-all bg-white hover:border-brand_blue/50"
               />
             </div>
           </div>

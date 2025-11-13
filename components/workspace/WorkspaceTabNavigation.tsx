@@ -34,7 +34,7 @@ const WorkspaceTabNavigation: React.FC<WorkspaceTabNavigationProps> = ({
     { id: 'meetings', name: 'Reuniones', icon: CalendarIcon, show: true },
     { id: 'documents', name: 'Documentos', icon: DocumentTextIcon, show: true },
     { id: 'messaging', name: 'Mensajes', icon: ChatAlt2Icon, show: true },
-    { id: 'group-assignments', name: 'Tareas Grupales', icon: ClipboardCheckIcon, show: true },
+    // Removed: group-assignments - now in /mi-aprendizaje/tareas
     { id: 'transformation', name: 'Vías de Transformación', icon: LightningBoltIcon, show: hasTransformationAccess },
     { id: 'communities', name: 'Gestión', icon: UsersIcon, show: isAdmin }
   ].filter(tab => tab.show);

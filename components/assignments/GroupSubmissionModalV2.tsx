@@ -1,9 +1,10 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Users, FileText, CheckCircle, ExternalLink, File } from 'lucide-react';
+import { X, Upload, Users, FileText, CheckCircle, ExternalLink, File, UserPlus, Search, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
+import { useAuth } from '../../hooks/useAuth';
 
 interface GroupSubmissionModalV2Props {
   assignment: any;
@@ -12,19 +13,27 @@ interface GroupSubmissionModalV2Props {
   onSubmit: (submissionData: any) => void;
 }
 
-export default function GroupSubmissionModalV2({ 
-  assignment, 
-  group, 
-  onClose, 
-  onSubmit 
+export default function GroupSubmissionModalV2({
+  assignment,
+  group,
+  onClose,
+  onSubmit
 }: GroupSubmissionModalV2Props) {
   const supabase = useSupabaseClient();
+  const { user } = useAuth();
   const [submissionText, setSubmissionText] = useState('');
   const [fileUrl, setFileUrl] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);
   const [groupMembers, setGroupMembers] = useState<any[]>([]);
   const [existingSubmission, setExistingSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Teammate invitation state
+  const [eligibleClassmates, setEligibleClassmates] = useState<any[]>([]);
+  const [selectedClassmates, setSelectedClassmates] = useState<Set<string>>(new Set());
+  const [loadingClassmates, setLoadingClassmates] = useState(false);
+  const [classmateSearchQuery, setClassmateSearchQuery] = useState('');
+  const [isConsultantManaged, setIsConsultantManaged] = useState(false);
 
   useEffect(() => {
     loadGroupData();
@@ -52,6 +61,51 @@ export default function GroupSubmissionModalV2({
         setExistingSubmission(submission);
         setSubmissionText(submission.content || '');
         setFileUrl(submission.file_url || '');
+      }
+
+      // Check if group is consultant-managed
+      const { data: groupInfo } = await supabase
+        .from('group_assignment_groups')
+        .select('is_consultant_managed, community_id')
+        .eq('id', group.id)
+        .single();
+
+      const isManaged = groupInfo?.is_consultant_managed || false;
+      setIsConsultantManaged(isManaged);
+
+      // Load eligible classmates if not submitted and not consultant-managed
+      const isSubmitted = submission?.status === 'submitted' || submission?.status === 'graded';
+      console.log('[GroupSubmissionModal] loadGroupData - isSubmitted:', isSubmitted, 'isManaged:', isManaged, 'user:', user, 'user?.id:', user?.id, 'group.id:', group.id, 'assignment.id:', assignment.id);
+      if (!isSubmitted && !isManaged && user?.id) {
+        setLoadingClassmates(true);
+        try {
+          const url = `/api/assignments/eligible-classmates?assignmentId=${assignment.id}&groupId=${group.id}`;
+          console.log('[GroupSubmissionModal] Fetching eligible classmates from:', url);
+          const response = await fetch(url);
+          const data = await response.json();
+
+          console.log('[GroupSubmissionModal] Response status:', response.status, 'data:', data);
+          if (response.ok) {
+            console.log('[GroupSubmissionModal] eligible classmates fetched:', data.classmates?.length, 'classmates:', data.classmates);
+            setEligibleClassmates(data.classmates || []);
+          } else {
+            console.error('[GroupSubmissionModal] Error loading classmates:', data.error, 'status:', response.status);
+            toast.error(data.error || 'Error al cargar compañeros');
+          }
+        } catch (error) {
+          console.error('[GroupSubmissionModal] Exception loading classmates:', error);
+          toast.error('Error al cargar compañeros');
+        } finally {
+          setLoadingClassmates(false);
+        }
+      } else {
+        console.log('[GroupSubmissionModal] Skipping classmates fetch - conditions not met:', {
+          isSubmitted,
+          isManaged,
+          hasUser: !!user,
+          hasUserId: !!user?.id,
+          conditionCheck: !isSubmitted && !isManaged && user?.id
+        });
       }
     } catch (error) {
       console.error('Error loading group data:', error);
@@ -112,6 +166,71 @@ export default function GroupSubmissionModalV2({
       });
     } catch (error) {
       console.error('Error submitting:', error);
+    }
+  };
+
+  // Classmate invitation handlers
+  const handleToggleClassmate = (classmateId: string) => {
+    setSelectedClassmates(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(classmateId)) {
+        newSet.delete(classmateId);
+      } else {
+        newSet.add(classmateId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleAddClassmates = async () => {
+    if (!user?.id) {
+      toast.error('Usuario no autenticado');
+      return;
+    }
+
+    // Validation: Check max group size
+    const maxGroupSize = 8;
+    if (groupMembers.length + selectedClassmates.size > maxGroupSize) {
+      toast.error(`El grupo no puede tener más de ${maxGroupSize} miembros`);
+      return;
+    }
+
+    // Validation: Check at least one selected
+    if (selectedClassmates.size === 0) {
+      toast.error('Selecciona al menos un compañero');
+      return;
+    }
+
+    try {
+      setLoadingClassmates(true);
+
+      const response = await fetch('/api/assignments/add-classmates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          assignmentId: assignment.id,
+          groupId: group.id,
+          classmateIds: Array.from(selectedClassmates)
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Error al agregar compañeros');
+        return;
+      }
+
+      toast.success(`${data.count || 0} compañero(s) agregado(s) al grupo`);
+      setSelectedClassmates(new Set());
+      await loadGroupData(); // Refresh data
+    } catch (error) {
+      console.error('Error adding classmates:', error);
+      toast.error('Error al agregar compañeros. Intenta nuevamente.');
+    } finally {
+      setLoadingClassmates(false);
     }
   };
 
@@ -281,6 +400,113 @@ export default function GroupSubmissionModalV2({
                   ))}
                 </div>
               </div>
+
+              {/* Invite Classmates Section */}
+              {!isSubmitted && !isConsultantManaged && groupMembers.length < 8 && (
+                <div className="border-t pt-6">
+                  <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                    <UserPlus className="h-4 w-4" />
+                    Invitar Compañeros
+                  </h3>
+
+                  {/* Search Input */}
+                  <div className="mb-3 relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar compañeros de clase..."
+                      value={classmateSearchQuery}
+                      onChange={(e) => setClassmateSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Classmates List */}
+                  {loadingClassmates ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      {[1, 2].map(i => (
+                        <div key={i} className="h-12 bg-gray-100 rounded animate-pulse"></div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="max-h-48 overflow-y-auto grid grid-cols-2 gap-2 mb-3">
+                        {eligibleClassmates
+                          .filter(classmate => {
+                            if (!classmateSearchQuery) return true;
+                            const query = classmateSearchQuery.toLowerCase();
+                            return (
+                              classmate.full_name?.toLowerCase().includes(query) ||
+                              classmate.email?.toLowerCase().includes(query)
+                            );
+                          })
+                          .map(classmate => (
+                            <button
+                              key={classmate.id}
+                              type="button"
+                              onClick={() => handleToggleClassmate(classmate.id)}
+                              className={`flex items-center gap-2 p-2 rounded border-2 transition-colors ${
+                                selectedClassmates.has(classmate.id)
+                                  ? 'border-[#fdb933] bg-yellow-50'
+                                  : 'border-gray-200 hover:border-gray-300 bg-gray-50'
+                              }`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedClassmates.has(classmate.id)}
+                                onChange={() => {}}
+                                className="w-4 h-4 text-[#00365b] rounded focus:ring-[#00365b]"
+                              />
+                              {classmate.avatar_url ? (
+                                <img
+                                  src={classmate.avatar_url}
+                                  alt={classmate.full_name || 'User'}
+                                  className="w-6 h-6 rounded-full"
+                                />
+                              ) : (
+                                <div className="w-6 h-6 bg-[#fdb933] rounded-full flex items-center justify-center">
+                                  <span className="text-[#00365b] text-xs font-medium">
+                                    {classmate.full_name?.charAt(0).toUpperCase() || '?'}
+                                  </span>
+                                </div>
+                              )}
+                              <span className="text-sm text-gray-700 truncate flex-1 text-left">
+                                {classmate.full_name || 'Usuario desconocido'}
+                              </span>
+                            </button>
+                          ))}
+                      </div>
+
+                      {eligibleClassmates.length === 0 && (
+                        <p className="text-sm text-gray-500 text-center py-4">
+                          No hay compañeros disponibles para invitar
+                        </p>
+                      )}
+
+                      {/* Selected Count and Add Button */}
+                      {eligibleClassmates.length > 0 && (
+                        <div className="flex items-center justify-between pt-3 border-t">
+                          <span className="text-sm text-gray-600">
+                            {selectedClassmates.size} seleccionado{selectedClassmates.size !== 1 ? 's' : ''}
+                            <span className="text-gray-400 ml-1">
+                              (máx. {8 - groupMembers.length} más)
+                            </span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleAddClassmates}
+                            disabled={selectedClassmates.size === 0 || loadingClassmates}
+                            className="px-4 py-2 bg-[#00365b] text-white text-sm rounded-lg hover:bg-[#004a7a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                          >
+                            <UserPlus className="h-4 w-4" />
+                            {loadingClassmates ? 'Agregando...' : 'Agregar al Grupo'}
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Submission Form or View */}
               {isSubmitted ? (

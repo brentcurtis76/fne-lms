@@ -34,14 +34,12 @@ import ActivitySummary from '../../components/activity/ActivitySummary';
 import ActivityNotifications from '../../components/activity/ActivityNotifications';
 import ActivityFeedPlaceholder from '../../components/activity/ActivityFeedPlaceholder';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
-import GroupSubmissionModalV2 from '../../components/assignments/GroupSubmissionModalV2';
 import WorkspaceSettingsModal from '../../components/community/WorkspaceSettingsModal';
 import FeedContainer from '../../components/feed/FeedContainer';
 import WorkspaceTabNavigation from '../../components/workspace/WorkspaceTabNavigation';
 import { AreaSelectionModal } from '../../components/transformation/AreaSelectionModal';
 import { getAvailableAreas, getAreaMetadata, TransformationArea } from '../../types/transformation';
 import { useAuth } from '../../hooks/useAuth';
-import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
 import { communityWorkspaceService } from '../../lib/services/communityWorkspace';
 import { 
   getUserWorkspaceAccess, 
@@ -131,7 +129,7 @@ import {
 import { X, Users, CheckCircle, Settings } from 'lucide-react';
 import { navigationManager } from '../../utils/navigationManager';
 
-type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'group-assignments' | 'transformation';
+type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'transformation';
 
 // Sidebar state management
 interface SidebarState {
@@ -275,6 +273,14 @@ const CommunityWorkspacePage: React.FC = () => {
     
     // Check URL for initial section
     const urlSection = query.section as SectionType;
+
+    // Redirect old group-assignments section to new Tareas page
+    if (urlSection === 'group-assignments') {
+      const communityParam = query.communityId ? `?communityId=${query.communityId}&from=workspace` : '?from=workspace';
+      router.replace(`/mi-aprendizaje/tareas${communityParam}`);
+      return;
+    }
+
     if (urlSection && ['overview', 'communities', 'meetings', 'documents', 'messaging'].includes(urlSection)) {
       setActiveSection(urlSection);
     }
@@ -872,16 +878,6 @@ const CommunityWorkspacePage: React.FC = () => {
             user={user} 
             searchQuery={searchQuery}
             filterThreadsBySearch={filterThreadsBySearch}
-          />
-        </div>
-
-        <div style={{ display: activeSection === 'group-assignments' ? 'block' : 'none' }}>
-          <GroupAssignmentsContent
-            workspace={currentWorkspace}
-            workspaceAccess={workspaceAccess}
-            user={user}
-            searchQuery={searchQuery}
-            router={router}
           />
         </div>
 
@@ -2537,341 +2533,6 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
           onClose={() => setShowThreadCreationModal(false)}
           onCreateThread={handleThreadCreate}
           loading={loading}
-        />
-      )}
-    </div>
-  );
-};
-
-// Group Assignments Tab Content Component
-interface GroupAssignmentsContentProps {
-  workspace: CommunityWorkspace | null;
-  workspaceAccess: WorkspaceAccess | null;
-  user: any;
-  searchQuery: string;
-  router: any;
-}
-
-const GroupAssignmentsContent: React.FC<GroupAssignmentsContentProps> = ({ 
-  workspace, 
-  workspaceAccess, 
-  user, 
-  searchQuery,
-  router 
-}) => {
-  const [assignments, setAssignments] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedAssignment, setSelectedAssignment] = useState<any>(null);
-  const [showSubmissionModal, setShowSubmissionModal] = useState(false);
-  const [userGroups, setUserGroups] = useState<Map<string, any>>(new Map());
-  const [isConsultantView, setIsConsultantView] = useState(false);
-  const [students, setStudents] = useState<any[]>([]);
-  const [consultantManagedAssignments, setConsultantManagedAssignments] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (user) {
-      loadGroupAssignments();
-    }
-  }, [user?.id]);
-
-  const loadGroupAssignments = async () => {
-    if (!user?.id) return;
-
-    try {
-      setLoading(true);
-      
-      // Check if user is a consultant
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single();
-      
-      if (profile?.role === 'consultor') {
-        // Load consultant view - assignments for their students
-        setIsConsultantView(true);
-        const { assignments: consultantAssignments, students: assignedStudents, error } = 
-          await groupAssignmentsV2Service.getGroupAssignmentsForConsultant(user.id);
-        
-        if (error) {
-          console.error('Error loading consultant assignments:', error);
-          toast.error('Error al cargar las tareas de tus estudiantes');
-          return;
-        }
-        
-        setAssignments(consultantAssignments || []);
-        setStudents(assignedStudents || []);
-      } else {
-        // Load student/regular view
-        setIsConsultantView(false);
-        const { assignments: fetchedAssignments, error } = 
-          await groupAssignmentsV2Service.getGroupAssignmentsForUser(user.id);
-        
-        if (error) {
-          console.error('Error loading group assignments:', error);
-          toast.error('Error al cargar las tareas grupales');
-          return;
-        }
-
-        // Ensure we're getting an array
-        const assignmentsArray = Array.isArray(fetchedAssignments) ? fetchedAssignments : [];
-        setAssignments(assignmentsArray);
-
-        // Load user's groups for each assignment
-        const groupsMap = new Map();
-        const consultantManaged = new Set<string>();
-        
-        for (const assignment of fetchedAssignments || []) {
-          const { group, error } = await groupAssignmentsV2Service.getOrCreateGroup(assignment.id, user.id);
-          if (group) {
-            groupsMap.set(assignment.id, group);
-          } else if (error?.message?.includes('consultor')) {
-            // Mark this assignment as consultant-managed
-            consultantManaged.add(assignment.id);
-          }
-        }
-        setUserGroups(groupsMap);
-        setConsultantManagedAssignments(consultantManaged);
-      }
-    } catch (error) {
-      console.error('Error loading group assignments:', error);
-      toast.error('Error al cargar las tareas grupales');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleAssignmentClick = async (assignment: any) => {
-    setSelectedAssignment(assignment);
-    setShowSubmissionModal(true);
-  };
-
-  const handleSubmitAssignment = async (submissionData: any) => {
-    if (!selectedAssignment || !user?.id) return;
-
-    try {
-      const group = userGroups.get(selectedAssignment.id);
-      if (!group) {
-        toast.error('No se encontró tu grupo para esta tarea');
-        return;
-      }
-
-      const { success, error } = await groupAssignmentsV2Service.submitGroupAssignment(
-        selectedAssignment.id,
-        group.id,
-        submissionData
-      );
-
-      if (error) {
-        throw error;
-      }
-
-      toast.success('Tarea grupal entregada exitosamente');
-      setShowSubmissionModal(false);
-      loadGroupAssignments(); // Reload to update status
-    } catch (error) {
-      console.error('Error submitting assignment:', error);
-      toast.error('Error al entregar la tarea');
-    }
-  };
-
-  // Filter assignments by search query
-  const filteredAssignments = assignments.filter(assignment => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      assignment.title?.toLowerCase().includes(query) ||
-      assignment.course_title?.toLowerCase().includes(query) ||
-      assignment.lesson_title?.toLowerCase().includes(query)
-    );
-  });
-
-  if (!workspace) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-        <ClipboardCheckIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
-          No hay espacio de trabajo seleccionado
-        </h3>
-        <p className="text-gray-500">
-          Selecciona una comunidad para ver sus tareas grupales.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold text-[#00365b]">
-            {isConsultantView ? 'Tareas Grupales de Mis Estudiantes' : 'Tareas Grupales'}
-          </h2>
-          <p className="text-sm text-gray-600 mt-1">
-            {isConsultantView ? (
-              <>
-                {filteredAssignments.length} tarea{filteredAssignments.length !== 1 ? 's' : ''} • 
-                {students.length} estudiante{students.length !== 1 ? 's' : ''} asignado{students.length !== 1 ? 's' : ''}
-              </>
-            ) : (
-              <>
-                {filteredAssignments.length} tarea{filteredAssignments.length !== 1 ? 's' : ''} disponible{filteredAssignments.length !== 1 ? 's' : ''}
-              </>
-            )}
-          </p>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-full"></div>
-            </div>
-          ))}
-        </div>
-      ) : filteredAssignments.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredAssignments.map((assignment) => {
-            const group = userGroups.get(assignment.id);
-            const isSubmitted = assignment.status === 'submitted' || assignment.status === 'graded';
-            
-            return (
-              <div
-                key={assignment.id}
-                className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${!isConsultantView && !consultantManagedAssignments.has(assignment.id) ? 'hover:shadow-md cursor-pointer' : ''} transition-shadow`}
-                onClick={() => !isConsultantView && !consultantManagedAssignments.has(assignment.id) && handleAssignmentClick(assignment)}
-              >
-                <h3 className="text-lg font-semibold text-[#00365b] mb-2">
-                  {assignment.title}
-                </h3>
-                <p className="text-sm text-gray-600 mb-3">
-                  {assignment.course_title} - {assignment.lesson_title}
-                </p>
-                
-                {assignment.description && (
-                  <p className="text-sm text-gray-700 mb-4 line-clamp-2">
-                    {assignment.description}
-                  </p>
-                )}
-
-                {isConsultantView ? (
-                  // Consultant view - show student progress
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <UsersIcon className="h-4 w-4" />
-                      <span>{assignment.students_count || 0} estudiantes asignados</span>
-                    </div>
-                    
-                    {assignment.groups_count > 0 && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
-                        <UserGroupIcon className="h-4 w-4" />
-                        <span>{assignment.groups_count} grupos formados</span>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">
-                        Entregas: {assignment.submitted_count || 0} de {assignment.students_count || 0}
-                      </span>
-                      {assignment.submitted_count > 0 && (
-                        <span className="text-sm font-medium text-green-600">
-                          {Math.round((assignment.submitted_count / assignment.students_count) * 100)}% completado
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Show list of students if small number */}
-                    {assignment.students_with_access && assignment.students_with_access.length <= 5 && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-xs text-gray-500 mb-1">Estudiantes:</p>
-                        <div className="space-y-1">
-                          {assignment.students_with_access.map((student: any) => (
-                            <div key={student.id} className="text-xs text-gray-600">
-                              {student.first_name} {student.last_name}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  // Student view - show their own status
-                  <>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <UsersIcon className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm text-gray-600">
-                          {group ? group.name :
-                           consultantManagedAssignments.has(assignment.id) ?
-                           'Esperando asignación del consultor' :
-                           'Sin grupo asignado'}
-                        </span>
-                      </div>
-                      
-                      {isSubmitted ? (
-                        <span className="text-sm font-medium text-green-600 flex items-center gap-1">
-                          <CheckCircle className="h-4 w-4" />
-                          Entregado
-                        </span>
-                      ) : consultantManagedAssignments.has(assignment.id) ? (
-                        <span className="text-sm font-medium text-blue-600">
-                          Asignación pendiente
-                        </span>
-                      ) : (
-                        <span className="text-sm font-medium text-yellow-600">
-                          Pendiente
-                        </span>
-                      )}
-                    </div>
-
-                    {assignment.grade && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <span className="text-sm text-gray-600">
-                          Calificación: <span className="font-medium text-[#00365b]">{assignment.grade}%</span>
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Consultant-managed notice */}
-                    {consultantManagedAssignments.has(assignment.id) && (
-                      <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                        <p className="text-sm text-blue-700">
-                          <span className="font-medium">Nota:</span> Tu consultor debe asignarte a un grupo antes de que puedas entregar esta tarea.
-                        </p>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="bg-gray-50 rounded-lg p-8 text-center">
-          <ClipboardCheckIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            {isConsultantView ? 'No hay tareas grupales para tus estudiantes' : 'No hay tareas grupales disponibles'}
-          </h3>
-          <p className="text-gray-500">
-            {isConsultantView 
-              ? 'Las tareas grupales de tus estudiantes aparecerán aquí cuando estén asignadas en sus cursos.'
-              : 'Las tareas grupales aparecerán aquí cuando sean asignadas en tus cursos.'}
-          </p>
-        </div>
-      )}
-
-      {/* Submission Modal */}
-      {showSubmissionModal && selectedAssignment && (
-        <GroupSubmissionModalV2
-          assignment={selectedAssignment}
-          group={userGroups.get(selectedAssignment.id)}
-          onClose={() => setShowSubmissionModal(false)}
-          onSubmit={handleSubmitAssignment}
         />
       )}
     </div>

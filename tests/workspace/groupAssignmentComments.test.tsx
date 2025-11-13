@@ -34,11 +34,11 @@ vi.mock('react-hot-toast', () => ({
   }
 }));
 
-// Mock the router
+// Mock the router - now points to new tareas page
 const mockRouter = {
   push: vi.fn(),
-  pathname: '/community/workspace',
-  query: { section: 'group-assignments' }
+  pathname: '/mi-aprendizaje/tareas',
+  query: {}
 };
 
 // Create a mock GroupAssignmentsContent component that simulates the real behavior
@@ -239,8 +239,8 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
   });
   const mockRouter = {
     push: vi.fn(),
-    pathname: '/community/workspace',
-    query: { section: 'group-assignments' }
+    pathname: '/mi-aprendizaje/tareas',
+    query: {}
   };
 
   const mockUser = {

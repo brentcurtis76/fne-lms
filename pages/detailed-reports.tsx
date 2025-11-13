@@ -86,7 +86,6 @@ export default function DetailedReports() {
     school_id: 'all',
     generation_id: 'all',
     community_id: 'all',
-    course_id: 'all',
     status: 'all',
     date_from: '',
     date_to: ''
@@ -191,6 +190,20 @@ export default function DetailedReports() {
       router.push('/login');
     }
   };
+
+  // Auto-populate filters based on user organizational scope
+  useEffect(() => {
+    if (!userProfile) return;
+
+    const isAdmin = userProfile.role === 'admin' || userProfile.role === 'consultor';
+
+    setFilters(prev => ({
+      ...prev,
+      school_id: isAdmin ? 'all' : (userProfile.school_id || 'all'),
+      generation_id: isAdmin ? 'all' : (userProfile.generation_id || prev.generation_id),
+      community_id: isAdmin ? 'all' : (userProfile.community_id || prev.community_id)
+    }));
+  }, [userProfile]);
 
   const hasReportingAccess = (role: string) => {
     return ['admin', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'consultor', 'supervisor_de_red'].includes(role);
@@ -376,22 +389,22 @@ export default function DetailedReports() {
 
           {/* Role-based Access Notice */}
           {userRole && userRole !== 'admin' && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="bg-brand_beige border border-brand_blue/20 rounded-lg p-4 mb-6">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                  <svg className="h-5 w-5 text-brand_blue/60" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-blue-800">
+                  <h3 className="text-sm font-medium text-brand_blue">
                     Datos Filtrados por Rol
                   </h3>
-                  <div className="mt-2 text-sm text-blue-700">
-                    <p>Como <strong>{userRole === 'consultor' ? 'Consultor' : 
+                  <div className="mt-2 text-sm text-brand_blue/80">
+                    <p>Como <strong>{userRole === 'consultor' ? 'Consultor' :
                                     userRole === 'equipo_directivo' ? 'Equipo Directivo' :
                                     userRole === 'lider_generacion' ? 'Líder de Generación' :
-                                    userRole === 'lider_comunidad' ? 'Líder de Comunidad' : userRole}</strong>, 
+                                    userRole === 'lider_comunidad' ? 'Líder de Comunidad' : userRole}</strong>,
                        solo puedes ver datos de {getReportScopeDescription(userRole).toLowerCase()}.</p>
                   </div>
                 </div>
@@ -408,7 +421,7 @@ export default function DetailedReports() {
                   onClick={() => setActiveTab('overview')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'overview'
-                      ? 'border-blue-500 text-blue-600'
+                      ? 'border-brand_blue text-brand_blue'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -418,22 +431,24 @@ export default function DetailedReports() {
                   onClick={() => setActiveTab('detailed')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'detailed'
-                      ? 'border-blue-500 text-blue-600'
+                      ? 'border-brand_blue text-brand_blue'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
                   Progreso Detallado
                 </button>
+                {/* Análisis Visual tab - Hidden until operational
                 <button
                   onClick={() => setActiveTab('analytics')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'analytics'
-                      ? 'border-blue-500 text-blue-600'
+                      ? 'border-brand_blue text-brand_blue'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
                   Análisis Visual
                 </button>
+                */}
               </nav>
             </div>
           </div>
@@ -454,52 +469,52 @@ export default function DetailedReports() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {/* Total Users Card */}
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-sm border border-blue-200 hover:shadow-md transition-shadow">
+              <div className="bg-gradient-to-br from-brand_blue/5 to-brand_blue/10 p-6 rounded-xl shadow-sm border border-brand_blue/20 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-blue-700">{summary.total_users}</div>
-                    <div className="text-sm font-medium text-blue-600 mt-1">Total Usuarios</div>
+                    <div className="text-3xl font-bold text-brand_blue">{summary.total_users}</div>
+                    <div className="text-sm font-medium text-brand_blue/80 mt-1">Total Usuarios</div>
                   </div>
-                  <div className="w-12 h-12 bg-blue-200 rounded-full flex items-center justify-center">
+                  <div className="w-12 h-12 bg-brand_blue/20 rounded-full flex items-center justify-center">
                     <span className="text-2xl">👥</span>
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-blue-500">
+                <div className="mt-3 text-xs text-brand_blue/60">
                   Usuarios en el sistema
                 </div>
               </div>
 
               {/* Active Users Card */}
-              <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl shadow-sm border border-green-200 hover:shadow-md transition-shadow">
+              <div className="bg-gradient-to-br from-brand_yellow/10 to-brand_yellow/20 p-6 rounded-xl shadow-sm border border-brand_yellow/30 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-green-700">{summary.active_users}</div>
-                    <div className="text-sm font-medium text-green-600 mt-1">Usuarios Activos</div>
+                    <div className="text-3xl font-bold text-yellow-800">{summary.active_users}</div>
+                    <div className="text-sm font-medium text-yellow-700 mt-1">Usuarios Activos</div>
                   </div>
-                  <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center">
+                  <div className="w-12 h-12 bg-brand_yellow/30 rounded-full flex items-center justify-center">
                     <span className="text-2xl">🟢</span>
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-green-500">
+                <div className="mt-3 text-xs text-yellow-700">
                   Activos últimos 30 días
                 </div>
               </div>
 
               {/* Average Progress Card */}
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl shadow-sm border border-purple-200 hover:shadow-md transition-shadow">
+              <div className="bg-gradient-to-br from-brand_yellow/10 to-brand_yellow/20 p-6 rounded-xl shadow-sm border border-brand_yellow/30 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-purple-700">{summary.average_completion}%</div>
-                    <div className="text-sm font-medium text-purple-600 mt-1">Progreso Promedio</div>
+                    <div className="text-3xl font-bold text-yellow-800">{summary.average_completion}%</div>
+                    <div className="text-sm font-medium text-yellow-700 mt-1">Progreso Promedio</div>
                   </div>
-                  <div className="w-12 h-12 bg-purple-200 rounded-full flex items-center justify-center">
+                  <div className="w-12 h-12 bg-brand_yellow/30 rounded-full flex items-center justify-center">
                     <span className="text-2xl">📈</span>
                   </div>
                 </div>
                 <div className="mt-3">
-                  <div className="w-full bg-purple-200 rounded-full h-2">
-                    <div 
-                      className="bg-purple-600 h-2 rounded-full transition-all duration-300" 
+                  <div className="w-full bg-brand_yellow/30 rounded-full h-2">
+                    <div
+                      className="bg-brand_yellow h-2 rounded-full transition-all duration-300"
                       style={{ width: `${Math.min(100, summary.average_completion)}%` }}
                     ></div>
                   </div>
@@ -507,37 +522,37 @@ export default function DetailedReports() {
               </div>
 
               {/* Total Time Card */}
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl shadow-sm border border-orange-200 hover:shadow-md transition-shadow">
+              <div className="bg-gradient-to-br from-brand_yellow/15 to-brand_yellow/25 p-6 rounded-xl shadow-sm border border-brand_yellow/40 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-orange-700">{formatTime(summary.total_time_spent)}</div>
-                    <div className="text-sm font-medium text-orange-600 mt-1">Tiempo Total</div>
+                    <div className="text-3xl font-bold text-yellow-800">{formatTime(summary.total_time_spent)}</div>
+                    <div className="text-sm font-medium text-yellow-700 mt-1">Tiempo Total</div>
                   </div>
-                  <div className="w-12 h-12 bg-orange-200 rounded-full flex items-center justify-center">
+                  <div className="w-12 h-12 bg-brand_yellow/40 rounded-full flex items-center justify-center">
                     <span className="text-2xl">⏰</span>
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-orange-500">
+                <div className="mt-3 text-xs text-yellow-700">
                   Tiempo de estudio acumulado
                 </div>
               </div>
 
               {/* Quiz Score Card - Only show if data exists */}
               {summary.average_quiz_score && (
-                <div className="bg-gradient-to-br from-red-50 to-red-100 p-6 rounded-xl shadow-sm border border-red-200 hover:shadow-md transition-shadow">
+                <div className="bg-gradient-to-br from-brand_blue/5 to-brand_blue/10 p-6 rounded-xl shadow-sm border border-brand_blue/20 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-3xl font-bold text-red-700">{summary.average_quiz_score}%</div>
-                      <div className="text-sm font-medium text-red-600 mt-1">Quiz Promedio</div>
+                      <div className="text-3xl font-bold text-brand_blue">{summary.average_quiz_score}%</div>
+                      <div className="text-sm font-medium text-brand_blue/80 mt-1">Quiz Promedio</div>
                     </div>
-                    <div className="w-12 h-12 bg-red-200 rounded-full flex items-center justify-center">
+                    <div className="w-12 h-12 bg-brand_blue/20 rounded-full flex items-center justify-center">
                       <span className="text-2xl">🎯</span>
                     </div>
                   </div>
                   <div className="mt-3">
-                    <div className="w-full bg-red-200 rounded-full h-2">
-                      <div 
-                        className="bg-red-600 h-2 rounded-full transition-all duration-300" 
+                    <div className="w-full bg-brand_blue/20 rounded-full h-2">
+                      <div
+                        className="bg-brand_blue h-2 rounded-full transition-all duration-300"
                         style={{ width: `${Math.min(100, summary.average_quiz_score)}%` }}
                       ></div>
                     </div>
@@ -580,7 +595,7 @@ export default function DetailedReports() {
                             <div className="flex items-center">
                               <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                                 <div
-                                  className="bg-blue-600 h-2 rounded-full"
+                                  className="bg-brand_blue h-2 rounded-full"
                                   style={{ width: `${Math.min(100, userData.completion_percentage)}%` }}
                                 ></div>
                               </div>
@@ -605,7 +620,7 @@ export default function DetailedReports() {
                   <div className="px-6 py-3 bg-gray-50 text-center">
                     <button
                       onClick={() => setActiveTab('detailed')}
-                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                      className="text-sm text-brand_blue hover:text-brand_yellow font-medium transition-colors"
                     >
                       Ver todos los usuarios →
                     </button>
@@ -720,7 +735,7 @@ export default function DetailedReports() {
                               <div className="flex items-center">
                                 <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                                   <div
-                                    className="bg-blue-600 h-2 rounded-full"
+                                    className="bg-brand_blue h-2 rounded-full"
                                     style={{ width: `${Math.min(100, userData.completion_percentage)}%` }}
                                   ></div>
                                 </div>
@@ -774,7 +789,7 @@ export default function DetailedReports() {
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
                                 onClick={() => handleUserClick(userData.user_id)}
-                                className="text-blue-600 hover:text-blue-900"
+                                className="text-brand_blue hover:text-brand_yellow transition-colors"
                               >
                                 Ver Detalles
                               </button>

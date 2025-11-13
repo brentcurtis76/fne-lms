@@ -151,8 +151,7 @@ export default function AssignmentGroupsPage() {
         currentPage="workspace"
         pageTitle="Grupos de Trabajo"
         breadcrumbs={[
-          { label: 'Espacio Colaborativo', href: '/community/workspace' },
-          { label: 'Tareas Grupales', href: '/community/workspace?section=group-assignments' },
+          { label: 'Mis Tareas', href: '/mi-aprendizaje/tareas' },
           { label: assignment.title }
         ]}
         isAdmin={isAdmin}
@@ -162,7 +161,7 @@ export default function AssignmentGroupsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Back button */}
           <button
-            onClick={() => router.push('/community/workspace?section=group-assignments')}
+            onClick={() => router.push('/mi-aprendizaje/tareas')}
             className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800 mb-4"
           >
             <ArrowLeftIcon className="w-4 h-4 mr-1" />

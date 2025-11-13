@@ -3,11 +3,12 @@
   "version": "1.0.1",
   "main": "index.js",
   "scripts": {
-    "dev": "./scripts/pre-dev-check.sh && next dev",
+    "dev": "./scripts/pre-dev-check.sh && NODE_OPTIONS='--max-old-space-size=4096' next dev",
     "dev:unsafe": "next dev",
     "dev:stable": "./dev-server.sh",
     "dev:test": "dotenv -e .env.test.local next dev",
     "dev:clean": "rm -rf .next && npm run dev",
+    "dev:warmup": "./scripts/warmup-dev-server.sh",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

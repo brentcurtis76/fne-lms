@@ -12,7 +12,6 @@ interface FilterOptions {
   schools: Array<{id: string, name: string}>;
   generations: Array<{id: string, name: string, school_id: string}>;
   communities: Array<{id: string, name: string, generation_id: string, school_id: string}>;
-  courses: Array<{id: string, title: string}>;
 }
 
 const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions | { error: string }>) => {
@@ -54,35 +53,30 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
     let schoolsData = [];
     let generationsData = [];
     let communitiesData = [];
-    let coursesData = [];
 
     if (highestRole === 'admin') {
       // Admins see all options
-      const [schoolsRes, generationsRes, communitiesRes, coursesRes] = await Promise.all([
+      const [schoolsRes, generationsRes, communitiesRes] = await Promise.all([
         supabase.from('schools').select('id, name').order('name'),
         supabase.from('generations').select('id, name, school_id').order('name'),
-        supabase.from('growth_communities').select('id, name, generation_id, school_id').order('name'),
-        supabase.from('courses').select('id, title').eq('is_published', true).order('title')
+        supabase.from('growth_communities').select('id, name, generation_id, school_id').order('name')
       ]);
 
       schoolsData = schoolsRes.data || [];
       generationsData = generationsRes.data || [];
       communitiesData = communitiesRes.data || [];
-      coursesData = coursesRes.data || [];
 
     } else if (highestRole === 'consultor') {
       // Consultants see all options but filtered data will be restricted by service
-      const [schoolsRes, generationsRes, communitiesRes, coursesRes] = await Promise.all([
+      const [schoolsRes, generationsRes, communitiesRes] = await Promise.all([
         supabase.from('schools').select('id, name').order('name'),
         supabase.from('generations').select('id, name, school_id').order('name'),
-        supabase.from('growth_communities').select('id, name, generation_id, school_id').order('name'),
-        supabase.from('courses').select('id, title').eq('is_published', true).order('title')
+        supabase.from('growth_communities').select('id, name, generation_id, school_id').order('name')
       ]);
 
       schoolsData = schoolsRes.data || [];
       generationsData = generationsRes.data || [];
       communitiesData = communitiesRes.data || [];
-      coursesData = coursesRes.data || [];
 
     } else if (highestRole === 'equipo_directivo' && userProfile.school_id) {
       // School leadership see only their school and its related data
@@ -94,7 +88,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
       
       if (schoolRes.data) schoolsData = [schoolRes.data];
 
-      const [generationsRes, communitiesRes, coursesRes] = await Promise.all([
+      const [generationsRes, communitiesRes] = await Promise.all([
         supabase
           .from('generations')
           .select('id, name, school_id')
@@ -104,13 +98,11 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
           .from('growth_communities')
           .select('id, name, generation_id, school_id')
           .eq('school_id', userProfile.school_id)
-          .order('name'),
-        supabase.from('courses').select('id, title').eq('is_published', true).order('title')
+          .order('name')
       ]);
 
       generationsData = generationsRes.data || [];
       communitiesData = communitiesRes.data || [];
-      coursesData = coursesRes.data || [];
 
     } else if (highestRole === 'lider_generacion' && userProfile.school_id && userProfile.generation_id) {
       // Generation leaders see their school and generation
@@ -130,17 +122,13 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
       
       if (generationRes.data) generationsData = [generationRes.data];
 
-      const [communitiesRes, coursesRes] = await Promise.all([
-        supabase
-          .from('growth_communities')
-          .select('id, name, generation_id, school_id')
-          .eq('generation_id', userProfile.generation_id)
-          .order('name'),
-        supabase.from('courses').select('id, title').eq('is_published', true).order('title')
-      ]);
+      const communitiesRes = await supabase
+        .from('growth_communities')
+        .select('id, name, generation_id, school_id')
+        .eq('generation_id', userProfile.generation_id)
+        .order('name');
 
       communitiesData = communitiesRes.data || [];
-      coursesData = coursesRes.data || [];
 
     } else if (highestRole === 'lider_comunidad' && userProfile.community_id) {
       // Community leaders see only their community
@@ -175,15 +163,6 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
         }
       }
 
-      // Get courses
-      const coursesRes = await supabase
-        .from('courses')
-        .select('id, title')
-        .eq('is_published', true)
-        .order('title');
-      
-      coursesData = coursesRes.data || [];
-
     } else if (highestRole === 'supervisor_de_red') {
       // Network supervisors see schools in their network
       const { data: networkSchools } = await supabase
@@ -193,8 +172,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
       
       if (networkSchools && networkSchools.length > 0) {
         const schoolIds = networkSchools.map(ns => ns.school_id);
-        
-        const [schoolsRes, generationsRes, communitiesRes, coursesRes] = await Promise.all([
+
+        const [schoolsRes, generationsRes, communitiesRes] = await Promise.all([
           supabase
             .from('schools')
             .select('id, name')
@@ -209,14 +188,12 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
             .from('growth_communities')
             .select('id, name, generation_id, school_id')
             .in('school_id', schoolIds)
-            .order('name'),
-          supabase.from('courses').select('id, title').eq('is_published', true).order('title')
+            .order('name')
         ]);
 
         schoolsData = schoolsRes.data || [];
         generationsData = generationsRes.data || [];
         communitiesData = communitiesRes.data || [];
-        coursesData = coursesRes.data || [];
       }
     }
 
@@ -224,8 +201,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
     const filterOptions: FilterOptions = {
       schools: schoolsData,
       generations: generationsData,
-      communities: communitiesData,
-      courses: coursesData
+      communities: communitiesData
     };
 
     res.status(200).json(filterOptions);

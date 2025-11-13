@@ -108,37 +108,69 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
 
     // FIX: Apply organizational filters using user_roles (source of truth)
     if (filters) {
-      if (filters.school_id && filters.school_id !== 'all') {
-        const { data: schoolRoles } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .eq('school_id', filters.school_id)
-          .eq('is_active', true);
+      const hasCommunityFilter = filters.community_id && filters.community_id !== 'all';
 
-        const schoolUserIds = schoolRoles?.map(r => r.user_id) || [];
-        userIds = userIds.filter(id => schoolUserIds.includes(id));
-      }
-
-      if (filters.generation_id && filters.generation_id !== 'all') {
-        const { data: generationRoles } = await supabase
-          .from('user_roles')
-          .select('user_id')
-          .eq('generation_id', filters.generation_id)
-          .eq('is_active', true);
-
-        const generationUserIds = generationRoles?.map(r => r.user_id) || [];
-        userIds = userIds.filter(id => generationUserIds.includes(id));
-      }
-
-      if (filters.community_id && filters.community_id !== 'all') {
+      if (hasCommunityFilter) {
+        // Community filter takes precedence: show everyone in the selected community
+        // regardless of school/generation assignments. Communities span multiple orgs,
+        // and role permissions are already enforced by getReportableUsers.
         const { data: communityRoles } = await supabase
           .from('user_roles')
           .select('user_id')
           .eq('community_id', filters.community_id)
           .eq('is_active', true);
 
-        const communityUserIds = communityRoles?.map(r => r.user_id) || [];
-        userIds = userIds.filter(id => communityUserIds.includes(id));
+        const { data: communityProfiles } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('community_id', filters.community_id);
+
+        const communityUserIds = new Set([
+          ...(communityRoles?.map(r => r.user_id) || []),
+          ...(communityProfiles?.map(p => p.id) || [])
+        ]);
+
+        userIds = userIds.filter(id => communityUserIds.has(id));
+      } else {
+        if (filters.school_id && filters.school_id !== 'all') {
+          const { data: schoolRoles } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('school_id', filters.school_id)
+            .eq('is_active', true);
+
+          const { data: schoolProfiles } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('school_id', filters.school_id);
+
+          const schoolUserIds = new Set([
+            ...(schoolRoles?.map(r => r.user_id) || []),
+            ...(schoolProfiles?.map(p => p.id) || [])
+          ]);
+
+          userIds = userIds.filter(id => schoolUserIds.has(id));
+        }
+
+        if (filters.generation_id && filters.generation_id !== 'all') {
+          const { data: generationRoles } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('generation_id', filters.generation_id)
+            .eq('is_active', true);
+
+          const { data: generationProfiles } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('generation_id', filters.generation_id);
+
+          const generationUserIds = new Set([
+            ...(generationRoles?.map(r => r.user_id) || []),
+            ...(generationProfiles?.map(p => p.id) || [])
+          ]);
+
+          userIds = userIds.filter(id => generationUserIds.has(id));
+        }
       }
     }
 
@@ -401,13 +433,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
           }
         });
       }
-      
-      // Course filtering (if user is enrolled in specific course)
-      if (filters.course_id && filters.course_id !== 'all') {
-        const usersInCourse = (courseData || []).filter(assignment => assignment.course_id === filters.course_id).map(a => a.teacher_id);
-        filteredUsers = filteredUsers.filter(user => usersInCourse.includes(user.user_id));
-      }
-      
+
       // Date range filtering (filter by last activity date)
       if (filters.date_from || filters.date_to) {
         filteredUsers = filteredUsers.filter(user => {

@@ -36,8 +36,13 @@ export default function GroupSubmissionModalV2({
   const [isConsultantManaged, setIsConsultantManaged] = useState(false);
 
   useEffect(() => {
+    // Wait for user to be loaded before fetching group data
+    if (!user?.id) {
+      console.log('[GroupSubmissionModal] Waiting for user to load...');
+      return;
+    }
     loadGroupData();
-  }, [assignment, group]);
+  }, [assignment, group, user?.id]);
 
   const loadGroupData = async () => {
     if (!group || !assignment) return;

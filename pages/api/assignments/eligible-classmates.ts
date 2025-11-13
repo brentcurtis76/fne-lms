@@ -63,6 +63,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 2. Get group details and verify it's not consultant-managed
     // Use service role client to bypass RLS since we've already validated membership
+    console.log('[eligible-classmates] STEP 2a - Creating service role client');
+    console.log('[eligible-classmates] STEP 2a - URL:', process.env.NEXT_PUBLIC_SUPABASE_URL);
+    console.log('[eligible-classmates] STEP 2a - Has service key:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -74,9 +78,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     );
 
+    console.log('[eligible-classmates] STEP 2b - Querying group with service role client');
     const { data: group, error: groupError } = await supabaseAdmin
       .from('group_assignment_groups')
-      .select('is_consultant_managed, max_members')
+      .select('is_consultant_managed')
       .eq('id', groupId as string)
       .single();
 

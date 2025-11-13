@@ -60,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 2. Get group details and validate
     const { data: group, error: groupError } = await supabase
       .from('group_assignment_groups')
-      .select('is_consultant_managed, max_members')
+      .select('is_consultant_managed')
       .eq('id', groupId)
       .single();
 
@@ -140,7 +140,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al verificar tamaño del grupo' });
     }
 
-    const maxMembers = group.max_members || 8;
+    // TODO: max_members column not yet in schema - defaulting to 8
+    // When max_members is added to schema, update line 62 to include it in SELECT
+    const maxMembers = 8;
     if (currentMemberCount + classmateIds.length > maxMembers) {
       return res.status(400).json({
         error: `El grupo alcanzaría el límite de ${maxMembers} miembros`

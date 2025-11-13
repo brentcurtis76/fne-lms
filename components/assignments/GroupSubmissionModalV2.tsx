@@ -49,13 +49,13 @@ export default function GroupSubmissionModalV2({
       const { members } = await groupAssignmentsV2Service.getGroupMembers(group.id);
       setGroupMembers(members || []);
 
-      // Check for existing submission
+      // Check for existing submission (use maybeSingle to avoid 406 when none exists)
       const { data: submission } = await supabase
         .from('group_assignment_submissions')
         .select('*')
         .eq('assignment_id', assignment.id)
         .eq('group_id', group.id)
-        .single();
+        .maybeSingle();
 
       if (submission) {
         setExistingSubmission(submission);

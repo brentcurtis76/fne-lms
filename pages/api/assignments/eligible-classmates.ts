@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 
 /**
  * GET /api/assignments/eligible-classmates
@@ -37,6 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const userId = session.user.id;
+    console.log('[eligible-classmates] REQUEST - userId:', userId, 'assignmentId:', assignmentId, 'groupId:', groupId);
 
     // 1. Validate user is a member of the specified group
     const { data: membership, error: membershipError } = await supabase
@@ -47,18 +49,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('assignment_id', assignmentId as string)
       .single();
 
+    console.log('[eligible-classmates] STEP 1 - Membership check:', {
+      found: !!membership,
+      error: membershipError?.message,
+      code: membershipError?.code,
+      data: membership
+    });
+
     if (membershipError || !membership) {
+      console.error('[eligible-classmates] ABORT - User not member:', userId, 'group:', groupId, 'error:', membershipError);
       return res.status(403).json({ error: 'No eres miembro de este grupo' });
     }
 
     // 2. Get group details and verify it's not consultant-managed
-    const { data: group, error: groupError } = await supabase
+    // Use service role client to bypass RLS since we've already validated membership
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    const { data: group, error: groupError } = await supabaseAdmin
       .from('group_assignment_groups')
       .select('is_consultant_managed, max_members')
       .eq('id', groupId as string)
       .single();
 
+    console.log('[eligible-classmates] STEP 2 - Group query:', {
+      found: !!group,
+      error: groupError?.message,
+      code: groupError?.code,
+      groupId: groupId,
+      data: group
+    });
+
     if (groupError || !group) {
+      console.error('[eligible-classmates] ABORT - Group not found:', groupId, 'error:', groupError);
       return res.status(404).json({ error: 'Grupo no encontrado' });
     }
 

@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+const { withSentryConfig } = require('@sentry/nextjs');
 const crypto = require('crypto');
 
 const nextConfig = {
@@ -128,4 +129,24 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
+// Sentry configuration options
+const sentryWebpackPluginOptions = {
+  // Suppresses source map uploading logs during build
+  silent: true,
+
+  // Organization and project from environment variables (optional)
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+
+  // Automatically tree-shake Sentry logger statements to reduce bundle size
+  disableLogger: true,
+
+  // Hides source maps from generated client bundles
+  hideSourceMaps: true,
+
+  // Automatically annotate React components to show their full name in breadcrumbs and session replay
+  autoInstrumentServerFunctions: true,
+};
+
+// Wrap Next.js config with Sentry
+module.exports = withSentryConfig(nextConfig, sentryWebpackPluginOptions);

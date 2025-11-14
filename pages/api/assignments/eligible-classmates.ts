@@ -147,11 +147,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('[eligible-classmates] assignment course_id:', courseId);
 
     // 5. Get all students from the SAME school who are enrolled in this course
-    const { data: enrolledClassmates, error: enrollmentError } = await supabase
+    const { data: enrolledClassmates, error: enrollmentError} = await supabase
       .from('course_enrollments')
       .select(`
         user_id,
-        user:profiles(
+        user:profiles!course_enrollments_user_id_fkey(
           id,
           first_name,
           last_name,
@@ -164,7 +164,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .neq('user_id', userId); // Exclude self
 
     if (enrollmentError) {
-      console.error('[eligible-classmates] Error fetching course enrollments:', enrollmentError);
+      console.error('[eligible-classmates] Error fetching course enrollments:', {
+        message: enrollmentError.message,
+        code: enrollmentError.code,
+        details: enrollmentError.details,
+        hint: enrollmentError.hint
+      });
       return res.status(500).json({ error: 'Error al obtener compañeros' });
     }
 

@@ -6,5 +6,11 @@
     "pages/api/cron/email-digest.ts": {
       "maxDuration": 60
     }
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/monitoring/run-checks",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

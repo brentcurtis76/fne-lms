@@ -72,7 +72,6 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "zod": "^3.23.8",
     "@anthropic-ai/sdk": "^0.60.0",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/modifiers": "^9.0.0",
@@ -83,6 +82,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@react-pdf/renderer": "^4.3.0",
     "@sendgrid/mail": "^8.1.5",
+    "@sentry/nextjs": "7.119.0",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/supabase-js": "^2.49.4",
@@ -129,7 +129,8 @@
     "tailwind-merge": "^3.3.0",
     "tippy.js": "^6.3.7",
     "uuid": "^11.1.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.8.3",

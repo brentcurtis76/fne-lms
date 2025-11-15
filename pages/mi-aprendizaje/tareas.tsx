@@ -522,7 +522,7 @@ const TareasPage: React.FC = () => {
                       onClick={() => handleSubmitAssignment(assignment)}
                       className="flex-1 bg-brand_blue text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                     >
-                      Enviar Trabajo
+                      Ver Detalles
                     </button>
                   )}
                   {(assignment.status === 'submitted' || assignment.status === 'graded') &&

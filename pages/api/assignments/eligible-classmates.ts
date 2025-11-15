@@ -147,7 +147,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('[eligible-classmates] assignment course_id:', courseId);
 
     // 5. Get all students from the SAME school who are enrolled in this course
-    const { data: enrolledClassmates, error: enrollmentError} = await supabase
+    // Use supabaseAdmin to bypass RLS (safe: already validated user is group member)
+    const { data: enrolledClassmates, error: enrollmentError} = await supabaseAdmin
       .from('course_enrollments')
       .select(`
         user_id,
@@ -181,7 +182,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 6. Filter to only include classmates from the same school
-    const { data: classmateRoles, error: classmateRolesError } = await supabase
+    // Use supabaseAdmin to bypass RLS (safe: already filtered to course enrollments)
+    const { data: classmateRoles, error: classmateRolesError } = await supabaseAdmin
       .from('user_roles')
       .select('user_id, school_id')
       .in('user_id', enrolledClassmates.map(e => e.user_id))
@@ -204,7 +206,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 7. Get students already in ANY group for this assignment
-    const { data: groupMembers, error: groupMembersError } = await supabase
+    // Use supabaseAdmin to bypass RLS (safe: already filtered to same school)
+    const { data: groupMembers, error: groupMembersError } = await supabaseAdmin
       .from('group_assignment_members')
       .select('user_id')
       .eq('assignment_id', assignmentId as string);

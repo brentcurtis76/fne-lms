@@ -223,16 +223,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 8. Filter out already-assigned students
     const eligibleClassmates = sameSchoolClassmates
       .filter(member => !assignedUserIds.includes(member.user_id))
-      .map(member => ({
-        id: member.user?.id || member.user_id,
-        first_name: member.user?.first_name,
-        last_name: member.user?.last_name,
-        full_name: member.user
-          ? `${member.user.first_name || ''} ${member.user.last_name || ''}`.trim() || 'Usuario desconocido'
-          : 'Usuario desconocido',
-        email: member.user?.email,
-        avatar_url: member.user?.avatar_url
-      }));
+      .map(member => {
+        // Supabase returns user as an array with one element due to the foreign key join
+        const userData = Array.isArray(member.user) ? member.user[0] : member.user;
+        return {
+          id: userData?.id || member.user_id,
+          first_name: userData?.first_name,
+          last_name: userData?.last_name,
+          full_name: userData
+            ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Usuario desconocido'
+            : 'Usuario desconocido',
+          email: userData?.email,
+          avatar_url: userData?.avatar_url
+        };
+      });
 
     console.log('[eligible-classmates] user', userId, 'assignment', assignmentId, 'group', groupId, 'school_id', requesterSchoolId, 'course_id', courseId, 'eligible', eligibleClassmates.length, '(filtered from', sameSchoolClassmates.length, 'same-school enrolled classmates)');
     return res.status(200).json({ classmates: eligibleClassmates });

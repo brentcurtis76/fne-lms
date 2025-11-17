@@ -1,10 +1,21 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Users, FileText, CheckCircle, ExternalLink, File, UserPlus, Search, Clock } from 'lucide-react';
+import { X, Upload, Users, FileText, CheckCircle, ExternalLink, File, UserPlus, Search, Clock, UserMinus } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
 import { useAuth } from '../../hooks/useAuth';
+
+const formatSubmissionDateTime = (timestamp?: string | null) => {
+  if (!timestamp) return null;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.toLocaleString('es-CL', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  });
+};
 
 interface GroupSubmissionModalV2Props {
   assignment: any;
@@ -23,10 +34,12 @@ export default function GroupSubmissionModalV2({
   const { user } = useAuth();
   const [submissionText, setSubmissionText] = useState('');
   const [fileUrl, setFileUrl] = useState('');
+  const [uploadedFileName, setUploadedFileName] = useState('');
   const [uploadingFile, setUploadingFile] = useState(false);
   const [groupMembers, setGroupMembers] = useState<any[]>([]);
   const [existingSubmission, setExistingSubmission] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
   // Teammate invitation state
   const [eligibleClassmates, setEligibleClassmates] = useState<any[]>([]);
@@ -50,22 +63,69 @@ export default function GroupSubmissionModalV2({
     try {
       setLoading(true);
 
-      // Load group members
-      const { members } = await groupAssignmentsV2Service.getGroupMembers(group.id);
-      setGroupMembers(members || []);
+      // Load group members using secure API endpoint
+      try {
+        const membersResponse = await fetch(
+          `/api/assignments/group-members?groupId=${group.id}&assignmentId=${assignment.id}`
+        );
+        const membersData = await membersResponse.json();
+
+        if (membersResponse.ok) {
+          // Transform API response to match expected structure
+          const transformedMembers = (membersData.members || []).map((member: any) => ({
+            user_id: member.id,
+            role: member.role,
+            user: {
+              id: member.id,
+              full_name: member.full_name,
+              avatar_url: member.avatar_url,
+              first_name: member.full_name.split(' ')[0] || '',
+              last_name: member.full_name.split(' ').slice(1).join(' ') || ''
+            }
+          }));
+          setGroupMembers(transformedMembers);
+        } else {
+          console.error('[GroupSubmissionModal] Error loading members:', membersData.error);
+          toast.error(membersData.error || 'Error al cargar miembros del grupo');
+          setGroupMembers([]);
+        }
+      } catch (membersError) {
+        console.error('[GroupSubmissionModal] Exception loading members:', membersError);
+        toast.error('Error al cargar miembros del grupo');
+        setGroupMembers([]);
+      }
 
       // Check for existing submission (use maybeSingle to avoid 406 when none exists)
-      const { data: submission } = await supabase
+      const { data: submission, error: submissionError } = await supabase
         .from('group_assignment_submissions')
         .select('*')
         .eq('assignment_id', assignment.id)
         .eq('group_id', group.id)
+        .eq('user_id', user.id)
         .maybeSingle();
+
+      if (submissionError) {
+        console.error('[GroupSubmissionModal] Error fetching submission:', submissionError);
+      }
 
       if (submission) {
         setExistingSubmission(submission);
         setSubmissionText(submission.content || '');
         setFileUrl(submission.file_url || '');
+        // Only show filename if file_url exists
+        if (submission.file_url) {
+          const urlParts = submission.file_url.split('/');
+          const fileNameWithTimestamp = urlParts[urlParts.length - 1];
+          // NOTE: This extracts the timestamped filename (e.g., "1234567890.pdf")
+          // not the original user filename. To show the real filename, we would need
+          // to store it in the submission record (e.g., add 'file_name' column)
+          setUploadedFileName(decodeURIComponent(fileNameWithTimestamp));
+        } else {
+          setUploadedFileName('');
+        }
+      } else {
+        // Reset state when no existing submission
+        setUploadedFileName('');
       }
 
       // Check if group is consultant-managed
@@ -81,7 +141,7 @@ export default function GroupSubmissionModalV2({
       // Load eligible classmates if not submitted and not consultant-managed
       const isSubmitted = submission?.status === 'submitted' || submission?.status === 'graded';
       console.log('[GroupSubmissionModal] loadGroupData - isSubmitted:', isSubmitted, 'isManaged:', isManaged, 'user:', user, 'user?.id:', user?.id, 'group.id:', group.id, 'assignment.id:', assignment.id);
-      if (!isSubmitted && !isManaged && user?.id) {
+      if (!isManaged && user?.id) {
         setLoadingClassmates(true);
         try {
           const url = `/api/assignments/eligible-classmates?assignmentId=${assignment.id}&groupId=${group.id}`;
@@ -109,7 +169,7 @@ export default function GroupSubmissionModalV2({
           isManaged,
           hasUser: !!user,
           hasUserId: !!user?.id,
-          conditionCheck: !isSubmitted && !isManaged && user?.id
+          conditionCheck: !isManaged && user?.id
         });
       }
     } catch (error) {
@@ -132,6 +192,9 @@ export default function GroupSubmissionModalV2({
     try {
       setUploadingFile(true);
 
+      // Store original file name
+      setUploadedFileName(file.name);
+
       // Create unique file name
       const fileExt = file.name.split('.').pop();
       const fileName = `group-submissions/${assignment.id}/${group.id}/${Date.now()}.${fileExt}`;
@@ -153,14 +216,28 @@ export default function GroupSubmissionModalV2({
     } catch (error) {
       console.error('Error uploading file:', error);
       toast.error('Error al subir el archivo');
+      setUploadedFileName(''); // Clear filename on error
     } finally {
       setUploadingFile(false);
     }
   };
 
   const handleSubmit = async () => {
-    if (!submissionText.trim() && !fileUrl) {
-      toast.error('Debes incluir un texto o archivo en tu entrega');
+    // File is required only for NEW submissions (not when editing existing ones)
+    const isNewSubmission = !existingSubmission;
+
+    if (isNewSubmission && !fileUrl) {
+      toast.error('Debes incluir un archivo en tu primera entrega');
+      return;
+    }
+
+    // For ALL submissions (new and updates), require at least text OR file
+    // This prevents saving completely empty submissions
+    const hasText = submissionText && submissionText.trim().length > 0;
+    const hasFile = fileUrl && fileUrl.trim().length > 0;
+
+    if (!hasText && !hasFile) {
+      toast.error('Debes incluir al menos texto o un archivo en tu entrega');
       return;
     }
 
@@ -193,13 +270,6 @@ export default function GroupSubmissionModalV2({
       return;
     }
 
-    // Validation: Check max group size
-    const maxGroupSize = 8;
-    if (groupMembers.length + selectedClassmates.size > maxGroupSize) {
-      toast.error(`El grupo no puede tener más de ${maxGroupSize} miembros`);
-      return;
-    }
-
     // Validation: Check at least one selected
     if (selectedClassmates.size === 0) {
       toast.error('Selecciona al menos un compañero');
@@ -224,7 +294,23 @@ export default function GroupSubmissionModalV2({
       const data = await response.json();
 
       if (!response.ok) {
-        toast.error(data.error || 'Error al agregar compañeros');
+        // Show detailed error with debugging info
+        let errorMsg = data.error || 'Error al agregar compañeros';
+
+        // If details are available, log them for debugging
+        if (data.details) {
+          console.error('[GroupSubmissionModal] API Error Details:', data.details);
+
+          // Append helpful context to error message
+          if (data.details.missingIds) {
+            errorMsg += ` (${data.details.missingIds.length} sin rol activo)`;
+          }
+          if (data.details.notEnrolled) {
+            errorMsg += ` (${data.details.notEnrolled.length} sin inscripción)`;
+          }
+        }
+
+        toast.error(errorMsg);
         return;
       }
 
@@ -236,6 +322,46 @@ export default function GroupSubmissionModalV2({
       toast.error('Error al agregar compañeros. Intenta nuevamente.');
     } finally {
       setLoadingClassmates(false);
+    }
+  };
+
+  const handleRemoveMember = async (memberId: string) => {
+    if (!user?.id) {
+      toast.error('Usuario no autenticado');
+      return;
+    }
+
+    if (!group?.id || !assignment?.id) return;
+
+    try {
+      setRemovingMemberId(memberId);
+
+      const response = await fetch('/api/assignments/group-members', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          groupId: group.id,
+          assignmentId: assignment.id,
+          memberId
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.error || 'Error al remover al miembro');
+        return;
+      }
+
+      toast.success('Miembro removido del grupo');
+      await loadGroupData();
+    } catch (error) {
+      console.error('Error removing member:', error);
+      toast.error('Error al remover al miembro. Intenta nuevamente.');
+    } finally {
+      setRemovingMemberId(null);
     }
   };
 
@@ -289,6 +415,7 @@ export default function GroupSubmissionModalV2({
   };
 
   const isSubmitted = existingSubmission?.status === 'submitted' || existingSubmission?.status === 'graded';
+  const formattedSubmissionTimestamp = formatSubmissionDateTime(existingSubmission?.submitted_at);
 
   const handleOverlayClick = (event: React.MouseEvent<HTMLDivElement>) => {
     event.stopPropagation();
@@ -335,7 +462,58 @@ export default function GroupSubmissionModalV2({
                 {assignment.instructions && (
                   <div className="mt-3">
                     <h4 className="font-medium text-gray-900 text-sm mb-1">Instrucciones:</h4>
-                    <p className="text-sm text-gray-700">{assignment.instructions}</p>
+                    <div className="text-sm text-gray-700 space-y-1">
+                      {(() => {
+                        const lines = assignment.instructions.split('\n');
+                        const steps: { number?: string; content: string }[] = [];
+
+                        lines.forEach((line: string) => {
+                          const trimmed = line.trim();
+                          if (!trimmed) return;
+
+                          // Check if line contains multiple numbered steps (e.g., "1. ... 2. ... 3. ...")
+                          const numberedPattern = /\d+\./g;
+                          const matches = trimmed.match(numberedPattern);
+
+                          if (matches && matches.length > 1) {
+                            // Split by numbered pattern while keeping the number
+                            const parts = trimmed.split(/(?=\d+\.)/);
+                            parts.forEach(part => {
+                              const trimmedPart = part.trim();
+                              const numberMatch = trimmedPart.match(/^(\d+)\.\s*/);
+                              if (numberMatch) {
+                                const number = numberMatch[1];
+                                const content = trimmedPart.substring(numberMatch[0].length);
+                                if (content) steps.push({ number, content });
+                              }
+                            });
+                          } else if (/^\d+\.\s/.test(trimmed)) {
+                            // Single numbered item at start of line - preserve the number
+                            const numberMatch = trimmed.match(/^(\d+)\.\s*/);
+                            if (numberMatch) {
+                              const number = numberMatch[1];
+                              const content = trimmed.substring(numberMatch[0].length);
+                              steps.push({ number, content });
+                            }
+                          } else {
+                            // Regular line without numbering - render as plain text (no bullet)
+                            steps.push({ content: trimmed });
+                          }
+                        });
+
+                        return steps.map((step, index) => (
+                          <div key={index} className={index > 0 ? 'mt-1' : ''}>
+                            {step.number ? (
+                              <span className="text-gray-700">
+                                <span className="font-medium">{step.number}.</span> {step.content}
+                              </span>
+                            ) : (
+                              <span className="text-gray-700">{step.content}</span>
+                            )}
+                          </div>
+                        ));
+                      })()}
+                    </div>
                   </div>
                 )}
                 {assignment.resources && assignment.resources.length > 0 && (
@@ -376,10 +554,61 @@ export default function GroupSubmissionModalV2({
                     </div>
                   </div>
                 )}
+                {groupMembers.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-gray-200">
+                    <h4 className="font-medium text-gray-900 text-sm mb-2 flex items-center gap-2">
+                      <Users className="h-4 w-4 text-[#00365b]" />
+                      Miembros del grupo
+                    </h4>
+                    <div className="space-y-2">
+                      {groupMembers.map((member) => {
+                        const isCurrentUser = member.user_id === user?.id;
+                        return (
+                          <div
+                            key={member.user_id}
+                            className="flex items-center justify-between rounded border border-gray-200 px-3 py-2 bg-white"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-[#00365b] text-white flex items-center justify-center text-sm font-semibold uppercase">
+                                {member.user?.first_name?.[0] || member.user?.last_name?.[0] || 'U'}
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">
+                                  {isCurrentUser ? 'Tú' : member.user?.full_name || 'Usuario'}
+                                </p>
+                                <p className="text-xs text-gray-500 capitalize">
+                                  {isCurrentUser ? 'Miembro actual' : member.role === 'leader' ? 'Líder del grupo' : 'Miembro'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {isCurrentUser && (
+                                <span className="text-xs font-medium text-green-600 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">
+                                  Tú
+                                </span>
+                              )}
+                              {!isConsultantManaged && !isCurrentUser && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveMember(member.user_id)}
+                                  disabled={removingMemberId === member.user_id}
+                                  className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1"
+                                >
+                                  <UserMinus className="h-4 w-4" />
+                                  {removingMemberId === member.user_id ? 'Removiendo...' : 'Remover'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Invite Classmates Section */}
-              {!isSubmitted && !isConsultantManaged && groupMembers.length < 8 && (
+              {!isConsultantManaged && (
                 <div className="border-t pt-6">
                   <h3 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
                     <UserPlus className="h-4 w-4" />
@@ -465,9 +694,6 @@ export default function GroupSubmissionModalV2({
                         <div className="flex items-center justify-between pt-3 border-t">
                           <span className="text-sm text-gray-600">
                             {selectedClassmates.size} seleccionado{selectedClassmates.size !== 1 ? 's' : ''}
-                            <span className="text-gray-400 ml-1">
-                              (máx. {8 - groupMembers.length} más)
-                            </span>
                           </span>
                           <button
                             type="button"
@@ -485,31 +711,36 @@ export default function GroupSubmissionModalV2({
                 </div>
               )}
 
-              {/* Submission Form or View */}
-              {isSubmitted ? (
+              {/* Submission state */}
+              {isSubmitted && existingSubmission && (
                 <div className="space-y-4">
                   <div className="bg-green-50 p-4 rounded-lg flex items-center gap-3">
                     <CheckCircle className="h-5 w-5 text-green-600" />
                     <div>
-                      <p className="font-medium text-green-900">Tarea Entregada</p>
-                      <p className="text-sm text-green-700">
-                        Entregado el {new Date(existingSubmission.submitted_at).toLocaleDateString('es-ES')}
+                      <p className="font-medium text-green-900">Tarea entregada</p>
+                      {formattedSubmissionTimestamp && (
+                        <p className="text-sm text-green-700">
+                          Última entrega: {formattedSubmissionTimestamp}
+                        </p>
+                      )}
+                      <p className="text-xs text-green-700 mt-1">
+                        Puedes actualizar la entrega y volver a enviarla cuando lo necesites.
                       </p>
                     </div>
                   </div>
 
                   {existingSubmission.content && (
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Respuesta:</h4>
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <p className="text-gray-700 whitespace-pre-wrap">{existingSubmission.content}</p>
-                      </div>
+                      <h4 className="font-medium text-gray-900 mb-1">Respuesta actual:</h4>
+                      <p className="text-sm text-gray-600">
+                        Edita el campo de comentarios para actualizarla.
+                      </p>
                     </div>
                   )}
 
                   {existingSubmission.file_url && (
                     <div>
-                      <h4 className="font-medium text-gray-900 mb-2">Archivo Adjunto:</h4>
+                      <h4 className="font-medium text-gray-900 mb-2">Archivo actual:</h4>
                       <button
                         type="button"
                         onClick={(e) =>
@@ -542,66 +773,96 @@ export default function GroupSubmissionModalV2({
                     </div>
                   )}
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Respuesta del Grupo
-                    </label>
-                    <textarea
-                      value={submissionText}
-                      onChange={(e) => setSubmissionText(e.target.value)}
-                      rows={6}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
-                      placeholder="Escribe la respuesta de tu grupo aquí..."
-                    />
-                  </div>
+              )}
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Archivo Adjunto (opcional)
-                    </label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                      {fileUrl ? (
-                        <div className="space-y-2">
-                          <FileText className="mx-auto h-12 w-12 text-green-600" />
-                          <p className="text-sm text-gray-700">Archivo cargado exitosamente</p>
-                          <button
-                            onClick={() => setFileUrl('')}
-                            className="text-sm text-red-600 hover:underline"
-                          >
-                            Eliminar archivo
-                          </button>
+              {/* Submission Form */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Comentarios o Notas <span className="text-xs text-gray-500 font-normal">(opcional)</span>
+                  </label>
+                  <textarea
+                    value={submissionText}
+                    onChange={(e) => setSubmissionText(e.target.value)}
+                    rows={4}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                    placeholder="Agrega comentarios adicionales sobre tu entrega (opcional)..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Archivo Adjunto {existingSubmission ? (
+                      <span className="text-xs text-gray-500 font-normal">(opcional para reediciones)</span>
+                    ) : (
+                      <span className="text-red-600">*</span>
+                    )}
+                    <span className="ml-2 text-xs text-gray-500 font-normal">Solo se permite un archivo</span>
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                    {uploadingFile ? (
+                      <div className="space-y-3">
+                        <div className="mx-auto h-12 w-12 border-4 border-[#00365b] border-t-transparent rounded-full animate-spin"></div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Subiendo archivo...</p>
+                          {uploadedFileName && (
+                            <p className="text-sm text-gray-600 mt-1 break-all px-4">
+                              {uploadedFileName}
+                            </p>
+                          )}
                         </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                          <p className="text-sm text-gray-600">
-                            Arrastra un archivo aquí o haz clic para seleccionar
-                          </p>
-                          <input
-                            type="file"
-                            onChange={handleFileUpload}
-                            accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                            disabled={uploadingFile}
-                            className="hidden"
-                            id="file-upload"
-                          />
-                          <label
-                            htmlFor="file-upload"
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors"
-                          >
-                            {uploadingFile ? 'Subiendo...' : 'Seleccionar archivo'}
-                          </label>
-                          <p className="text-xs text-gray-500">
-                            PDF, DOC, DOCX, TXT, JPG, PNG (máx. 10MB)
-                          </p>
+                      </div>
+                    ) : fileUrl ? (
+                      <div className="space-y-3">
+                        <FileText className="mx-auto h-12 w-12 text-green-600" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Archivo cargado exitosamente</p>
+                          {uploadedFileName && (
+                            <p className="text-sm text-gray-600 mt-1 break-all px-4">
+                              {uploadedFileName}
+                            </p>
+                          )}
                         </div>
-                      )}
-                    </div>
+                        <button
+                          onClick={() => {
+                            setFileUrl('');
+                            setUploadedFileName('');
+                          }}
+                          className="text-sm text-red-600 hover:underline"
+                        >
+                          Eliminar archivo
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                        <p className="text-sm text-gray-600">
+                          Arrastra un archivo aquí o haz clic para seleccionar
+                        </p>
+                        <input
+                          type="file"
+                          onChange={handleFileUpload}
+                          accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                          disabled={uploadingFile}
+                          className="hidden"
+                          id="file-upload"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('file-upload')?.click()}
+                          disabled={uploadingFile}
+                          className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 cursor-pointer transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Seleccionar archivo
+                        </button>
+                        <p className="text-xs text-gray-500">
+                          PDF, DOC, DOCX, TXT, JPG, PNG (máx. 10MB)
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>
@@ -612,17 +873,19 @@ export default function GroupSubmissionModalV2({
             onClick={onClose}
             className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
           >
-            {isSubmitted ? 'Cerrar' : 'Cancelar'}
+            Cancelar
           </button>
-          {!isSubmitted && (
-            <button
-              onClick={handleSubmit}
-              disabled={loading || (!submissionText.trim() && !fileUrl)}
-              className="px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#004a7a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Entregar Tarea
-            </button>
-          )}
+          <button
+            onClick={handleSubmit}
+            disabled={loading || uploadingFile}
+            className="px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#004a7a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {uploadingFile
+              ? 'Subiendo archivo...'
+              : isSubmitted
+                ? 'Actualizar Entrega'
+                : 'Entregar Tarea'}
+          </button>
         </div>
       </div>
     </div>

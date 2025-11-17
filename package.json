@@ -136,6 +136,7 @@
     "@axe-core/playwright": "^4.8.3",
     "@babel/core": "^7.27.1",
     "@faker-js/faker": "^9.9.0",
+    "@modelcontextprotocol/sdk": "^1.22.0",
     "@playwright/test": "^1.40.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",

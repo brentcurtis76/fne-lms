@@ -23,8 +23,8 @@ interface Breadcrumb {
 
 interface MainLayoutProps {
   children: React.ReactNode;
-  user: User | null;
-  currentPage: string;
+  user?: User | null;
+  currentPage?: string;
   pageTitle?: string;
   breadcrumbs?: Breadcrumb[];
   isAdmin?: boolean;

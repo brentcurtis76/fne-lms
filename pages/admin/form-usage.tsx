@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import MainLayout from '../../components/layout/MainLayout';
 import { getUserPrimaryRole } from '../../utils/roleUtils';
 import { getMonthlyFormStats } from '../../lib/formSubmissionTracker';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 interface FormStats {
   total: number;
@@ -19,6 +20,7 @@ interface FormStats {
 
 export default function FormUsage() {
   const router = useRouter();
+  const supabase = useSupabaseClient();
   const [stats, setStats] = useState<FormStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -30,7 +32,12 @@ export default function FormUsage() {
   const checkAdminAndLoadStats = async () => {
     try {
       // Check if user is admin
-      const role = await getUserPrimaryRole();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) {
+        router.push('/');
+        return;
+      }
+      const role = await getUserPrimaryRole(session.user.id);
       if (role !== 'admin') {
         router.push('/');
         return;

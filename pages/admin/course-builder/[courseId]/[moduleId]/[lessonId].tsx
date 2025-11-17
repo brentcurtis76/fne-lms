@@ -437,7 +437,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
               })
           });
           
-          setBlocks(mergedBlocks);
+          setBlocks(mergedBlocks as Block[]);
           
           // V2 Implementation: Group assignments are now stored directly in lesson blocks
           // No need to create separate assignment templates

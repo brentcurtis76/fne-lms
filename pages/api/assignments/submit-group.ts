@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -87,7 +87,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al guardar la entrega' });
     }
 
-    await notifyConsultants(supabaseAdmin, assignmentId, groupId);
+    await notifyConsultants(supabaseAdmin as SupabaseClient, assignmentId, groupId);
 
     return res.status(200).json({ success: true });
   } catch (error) {
@@ -97,7 +97,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 }
 
 async function notifyConsultants(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: SupabaseClient,
   assignmentId: string,
   groupId: string
 ) {
@@ -108,8 +108,10 @@ async function notifyConsultants(
       .eq('id', assignmentId)
       .single();
 
+    if (!assignmentBlock) return;
+
     const assignmentTitle =
-      assignmentBlock?.payload?.title || 'Tarea grupal entregada';
+      (assignmentBlock as any)?.payload?.title || 'Tarea grupal entregada';
 
     const { data: group } = await supabaseAdmin
       .from('group_assignment_groups')
@@ -122,24 +124,24 @@ async function notifyConsultants(
     const { data: consultantAssignments } = await supabaseAdmin
       .from('consultant_assignments')
       .select('consultant_id')
-      .eq('assigned_entity_id', group.community_id)
+      .eq('assigned_entity_id', (group as any).community_id)
       .eq('assigned_entity_type', 'community')
       .eq('is_active', true);
 
     if (!consultantAssignments || consultantAssignments.length === 0) return;
 
-    const notifications = consultantAssignments.map((ca) => ({
+    const notifications = consultantAssignments.map((ca: any) => ({
       user_id: ca.consultant_id,
       type: 'group_assignment_submitted',
       title: 'Nueva tarea grupal entregada',
-      message: `El ${group.name} ha entregado la tarea "${assignmentTitle}"`,
+      message: `El ${(group as any).name} ha entregado la tarea "${assignmentTitle}"`,
       data: {
         assignment_id: assignmentId,
         group_id: groupId,
       },
     }));
 
-    await supabaseAdmin.from('notifications').insert(notifications);
+    await supabaseAdmin.from('notifications').insert(notifications as any);
   } catch (error) {
     console.error('[submit-group] Error notifying consultants:', error);
   }

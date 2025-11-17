@@ -12,6 +12,7 @@ import { usePermissions } from '../../../contexts/PermissionContext';
 
 interface Quote {
   id: string;
+  quote_number?: string;
   client_name: string;
   client_email?: string;
   client_institution?: string;

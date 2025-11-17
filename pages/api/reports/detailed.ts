@@ -223,9 +223,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     ]);
 
     // Create lookup maps
-    const schoolsMap = new Map(schoolsData.data?.map(s => [s.id, s]) || []);
-    const generationsMap = new Map(generationsData.data?.map(g => [g.id, g]) || []);
-    const communitiesMap = new Map(communitiesData.data?.map(c => [c.id, c]) || []);
+    const schoolsMap = new Map(schoolsData.data?.map(s => [s.id, s] as [string, any]) || []);
+    const generationsMap = new Map(generationsData.data?.map(g => [g.id, g] as [string, any]) || []);
+    const communitiesMap = new Map(communitiesData.data?.map(c => [c.id, c] as [string, any]) || []);
 
     // Get course assignment data (actual table used in the system)
     const { data: courseData, error: courseError } = await supabase
@@ -394,9 +394,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
             user_name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
             user_email: profile.email,
             user_role: roleMap.get(profile.id) || 'Sin rol',
-            school_name: schoolsMap.get(effectiveSchoolId)?.name,
-            generation_name: generationsMap.get(effectiveGenerationId)?.name,
-            community_name: communitiesMap.get(effectiveCommunityId)?.name,
+            school_name: (schoolsMap.get(effectiveSchoolId) as any)?.name,
+            generation_name: (generationsMap.get(effectiveGenerationId) as any)?.name,
+            community_name: (communitiesMap.get(effectiveCommunityId) as any)?.name,
             total_courses_enrolled,
             completed_courses,
             courses_in_progress: total_courses_enrolled - completed_courses,
@@ -495,7 +495,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
 
   } catch (error: any) {
     console.error('Error in detailed report API:', error);
-    res.status(500).json({ error: 'Internal Server Error', details: error.message });
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 };
 

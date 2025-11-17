@@ -31,6 +31,7 @@ export default function TestSequentialQuestionsPage() {
 
         <SequentialQuestions
           assessmentId="test-assessment-id"
+          area="aprendizaje"
           onComplete={handleComplete}
         />
       </div>

@@ -14,6 +14,7 @@ import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalP
 import { BarChart3, Calendar, Map } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
+import { getUserPrimaryRole } from '../utils/roleUtils';
 
 interface User {
   id: string;

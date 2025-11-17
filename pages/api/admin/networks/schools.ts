@@ -415,14 +415,14 @@ async function handleBulkAssignSchools(
         // Already assigned to target network - skip
         alreadyAssignedToTarget.push({
           id: schoolId,
-          name: school?.name || 'Unknown',
+          name: (school as any)?.name || 'Unknown',
           network: existingAssignment.red_nombre
         });
       } else {
         // Assigned to different network - skip (could be enhanced to allow reassignment)
         assignedToOtherNetworks.push({
           id: schoolId,
-          name: school?.name || 'Unknown',
+          name: (school as any)?.name || 'Unknown',
           network: existingAssignment.red_nombre
         });
       }
@@ -476,7 +476,7 @@ async function handleBulkAssignSchools(
     // Add detailed breakdown if requested
     if (assignableSchools.length > 0) {
       const assignedSchoolNames = assignableSchools
-        .map(id => schoolMap.get(id)?.name || 'Unknown')
+        .map(id => (schoolMap.get(id) as any)?.name || 'Unknown')
         .filter(name => name !== 'Unknown');
       response.assigned_schools = assignedSchoolNames;
     }

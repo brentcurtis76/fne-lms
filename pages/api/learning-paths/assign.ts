@@ -84,19 +84,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Create the assignment
-    const assignment = await LearningPathsService.assignLearningPath(
+    // Create the assignment (using batch assign with single user)
+    const result = await LearningPathsService.batchAssignLearningPath(
       supabaseClient,
       pathId,
-      assignedBy,
-      userId,
-      groupId
+      [userId],
+      groupId ? [groupId] : [],
+      assignedBy
     );
 
     // Return success with assignment details
     return res.status(201).json({
       success: true,
-      assignment,
+      assignment: result.assignments?.[0],
       message: userId 
         ? 'Learning path assigned to user successfully' 
         : 'Learning path assigned to group successfully'

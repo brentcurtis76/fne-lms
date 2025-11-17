@@ -115,11 +115,12 @@ export default async function handler(
     // Create a map of school assignments
     const schoolAssignments = new Map();
     if (assignments) {
-      assignments.forEach(assignment => {
-        if (assignment.redes_de_colegios) {
+      assignments.forEach((assignment: any) => {
+        const redes = Array.isArray(assignment.redes_de_colegios) ? assignment.redes_de_colegios[0] : assignment.redes_de_colegios;
+        if (redes) {
           schoolAssignments.set(assignment.school_id, {
-            id: assignment.redes_de_colegios.id,
-            name: assignment.redes_de_colegios.name,
+            id: redes.id,
+            name: redes.name,
             assigned_at: assignment.assigned_at
           });
         }

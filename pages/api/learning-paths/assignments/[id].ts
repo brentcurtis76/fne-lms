@@ -36,12 +36,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
         }
 
-        const assignments = await LearningPathsService.getLearningPathAssignments(
-          supabaseClient,
-          pathId
-        );
+        const { data: assignments, error } = await supabaseClient
+          .from('learning_path_assignments')
+          .select('*')
+          .eq('path_id', pathId);
 
-        return res.status(200).json(assignments);
+        if (error) {
+          return res.status(500).json({ error: error.message });
+        }
+
+        return res.status(200).json(assignments || []);
 
       case 'DELETE':
         // Remove an assignment
@@ -81,10 +85,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           });
         }
 
-        await LearningPathsService.removeAssignment(
-          supabaseClient,
-          assignmentId
-        );
+        const { error: deleteError } = await supabaseClient
+          .from('learning_path_assignments')
+          .delete()
+          .eq('id', assignmentId);
+
+        if (deleteError) {
+          return res.status(500).json({ error: deleteError.message });
+        }
 
         return res.status(204).end();
 

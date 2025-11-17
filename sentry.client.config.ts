@@ -35,6 +35,7 @@ if (SENTRY_DSN) {
     // Integrations
     integrations: [
       // Browser performance monitoring
+      // @ts-ignore - tracePropagationTargets is valid but not in all type versions
       Sentry.browserTracingIntegration({
         // Track navigation and interactions
         tracePropagationTargets: [

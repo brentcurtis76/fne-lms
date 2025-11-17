@@ -20,11 +20,13 @@ interface CourseFromDB {
   instructor_id: string;
   created_at: string;
   instructor_name?: string;
+  structure_type?: 'simple' | 'modular';
 }
 
 interface FormattedCourse extends CourseFromDB {
   instructor_name: string;
   thumbnail_url: string | null;
+  structure_type?: 'simple' | 'modular';
 }
 
 const CourseBuilder: React.FC = () => {

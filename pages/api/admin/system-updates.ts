@@ -51,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .limit(1)
       .maybeSingle();
 
-    if (profileData?.role !== 'admin') {
+    if (!adminRole) {
       return res.status(403).json({ error: 'Admin access required for system updates' });
     }
 

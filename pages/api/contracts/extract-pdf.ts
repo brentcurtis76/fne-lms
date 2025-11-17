@@ -10,6 +10,7 @@ interface ExtractedContract {
     fecha_contrato: string;
     fecha_fin?: string;
     confidence: number;
+    auto_generated_number?: boolean;
   };
   client: {
     nombre_legal: string;

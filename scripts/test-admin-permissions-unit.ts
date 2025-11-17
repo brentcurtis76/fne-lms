@@ -3,8 +3,8 @@
  * Tests the getUserPermissions function directly
  */
 
-import { getUserPermissions, ROLE_HIERARCHY } from '../utils/roleUtils';
-import { UserRole } from '../types/roles';
+import { getUserPermissions } from '../utils/roleUtils';
+import { UserRole, ROLE_HIERARCHY } from '../types/roles';
 
 describe('Admin Permissions Fix Tests', () => {
   test('Legacy admin with no new roles should have full permissions', () => {

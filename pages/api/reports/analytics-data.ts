@@ -381,14 +381,14 @@ async function getCompletionRatesByOrganization(userProfile: any, filters: any =
 
       const generationMap = new Map(generations?.map(g => [g.id, g.name]) || []);
 
-      const generationStats = generationProfiles.reduce((acc, item: any) => {
-        const genName = generationMap.get(item.generation_id) || 'Sin Generación';
+      const generationStats = generationProfiles.reduce((acc: any, item: any) => {
+        const genName = (generationMap.get(item.generation_id) as string) || 'Sin Generación';
         if (!acc[genName]) {
           acc[genName] = { count: 0, name: genName };
         }
         acc[genName].count++;
         return acc;
-      }, {} as any);
+      }, {} as Record<string, any>);
 
       data['generations'] = Object.values(generationStats).map((gen: any) => ({
         name: gen.name,
@@ -696,15 +696,17 @@ async function getQuizPerformanceAnalytics(userProfile: any, filters: any = {}) 
       let improvementTrend = 0;
       if (uniqueLessons >= 6) {
         // Sort by completion date for chronological comparison
-        const sortedLessons = lessonArray.sort((a, b) =>
-          new Date(a.completed_at).getTime() - new Date(b.completed_at).getTime()
+        const sortedLessons = lessonArray.sort((a: any, b: any) =>
+          new Date((a.completed_at || a.created_at) as string).getTime() - new Date((b.completed_at || b.created_at) as string).getTime()
         );
 
         const firstHalf = sortedLessons.slice(0, Math.floor(uniqueLessons / 2));
         const secondHalf = sortedLessons.slice(Math.floor(uniqueLessons / 2));
 
-        const firstAvgTime = firstHalf.reduce((sum: number, c: any) => sum + (c.time_spent || 0), 0) / firstHalf.length;
-        const secondAvgTime = secondHalf.reduce((sum: number, c: any) => sum + (c.time_spent || 0), 0) / secondHalf.length;
+        const firstSum: number = firstHalf.reduce((sum: number, c: any) => sum + Number(c.time_spent || 0), 0) as number;
+        const secondSum: number = secondHalf.reduce((sum: number, c: any) => sum + Number(c.time_spent || 0), 0) as number;
+        const firstAvgTime: number = firstHalf.length > 0 ? firstSum / firstHalf.length : 0;
+        const secondAvgTime: number = secondHalf.length > 0 ? secondSum / secondHalf.length : 0;
 
         // Improvement = reduction in time (negative trend = getting faster = positive improvement)
         improvementTrend = firstAvgTime > 0 ? Math.round(((firstAvgTime - secondAvgTime) / firstAvgTime) * 100) : 0;

@@ -175,9 +175,13 @@ async function getReportableUsers(userId: string, userRole: string, filters: any
           `)
           .eq('supervisor_id', userId);
         
-        return networkUsers?.flatMap(n => 
-          n.schools?.profiles?.map((p: any) => p.id) || []
-        ) || [];
+        return networkUsers?.flatMap((n: any) => {
+          const schools = Array.isArray(n.schools) ? n.schools : [n.schools];
+          return schools.flatMap((s: any) => {
+            const profiles = Array.isArray(s?.profiles) ? s.profiles : (s?.profiles ? [s.profiles] : []);
+            return profiles.map((p: any) => p.id);
+          });
+        }) || [];
 
       case 'lider_comunidad':
         // Community leaders see users in their communities
@@ -222,12 +226,15 @@ async function fetchKPISummaryData(userIds: string[], timeRange: string, filters
       .in('id', userIds);
 
     // Get active users (those with recent activity)
-    const { data: activeUsers } = await supabase
+    const { data: activeUsersData } = await supabase
       .from('user_sessions')
       .select('user_id')
       .in('user_id', userIds)
-      .gte('created_at', timeFilter)
-      .distinct();
+      .gte('created_at', timeFilter);
+
+    // Get unique user IDs manually
+    const activeUsers = Array.from(new Set(activeUsersData?.map((s: any) => s.user_id) || []))
+      .map(user_id => ({ user_id }));
 
     // Get course completion data
     const { data: completionData } = await supabase
@@ -488,11 +495,12 @@ async function fetchWorkspaceActivityData(userIds: string[], timeRange: string, 
       
       // Add to recent activity (limit to 5 per workspace)
       if (acc[workspaceId].recentActivity.length < 5) {
+        const profiles = Array.isArray(activity.profiles) ? activity.profiles[0] : activity.profiles;
         acc[workspaceId].recentActivity.push({
           id: activity.id,
           type: activity.activity_type || 'unknown',
           title: activity.title || 'Sin título',
-          userName: `${activity.profiles?.first_name || ''} ${activity.profiles?.last_name || ''}`.trim() || 'Usuario',
+          userName: `${profiles?.first_name || ''} ${profiles?.last_name || ''}`.trim() || 'Usuario',
           timestamp: activity.created_at
         });
       }

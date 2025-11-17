@@ -108,9 +108,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     ]);
 
     // Create lookup maps
-    const schoolsMap = new Map(schoolsData.data?.map(s => [s.id, s]) || []);
-    const generationsMap = new Map(generationsData.data?.map(g => [g.id, g]) || []);
-    const communitiesMap = new Map(communitiesData.data?.map(c => [c.id, c]) || []);
+    const schoolsMap = new Map(schoolsData.data?.map(s => [s.id, s] as [string, any]) || []);
+    const generationsMap = new Map(generationsData.data?.map(g => [g.id, g] as [string, any]) || []);
+    const communitiesMap = new Map(communitiesData.data?.map(c => [c.id, c] as [string, any]) || []);
 
     // Combine profile data with organizational info
     const enrichedProfiles = userProfiles?.map(profile => ({

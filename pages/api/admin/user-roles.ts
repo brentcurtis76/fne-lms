@@ -47,7 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `)
       .eq('user_id', userId)
       .eq('is_active', true)
-      .order('assigned_at', { ascending: false, nullsLast: true })
+      .order('assigned_at', { ascending: false, nullsFirst: false })
       .order('role_type', { ascending: true });
 
     if (error) {

@@ -10,6 +10,7 @@ import StudentBlockRenderer from '../../../components/student/StudentBlockRender
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { getUserPrimaryRole } from '../../../utils/roleUtils';
 
 // Types
 interface Block {

@@ -142,7 +142,7 @@ async function importAprendizajeRubric(): Promise<void> {
   console.log(`📝 Inserting ${records.length} records...`);
   const { error: insertError } = await serviceSupabase
     .from('transformation_rubric')
-    .insert(records, { returning: 'minimal' });
+    .insert(records);
 
   if (insertError) {
     throw new Error(`Failed to insert records: ${insertError.message}`);

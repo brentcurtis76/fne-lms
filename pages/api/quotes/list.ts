@@ -67,8 +67,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Apply sorting
-    const sortColumn = sort_by || 'created_at';
-    const sortDirection = sort_order === 'asc' ? true : false;
+    const sortColumn = (sort_by || 'created_at') as string;
+    const sortDirection = sort_order === 'asc';
     query = query.order(sortColumn, { ascending: sortDirection });
 
     const { data: quotes, error } = await query;

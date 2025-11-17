@@ -99,12 +99,15 @@ export const getServerSideProps: GetServerSideProps<MetricsPageProps> = async (c
       sampleAssessmentId: usage && usage.length > 0 ? usage[usage.length - 1].assessment_id : null,
       communities:
         communityRows
-          ?.map((row) => ({
-            id: row.growth_communities?.id ?? row.community_id,
-            name: row.growth_communities?.name ?? 'Comunidad sin nombre',
-            transformation_enabled: row.growth_communities?.transformation_enabled ?? false,
-          }))
-          .filter((item) => Boolean(item.id)) ?? [],
+          ?.map((row: any) => {
+            const gc = Array.isArray(row.growth_communities) ? row.growth_communities[0] : row.growth_communities;
+            return {
+              id: gc?.id ?? row.community_id,
+              name: gc?.name ?? 'Comunidad sin nombre',
+              transformation_enabled: gc?.transformation_enabled ?? false,
+            };
+          })
+          .filter((item: any) => Boolean(item.id)) ?? [],
     },
   };
 };

@@ -266,16 +266,16 @@ export default function Dashboard() {
                   // Extract course data from the join and format with instructor names
                   const baseCourses = assignedCoursesData
                     .map(assignment => assignment.courses)
-                    .filter(course => course !== null) // Filter out null courses
-                    .map(course => ({
+                    .filter((course): course is NonNullable<typeof course> => course !== null) // Filter out null courses
+                    .map((course: any) => ({
                       ...course,
                       // @ts-ignore
                       instructor_name: course?.instructors?.full_name || 'Sin instructor',
                       // @ts-ignore - Ensure thumbnail_url is a string or null, and specifically handle 'default-thumbnail.png'
-                      thumbnail_url: (course?.thumbnail_url && course?.thumbnail_url !== 'default-thumbnail.png') ? course?.thumbnail_url : null 
+                      thumbnail_url: (course?.thumbnail_url && course?.thumbnail_url !== 'default-thumbnail.png') ? course?.thumbnail_url : null
                     }));
 
-                  const courseIds = baseCourses.map(course => course.id);
+                  const courseIds = baseCourses.map((course: any) => course.id);
                   let teacherCourses = baseCourses;
 
                   if (courseIds.length > 0) {
@@ -290,7 +290,7 @@ export default function Dashboard() {
                       enrollmentMap.set(enrollment.course_id, enrollment);
                     });
 
-                    teacherCourses = baseCourses.map(course => {
+                    teacherCourses = baseCourses.map((course: any) => {
                       const enrollment = enrollmentMap.get(course.id);
                       return {
                         ...course,

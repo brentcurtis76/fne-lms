@@ -163,9 +163,7 @@ export default function TransformationAccessManagement() {
       } else {
         const result = await revokeTransformationAccess(
           supabase,
-          community.id,
-          session.user.id,
-          `Revocado manualmente por admin desde UI`
+          community.id
         );
 
         if (!result.success) {

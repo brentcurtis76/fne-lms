@@ -13,6 +13,11 @@ interface FunctionalPageHeaderProps {
     onClick: () => void;
     icon?: React.ReactNode;
   };
+  secondaryAction?: {
+    label: string;
+    onClick: () => void;
+    icon?: React.ReactNode;
+  };
   children?: React.ReactNode; // For custom actions
 }
 

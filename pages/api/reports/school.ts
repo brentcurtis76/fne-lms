@@ -103,7 +103,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .select('id, name')
           .in('id', communityIds) : { data: [] };
         
-        const communityMap = new Map(communities?.map(c => [c.id, c.name]) || []);
+        const communityMap = new Map(communities?.map(c => [c.id, c.name] as [string, any]) || []);
 
         // Filter by community if provided
         let filteredSchools = schools || [];

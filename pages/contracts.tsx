@@ -944,7 +944,7 @@ export default function ContractsPage() {
 
             {/* Contract Details Modal */}
             <ContractDetailsModal
-              contrato={selectedContrato}
+              contrato={selectedContrato as any}
               isOpen={!!selectedContrato}
               onClose={() => setSelectedContrato(null)}
               onEdit={(contrato) => {

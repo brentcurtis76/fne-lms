@@ -38,15 +38,7 @@ function containsDangerousPatterns(message: string): boolean {
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<
-    | ErrorResponse
-    | {
-        previewPrompt: ReturnType<typeof buildTransformationContext> extends Promise<infer R>
-          ? R['prompt']
-          : unknown;
-        message: string;
-      }
-  >
+  res: NextApiResponse<ErrorResponse | Record<string, any>>
 ) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
@@ -198,7 +190,7 @@ export default async function handler(
     });
 
     const estimatedInputTokens = Math.ceil(
-      (systemPrompt.length + messages.map((m) => m.content[0].text).join('').length) / 4
+      (systemPrompt.length + messages.map((m) => typeof m.content[0] === 'string' ? m.content[0] : (m.content[0] as any).text).join('').length) / 4
     );
 
     const maxTokens = Math.min(

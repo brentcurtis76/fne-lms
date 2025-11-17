@@ -949,13 +949,16 @@ export async function getNetworkSchools(supabase: SupabaseClient, networkId: str
       return [];
     }
 
-    return data?.map(item => ({
-      id: item.school_id.toString(),
-      name: item.schools?.name || '',
-      code: item.schools?.code,
-      has_generations: item.schools?.has_generations,
-      created_at: item.schools?.created_at
-    })) || [];
+    return data?.map(item => {
+      const schools = Array.isArray(item.schools) ? item.schools[0] : item.schools;
+      return {
+        id: item.school_id.toString(),
+        name: schools?.name || '',
+        code: schools?.code,
+        has_generations: schools?.has_generations,
+        created_at: schools?.created_at
+      };
+    }) || [];
   } catch (error) {
     console.error('Error in getNetworkSchools:', error);
     return [];

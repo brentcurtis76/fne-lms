@@ -30,12 +30,12 @@ if (SENTRY_DSN) {
     integrations: [
       // HTTP integration for tracking outbound requests
       Sentry.httpIntegration({
-        // Track Supabase API calls
+        // @ts-ignore - tracePropagationTargets is valid but not in all type versions
         tracePropagationTargets: [
           'localhost',
           /^https:\/\/.*\.supabase\.co/
         ]
-      })
+      } as any)
     ],
 
     // Filter and enhance events before sending to Sentry

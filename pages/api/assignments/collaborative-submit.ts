@@ -7,7 +7,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { userAssignmentsService } from '@/lib/services/userAssignments';
-import { notificationService } from '@/lib/notificationService';
+import notificationService from '@/lib/notificationService';
 
 export default async function handler(
   req: NextApiRequest,

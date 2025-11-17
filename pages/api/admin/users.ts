@@ -244,10 +244,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       courseMap.set(entry.teacher_id, arr);
     });
 
-    const payload = users.map(user => {
+    const payload = users.map((user: any) => {
       const roles = sortRoles([...(rolesMap.get(user.id) || [])]);
       const highestRole = roles[0]?.role_type || user.role || null;
-      const schoolRelation = user.school ? { id: user.school.id, name: user.school.name } : null;
+      const schools = Array.isArray(user.school) ? user.school[0] : user.school;
+      const schoolRelation = schools ? { id: schools.id, name: schools.name } : null;
       return {
         ...user,
         school: schoolRelation?.name || user.school || null,

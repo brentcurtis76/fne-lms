@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           updated_at TIMESTAMPTZ DEFAULT NOW()
         );
       `
-    }).catch(() => ({ error: null })); // Ignore if exists
+    });
 
     // Step 2: Create red_escuelas table
     const { error: redEscuelasError } = await supabaseAdmin.rpc('exec_sql', {
@@ -38,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           PRIMARY KEY (red_id, school_id)
         );
       `
-    }).catch(() => ({ error: null })); // Ignore if exists
+    });
 
     // Step 3: Update user_role_type enum
     const { error: enumError } = await supabaseAdmin.rpc('exec_sql', {
@@ -55,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         END
         $$;
       `
-    }).catch(() => ({ error: null })); // Ignore if exists
+    });
 
     // Step 4: Add red_id column to user_roles
     const { error: columnError } = await supabaseAdmin.rpc('exec_sql', {
@@ -72,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         END
         $$;
       `
-    }).catch(() => ({ error: null })); // Ignore if exists
+    });
 
     // Step 5: Enable RLS
     await supabaseAdmin.rpc('exec_sql', {
@@ -80,7 +80,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ALTER TABLE redes_de_colegios ENABLE ROW LEVEL SECURITY;
         ALTER TABLE red_escuelas ENABLE ROW LEVEL SECURITY;
       `
-    }).catch(() => ({ error: null }));
+    });
 
     // Step 6: Create RLS policies
     await supabaseAdmin.rpc('exec_sql', {
@@ -95,7 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             )
           );
       `
-    }).catch(() => ({ error: null }));
+    });
 
     return res.status(200).json({ 
       success: true, 

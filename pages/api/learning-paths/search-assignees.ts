@@ -98,21 +98,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Create authenticated Supabase client
   const supabaseClient = await createApiSupabaseClient(req, res);
 
+  // Declare variables outside try block for error handling
+  let pathId: string = '';
+  let searchType: 'users' | 'groups' = 'users';
+  let query: string = '';
+  let schoolId: string | undefined;
+  let safePage: number = 1;
+  let safePageSize: number = 20;
+
   try {
     // Check if user has permission to assign learning paths
     const hasPermission = await LearningPathsService.hasManagePermission(
       supabaseClient,
       user.id
     );
-    
+
     if (!hasPermission) {
-      return res.status(403).json({ 
-        error: 'You do not have permission to assign learning paths' 
+      return res.status(403).json({
+        error: 'You do not have permission to assign learning paths'
       });
     }
 
     // Validate request body
-    const { pathId, searchType, query, schoolId, page = 1, pageSize = 20 } = req.body as SearchAssigneesRequest;
+    const bodyData = req.body as SearchAssigneesRequest;
+    pathId = bodyData.pathId;
+    searchType = bodyData.searchType;
+    query = bodyData.query;
+    schoolId = bodyData.schoolId;
+    const page = bodyData.page || 1;
+    const pageSize = bodyData.pageSize || 20;
 
     if (!pathId || !searchType || typeof query !== 'string') {
       console.log(`[Search Assignees] Missing required fields`, { requestId });
@@ -144,8 +158,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     
     // Cap page size to maximum 50
-    const safePageSize = Math.min(Math.max(1, pageSize || 20), 50);
-    const safePage = Math.max(1, page);
+    safePageSize = Math.min(Math.max(1, pageSize || 20), 50);
+    safePage = Math.max(1, page);
     
     // Sanitize query
     const sanitizedQuery = sanitizeQuery(query);

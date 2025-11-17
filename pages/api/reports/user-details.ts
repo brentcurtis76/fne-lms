@@ -282,18 +282,18 @@ async function getLessonCompletions(userId: string) {
     .in('id', courseIds) : { data: [] };
 
   // Create lookup maps
-  const lessonMap = new Map(lessons?.map(l => [l.id, l]) || []);
-  const moduleMap = new Map(modules?.map(m => [m.id, m]) || []);
-  const courseMap = new Map(courses?.map(c => [c.id, c]) || []);
+  const lessonMap = new Map(lessons?.map(l => [l.id, l] as [string, any]) || []);
+  const moduleMap = new Map(modules?.map(m => [m.id, m] as [string, any]) || []);
+  const courseMap = new Map(courses?.map(c => [c.id, c] as [string, any]) || []);
 
   // Combine data
-  return progressData.map(progress => {
-    const lesson = lessonMap.get(progress.lesson_id);
+  return progressData.map((progress: any) => {
+    const lesson = lessonMap.get((progress as any).course_id || progress.lesson_id);
     const module = lesson ? moduleMap.get(lesson.module_id) : null;
     const course = module ? courseMap.get(module.course_id) : null;
 
     return {
-      ...progress,
+      ...(progress as object),
       time_spent_minutes: Math.round((progress.time_spent || 0) / 60), // Convert seconds to minutes
       lessons: lesson ? {
         ...lesson,
@@ -359,9 +359,9 @@ async function getTimeSpent(userId: string) {
     .in('id', courseIds) : { data: [] };
 
   // Create lookup maps
-  const lessonMap = new Map(lessons?.map(l => [l.id, l]) || []);
-  const moduleMap = new Map(modules?.map(m => [m.id, m]) || []);
-  const courseMap = new Map(courses?.map(c => [c.id, c]) || []);
+  const lessonMap = new Map(lessons?.map(l => [l.id, l] as [string, any]) || []);
+  const moduleMap = new Map(modules?.map(m => [m.id, m] as [string, any]) || []);
+  const courseMap = new Map(courses?.map(c => [c.id, c] as [string, any]) || []);
 
   // Combine data
   return timeData.map(time => {

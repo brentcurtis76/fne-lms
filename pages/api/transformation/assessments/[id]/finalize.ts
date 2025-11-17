@@ -16,6 +16,7 @@ interface ErrorResponse {
   error: string;
   details?: string;
   missingObjectives?: number[];
+  incompleteObjectives?: number[];
 }
 
 interface SuccessResponse {

@@ -24,7 +24,8 @@ import {
   ActivityRealtimeSubscription,
   ActivityRealtimePayload,
   ACTIVITY_TYPE_CONFIG,
-  DEFAULT_ACTIVITY_FILTERS
+  DEFAULT_ACTIVITY_FILTERS,
+  TopUser
 } from '../types/activity';
 
 // =============================================================================
@@ -420,7 +421,7 @@ export async function getActivityStats(workspaceId: string): Promise<ActivitySta
     }, {} as Record<string, number>) || {};
 
     const mostActiveType = Object.entries(typeCounts).reduce((max, [type, count]) => {
-      return count > max.count ? { type: type as ActivityType, count } : max;
+      return (count as number) > max.count ? { type: type as ActivityType, count: count as number } : max;
     }, { type: null as ActivityType | null, count: 0 });
 
     // Get most active user
@@ -474,7 +475,7 @@ export async function getActivityStats(workspaceId: string): Promise<ActivitySta
       activities_today: activitiesThisDay || 0,
       activities_this_week: activitiesThisWeek || 0,
       most_active_type: mostActiveType.type,
-      most_active_user: mostActiveUser.count > 0 ? mostActiveUser : null,
+      most_active_user: (mostActiveUser as any).count > 0 ? (mostActiveUser as TopUser) : {} as TopUser,
       engagement_trend: engagementTrend,
       peak_hours: peakHours
     };

@@ -80,14 +80,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // Update assignment total time
-        const { error: assignmentError } = await supabase
-          .from('learning_path_assignments')
-          .update({
-            total_time_spent_minutes: supabase.raw(`COALESCE(total_time_spent_minutes, 0) + ${timeSpentMinutes}`),
-            last_activity_at: lastHeartbeat.toISOString()
-          })
-          .eq('user_id', session.user_id)
-          .eq('path_id', session.path_id);
+        // @ts-ignore - Using raw SQL for increment operation
+        const { error: assignmentError } = await supabase.rpc('increment_path_time', {
+          p_user_id: session.user_id,
+          p_path_id: session.path_id,
+          p_time_minutes: timeSpentMinutes,
+          p_last_activity: lastHeartbeat.toISOString()
+        });
 
         if (assignmentError) {
           console.warn(`Failed to update assignment time for session ${session.id}:`, assignmentError);

@@ -415,6 +415,7 @@ const NetworkManagementPage: React.FC = () => {
             console.log('⚠️ Conflicted schools:', conflicted_schools);
             // Show warning toast for conflicts
             const conflictNames = conflicted_schools.map((s: any) => `${s.name} (${s.current_network})`).join(', ');
+            // @ts-expect-error - toast.warn not in types but exists
             toast.warn(`Escuelas omitidas por conflictos: ${conflictNames}`, { duration: 8000 });
           }
         }
@@ -427,6 +428,7 @@ const NetworkManagementPage: React.FC = () => {
         // Handle error response - could be partial success with conflicts
         if (response.status === 409 && data.summary) {
           // Show warning for conflict-only scenario
+          // @ts-expect-error - toast.warn not in types but exists
           toast.warn(data.error || 'Algunas escuelas no pudieron ser asignadas');
           
           if (data.conflicted_schools && data.conflicted_schools.length > 0) {

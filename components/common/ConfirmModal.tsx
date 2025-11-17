@@ -15,6 +15,7 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   isDangerous?: boolean;
+  isLoading?: boolean;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({

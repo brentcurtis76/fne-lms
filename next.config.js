@@ -2,6 +2,22 @@
 const { withSentryConfig } = require('@sentry/nextjs');
 const crypto = require('crypto');
 
+const ensureEnv = (key, fallback) => {
+  if (!process.env[key]) {
+    process.env[key] = fallback;
+  }
+};
+
+// Provide safe fallbacks so CI/preview builds succeed even without real secrets.
+ensureEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://placeholder.supabase.co');
+ensureEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'public-anon-placeholder');
+ensureEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role-placeholder');
+ensureEnv('SENTRY_ORG', 'placeholder-org');
+ensureEnv('SENTRY_PROJECT', 'placeholder-project');
+const hadSentryAuthToken = Boolean(process.env.SENTRY_AUTH_TOKEN);
+ensureEnv('SENTRY_AUTH_TOKEN', 'placeholder-auth-token');
+const hasSentryAuth = hadSentryAuthToken;
+
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
@@ -46,6 +62,7 @@ const nextConfig = {
   compress: true,
   poweredByHeader: false,
   generateEtags: true,
+  optimizeFonts: false,
   
   // Better error handling
   onDemandEntries: {
@@ -140,6 +157,8 @@ const sentryWebpackPluginOptions = {
 
   // Automatically tree-shake Sentry logger statements to reduce bundle size
   disableLogger: true,
+  disableServerWebpackPlugin: !hasSentryAuth,
+  disableClientWebpackPlugin: !hasSentryAuth,
 
   // Hides source maps from generated client bundles
   hideSourceMaps: true,
@@ -149,4 +168,4 @@ const sentryWebpackPluginOptions = {
 };
 
 // Wrap Next.js config with Sentry
-module.exports = withSentryConfig(nextConfig, sentryWebpackPluginOptions);
+module.exports = hasSentryAuth ? withSentryConfig(nextConfig, sentryWebpackPluginOptions) : nextConfig;

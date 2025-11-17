@@ -9,14 +9,14 @@ import AdvancedFilters from './AdvancedFilters';
 import { Filter, Download, Settings, RefreshCw } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 
-interface UnifiedDashboardProps {
+export interface UnifiedDashboardProps {
   userId: string;
   userRole: string;
   initialFilters?: DashboardFilters;
   onFilterChange?: (filters: DashboardFilters) => void;
 }
 
-interface DashboardFilters {
+export interface DashboardFilters {
   timeRange: '7d' | '30d' | '90d' | '1y' | 'custom';
   startDate?: string;
   endDate?: string;

@@ -44,18 +44,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const userId = session.user.id;
 
-    // 1. Validate user is a member of the specified group
-    const { data: membership, error: membershipError } = await supabase
+    // Service role client for RLS-bypassing reads/inserts after we validate membership
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // DETAILED LOGGING: Log full request payload for debugging
+    console.log('[add-classmates] === REQUEST START ===');
+    console.log('[add-classmates] User ID:', userId);
+    console.log('[add-classmates] Assignment ID:', assignmentId);
+    console.log('[add-classmates] Group ID:', groupId);
+    console.log('[add-classmates] Classmate IDs:', JSON.stringify(classmateIds));
+
+    // 1. Check if user is a member of the specified group OR if group is empty (auto-grouping flow)
+    const { data: membership } = await supabase
       .from('group_assignment_members')
       .select('group_id, assignment_id')
       .eq('group_id', groupId)
       .eq('user_id', userId)
       .eq('assignment_id', assignmentId)
-      .single();
-
-    if (membershipError || !membership) {
-      return res.status(403).json({ error: 'No eres miembro de este grupo' });
-    }
+      .maybeSingle();
 
     // 2. Get group details and validate
     const { data: group, error: groupError } = await supabase
@@ -87,10 +102,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'No tienes una escuela asignada' });
     }
 
-    // Select school_id deterministically: prefer docente > estudiante > first with school_id
+    // Select school_id deterministically: prefer docente > equipo_directivo/lider > first with school_id
     let selectedRole = requesterRoles.find(r => r.role_type === 'docente' && r.school_id);
     if (!selectedRole) {
-      selectedRole = requesterRoles.find(r => r.role_type === 'estudiante' && r.school_id);
+      selectedRole = requesterRoles.find(r =>
+        ['equipo_directivo', 'lider_generacion', 'lider_comunidad'].includes(r.role_type) && r.school_id
+      );
     }
     if (!selectedRole) {
       selectedRole = requesterRoles.find(r => r.school_id);
@@ -129,28 +146,88 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const courseId = lesson.course_id;
 
-    // 3. Check current member count
-    const { count: currentMemberCount, error: countError } = await supabase
-      .from('group_assignment_members')
-      .select('*', { count: 'exact', head: true })
-      .eq('group_id', groupId);
+    // If not a member, check if group is empty AND if requester is enrolled in the course
+    if (!membership) {
+      const { count: memberCount } = await supabase
+        .from('group_assignment_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('group_id', groupId);
 
-    if (countError) {
-      console.error('Error counting members:', countError);
-      return res.status(500).json({ error: 'Error al verificar tamaño del grupo' });
-    }
+      if (memberCount && memberCount > 0) {
+        return res.status(403).json({ error: 'No eres miembro de este grupo' });
+      }
 
-    // TODO: max_members column not yet in schema - defaulting to 8
-    // When max_members is added to schema, update line 62 to include it in SELECT
-    const maxMembers = 8;
-    if (currentMemberCount + classmateIds.length > maxMembers) {
-      return res.status(400).json({
-        error: `El grupo alcanzaría el límite de ${maxMembers} miembros`
-      });
+      // CRITICAL: Validate requester has access to the course through ANY valid assignment path
+      // Check multiple assignment sources in order of priority
+      let hasAccess = false;
+      let accessSource = '';
+
+      // 1. Direct course enrollment (most common for students)
+      const { data: enrollment } = await supabase
+        .from('course_enrollments')
+        .select('status')
+        .eq('user_id', userId)
+        .eq('course_id', courseId)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (enrollment) {
+        hasAccess = true;
+        accessSource = 'course_enrollments';
+      }
+
+      // 2. Course assignment (teachers assigned to teach a course)
+      if (!hasAccess) {
+        const { data: courseAssignment } = await supabase
+          .from('course_assignments')
+          .select('id')
+          .eq('teacher_id', userId)
+          .eq('course_id', courseId)
+          .maybeSingle();
+
+        if (courseAssignment) {
+          hasAccess = true;
+          accessSource = 'course_assignments';
+        }
+      }
+
+      // 3. Consultant assignment (consultants assigned to schools/communities)
+      if (!hasAccess) {
+        // Get assignment's community to check consultant assignment
+        const { data: assignmentGroup } = await supabase
+          .from('group_assignment_groups')
+          .select('community_id')
+          .eq('id', groupId)
+          .single();
+
+        if (assignmentGroup?.community_id) {
+          const { data: consultantAssignment } = await supabase
+            .from('consultant_assignments')
+            .select('id')
+            .eq('consultant_id', userId)
+            .eq('community_id', assignmentGroup.community_id)
+            .eq('is_active', true)
+            .maybeSingle();
+
+          if (consultantAssignment) {
+            hasAccess = true;
+            accessSource = 'consultant_assignments';
+          }
+        }
+      }
+
+      if (!hasAccess) {
+        console.error('[add-classmates] Requester has no access to course:', userId, courseId, '- checked: enrollments, course_assignments, consultant_assignments');
+        return res.status(403).json({
+          error: 'Debes estar inscrito en el curso para agregar compañeros a este grupo'
+        });
+      }
+
+      console.log(`[add-classmates] User not in group, but group is empty and user has access via ${accessSource} - allowing addition`);
     }
 
     // 4. Validate all classmates are from the same school
-    const { data: classmateRoles, error: rolesError } = await supabase
+    const { data: classmateRoles, error: rolesError } = await supabaseAdmin
       .from('user_roles')
       .select('user_id, school_id')
       .in('user_id', classmateIds)
@@ -173,13 +250,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (classmateRoles?.length !== classmateIds.length) {
+      const foundIds = new Set(classmateRoles?.map(r => r.user_id) || []);
+      const missingIds = classmateIds.filter(id => !foundIds.has(id));
+      console.error('[add-classmates] VALIDATION FAILED - Roles Check');
+      console.error('[add-classmates] Requested classmates:', classmateIds);
+      console.error('[add-classmates] Found with active roles:', Array.from(foundIds));
+      console.error('[add-classmates] Missing active roles:', missingIds);
+      console.error('[add-classmates] Classmate roles found:', JSON.stringify(classmateRoles));
       return res.status(400).json({
-        error: 'Algunos compañeros no son válidos'
+        error: 'Algunos compañeros no tienen roles activos en el sistema o no pertenecen a tu escuela',
+        details: { missingIds, foundCount: classmateRoles?.length, requestedCount: classmateIds.length }
       });
     }
 
     // 4b. Validate all classmates are enrolled in the assignment's course
-    const { data: classmateEnrollments, error: enrollmentError } = await supabase
+    const { data: classmateEnrollments, error: enrollmentError } = await supabaseAdmin
       .from('course_enrollments')
       .select('user_id')
       .eq('course_id', courseId)
@@ -195,14 +280,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const notEnrolled = classmateIds.filter(id => !enrolledUserIds.has(id));
 
     if (notEnrolled.length > 0) {
-      console.error('[add-classmates] Some classmates not enrolled in course:', notEnrolled);
+      console.error('[add-classmates] VALIDATION FAILED - Enrollment Check');
+      console.error('[add-classmates] Course ID:', courseId);
+      console.error('[add-classmates] Requested classmates:', classmateIds);
+      console.error('[add-classmates] Enrolled classmates:', Array.from(enrolledUserIds));
+      console.error('[add-classmates] NOT enrolled:', notEnrolled);
       return res.status(400).json({
-        error: 'Algunos compañeros no están inscritos en el curso de esta tarea'
+        error: 'Algunos compañeros no están inscritos en el curso de esta tarea',
+        details: { notEnrolled, courseId, enrolledCount: enrolledUserIds.size }
       });
     }
 
     // 5. Validate classmates are not already in groups for this assignment
-    const { data: existingMembers, error: existingError } = await supabase
+    const { data: existingMembers, error: existingError } = await supabaseAdmin
       .from('group_assignment_members')
       .select('user_id')
       .eq('assignment_id', assignmentId)
@@ -221,23 +311,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 6. Insert new members using service role client to bypass RLS
     // All validation has been done above, so this is safe
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        }
-      }
-    );
 
     const members = classmateIds.map(classmateId => ({
       group_id: groupId,
       assignment_id: assignmentId,
       user_id: classmateId,
-      role: 'member',
-      added_by: userId
+      role: 'member'
     }));
 
     const { data: insertedMembers, error: insertError } = await supabaseAdmin

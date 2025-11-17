@@ -14,6 +14,7 @@ interface Program {
 
 interface Quote {
   id: string;
+  quote_number?: string;
   client_name: string;
   client_email?: string;
   client_phone?: string;

@@ -352,10 +352,10 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {meeting.attendees.map((attendee) => (
                           <div key={attendee.id} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                            {attendee.user && attendee.user.avatar_url ? (
+                            {attendee.user_profile && attendee.user_profile.avatar_url ? (
                               <img
-                                src={attendee.user.avatar_url}
-                                alt={`${attendee.user.first_name} ${attendee.user.last_name}`}
+                                src={attendee.user_profile.avatar_url}
+                                alt={`${attendee.user_profile.first_name} ${attendee.user_profile.last_name}`}
                                 className="h-10 w-10 rounded-full"
                               />
                             ) : (
@@ -365,10 +365,12 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                             )}
                             <div>
                               <p className="text-sm font-medium text-gray-900">
-                                {attendee.user ? `${attendee.user.first_name || ''} ${attendee.user.last_name || ''}`.trim() || 'Usuario sin nombre' : 'Usuario no encontrado'}
+                                {attendee.user_profile
+                                  ? `${attendee.user_profile.first_name || ''} ${attendee.user_profile.last_name || ''}`.trim() || 'Usuario sin nombre'
+                                  : 'Usuario no encontrado'}
                               </p>
-                              {attendee.user && attendee.user.email && (
-                                <p className="text-xs text-gray-500">{attendee.user.email}</p>
+                              {attendee.user_profile && attendee.user_profile.email && (
+                                <p className="text-xs text-gray-500">{attendee.user_profile.email}</p>
                               )}
                               {attendee.role && attendee.role !== 'participant' && (
                                 <span className="inline-block mt-1 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">

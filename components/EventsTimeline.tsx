@@ -94,9 +94,10 @@ export default function EventsTimeline({ pastEvents, futureEvents, loading, isUp
     const timelineEvents = document.querySelectorAll('.timeline-event');
     timelineEvents.forEach((event, index) => {
       setTimeout(() => {
-        event.classList.remove('opacity-0');
-        event.classList.add('opacity-100');
-        event.style.transition = 'opacity 0.5s ease-in-out';
+        const element = event as HTMLElement;
+        element.classList.remove('opacity-0');
+        element.classList.add('opacity-100');
+        element.style.transition = 'opacity 0.5s ease-in-out';
       }, index * 100);
     });
     

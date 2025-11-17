@@ -28,7 +28,7 @@ export default function Document() {
           rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
           media="print"
-          onLoad="this.media='all'"
+          onLoad={(e) => { (e.currentTarget as HTMLLinkElement).media = 'all'; }}
         />
         
         {/* Resource hints for critical resources */}

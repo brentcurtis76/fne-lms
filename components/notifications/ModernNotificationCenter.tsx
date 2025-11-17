@@ -340,9 +340,9 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
         fallbackUrl = '/mi-aprendizaje';
       } else if (notification.title.includes('tarea') || notification.title.includes('assignment')) {
         fallbackUrl = '/assignments';
-      } else if (notification.notification_type?.category) {
+      } else if (notification.category) {
         // Use category-based fallbacks
-        switch (notification.notification_type.category) {
+        switch (notification.category) {
           case 'admin':
             fallbackUrl = '/admin/user-management';
             break;

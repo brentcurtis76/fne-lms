@@ -17,6 +17,7 @@ interface ExtractedData {
   };
   client: {
     nombre_legal: string;
+    nombre_fantasia?: string;
     rut: string;
     direccion?: string;
     comuna?: string;
@@ -191,7 +192,10 @@ export default function ContractPDFImporter({
 
         // Show confidence warning if needed
         if (result.extracted.overall_confidence < 0.7) {
-          toast.warning('Confianza baja en la extracción - Por favor revise los datos');
+          toast('Confianza baja en la extracción - Por favor revise los datos', {
+            icon: '⚠️',
+            duration: 4000
+          });
         } else if (result.extracted.overall_confidence > 0.9) {
           toast.success('Extracción completada con alta confianza');
         } else {

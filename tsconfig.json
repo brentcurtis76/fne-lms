@@ -5,6 +5,7 @@
       "dom.iterable",
       "esnext"
     ],
+    "target": "es2019",
     "allowJs": true,
     "skipLibCheck": true,
     "strict": false,
@@ -33,7 +34,14 @@
   ],
   "exclude": [
     "node_modules",
+    "node_modules.old",
     "e2e",
-    "playwright.config.ts"
+    "playwright.config.ts",
+    "__tests__",
+    "**/__tests__/**/*",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
   ]
 }

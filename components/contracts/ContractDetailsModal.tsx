@@ -60,6 +60,8 @@ interface Contrato {
   estado?: 'pendiente' | 'activo';
   incluir_en_flujo?: boolean;
   contrato_url?: string;
+  es_manual?: boolean;
+  descripcion_manual?: string;
   clientes: Cliente;
   programas: Programa;
   cuotas?: Cuota[];

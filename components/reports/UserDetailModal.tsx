@@ -100,6 +100,7 @@ interface UserDetails {
     created_at: string;
     activity_type: string;
     description: string;
+    completed_at?: string;
   }>;
   summary: {
     total_courses: number;

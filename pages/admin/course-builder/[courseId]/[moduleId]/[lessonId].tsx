@@ -326,10 +326,10 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
           return supabase.from('blocks').insert(insertData).select().single();
         } else { 
           // CRITICAL LOGGING: What exactly are we sending to the database?
-          if (block.type === 'bibliography') {
+          if (block.type === 'bibliography' && 'items' in blockDataToSave.payload) {
             console.log('🚀 SENDING TO DATABASE:', {
               blockId: block.id,
-              payloadItems: blockDataToSave.payload.items.map(item => ({
+              payloadItems: blockDataToSave.payload.items.map((item: any) => ({
                 id: item.id,
                 type: item.type,
                 title: item.title,
@@ -423,7 +423,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
               .filter(b => b.type === 'bibliography')
               .map(b => ({
                 id: b.id,
-                itemsWithFiles: b.payload.items?.filter(i => i.filename).length || 0
+                itemsWithFiles: ('items' in b.payload) ? (b.payload.items?.filter((i: any) => i.filename).length || 0) : 0
               })),
             groupAssignment: mergedBlocks
               .filter(b => b.type === 'group-assignment')

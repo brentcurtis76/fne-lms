@@ -213,6 +213,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     ],
     children: [
       {
+        id: 'clients',
+        label: 'Clientes',
+        href: '/admin/clients',
+        description: 'Gestión de clientes',
+        icon: OfficeBuildingIcon,
+        permission: ['view_contracts_all', 'view_contracts_school']
+      },
+      {
         id: 'contracts',
         label: 'Contratos',
         href: '/contracts',

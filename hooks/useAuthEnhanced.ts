@@ -124,10 +124,10 @@ export function useAuthEnhanced() {
   // Refresh user roles and permissions
   const refreshRolesAndPermissions = useCallback(async (userId: string) => {
     try {
-      const userRoles = await retryOperation(() => getUserRoles(userId));
+      const userRoles = await retryOperation(() => getUserRoles(supabase, userId));
       if (!userRoles) return null;
       
-      const isAdmin = await retryOperation(() => hasAdminPrivileges(userId));
+      const isAdmin = await retryOperation(() => hasAdminPrivileges(supabase, userId));
       const isGlobalAdmin = userRoles.some(role => role.role_type === 'admin');
       const permissions = getUserPermissions(userRoles);
       
@@ -177,7 +177,7 @@ export function useAuthEnhanced() {
       }
 
       // Get profile data with retry
-      const profileResult = await retryOperation(async () => {
+      let profileResult = await retryOperation(async () => {
         const { data, error } = await supabase
           .from('profiles')
           .select(`
@@ -210,7 +210,7 @@ export function useAuthEnhanced() {
       }
 
       // Get roles and permissions
-      const rolesData = await refreshRolesAndPermissions(user.id);
+      let rolesData = await refreshRolesAndPermissions(user.id);
       
       if (!rolesData) {
         // Use default permissions if roles fetch fails
@@ -241,7 +241,7 @@ export function useAuthEnhanced() {
       if (rolesData.userRoles.length === 0 && profileResult?.role) {
         console.log('Migrating legacy user...');
         const migrationSuccess = await retryOperation(() => 
-          migrateLegacyUser(user.id, profileResult.role)
+          migrateLegacyUser(supabase, user.id, profileResult.role as 'admin' | 'docente')
         );
         
         if (migrationSuccess) {

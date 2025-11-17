@@ -51,6 +51,39 @@ interface CuotaForm {
   monto: number; // Keep as monto in form, but save as monto_uf to database
 }
 
+interface ClienteFormState {
+  nombre_legal: string;
+  nombre_fantasia: string;
+  rut: string;
+  direccion: string;
+  comuna: string;
+  ciudad: string;
+  nombre_representante: string;
+  rut_representante: string;
+  fecha_escritura: string;
+  nombre_notario: string;
+  comuna_notaria: string;
+  nombre_encargado_proyecto: string;
+  telefono_encargado_proyecto: string;
+  email_encargado_proyecto: string;
+  nombre_contacto_administrativo: string;
+  telefono_contacto_administrativo: string;
+  email_contacto_administrativo: string;
+  telefono?: string;
+  email?: string;
+}
+
+interface ContractFormState {
+  numero_contrato: string;
+  fecha_contrato: string;
+  fecha_fin: string;
+  programa_id: string;
+  precio_total_uf: number;
+  tipo_moneda: 'UF' | 'CLP';
+  descripcion_manual?: string;
+  cliente_id?: string;
+}
+
 interface ContractFormProps {
   programas: Programa[];
   clientes: Cliente[];
@@ -81,7 +114,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     region: '',
     has_generations: true
   });
-  const [clienteForm, setClienteForm] = useState({
+  const [clienteForm, setClienteForm] = useState<ClienteFormState>({
     nombre_legal: '',
     nombre_fantasia: '',
     rut: '',
@@ -98,18 +131,21 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     email_encargado_proyecto: '',
     nombre_contacto_administrativo: '',
     telefono_contacto_administrativo: '',
-    email_contacto_administrativo: ''
+    email_contacto_administrativo: '',
+    telefono: '',
+    email: ''
   });
   
   // Contract form
-  const [contractForm, setContractForm] = useState({
+  const [contractForm, setContractForm] = useState<ContractFormState>({
     numero_contrato: '',
     fecha_contrato: new Date().toISOString().split('T')[0],
     fecha_fin: '',
     programa_id: '',
     precio_total_uf: 0,
-    tipo_moneda: 'UF' as 'UF' | 'CLP',
-    descripcion_manual: '' // For manual contracts
+    tipo_moneda: 'UF',
+    descripcion_manual: '',
+    cliente_id: ''
   });
   
   // Installments form
@@ -276,7 +312,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         fecha_fin: editingContract.fecha_fin || '',
         programa_id: editingContract.programa_id || '',
         precio_total_uf: editingContract.precio_total_uf || 0,
-        tipo_moneda: editingContract.tipo_moneda || 'UF'
+        tipo_moneda: editingContract.tipo_moneda || 'UF',
+        descripcion_manual: editingContract.descripcion_manual || '',
+        cliente_id: editingContract.cliente_id || ''
       });
       
       // Set selected client

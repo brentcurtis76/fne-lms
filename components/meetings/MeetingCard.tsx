@@ -352,10 +352,10 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                 <div className="flex -space-x-2 overflow-hidden">
                   {meetingWithDetails.attendees.slice(0, 5).map((attendee, index) => (
                     <div key={attendee.id} className="relative group">
-                      {attendee.user && attendee.user.avatar_url ? (
+                      {attendee.user_profile && attendee.user_profile.avatar_url ? (
                         <img
-                          src={attendee.user.avatar_url}
-                          alt={`${attendee.user.first_name} ${attendee.user.last_name}`}
+                          src={attendee.user_profile.avatar_url}
+                          alt={`${attendee.user_profile.first_name} ${attendee.user_profile.last_name}`}
                           className="h-8 w-8 rounded-full border-2 border-white"
                         />
                       ) : (
@@ -365,7 +365,9 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                       )}
                       {/* Tooltip */}
                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                        {attendee.user ? `${attendee.user.first_name || ''} ${attendee.user.last_name || ''}`.trim() || 'Sin nombre' : 'Usuario'}
+                        {attendee.user_profile
+                          ? `${attendee.user_profile.first_name || ''} ${attendee.user_profile.last_name || ''}`.trim() || 'Sin nombre'
+                          : 'Usuario'}
                       </div>
                     </div>
                   ))}

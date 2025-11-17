@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, ChevronUp, MoreHorizontal, RefreshCw, AlertCircle } from 'lucide-react';
 import LoadingSkeleton from '../../common/LoadingSkeleton';
 
-interface DashboardCardProps {
+export interface DashboardCardProps {
   // Card Identification
   id: string;
   type: string;

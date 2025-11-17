@@ -114,13 +114,14 @@ async function executeAsUser(userId: string, sql: string): Promise<any> {
   console.error(`[RLS-DEBUGGER-MCP] Executing SQL as user: ${userId}`);
 
   // Verify user exists
-  const { data: { users }, error: userError } = await adminClient.auth.admin.listUsers();
+  const { data: userData, error: userError } = await adminClient.auth.admin.listUsers();
 
   if (userError) {
     throw new Error(`Failed to get user list: ${userError.message}`);
   }
 
-  const user = users.find(u => u.id === userId);
+  const userList = userData?.users ?? [];
+  const user = userList.find(u => u.id === userId);
   if (!user) {
     throw new Error(`User not found: ${userId}`);
   }

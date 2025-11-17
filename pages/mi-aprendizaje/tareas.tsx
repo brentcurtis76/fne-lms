@@ -89,7 +89,8 @@ const TareasPage: React.FC = () => {
           score: assignment.grade,
           feedback: null, // Will be populated when we fetch full submission details
           file_url: null, // Will be populated when we fetch full submission details
-          grade: assignment.grade
+          grade: assignment.grade,
+          submitted_at: assignment.submitted_at || null
         }));
         setAssignments(transformed);
       }
@@ -231,7 +232,11 @@ const TareasPage: React.FC = () => {
       );
 
       if (result.error) {
-        toast.error(result.error);
+        const errorMessage =
+          typeof result.error === 'string'
+            ? result.error
+            : result.error?.message || 'Error al enviar el trabajo';
+        toast.error(errorMessage);
         return;
       }
 
@@ -270,6 +275,17 @@ const TareasPage: React.FC = () => {
         {date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
       </span>
     );
+  };
+
+  const formatSubmissionTimestamp = (timestamp?: string | null) => {
+    if (!timestamp) return null;
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return null;
+
+    return date.toLocaleString('es-CL', {
+      dateStyle: 'medium',
+      timeStyle: 'short'
+    });
   };
 
   // Redirect from workspace query params
@@ -492,6 +508,12 @@ const TareasPage: React.FC = () => {
                             Compartido por {assignment.submitter_name}
                           </p>
                         )}
+                        {formatSubmissionTimestamp(assignment.submitted_at) && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Última entrega:{' '}
+                            {formatSubmissionTimestamp(assignment.submitted_at)}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -512,19 +534,23 @@ const TareasPage: React.FC = () => {
                         {assignment.feedback}
                       </p>
                     )}
+                    {formatSubmissionTimestamp(assignment.submitted_at) && (
+                      <p className="text-xs text-blue-700 mt-1">
+                        Última actualización:{' '}
+                        {formatSubmissionTimestamp(assignment.submitted_at)}
+                      </p>
+                    )}
                   </div>
                 )}
 
                 {/* Actions */}
                 <div className="flex space-x-2">
-                  {assignment.status === 'pending' && (
-                    <button
-                      onClick={() => handleSubmitAssignment(assignment)}
-                      className="flex-1 bg-brand_blue text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                    >
-                      Ver Detalles
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleSubmitAssignment(assignment)}
+                    className="flex-1 bg-brand_blue text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    {assignment.status === 'pending' ? 'Ver Detalles' : 'Editar Entrega'}
+                  </button>
                   {(assignment.status === 'submitted' || assignment.status === 'graded') &&
                     assignment.file_url && (
                       <a

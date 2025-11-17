@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import MainLayout from '../../components/layout/MainLayout';
 import { getUserPrimaryRole } from '../../utils/roleUtils';
+import { formatRut, validateRut } from '../../utils/rutValidation';
 
 import { toast } from 'react-hot-toast';
 import { Plus, Edit2, Trash2, Building, Users, ChevronDown, ChevronRight, FileText } from 'lucide-react';
@@ -40,6 +41,28 @@ interface Generation {
   };
 }
 
+interface Cliente {
+  id: string;
+  nombre_legal: string;
+  nombre_fantasia: string;
+  rut: string;
+  direccion: string;
+  comuna?: string | null;
+  ciudad?: string | null;
+  nombre_representante: string;
+  rut_representante: string;
+  fecha_escritura: string;
+  nombre_notario: string;
+  comuna_notaria?: string | null;
+  nombre_encargado_proyecto?: string | null;
+  telefono_encargado_proyecto?: string | null;
+  email_encargado_proyecto?: string | null;
+  nombre_contacto_administrativo?: string | null;
+  telefono_contacto_administrativo?: string | null;
+  email_contacto_administrativo?: string | null;
+  school_id?: number | null;
+}
+
 export default function SchoolsManagement() {
   const supabase = useSupabaseClient();
   const router = useRouter();
@@ -55,7 +78,9 @@ export default function SchoolsManagement() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [showClientModal, setShowClientModal] = useState(false);
   const [linkingSchool, setLinkingSchool] = useState<School | null>(null);
-  const [clientes, setClientes] = useState<any[]>([]);
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [showClientEditModal, setShowClientEditModal] = useState(false);
+  const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
   const [confirmationModal, setConfirmationModal] = useState<{
     show: boolean;
     title: string;
@@ -85,6 +110,26 @@ export default function SchoolsManagement() {
     name: '',
     grade_range: '',
     description: ''
+  });
+
+  const [clienteForm, setClienteForm] = useState({
+    nombre_legal: '',
+    nombre_fantasia: '',
+    rut: '',
+    direccion: '',
+    comuna: '',
+    ciudad: '',
+    nombre_representante: '',
+    rut_representante: '',
+    fecha_escritura: '',
+    nombre_notario: '',
+    comuna_notaria: '',
+    nombre_encargado_proyecto: '',
+    telefono_encargado_proyecto: '',
+    email_encargado_proyecto: '',
+    nombre_contacto_administrativo: '',
+    telefono_contacto_administrativo: '',
+    email_contacto_administrativo: ''
   });
 
   useEffect(() => {
@@ -618,6 +663,160 @@ export default function SchoolsManagement() {
     }
   };
 
+  const handleEditCliente = async (clienteId: string) => {
+    try {
+      // Fetch full client data
+      const { data: cliente, error } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('id', clienteId)
+        .single();
+
+      if (error || !cliente) {
+        toast.error('Cliente no encontrado');
+        return;
+      }
+
+      setEditingCliente(cliente);
+      setClienteForm({
+        nombre_legal: cliente.nombre_legal || '',
+        nombre_fantasia: cliente.nombre_fantasia || '',
+        rut: cliente.rut || '',
+        direccion: cliente.direccion || '',
+        comuna: cliente.comuna || '',
+        ciudad: cliente.ciudad || '',
+        nombre_representante: cliente.nombre_representante || '',
+        rut_representante: cliente.rut_representante || '',
+        fecha_escritura: cliente.fecha_escritura || '',
+        nombre_notario: cliente.nombre_notario || '',
+        comuna_notaria: cliente.comuna_notaria || '',
+        nombre_encargado_proyecto: cliente.nombre_encargado_proyecto || '',
+        telefono_encargado_proyecto: cliente.telefono_encargado_proyecto || '',
+        email_encargado_proyecto: cliente.email_encargado_proyecto || '',
+        nombre_contacto_administrativo: cliente.nombre_contacto_administrativo || '',
+        telefono_contacto_administrativo: cliente.telefono_contacto_administrativo || '',
+        email_contacto_administrativo: cliente.email_contacto_administrativo || ''
+      });
+      setShowClientEditModal(true);
+    } catch (error) {
+      console.error('Error fetching client:', error);
+      toast.error('Error al cargar datos del cliente');
+    }
+  };
+
+  const handleSaveCliente = async () => {
+    // Validate required fields
+    if (!clienteForm.nombre_legal.trim()) {
+      toast.error('El nombre legal es requerido');
+      return;
+    }
+    if (!clienteForm.nombre_fantasia.trim()) {
+      toast.error('El nombre de fantasía es requerido');
+      return;
+    }
+    if (!clienteForm.rut.trim()) {
+      toast.error('El RUT es requerido');
+      return;
+    }
+    if (!validateRut(clienteForm.rut)) {
+      toast.error('El RUT no es válido');
+      return;
+    }
+    if (!clienteForm.direccion.trim()) {
+      toast.error('La dirección es requerida');
+      return;
+    }
+    if (!clienteForm.nombre_representante.trim()) {
+      toast.error('El nombre del representante legal es requerido');
+      return;
+    }
+    if (!clienteForm.rut_representante.trim()) {
+      toast.error('El RUT del representante legal es requerido');
+      return;
+    }
+    if (!validateRut(clienteForm.rut_representante)) {
+      toast.error('El RUT del representante legal no es válido');
+      return;
+    }
+
+    if (!editingCliente) {
+      toast.error('No hay cliente seleccionado para editar');
+      return;
+    }
+
+    try {
+      // Check if RUT is being changed and if it's already in use by another client
+      if (clienteForm.rut !== editingCliente.rut) {
+        const { data: existingCliente, error: checkError } = await supabase
+          .from('clientes')
+          .select('id')
+          .eq('rut', clienteForm.rut)
+          .neq('id', editingCliente.id)
+          .maybeSingle();
+
+        if (checkError) throw checkError;
+
+        if (existingCliente) {
+          toast.error('Ya existe otro cliente con este RUT');
+          return;
+        }
+      }
+
+      // Check if editing a client with contracts
+      const { data: contracts, error: contractsError } = await supabase
+        .from('contratos')
+        .select('id')
+        .eq('cliente_id', editingCliente.id);
+
+      if (contractsError) throw contractsError;
+
+      if (contracts && contracts.length > 0) {
+        const confirmEdit = confirm(
+          `Este cliente tiene ${contracts.length} contrato(s) asociado(s).\n\n` +
+          `Los cambios afectarán los contratos existentes.\n\n` +
+          `¿Desea continuar?`
+        );
+
+        if (!confirmEdit) return;
+      }
+
+      // Update client
+      const { error: updateError } = await supabase
+        .from('clientes')
+        .update({
+          nombre_legal: clienteForm.nombre_legal.trim(),
+          nombre_fantasia: clienteForm.nombre_fantasia.trim(),
+          rut: clienteForm.rut.trim(),
+          direccion: clienteForm.direccion.trim(),
+          comuna: clienteForm.comuna.trim() || null,
+          ciudad: clienteForm.ciudad.trim() || null,
+          nombre_representante: clienteForm.nombre_representante.trim(),
+          rut_representante: clienteForm.rut_representante.trim(),
+          fecha_escritura: clienteForm.fecha_escritura || null,
+          nombre_notario: clienteForm.nombre_notario.trim() || null,
+          comuna_notaria: clienteForm.comuna_notaria.trim() || null,
+          nombre_encargado_proyecto: clienteForm.nombre_encargado_proyecto.trim() || null,
+          telefono_encargado_proyecto: clienteForm.telefono_encargado_proyecto.trim() || null,
+          email_encargado_proyecto: clienteForm.email_encargado_proyecto.trim() || null,
+          nombre_contacto_administrativo: clienteForm.nombre_contacto_administrativo.trim() || null,
+          telefono_contacto_administrativo: clienteForm.telefono_contacto_administrativo.trim() || null,
+          email_contacto_administrativo: clienteForm.email_contacto_administrativo.trim() || null
+        })
+        .eq('id', editingCliente.id);
+
+      if (updateError) throw updateError;
+
+      toast.success('Cliente actualizado exitosamente');
+      setShowClientEditModal(false);
+      setEditingCliente(null);
+      fetchClientes();
+      fetchSchools();
+    } catch (error) {
+      console.error('Error updating client:', error);
+      toast.error('Error al actualizar cliente: ' + (error as Error).message);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <MainLayout
@@ -700,9 +899,18 @@ export default function SchoolsManagement() {
                           </span>
                         )}
                         {school.cliente_id && (
-                          <span className="inline-block mt-2 ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
-                            <FileText size={12} className="inline mr-1" />
-                            Cliente vinculado
+                          <span className="inline-flex items-center mt-2 ml-2">
+                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
+                              <FileText size={12} className="inline mr-1" />
+                              Cliente vinculado
+                            </span>
+                            <button
+                              onClick={() => handleEditCliente(school.cliente_id!)}
+                              className="ml-1 p-1 text-green-600 hover:text-green-800 transition-colors"
+                              title="Editar cliente"
+                            >
+                              <Edit2 size={12} />
+                            </button>
                           </span>
                         )}
                       </div>
@@ -1039,7 +1247,7 @@ export default function SchoolsManagement() {
             <h2 className="text-xl font-bold text-[#00365b] mb-4">
               Vincular Cliente a {linkingSchool?.name}
             </h2>
-            
+
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Seleccionar Cliente
@@ -1066,6 +1274,277 @@ export default function SchoolsManagement() {
                 className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Client Edit Modal */}
+      {showClientEditModal && editingCliente && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-[#00365b] mb-4">
+              Editar Cliente: {editingCliente.nombre_fantasia}
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Información Legal */}
+              <div className="col-span-2">
+                <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2">Información Legal</h3>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre Legal *
+                </label>
+                <input
+                  type="text"
+                  value={clienteForm.nombre_legal}
+                  onChange={(e) => setClienteForm({ ...clienteForm, nombre_legal: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="Nombre legal de la organización"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre de Fantasía *
+                </label>
+                <input
+                  type="text"
+                  value={clienteForm.nombre_fantasia}
+                  onChange={(e) => setClienteForm({ ...clienteForm, nombre_fantasia: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="Nombre comercial"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  RUT *
+                </label>
+                <input
+                  type="text"
+                  value={clienteForm.rut}
+                  onChange={(e) => setClienteForm({ ...clienteForm, rut: formatRut(e.target.value) })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="XX.XXX.XXX-X"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dirección *
+                </label>
+                <input
+                  type="text"
+                  value={clienteForm.direccion}
+                  onChange={(e) => setClienteForm({ ...clienteForm, direccion: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="Dirección completa"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Comuna
+                </label>
+                <input
+                  type="text"
+                  value={clienteForm.comuna}
+                  onChange={(e) => setClienteForm({ ...clienteForm, comuna: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="Comuna"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Ciudad
+                </label>
+                <input
+                  type="text"
+                  value={clienteForm.ciudad}
+                  onChange={(e) => setClienteForm({ ...clienteForm, ciudad: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="Ciudad"
+                />
+              </div>
+
+              {/* Representante Legal */}
+              <div className="col-span-2 mt-4">
+                <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2">Representante Legal</h3>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre Representante Legal *
+                </label>
+                <input
+                  type="text"
+                  value={clienteForm.nombre_representante}
+                  onChange={(e) => setClienteForm({ ...clienteForm, nombre_representante: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="Nombre completo"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  RUT Representante Legal *
+                </label>
+                <input
+                  type="text"
+                  value={clienteForm.rut_representante}
+                  onChange={(e) => setClienteForm({ ...clienteForm, rut_representante: formatRut(e.target.value) })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="XX.XXX.XXX-X"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Fecha Escritura
+                </label>
+                <input
+                  type="date"
+                  value={clienteForm.fecha_escritura}
+                  onChange={(e) => setClienteForm({ ...clienteForm, fecha_escritura: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre Notario
+                </label>
+                <input
+                  type="text"
+                  value={clienteForm.nombre_notario}
+                  onChange={(e) => setClienteForm({ ...clienteForm, nombre_notario: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="Nombre del notario"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Comuna Notaría
+                </label>
+                <input
+                  type="text"
+                  value={clienteForm.comuna_notaria}
+                  onChange={(e) => setClienteForm({ ...clienteForm, comuna_notaria: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="Comuna de la notaría"
+                />
+              </div>
+
+              {/* Encargado de Proyecto */}
+              <div className="col-span-2 mt-4">
+                <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2">Encargado de Proyecto</h3>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre Encargado
+                </label>
+                <input
+                  type="text"
+                  value={clienteForm.nombre_encargado_proyecto}
+                  onChange={(e) => setClienteForm({ ...clienteForm, nombre_encargado_proyecto: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="Nombre completo"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Teléfono Encargado
+                </label>
+                <input
+                  type="tel"
+                  value={clienteForm.telefono_encargado_proyecto}
+                  onChange={(e) => setClienteForm({ ...clienteForm, telefono_encargado_proyecto: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="+56 9 XXXX XXXX"
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Encargado
+                </label>
+                <input
+                  type="email"
+                  value={clienteForm.email_encargado_proyecto}
+                  onChange={(e) => setClienteForm({ ...clienteForm, email_encargado_proyecto: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="email@ejemplo.com"
+                />
+              </div>
+
+              {/* Contacto Administrativo */}
+              <div className="col-span-2 mt-4">
+                <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2">Contacto Administrativo</h3>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre Contacto
+                </label>
+                <input
+                  type="text"
+                  value={clienteForm.nombre_contacto_administrativo}
+                  onChange={(e) => setClienteForm({ ...clienteForm, nombre_contacto_administrativo: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="Nombre completo"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Teléfono Contacto
+                </label>
+                <input
+                  type="tel"
+                  value={clienteForm.telefono_contacto_administrativo}
+                  onChange={(e) => setClienteForm({ ...clienteForm, telefono_contacto_administrativo: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="+56 9 XXXX XXXX"
+                />
+              </div>
+
+              <div className="col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Contacto
+                </label>
+                <input
+                  type="email"
+                  value={clienteForm.email_contacto_administrativo}
+                  onChange={(e) => setClienteForm({ ...clienteForm, email_contacto_administrativo: e.target.value })}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  placeholder="email@ejemplo.com"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowClientEditModal(false);
+                  setEditingCliente(null);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSaveCliente}
+                className="px-4 py-2 bg-[#fdb933] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+              >
+                Guardar Cambios
               </button>
             </div>
           </div>

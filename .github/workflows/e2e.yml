@@ -260,7 +260,6 @@ jobs:
     name: Accessibility Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: secrets.TEST_SUPABASE_URL != ''
 
     steps:
       - name: Checkout code
@@ -278,15 +277,28 @@ jobs:
       - name: Install Playwright
         run: npx playwright install chromium --with-deps
 
+      - name: Validate test environment
+        id: validate-env
+        continue-on-error: true
+        run: |
+          if [ -z "${{ secrets.TEST_SUPABASE_URL }}" ]; then
+            echo "⚠️ TEST_SUPABASE_URL not configured - skipping accessibility tests"
+            exit 1
+          fi
+          echo "✅ Test environment configured"
+
       - name: Build application
+        if: steps.validate-env.outcome == 'success'
         run: npm run build
 
       - name: Start application
+        if: steps.validate-env.outcome == 'success'
         run: |
           npm run start &
           npx wait-on http://localhost:3000 --timeout 60000
 
       - name: Run accessibility tests
+        if: steps.validate-env.outcome == 'success'
         run: npx playwright test --project=accessibility
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}

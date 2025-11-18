@@ -72,6 +72,13 @@ export default function DocumentGrid({
 }: DocumentGridProps) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = () => setActiveDropdown(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+
   // Icon mapping for file types
   const getFileIcon = (mimeType: string) => {
     const iconName = getFileTypeIcon(mimeType);
@@ -523,13 +530,6 @@ export default function DocumentGrid({
       </div>
     );
   }
-
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = () => setActiveDropdown(null);
-    document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
-  }, []);
 
   // Grid view
   if (viewMode === 'grid') {

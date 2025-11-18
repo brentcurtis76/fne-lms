@@ -28,7 +28,7 @@ const DeleteCourseModal: React.FC<DeleteCourseModalProps> = ({ isOpen, onClose, 
           Confirmar Eliminación
         </h2>
         <p className="text-sm md:text-base text-gray-700 mb-1">
-          ¿Estás seguro de que quieres eliminar el curso "<span className="font-bold">{courseTitle}</span>"?
+          ¿Estás seguro de que quieres eliminar el curso &quot;<span className="font-bold">{courseTitle}</span>&quot;?
         </p>
         <p className="text-sm text-gray-600 mb-6">
           Esta acción no se puede deshacer directamente. El curso y todo su contenido asociado se moverán a tablas de respaldo.
@@ -36,7 +36,7 @@ const DeleteCourseModal: React.FC<DeleteCourseModalProps> = ({ isOpen, onClose, 
         
         <div className="mb-6">
           <label htmlFor="confirmationInput" className="block text-sm font-medium text-gray-700 mb-1">
-            Para confirmar, escribe "<span className="font-bold text-red-600">Eliminar</span>" en el campo de abajo:
+            Para confirmar, escribe &quot;<span className="font-bold text-red-600">Eliminar</span>&quot; en el campo de abajo:
           </label>
           <input
             type="text"

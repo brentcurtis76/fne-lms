@@ -542,7 +542,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         return () => document.removeEventListener('mousedown', handleClickOutside);
       }
     }, [showCollapsedMenu]);
-    
+
     // Filter children based on admin status and permissions
     const filteredChildren = item.children?.filter(child => {
       // Check admin-only restriction
@@ -567,15 +567,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
       return true;
     }) || [];
-    
+
     const hasChildren = filteredChildren.length > 0;
     const isActive = item.href ? isItemActive(item.href, router.pathname) : false;
 
-    // Don't render parent items that have children but all children are filtered out
-    if (item.children && !hasChildren && !item.href) {
-      return null;
-    }
-
+    // Define handleClick callback (must be before conditional return to avoid hooks rule violation)
     const handleClick = useCallback(async () => {
       if (isCollapsed && hasChildren) {
         // In collapsed state, toggle the floating menu
@@ -591,7 +587,12 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
           console.error('Navigation error in sidebar:', err);
         }
       }
-    }, [isCollapsed, hasChildren, showCollapsedMenu, item.id, item.href, toggleExpanded, router]);
+    }, [isCollapsed, hasChildren, showCollapsedMenu, item.id, item.href]);
+
+    // Don't render parent items that have children but all children are filtered out
+    if (item.children && !hasChildren && !item.href) {
+      return null;
+    }
 
     return (
       <div className="relative">

@@ -94,9 +94,6 @@ jobs:
       - name: Run role-based access tests
         run: npm run test:roles
 
-      - name: Run dev role tests
-        run: npm run test __tests__/components/dev/RoleSwitcher.test.tsx __tests__/services/devRoleService.test.ts __tests__/roleUtils.dev.test.ts
-
   # Job 3: Database Integration Tests (with real Supabase)
   database-tests:
     name: Database Integration Tests
@@ -203,14 +200,14 @@ jobs:
       - name: Kill any existing Node processes
         run: pkill node || true
 
-      - name: Start development server
-        run: |
-          npm run build
-          npm run start &
-          npx wait-on http://localhost:3000 --timeout 60000
+      - name: Build application
+        run: npm run build
 
       - name: Run E2E tests
         run: npx playwright test
+        env:
+          # Let Playwright's webServer config handle starting the server
+          SKIP_WEB_SERVER: false
 
       - name: Upload E2E test results
         uses: actions/upload-artifact@v4

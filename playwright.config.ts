@@ -146,9 +146,9 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: process.env.SKIP_WEB_SERVER ? undefined : {
-    command: 'NODE_ENV=test next dev',
+    command: process.env.CI ? 'npm run start' : 'NODE_ENV=test next dev',
     url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
     timeout: 120 * 1000,
   },
 

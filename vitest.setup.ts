@@ -229,14 +229,49 @@ vi.mock('./lib/notificationService', () => ({
   }
 }));
 
+// NOTE: Canvas module handling for tests
+// Canvas is an optional peer dependency of jsdom and html2canvas. In test environments,
+// we intentionally do NOT install the canvas module because:
+//
+// 1. vi.mock() cannot intercept native binary loading - Node.js loads canvas.node before Vitest can mock it
+// 2. The native canvas binary frequently has Node.js version mismatches causing "Module did not self-register" errors
+// 3. html2canvas and jsdom gracefully degrade without canvas - tests run fine
+// 4. Production/staging environments can install canvas if server-side PDF/image generation is needed
+//
+// To test canvas-dependent features, mock html2canvas or the specific component methods rather
+// than trying to mock the native canvas module itself.
+
+// Store original implementations to restore after each test
+const originalGlobals: {
+  window?: {
+    location?: PropertyDescriptor;
+    screen?: PropertyDescriptor;
+    innerWidth?: PropertyDescriptor;
+    innerHeight?: PropertyDescriptor;
+    navigator?: PropertyDescriptor;
+  };
+  document?: {
+    referrer?: PropertyDescriptor;
+  };
+} = {};
+
 // Reset all mocks before each test
 beforeEach(() => {
   vi.clearAllMocks();
   // Reset any fake timers
   vi.useRealTimers();
 
-  // Mock window.location and other browser APIs after jsdom initializes
+  // Save original browser API implementations before mocking
   if (typeof window !== 'undefined') {
+    originalGlobals.window = {
+      location: Object.getOwnPropertyDescriptor(window, 'location'),
+      screen: Object.getOwnPropertyDescriptor(window, 'screen'),
+      innerWidth: Object.getOwnPropertyDescriptor(window, 'innerWidth'),
+      innerHeight: Object.getOwnPropertyDescriptor(window, 'innerHeight'),
+      navigator: Object.getOwnPropertyDescriptor(window, 'navigator')
+    };
+
+    // Mock window.location and other browser APIs after jsdom initializes
     Object.defineProperty(window, 'location', {
       value: {
         href: 'https://test.example.com/page',
@@ -278,6 +313,10 @@ beforeEach(() => {
   }
 
   if (typeof document !== 'undefined') {
+    originalGlobals.document = {
+      referrer: Object.getOwnPropertyDescriptor(document, 'referrer')
+    };
+
     Object.defineProperty(document, 'referrer', {
       value: 'https://test.example.com',
       writable: true,
@@ -290,4 +329,27 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+
+  // Restore original browser API implementations
+  if (typeof window !== 'undefined' && originalGlobals.window) {
+    if (originalGlobals.window.location) {
+      Object.defineProperty(window, 'location', originalGlobals.window.location);
+    }
+    if (originalGlobals.window.screen) {
+      Object.defineProperty(window, 'screen', originalGlobals.window.screen);
+    }
+    if (originalGlobals.window.innerWidth) {
+      Object.defineProperty(window, 'innerWidth', originalGlobals.window.innerWidth);
+    }
+    if (originalGlobals.window.innerHeight) {
+      Object.defineProperty(window, 'innerHeight', originalGlobals.window.innerHeight);
+    }
+    if (originalGlobals.window.navigator) {
+      Object.defineProperty(window, 'navigator', originalGlobals.window.navigator);
+    }
+  }
+
+  if (typeof document !== 'undefined' && originalGlobals.document?.referrer) {
+    Object.defineProperty(document, 'referrer', originalGlobals.document.referrer);
+  }
 });

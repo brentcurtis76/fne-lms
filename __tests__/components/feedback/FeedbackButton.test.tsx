@@ -3,31 +3,31 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
 import FeedbackButton from '../../../components/feedback/FeedbackButton';
-import { renderWithAct, flushPromises, setupTimers } from '../../utils/test-utils';
+import { render, flushPromises, setupTimers } from '../../utils/test-utils';
 
 describe('FeedbackButton', () => {
   it('renders the floating button', async () => {
-    await renderWithAct(<FeedbackButton />);
+    await render(<FeedbackButton />);
     const button = screen.getByRole('button', { name: /enviar feedback/i });
     expect(button).toBeInTheDocument();
   });
 
   it('has correct styling classes', async () => {
-    await renderWithAct(<FeedbackButton />);
+    await render(<FeedbackButton />);
     const button = screen.getByRole('button');
     expect(button).toHaveClass('fixed', 'bottom-6', 'right-6', 'z-40');
     expect(button).toHaveClass('bg-[#fdb933]');
   });
 
   it('contains the MessageCircle icon', async () => {
-    const { container } = await renderWithAct(<FeedbackButton />);
+    const { container } = await render(<FeedbackButton />);
     const icon = container.querySelector('svg');
     expect(icon).toBeInTheDocument();
     expect(icon).toHaveClass('w-6', 'h-6');
   });
 
   it('opens feedback modal when clicked', async () => {
-    await renderWithAct(<FeedbackButton />);
+    await render(<FeedbackButton />);
     const button = screen.getByRole('button');
     
     // Modal should not be visible initially
@@ -44,13 +44,13 @@ describe('FeedbackButton', () => {
   });
 
   it('has pulse animation class', async () => {
-    await renderWithAct(<FeedbackButton />);
+    await render(<FeedbackButton />);
     const button = screen.getByRole('button');
     expect(button).toHaveClass('animate-pulse');
   });
 
   it('removes pulse animation after interaction', async () => {
-    await renderWithAct(<FeedbackButton />);
+    await render(<FeedbackButton />);
     const button = screen.getByRole('button');
     
     // Initially has pulse animation

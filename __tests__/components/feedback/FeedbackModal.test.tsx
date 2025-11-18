@@ -6,7 +6,7 @@ import { vi } from 'vitest';
 import { toast } from 'react-hot-toast';
 import FeedbackModal from '../../../components/feedback/FeedbackModal';
 
-import { renderWithAct, flushPromises, createMockFile } from '../../utils/test-utils';
+import { render, flushPromises, createMockFile } from '../../utils/test-utils';
 
 // Mock @supabase/auth-helpers-react
 vi.mock('@supabase/auth-helpers-react', () => ({
@@ -89,37 +89,37 @@ describe('FeedbackModal', () => {
   });
 
   it('does not render when closed', async () => {
-    await renderWithAct(<FeedbackModal isOpen={false} onClose={mockOnClose} />);
+    await render(<FeedbackModal isOpen={false} onClose={mockOnClose} />);
     expect(screen.queryByText(/¿Qué sucedió?/)).not.toBeInTheDocument();
   });
 
   it('renders when open', async () => {
-    await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     expect(screen.getByText(/¿Qué sucedió?/)).toBeInTheDocument();
   });
 
   it('has description textarea', async () => {
-    await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     const textarea = screen.getByPlaceholderText(/El botón no funciona cuando/);
     expect(textarea).toBeInTheDocument();
     expect(textarea.tagName).toBe('TEXTAREA');
   });
 
   it('has type selector buttons', async () => {
-    await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     expect(screen.getByRole('button', { name: /problema/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /idea/i })).toBeInTheDocument();
   });
 
   it('has screenshot upload area', async () => {
-    await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     expect(screen.getByText(/Adjuntar captura/)).toBeInTheDocument();
     expect(screen.getByText(/Arrastra una imagen/)).toBeInTheDocument();
   });
 
   it('updates type when buttons are clicked', async () => {
     const user = userEvent.setup();
-    await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     
     const bugButton = screen.getByRole('button', { name: /problema/i });
     const ideaButton = screen.getByRole('button', { name: /idea/i });
@@ -145,7 +145,7 @@ describe('FeedbackModal', () => {
 
   it('updates description when typing', async () => {
     const user = userEvent.setup();
-    await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     
     const textarea = screen.getByPlaceholderText(/El botón no funciona cuando/);
     
@@ -159,7 +159,7 @@ describe('FeedbackModal', () => {
 
   it('shows error when submitting empty description', async () => {
     const user = userEvent.setup();
-    await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     
     // Submit button should be disabled when no description
     const submitButton = screen.getByRole('button', { name: /enviar/i });
@@ -178,7 +178,7 @@ describe('FeedbackModal', () => {
   });
 
   it('handles file selection', async () => {
-    const { container } = await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    const { container } = await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     
     const file = createMockFile('test.jpg', 1024, 'image/jpeg');
     
@@ -205,7 +205,7 @@ describe('FeedbackModal', () => {
   });
 
   it('rejects files larger than 5MB', async () => {
-    const { container } = await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    const { container } = await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     
     // Create a file larger than 5MB  
     const largeFile = createMockFile('large.jpg', 6 * 1024 * 1024, 'image/jpeg');
@@ -229,7 +229,7 @@ describe('FeedbackModal', () => {
 
   it('closes modal when close button is clicked', async () => {
     const user = userEvent.setup();
-    await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     
     // Find the X close button in the header
     const modalHeader = screen.getByText(/¿Qué sucedió?/).closest('div');
@@ -249,7 +249,7 @@ describe('FeedbackModal', () => {
 
   it('closes modal when cancel button is clicked', async () => {
     const user = userEvent.setup();
-    await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     
     const cancelButton = screen.getByRole('button', { name: /cancelar/i });
     
@@ -319,7 +319,7 @@ describe('FeedbackModal', () => {
     // Override the useSupabaseClient mock for this test
     vi.mocked(useSupabaseClient).mockReturnValue(mockSupabaseClient as any);
     
-    await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
     
     const textarea = screen.getByPlaceholderText(/El botón no funciona cuando/);
     const submitButton = screen.getByRole('button', { name: /enviar/i });
@@ -383,7 +383,7 @@ describe('FeedbackModal', () => {
 
     vi.mocked(useSupabaseClient).mockReturnValue(mockSupabaseClient as any);
 
-    await renderWithAct(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
+    await render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
 
     const textarea = screen.getByPlaceholderText(/El botón no funciona cuando/);
     const submitButton = screen.getByRole('button', { name: /enviar/i });

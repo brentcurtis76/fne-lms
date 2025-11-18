@@ -179,7 +179,7 @@ jobs:
     name: End-to-End Tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && secrets.NEXT_PUBLIC_SUPABASE_URL != ''
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - name: Checkout code
@@ -197,13 +197,26 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps
 
+      - name: Validate test environment
+        id: validate-env
+        continue-on-error: true
+        run: |
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
+            echo "⚠️ NEXT_PUBLIC_SUPABASE_URL not configured - skipping E2E tests"
+            exit 1
+          fi
+          echo "✅ Test environment configured"
+
       - name: Kill any existing Node processes
+        if: steps.validate-env.outcome == 'success'
         run: pkill node || true
 
       - name: Build application
+        if: steps.validate-env.outcome == 'success'
         run: npm run build
 
       - name: Run E2E tests
+        if: steps.validate-env.outcome == 'success'
         run: npx playwright test
         env:
           # Let Playwright's webServer config handle starting the server

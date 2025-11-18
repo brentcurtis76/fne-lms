@@ -12,6 +12,22 @@ vi.mock('../../../lib/supabase-wrapper', () => ({
   }
 }));
 
+// Helper to create chainable query builder mock
+function createChainableMock(finalData) {
+  const chain = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    in: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue(finalData)
+  };
+  // Make the final method resolve with data
+  chain.order.mockResolvedValue(finalData);
+  chain.in.mockResolvedValue(finalData);
+  chain.eq.mockResolvedValue(finalData);
+  return chain;
+}
+
 describe('getAllAssignmentsForAdmin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -19,21 +35,16 @@ describe('getAllAssignmentsForAdmin', () => {
 
   describe('Role-based access control', () => {
     it('should return empty array for non-admin/consultant users', async () => {
-      // Mock profile query
-      const mockFrom = vi.fn().mockReturnValue({
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({
-              data: { role: 'docente' },
-              error: null
-            })
-          })
-        })
+      // Mock user_roles query - needs to support .select().eq().eq()
+      const userRolesChain = createChainableMock({
+        data: [{ role_type: 'docente' }],
+        error: null
       });
-      vi.mocked(supabase.from).mockImplementation(mockFrom);
+
+      vi.mocked(supabase.from).mockReturnValue(userRolesChain);
 
       const result = await groupAssignmentsV2Service.getAllAssignmentsForAdmin('user-123');
-      
+
       expect(result).toEqual({
         assignments: [],
         total: 0,

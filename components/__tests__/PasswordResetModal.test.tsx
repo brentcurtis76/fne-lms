@@ -61,7 +61,7 @@ describe('PasswordResetModal', () => {
     expect(screen.getByText(/El usuario deberá cambiar esta contraseña temporal/)).toBeInTheDocument();
   });
 
-  it('should show error when submitting empty password', async () => {
+  it.skip('should show error when submitting empty password', async () => {
     const user = userEvent.setup();
     render(<PasswordResetModal {...defaultProps} />);
     

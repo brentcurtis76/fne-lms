@@ -26,9 +26,9 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './'),
-      'canvas': path.resolve(__dirname, './tests/mocks/canvas.ts'),
-    },
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, './') },
+      { find: /^canvas(\/.*)?$/, replacement: path.resolve(__dirname, './tests/mocks/canvas.ts') },
+    ],
   },
 });

@@ -82,10 +82,11 @@ describe('FeedbackModal', () => {
     vi.mocked(useSupabaseClient).mockReturnValue(mockSupabaseClient as any);
     
     // Mock the fetch API for admin notifications
-    vi.mocked(global.fetch).mockResolvedValue({
+    const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ success: true, notificationsCreated: 1 }),
     } as Response);
+    global.fetch = fetchMock as any;
   });
 
   it('does not render when closed', async () => {

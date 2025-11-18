@@ -40,14 +40,14 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './'),
-      '@/config': path.resolve(__dirname, './config'),
-      '@/components': path.resolve(__dirname, './components'),
-      '@/lib': path.resolve(__dirname, './lib'),
-      '@/types': path.resolve(__dirname, './types'),
-      '@/utils': path.resolve(__dirname, './utils'),
-      'canvas': path.resolve(__dirname, './tests/mocks/canvas.ts'),
-    },
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, './') },
+      { find: '@/config', replacement: path.resolve(__dirname, './config') },
+      { find: '@/components', replacement: path.resolve(__dirname, './components') },
+      { find: '@/lib', replacement: path.resolve(__dirname, './lib') },
+      { find: '@/types', replacement: path.resolve(__dirname, './types') },
+      { find: '@/utils', replacement: path.resolve(__dirname, './utils') },
+      { find: /^canvas(\/.*)?$/, replacement: path.resolve(__dirname, './tests/mocks/canvas.ts') },
+    ],
   },
 });

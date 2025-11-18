@@ -102,7 +102,7 @@ jobs:
     name: Database Integration Tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'test-database')) && secrets.TEST_SUPABASE_URL != ''
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'test-database')
 
     steps:
       - name: Checkout code
@@ -118,21 +118,25 @@ jobs:
         run: npm ci
 
       - name: Validate test environment
+        id: validate-env
+        continue-on-error: true
         run: |
           if [ -z "${{ secrets.TEST_SUPABASE_URL }}" ]; then
-            echo "❌ TEST_SUPABASE_URL not configured"
+            echo "⚠️ TEST_SUPABASE_URL not configured - skipping database tests"
             exit 1
           fi
           if [ -z "${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}" ]; then
-            echo "❌ TEST_SUPABASE_SERVICE_ROLE_KEY not configured"
+            echo "⚠️ TEST_SUPABASE_SERVICE_ROLE_KEY not configured - skipping database tests"
             exit 1
           fi
           echo "✅ Test environment configured"
 
       - name: Run database integration tests
+        if: steps.validate-env.outcome == 'success'
         run: npm run test __tests__/integration/feedback-system.test.ts
 
       - name: Run quiz submission tests
+        if: steps.validate-env.outcome == 'success'
         run: npm run test __tests__/quizSubmission.integration.test.ts
 
       - name: Clean up test data

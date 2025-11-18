@@ -39,53 +39,6 @@ vi.mock('react-hot-toast', () => ({
   Toaster: () => null
 }));
 
-// Mock window.location and other browser APIs
-if (typeof window !== 'undefined') {
-  Object.defineProperty(window, 'location', {
-    value: {
-      href: 'https://test.example.com/page',
-      search: '',
-      pathname: '/page'
-    },
-    writable: true
-  });
-
-  // Mock window.screen
-  Object.defineProperty(window, 'screen', {
-    value: {
-      width: 1920,
-      height: 1080
-    }
-  });
-
-  // Mock window.innerWidth/innerHeight
-  Object.defineProperty(window, 'innerWidth', {
-    value: 1200,
-    writable: true
-  });
-
-  Object.defineProperty(window, 'innerHeight', {
-    value: 800,
-    writable: true
-  });
-
-  // Mock navigator
-  Object.defineProperty(window, 'navigator', {
-    value: {
-      userAgent: 'Test User Agent',
-      language: 'en-US',
-      platform: 'Test Platform'
-    }
-  });
-}
-
-// Mock document.referrer
-if (typeof document !== 'undefined') {
-  Object.defineProperty(document, 'referrer', {
-    value: 'https://test.example.com',
-    writable: true
-  });
-}
 
 // Mock FileReader with immediate callback
 if (typeof FileReader === 'undefined') {
@@ -281,6 +234,56 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Reset any fake timers
   vi.useRealTimers();
+
+  // Mock window.location and other browser APIs after jsdom initializes
+  if (typeof window !== 'undefined') {
+    Object.defineProperty(window, 'location', {
+      value: {
+        href: 'https://test.example.com/page',
+        search: '',
+        pathname: '/page'
+      },
+      writable: true,
+      configurable: true
+    });
+
+    Object.defineProperty(window, 'screen', {
+      value: {
+        width: 1920,
+        height: 1080
+      },
+      configurable: true
+    });
+
+    Object.defineProperty(window, 'innerWidth', {
+      value: 1200,
+      writable: true,
+      configurable: true
+    });
+
+    Object.defineProperty(window, 'innerHeight', {
+      value: 800,
+      writable: true,
+      configurable: true
+    });
+
+    Object.defineProperty(window, 'navigator', {
+      value: {
+        userAgent: 'Test User Agent',
+        language: 'en-US',
+        platform: 'Test Platform'
+      },
+      configurable: true
+    });
+  }
+
+  if (typeof document !== 'undefined') {
+    Object.defineProperty(document, 'referrer', {
+      value: 'https://test.example.com',
+      writable: true,
+      configurable: true
+    });
+  }
 });
 
 // Runs a cleanup after each test case (e.g., clearing jsdom)

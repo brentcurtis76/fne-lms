@@ -101,3 +101,4 @@ run-*.mjs
 # Backups
 /backups/
 .vercel
+node_modules/canvas

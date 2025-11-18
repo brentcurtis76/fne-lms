@@ -4,10 +4,10 @@ import path from 'path';
 export default defineConfig({
   test: {
     name: 'Role-Based Access Integration Tests',
-    environment: 'node',
+    environment: 'jsdom',
     globals: true,
     include: ['__tests__/integration/**/*.test.{ts,tsx,js,jsx}'],
-    setupFiles: [],
+    setupFiles: ['./vitest.setup.ts'],
     coverage: {
       enabled: false,
       provider: 'v8'

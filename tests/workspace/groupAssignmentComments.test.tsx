@@ -208,10 +208,12 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
         };
       }
       if (table === 'community_threads') {
-        return {
-          select: vi.fn().mockReturnThis(),
+        const threadQuery = {
           eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: { id: `thread-for-assignment-1` }, error: null })
+          single: vi.fn().mockResolvedValue({ data: { id: 'mock-thread-id' }, error: null })
+        };
+        return {
+          select: vi.fn().mockReturnValue(threadQuery)
         };
       }
       if (table === 'community_messages') {
@@ -221,10 +223,14 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
           })
         };
       }
-      return {
-        select: vi.fn().mockReturnThis(),
+      const defaultQuery = {
         eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({ data: {}, error: null })
+      };
+      return {
+        select: vi.fn().mockReturnValue(defaultQuery),
+        eq: vi.fn().mockReturnValue(defaultQuery),
+        single: vi.fn().mockResolvedValue({ data: {}, error: null }),
       };
     });
 
@@ -233,9 +239,12 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
       assignments: mockAssignments, 
       error: null 
     });
-    (groupAssignmentsV2Service as any).getOrCreateGroup.mockImplementation((assignmentId: string) => ({
-      group: { id: `group-for-${assignmentId}` }
-    }));
+    (groupAssignmentsV2Service as any).getOrCreateGroup.mockImplementation((assignmentId: string) =>
+      Promise.resolve({
+        group: { id: `group-for-${assignmentId}` },
+        error: null
+      })
+    );
   });
   const mockRouter = {
     push: vi.fn(),

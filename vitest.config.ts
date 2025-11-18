@@ -47,6 +47,7 @@ export default defineConfig({
       '@/lib': path.resolve(__dirname, './lib'),
       '@/types': path.resolve(__dirname, './types'),
       '@/utils': path.resolve(__dirname, './utils'),
+      'canvas': path.resolve(__dirname, './tests/mocks/canvas.ts'),
     },
   },
 });

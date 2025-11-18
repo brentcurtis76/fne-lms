@@ -37,7 +37,7 @@ export default function FeedbackButton({ className = '' }: FeedbackButtonProps) 
 
       {/* Tooltip on first load */}
       {!hasInteracted && (
-        <div className="fixed bottom-24 right-6 z-40 bg-gray-800 text-white text-sm rounded-lg px-3 py-2 pointer-events-none animate-fade-in">
+        <div className="fixed bottom-24 right-6 z-40 bg-gray-800 text-white text-sm rounded-lg px-3 py-2 pointer-events-none animate-[fadeIn_0.3s_ease-out]">
           <div className="relative">
             ¿Encontraste un problema? ¡Cuéntanos!
             <div className="absolute -bottom-2 right-4 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-gray-800"></div>
@@ -50,23 +50,6 @@ export default function FeedbackButton({ className = '' }: FeedbackButtonProps) 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
-
-      <style jsx>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-      `}</style>
     </>
   );
 }

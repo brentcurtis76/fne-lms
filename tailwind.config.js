@@ -13,6 +13,18 @@ module.exports = {
         mont: ['Mont', 'sans-serif'], // Kept for now, but new UI should use default sans
         eames: ['Eames Century Modern', 'serif'], // Kept for now, but new UI should use default sans
       },
+      keyframes: {
+        fadeIn: {
+          from: {
+            opacity: '0',
+            transform: 'translateY(10px)',
+          },
+          to: {
+            opacity: '1',
+            transform: 'translateY(0)',
+          },
+        },
+      },
     },
   },
   plugins: [

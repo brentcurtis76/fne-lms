@@ -9,7 +9,8 @@ export default defineConfig({
     include: ['__tests__/integration/**/*.test.{ts,tsx,js,jsx}'],
     setupFiles: [],
     coverage: {
-      enabled: false
+      enabled: false,
+      provider: 'v8'
     }
   },
   resolve: {

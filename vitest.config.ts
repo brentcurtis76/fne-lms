@@ -30,14 +30,10 @@ export default defineConfig({
         '**/coverage/**',
         '**/.next/**'
       ],
-      thresholds: {
-        global: {
-          branches: 70,
-          functions: 70,
-          lines: 80,
-          statements: 80
-        }
-      }
+      branches: 70,
+      functions: 70,
+      lines: 80,
+      statements: 80
     },
   },
   resolve: {

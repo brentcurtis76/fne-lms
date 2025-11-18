@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
@@ -6,10 +7,10 @@ import { toast } from 'react-hot-toast';
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
 
 // Mock dependencies
-jest.mock('react-hot-toast');
-jest.mock('../../lib/services/groupAssignmentsV2');
-jest.mock('../../lib/supabase');
-jest.mock('../../components/assignments/GroupSubmissionModalV2', () => {
+vi.mock('react-hot-toast');
+vi.mock('../../lib/services/groupAssignmentsV2');
+vi.mock('../../lib/supabase');
+vi.mock('../../components/assignments/GroupSubmissionModalV2', () => {
   return function MockGroupSubmissionModal({ onClose, onSubmit }) {
     return (
       <div data-testid="submission-modal">
@@ -26,7 +27,7 @@ let GroupAssignmentsContent;
 // Dynamic import to handle the component being part of workspace.tsx
 beforeAll(async () => {
   // Mock the workspace imports
-  jest.doMock('../../pages/community/workspace.tsx', () => {
+  vi.doMock('../../pages/community/workspace.tsx', () => {
     const React = require('react');
     const { useState, useEffect } = React;
     const { supabase } = require('../../lib/supabase');
@@ -274,13 +275,13 @@ describe('GroupAssignmentsContent', () => {
   ];
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Setup default mocks
-    supabase.from.mockImplementation(() => ({
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      single: jest.fn().mockResolvedValue({
+    vi.mocked(supabase.from).mockImplementation(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
         data: { role: 'docente' },
         error: null
       })
@@ -342,10 +343,10 @@ describe('GroupAssignmentsContent', () => {
       }
     ];
 
-    supabase.from.mockImplementation(() => ({
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      single: jest.fn().mockResolvedValue({
+    vi.mocked(supabase.from).mockImplementation(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
         data: { role: 'consultor' },
         error: null
       })
@@ -409,10 +410,10 @@ describe('GroupAssignmentsContent', () => {
   });
 
   it('should not allow assignment click for consultants', async () => {
-    supabase.from.mockImplementation(() => ({
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      single: jest.fn().mockResolvedValue({
+    vi.mocked(supabase.from).mockImplementation(() => ({
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      single: vi.fn().mockResolvedValue({
         data: { role: 'consultor' },
         error: null
       })

@@ -88,7 +88,7 @@ describe('groupAssignmentsV2Service', () => {
       supabase.auth.getUser.mockResolvedValue({ data: { user: mockUser } });
       
       // Mock profile query
-      supabase.from.mockImplementation((table) => {
+      vi.mocked(supabase.from).mockImplementation((table) => {
         if (table === 'user_profiles') {
           return {
             select: vi.fn().mockReturnThis(),
@@ -120,7 +120,7 @@ describe('groupAssignmentsV2Service', () => {
         eq: vi.fn().mockReturnThis()
       };
       
-      supabase.from.mockImplementation((table) => {
+      vi.mocked(supabase.from).mockImplementation((table) => {
         if (table === 'user_profiles') {
           return {
             select: vi.fn().mockReturnThis(),
@@ -208,7 +208,7 @@ describe('groupAssignmentsV2Service', () => {
     });
 
     it('returns empty array when no lessons found', async () => {
-      supabase.from.mockImplementation((table) => {
+      vi.mocked(supabase.from).mockImplementation((table) => {
         if (table === 'user_profiles') {
           return {
             select: vi.fn().mockReturnThis(),
@@ -271,7 +271,7 @@ describe('groupAssignmentsV2Service', () => {
         }
       ];
 
-      supabase.from.mockImplementation((table) => {
+      vi.mocked(supabase.from).mockImplementation((table) => {
         if (table === 'user_profiles') {
           return {
             select: vi.fn().mockReturnThis(),
@@ -346,7 +346,7 @@ describe('groupAssignmentsV2Service', () => {
         }
       ];
 
-      supabase.from.mockImplementation((table) => {
+      vi.mocked(supabase.from).mockImplementation((table) => {
         if (table === 'user_profiles') {
           return {
             select: vi.fn().mockReturnThis(),
@@ -423,7 +423,7 @@ describe('groupAssignmentsV2Service', () => {
         })
       };
 
-      supabase.from.mockImplementation((table) => {
+      vi.mocked(supabase.from).mockImplementation((table) => {
         if (table === 'group_assignment_members') {
           return {
             select: vi.fn().mockReturnThis(),
@@ -474,7 +474,7 @@ describe('groupAssignmentsV2Service', () => {
         insert: vi.fn().mockResolvedValue({ data: {}, error: null })
       };
 
-      supabase.from.mockImplementation((table) => {
+      vi.mocked(supabase.from).mockImplementation((table) => {
         if (table === 'group_assignment_members') {
           return {
             select: vi.fn().mockReturnThis(),

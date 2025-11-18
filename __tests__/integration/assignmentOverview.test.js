@@ -1,13 +1,14 @@
+import { vi } from 'vitest';
 import { createMockData, cleanupMockData } from '../utils/testHelpers';
 import { groupAssignmentsV2Service } from '../../lib/services/groupAssignmentsV2';
 import { supabase } from '../../lib/supabase-wrapper';
 
 // Mock Supabase for integration tests
-jest.mock('../../lib/supabase-wrapper', () => ({
+vi.mock('../../lib/supabase-wrapper', () => ({
   supabase: {
-    from: jest.fn(),
+    from: vi.fn(),
     auth: {
-      getUser: jest.fn()
+      getUser: vi.fn()
     }
   }
 }));
@@ -16,7 +17,7 @@ describe('Assignment Overview Integration Tests', () => {
   let mockData;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockData = createTestData();
   });
 
@@ -196,12 +197,12 @@ function createTestData() {
 
 function cleanupTestData() {
   // Reset mocks
-  jest.clearAllMocks();
+  vi.clearAllMocks();
 }
 
 // Mock setup functions
 function setupMocksForAdmin(data) {
-  const mockFrom = jest.fn();
+  const mockFrom = vi.fn();
   let callCount = 0;
 
   mockFrom.mockImplementation((table) => {
@@ -210,9 +211,9 @@ function setupMocksForAdmin(data) {
     // Profile query
     if (callCount === 1) {
       return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { role: 'admin' },
               error: null
             })
@@ -224,8 +225,8 @@ function setupMocksForAdmin(data) {
     // Courses query
     if (callCount === 2) {
       return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: data.courses,
             error: null
           })
@@ -236,9 +237,9 @@ function setupMocksForAdmin(data) {
     // Lessons query
     if (callCount === 3) {
       return {
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({
               data: data.lessons,
               error: null
             })
@@ -250,9 +251,9 @@ function setupMocksForAdmin(data) {
     // Blocks query
     if (callCount === 4) {
       return {
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            in: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({
               data: data.blocks,
               error: null
             })
@@ -270,8 +271,8 @@ function setupMocksForAdmin(data) {
       const submissions = data.submissions.filter(s => s.assignment_id === assignmentId);
       
       return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: submissions,
             error: null
           })
@@ -281,9 +282,9 @@ function setupMocksForAdmin(data) {
     
     // Group queries
     return {
-      select: jest.fn().mockReturnValue({
-        in: jest.fn().mockReturnValue({
-          limit: jest.fn().mockResolvedValue({
+      select: vi.fn().mockReturnValue({
+        in: vi.fn().mockReturnValue({
+          limit: vi.fn().mockResolvedValue({
             data: [{ 
               community_id: 'comm-1', 
               community: data.communities.find(c => c.id === 'comm-1')
@@ -295,11 +296,11 @@ function setupMocksForAdmin(data) {
     };
   });
 
-  supabase.from.mockImplementation(mockFrom);
+  vi.mocked(supabase.from).mockImplementation(mockFrom);
 }
 
 function setupMocksForAdminWithSchoolFilter(data) {
-  const mockFrom = jest.fn();
+  const mockFrom = vi.fn();
   let callCount = 0;
 
   mockFrom.mockImplementation(() => {
@@ -308,9 +309,9 @@ function setupMocksForAdminWithSchoolFilter(data) {
     // Profile query
     if (callCount === 1) {
       return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { role: 'admin' },
               error: null
             })
@@ -322,8 +323,8 @@ function setupMocksForAdminWithSchoolFilter(data) {
     // Courses query
     if (callCount === 2) {
       return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: data.courses,
             error: null
           })
@@ -334,8 +335,8 @@ function setupMocksForAdminWithSchoolFilter(data) {
     // Communities filter query
     if (callCount === 3) {
       return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: data.communities.filter(c => c.school_id === 'school-1'),
             error: null
           })
@@ -345,9 +346,9 @@ function setupMocksForAdminWithSchoolFilter(data) {
 
     // Continue with filtered results...
     return {
-      select: jest.fn().mockReturnValue({
-        in: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+      select: vi.fn().mockReturnValue({
+        in: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: [],
             error: null
           })
@@ -356,11 +357,11 @@ function setupMocksForAdminWithSchoolFilter(data) {
     };
   });
 
-  supabase.from.mockImplementation(mockFrom);
+  vi.mocked(supabase.from).mockImplementation(mockFrom);
 }
 
 function setupMocksForConsultant(data) {
-  const mockFrom = jest.fn();
+  const mockFrom = vi.fn();
   let callCount = 0;
 
   mockFrom.mockImplementation(() => {
@@ -369,9 +370,9 @@ function setupMocksForConsultant(data) {
     // Profile query
     if (callCount === 1) {
       return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { role: 'consultor' },
               error: null
             })
@@ -383,9 +384,9 @@ function setupMocksForConsultant(data) {
     // Consultant assignments
     if (callCount === 2) {
       return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
               data: [
                 { student_id: 'student-1', community_id: 'comm-2' }
               ],
@@ -398,9 +399,9 @@ function setupMocksForConsultant(data) {
 
     // Limited results based on consultant assignments
     return {
-      select: jest.fn().mockReturnValue({
-        in: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+      select: vi.fn().mockReturnValue({
+        in: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: [],
             error: null
           })
@@ -409,7 +410,7 @@ function setupMocksForConsultant(data) {
     };
   });
 
-  supabase.from.mockImplementation(mockFrom);
+  vi.mocked(supabase.from).mockImplementation(mockFrom);
 }
 
 function setupMocksForPagination(data) {
@@ -424,7 +425,7 @@ function setupMocksForPagination(data) {
     });
   }
 
-  const mockFrom = jest.fn();
+  const mockFrom = vi.fn();
   let callCount = 0;
 
   mockFrom.mockImplementation(() => {
@@ -432,9 +433,9 @@ function setupMocksForPagination(data) {
     
     if (callCount === 1) {
       return {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { role: 'admin' },
               error: null
             })
@@ -445,9 +446,9 @@ function setupMocksForPagination(data) {
 
     if (callCount === 4) {
       return {
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            in: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({
               data: manyBlocks,
               error: null
             })
@@ -458,9 +459,9 @@ function setupMocksForPagination(data) {
 
     // Default mock response
     return {
-      select: jest.fn().mockReturnValue({
-        in: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+      select: vi.fn().mockReturnValue({
+        in: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: [],
             error: null
           })
@@ -469,7 +470,7 @@ function setupMocksForPagination(data) {
     };
   });
 
-  supabase.from.mockImplementation(mockFrom);
+  vi.mocked(supabase.from).mockImplementation(mockFrom);
 }
 
 function setupMocksWithSubmissions(data) {

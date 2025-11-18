@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import {
   getAvailableSchools,
   getAvailableCommunitiesForSchool,
@@ -9,15 +10,15 @@ import {
 import { supabase } from '../../lib/supabase-wrapper';
 
 // Mock Supabase
-jest.mock('../../lib/supabase-wrapper', () => ({
+vi.mock('../../lib/supabase-wrapper', () => ({
   supabase: {
-    from: jest.fn()
+    from: vi.fn()
   }
 }));
 
 describe('Assignment Filters Utilities', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('getAvailableSchools', () => {
@@ -27,10 +28,10 @@ describe('Assignment Filters Utilities', () => {
         { id: 'school-2', name: 'School B' }
       ];
 
-      const mockFrom = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue({
+      const mockFrom = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({
               data: mockSchools,
               error: null
             })
@@ -38,7 +39,7 @@ describe('Assignment Filters Utilities', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await getAvailableSchools('admin-123', 'admin');
 
@@ -53,11 +54,11 @@ describe('Assignment Filters Utilities', () => {
         { school_id: 'school-2', school: { id: 'school-2', name: 'School B' } }
       ];
 
-      const mockFrom = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              not: jest.fn().mockResolvedValue({
+      const mockFrom = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              not: vi.fn().mockResolvedValue({
                 data: mockAssignments,
                 error: null
               })
@@ -66,7 +67,7 @@ describe('Assignment Filters Utilities', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await getAvailableSchools('consultant-123', 'consultor');
 
@@ -82,10 +83,10 @@ describe('Assignment Filters Utilities', () => {
     });
 
     it('should handle errors gracefully', async () => {
-      const mockFrom = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue({
+      const mockFrom = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({
               data: null,
               error: new Error('Database error')
             })
@@ -93,7 +94,7 @@ describe('Assignment Filters Utilities', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await getAvailableSchools('admin-123', 'admin');
       expect(result).toEqual([]);
@@ -107,11 +108,11 @@ describe('Assignment Filters Utilities', () => {
         { id: 'comm-2', name: 'Community B', school_id: 'school-1' }
       ];
 
-      const mockFrom = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              order: jest.fn().mockResolvedValue({
+      const mockFrom = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({
                 data: mockCommunities,
                 error: null
               })
@@ -120,7 +121,7 @@ describe('Assignment Filters Utilities', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await getAvailableCommunitiesForSchool('admin-123', 'admin', 'school-1');
 
@@ -138,14 +139,14 @@ describe('Assignment Filters Utilities', () => {
         { id: 'comm-2', name: 'Community B', school_id: 'school-1' }
       ];
 
-      const mockFrom = jest.fn();
+      const mockFrom = vi.fn();
       
       // First call - consultant assignments
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              not: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              not: vi.fn().mockResolvedValue({
                 data: mockAssignments,
                 error: null
               })
@@ -156,11 +157,11 @@ describe('Assignment Filters Utilities', () => {
 
       // Second call - communities
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              in: jest.fn().mockReturnValue({
-                order: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              in: vi.fn().mockReturnValue({
+                order: vi.fn().mockResolvedValue({
                   data: mockCommunities,
                   error: null
                 })
@@ -170,7 +171,7 @@ describe('Assignment Filters Utilities', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await getAvailableCommunitiesForSchool('consultant-123', 'consultor', 'school-1');
 
@@ -183,10 +184,10 @@ describe('Assignment Filters Utilities', () => {
         { id: 'comm-2', name: 'Community B', school_id: 'school-2' }
       ];
 
-      const mockFrom = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue({
+      const mockFrom = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({
               data: mockCommunities,
               error: null
             })
@@ -194,7 +195,7 @@ describe('Assignment Filters Utilities', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await getAvailableCommunitiesForSchool('admin-123', 'admin', null);
 
@@ -209,10 +210,10 @@ describe('Assignment Filters Utilities', () => {
     });
 
     it('should return empty array if school has no generations', async () => {
-      const mockFrom = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+      const mockFrom = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { has_generations: false },
               error: null
             })
@@ -220,7 +221,7 @@ describe('Assignment Filters Utilities', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await getAvailableGenerationsForSchool('admin-123', 'admin', 'school-1');
       expect(result).toEqual([]);
@@ -232,13 +233,13 @@ describe('Assignment Filters Utilities', () => {
         { id: 'gen-2', name: 'Generation 2024' }
       ];
 
-      const mockFrom = jest.fn();
+      const mockFrom = vi.fn();
 
       // School query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { has_generations: true },
               error: null
             })
@@ -248,10 +249,10 @@ describe('Assignment Filters Utilities', () => {
 
       // Generations query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              order: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              order: vi.fn().mockResolvedValue({
                 data: mockGenerations,
                 error: null
               })
@@ -260,7 +261,7 @@ describe('Assignment Filters Utilities', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await getAvailableGenerationsForSchool('admin-123', 'admin', 'school-1');
       expect(result).toEqual(mockGenerations);
@@ -275,13 +276,13 @@ describe('Assignment Filters Utilities', () => {
         { id: 'gen-1', name: 'Generation 2023' }
       ];
 
-      const mockFrom = jest.fn();
+      const mockFrom = vi.fn();
 
       // School query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { has_generations: true },
               error: null
             })
@@ -291,11 +292,11 @@ describe('Assignment Filters Utilities', () => {
 
       // Consultant assignments query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              eq: jest.fn().mockReturnValue({
-                not: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                not: vi.fn().mockResolvedValue({
                   data: mockAssignments,
                   error: null
                 })
@@ -307,11 +308,11 @@ describe('Assignment Filters Utilities', () => {
 
       // Generations query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({
-              in: jest.fn().mockReturnValue({
-                order: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              in: vi.fn().mockReturnValue({
+                order: vi.fn().mockResolvedValue({
                   data: mockGenerations,
                   error: null
                 })
@@ -321,7 +322,7 @@ describe('Assignment Filters Utilities', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await getAvailableGenerationsForSchool('consultant-123', 'consultor', 'school-1');
       expect(result).toEqual(mockGenerations);

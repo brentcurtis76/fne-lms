@@ -1,35 +1,36 @@
+import { vi } from 'vitest';
 import { groupAssignmentsV2Service } from '../../../lib/services/groupAssignmentsV2';
 import { supabase } from '../../../lib/supabase-wrapper';
 
 // Mock Supabase
-jest.mock('../../../lib/supabase-wrapper', () => ({
+vi.mock('../../../lib/supabase-wrapper', () => ({
   supabase: {
-    from: jest.fn(),
+    from: vi.fn(),
     auth: {
-      getUser: jest.fn()
+      getUser: vi.fn()
     }
   }
 }));
 
 describe('getAllAssignmentsForAdmin', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('Role-based access control', () => {
     it('should return empty array for non-admin/consultant users', async () => {
       // Mock profile query
-      const mockFrom = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+      const mockFrom = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { role: 'docente' },
               error: null
             })
           })
         })
       });
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await groupAssignmentsV2Service.getAllAssignmentsForAdmin('user-123');
       
@@ -42,13 +43,13 @@ describe('getAllAssignmentsForAdmin', () => {
 
     it('should allow access for admin users', async () => {
       // Mock profile query
-      const mockFrom = jest.fn();
+      const mockFrom = vi.fn();
       
       // Profile query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { role: 'admin' },
               error: null
             })
@@ -58,8 +59,8 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Courses query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: [{ id: 'course-1' }, { id: 'course-2' }],
             error: null
           })
@@ -68,9 +69,9 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Lessons query  
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({
               data: [],
               error: null
             })
@@ -80,9 +81,9 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Blocks query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            in: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({
               data: [],
               error: null
             })
@@ -90,7 +91,7 @@ describe('getAllAssignmentsForAdmin', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await groupAssignmentsV2Service.getAllAssignmentsForAdmin('admin-123');
       
@@ -100,13 +101,13 @@ describe('getAllAssignmentsForAdmin', () => {
 
     it('should filter courses for consultant users based on assignments', async () => {
       // Mock profile query
-      const mockFrom = jest.fn();
+      const mockFrom = vi.fn();
       
       // Profile query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { role: 'consultor' },
               error: null
             })
@@ -116,9 +117,9 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Consultant assignments query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
               data: [
                 { student_id: 'student-1', community_id: 'comm-1' },
                 { student_id: 'student-2', community_id: 'comm-1' }
@@ -131,8 +132,8 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Course assignments query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({
             data: [{ course_id: 'course-1' }],
             error: null
           })
@@ -141,9 +142,9 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // User roles query (for getStudentsInCommunities)
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
               data: [{ user_id: 'student-3' }],
               error: null
             })
@@ -153,8 +154,8 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Course enrollments query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({
             data: [{ course_id: 'course-2' }],
             error: null
           })
@@ -163,9 +164,9 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Lessons query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({
               data: [],
               error: null
             })
@@ -175,9 +176,9 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Blocks query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            in: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({
               data: [],
               error: null
             })
@@ -185,7 +186,7 @@ describe('getAllAssignmentsForAdmin', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await groupAssignmentsV2Service.getAllAssignmentsForAdmin('consultant-123');
       
@@ -196,13 +197,13 @@ describe('getAllAssignmentsForAdmin', () => {
 
   describe('Filtering functionality', () => {
     const setupMocksForFiltering = () => {
-      const mockFrom = jest.fn();
+      const mockFrom = vi.fn();
       
       // Profile query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { role: 'admin' },
               error: null
             })
@@ -212,8 +213,8 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Courses query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: [{ id: 'course-1' }, { id: 'course-2' }],
             error: null
           })
@@ -228,8 +229,8 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Communities filtered by school
       const communityQuery = {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: [{ id: 'comm-1' }],
             error: null
           })
@@ -240,9 +241,9 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Get students in communities
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
               data: [{ user_id: 'student-1' }],
               error: null
             })
@@ -252,8 +253,8 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Course enrollments
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({
             data: [{ course_id: 'course-1' }],
             error: null
           })
@@ -262,9 +263,9 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Lessons query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({
               data: [],
               error: null
             })
@@ -274,9 +275,9 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Blocks query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            in: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({
               data: [],
               error: null
             })
@@ -284,7 +285,7 @@ describe('getAllAssignmentsForAdmin', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const filters = { school_id: 'school-1' };
       await groupAssignmentsV2Service.getAllAssignmentsForAdmin('admin-123', filters);
@@ -298,8 +299,8 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Communities filtered by ID
       const communityQuery = {
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: [{ id: 'comm-1' }],
             error: null
           })
@@ -310,9 +311,9 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Get students in communities
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
               data: [{ user_id: 'student-1' }],
               error: null
             })
@@ -322,8 +323,8 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Course enrollments
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockResolvedValue({
             data: [{ course_id: 'course-1' }],
             error: null
           })
@@ -332,9 +333,9 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Lessons query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({
               data: [],
               error: null
             })
@@ -344,9 +345,9 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Blocks query
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            in: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({
               data: [],
               error: null
             })
@@ -354,7 +355,7 @@ describe('getAllAssignmentsForAdmin', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const filters = { community_id: 'comm-1' };
       await groupAssignmentsV2Service.getAllAssignmentsForAdmin('admin-123', filters);
@@ -366,13 +367,13 @@ describe('getAllAssignmentsForAdmin', () => {
 
   describe('Pagination', () => {
     it('should paginate results correctly', async () => {
-      const mockFrom = jest.fn();
+      const mockFrom = vi.fn();
       
       // Setup basic mocks
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { role: 'admin' },
               error: null
             })
@@ -381,8 +382,8 @@ describe('getAllAssignmentsForAdmin', () => {
       });
 
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: [{ id: 'course-1' }],
             error: null
           })
@@ -396,9 +397,9 @@ describe('getAllAssignmentsForAdmin', () => {
       ];
 
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({
               data: mockLessons,
               error: null
             })
@@ -414,9 +415,9 @@ describe('getAllAssignmentsForAdmin', () => {
       ];
 
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            in: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({
               data: mockBlocks,
               error: null
             })
@@ -427,8 +428,8 @@ describe('getAllAssignmentsForAdmin', () => {
       // Mock submission queries
       for (let i = 0; i < 3; i++) {
         mockFrom.mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            eq: jest.fn().mockResolvedValue({
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockResolvedValue({
               data: [],
               error: null
             })
@@ -436,7 +437,7 @@ describe('getAllAssignmentsForAdmin', () => {
         });
       }
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       // Test first page
       const page1 = await groupAssignmentsV2Service.getAllAssignmentsForAdmin('admin-123', {}, 2, 0);
@@ -450,13 +451,13 @@ describe('getAllAssignmentsForAdmin', () => {
     });
 
     it('should return empty array when offset exceeds total', async () => {
-      const mockFrom = jest.fn();
+      const mockFrom = vi.fn();
       
       // Setup basic mocks
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { role: 'admin' },
               error: null
             })
@@ -465,8 +466,8 @@ describe('getAllAssignmentsForAdmin', () => {
       });
 
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: [{ id: 'course-1' }],
             error: null
           })
@@ -474,9 +475,9 @@ describe('getAllAssignmentsForAdmin', () => {
       });
 
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            order: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({
               data: [],
               error: null
             })
@@ -485,9 +486,9 @@ describe('getAllAssignmentsForAdmin', () => {
       });
 
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          in: jest.fn().mockReturnValue({
-            in: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          in: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({
               data: [],
               error: null
             })
@@ -495,7 +496,7 @@ describe('getAllAssignmentsForAdmin', () => {
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await groupAssignmentsV2Service.getAllAssignmentsForAdmin('admin-123', {}, 50, 100);
       
@@ -506,10 +507,10 @@ describe('getAllAssignmentsForAdmin', () => {
 
   describe('Error handling', () => {
     it('should handle profile fetch errors', async () => {
-      const mockFrom = jest.fn().mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+      const mockFrom = vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: null,
               error: new Error('Profile not found')
             })
@@ -517,7 +518,7 @@ describe('getAllAssignmentsForAdmin', () => {
         })
       });
       
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await groupAssignmentsV2Service.getAllAssignmentsForAdmin('user-123');
       
@@ -527,13 +528,13 @@ describe('getAllAssignmentsForAdmin', () => {
     });
 
     it('should handle course fetch errors gracefully', async () => {
-      const mockFrom = jest.fn();
+      const mockFrom = vi.fn();
       
       // Profile query succeeds
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
               data: { role: 'admin' },
               error: null
             })
@@ -543,15 +544,15 @@ describe('getAllAssignmentsForAdmin', () => {
 
       // Courses query fails
       mockFrom.mockReturnValueOnce({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({
             data: null,
             error: new Error('Courses fetch failed')
           })
         })
       });
 
-      supabase.from.mockImplementation(mockFrom);
+      vi.mocked(supabase.from).mockImplementation(mockFrom);
 
       const result = await groupAssignmentsV2Service.getAllAssignmentsForAdmin('admin-123');
       

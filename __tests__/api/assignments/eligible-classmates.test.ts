@@ -13,7 +13,13 @@ vi.mock('@supabase/auth-helpers-nextjs', () => ({
   createPagesServerClient: vi.fn()
 }));
 
+// Mock @supabase/supabase-js to prevent network calls
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: vi.fn()
+}));
+
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 
 describe('/api/assignments/eligible-classmates', () => {
   let req: Partial<NextApiRequest>;
@@ -47,7 +53,9 @@ describe('/api/assignments/eligible-classmates', () => {
       single: vi.fn().mockReturnThis()
     };
 
+    // Mock both createPagesServerClient and createClient to return the same mock
     vi.mocked(createPagesServerClient).mockReturnValue(mockSupabase);
+    vi.mocked(createClient).mockReturnValue(mockSupabase);
   });
 
   describe('Authentication', () => {

@@ -198,38 +198,49 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
     vi.clearAllMocks();
     vi.mocked(useSupabaseClient).mockReturnValue(mockSupabase as any);
 
-    // Default implementation for supabase.from
     mockFrom.mockImplementation((table: string) => {
       if (table === 'profiles') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: { role: 'docente' }, error: null })
-        };
+        const builder: any = {};
+        builder.eq = vi.fn().mockImplementation(() => builder);
+        builder.select = vi.fn().mockImplementation(() => builder);
+        builder.single = vi.fn().mockResolvedValue({
+          data: { role: 'docente' },
+          error: null,
+        });
+        return builder;
       }
       if (table === 'community_threads') {
-        const threadQuery = {
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: { id: 'mock-thread-id' }, error: null })
-        };
         return {
-          select: vi.fn().mockReturnValue(threadQuery)
+          select: vi.fn().mockImplementation(() => ({
+            eq: vi.fn().mockImplementation(() => ({
+              eq: vi.fn().mockImplementation(() => ({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'mock-thread-id' },
+                  error: null,
+                }),
+              })),
+            })),
+          })),
         };
       }
       if (table === 'community_messages') {
         return {
-          select: vi.fn().mockReturnValue({ 
-            eq: vi.fn().mockResolvedValue({ count: 5, error: null })
-          })
+          select: vi.fn().mockImplementation(() => ({
+            eq: vi.fn().mockResolvedValue({
+              data: null,
+              count: 5,
+              error: null,
+            }),
+          })),
         };
       }
-      const defaultQuery = {
-        eq: vi.fn().mockReturnThis(),
-        single: vi.fn().mockResolvedValue({ data: {}, error: null })
-      };
+      const builder: any = {};
+      builder.eq = vi.fn().mockImplementation(() => builder);
+      builder.select = vi.fn().mockImplementation(() => builder);
+      builder.single = vi.fn().mockResolvedValue({ data: {}, error: null });
       return {
-        select: vi.fn().mockReturnValue(defaultQuery),
-        eq: vi.fn().mockReturnValue(defaultQuery),
+        select: vi.fn().mockReturnValue(builder),
+        eq: vi.fn().mockReturnValue(builder),
         single: vi.fn().mockResolvedValue({ data: {}, error: null }),
       };
     });
@@ -290,11 +301,11 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
   beforeEach(() => {
     // Reset all mocks
     vi.clearAllMocks();
-    
+
     // Setup router mock
     (useRouter as any).mockReturnValue(mockRouter);
-    
-    // Setup default supabase mocks
+
+    // Setup default supabase mocks - match the first beforeEach pattern
     const fromMock = vi.fn((table: string) => {
       if (table === 'profiles') {
         return {
@@ -305,15 +316,27 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
       }
       if (table === 'community_threads') {
         return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn()
+          select: vi.fn().mockImplementation(() => ({
+            eq: vi.fn().mockImplementation(() => ({
+              eq: vi.fn().mockImplementation(() => ({
+                single: vi.fn().mockResolvedValue({
+                  data: { id: 'mock-thread-id' },
+                  error: null,
+                }),
+              })),
+            })),
+          })),
         };
       }
       if (table === 'community_messages') {
         return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis()
+          select: vi.fn().mockImplementation(() => ({
+            eq: vi.fn().mockResolvedValue({
+              data: null,
+              count: 5,
+              error: null,
+            }),
+          })),
         };
       }
       return {
@@ -324,13 +347,13 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
     });
 
     mockFrom.mockImplementation(fromMock);
-    
+
     // Setup groupAssignmentsV2Service mocks
     (groupAssignmentsV2Service.getGroupAssignmentsForUser as any).mockResolvedValue({
       assignments: mockAssignments,
       error: null
     });
-    
+
     (groupAssignmentsV2Service.getOrCreateGroup as any).mockImplementation((assignmentId) => {
       return Promise.resolve({ group: mockGroups.get(assignmentId), error: null });
     });

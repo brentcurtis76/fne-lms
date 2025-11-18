@@ -16,8 +16,13 @@ export default defineConfig({
         '**/*.d.ts',
         '**/node_modules/**',
       ],
-      // Vitest 0.34.6 doesn't support thresholds in coverage config
-      // Coverage thresholds are enforced during CI/CD review process
+      // @ts-ignore - Vitest 0.34.6 supports thresholds but TypeScript types don't reflect it
+      thresholds: {
+        statements: 80,
+        branches: 80,
+        functions: 80,
+        lines: 80,
+      },
     },
   },
   resolve: {

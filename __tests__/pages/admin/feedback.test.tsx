@@ -6,7 +6,7 @@ import '@testing-library/jest-dom';
 import { useRouter } from 'next/router';
 import { vi } from 'vitest';
 import FeedbackDashboard from '../../../pages/admin/feedback';
-import { render, flushPromises, createMockFeedback } from '../../utils/test-utils';
+import { flushPromises, createMockFeedback } from '../../utils/test-utils';
 
 // Using global vitest mocks from vitest.setup.ts
 
@@ -152,7 +152,7 @@ describe('FeedbackDashboard', () => {
   });
 
   it('renders feedback data and stats after loading', async () => {
-    await render(<FeedbackDashboard />);
+    render(<FeedbackDashboard />);
 
     // Wait for loading to finish and check for final content
     await waitFor(() => {

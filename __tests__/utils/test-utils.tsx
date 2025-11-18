@@ -14,6 +14,9 @@ export const waitForStateUpdate = async (fn: () => Promise<void>) => {
   });
 };
 
+// Flush all pending promises
+export const flushPromises = () => new Promise(resolve => setImmediate(resolve));
+
 // Mock data factory
 export const createMockFeedback = (overrides: any = {}) => ({
   id: 'feedback-123',

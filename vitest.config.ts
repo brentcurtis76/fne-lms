@@ -11,7 +11,7 @@ export default defineConfig({
       '**/__tests__/**/*.{test,spec}.{js,ts,tsx}',
       '**/tests/**/*.{test,spec}.{js,ts,tsx}'
     ],
-    exclude: ['node_modules', 'node_modules.old', '.next', 'mcp-servers/**'],
+    exclude: ['node_modules', 'node_modules.old', '.next', 'mcp-servers/**', 'e2e/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

@@ -11,6 +11,16 @@ vi.mock('canvas', () => ({}));
 // pulls in pdfjs-dist and the native canvas bindings. We mock react-pdf at the
 // setup level so that any import resolves to lightweight stubs and never tries
 // to touch the native module.
+vi.mock('react-pdf', () => ({
+  Document: () => null,
+  Page: () => null,
+  pdfjs: {
+    GlobalWorkerOptions: {
+      workerSrc: ''
+    }
+  }
+}));
+
 vi.mock('@react-pdf/renderer', () => ({
   Document: ({ children }: any) => children ?? null,
   Page: () => null,
@@ -26,11 +36,3 @@ vi.mock('@react-pdf/renderer', () => ({
 
 vi.mock('react-pdf/dist/esm/Page/AnnotationLayer.css', () => ({}));
 vi.mock('react-pdf/dist/esm/Page/TextLayer.css', () => ({}));
-
-// Mock 'react-pdf' to prevent it from loading 'pdfjs-dist' and 'canvas'.
-// This is a more robust way to avoid the native module crash.
-vi.mock('react-pdf', () => ({
-  Document: ({ children }) => `<div>{children}</div>`,
-  Page: () => `<div></div>`,
-  pdfjs: { GlobalWorkerOptions: { workerSrc: '' } },
-}));

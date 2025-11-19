@@ -29,14 +29,14 @@ export default function ChangePasswordPage() {
   const checkAuth = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      
+
       if (!session?.user) {
         router.push('/login');
         return;
       }
 
       setUser(session.user);
-      
+
       // Check if user actually needs to change password
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
@@ -118,7 +118,7 @@ export default function ChangePasswordPage() {
       // and we need to use a workaround for first-time password changes
       if (updateError && (updateError as any).status === 422) {
         console.log('Secure password change detected, using admin endpoint for first-time change');
-        
+
         // Use the admin endpoint to bypass secure password change requirement
         const response = await fetch('/api/auth/force-password-change', {
           method: 'POST',
@@ -143,7 +143,7 @@ export default function ChangePasswordPage() {
       // Update the must_change_password flag
       const { error: profileError } = await supabase
         .from('profiles')
-        .update({ 
+        .update({
           must_change_password: false
         })
         .eq('id', user.id);
@@ -157,7 +157,7 @@ export default function ChangePasswordPage() {
       // Clear the admin reset metadata
       if (isAdminReset) {
         await supabase.auth.updateUser({
-          data: { 
+          data: {
             password_reset_by_admin: null,
             password_reset_at: null
           }
@@ -170,23 +170,23 @@ export default function ChangePasswordPage() {
         .select('first_name, last_name, school')
         .eq('id', user.id)
         .single();
-      
+
       let isProfileComplete = false;
-      
+
       if (checkError) {
         console.error('Could not check profile completion:', checkError);
         // On error, assume profile is incomplete and send to profile page
         toast.success('Contraseña actualizada exitosamente. Por favor completa tu perfil.');
       } else {
         isProfileComplete = profile?.first_name && profile?.last_name && profile?.school;
-        
+
         if (isProfileComplete) {
           toast.success('Contraseña actualizada exitosamente');
         } else {
           toast.success('Contraseña actualizada exitosamente. Ahora completa tu perfil.');
         }
       }
-      
+
       // Redirect based on profile completion status
       setTimeout(() => {
         if (isProfileComplete && !checkError) {
@@ -206,14 +206,14 @@ export default function ChangePasswordPage() {
         userEmail: user?.email,
         timestamp: new Date().toISOString()
       });
-      
+
       // Check for specific Supabase auth errors
-      if (error?.message?.includes('reauthentication required') || 
-          error?.message?.includes('New password should be different from the old password') ||
-          error?.code === 'same_password') {
+      if (error?.message?.includes('reauthentication required') ||
+        error?.message?.includes('New password should be different from the old password') ||
+        error?.code === 'same_password') {
         toast.error('Por favor usa una contraseña diferente a la anterior');
       } else if (error?.message?.includes('Password should be at least') ||
-                 error?.message?.includes('password')) {
+        error?.message?.includes('password')) {
         // Supabase might have its own password requirements
         toast.error('La contraseña no cumple con los requisitos de seguridad del sistema');
       } else if (error?.status === 422 || error?.message?.includes('auth')) {
@@ -222,7 +222,7 @@ export default function ChangePasswordPage() {
       } else {
         toast.error(error.message || 'Error al actualizar la contraseña. Por favor intenta nuevamente.');
       }
-      
+
       // Log to help identify the issue for this specific user
       if (user?.email === 'maritza.cortes@lisamvallenar.cl') {
         console.warn('DEBUG - Password change failed for maritza.cortes:', {
@@ -274,7 +274,7 @@ export default function ChangePasswordPage() {
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 inline-flex items-center gap-2">
               <ExclamationIcon className="w-5 h-5 text-yellow-600" />
               <p className="text-sm text-yellow-800">
-                {isAdminReset 
+                {isAdminReset
                   ? 'El administrador ha restablecido tu contraseña. Por seguridad, debes crear una nueva.'
                   : 'Por seguridad, debes cambiar tu contraseña en el primer inicio de sesión'
                 }

@@ -5,8 +5,8 @@ const { submitQuiz } = require('../../lib/services/quizSubmissions');
 require('dotenv').config();
 
 // Test configuration
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key';
 
 // Create service role client for test setup
 const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -246,7 +246,7 @@ describe.skip('Quiz Submissions Integration Test', () => {
     expect(retrievedSubmission).toBeDefined();
     expect(retrievedSubmission.id).toBe(submission.id);
     expect(retrievedSubmission.student_id).toBe(testStudent.id);
-    
+
     console.log('✅ Quiz submission test passed!');
     console.log('  - Quiz submitted successfully');
     console.log('  - Auto-grading worked correctly');
@@ -267,7 +267,7 @@ describe.skip('Quiz Submissions Integration Test', () => {
     // Assert: Should not be able to read other students' submissions
     expect(data).toBeNull();
     // RLS should silently filter out the record, not throw an error
-    
+
     console.log('✅ RLS security test passed!');
     console.log('  - Students cannot view submissions from other students');
   });

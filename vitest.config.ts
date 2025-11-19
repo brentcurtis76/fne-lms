@@ -51,6 +51,9 @@ export default defineConfig({
       // Add a more aggressive alias to catch deep imports of the native canvas bindings.
       // This redirects any attempt to load the problematic native module to an empty stub.
       { find: /canvas\/build\/Release\/canvas\.node$/, replacement: path.resolve(__dirname, './tests/mocks/empty.js') },
+      // Add an alias to prevent pdfjs-dist's worker from loading, which can also pull in canvas.
+      // This is a common source of native module errors in Vitest.
+      { find: /^pdfjs-dist\/build\/pdf\.worker\.entry$/, replacement: path.resolve(__dirname, './tests/mocks/empty.js') },
     ],
   },
 });

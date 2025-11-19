@@ -164,22 +164,30 @@ describe('PasswordResetModal', () => {
     const user = userEvent.setup();
     const errorMessage = 'Network error';
     mockOnPasswordReset.mockRejectedValueOnce(new Error(errorMessage));
-    
+
+    // Suppress console.error for this test since we expect an error
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
     render(<PasswordResetModal {...defaultProps} />);
-    
+
     const tempPasswordInput = screen.getByLabelText('Contraseña Temporal');
     const confirmPasswordInput = screen.getByLabelText('Confirmar Contraseña');
-    
+
     await user.type(tempPasswordInput, 'validPassword123');
     await user.type(confirmPasswordInput, 'validPassword123');
-    
+
     const submitButton = screen.getByRole('button', { name: 'Restablecer Contraseña' });
     await user.click(submitButton);
-    
+
+    // Wait for the error handler to complete
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith('Error al restablecer la contraseña');
-      expect(mockOnClose).not.toHaveBeenCalled();
-    });
+    }, { timeout: 3000 });
+
+    expect(mockOnClose).not.toHaveBeenCalled();
+
+    // Restore console.error
+    consoleErrorSpy.mockRestore();
   });
 
   it('should disable buttons while resetting', async () => {

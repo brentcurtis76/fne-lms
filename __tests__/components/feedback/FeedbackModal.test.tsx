@@ -3,10 +3,18 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
-import { toast } from 'react-hot-toast';
 import FeedbackModal from '../../../components/feedback/FeedbackModal';
 
 import { flushPromises, createMockFile } from '../../utils/test-utils';
+
+vi.mock('react-hot-toast', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+import { toast } from 'react-hot-toast';
 
 // Mock @supabase/auth-helpers-react
 vi.mock('@supabase/auth-helpers-react', () => ({
@@ -28,7 +36,7 @@ const mockToast = toast as any;
 
 describe('FeedbackModal', () => {
   const mockOnClose = vi.fn();
-  
+
   // Default mock supabase client
   const mockSupabaseClient = {
     auth: {
@@ -74,13 +82,13 @@ describe('FeedbackModal', () => {
       })
     }
   };
-  
+
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Set default mock for useSupabaseClient
     vi.mocked(useSupabaseClient).mockReturnValue(mockSupabaseClient as any);
-    
+
     // Mock the fetch API for admin notifications
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -121,20 +129,20 @@ describe('FeedbackModal', () => {
   it('updates type when buttons are clicked', async () => {
     const user = userEvent.setup();
     render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
-    
+
     const bugButton = screen.getByRole('button', { name: /problema/i });
     const ideaButton = screen.getByRole('button', { name: /idea/i });
-    
+
     // Initially feedback type should be default
     expect(bugButton).not.toHaveClass('bg-red-50');
-    
+
     // Click bug button
     await act(async () => {
       await user.click(bugButton);
       await flushPromises();
     });
     expect(bugButton).toHaveClass('bg-red-50');
-    
+
     // Click idea button
     await act(async () => {
       await user.click(ideaButton);
@@ -147,25 +155,25 @@ describe('FeedbackModal', () => {
   it('updates description when typing', async () => {
     const user = userEvent.setup();
     render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
-    
+
     const textarea = screen.getByPlaceholderText(/El botón no funciona cuando/);
-    
+
     await act(async () => {
       await user.type(textarea, 'Test description');
       await flushPromises();
     });
-    
+
     expect(textarea).toHaveValue('Test description');
   });
 
   it('shows error when submitting empty description', async () => {
     const user = userEvent.setup();
     render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
-    
+
     // Submit button should be disabled when no description
     const submitButton = screen.getByRole('button', { name: /enviar/i });
     expect(submitButton).toBeDisabled();
-    
+
     // Type something then clear it to trigger validation
     const textarea = screen.getByPlaceholderText(/El botón no funciona cuando/);
     await act(async () => {
@@ -173,21 +181,21 @@ describe('FeedbackModal', () => {
       await user.clear(textarea);
       await flushPromises();
     });
-    
+
     // Try to click submit (though it should be disabled)
     expect(submitButton).toBeDisabled();
   });
 
   it('handles file selection', async () => {
     const { container } = render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
-    
+
     const file = createMockFile('test.jpg', 1024, 'image/jpeg');
-    
+
     // Find the file input - it's hidden inside the upload div
     const fileInput = container.querySelector('input[type="file"]');
-    
+
     expect(fileInput).toBeInTheDocument();
-    
+
     if (fileInput) {
       await act(async () => {
         // Trigger the FileReader mock
@@ -197,7 +205,7 @@ describe('FeedbackModal', () => {
         await new Promise(resolve => setTimeout(resolve, 50));
       });
     }
-    
+
     // Should show file preview - look for the preview image
     await waitFor(() => {
       const previewImage = screen.queryByAltText('Preview');
@@ -207,22 +215,22 @@ describe('FeedbackModal', () => {
 
   it('rejects files larger than 5MB', async () => {
     const { container } = render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
-    
+
     // Create a file larger than 5MB  
     const largeFile = createMockFile('large.jpg', 6 * 1024 * 1024, 'image/jpeg');
-    
+
     // Find the file input using container query
     const fileInput = container.querySelector('input[type="file"]');
-    
+
     expect(fileInput).toBeInTheDocument();
-    
+
     if (fileInput) {
       await act(async () => {
         fireEvent.change(fileInput, { target: { files: [largeFile] } });
         await flushPromises();
       });
     }
-    
+
     await waitFor(() => {
       expect(mockToast.error).toHaveBeenCalledWith('La imagen no puede superar 5MB');
     }, { timeout: 1000 });
@@ -231,19 +239,19 @@ describe('FeedbackModal', () => {
   it('closes modal when close button is clicked', async () => {
     const user = userEvent.setup();
     render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
-    
+
     // Find the X close button in the header
     const modalHeader = screen.getByText(/¿Qué sucedió?/).closest('div');
     const closeButton = modalHeader?.querySelector('button');
-    
+
     expect(closeButton).toBeInTheDocument();
-    
+
     if (closeButton) {
       await act(async () => {
         await user.click(closeButton);
         await flushPromises();
       });
-      
+
       expect(mockOnClose).toHaveBeenCalled();
     }
   });
@@ -251,24 +259,24 @@ describe('FeedbackModal', () => {
   it('closes modal when cancel button is clicked', async () => {
     const user = userEvent.setup();
     render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
-    
+
     const cancelButton = screen.getByRole('button', { name: /cancelar/i });
-    
+
     await act(async () => {
       await user.click(cancelButton);
       await flushPromises();
     });
-    
+
     expect(mockOnClose).toHaveBeenCalled();
   });
 
   it('disables submit button when submitting', async () => {
     const user = userEvent.setup();
-    
+
     // Create a mock supabase client for this test
     const mockSupabaseClient = {
       auth: {
-        getUser: vi.fn().mockImplementation(() => 
+        getUser: vi.fn().mockImplementation(() =>
           new Promise(resolve => {
             setTimeout(() => {
               resolve({
@@ -316,33 +324,32 @@ describe('FeedbackModal', () => {
         })
       }
     };
-    
+
     // Override the useSupabaseClient mock for this test
     vi.mocked(useSupabaseClient).mockReturnValue(mockSupabaseClient as any);
-    
+
     render(<FeedbackModal isOpen={true} onClose={mockOnClose} />);
-    
+
     const textarea = screen.getByPlaceholderText(/El botón no funciona cuando/);
     const submitButton = screen.getByRole('button', { name: /enviar/i });
-    
+
     await act(async () => {
       await user.type(textarea, 'Test feedback');
       await flushPromises();
     });
-    
+
     expect(submitButton).not.toBeDisabled();
-    
-    // Click submit (don't await - we want to check immediate state)
-    user.click(submitButton);
-    
-    // Wait a brief moment for the click to register
+
+    // Click submit
     await act(async () => {
-      await new Promise(resolve => setTimeout(resolve, 10));
+      user.click(submitButton);
     });
-    
+
     // Should be disabled during submission
-    expect(submitButton).toBeDisabled();
-    expect(submitButton).toHaveTextContent('Enviando...');
+    await waitFor(() => {
+      expect(submitButton).toBeDisabled();
+      expect(submitButton).toHaveTextContent('Enviando...');
+    });
   });
 
   it('shows success state after successful submission', async () => {

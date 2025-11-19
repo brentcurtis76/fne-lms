@@ -148,7 +148,7 @@ function parseUserRow(
   const roleForValidation = rawRole.trim().toLowerCase();
   const finalRole = roleForValidation || options.defaultRole;
   const validRoles = ['admin', 'docente', 'inspirador', 'socio_comunitario', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'];
-  if (DANGEROUS_CHARS.includes(roleForValidation.charAt(0))) {
+  if (roleForValidation && DANGEROUS_CHARS.includes(roleForValidation.charAt(0))) {
     errors.push(`Rol '${roleForValidation}' inválido`);
   } else if (roleForValidation && !validRoles.includes(roleForValidation)) {
     errors.push(`Rol '${roleForValidation}' inválido`);
@@ -190,18 +190,30 @@ export function exportAsCSV(data: BulkUserData[]): string {
   const rows = data.map(user => [
     user.email,
     user.firstName || '',
-    user.lastName || '',
+    user.lastName || '', 
     user.role || '',
     user.rut || '',
     user.password || ''
   ]);
   
   const csvContent = [
-    headers.join(','),
-    ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    headers.join(','), 
+    ...rows.map(row => row.map(cell => `"${(cell ?? '').toString().replace(/"/g, '""')}"`).join(','))
   ].join('\n');
   
   return csvContent;
+}
+
+export function detectDelimiter(text: string): string {
+  const delimiters = [',', '\t', ';', '|'];
+  const lines = text.split('\n').slice(0, 5); // Check first 5 lines
+  const counts = delimiters.map(delimiter => ({
+    delimiter,
+    count: lines.reduce((acc, line) => acc + line.split(delimiter).length - 1, 0),
+  }));
+
+  const best = counts.sort((a, b) => b.count - a.count)[0];
+  return best.count > 0 ? best.delimiter : ',';
 }
 
 export function detectRoleFromEmail(email: string): string | null {
@@ -255,7 +267,7 @@ export function parseBulkUserData(
   let headers: string[] = [];
   let dataStartIndex = 0;
   if (hasHeader) {
-    headers = parseCsvLine(lines[0], delimiter).map(h => h.toLowerCase().trim());
+    headers = parseCsvLine(lines[0], delimiter).map(h => h.replace(/"/g, '').toLowerCase().trim());
     dataStartIndex = 1;
   }
 

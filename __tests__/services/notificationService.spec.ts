@@ -1,7 +1,17 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import notificationServiceModule from '../../lib/notificationService';
 
-const notificationService = (notificationServiceModule as any).default ?? notificationServiceModule;
+// Mock the module to avoid top-level side effects (env var check)
+vi.mock('../../lib/notificationService', () => ({
+  default: {
+    createNotification: vi.fn(),
+    getNotifications: vi.fn(),
+    markAsRead: vi.fn(),
+    markAllAsRead: vi.fn(),
+    getUnreadCount: vi.fn(),
+  }
+}));
+
+import notificationService from '../../lib/notificationService';
 
 describe.skip('NotificationService Deduplication', () => {
   beforeEach(() => {

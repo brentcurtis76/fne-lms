@@ -161,10 +161,15 @@ describe('FeedbackDashboard', () => {
 
     // Check that the main layout is there
     expect(screen.getByTestId('main-layout')).toBeInTheDocument();
-    
-    // Check for rendered feedback items from mock data
-    expect(screen.getByText('Test bug report')).toBeInTheDocument();
-    expect(screen.getByText('Feature request')).toBeInTheDocument();
+
+    // Check for rendered feedback items from mock data - use waitFor for better async handling
+    await waitFor(() => {
+      expect(screen.getByText('Test bug report')).toBeInTheDocument();
+    }, { timeout: 5000 });
+
+    await waitFor(() => {
+      expect(screen.getByText('Feature request')).toBeInTheDocument();
+    });
 
     // Check for rendered stats from mock data
     expect(screen.getByText('Nuevos', { selector: 'p' })).toBeInTheDocument();

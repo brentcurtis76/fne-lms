@@ -319,12 +319,18 @@ describe('UserAssignmentsService', () => {
     });
 
     it('should throw error if course_enrollments query fails', async () => {
+      // Suppress console.error and console.log for this test
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      const dbError = { message: 'relation "public.course_enrollments" does not exist' };
+
       mockSupabaseClient.from.mockReturnValue({
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
             eq: vi.fn().mockResolvedValue({
               data: null,
-              error: { message: 'relation "public.course_enrollments" does not exist' }
+              error: dbError
             })
           })
         })
@@ -335,7 +341,11 @@ describe('UserAssignmentsService', () => {
           mockSupabaseClient,
           'user-123'
         )
-      ).rejects.toThrow();
+      ).rejects.toEqual(dbError);
+
+      // Restore console methods
+      consoleErrorSpy.mockRestore();
+      consoleLogSpy.mockRestore();
     });
 
     it('should filter by active enrollment status', async () => {

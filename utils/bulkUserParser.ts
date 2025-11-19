@@ -186,13 +186,14 @@ export function formatParsedData(data: BulkUserData[]): BulkUserData[] {
 }
 
 export function exportAsCSV(data: BulkUserData[]): string {
-  const headers = ['email', 'firstName', 'lastName', 'role', 'rut'];
+  const headers = ['email', 'firstName', 'lastName', 'role', 'rut', 'password'];
   const rows = data.map(user => [
     user.email,
     user.firstName || '',
     user.lastName || '',
     user.role || '',
-    user.rut || ''
+    user.rut || '',
+    user.password || ''
   ]);
   
   const csvContent = [
@@ -201,6 +202,21 @@ export function exportAsCSV(data: BulkUserData[]): string {
   ].join('\n');
   
   return csvContent;
+}
+
+export function detectRoleFromEmail(email: string): string | null {
+  if (typeof email !== 'string' || !email.includes('@')) {
+    return null;
+  }
+  const lowerEmail = email.toLowerCase();
+  if (lowerEmail.includes('admin')) return 'admin';
+  if (lowerEmail.includes('consultor') || lowerEmail.includes('consultant')) return 'consultor';
+  if (lowerEmail.includes('director')) return 'equipo_directivo';
+  if (lowerEmail.includes('lider_generacion')) return 'lider_generacion';
+  if (lowerEmail.includes('lider_comunidad')) return 'lider_comunidad';
+  if (lowerEmail.includes('docente')) return 'docente';
+
+  return null;
 }
 
 export function generateSampleCSV(rowCount: number = 3): string {

@@ -1,4 +1,6 @@
 import { vi } from 'vitest';
+import '@testing-library/jest-dom';
+
 
 // Mock the 'canvas' module globally.
 // This prevents the "Module did not self-register" error by replacing the native
@@ -9,16 +11,6 @@ vi.mock('canvas', () => ({}));
 // pulls in pdfjs-dist and the native canvas bindings. We mock react-pdf at the
 // setup level so that any import resolves to lightweight stubs and never tries
 // to touch the native module.
-vi.mock('react-pdf', () => ({
-  Document: () => null,
-  Page: () => null,
-  pdfjs: {
-    GlobalWorkerOptions: {
-      workerSrc: ''
-    }
-  }
-}));
-
 vi.mock('@react-pdf/renderer', () => ({
   Document: ({ children }: any) => children ?? null,
   Page: () => null,

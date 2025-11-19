@@ -48,6 +48,9 @@ export default defineConfig({
       { find: '@/types', replacement: path.resolve(__dirname, './types') },
       { find: '@/utils', replacement: path.resolve(__dirname, './utils') },
       { find: /^canvas(\/.*)?$/, replacement: path.resolve(__dirname, './tests/mocks/canvas.ts') },
+      // Add a more aggressive alias to catch deep imports of the native canvas bindings.
+      // This redirects any attempt to load the problematic native module to an empty stub.
+      { find: /canvas\/build\/Release\/canvas\.node$/, replacement: path.resolve(__dirname, './tests/mocks/empty.js') },
     ],
   },
 });

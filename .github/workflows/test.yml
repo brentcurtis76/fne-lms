@@ -11,9 +11,9 @@ on:
 
 env:
   NODE_VERSION: '18'
-  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.TEST_SUPABASE_ANON_KEY }}
-  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
 jobs:
   # Job 1: Unit and Integration Tests
@@ -118,12 +118,12 @@ jobs:
         id: validate-env
         continue-on-error: true
         run: |
-          if [ -z "${{ secrets.TEST_SUPABASE_URL }}" ]; then
-            echo "⚠️ TEST_SUPABASE_URL not configured - skipping database tests"
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
+            echo "⚠️ NEXT_PUBLIC_SUPABASE_URL not configured - skipping database tests"
             exit 1
           fi
-          if [ -z "${{ secrets.TEST_SUPABASE_SERVICE_ROLE_KEY }}" ]; then
-            echo "⚠️ TEST_SUPABASE_SERVICE_ROLE_KEY not configured - skipping database tests"
+          if [ -z "${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}" ]; then
+            echo "⚠️ SUPABASE_SERVICE_ROLE_KEY not configured - skipping database tests"
             exit 1
           fi
           echo "✅ Test environment configured"

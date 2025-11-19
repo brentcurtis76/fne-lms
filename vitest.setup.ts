@@ -1,6 +1,11 @@
 import { vi } from 'vitest';
 import '@testing-library/jest-dom';
 
+// Set up test environment variables
+// These are used by Supabase client initialization in tests
+process.env.NEXT_PUBLIC_SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://test.supabase.co';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'test-anon-key';
+process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 'test-service-role-key';
 
 // Mock the 'canvas' module globally.
 // This prevents the "Module did not self-register" error by replacing the native

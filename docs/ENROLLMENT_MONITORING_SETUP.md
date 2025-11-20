@@ -26,6 +26,7 @@ Automated daily monitoring system to detect course enrollments with invalid `tot
    - File: `vercel.json`
    - Schedule: `"0 0 * * *"` (cron syntax)
    - Authorization: Bearer token via `CRON_SECRET` env var
+   - **Note**: Vercel Hobby plan allows only 1 cron job (this endpoint is the only active cron)
 
 3. **Notification System**
    - Service: `lib/notificationService.ts`

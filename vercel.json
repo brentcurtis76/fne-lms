@@ -14,10 +14,6 @@
   },
   "crons": [
     {
-      "path": "/api/monitoring/run-checks",
-      "schedule": "0 0 * * *"
-    },
-    {
       "path": "/api/cron/monitor-enrollments",
       "schedule": "0 0 * * *"
     }

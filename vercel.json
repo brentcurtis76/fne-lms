@@ -7,11 +7,18 @@
     },
     "pages/api/cron/email-digest.ts": {
       "maxDuration": 60
+    },
+    "pages/api/cron/monitor-enrollments.ts": {
+      "maxDuration": 30
     }
   },
   "crons": [
     {
       "path": "/api/monitoring/run-checks",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/monitor-enrollments",
       "schedule": "0 0 * * *"
     }
   ]

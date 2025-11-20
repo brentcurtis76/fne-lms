@@ -81,19 +81,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (adminUsers && adminUsers.length > 0) {
           const notificationPromises = adminUsers.map(admin =>
-            NotificationService.create(supabase, {
-              userId: admin.user_id,
-              type: 'system_alert',
+            NotificationService.createNotification({
+              user_id: admin.user_id,
               title: 'Enrollment Data Quality Alert',
-              message: alertMessage,
-              priority: 'high',
-              actionUrl: '/admin/course-assignments',
-              metadata: {
-                alert_type: 'zero_total_lessons',
-                all_time_count: allTimeCount || 0,
-                last_24h_count: last24hCount || 0,
-                timestamp
-              }
+              description: alertMessage,
+              category: 'system_alert',
+              related_url: '/admin/course-assignments',
+              importance: 'high',
+              read_at: null,
+              event_type: 'data_quality_alert',
+              idempotency_key: `enrollment_alert_${timestamp}_${admin.user_id}`
             })
           );
 

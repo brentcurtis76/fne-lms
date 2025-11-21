@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get the user's session using the auth helper
     const supabaseClient = createServerSupabaseClient({ req, res });
     const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-    
+
     if (sessionError || !session) {
       console.error('[assign-role API] Session error:', sessionError);
       return res.status(401).json({ error: 'Unauthorized' });
@@ -42,8 +42,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('is_active', true)
       .limit(1);
 
-    if (adminError || !adminCheck || adminCheck.length === 0) {
-      console.error('[assign-role API] Admin check failed:', { adminError, adminCheck, currentUserId });
+    // Check legacy admin role in metadata as fallback
+    const isLegacyAdmin =
+      session.user.user_metadata?.role === 'admin' ||
+      (Array.isArray(session.user.user_metadata?.roles) && session.user.user_metadata.roles.includes('admin'));
+
+    if ((adminError || !adminCheck || adminCheck.length === 0) && !isLegacyAdmin) {
+      console.error('[assign-role API] Admin check failed:', { adminError, adminCheck, currentUserId, isLegacyAdmin });
       return res.status(403).json({ error: 'Solo administradores pueden asignar roles' });
     }
 
@@ -81,8 +86,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         organizationalScope,
         error: validation.error
       });
-      return res.status(400).json({ 
-        error: validation.error 
+      return res.status(400).json({
+        error: validation.error
       });
     }
 
@@ -147,8 +152,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Validate generation requirement
       if (schoolHasGenerations && !generationId) {
-        return res.status(400).json({ 
-          error: `La escuela "${schoolData.name}" utiliza generaciones. Debe seleccionar una generación para crear la comunidad.` 
+        return res.status(400).json({
+          error: `La escuela "${schoolData.name}" utiliza generaciones. Debe seleccionar una generación para crear la comunidad.`
         });
       }
 
@@ -194,22 +199,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           hint: communityError.hint,
           communityData
         });
-        
+
         // Provide specific error messages based on constraint violations
         if (communityError.code === '23505') {
           // Unique constraint violation
-          return res.status(400).json({ 
-            error: `Ya existe una comunidad con el nombre "${communityName}" en esta escuela. Por favor, use un nombre diferente.` 
+          return res.status(400).json({
+            error: `Ya existe una comunidad con el nombre "${communityName}" en esta escuela. Por favor, use un nombre diferente.`
           });
         } else if (communityError.code === '23503') {
           // Foreign key constraint violation
-          return res.status(400).json({ 
-            error: 'Error de configuración: referencias inválidas en la base de datos.' 
+          return res.status(400).json({
+            error: 'Error de configuración: referencias inválidas en la base de datos.'
           });
         } else if (communityError.message && communityError.message.includes('generation_id is required')) {
           // Our custom trigger error
-          return res.status(400).json({ 
-            error: 'Esta escuela requiere que se especifique una generación para crear comunidades.' 
+          return res.status(400).json({
+            error: 'Esta escuela requiere que se especifique una generación para crear comunidades.'
           });
         } else {
           // Generic error - but now with more info
@@ -219,8 +224,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             errorDetails: communityError.details,
             fullError: communityError
           });
-          
-          return res.status(500).json({ 
+
+          return res.status(500).json({
             error: 'Error al crear la comunidad. Por favor, verifique la configuración e intente nuevamente.',
             code: communityError.code || 'UNKNOWN',
             debug: process.env.NODE_ENV === 'development' ? {
@@ -312,7 +317,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       stack: error instanceof Error ? error.stack : undefined,
       requestBody: req.body
     });
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Error inesperado al asignar rol',
       debug: process.env.NODE_ENV === 'development' ? {
         message: error instanceof Error ? error.message : 'Unknown error'

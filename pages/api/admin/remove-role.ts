@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get the user's session using the auth helper
     const supabaseClient = createServerSupabaseClient({ req, res });
     const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-    
+
     if (sessionError || !session) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -33,7 +33,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('is_active', true)
       .limit(1);
 
-    if (adminError || !adminCheck || adminCheck.length === 0) {
+    // Check legacy admin role in metadata as fallback
+    const isLegacyAdmin =
+      session.user.user_metadata?.role === 'admin' ||
+      (Array.isArray(session.user.user_metadata?.roles) && session.user.user_metadata.roles.includes('admin'));
+
+    if ((adminError || !adminCheck || adminCheck.length === 0) && !isLegacyAdmin) {
       return res.status(403).json({ error: 'Solo administradores pueden remover roles' });
     }
 

@@ -9,11 +9,11 @@ import { createClient } from '@supabase/supabase-js';
  *
  * Query params:
  * - assignmentId: string (required)
- * - groupId: string (required) - validates user is member of this group
+ * - groupId: string (optional) - if provided, validates user is member of this group
  *
  * Security:
  * - Validates user is authenticated
- * - Validates user is a member of the specified group
+ * - If groupId provided: validates user is a member of the specified group
  * - Only returns classmates from the same school who are enrolled in the assignment's course
  * - Excludes students already in groups for this assignment
  */
@@ -32,37 +32,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { assignmentId, groupId } = req.query;
 
-  if (!assignmentId || !groupId) {
-    return res.status(400).json({ error: 'assignmentId y groupId son requeridos' });
+  if (!assignmentId) {
+    return res.status(400).json({ error: 'assignmentId es requerido' });
   }
 
   try {
     const userId = session.user.id;
     console.log('[eligible-classmates] REQUEST - userId:', userId, 'assignmentId:', assignmentId, 'groupId:', groupId);
 
-    // 1. Validate user is a member of the specified group
-    const { data: membership, error: membershipError } = await supabase
-      .from('group_assignment_members')
-      .select('group_id, assignment_id')
-      .eq('group_id', groupId as string)
-      .eq('user_id', userId)
-      .eq('assignment_id', assignmentId as string)
-      .single();
+    // 1. Validate user is a member of the specified group (only if groupId is provided)
+    if (groupId) {
+      const { data: membership, error: membershipError } = await supabase
+        .from('group_assignment_members')
+        .select('group_id, assignment_id')
+        .eq('group_id', groupId as string)
+        .eq('user_id', userId)
+        .eq('assignment_id', assignmentId as string)
+        .single();
 
-    console.log('[eligible-classmates] STEP 1 - Membership check:', {
-      found: !!membership,
-      error: membershipError?.message,
-      code: membershipError?.code,
-      data: membership
-    });
+      console.log('[eligible-classmates] STEP 1 - Membership check:', {
+        found: !!membership,
+        error: membershipError?.message,
+        code: membershipError?.code,
+        data: membership
+      });
 
-    if (membershipError || !membership) {
-      console.error('[eligible-classmates] ABORT - User not member:', userId, 'group:', groupId, 'error:', membershipError);
-      return res.status(403).json({ error: 'No eres miembro de este grupo' });
+      if (membershipError || !membership) {
+        console.error('[eligible-classmates] ABORT - User not member:', userId, 'group:', groupId, 'error:', membershipError);
+        return res.status(403).json({ error: 'No eres miembro de este grupo' });
+      }
+    } else {
+      console.log('[eligible-classmates] STEP 1 - No groupId provided, skipping membership check (initial group creation)');
     }
 
-    // 2. Get group details and verify it's not consultant-managed
-    // Use service role client to bypass RLS since we've already validated membership
+    // Initialize admin client for RLS bypass
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -74,21 +77,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     );
 
-    const { data: group, error: groupError } = await supabaseAdmin
-      .from('group_assignment_groups')
-      .select('is_consultant_managed')
-      .eq('id', groupId as string)
-      .single();
+    // 2. Get group details and verify it's not consultant-managed (only if groupId is provided)
+    if (groupId) {
+      const { data: group, error: groupError } = await supabaseAdmin
+        .from('group_assignment_groups')
+        .select('is_consultant_managed')
+        .eq('id', groupId as string)
+        .single();
 
-    if (groupError || !group) {
-      console.error('[eligible-classmates] ABORT - Group not found:', groupId, 'error:', groupError);
-      return res.status(404).json({ error: 'Grupo no encontrado' });
-    }
+      if (groupError || !group) {
+        console.error('[eligible-classmates] ABORT - Group not found:', groupId, 'error:', groupError);
+        return res.status(404).json({ error: 'Grupo no encontrado' });
+      }
 
-    if (group.is_consultant_managed) {
-      return res.status(403).json({
-        error: 'No puedes invitar compañeros a un grupo administrado por el consultor'
-      });
+      if (group.is_consultant_managed) {
+        return res.status(403).json({
+          error: 'No puedes invitar compañeros a un grupo administrado por el consultor'
+        });
+      }
     }
 
     // 3. Get requester's school_id from active user_roles (handle multiple roles)
@@ -148,7 +154,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 5. Get all students from the SAME school who are enrolled in this course
     // Use supabaseAdmin to bypass RLS (safe: already validated user is group member)
-    const { data: enrolledClassmates, error: enrollmentError} = await supabaseAdmin
+    const { data: enrolledClassmates, error: enrollmentError } = await supabaseAdmin
       .from('course_enrollments')
       .select(`
         user_id,

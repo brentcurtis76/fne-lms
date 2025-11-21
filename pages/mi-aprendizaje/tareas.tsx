@@ -82,6 +82,7 @@ const TareasPage: React.FC = () => {
           lesson_id: assignment.lesson_id,
           course_title: assignment.course_title,
           lesson_title: assignment.lesson_title,
+          learning_path_title: assignment.learning_path_title,
           due_date: null, // Group assignments don't have due dates in current schema
           points: 100, // Default points - group assignments don't track this currently
           assignment_type: 'group-assignment',
@@ -184,13 +185,13 @@ const TareasPage: React.FC = () => {
         return;
       }
 
-      // Get or create user's group for this assignment
-      const { group, error: groupError } = await groupAssignmentsV2Service.getOrCreateGroup(
+      // Get user's existing group (does NOT auto-create)
+      const { group, error: groupError } = await groupAssignmentsV2Service.getUserGroup(
         assignment.assignment_id,
         user.id
       );
 
-      if (groupError || !group) {
+      if (groupError) {
         toast.dismiss(loadingToast);
         toast.error('Error al cargar el grupo');
         return;
@@ -205,7 +206,7 @@ const TareasPage: React.FC = () => {
 
       toast.dismiss(loadingToast);
       setSelectedAssignment(enrichedAssignment);
-      setSelectedGroup(group);
+      setSelectedGroup(group); // Can be null if user hasn't created a group yet
       setShowSubmissionModal(true);
     } catch (error) {
       console.error('Error loading assignment details:', error);
@@ -368,20 +369,18 @@ const TareasPage: React.FC = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === tab.id
-                      ? 'bg-white text-brand_blue shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
+                  className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === tab.id
+                    ? 'bg-white text-brand_blue shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                    }`}
                 >
                   <Icon className="h-4 w-4 mr-2" />
                   {tab.label}
                   <span
-                    className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
-                      activeTab === tab.id
-                        ? 'bg-brand_yellow text-brand_blue'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
+                    className={`ml-2 px-2 py-0.5 rounded-full text-xs ${activeTab === tab.id
+                      ? 'bg-brand_yellow text-brand_blue'
+                      : 'bg-gray-200 text-gray-600'
+                      }`}
                   >
                     {count}
                   </span>
@@ -417,11 +416,10 @@ const TareasPage: React.FC = () => {
                   <button
                     key={course.id}
                     onClick={() => handleToggleCommunity(course.id)}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                      selectedCommunities.includes(course.id)
-                        ? 'bg-brand_blue text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedCommunities.includes(course.id)
+                      ? 'bg-brand_blue text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
                   >
                     <AcademicCapIcon className="inline h-4 w-4 mr-1" />
                     {course.name}
@@ -457,11 +455,16 @@ const TareasPage: React.FC = () => {
                 className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6"
               >
                 {/* Course Badge */}
-                <div className="flex items-center justify-between mb-3">
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-brand_blue">
-                    <AcademicCapIcon className="h-3 w-3 mr-1" />
-                    {assignment.course_title}
+                {/* Course and Learning Path Info */}
+                <div className="flex flex-col mb-3">
+                  <span className="text-sm font-semibold text-brand_blue">
+                    Curso: {assignment.course_title}
                   </span>
+                  {(assignment as any).learning_path_title && (
+                    <span className="text-xs text-gray-500 mt-0.5">
+                      Ruta de aprendizaje: {(assignment as any).learning_path_title}
+                    </span>
+                  )}
                 </div>
 
                 {/* Title */}
@@ -469,15 +472,11 @@ const TareasPage: React.FC = () => {
                   {assignment.title}
                 </h3>
 
-                {/* Course/Lesson */}
-                <p className="text-sm text-gray-600 mb-3">
-                  {assignment.course_title}
-                  {assignment.lesson_title && ` • ${assignment.lesson_title}`}
-                </p>
+
 
                 {/* Description */}
                 {assignment.description && (
-                  <p className="text-sm text-gray-500 mb-3 line-clamp-2">
+                  <p className="text-sm text-gray-500 mb-3 line-clamp-4">
                     {assignment.description}
                   </p>
                 )}
@@ -490,10 +489,7 @@ const TareasPage: React.FC = () => {
                       {formatDueDate(assignment.due_date)}
                     </div>
                   )}
-                  <div className="flex items-center text-sm text-gray-600">
-                    <AcademicCapIcon className="h-4 w-4 text-gray-400 mr-2" />
-                    {assignment.points} puntos
-                  </div>
+
                 </div>
 
                 {/* Submission Status */}
@@ -570,7 +566,7 @@ const TareasPage: React.FC = () => {
       </div>
 
       {/* Group Submission Modal */}
-      {showSubmissionModal && selectedAssignment && selectedGroup && (
+      {showSubmissionModal && selectedAssignment && (
         <GroupSubmissionModalV2
           assignment={selectedAssignment}
           group={selectedGroup}

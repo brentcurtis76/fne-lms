@@ -100,18 +100,18 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     description: 'Rutas y cursos asignados',
     children: [
       {
-        id: 'my-assignments',
-        label: 'Mis Tareas',
-        href: '/mi-aprendizaje/tareas',
-        icon: ClipboardDocumentCheckIcon,
-        description: 'Tareas de todas mis comunidades'
-      },
-      {
         id: 'my-courses',
         label: 'Mis Cursos',
         href: '/mi-aprendizaje?tab=cursos',
         icon: BookOpenIcon,
         description: 'Cursos en los que estoy inscrito'
+      },
+      {
+        id: 'my-assignments',
+        label: 'Mis Tareas',
+        href: '/mi-aprendizaje/tareas',
+        icon: ClipboardDocumentCheckIcon,
+        description: 'Tareas de todas mis comunidades'
       }
     ]
   },
@@ -349,7 +349,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         .from('platform_feedback')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'new');
-      
+
       if (!error && count !== null) {
         setNewFeedbackCount(count);
       }
@@ -399,18 +399,18 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   // Auto-expand parent items based on current page
   useEffect(() => {
     const newExpanded = new Set<string>();
-    
+
     NAVIGATION_ITEMS.forEach(item => {
       if (item.children) {
-        const hasActiveChild = item.children.some(child => 
-          isItemActive(child.href, router.pathname)
+        const hasActiveChild = item.children.some(child =>
+          isItemActive(child.href, router.asPath)
         );
         if (hasActiveChild) {
           newExpanded.add(item.id);
         }
       }
     });
-    
+
     // Only update if the set has actually changed
     setExpandedItems(prev => {
       const prevArray = Array.from(prev).sort();
@@ -420,20 +420,36 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       }
       return prev;
     });
-  }, [router.pathname]);
+  }, [router.asPath]);
 
-  const isItemActive = useCallback((href: string, pathname: string): boolean => {
-    if (href === pathname) return true;
-    
+  const isItemActive = useCallback((href: string, currentPath: string): boolean => {
+    // Exact match
+    if (href === currentPath) return true;
+
     // Special handling for workspace sections
-    if (href.includes('/community/workspace') && pathname.includes('/community/workspace')) {
+    if (href.includes('/community/workspace') && currentPath.includes('/community/workspace')) {
       const urlParams = new URLSearchParams(href.split('?')[1] || '');
-      const currentParams = new URLSearchParams(window.location.search);
+      const currentParams = new URLSearchParams(currentPath.split('?')[1] || '');
       return urlParams.get('section') === currentParams.get('section');
     }
-    
-    // Check if pathname starts with href for nested routes
-    return pathname.startsWith(href + '/');
+
+    // Base path comparison (ignoring query params)
+    const hrefBase = href.split('?')[0];
+    const currentPathBase = currentPath.split('?')[0];
+
+    if (hrefBase === currentPathBase) {
+      // If href has query params, we require them to match exactly
+      if (href.includes('?')) {
+        return href === currentPath;
+      }
+      return true; // Match for items without query params (parent)
+    }
+
+    // If href has query params, do not match nested routes based on base path
+    if (href.includes('?')) return false;
+
+    // Check if currentPath starts with href for nested routes
+    return currentPathBase.startsWith(hrefBase + '/');
   }, []);
 
   const toggleExpanded = useCallback((itemId: string) => {
@@ -576,7 +592,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     }) || [];
 
     const hasChildren = filteredChildren.length > 0;
-    const isActive = item.href ? isItemActive(item.href, router.pathname) : false;
+    const isActive = item.href ? isItemActive(item.href, router.asPath) : false;
 
     // Define handleClick callback (must be before conditional return to avoid hooks rule violation)
     const handleClick = useCallback(async () => {
@@ -621,12 +637,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
           {isActive && !hasChildren && !isCollapsed && (
             <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#fdb933] rounded-r-lg"></div>
           )}
-          
+
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} flex-1`}>
-            <item.icon className={`flex-shrink-0 ${isCollapsed ? 'h-6 w-6' : 'h-5 w-5'} ${
-              isActive && !hasChildren ? 'text-white' : 'text-gray-500 group-hover:text-[#00365b]'
-            }`} />
-            
+            <item.icon className={`flex-shrink-0 ${isCollapsed ? 'h-6 w-6' : 'h-5 w-5'} ${isActive && !hasChildren ? 'text-white' : 'text-gray-500 group-hover:text-[#00365b]'
+              }`} />
+
             {!isCollapsed && (
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -641,21 +656,19 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                   )}
                 </div>
                 {item.description && (
-                  <div className={`text-xs truncate mt-0.5 ${
-                    isActive && !hasChildren ? 'text-blue-100' : 'text-gray-500'
-                  }`}>
+                  <div className={`text-xs truncate mt-0.5 ${isActive && !hasChildren ? 'text-blue-100' : 'text-gray-500'
+                    }`}>
                     {item.description}
                   </div>
                 )}
               </div>
             )}
-            
+
             {!isCollapsed && hasChildren && (
-              <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${
-                isExpanded ? 'rotate-180' : ''
-              } ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#00365b]'}`} />
+              <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''
+                } ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#00365b]'}`} />
             )}
-            
+
             {/* Badge count for collapsed state with children */}
             {isCollapsed && hasChildren && filteredChildren.length > 0 && (
               <div className="absolute -top-1 -right-1 bg-[#fdb933] text-[#00365b] text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-sm pointer-events-none">
@@ -667,7 +680,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
         {/* Collapsed state floating menu */}
         {isCollapsed && hasChildren && showCollapsedMenu && (
-          <div 
+          <div
             ref={menuRef}
             className="absolute left-full top-0 ml-2 bg-white rounded-lg shadow-xl border border-gray-200 z-50 min-w-48 overflow-hidden"
           >
@@ -685,18 +698,17 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                   onClick={() => setShowCollapsedMenu(false)}
                   className={`
                     group flex items-center px-3 py-2 text-sm transition-colors
-                    ${isItemActive(child.href, router.pathname)
+                    ${isItemActive(child.href, router.asPath)
                       ? 'bg-[#00365b] text-white'
                       : 'text-gray-700 hover:bg-gray-100 hover:text-[#00365b]'
                     }
                   `}
                 >
                   {child.icon ? (
-                    <child.icon className={`h-4 w-4 mr-3 ${
-                      isItemActive(child.href, router.pathname)
-                        ? 'text-white'
-                        : 'text-gray-400 group-hover:text-[#00365b]'
-                    }`} />
+                    <child.icon className={`h-4 w-4 mr-3 ${isItemActive(child.href, router.asPath)
+                      ? 'text-white'
+                      : 'text-gray-400 group-hover:text-[#00365b]'
+                      }`} />
                   ) : (
                     <ChevronRightIcon className="h-4 w-4 mr-3 text-gray-400 group-hover:text-[#00365b]" />
                   )}
@@ -731,18 +743,17 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                 href={child.href}
                 className={`
                   group flex items-center px-3 py-2 text-sm rounded-lg transition-all duration-200
-                  ${isItemActive(child.href, router.pathname)
+                  ${isItemActive(child.href, router.asPath)
                     ? 'bg-[#00365b]/10 text-[#00365b] font-medium'
                     : 'text-gray-600 hover:bg-gray-50 hover:text-[#00365b]'
                   }
                 `}
               >
                 {child.icon ? (
-                  <child.icon className={`h-4 w-4 mr-2 ${
-                    isItemActive(child.href, router.pathname)
-                      ? 'text-[#00365b]'
-                      : 'text-gray-400 group-hover:text-[#00365b]'
-                  }`} />
+                  <child.icon className={`h-4 w-4 mr-2 ${isItemActive(child.href, router.asPath)
+                    ? 'text-[#00365b]'
+                    : 'text-gray-400 group-hover:text-[#00365b]'
+                    }`} />
                 ) : (
                   <ChevronRightIcon className="h-4 w-4 mr-2 text-gray-400 group-hover:text-[#00365b]" />
                 )}
@@ -776,7 +787,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     <>
       {/* Mobile Overlay */}
       {!isCollapsed && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={onToggle}
         />
@@ -786,8 +797,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       <div className={`
         fixed left-0 top-0 h-full bg-white border-r border-gray-200 shadow-xl transition-all duration-300
         lg:fixed lg:z-30
-        ${isCollapsed 
-          ? 'w-20 -translate-x-full lg:translate-x-0' 
+        ${isCollapsed
+          ? 'w-20 -translate-x-full lg:translate-x-0'
           : 'w-80 translate-x-0'
         }
         z-50 lg:z-30
@@ -799,7 +810,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
             <div className="flex items-center space-x-3">
               <div className="w-8 h-8 bg-[#fdb933] rounded-lg flex items-center justify-center p-0.5">
                 {/* FNE Logo */}
-                <img 
+                <img
                   src="/Logo plataforma.png"
                   alt="FNE Logo"
                   className="w-full h-full object-contain"
@@ -817,20 +828,20 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
           ) : (
             <div className="w-8 h-8 bg-[#fdb933] rounded-lg flex items-center justify-center p-0.5 mx-auto">
               {/* FNE Logo - Collapsed state */}
-              <img 
+              <img
                 src="/Logo plataforma.png"
                 alt="FNE Logo"
                 className="w-full h-full object-contain"
               />
             </div>
           )}
-          
+
           <div className="flex items-center space-x-2">
             {/* Modern Notification Center */}
             {!isCollapsed && user && (
               <ModernNotificationCenter />
             )}
-            
+
             <button
               onClick={onToggle}
               className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"

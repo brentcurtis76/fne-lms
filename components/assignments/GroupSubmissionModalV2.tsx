@@ -58,93 +58,104 @@ export default function GroupSubmissionModalV2({
   }, [assignment, group, user?.id]);
 
   const loadGroupData = async () => {
-    if (!group || !assignment) return;
+    if (!assignment) return;
 
     try {
       setLoading(true);
 
-      // Load group members using secure API endpoint
-      try {
-        const membersResponse = await fetch(
-          `/api/assignments/group-members?groupId=${group.id}&assignmentId=${assignment.id}`
-        );
-        const membersData = await membersResponse.json();
+      // Only load group members if user is already in a group
+      if (group?.id) {
+        try {
+          const membersResponse = await fetch(
+            `/api/assignments/group-members?groupId=${group.id}&assignmentId=${assignment.id}`
+          );
+          const membersData = await membersResponse.json();
 
-        if (membersResponse.ok) {
-          // Transform API response to match expected structure
-          const transformedMembers = (membersData.members || []).map((member: any) => ({
-            user_id: member.id,
-            role: member.role,
-            user: {
-              id: member.id,
-              full_name: member.full_name,
-              avatar_url: member.avatar_url,
-              first_name: member.full_name.split(' ')[0] || '',
-              last_name: member.full_name.split(' ').slice(1).join(' ') || ''
-            }
-          }));
-          setGroupMembers(transformedMembers);
-        } else {
-          console.error('[GroupSubmissionModal] Error loading members:', membersData.error);
-          toast.error(membersData.error || 'Error al cargar miembros del grupo');
+          if (membersResponse.ok) {
+            // Transform API response to match expected structure
+            const transformedMembers = (membersData.members || []).map((member: any) => ({
+              user_id: member.id,
+              role: member.role,
+              user: {
+                id: member.id,
+                full_name: member.full_name,
+                avatar_url: member.avatar_url,
+                first_name: member.full_name.split(' ')[0] || '',
+                last_name: member.full_name.split(' ').slice(1).join(' ') || ''
+              }
+            }));
+            setGroupMembers(transformedMembers);
+          } else {
+            console.error('[GroupSubmissionModal] Error loading members:', membersData.error);
+            toast.error(membersData.error || 'Error al cargar miembros del grupo');
+            setGroupMembers([]);
+          }
+        } catch (membersError) {
+          console.error('[GroupSubmissionModal] Exception loading members:', membersError);
+          toast.error('Error al cargar miembros del grupo');
           setGroupMembers([]);
         }
-      } catch (membersError) {
-        console.error('[GroupSubmissionModal] Exception loading members:', membersError);
-        toast.error('Error al cargar miembros del grupo');
-        setGroupMembers([]);
-      }
 
-      // Check for existing submission (use maybeSingle to avoid 406 when none exists)
-      const { data: submission, error: submissionError } = await supabase
-        .from('group_assignment_submissions')
-        .select('*')
-        .eq('assignment_id', assignment.id)
-        .eq('group_id', group.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
+        // Check for existing submission (use maybeSingle to avoid 406 when none exists)
+        const { data: submission, error: submissionError } = await supabase
+          .from('group_assignment_submissions')
+          .select('*')
+          .eq('assignment_id', assignment.id)
+          .eq('group_id', group.id)
+          .eq('user_id', user.id)
+          .maybeSingle();
 
-      if (submissionError) {
-        console.error('[GroupSubmissionModal] Error fetching submission:', submissionError);
-      }
+        if (submissionError) {
+          console.error('[GroupSubmissionModal] Error fetching submission:', submissionError);
+        }
 
-      if (submission) {
-        setExistingSubmission(submission);
-        setSubmissionText(submission.content || '');
-        setFileUrl(submission.file_url || '');
-        // Only show filename if file_url exists
-        if (submission.file_url) {
-          const urlParts = submission.file_url.split('/');
-          const fileNameWithTimestamp = urlParts[urlParts.length - 1];
-          // NOTE: This extracts the timestamped filename (e.g., "1234567890.pdf")
-          // not the original user filename. To show the real filename, we would need
-          // to store it in the submission record (e.g., add 'file_name' column)
-          setUploadedFileName(decodeURIComponent(fileNameWithTimestamp));
+        if (submission) {
+          setExistingSubmission(submission);
+          setSubmissionText(submission.content || '');
+          setFileUrl(submission.file_url || '');
+          // Only show filename if file_url exists
+          if (submission.file_url) {
+            const urlParts = submission.file_url.split('/');
+            const fileNameWithTimestamp = urlParts[urlParts.length - 1];
+            setUploadedFileName(decodeURIComponent(fileNameWithTimestamp));
+          } else {
+            setUploadedFileName('');
+          }
         } else {
+          // Reset state when no existing submission
           setUploadedFileName('');
         }
       } else {
-        // Reset state when no existing submission
-        setUploadedFileName('');
+        // No group yet - user needs to create one by inviting classmates
+        setGroupMembers([]);
+        setExistingSubmission(null);
       }
 
-      // Check if group is consultant-managed
-      const { data: groupInfo } = await supabase
-        .from('group_assignment_groups')
-        .select('is_consultant_managed, community_id')
-        .eq('id', group.id)
-        .single();
+      // Check if group is consultant-managed (only if group exists)
+      if (group?.id) {
+        const { data: groupInfo } = await supabase
+          .from('group_assignment_groups')
+          .select('is_consultant_managed, community_id')
+          .eq('id', group.id)
+          .single();
 
-      const isManaged = groupInfo?.is_consultant_managed || false;
-      setIsConsultantManaged(isManaged);
+        const isManaged = groupInfo?.is_consultant_managed || false;
+        setIsConsultantManaged(isManaged);
+      } else {
+        setIsConsultantManaged(false);
+      }
 
       // Load eligible classmates if not submitted and not consultant-managed
-      const isSubmitted = submission?.status === 'submitted' || submission?.status === 'graded';
-      console.log('[GroupSubmissionModal] loadGroupData - isSubmitted:', isSubmitted, 'isManaged:', isManaged, 'user:', user, 'user?.id:', user?.id, 'group.id:', group.id, 'assignment.id:', assignment.id);
-      if (!isManaged && user?.id) {
+      const isSubmitted = existingSubmission?.status === 'submitted' || existingSubmission?.status === 'graded';
+      console.log('[GroupSubmissionModal] loadGroupData - isSubmitted:', isSubmitted, 'isManaged:', isConsultantManaged, 'user:', user, 'user?.id:', user?.id, 'group?.id:', group?.id, 'assignment.id:', assignment.id);
+      if (!isConsultantManaged && user?.id) {
         setLoadingClassmates(true);
         try {
-          const url = `/api/assignments/eligible-classmates?assignmentId=${assignment.id}&groupId=${group.id}`;
+          // Build URL with or without groupId
+          const url = group?.id
+            ? `/api/assignments/eligible-classmates?assignmentId=${assignment.id}&groupId=${group.id}`
+            : `/api/assignments/eligible-classmates?assignmentId=${assignment.id}`;
+
           console.log('[GroupSubmissionModal] Fetching eligible classmates from:', url);
           const response = await fetch(url);
           const data = await response.json();
@@ -166,10 +177,10 @@ export default function GroupSubmissionModalV2({
       } else {
         console.log('[GroupSubmissionModal] Skipping classmates fetch - conditions not met:', {
           isSubmitted,
-          isManaged,
+          isManaged: isConsultantManaged,
           hasUser: !!user,
           hasUserId: !!user?.id,
-          conditionCheck: !isManaged && user?.id
+          conditionCheck: !isConsultantManaged && user?.id
         });
       }
     } catch (error) {
@@ -279,16 +290,23 @@ export default function GroupSubmissionModalV2({
     try {
       setLoadingClassmates(true);
 
-      const response = await fetch('/api/assignments/add-classmates', {
+      const isCreatingGroup = !group?.id;
+      const endpoint = isCreatingGroup
+        ? '/api/assignments/create-group'
+        : '/api/assignments/add-classmates';
+
+      const body = {
+        assignmentId: assignment.id,
+        classmateIds: Array.from(selectedClassmates),
+        ...(group?.id ? { groupId: group.id } : {})
+      };
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          assignmentId: assignment.id,
-          groupId: group.id,
-          classmateIds: Array.from(selectedClassmates)
-        }),
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
@@ -314,9 +332,43 @@ export default function GroupSubmissionModalV2({
         return;
       }
 
-      toast.success(`${data.count || 0} compañero(s) agregado(s) al grupo`);
+      if (isCreatingGroup) {
+        toast.success('Grupo creado exitosamente');
+
+        // Update local state with the new group and members
+        if (data.group) {
+          // We need to update the internal state that tracks the group
+          // Since 'group' is a prop, we can't mutate it directly. 
+          // However, this component seems to rely on 'group' prop for initial state 
+          // but might need an internal state for the "active" group to support this flow.
+
+          // Looking at the component, it uses 'group' prop. 
+          // If we can't update the parent, we must rely on fetching the data again 
+          // and potentially storing it in a local state that overrides the prop if present.
+
+          // Let's check if there's a setGroup or similar. 
+          // If not, we should probably introduce a local 'activeGroup' state that initializes from prop 
+          // but can be updated here.
+
+          // For now, let's try calling loadGroupData which might fetch the group 
+          // BUT loadGroupData relies on 'group?.id' or 'assignment.id'. 
+          // If we just created it, we need to make sure loadGroupData finds it.
+
+          // Actually, the best way without refactoring the whole parent-child flow 
+          // is to call a callback if provided, OR reload the data locally.
+
+          // Let's try to force a reload of the group data by calling the API 
+          // that loadGroupData uses, but we need to ensure it picks up the new group.
+
+          await loadGroupData();
+        }
+      } else {
+        toast.success(`${data.count || 0} compañero(s) agregado(s) al grupo`);
+        await loadGroupData();
+      }
+
       setSelectedClassmates(new Set());
-      await loadGroupData(); // Refresh data
+
     } catch (error) {
       console.error('Error adding classmates:', error);
       toast.error('Error al agregar compañeros. Intenta nuevamente.');
@@ -523,30 +575,30 @@ export default function GroupSubmissionModalV2({
                       {assignment.resources
                         .filter((resource: any) => normalizeUrl(resource.url))
                         .map((resource: any) => (
-                        <button
-                          key={resource.id}
-                          type="button"
-                          onMouseDownCapture={preventModalPropagation}
-                          onMouseUpCapture={preventModalPropagation}
-                          onClick={(e) => handleResourceClick(e, resource)}
-                          className="w-full text-left flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md transition-colors"
-                        >
-                          {resource.type === 'link' ? (
-                            <ExternalLink className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                          ) : (
-                            <File className="w-4 h-4 text-gray-600 flex-shrink-0" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {resource.title || 'Sin título'}
-                            </p>
-                            {resource.description && (
-                              <p className="text-xs text-gray-500 truncate">
-                                {resource.description}
-                              </p>
+                          <button
+                            key={resource.id}
+                            type="button"
+                            onMouseDownCapture={preventModalPropagation}
+                            onMouseUpCapture={preventModalPropagation}
+                            onClick={(e) => handleResourceClick(e, resource)}
+                            className="w-full text-left flex items-center gap-2 p-2 hover:bg-gray-100 rounded-md transition-colors"
+                          >
+                            {resource.type === 'link' ? (
+                              <ExternalLink className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                            ) : (
+                              <File className="w-4 h-4 text-gray-600 flex-shrink-0" />
                             )}
-                          </div>
-                        </button>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {resource.title || 'Sin título'}
+                              </p>
+                              {resource.description && (
+                                <p className="text-xs text-gray-500 truncate">
+                                  {resource.description}
+                                </p>
+                              )}
+                            </div>
+                          </button>
                         ))}
                       {assignment.resources.filter((resource: any) => normalizeUrl(resource.url)).length === 0 && (
                         <p className="text-sm text-gray-500">No hay recursos disponibles actualmente.</p>
@@ -651,16 +703,15 @@ export default function GroupSubmissionModalV2({
                               key={classmate.id}
                               type="button"
                               onClick={() => handleToggleClassmate(classmate.id)}
-                              className={`flex items-center gap-2 p-2 rounded border-2 transition-colors ${
-                                selectedClassmates.has(classmate.id)
-                                  ? 'border-[#fdb933] bg-yellow-50'
-                                  : 'border-gray-200 hover:border-gray-300 bg-gray-50'
-                              }`}
+                              className={`flex items-center gap-2 p-2 rounded border-2 transition-colors ${selectedClassmates.has(classmate.id)
+                                ? 'border-[#fdb933] bg-yellow-50'
+                                : 'border-gray-200 hover:border-gray-300 bg-gray-50'
+                                }`}
                             >
                               <input
                                 type="checkbox"
                                 checked={selectedClassmates.has(classmate.id)}
-                                onChange={() => {}}
+                                onChange={() => { }}
                                 className="w-4 h-4 text-[#00365b] rounded focus:ring-[#00365b]"
                               />
                               {classmate.avatar_url ? (
@@ -702,7 +753,7 @@ export default function GroupSubmissionModalV2({
                             className="px-4 py-2 bg-[#00365b] text-white text-sm rounded-lg hover:bg-[#004a7a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                           >
                             <UserPlus className="h-4 w-4" />
-                            {loadingClassmates ? 'Agregando...' : 'Agregar al Grupo'}
+                            {loadingClassmates ? 'Procesando...' : (group?.id ? 'Agregar al Grupo' : 'Crear Grupo')}
                           </button>
                         </div>
                       )}

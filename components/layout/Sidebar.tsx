@@ -105,6 +105,13 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/mi-aprendizaje/tareas',
         icon: ClipboardDocumentCheckIcon,
         description: 'Tareas de todas mis comunidades'
+      },
+      {
+        id: 'my-courses',
+        label: 'Mis Cursos',
+        href: '/mi-aprendizaje?tab=cursos',
+        icon: BookOpenIcon,
+        description: 'Cursos en los que estoy inscrito'
       }
     ]
   },

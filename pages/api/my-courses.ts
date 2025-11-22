@@ -8,7 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const supabase = createPagesServerClient({ req, res });
-    
+
     // Check authentication
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
@@ -24,7 +24,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         lessons_completed,
         total_lessons,
         updated_at,
-        assigned_at,
+        updated_at,
+        created_at,
         courses (
           id,
           title,
@@ -43,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Transform data for the frontend
     const courses = (enrollments || []).map((enrollment: any) => {
       if (!enrollment.courses) return null;
-      
+
       return {
         id: enrollment.courses.id,
         title: enrollment.courses.title,
@@ -53,7 +54,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         lessons_completed: enrollment.lessons_completed || 0,
         total_lessons: enrollment.total_lessons || 0,
         last_activity: enrollment.updated_at,
-        assigned_at: enrollment.assigned_at
+        assigned_at: enrollment.created_at
       };
     }).filter(Boolean);
 

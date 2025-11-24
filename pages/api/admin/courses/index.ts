@@ -35,7 +35,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const pageSizeParam = Math.max(parseInt((req.query.pageSize as string) || '12', 10), 1);
     const pageSize = Math.min(pageSizeParam, 50);
     const search = (req.query.search as string)?.trim() || '';
-    const instructor = (req.query.instructor as string)?.trim() || '';
     const offset = (page - 1) * pageSize;
 
     let query = supabaseClient
@@ -46,7 +45,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           title,
           description,
           thumbnail_url,
-          instructor_name,
           structure_type,
           created_at
         `,
@@ -58,12 +56,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (search) {
       const sanitized = search.replace(/%/g, '').toLowerCase();
       query = query.or(
-        `title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,instructor_name.ilike.%${sanitized}%`
+        `title.ilike.%${sanitized}%,description.ilike.%${sanitized}%`
       );
-    }
-
-    if (instructor) {
-      query = query.eq('instructor_name', instructor);
     }
 
     const { data, error: fetchError, count } = await query;

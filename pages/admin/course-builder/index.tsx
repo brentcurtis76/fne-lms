@@ -33,12 +33,22 @@ const CourseBuilder: React.FC = () => {
   const supabase = useSupabaseClient();
   const [user, setUser] = useState<any>(null);
   const [courses, setCourses] = useState<FormattedCourse[]>([]);
+  const [totalCourses, setTotalCourses] = useState(0);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [isFormCollapsed, setIsFormCollapsed] = useState(true);
   const [instructorFilter, setInstructorFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 12;
+  const totalPages = Math.max(1, Math.ceil(totalCourses / PAGE_SIZE));
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+    fetchCourses(page);
+  };
 
   // State for delete confirmation modal
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -120,92 +130,55 @@ const CourseBuilder: React.FC = () => {
     getInitialSession();
   }, []);
 
-  const fetchCourses = useCallback(async () => {
+  const fetchCourses = useCallback(async (page = 1, overrides?: { search?: string; instructor?: string }) => {
     if (!user) {
       console.log('No user, skipping course fetch');
       return;
     }
     
-    console.log('Fetching courses for user:', user.id);
+    console.log('Fetching courses page:', page);
     setLoading(true);
     
     try {
-      // Simple fetch without joins to avoid database errors
-      const { data, error } = await supabase
-        .from('courses')
-        .select('*')
-        .order('created_at', { ascending: false });
+      const params = new URLSearchParams({
+        page: page.toString(),
+        pageSize: PAGE_SIZE.toString()
+      });
 
-      if (error) {
-        console.error('Error fetching courses:', error);
-        toast.error('Error al cargar los cursos: ' + error.message);
-        setCourses([]);
-        return;
+      const search = overrides?.search ?? searchQuery;
+      const instructor = overrides?.instructor ?? instructorFilter;
+
+      if (search.trim()) params.append('search', search.trim());
+      if (instructor) params.append('instructor', instructor);
+
+      const response = await fetch(`/api/admin/courses?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('Error al cargar los cursos');
       }
 
-      console.log('Courses fetched successfully:', data?.length || 0);
-      
-      // Now fetch instructors for each course
-      const coursesWithInstructors = await Promise.all((data || []).map(async (course) => {
-        let instructorName = 'Sin instructor';
-        
-        // First, try to get instructor from instructors table using course.instructor_id
-        if (course.instructor_id) {
-          const { data: instructor } = await supabase
-            .from('instructors')
-            .select('full_name')
-            .eq('id', course.instructor_id)
-            .single();
-          
-          if (instructor && instructor.full_name) {
-            instructorName = instructor.full_name;
-          }
-        }
-        
-        // If no instructor found from instructor_id, look for consultants in course_assignments
-        if (instructorName === 'Sin instructor') {
-          // Get all teachers assigned to this course
-          const { data: assignments } = await supabase
-            .from('course_assignments')
-            .select('teacher_id')
-            .eq('course_id', course.id);
-
-          if (assignments && assignments.length > 0) {
-            // Get profiles of assigned teachers and find consultants
-            const teacherIds = assignments.map(a => a.teacher_id);
-            const { data: profiles } = await supabase
-              .from('profiles')
-              .select('id, first_name, last_name, role')
-              .in('id', teacherIds)
-              .eq('role', 'consultor')
-              .limit(1);
-            
-            if (profiles && profiles.length > 0) {
-              const profile = profiles[0];
-              instructorName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Sin nombre';
-            }
-          }
-        }
-        
-
-        return {
+      const data = await response.json();
+      setCourses(
+        (data.courses || []).map((course: any) => ({
           ...course,
-          instructor_name: instructorName,
-          thumbnail_url: (course.thumbnail_url && 
-                         course.thumbnail_url !== 'default-thumbnail.png' && 
-                         course.thumbnail_url !== 'https://example.com/default-thumbnail.png') ? course.thumbnail_url : null 
-        };
-      }));
-      
-      setCourses(coursesWithInstructors);
+          thumbnail_url:
+            course.thumbnail_url &&
+            course.thumbnail_url !== 'default-thumbnail.png' &&
+            course.thumbnail_url !== 'https://example.com/default-thumbnail.png'
+              ? course.thumbnail_url
+              : null
+        }))
+      );
+      setTotalCourses(data.total || 0);
+      setCurrentPage(data.page || page);
     } catch (error) {
       console.error('Unexpected error fetching courses:', error);
       toast.error('Error inesperado al cargar cursos');
       setCourses([]);
+      setTotalCourses(0);
     } finally {
       setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, searchQuery, instructorFilter]);
 
   useEffect(() => {
     const checkAdminAndFetchData = async () => {
@@ -220,14 +193,26 @@ const CourseBuilder: React.FC = () => {
     checkAdminAndFetchData();
   }, [user?.id, fetchUserRole]); // Include fetchUserRole dependency
 
-  // Separate effect for when userRole changes
+  // When search or instructor filter changes, refetch first page (admin only)
   useEffect(() => {
     if (user && userRole === 'admin') {
-      fetchCourses();
-    } else if (userRole !== null && userRole !== 'admin') {
+      fetchCourses(1);
+    }
+  }, [searchQuery, instructorFilter, user, userRole, fetchCourses]);
+
+  // Handle non-admin state
+  useEffect(() => {
+    if (userRole !== null && userRole !== 'admin') {
       setLoading(false);
     }
-  }, [userRole, user, fetchCourses]); // Include all dependencies
+  }, [userRole]);
+
+  // Refetch when search or instructor filter changes
+  useEffect(() => {
+    if (user && userRole === 'admin') {
+      fetchCourses(1);
+    }
+  }, [searchQuery, instructorFilter, user, userRole, fetchCourses]);
 
   // Handler to open the delete confirmation modal
   const handleOpenDeleteModal = (course: FormattedCourse) => {
@@ -429,29 +414,8 @@ const CourseBuilder: React.FC = () => {
     return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
   }, [courses]);
 
-  // Filter courses based on search query and instructor
-  const filterCourses = (coursesList: FormattedCourse[]): FormattedCourse[] => {
-    let filtered = coursesList;
-
-    if (instructorFilter) {
-      filtered = filtered.filter(
-        course => (course.instructor_name || '').toLowerCase() === instructorFilter.toLowerCase()
-      );
-    }
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(course => {
-        return (
-          course.title.toLowerCase().includes(query) ||
-          (course.description || '').toLowerCase().includes(query) ||
-          (course.instructor_name || '').toLowerCase().includes(query)
-        );
-      });
-    }
-
-    return filtered;
-  };
+  // Courses are already filtered server-side; return as-is for rendering
+  const filterCourses = (coursesList: FormattedCourse[]): FormattedCourse[] => coursesList;
 
   if (loading || user === undefined) { 
     return (
@@ -501,7 +465,7 @@ const CourseBuilder: React.FC = () => {
       <ResponsiveFunctionalPageHeader
         icon={<BookOpen />}
         title="Gestor de Cursos"
-        subtitle={`${courses.length} curso${courses.length !== 1 ? 's' : ''} creado${courses.length !== 1 ? 's' : ''}`}
+        subtitle={`${totalCourses} curso${totalCourses !== 1 ? 's' : ''} creado${totalCourses !== 1 ? 's' : ''}`}
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Buscar cursos..."
@@ -536,6 +500,36 @@ const CourseBuilder: React.FC = () => {
           </div>
         </div>
         
+        {/* Pagination summary and controls */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+          <div className="text-sm text-gray-600">
+            Mostrando {totalCourses === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}
+            {' - '}
+            {totalCourses === 0 ? 0 : Math.min(totalCourses, (currentPage - 1) * PAGE_SIZE + courses.length)}
+            {' de '}
+            {totalCourses}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1 || loading}
+              className="px-3 py-1 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              Anterior
+            </button>
+            <span className="text-sm text-gray-700">
+              Página {currentPage} de {totalPages}
+            </span>
+            <button
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage >= totalPages || loading}
+              className="px-3 py-1 text-sm border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+
         {/* Course Creation Form Section - Collapsible */}
         <div className="mb-12 bg-white rounded-lg shadow-md">
           <button
@@ -556,7 +550,7 @@ const CourseBuilder: React.FC = () => {
               <CourseBuilderForm 
                 createdBy={user?.id}
                 onSuccess={() => {
-                  fetchCourses();
+                  fetchCourses(currentPage);
                   setIsFormCollapsed(true);
                 }} 
               />

@@ -6,7 +6,6 @@ import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import DeleteCourseModal from '../../../components/DeleteCourseModal';
-import AssignTeachersModal from '../../../components/AssignTeachersModal';
 import CourseBuilderForm from '../../../src/components/CourseBuilderForm';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { BookOpen, Plus, ChevronDown, ChevronUp } from 'lucide-react';
@@ -45,9 +44,7 @@ const CourseBuilder: React.FC = () => {
   const [selectedCourseForDeletion, setSelectedCourseForDeletion] = useState<FormattedCourse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // State for assignment modal
-  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
-  const [selectedCourseForAssignment, setSelectedCourseForAssignment] = useState<FormattedCourse | null>(null);
+  // Assignment modal state removed - now navigates to dedicated page
 
   const fetchUserRole = useCallback(async () => {
     try {
@@ -243,15 +240,9 @@ const CourseBuilder: React.FC = () => {
     setIsDeleteModalOpen(false);
   };
 
-  // Assignment modal handlers
+  // Assignment handler - navigate to dedicated assignment page
   const handleOpenAssignModal = (course: FormattedCourse) => {
-    setSelectedCourseForAssignment(course);
-    setIsAssignModalOpen(true);
-  };
-
-  const handleCloseAssignModal = () => {
-    setSelectedCourseForAssignment(null);
-    setIsAssignModalOpen(false);
+    router.push(`/admin/courses/${course.id}/assign`);
   };
 
   // Handler for actual deletion - SIMPLIFIED VERSION
@@ -645,16 +636,6 @@ const CourseBuilder: React.FC = () => {
           onClose={handleCloseDeleteModal}
           onConfirm={handleConfirmDelete}
           isDeleting={isDeleting}
-        />
-      )}
-      
-      {/* Assign Teachers Modal */}
-      {isAssignModalOpen && selectedCourseForAssignment && (
-        <AssignTeachersModal
-          isOpen={isAssignModalOpen}
-          onClose={handleCloseAssignModal}
-          courseId={selectedCourseForAssignment.id}
-          courseTitle={selectedCourseForAssignment.title}
         />
       )}
     </MainLayout>

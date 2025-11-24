@@ -342,6 +342,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const [newFeedbackCount, setNewFeedbackCount] = useState(0);
   const [isSuperadmin, setIsSuperadmin] = useState(false);
   const [superadminCheckDone, setSuperadminCheckDone] = useState(false);
+  const [schoolName, setSchoolName] = useState<string>('');
 
   const fetchNewFeedbackCount = useCallback(async () => {
     try {
@@ -395,6 +396,32 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       return () => clearInterval(interval);
     }
   }, [isAdmin, fetchNewFeedbackCount]);
+
+  // Fetch school name for current user (single call)
+  useEffect(() => {
+    const loadSchool = async () => {
+      if (!user) {
+        setSchoolName('');
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('school')
+          .eq('id', user.id)
+          .single();
+        if (!error && data?.school) {
+          setSchoolName(data.school);
+        } else {
+          setSchoolName('Sin colegio');
+        }
+      } catch (err) {
+        console.warn('Could not load school for sidebar', err);
+        setSchoolName('Sin colegio');
+      }
+    };
+    loadSchool();
+  }, [user, supabase]);
 
   // Auto-expand parent items based on current page
   useEffect(() => {
@@ -853,6 +880,26 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                 <XMarkIcon className="h-5 w-5" />
               )}
             </button>
+          </div>
+        </div>
+
+        {/* School badge */}
+        <div className="px-2 mt-3">
+          <div className={`rounded-lg border border-white/20 bg-white/5 ${isCollapsed ? 'px-2 py-2 text-center' : 'px-3 py-2'}`}>
+            <div className="flex items-center gap-2 justify-center">
+              <OfficeBuildingIcon className={`h-4 w-4 ${isCollapsed ? 'text-white/80' : 'text-white'}`} />
+              {!isCollapsed && (
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-wide text-white/60">Colegio</p>
+                  <p className="text-sm font-semibold text-white truncate" title={schoolName || 'Sin colegio'}>
+                    {schoolName || 'Sin colegio'}
+                  </p>
+                </div>
+              )}
+              {isCollapsed && (
+                <span className="sr-only">Colegio: {schoolName || 'Sin colegio'}</span>
+              )}
+            </div>
           </div>
         </div>
 

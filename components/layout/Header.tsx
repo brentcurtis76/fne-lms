@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { User } from '@supabase/supabase-js';
 import Avatar from '../common/Avatar';
 import RealtimeNotificationBell from '../notifications/RealtimeNotificationBell';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 interface HeaderProps {
   user?: User | null;
@@ -15,9 +16,11 @@ interface HeaderProps {
 
 export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarUrl, showNavigation = true }: HeaderProps) {
   const router = useRouter();
+  const supabase = useSupabaseClient();
   const [localUser, setLocalUser] = useState<User | null>(user || null);
   const [localIsAdmin, setLocalIsAdmin] = useState(isAdmin || false);
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [schoolName, setSchoolName] = useState<string>('');
 
   // FIXED: Simple effect with proper dependencies
   useEffect(() => {
@@ -36,6 +39,32 @@ export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarU
       }
     }
   }, [user?.id, isAdmin, propAvatarUrl]);
+
+  // Load school for header badge
+  useEffect(() => {
+    const loadSchool = async () => {
+      if (!user) {
+        setSchoolName('');
+        return;
+      }
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('school')
+          .eq('id', user.id)
+          .single();
+
+        if (!error && data?.school) {
+          setSchoolName(data.school);
+        } else {
+          setSchoolName('Sin colegio');
+        }
+      } catch (err) {
+        setSchoolName('Sin colegio');
+      }
+    };
+    loadSchool();
+  }, [user?.id, supabase]);
 
   const handleLogout = async () => {
     if (onLogout) {
@@ -63,7 +92,7 @@ export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarU
       <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-6">
           {/* Logo */}
-          <div className="flex items-center">
+          <div className="flex items-center gap-4">
             <Link href="/" legacyBehavior>
               <a className="flex items-center space-x-3 group">
                 <div className="relative">
@@ -76,6 +105,14 @@ export default function Header({ user, isAdmin, onLogout, avatarUrl: propAvatarU
                 </div>
               </a>
             </Link>
+            <div className="hidden sm:flex items-center">
+              <div className="px-3 py-1.5 rounded-full bg-white/15 border border-white/20 backdrop-blur text-white">
+                <div className="text-[11px] uppercase tracking-wide text-white/70 leading-tight">Colegio</div>
+                <div className="text-sm font-semibold leading-tight truncate max-w-xs" title={schoolName || 'Sin colegio'}>
+                  {schoolName || 'Sin colegio'}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Desktop Navigation */}

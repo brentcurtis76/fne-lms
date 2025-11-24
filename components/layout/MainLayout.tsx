@@ -8,12 +8,14 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Head from 'next/head';
 import { User } from '@supabase/supabase-js';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import Sidebar from './Sidebar';
 import Avatar from '../common/Avatar';
 import { useAvatar } from '../../hooks/useAvatar';
 import { useAuth } from '../../hooks/useAuth';
 import { getHighestRole, extractRolesFromMetadata } from '../../utils/roleUtils';
 import { LogOut } from 'lucide-react';
+import { OfficeBuildingIcon } from '@heroicons/react/outline';
 import FeedbackButtonWithPermissions from '../feedback/FeedbackButtonWithPermissions';
 
 interface Breadcrumb {
@@ -49,6 +51,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   className = ''
 }) => {
   const router = useRouter();
+  const supabase = useSupabaseClient();
 
   // Use useAuth if props aren't provided (for pages that don't pass props)
   const auth = useAuth();
@@ -83,6 +86,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   
   // Sidebar state with localStorage persistence
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [schoolName, setSchoolName] = useState<string>('Sin colegio');
   
   // Use the avatar hook for better performance
   const { url: fetchedAvatarUrl } = useAvatar(user);
@@ -106,6 +110,39 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       }
     }
   }, [user, avatarUrl]);
+
+  // Fetch school name for header pill
+  useEffect(() => {
+    const loadSchool = async () => {
+      if (!user) {
+        setSchoolName('Sin colegio');
+        return;
+      }
+
+      // 1) Use profileData prop if provided
+      if (profileData?.school) {
+        setSchoolName(profileData.school);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('school')
+          .eq('id', user.id)
+          .single();
+        if (!error && data?.school) {
+          setSchoolName(data.school);
+          return;
+        }
+      } catch (err) {
+        // ignore and fallback
+      }
+
+      setSchoolName('Sin colegio');
+    };
+    loadSchool();
+  }, [user?.id, supabase, profileData?.school]);
   
   // Initialize sidebar state from localStorage
   useEffect(() => {
@@ -184,9 +221,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
             <div className="px-4 sm:px-6 lg:px-8 py-3">
               <div className="flex items-center justify-between">
-                {/* Left side - can be empty or add page title here */}
+                {/* Left side - School badge */}
                 <div className="flex-1">
-                  {/* Empty for now */}
+                  <div className="inline-flex items-center gap-2 text-[#00365b]">
+                    <OfficeBuildingIcon className="h-4 w-4 text-[#00365b]" />
+                    <div className="min-w-0">
+                      <div className="text-[11px] uppercase tracking-wide text-gray-500 leading-tight">Colegio</div>
+                      <div className="text-sm font-semibold leading-tight break-words" title={schoolName || 'Sin colegio'}>
+                        {schoolName || 'Sin colegio'}
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 
                 {/* Right side - User info and logout */}
@@ -240,6 +285,17 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             {(pageTitle || breadcrumbs.length > 0) && (
               <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4">
                 <div className="max-w-7xl mx-auto">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[#00365b] shadow-sm">
+                      <OfficeBuildingIcon className="h-4 w-4 text-[#00365b]" />
+                      <div className="min-w-0">
+                        <div className="text-[11px] uppercase tracking-wide text-gray-500 leading-tight">Colegio</div>
+                        <div className="text-sm font-semibold leading-tight truncate max-w-xs" title={schoolName || 'Sin colegio'}>
+                          {schoolName || 'Sin colegio'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   {/* Breadcrumbs */}
                   {breadcrumbs.length > 0 && (
                     <nav className="flex mb-2" aria-label="Breadcrumb">

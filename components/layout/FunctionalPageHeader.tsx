@@ -4,6 +4,7 @@ import { SearchIcon } from '@heroicons/react/outline';
 interface FunctionalPageHeaderProps {
   icon: React.ReactNode;
   title: string;
+  leftAddon?: React.ReactNode;
   subtitle?: string;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
@@ -24,6 +25,7 @@ interface FunctionalPageHeaderProps {
 export default function FunctionalPageHeader({
   icon,
   title,
+  leftAddon,
   subtitle,
   searchValue,
   onSearchChange,
@@ -38,6 +40,7 @@ export default function FunctionalPageHeader({
         <div className="flex items-center justify-between">
           {/* Left: Icon + Title */}
           <div className="flex items-center space-x-3">
+            {leftAddon}
             <div className="text-[#00365b] text-2xl">
               {icon}
             </div>
@@ -97,6 +100,7 @@ export default function FunctionalPageHeader({
 export function MobileFunctionalPageHeader({
   icon,
   title,
+  leftAddon,
   subtitle,
   searchValue,
   onSearchChange,
@@ -111,6 +115,7 @@ export function MobileFunctionalPageHeader({
         {/* Top Row: Icon + Title + Primary Action */}
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2">
+            {leftAddon}
             <div className="text-[#00365b] text-xl">
               {icon}
             </div>

@@ -13,6 +13,7 @@ import { Home, Settings, Users } from 'lucide-react';
 import WorkspaceSettingsModal from '../components/community/WorkspaceSettingsModal';
 import { communityWorkspaceService } from '../lib/services/communityWorkspace';
 import { getOrCreateWorkspace } from '../utils/workspaceUtils';
+import { OfficeBuildingIcon } from '@heroicons/react/outline';
 
 export default function Dashboard() {
   const router = useRouter();

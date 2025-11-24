@@ -47,6 +47,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           description,
           thumbnail_url,
           instructor_name,
+          instructor_id,
+          instructors!left(full_name),
           structure_type,
           created_at
         `,
@@ -58,12 +60,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (search) {
       const sanitized = search.replace(/%/g, '').toLowerCase();
       query = query.or(
-        `title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,instructor_name.ilike.%${sanitized}%`
+        `title.ilike.%${sanitized}%,description.ilike.%${sanitized}%,instructor_name.ilike.%${sanitized}%,instructors.full_name.ilike.%${sanitized}%`
       );
     }
 
     if (instructor) {
-      query = query.eq('instructor_name', instructor);
+      // Match either stored instructor_name or related instructor full_name
+      query = query.or(
+        `instructor_name.eq.${instructor},instructors.full_name.eq.${instructor}`
+      );
     }
 
     const { data, error: fetchError, count } = await query;
@@ -73,9 +78,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener cursos' });
     }
 
+    // Normalize instructor name for response
+    const normalizedCourses = (data || []).map((course: any) => ({
+      ...course,
+      instructor_name: course.instructor_name || course.instructors?.full_name || 'Sin instructor'
+    }));
+
     return res.status(200).json({
       success: true,
-      courses: data || [],
+      courses: normalizedCourses,
       total: count || 0,
       page,
       pageSize

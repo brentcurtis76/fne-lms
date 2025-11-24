@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import CourseBuilderForm from '../src/components/CourseBuilderForm';
-import CourseList from '../src/components/CourseList';
 import MainLayout from '../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
@@ -437,27 +436,6 @@ const MiAprendizajePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* All Courses Section - Admin Only */}
-                {isAdmin && (
-                  <div className="bg-white rounded-lg shadow-md">
-                    <div className="p-6 border-b border-gray-200">
-                      <h2 className="text-xl font-semibold text-brand_blue">
-                        Todos los Cursos del Sistema
-                      </h2>
-                      <p className="text-gray-500 text-sm mt-1">
-                        Gestiona todos los cursos del sistema
-                      </p>
-                    </div>
-                    
-                    <div className="p-6">
-                      <CourseList 
-                        key={refreshTrigger}
-                        showInstructor={true}
-                        limit={20}
-                      />
-                    </div>
-                  </div>
-                )}
               </>
             )}
 

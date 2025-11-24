@@ -1,5 +1,5 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 
@@ -38,6 +38,7 @@ const CourseBuilder: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [isFormCollapsed, setIsFormCollapsed] = useState(true);
+  const [instructorFilter, setInstructorFilter] = useState('');
 
   // State for delete confirmation modal
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -420,18 +421,36 @@ const CourseBuilder: React.FC = () => {
     router.push('/login');
   };
 
-  // Filter courses based on search query
-  const filterCoursesBySearch = (coursesList: FormattedCourse[]): FormattedCourse[] => {
-    if (!searchQuery.trim()) return coursesList;
-    
-    const query = searchQuery.toLowerCase();
-    return coursesList.filter(course => {
-      return (
-        course.title.toLowerCase().includes(query) ||
-        course.description.toLowerCase().includes(query) ||
-        course.instructor_name.toLowerCase().includes(query)
+  // Unique instructors list for filter
+  const instructorOptions = useMemo(() => {
+    const names = courses
+      .map(c => c.instructor_name)
+      .filter((name): name is string => !!name);
+    return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+  }, [courses]);
+
+  // Filter courses based on search query and instructor
+  const filterCourses = (coursesList: FormattedCourse[]): FormattedCourse[] => {
+    let filtered = coursesList;
+
+    if (instructorFilter) {
+      filtered = filtered.filter(
+        course => (course.instructor_name || '').toLowerCase() === instructorFilter.toLowerCase()
       );
-    });
+    }
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(course => {
+        return (
+          course.title.toLowerCase().includes(query) ||
+          (course.description || '').toLowerCase().includes(query) ||
+          (course.instructor_name || '').toLowerCase().includes(query)
+        );
+      });
+    }
+
+    return filtered;
   };
 
   if (loading || user === undefined) { 
@@ -489,6 +508,33 @@ const CourseBuilder: React.FC = () => {
       />
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+          <div className="text-sm text-gray-600">
+            Filtrar por instructor
+          </div>
+          <div className="flex items-center gap-3 w-full sm:w-80">
+            <select
+              value={instructorFilter}
+              onChange={(e) => setInstructorFilter(e.target.value)}
+              className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-brand_blue focus:border-brand_blue text-sm"
+            >
+              <option value="">Todos los instructores</option>
+              {instructorOptions.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            {instructorFilter && (
+              <button
+                onClick={() => setInstructorFilter('')}
+                className="text-xs text-brand_blue hover:text-brand_blue/80"
+              >
+                Limpiar
+              </button>
+            )}
+          </div>
+        </div>
         
         {/* Course Creation Form Section - Collapsible */}
         <div className="mb-12 bg-white rounded-lg shadow-md">
@@ -533,7 +579,7 @@ const CourseBuilder: React.FC = () => {
               </Link>
             </div>
           </div>
-        ) : filterCoursesBySearch(courses).length === 0 ? (
+        ) : filterCourses(courses).length === 0 ? (
           <div className="text-center bg-white p-12 rounded-xl shadow-lg">
             <svg className="mx-auto h-16 w-16 text-brand_blue/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -549,7 +595,7 @@ const CourseBuilder: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-            {filterCoursesBySearch(courses).map((course) => (
+            {filterCourses(courses).map((course) => (
               <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
                 <Link href={`/admin/course-builder/${course.id}`} legacyBehavior>
                   <a className="block group">
@@ -563,8 +609,8 @@ const CourseBuilder: React.FC = () => {
                       )}
                     </div>
                     <div className="p-5 md:p-6 flex-grow">
-                      <div className="flex items-start justify-between mb-2">
-                        <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate flex-1">
+                      <div className="flex items-start justify-between mb-2 gap-2">
+                        <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 leading-tight break-words flex-1">
                           {course.title}
                         </h2>
                         <span className={`ml-2 px-2 py-1 text-xs rounded-full font-medium ${
@@ -575,9 +621,11 @@ const CourseBuilder: React.FC = () => {
                           {course.structure_type === 'simple' ? 'Simple' : 'Modular'}
                         </span>
                       </div>
-                      <p className="mt-2 text-sm text-gray-600 line-clamp-3 h-[3.75em]">
-                        {course.description}
-                      </p>
+                      {course.description && (
+                        <p className="mt-1 text-sm text-gray-600 line-clamp-1">
+                          {course.description}
+                        </p>
+                      )}
                       <p className="mt-3 text-xs text-gray-500">
                         Instructor: {course.instructor_name}
                       </p>

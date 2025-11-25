@@ -500,6 +500,55 @@ export class RubricEvaluator {
   }
 
   /**
+   * Extract contextual _accion responses (open-ended qualitative answers)
+   * These don't map to rubric items but provide valuable context for evaluation
+   *
+   * Note: Only works with semantic keys (objetivo1_accion1_accion format).
+   * UUID-format keys don't have _accion responses - they use rubric IDs directly.
+   */
+  private extractAccionResponses(
+    responses: Record<string, DimensionResponse>
+  ): Record<string, { objectiveNum: number; actionNum: number; text: string }> {
+    const accionResponses: Record<string, { objectiveNum: number; actionNum: number; text: string }> = {};
+
+    // Early return if responses are in UUID format (no _accion keys possible)
+    const firstKey = Object.keys(responses)[0];
+    if (!firstKey) {
+      console.log('📝 No responses to extract _accion from');
+      return accionResponses;
+    }
+
+    // UUID keys have 4+ hyphens, semantic keys have 0-2
+    const hyphenCount = (firstKey.match(/-/g) || []).length;
+    if (hyphenCount >= 4) {
+      console.log('📝 Responses are in UUID format - no _accion keys to extract');
+      return accionResponses;
+    }
+
+    for (const [key, response] of Object.entries(responses)) {
+      if (key.endsWith('_accion')) {
+        const match = key.match(/objetivo(\d+)_accion(\d+)_accion/);
+        if (match) {
+          const text = response.response || response.answer || '';
+          if (text.trim()) {
+            accionResponses[key] = {
+              objectiveNum: parseInt(match[1]),
+              actionNum: parseInt(match[2]),
+              text: text.trim()
+            };
+          }
+        } else {
+          // Key ends with _accion but doesn't match expected pattern - log for debugging
+          console.warn(`⚠️ Unexpected _accion key format: ${key}`);
+        }
+      }
+    }
+
+    console.log(`📝 Extracted ${Object.keys(accionResponses).length} contextual _accion responses`);
+    return accionResponses;
+  }
+
+  /**
    * Map semantic keys to rubric item UUIDs
    */
   private mapResponsesToRubricItems(
@@ -539,7 +588,7 @@ export class RubricEvaluator {
     console.log('🔄 Converting semantic keys to UUID keys...');
 
     let successCount = 0;
-    let failCount = 0;
+    let accionCount = 0;
 
     for (const [semanticKey, response] of Object.entries(responses)) {
       // Parse semantic key: "objetivo1_accion1_accion" or "objetivo1_accion1_cobertura"
@@ -547,27 +596,23 @@ export class RubricEvaluator {
 
       if (!match) {
         console.warn(`⚠️ Key doesn't match pattern: ${semanticKey}`);
-        failCount++;
         continue;
       }
 
       const [, objectiveNum, actionNum, dimensionType] = match;
 
-      // Map dimension type to rubric dimension
-      const dimensionMap: Record<string, string> = {
-        'accion': 'accion',
-        'cobertura': 'cobertura',
-        'frecuencia': 'frecuencia',
-        'profundidad': 'profundidad'
-      };
+      // Skip _accion responses - they're contextual, not rubric-mapped
+      // They'll be extracted separately via extractAccionResponses()
+      if (dimensionType === 'accion') {
+        accionCount++;
+        continue; // Don't try to map to rubric - these are qualitative context
+      }
 
-      const dimension = dimensionMap[dimensionType];
-
-      // Find matching rubric item
+      // Find matching rubric item for dimension responses
       const rubricItem = rubricItems.find(item =>
         item.objective_number === parseInt(objectiveNum) &&
         item.action_number === parseInt(actionNum) &&
-        item.dimension === dimension
+        item.dimension === dimensionType
       );
 
       if (rubricItem) {
@@ -583,14 +628,12 @@ export class RubricEvaluator {
         };
 
         successCount++;
-        console.log(`✅ Mapped: ${semanticKey} → ${rubricItem.id}`);
       } else {
-        failCount++;
-        console.warn(`⚠️ No rubric item found for: obj${objectiveNum}, act${actionNum}, ${dimension}`);
+        console.warn(`⚠️ No rubric item found for dimension: obj${objectiveNum}, act${actionNum}, ${dimensionType}`);
       }
     }
 
-    console.log(`✅ Mapping complete: ${successCount} success, ${failCount} failed`);
+    console.log(`✅ Mapping complete: ${successCount} dimension responses mapped, ${accionCount} contextual _accion responses (handled separately)`);
 
     return mappedResponses;
   }
@@ -623,14 +666,18 @@ export class RubricEvaluator {
     console.log('📊 Input responses:', Object.keys(responses).length);
     console.log('📊 Input rubric items:', rubricItems.length);
 
+    // Extract contextual _accion responses (qualitative data not in rubric)
+    console.log('✅ Extracting contextual _accion responses...');
+    const accionResponses = this.extractAccionResponses(responses);
+
     // Map semantic keys to rubric UUIDs if needed
     console.log('✅ Mapping responses to rubric items...');
     const mappedResponses = this.mapResponsesToRubricItems(rubricItems, responses);
     console.log('✅ Mapped responses count:', Object.keys(mappedResponses).length);
 
-    // Build evaluation context
+    // Build evaluation context (including _accion context)
     console.log('✅ Building evaluation context...');
-    const evaluationContext = this.buildEvaluationContext(mappedResponses, rubricItems);
+    const evaluationContext = this.buildEvaluationContext(mappedResponses, rubricItems, accionResponses);
     console.log('✅ Context built. Length:', evaluationContext.length, 'characters');
 
     // Check if context is too large
@@ -652,14 +699,14 @@ export class RubricEvaluator {
     console.log('✅ Calling Anthropic API...');
     const MODEL = 'claude-sonnet-4-20250514';  // Upgraded from Haiku for better reasoning
     console.log('📋 Using model:', MODEL);
-    console.log('📋 Max tokens: 6000');
+    console.log('📋 Max tokens: 16000');
     console.log('📋 Temperature: 0.3');
 
     let message;
     try {
       message = await this.anthropic.messages.create({
         model: MODEL,
-        max_tokens: 6000,
+        max_tokens: 16000, // Increased to handle full 33-dimension evaluation JSON
         temperature: 0.3, // Lower temperature for more consistent evaluations
         messages: [
           {
@@ -1068,7 +1115,8 @@ export class RubricEvaluator {
    */
   private buildEvaluationContext(
     responses: Record<string, DimensionResponse>,
-    rubricItems: RubricItem[]
+    rubricItems: RubricItem[],
+    accionResponses?: Record<string, { objectiveNum: number; actionNum: number; text: string }>
   ): string {
     let context = '## RESPUESTAS DE LA COMUNIDAD EDUCATIVA\n\n';
 
@@ -1080,6 +1128,16 @@ export class RubricEvaluator {
 
       for (const action of objective.actions) {
         context += `#### Acción ${action.actionNumber}: ${action.actionText}\n\n`;
+
+        // Add contextual description from _accion response if available
+        // This provides qualitative context about how the school implements this action
+        if (accionResponses) {
+          const accionKey = `objetivo${objective.objectiveNumber}_accion${action.actionNumber}_accion`;
+          const accionData = accionResponses[accionKey];
+          if (accionData && accionData.text) {
+            context += `**Contexto del equipo sobre esta acción:**\n"${accionData.text}"\n\n`;
+          }
+        }
 
         // Add each dimension response
         for (const [dimensionType, rubricItem] of Object.entries(action.dimensions)) {

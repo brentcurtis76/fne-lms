@@ -1,6 +1,53 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { RubricEvaluator } from '@/lib/transformation/evaluator';
+import * as fs from 'fs';
+import * as path from 'path';
+
+/**
+ * Get Anthropic API key with fallback to .env.local file
+ * This handles the case where an empty shell environment variable
+ * overrides the .env.local value (common with Claude Code sessions)
+ */
+function getAnthropicApiKey(): string | null {
+  // First try process.env (works when env var is properly set)
+  const envKey = process.env.ANTHROPIC_API_KEY;
+  if (envKey && envKey.trim().length > 0) {
+    return envKey;
+  }
+
+  // Fallback: Read directly from .env.local file
+  // This handles the case where shell has empty ANTHROPIC_API_KEY=
+  try {
+    const envLocalPath = path.join(process.cwd(), '.env.local');
+    if (fs.existsSync(envLocalPath)) {
+      const envContent = fs.readFileSync(envLocalPath, 'utf8');
+      const lines = envContent.split('\n');
+
+      for (const line of lines) {
+        const trimmedLine = line.trim();
+        // Skip comments and empty lines
+        if (!trimmedLine || trimmedLine.startsWith('#')) continue;
+
+        // Parse KEY=VALUE format
+        const match = trimmedLine.match(/^ANTHROPIC_API_KEY=(.+)$/);
+        if (match) {
+          const value = match[1].trim();
+          // Remove quotes if present
+          if ((value.startsWith('"') && value.endsWith('"')) ||
+              (value.startsWith("'") && value.endsWith("'"))) {
+            return value.slice(1, -1);
+          }
+          return value;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error reading .env.local for ANTHROPIC_API_KEY fallback:', err);
+  }
+
+  return null;
+}
 
 export const config = {
   api: {
@@ -157,12 +204,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('✅ Loaded rubric items:', rubricItems.length);
 
-    // 4. Get Anthropic API key from environment
+    // 4. Get Anthropic API key (with fallback to .env.local file)
     console.log('✅ Checking Anthropic API key...');
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = getAnthropicApiKey();
 
     if (!apiKey) {
-      console.error('❌ ANTHROPIC_API_KEY not configured');
+      console.error('❌ ANTHROPIC_API_KEY not configured (checked process.env and .env.local)');
       return res.status(500).json({
         error: 'API key not configured',
         message: 'La clave de API de Anthropic no está configurada'

@@ -1,30 +1,165 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
-import Header from '../components/layout/Header';
+import Link from 'next/link';
+
+// Track if we've already processed the code (prevents double-processing in React Strict Mode)
+let codeProcessed = false;
 
 export default function ResetPasswordPage() {
-  const [supabase] = useState(() => createClientComponentClient());
+  const supabase = useSupabaseClient();
   const router = useRouter();
-  
+
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isValidatingToken, setIsValidatingToken] = useState(true);
+  const [hasValidSession, setHasValidSession] = useState(false);
 
   useEffect(() => {
-    // Handle the password reset
-    const handleAuthStateChange = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        // If there's no session, redirect to login
-        router.push('/login');
+    // Handle the password reset token - supports both PKCE flow (code param) and implicit flow (hash fragment)
+    const handleRecoveryToken = async () => {
+      // Check for PKCE flow: ?code=xxx (newer Supabase default)
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+
+      // Check for implicit flow: #access_token=xxx&type=recovery (legacy)
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const type = hashParams.get('type');
+      const accessToken = hashParams.get('access_token');
+
+      console.log('[ResetPassword] Checking for recovery token:', {
+        hasPKCECode: !!code,
+        hasHash: !!window.location.hash,
+        hashType: type,
+        hasAccessToken: !!accessToken,
+        codeAlreadyProcessed: codeProcessed
+      });
+
+      // Handle PKCE flow with code parameter
+      if (code) {
+        // Prevent double-processing (React Strict Mode calls useEffect twice)
+        if (codeProcessed) {
+          console.log('[ResetPassword] Code already being processed, checking session...');
+          // Wait a bit for the first processing to complete
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            console.log('[ResetPassword] Session found after waiting');
+            setHasValidSession(true);
+            setIsValidatingToken(false);
+            // Clean URL
+            window.history.replaceState({}, '', '/reset-password');
+          }
+          return;
+        }
+
+        codeProcessed = true;
+        console.log('[ResetPassword] PKCE code found, exchanging for session...');
+
+        // Clean the URL immediately to prevent re-processing on re-renders
+        window.history.replaceState({}, '', '/reset-password');
+
+        try {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+          if (error) {
+            console.error('[ResetPassword] Error exchanging code:', error);
+            // Don't show error if we already have a session (race condition)
+            const { data: { session: existingSession } } = await supabase.auth.getSession();
+            if (existingSession) {
+              console.log('[ResetPassword] Session exists despite error, continuing...');
+              setHasValidSession(true);
+              setIsValidatingToken(false);
+              return;
+            }
+            setMessage('Error al validar el enlace de recuperación. El enlace puede haber expirado.');
+            setIsValidatingToken(false);
+            return;
+          }
+
+          if (data.session) {
+            console.log('[ResetPassword] Session established from PKCE code');
+            setHasValidSession(true);
+            setIsValidatingToken(false);
+            return;
+          }
+        } catch (err) {
+          console.error('[ResetPassword] Exception exchanging code:', err);
+          // Check if session exists anyway
+          const { data: { session: existingSession } } = await supabase.auth.getSession();
+          if (existingSession) {
+            console.log('[ResetPassword] Session exists despite exception, continuing...');
+            setHasValidSession(true);
+            setIsValidatingToken(false);
+            return;
+          }
+          setMessage('Error al validar el enlace de recuperación.');
+          setIsValidatingToken(false);
+          return;
+        }
       }
+
+      // Handle implicit flow with hash fragment (legacy)
+      if (type === 'recovery' && accessToken) {
+        console.log('[ResetPassword] Recovery token found in hash, waiting for session...');
+
+        // Give Supabase time to process the token
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        if (error) {
+          console.error('[ResetPassword] Error getting session:', error);
+          setMessage('Error al validar el enlace de recuperación. El enlace puede haber expirado.');
+          setIsValidatingToken(false);
+          return;
+        }
+
+        if (session) {
+          console.log('[ResetPassword] Session established from recovery token');
+          setHasValidSession(true);
+          setIsValidatingToken(false);
+          return;
+        }
+      }
+
+      // No recovery token, check for existing session
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        console.log('[ResetPassword] No session and no recovery token, redirecting to login');
+        router.push('/login');
+        return;
+      }
+
+      console.log('[ResetPassword] Existing session found');
+      setHasValidSession(true);
+      setIsValidatingToken(false);
     };
 
-    handleAuthStateChange();
+    // Also listen for auth state changes (Supabase may process the token asynchronously)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[ResetPassword] Auth state changed:', event, !!session);
+
+      if (event === 'PASSWORD_RECOVERY') {
+        console.log('[ResetPassword] PASSWORD_RECOVERY event received');
+        setHasValidSession(true);
+        setIsValidatingToken(false);
+      } else if (event === 'SIGNED_IN' && session) {
+        console.log('[ResetPassword] User signed in from recovery');
+        setHasValidSession(true);
+        setIsValidatingToken(false);
+      }
+    });
+
+    handleRecoveryToken();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [router, supabase.auth]);
 
   const handlePasswordUpdate = async () => {
@@ -40,11 +175,23 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     try {
+      // Verify we have a valid session before attempting update
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        console.error('[ResetPassword] No session found when updating password');
+        setMessage('Tu sesión ha expirado. Por favor solicita un nuevo enlace de recuperación.');
+        return;
+      }
+
+      console.log('[ResetPassword] Session found, updating password for user:', session.user.email);
+
       const { error } = await supabase.auth.updateUser({
         password: password
       });
 
       if (error) {
+        console.error('[ResetPassword] Update error:', error);
         setMessage('Error al actualizar contraseña: ' + error.message);
       } else {
         setMessage('Contraseña actualizada exitosamente');
@@ -61,93 +208,227 @@ export default function ResetPasswordPage() {
     }
   };
 
-  return (
-    <>
-      <Header />
-      <div className="min-h-screen flex flex-col items-center justify-center bg-brand_beige relative overflow-hidden pt-40">
+  // Show loading state while validating token
+  if (isValidatingToken) {
+    return (
+      <>
         <Head>
           <title>Restablecer Contraseña | FNE LMS</title>
         </Head>
-        
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-brand_yellow opacity-20 -mr-20 -mt-20"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full bg-gray-300 opacity-30 -ml-20 -mb-20"></div>
-        
-        {/* Reset Password Card */}
-        <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md z-10">
-          <h1 className="text-2xl font-bold text-center text-brand_blue mb-8">
-            Restablecer Contraseña
-          </h1>
-          
-          <p className="text-sm text-gray-600 mb-6 text-center">
-            Ingresa tu nueva contraseña
-          </p>
-          
-          {/* New Password input */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Nueva Contraseña</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <i className="fa-solid fa-lock text-gray-400"></i>
-              </div>
-              <input
-                type="password"
-                placeholder="••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                autoComplete="new-password"
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-transparent"
-              />
-            </div>
-          </div>
-          
-          {/* Confirm Password input */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Confirmar Contraseña</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <i className="fa-solid fa-lock text-gray-400"></i>
-              </div>
-              <input
-                type="password"
-                placeholder="••••••"
-                value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
-                autoComplete="new-password"
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand_blue focus:border-transparent"
-              />
-            </div>
-          </div>
-          
-          {/* Update Password Button */}
-          <div className="mb-6">
-            <button 
-              onClick={handlePasswordUpdate}
-              disabled={loading}
-              className="w-full bg-brand_blue hover:bg-brand_yellow text-white font-bold py-2 px-4 rounded-md transition duration-300 ease-in-out disabled:opacity-50"
-            >
-              {loading ? 'Actualizando...' : 'Actualizar Contraseña'}
-            </button>
-          </div>
-          
-          {/* Back to Login */}
+        <div className="min-h-screen flex items-center justify-center bg-brand_beige">
           <div className="text-center">
-            <button 
-              onClick={() => router.push('/login')}
-              className="text-sm text-brand_blue hover:text-brand_yellow"
-            >
-              Volver al inicio de sesión
-            </button>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand_blue"></div>
+            <p className="mt-2 text-gray-600">Validando enlace de recuperación...</p>
           </div>
-          
-          {/* Error/success message */}
-          {message && (
-            <div className={`text-center p-2 rounded mt-4 ${
-              message.includes('Error') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-            }`}>
-              {message}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Head>
+        <title>Restablecer Contraseña | FNE LMS</title>
+      </Head>
+
+      <div className="min-h-screen flex relative overflow-hidden">
+        {/* Left Side - Hero Section */}
+        <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-[#00365b] via-[#00365b] to-[#002844]">
+          {/* Animated Background Pattern */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute inset-0" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23fdb933' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`
+            }}></div>
+          </div>
+
+          {/* Glowing Orbs */}
+          <div className="absolute top-20 left-20 w-72 h-72 bg-[#fdb933] rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+          <div className="absolute bottom-20 right-20 w-72 h-72 bg-[#fdb933] rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse animation-delay-2000"></div>
+
+          {/* Content */}
+          <div className="relative z-10 flex flex-col justify-center items-center w-full px-12 text-white">
+            {/* Logo */}
+            <div className="mb-12 transform hover:scale-105 transition-transform duration-300">
+              <Link href="/">
+                <img
+                  src="/images/logo.png"
+                  alt="Fundación Nueva Educación"
+                  className="h-32 w-auto drop-shadow-2xl cursor-pointer"
+                />
+              </Link>
             </div>
-          )}
+
+            {/* Text Content */}
+            <h1 className="text-5xl font-bold mb-4 text-center animate-fade-in-up">
+              Plataforma de
+              <span className="block text-[#fdb933] mt-2">Crecimiento</span>
+            </h1>
+
+            <p className="text-xl text-gray-200 mb-8 text-center animate-fade-in-up animation-delay-200">
+              Fundación Nueva Educación
+            </p>
+
+            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 max-w-md animate-fade-in-up animation-delay-400">
+              <p className="text-lg text-center">
+                Transformando la educación a través de herramientas innovadoras y colaborativas
+              </p>
+            </div>
+
+            {/* Decorative Elements */}
+            <div className="absolute top-10 right-10 w-8 h-8 bg-[#fdb933] rounded-full animate-bounce"></div>
+            <div className="absolute bottom-10 left-10 w-6 h-6 bg-[#fdb933] rounded-full animate-bounce animation-delay-1000"></div>
+          </div>
+        </div>
+
+        {/* Right Side - Reset Password Form */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center p-8 bg-gray-50">
+          {/* Mobile Logo - Only shown on small screens */}
+          <div className="lg:hidden absolute top-8 left-1/2 transform -translate-x-1/2">
+            <Link href="/">
+              <img
+                src="/images/logo.png"
+                alt="Fundación Nueva Educación"
+                className="h-16 w-auto cursor-pointer hover:opacity-80 transition-opacity duration-200"
+              />
+            </Link>
+          </div>
+
+          {/* Reset Password Card */}
+          <div className="w-full max-w-md">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-[#00365b] mb-2">
+                Restablecer Contraseña
+              </h2>
+              <p className="text-gray-600">
+                Ingresa tu nueva contraseña para continuar
+              </p>
+            </div>
+
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              handlePasswordUpdate();
+            }}>
+              {/* New Password input */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Nueva Contraseña</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-[#00365b] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    autoComplete="new-password"
+                    className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#fdb933] focus:border-transparent transition-all duration-200 hover:border-gray-400"
+                  />
+                </div>
+              </div>
+
+              {/* Confirm Password input */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Confirmar Contraseña</label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-[#00365b] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    autoComplete="new-password"
+                    className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#fdb933] focus:border-transparent transition-all duration-200 hover:border-gray-400"
+                  />
+                </div>
+              </div>
+
+              {/* Update Password Button */}
+              <div className="mb-6">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className={`w-full font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform text-white shadow-lg
+                    ${loading
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-gradient-to-r from-[#00365b] to-[#002844] hover:from-[#002844] hover:to-[#00365b] hover:scale-[1.02] hover:shadow-xl'
+                    }`}
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Actualizando...
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center">
+                      Actualizar Contraseña
+                      <svg className="h-5 w-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Back to Login */}
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => router.push('/login')}
+                  className="text-sm font-medium text-[#00365b] hover:text-[#fdb933] transition-colors duration-200 flex items-center justify-center mx-auto"
+                >
+                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                  Volver al inicio de sesión
+                </button>
+              </div>
+
+              {/* Error/success message */}
+              {message && (
+                <div className={`mt-6 p-4 rounded-lg flex items-start space-x-3 animate-fade-in ${
+                  message.includes('Error')
+                    ? 'bg-red-50 border border-red-200'
+                    : 'bg-[#fdb933]/10 border border-[#fdb933]/30'
+                }`}>
+                  {message.includes('Error') ? (
+                    <svg className="h-5 w-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  ) : (
+                    <svg className="h-5 w-5 text-[#b8860b] mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  )}
+                  <p className={`text-sm ${
+                    message.includes('Error')
+                      ? 'text-red-700'
+                      : 'text-[#8b6914]'
+                  }`}>
+                    {message}
+                  </p>
+                </div>
+              )}
+            </form>
+
+            {/* Additional Links */}
+            <div className="mt-8 text-center">
+              <p className="text-sm text-gray-600">
+                ¿Necesitas ayuda?
+                <a href="mailto:soporte@nuevaeducacion.org" className="font-medium text-[#00365b] hover:text-[#fdb933] transition-colors duration-200 ml-1">
+                  Contacta soporte
+                </a>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </>

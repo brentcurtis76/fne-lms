@@ -28,6 +28,21 @@ export default function LoginPage() {
     }
   }, [session, router]);
 
+  // Safety timeout to prevent infinite loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isLoading) {
+        console.warn('[Login Page] Loading timeout reached, forcing render');
+        setIsLoading(false);
+        // If we have a session but stuck here, it means redirect failed
+        if (session) {
+          setMessage('Session detected but redirect failed. Please try refreshing.');
+        }
+      }
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [isLoading, session]);
+
   // Debug Supabase configuration
   useEffect(() => {
     console.log('[Login Page] Supabase config check:', {
@@ -417,23 +432,23 @@ export default function LoginPage() {
         {/* Error/success message */}
         {message && (
           <div className={`p-4 rounded-lg flex items-start space-x-3 animate-fade-in ${
-            message.includes('failed') || message.includes('Error') || message.includes('incorrectos') 
-              ? 'bg-red-50 border border-red-200' 
-              : 'bg-green-50 border border-green-200'
+            message.includes('failed') || message.includes('Error') || message.includes('incorrectos')
+              ? 'bg-red-50 border border-red-200'
+              : 'bg-[#fdb933]/10 border border-[#fdb933]/30'
           }`}>
             {message.includes('failed') || message.includes('Error') || message.includes('incorrectos') ? (
               <svg className="h-5 w-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             ) : (
-              <svg className="h-5 w-5 text-green-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-5 w-5 text-[#b8860b] mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             )}
             <p className={`text-sm ${
               message.includes('failed') || message.includes('Error') || message.includes('incorrectos')
                 ? 'text-red-700'
-                : 'text-green-700'
+                : 'text-[#8b6914]'
             }`}>
               {message}
             </p>

@@ -1,6 +1,7 @@
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
+import { useState } from 'react';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { ResultsDisplay } from '@/components/transformation/ResultsDisplay';
 import { downloadReportAsPdf } from '@/utils/transformationReportPdf';
@@ -246,6 +247,43 @@ export default function TransformationResultsPage({
   reportOwner,
   error,
 }: ResultsPageProps) {
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regenerationError, setRegenerationError] = useState<string | null>(null);
+  const [regenerationSuccess, setRegenerationSuccess] = useState(false);
+
+  const handleRegenerateEvaluation = async () => {
+    if (!assessment) return;
+
+    setIsRegenerating(true);
+    setRegenerationError(null);
+    setRegenerationSuccess(false);
+
+    try {
+      const response = await fetch(`/api/transformation/assessments/${assessment.id}/evaluate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al regenerar la evaluación');
+      }
+
+      setRegenerationSuccess(true);
+      // Reload the page to show updated evaluation after a brief delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err: any) {
+      console.error('Regeneration error:', err);
+      setRegenerationError(err.message || 'Error al regenerar la evaluación');
+    } finally {
+      setIsRegenerating(false);
+    }
+  };
+
   // Error state
   if (error || !assessment) {
     return (
@@ -513,89 +551,121 @@ export default function TransformationResultsPage({
             </>
           )}
 
+          {/* Status Messages */}
+          {regenerationError && (
+            <div className="bg-rose-50 border border-rose-200 rounded-lg p-3 mt-6 flex items-center gap-3">
+              <svg className="w-4 h-4 text-rose-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm text-rose-700 flex-1">{regenerationError}</p>
+              <button onClick={() => setRegenerationError(null)} className="text-rose-500 hover:text-rose-700">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          {regenerationSuccess && (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 mt-6 flex items-center gap-3">
+              <svg className="w-4 h-4 text-emerald-600 flex-shrink-0 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              <p className="text-sm text-emerald-700">Evaluación regenerada. Recargando...</p>
+            </div>
+          )}
+
           {/* Actions Footer */}
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mt-8">
-            <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-              <p className="text-sm text-slate-600">
-                Evaluación finalizada el {new Date(assessment.finalized_at || assessment.updated_at).toLocaleDateString('es-CL', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </p>
-              <div className="flex gap-3">
-                <Link
-                  href="/community/workspace?section=transformation"
-                  className="inline-flex items-center justify-center px-6 py-2 rounded-lg border border-brand_blue/30 text-brand_blue font-semibold hover:bg-brand_beige transition"
-                >
-                  Volver al workspace
-                </Link>
-                {evaluation && (
-                  <>
-                    <button
-                      onClick={() => {
-                        downloadReportAsPdf({
-                          communityName: community?.name || 'Comunidad Educativa',
-                          schoolName: community?.school?.name,
-                          generatedBy: reportOwner?.full_name,
-                          area: assessment.area,
-                          completedDate: new Date(assessment.finalized_at || assessment.updated_at).toLocaleDateString('es-CL', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          }),
-                          evaluation,
-                          rubricItems,
-                          responses,
-                          viewMode: 'summary',
-                        });
-                      }}
-                      className="inline-flex items-center gap-2 justify-center px-4 py-2 rounded-lg border border-brand_yellow text-brand_yellow font-semibold hover:bg-brand_yellow/10 transition"
-                    >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      PDF Resumen
-                    </button>
-                    <button
-                      onClick={() => {
-                        downloadReportAsPdf({
-                          communityName: community?.name || 'Comunidad Educativa',
-                          schoolName: community?.school?.name,
-                          generatedBy: reportOwner?.full_name,
-                          area: assessment.area,
-                          completedDate: new Date(assessment.finalized_at || assessment.updated_at).toLocaleDateString('es-CL', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric',
-                          }),
-                          evaluation,
-                          rubricItems,
-                          responses,
-                          viewMode: 'detailed',
-                        });
-                      }}
-                      className="inline-flex items-center gap-2 justify-center px-4 py-2 rounded-lg bg-brand_yellow text-brand_blue font-semibold hover:bg-brand_yellow/90 transition"
-                    >
-                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      PDF Detallado
-                    </button>
-                  </>
-                )}
-                <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-2 justify-center px-6 py-2 rounded-lg bg-brand_blue text-white font-semibold hover:bg-brand_blue/90 transition"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+          <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <Link
+              href="/community/workspace?section=transformation"
+              className="text-sm text-slate-500 hover:text-brand_blue transition flex items-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Volver al workspace
+            </Link>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleRegenerateEvaluation}
+                disabled={isRegenerating}
+                className={`text-sm px-3 py-1.5 rounded-md transition flex items-center gap-1.5 ${
+                  isRegenerating
+                    ? 'text-slate-400 cursor-not-allowed'
+                    : 'text-slate-600 hover:text-brand_blue hover:bg-brand_beige'
+                }`}
+              >
+                {isRegenerating ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  Imprimir
-                </button>
-              </div>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+                {isRegenerating ? 'Regenerando...' : 'Regenerar'}
+              </button>
+
+              {evaluation && (
+                <>
+                  <span className="text-slate-300">|</span>
+                  <button
+                    onClick={() => {
+                      downloadReportAsPdf({
+                        communityName: community?.name || 'Comunidad Educativa',
+                        schoolName: community?.school?.name,
+                        generatedBy: reportOwner?.full_name,
+                        area: assessment.area,
+                        completedDate: new Date(assessment.finalized_at || assessment.updated_at).toLocaleDateString('es-CL', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        }),
+                        evaluation,
+                        rubricItems,
+                        responses,
+                        viewMode: 'summary',
+                      });
+                    }}
+                    className="text-sm px-3 py-1.5 rounded-md text-slate-600 hover:text-brand_blue hover:bg-brand_beige transition flex items-center gap-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                    </svg>
+                    PDF Resumen
+                  </button>
+                  <button
+                    onClick={() => {
+                      downloadReportAsPdf({
+                        communityName: community?.name || 'Comunidad Educativa',
+                        schoolName: community?.school?.name,
+                        generatedBy: reportOwner?.full_name,
+                        area: assessment.area,
+                        completedDate: new Date(assessment.finalized_at || assessment.updated_at).toLocaleDateString('es-CL', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        }),
+                        evaluation,
+                        rubricItems,
+                        responses,
+                        viewMode: 'detailed',
+                      });
+                    }}
+                    className="text-sm px-3 py-1.5 rounded-md bg-brand_blue text-white hover:bg-brand_blue/90 transition flex items-center gap-1.5"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    PDF Completo
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

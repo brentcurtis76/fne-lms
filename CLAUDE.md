@@ -6,7 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A comprehensive Learning Management System built with Next.js 14 and Supabase for Fundación Nueva Educación, supporting deep cultural change in Chilean schools through digital education.
 
-**Production URL:** https://fne-lms.vercel.app
+**Production URL:** https://www.nuevaeducacion.org (custom domain via Vercel)
+**Vercel URL:** https://fne-lms.vercel.app (internal/preview)
 
 **Current Status:** MAINTENANCE MODE - Core features complete and stable
 
@@ -107,6 +108,16 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ### Port Requirement
 **MUST run on port 3000** - Supabase redirect URLs are configured for this port.
 
+### Supabase Configuration
+- **Project URL:** https://sxlogxqzmarhqsblxmtj.supabase.co
+- **Site URL (Auth):** https://www.nuevaeducacion.org
+- **Redirect URLs:**
+  - `https://www.nuevaeducacion.org/**`
+  - `https://nuevaeducacion.org/**`
+  - `https://fne-lms.vercel.app/**`
+  - `http://localhost:3000/**`
+- **Custom SMTP:** Configured via Google Workspace (info@nuevaeducacion.org)
+
 ## Active Development Areas
 
 ### Dynamic Sidebar Roles (In Progress)
@@ -184,6 +195,7 @@ fne-lms-working/
 ## Deployment & Production
 
 ### Vercel Deployment
+- **Custom Domain:** www.nuevaeducacion.org → fne-lms.vercel.app
 - Auto-deploys from main branch
 - Preview deployments for PRs
 - Environment variables set in Vercel dashboard

@@ -3,6 +3,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { ResultsDisplay } from '@/components/transformation/ResultsDisplay';
+import { downloadReportAsPdf } from '@/utils/transformationReportPdf';
 
 interface RubricItem {
   id: string;
@@ -66,12 +67,23 @@ interface Assessment {
 interface Community {
   id: string;
   name: string;
+  school?: {
+    id: number;
+    name: string;
+  };
+}
+
+interface ReportOwner {
+  id: string;
+  full_name: string;
+  email: string;
 }
 
 interface ResultsPageProps {
   assessment: Assessment | null;
   rubricItems: RubricItem[];
   community: Community | null;
+  reportOwner: ReportOwner | null;
   error?: string;
 }
 
@@ -97,27 +109,53 @@ export const getServerSideProps: GetServerSideProps<ResultsPageProps> = async (c
         assessment: null,
         rubricItems: [],
         community: null,
+        reportOwner: null,
         error: 'ID de evaluación no válido.',
       },
     };
   }
 
-  // Fetch the assessment
+  // Fetch the assessment with community info
   const { data: assessment, error: assessmentError } = await supabase
     .from('transformation_assessments')
-    .select('*, growth_communities(id, name)')
+    .select('*, growth_communities(id, name, school_id)')
     .eq('id', assessmentId)
     .single();
 
   if (assessmentError || !assessment) {
+    console.error('Assessment fetch error:', assessmentError);
     return {
       props: {
         assessment: null,
         rubricItems: [],
         community: null,
+        reportOwner: null,
         error: 'No se encontró la evaluación o no tienes acceso a ella.',
       },
     };
+  }
+
+  // Fetch current user's profile for report attribution
+  // The report shows the logged-in user who is viewing/accessing the report
+  let creatorData = null;
+
+  if (session?.user?.id) {
+    const { data: currentUserProfile, error: currentUserError } = await supabase
+      .from('profiles')
+      .select('id, first_name, last_name, email')
+      .eq('id', session.user.id)
+      .single();
+
+    console.log('Debug - Current user profile:', currentUserProfile);
+    console.log('Debug - Profile error:', currentUserError);
+
+    if (currentUserProfile) {
+      creatorData = {
+        id: currentUserProfile.id,
+        full_name: `${currentUserProfile.first_name || ''} ${currentUserProfile.last_name || ''}`.trim() || 'Usuario',
+        email: currentUserProfile.email,
+      };
+    }
   }
 
   // Check that assessment is completed
@@ -143,13 +181,44 @@ export const getServerSideProps: GetServerSideProps<ResultsPageProps> = async (c
         assessment: null,
         rubricItems: [],
         community: null,
+        reportOwner: null,
         error: 'No se pudieron cargar los ítems de la rúbrica.',
       },
     };
   }
 
-  // Extract community info
-  const community = assessment.growth_communities as any;
+  // Extract community info and fetch school separately if needed
+  const communityData = assessment.growth_communities as any;
+  let schoolData = null;
+  if (communityData?.school_id) {
+    const { data: school } = await supabase
+      .from('schools')
+      .select('id, name')
+      .eq('id', communityData.school_id)
+      .single();
+    schoolData = school;
+  }
+
+  const community: Community | null = communityData ? {
+    id: communityData.id,
+    name: communityData.name,
+    school: schoolData ? {
+      id: schoolData.id,
+      name: schoolData.name,
+    } : undefined,
+  } : null;
+
+  // Extract report creator info (fetched separately above)
+  const reportOwner: ReportOwner | null = creatorData ? {
+    id: creatorData.id,
+    full_name: creatorData.full_name || 'Usuario',
+    email: creatorData.email || '',
+  } : null;
+
+  console.log('Debug - communityData:', communityData);
+  console.log('Debug - schoolData:', schoolData);
+  console.log('Debug - community:', community);
+  console.log('Debug - reportOwner:', reportOwner);
 
   return {
     props: {
@@ -164,7 +233,8 @@ export const getServerSideProps: GetServerSideProps<ResultsPageProps> = async (c
         finalized_at: assessment.finalized_at || null,
       },
       rubricItems,
-      community: community ? { id: community.id, name: community.name } : null,
+      community,
+      reportOwner,
     },
   };
 };
@@ -173,12 +243,13 @@ export default function TransformationResultsPage({
   assessment,
   rubricItems,
   community,
+  reportOwner,
   error,
 }: ResultsPageProps) {
   // Error state
   if (error || !assessment) {
     return (
-      <main className="min-h-screen bg-slate-50 flex items-center justify-center px-6">
+      <main className="min-h-screen bg-brand_beige flex items-center justify-center px-6">
         <Head>
           <title>Resultados de Evaluación · Error</title>
         </Head>
@@ -188,11 +259,11 @@ export default function TransformationResultsPage({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
           </div>
-          <h1 className="text-2xl font-semibold text-slate-900">Error al Cargar Resultados</h1>
+          <h1 className="text-2xl font-semibold text-brand_blue">Error al Cargar Resultados</h1>
           <p className="text-slate-600">{error || 'No se encontró la evaluación.'}</p>
           <Link
             href="/community/workspace?section=transformation"
-            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-500 transition"
+            className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-brand_blue text-white font-semibold hover:bg-brand_blue/90 transition"
           >
             Volver al espacio colaborativo
           </Link>
@@ -218,27 +289,44 @@ export default function TransformationResultsPage({
       <Head>
         <title>Resultados de Evaluación · Personalización</title>
       </Head>
-      <main className="min-h-screen bg-slate-50">
+      <main className="min-h-screen bg-brand_beige">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 bg-white">
-          <nav className="text-sm text-slate-500 mb-2 flex items-center gap-2">
-            <Link href="/community/workspace?section=transformation" className="hover:text-slate-700">
-              Espacio Colaborativo
-            </Link>
-            <span>/</span>
-            <Link href="/community/workspace?section=transformation" className="hover:text-slate-700">
-              Vías de Transformación
-            </Link>
-            <span>/</span>
-            <strong>Resultados</strong>
-          </nav>
+          <div className="flex items-center gap-4 mb-3">
+            <img src="/Logo BW.png" alt="FNE Logo" className="h-10 w-auto" />
+            <div className="h-8 w-px bg-slate-300" />
+            <nav className="text-sm text-slate-500 flex items-center gap-2">
+              <Link href="/community/workspace?section=transformation" className="hover:text-brand_blue">
+                Espacio Colaborativo
+              </Link>
+              <span>/</span>
+              <Link href="/community/workspace?section=transformation" className="hover:text-brand_blue">
+                Vías de Transformación
+              </Link>
+              <span>/</span>
+              <strong className="text-brand_blue">Resultados</strong>
+            </nav>
+          </div>
+
+          {/* School Name Banner */}
+          {community?.school?.name && (
+            <div className="bg-brand_blue text-white px-4 py-2 rounded-lg mb-4 inline-block">
+              <span className="text-sm font-medium">{community.school.name}</span>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-semibold text-slate-900">
+              <h1 className="text-2xl font-semibold text-brand_blue">
                 Resultados de Evaluación: Personalización
               </h1>
               <p className="text-sm text-slate-600 mt-1">
-                {community?.name} · Completada el {new Date(assessment.finalized_at || assessment.updated_at).toLocaleDateString('es-CL')}
+                <span className="font-medium">{community?.name}</span>
+                {' · '}
+                Completada el {new Date(assessment.finalized_at || assessment.updated_at).toLocaleDateString('es-CL')}
+                {reportOwner?.full_name && (
+                  <span> · Generado por <span className="font-medium">{reportOwner.full_name}</span></span>
+                )}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -254,13 +342,13 @@ export default function TransformationResultsPage({
               {/* AI Evaluation Results */}
 
               {/* Overall Stage Banner */}
-              <div className="bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 rounded-xl shadow-sm p-8 mb-8">
+              <div className="bg-gradient-to-r from-brand_blue/5 to-brand_blue/10 border border-brand_blue/20 rounded-xl shadow-sm p-8 mb-8">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h2 className="text-sm font-semibold text-sky-600 uppercase tracking-wide mb-2">
+                    <h2 className="text-sm font-semibold text-brand_yellow uppercase tracking-wide mb-2">
                       Nivel de Transformación
                     </h2>
-                    <div className="text-5xl font-bold text-sky-900 mb-3">
+                    <div className="text-5xl font-bold text-brand_blue mb-3">
                       {evaluation.overall_stage_label}
                     </div>
                     <p className="text-slate-700 text-lg max-w-3xl">
@@ -268,9 +356,9 @@ export default function TransformationResultsPage({
                     </p>
                   </div>
                   <div className="flex-shrink-0 ml-8">
-                    <div className="w-32 h-32 rounded-full bg-white border-8 border-sky-600 flex items-center justify-center">
+                    <div className="w-32 h-32 rounded-full bg-white border-8 border-brand_blue flex items-center justify-center">
                       <div className="text-center">
-                        <div className="text-4xl font-bold text-sky-600">
+                        <div className="text-4xl font-bold text-brand_blue">
                           {evaluation.overall_stage}
                         </div>
                         <div className="text-xs text-slate-600 uppercase">
@@ -291,13 +379,13 @@ export default function TransformationResultsPage({
                   <div className="text-sm text-slate-600">Fortalezas Identificadas</div>
                 </div>
                 <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-center">
-                  <div className="text-4xl font-bold text-amber-600 mb-2">
+                  <div className="text-4xl font-bold text-brand_yellow mb-2">
                     {evaluation.growth_areas.length}
                   </div>
                   <div className="text-sm text-slate-600">Áreas de Crecimiento</div>
                 </div>
                 <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-center">
-                  <div className="text-4xl font-bold text-sky-600 mb-2">
+                  <div className="text-4xl font-bold text-brand_blue mb-2">
                     {evaluation.dimension_evaluations.length}
                   </div>
                   <div className="text-sm text-slate-600">Dimensiones Evaluadas</div>
@@ -326,7 +414,7 @@ export default function TransformationResultsPage({
 
               {/* Growth Areas Section */}
               <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-8">
-                <h3 className="text-lg font-semibold text-amber-700 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-brand_yellow mb-4 flex items-center gap-2">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
@@ -335,7 +423,7 @@ export default function TransformationResultsPage({
                 <ul className="space-y-3">
                   {evaluation.growth_areas.map((area, idx) => (
                     <li key={idx} className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-100 text-amber-700 font-semibold text-sm flex items-center justify-center mt-0.5">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand_yellow/20 text-brand_yellow font-semibold text-sm flex items-center justify-center mt-0.5">
                         {idx + 1}
                       </span>
                       <span className="text-slate-700">{area}</span>
@@ -345,8 +433,8 @@ export default function TransformationResultsPage({
               </div>
 
               {/* Recommendations Section */}
-              <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-xl shadow-sm p-6 mb-8">
-                <h3 className="text-lg font-semibold text-violet-700 mb-4 flex items-center gap-2">
+              <div className="bg-gradient-to-r from-brand_blue/5 to-brand_blue/10 border border-brand_blue/20 rounded-xl shadow-sm p-6 mb-8">
+                <h3 className="text-lg font-semibold text-brand_blue mb-4 flex items-center gap-2">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
@@ -355,7 +443,7 @@ export default function TransformationResultsPage({
                 <ul className="space-y-3">
                   {evaluation.recommendations.map((rec, idx) => (
                     <li key={idx} className="flex items-start gap-3">
-                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-violet-600 text-white font-semibold text-sm flex items-center justify-center mt-0.5">
+                      <span className="flex-shrink-0 w-6 h-6 rounded-full bg-brand_yellow text-brand_blue font-semibold text-sm flex items-center justify-center mt-0.5">
                         {idx + 1}
                       </span>
                       <span className="text-slate-700 font-medium">{rec}</span>
@@ -403,7 +491,7 @@ export default function TransformationResultsPage({
               <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 mb-8">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="text-center">
-                    <div className="text-4xl font-bold text-sky-600 mb-2">{progressPercent}%</div>
+                    <div className="text-4xl font-bold text-brand_blue mb-2">{progressPercent}%</div>
                     <div className="text-sm text-slate-600">Completado</div>
                   </div>
                   <div className="text-center">
@@ -411,7 +499,7 @@ export default function TransformationResultsPage({
                     <div className="text-sm text-slate-600">Dimensiones respondidas</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-4xl font-bold text-slate-600 mb-2">{totalDimensions}</div>
+                    <div className="text-4xl font-bold text-brand_yellow mb-2">{totalDimensions}</div>
                     <div className="text-sm text-slate-600">Total dimensiones</div>
                   </div>
                 </div>
@@ -440,13 +528,67 @@ export default function TransformationResultsPage({
               <div className="flex gap-3">
                 <Link
                   href="/community/workspace?section=transformation"
-                  className="inline-flex items-center justify-center px-6 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold hover:bg-slate-100 transition"
+                  className="inline-flex items-center justify-center px-6 py-2 rounded-lg border border-brand_blue/30 text-brand_blue font-semibold hover:bg-brand_beige transition"
                 >
                   Volver al workspace
                 </Link>
+                {evaluation && (
+                  <>
+                    <button
+                      onClick={() => {
+                        downloadReportAsPdf({
+                          communityName: community?.name || 'Comunidad Educativa',
+                          schoolName: community?.school?.name,
+                          generatedBy: reportOwner?.full_name,
+                          area: assessment.area,
+                          completedDate: new Date(assessment.finalized_at || assessment.updated_at).toLocaleDateString('es-CL', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          }),
+                          evaluation,
+                          rubricItems,
+                          responses,
+                          viewMode: 'summary',
+                        });
+                      }}
+                      className="inline-flex items-center gap-2 justify-center px-4 py-2 rounded-lg border border-brand_yellow text-brand_yellow font-semibold hover:bg-brand_yellow/10 transition"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      PDF Resumen
+                    </button>
+                    <button
+                      onClick={() => {
+                        downloadReportAsPdf({
+                          communityName: community?.name || 'Comunidad Educativa',
+                          schoolName: community?.school?.name,
+                          generatedBy: reportOwner?.full_name,
+                          area: assessment.area,
+                          completedDate: new Date(assessment.finalized_at || assessment.updated_at).toLocaleDateString('es-CL', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                          }),
+                          evaluation,
+                          rubricItems,
+                          responses,
+                          viewMode: 'detailed',
+                        });
+                      }}
+                      className="inline-flex items-center gap-2 justify-center px-4 py-2 rounded-lg bg-brand_yellow text-brand_blue font-semibold hover:bg-brand_yellow/90 transition"
+                    >
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      PDF Detallado
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-2 justify-center px-6 py-2 rounded-lg bg-sky-600 text-white font-semibold hover:bg-sky-500 transition"
+                  className="inline-flex items-center gap-2 justify-center px-6 py-2 rounded-lg bg-brand_blue text-white font-semibold hover:bg-brand_blue/90 transition"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -468,7 +610,7 @@ function StatusBadge({ status }: { status: 'in_progress' | 'completed' | 'archiv
       ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
       : status === 'archived'
       ? 'bg-slate-100 border-slate-200 text-slate-600'
-      : 'bg-sky-50 border-sky-200 text-sky-700';
+      : 'bg-brand_blue/10 border-brand_blue/20 text-brand_blue';
 
   const label =
     status === 'completed'

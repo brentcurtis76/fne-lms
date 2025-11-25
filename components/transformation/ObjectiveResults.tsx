@@ -92,25 +92,25 @@ const dimensionIcons = {
 
 const dimensionColors = {
   cobertura: {
-    bg: 'bg-blue-50',
-    border: 'border-blue-200',
-    text: 'text-blue-700',
-    iconBg: 'bg-blue-100',
-    iconText: 'text-blue-600',
+    bg: 'bg-brand_blue/5',
+    border: 'border-brand_blue/20',
+    text: 'text-brand_blue',
+    iconBg: 'bg-brand_blue/10',
+    iconText: 'text-brand_blue',
   },
   frecuencia: {
-    bg: 'bg-purple-50',
-    border: 'border-purple-200',
-    text: 'text-purple-700',
-    iconBg: 'bg-purple-100',
-    iconText: 'text-purple-600',
+    bg: 'bg-sky-50',
+    border: 'border-sky-200',
+    text: 'text-sky-700',
+    iconBg: 'bg-sky-100',
+    iconText: 'text-sky-600',
   },
   profundidad: {
-    bg: 'bg-amber-50',
-    border: 'border-amber-200',
-    text: 'text-amber-700',
-    iconBg: 'bg-amber-100',
-    iconText: 'text-amber-600',
+    bg: 'bg-brand_yellow/10',
+    border: 'border-brand_yellow/30',
+    text: 'text-brand_yellow',
+    iconBg: 'bg-brand_yellow/20',
+    iconText: 'text-brand_yellow',
   },
 };
 
@@ -170,14 +170,14 @@ export function ObjectiveResults({ objective, responses, viewMode, evaluation }:
             className="bg-white border border-slate-200 rounded-xl overflow-hidden"
           >
             {/* Action Header */}
-            <div className="bg-gradient-to-r from-slate-50 to-white px-6 py-4 border-b border-slate-200">
+            <div className="bg-gradient-to-r from-brand_beige/50 to-white px-6 py-4 border-b border-slate-200">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-200 text-slate-700 text-sm font-bold">
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-brand_blue/10 text-brand_blue text-sm font-bold">
                       {action.actionNumber}
                     </span>
-                    <h4 className="text-base font-semibold text-slate-900">
+                    <h4 className="text-base font-semibold text-brand_blue">
                       Acción {action.actionNumber}
                     </h4>
                   </div>
@@ -187,14 +187,14 @@ export function ObjectiveResults({ objective, responses, viewMode, evaluation }:
                   <div className="text-xs text-slate-500 mb-1">
                     {actionDimensionsCompleted}/3 dimensiones
                   </div>
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200">
-                    <div className="w-16 bg-emerald-200 rounded-full h-1.5">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand_yellow/10 border border-brand_yellow/30">
+                    <div className="w-16 bg-brand_yellow/30 rounded-full h-1.5">
                       <div
-                        className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300"
+                        className="bg-brand_yellow h-1.5 rounded-full transition-all duration-300"
                         style={{ width: `${actionProgress}%` }}
                       />
                     </div>
-                    <span className="text-xs font-semibold text-emerald-700">{actionProgress}%</span>
+                    <span className="text-xs font-semibold text-brand_yellow">{actionProgress}%</span>
                   </div>
                 </div>
               </div>

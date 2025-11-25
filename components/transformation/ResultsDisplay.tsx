@@ -249,10 +249,10 @@ export function ResultsDisplay({ assessment, rubricItems, responses, evaluation 
       {evaluation && (
         <div className="relative py-8">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t-2 border-slate-300"></div>
+            <div className="w-full border-t-2 border-brand_blue/20"></div>
           </div>
           <div className="relative flex justify-center">
-            <span className="bg-slate-50 px-6 py-2 text-sm font-semibold text-slate-600 rounded-full shadow-sm border border-slate-300">
+            <span className="bg-brand_beige px-6 py-2 text-sm font-semibold text-brand_blue rounded-full shadow-sm border border-brand_blue/20">
               Detalles por Objetivo
             </span>
           </div>
@@ -267,7 +267,7 @@ export function ResultsDisplay({ assessment, rubricItems, responses, evaluation 
               onClick={() => setViewMode('detailed')}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
                 viewMode === 'detailed'
-                  ? 'bg-sky-600 text-white'
+                  ? 'bg-brand_blue text-white'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
@@ -277,7 +277,7 @@ export function ResultsDisplay({ assessment, rubricItems, responses, evaluation 
               onClick={() => setViewMode('summary')}
               className={`px-4 py-2 rounded-lg text-sm font-semibold transition ${
                 viewMode === 'summary'
-                  ? 'bg-sky-600 text-white'
+                  ? 'bg-brand_blue text-white'
                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
               }`}
             >
@@ -287,13 +287,13 @@ export function ResultsDisplay({ assessment, rubricItems, responses, evaluation 
           <div className="flex items-center gap-2">
             <button
               onClick={expandAll}
-              className="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+              className="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-100 text-brand_blue hover:bg-brand_beige transition"
             >
               Expandir Todo
             </button>
             <button
               onClick={collapseAll}
-              className="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+              className="px-4 py-2 rounded-lg text-sm font-semibold bg-slate-100 text-brand_blue hover:bg-brand_beige transition"
             >
               Contraer Todo
             </button>
@@ -302,9 +302,9 @@ export function ResultsDisplay({ assessment, rubricItems, responses, evaluation 
       </div>
 
       {/* Instructions */}
-      <div className="bg-sky-50 border border-sky-200 rounded-xl p-6">
-        <h3 className="text-sm font-semibold text-sky-900 mb-2">📊 Vista de Resultados Detallados</h3>
-        <p className="text-sm text-sky-800">
+      <div className="bg-brand_blue/5 border border-brand_blue/20 rounded-xl p-6">
+        <h3 className="text-sm font-semibold text-brand_blue mb-2">Vista de Resultados Detallados</h3>
+        <p className="text-sm text-slate-700">
           Esta vista muestra todas las respuestas proporcionadas durante la evaluación, organizadas por objetivos y acciones.
           Cada acción incluye las tres dimensiones evaluadas: Cobertura, Frecuencia y Profundidad.
         </p>
@@ -337,16 +337,16 @@ export function ResultsDisplay({ assessment, rubricItems, responses, evaluation 
               {/* Objective Header */}
               <button
                 onClick={() => toggleObjective(objective.objectiveNumber)}
-                className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition"
+                className="w-full px-6 py-4 flex items-center justify-between hover:bg-brand_beige/50 transition"
               >
                 <div className="flex items-center gap-4">
                   <div className="flex-shrink-0">
-                    <div className="w-12 h-12 rounded-full bg-sky-100 flex items-center justify-center">
-                      <span className="text-lg font-bold text-sky-700">{objective.objectiveNumber}</span>
+                    <div className="w-12 h-12 rounded-full bg-brand_blue/10 flex items-center justify-center">
+                      <span className="text-lg font-bold text-brand_blue">{objective.objectiveNumber}</span>
                     </div>
                   </div>
                   <div className="text-left">
-                    <h3 className="text-lg font-semibold text-slate-900">
+                    <h3 className="text-lg font-semibold text-brand_blue">
                       Objetivo {objective.objectiveNumber}
                     </h3>
                     <p className="text-sm text-slate-600 mt-1">{objective.objectiveText}</p>
@@ -357,12 +357,12 @@ export function ResultsDisplay({ assessment, rubricItems, responses, evaluation 
                       <div className="flex-1 max-w-xs">
                         <div className="w-full bg-slate-200 rounded-full h-1.5">
                           <div
-                            className="bg-emerald-500 h-1.5 rounded-full transition-all duration-300"
+                            className="bg-brand_yellow h-1.5 rounded-full transition-all duration-300"
                             style={{ width: `${objectiveProgress}%` }}
                           />
                         </div>
                       </div>
-                      <div className="text-xs font-semibold text-emerald-600">
+                      <div className="text-xs font-semibold text-brand_yellow">
                         {objectiveProgress}%
                       </div>
                     </div>
@@ -370,7 +370,7 @@ export function ResultsDisplay({ assessment, rubricItems, responses, evaluation 
                 </div>
                 <div className="flex-shrink-0">
                   <svg
-                    className={`w-6 h-6 text-slate-400 transition-transform ${
+                    className={`w-6 h-6 text-brand_blue/50 transition-transform ${
                       isExpanded ? 'rotate-180' : ''
                     }`}
                     fill="none"
@@ -384,7 +384,7 @@ export function ResultsDisplay({ assessment, rubricItems, responses, evaluation 
 
               {/* Actions Results (collapsible) */}
               {isExpanded && (
-                <div className="border-t border-slate-200 bg-slate-50">
+                <div className="border-t border-slate-200 bg-brand_beige/30">
                   <ObjectiveResults
                     objective={objective}
                     responses={mappedResponses}

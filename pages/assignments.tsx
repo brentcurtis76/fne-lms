@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../components/layout/MainLayout';
+import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { assignmentService } from '../lib/services/assignments';
 import { useAvatar } from '../hooks/useAvatar';
 import { ClipboardCheckIcon as ClipboardDocumentCheckIcon } from '@heroicons/react/outline';
@@ -159,37 +160,21 @@ export default function AssignmentsPage() {
       <MainLayout
         user={session?.user}
         currentPage="assignments"
-        pageTitle="Mis Tareas"
+        pageTitle=""
         isAdmin={isAdmin}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
       >
+        <ResponsiveFunctionalPageHeader
+          icon={<ClipboardDocumentCheckIcon className="h-6 w-6" />}
+          title="Mis Tareas"
+          subtitle={`Bienvenido de vuelta, ${profileName}`}
+          primaryAction={isTeacher ? {
+            label: 'Nueva Tarea',
+            onClick: () => router.push('/assignments/new')
+          } : undefined}
+        />
         <div className="p-4 md:p-8">
-          <header className="flex flex-wrap items-center justify-between gap-4 mb-8">
-            <div className="flex items-center gap-4">
-              <img src={avatarUrl || '/default-avatar.png'} alt="Avatar" className="w-16 h-16 rounded-full" />
-              <div>
-                <h1 className="text-3xl font-bold text-gray-800">Mis Tareas</h1>
-                <p className="text-gray-600">Bienvenido de vuelta, {profileName}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {isTeacher && (
-                <button 
-                  onClick={() => router.push('/assignments/new')}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
-                >
-                  Nueva Tarea
-                </button>
-              )}
-              <button 
-                onClick={handleLogout}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
-              >
-                Cerrar Sesión
-              </button>
-            </div>
-          </header>
 
           {isTeacher && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">

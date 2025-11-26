@@ -8,6 +8,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
 import MainLayout from '@/components/layout/MainLayout';
+import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPageHeader';
 import { userAssignmentsService, Assignment } from '@/lib/services/userAssignments';
 import {
   ClipboardCheckIcon,
@@ -307,32 +308,26 @@ const TareasPage: React.FC = () => {
     <MainLayout
       user={user}
       currentPage="tareas"
-      pageTitle="Mis Tareas"
+      pageTitle=""
       userRole="estudiante"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-                <ClipboardCheckIcon className="h-8 w-8 text-brand_yellow mr-3" />
-                Mis Tareas
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Tareas de todos tus cursos
-              </p>
-            </div>
-            {router.query.from === 'workspace' && (
-              <button
-                onClick={() => router.back()}
-                className="text-sm text-brand_blue hover:underline"
-              >
-                ← Volver al Espacio Colaborativo
-              </button>
-            )}
-          </div>
+      <ResponsiveFunctionalPageHeader
+        icon={<ClipboardCheckIcon className="h-6 w-6" />}
+        title="Mi Aprendizaje"
+        subtitle="Mis Tareas - Tareas de todos tus cursos"
+      >
+        {router.query.from === 'workspace' && (
+          <button
+            onClick={() => router.back()}
+            className="text-sm text-brand_blue hover:underline"
+          >
+            ← Volver al Espacio Colaborativo
+          </button>
+        )}
+      </ResponsiveFunctionalPageHeader>
 
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="mb-8">
           {/* Onboarding Banner */}
           {showOnboarding && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 relative">

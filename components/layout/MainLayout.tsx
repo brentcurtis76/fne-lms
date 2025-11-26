@@ -285,17 +285,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             {(pageTitle || breadcrumbs.length > 0) && (
               <div className="bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 py-4">
                 <div className="max-w-7xl mx-auto">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-gray-200 text-[#00365b] shadow-sm">
-                      <OfficeBuildingIcon className="h-4 w-4 text-[#00365b]" />
-                      <div className="min-w-0">
-                        <div className="text-[11px] uppercase tracking-wide text-gray-500 leading-tight">Colegio</div>
-                        <div className="text-sm font-semibold leading-tight truncate max-w-xs" title={schoolName || 'Sin colegio'}>
-                          {schoolName || 'Sin colegio'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                   {/* Breadcrumbs */}
                   {breadcrumbs.length > 0 && (
                     <nav className="flex mb-2" aria-label="Breadcrumb">

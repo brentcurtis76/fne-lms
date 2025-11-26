@@ -1,5 +1,5 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 
@@ -41,6 +41,7 @@ const CourseBuilder: React.FC = () => {
   const [isFormCollapsed, setIsFormCollapsed] = useState(true);
   const [instructorFilter, setInstructorFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [instructorsList, setInstructorsList] = useState<string[]>([]);
   const PAGE_SIZE = 12;
   const totalPages = Math.max(1, Math.ceil(totalCourses / PAGE_SIZE));
 
@@ -170,6 +171,9 @@ const CourseBuilder: React.FC = () => {
       );
       setTotalCourses(data.total || 0);
       setCurrentPage(data.page || page);
+      if (data.instructors) {
+        setInstructorsList(data.instructors);
+      }
     } catch (error) {
       console.error('Unexpected error fetching courses:', error);
       toast.error('Error inesperado al cargar cursos');
@@ -406,13 +410,8 @@ const CourseBuilder: React.FC = () => {
     router.push('/login');
   };
 
-  // Unique instructors list for filter
-  const instructorOptions = useMemo(() => {
-    const names = courses
-      .map(c => c.instructor_name)
-      .filter((name): name is string => !!name);
-    return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
-  }, [courses]);
+  // Use instructors list from API (includes all instructors, not just current page)
+  const instructorOptions = instructorsList;
 
   // Courses are already filtered server-side; return as-is for rendering
   const filterCourses = (coursesList: FormattedCourse[]): FormattedCourse[] => coursesList;

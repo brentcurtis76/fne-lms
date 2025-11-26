@@ -83,10 +83,36 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
   const hasAdminRole = collectedRoles.has('admin') || auth.isGlobalAdmin;
   const effectiveIsAdmin = hasAdminRole || (rawIsAdmin && collectedRoles.size === 0);
-  
+
   // Sidebar state with localStorage persistence
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [schoolName, setSchoolName] = useState<string>('Sin colegio');
+
+  // Fetch profile data if not provided as prop
+  const [fetchedProfileData, setFetchedProfileData] = useState<any>(null);
+  const effectiveProfileData = profileData || fetchedProfileData;
+
+  useEffect(() => {
+    const loadProfileData = async () => {
+      if (profileData || !user?.id) return; // Skip if already provided or no user
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('first_name, last_name, school, growth_community, avatar_url')
+          .eq('id', user.id)
+          .single();
+
+        if (!error && data) {
+          setFetchedProfileData(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch profile data for header:', err);
+      }
+    };
+
+    loadProfileData();
+  }, [user?.id, profileData, supabase]);
   
   // Use the avatar hook for better performance
   const { url: fetchedAvatarUrl } = useAvatar(user);
@@ -119,9 +145,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         return;
       }
 
-      // 1) Use profileData prop if provided
-      if (profileData?.school) {
-        setSchoolName(profileData.school);
+      // 1) Use effectiveProfileData if available
+      if (effectiveProfileData?.school) {
+        setSchoolName(effectiveProfileData.school);
         return;
       }
 
@@ -142,7 +168,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       setSchoolName('Sin colegio');
     };
     loadSchool();
-  }, [user?.id, supabase, profileData?.school]);
+  }, [user?.id, supabase, effectiveProfileData?.school]);
   
   // Initialize sidebar state from localStorage
   useEffect(() => {
@@ -249,18 +275,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                       />
                       <div className="hidden sm:block">
                         <p className="text-sm font-medium text-gray-900">
-                          {profileData?.first_name && profileData?.last_name
-                            ? `${profileData.first_name} ${profileData.last_name}`
-                            : user.user_metadata?.first_name && user.user_metadata?.last_name
-                            ? `${user.user_metadata.first_name} ${user.user_metadata.last_name}`
+                          {effectiveProfileData?.first_name
+                            ? effectiveProfileData.first_name
+                            : user.user_metadata?.first_name
+                            ? user.user_metadata.first_name
                             : user.email?.split('@')[0] || 'Usuario'
                           }
                         </p>
-                        <p className="text-xs text-gray-500">
-                          {profileData?.growth_community 
-                            ? profileData.growth_community 
-                            : effectiveIsAdmin ? 'Administrador' : 'Usuario'}
-                        </p>
+                        {effectiveProfileData?.growth_community && (
+                          <p className="text-xs text-gray-500">
+                            {effectiveProfileData.growth_community}
+                          </p>
+                        )}
                       </div>
                     </Link>
                   )}

@@ -1,11 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
 import Link from 'next/link';
-
-// Track if we've already processed the code (prevents double-processing in React Strict Mode)
-let codeProcessed = false;
 
 export default function ResetPasswordPage() {
   const supabase = useSupabaseClient();
@@ -18,9 +15,34 @@ export default function ResetPasswordPage() {
   const [isValidatingToken, setIsValidatingToken] = useState(true);
   const [hasValidSession, setHasValidSession] = useState(false);
 
+  // Use ref instead of module-level variable to track processing state
+  // This ensures proper cleanup and doesn't persist across navigations
+  const processingRef = useRef(false);
+  const hasProcessedRef = useRef(false);
+
   useEffect(() => {
+    // Reset processing state when component mounts (new navigation)
+    processingRef.current = false;
+    hasProcessedRef.current = false;
+
     // Handle the password reset token
     const handleRecoveryToken = async () => {
+      // Prevent double-processing in React Strict Mode
+      if (processingRef.current || hasProcessedRef.current) {
+        console.log('[ResetPassword] Already processing or processed, checking for existing session...');
+        // Wait a bit and check for session that might have been established
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log('[ResetPassword] Session found from previous processing');
+          setHasValidSession(true);
+          setIsValidatingToken(false);
+        }
+        return;
+      }
+
+      processingRef.current = true;
+
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const token = urlParams.get('token');
@@ -38,26 +60,27 @@ export default function ResetPasswordPage() {
         hasHash: !!window.location.hash,
         hashType: hashType,
         hasAccessToken: !!accessToken,
-        codeAlreadyProcessed: codeProcessed
+        fullUrl: window.location.href
       });
+
+      // FIRST: Always check if there's already a valid session
+      // This handles cases where the token was already exchanged (e.g., by email client prefetch)
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      if (existingSession) {
+        console.log('[ResetPassword] Existing session found, skipping token verification');
+        hasProcessedRef.current = true;
+        setHasValidSession(true);
+        setIsValidatingToken(false);
+        // Clean up URL
+        if (code || tokenHash || token) {
+          window.history.replaceState({}, '', '/reset-password');
+        }
+        return;
+      }
 
       // Method 1: Handle token_hash (from Supabase email links with PKCE)
       if (tokenHash) {
-        if (codeProcessed) {
-          console.log('[ResetPassword] Token already being processed, checking session...');
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            setHasValidSession(true);
-            setIsValidatingToken(false);
-            window.history.replaceState({}, '', '/reset-password');
-          }
-          return;
-        }
-
-        codeProcessed = true;
         console.log('[ResetPassword] Token hash found, verifying...');
-        window.history.replaceState({}, '', '/reset-password');
 
         try {
           const { data, error } = await supabase.auth.verifyOtp({
@@ -65,9 +88,21 @@ export default function ResetPasswordPage() {
             type: 'recovery'
           });
 
+          // Clean URL AFTER verification attempt
+          window.history.replaceState({}, '', '/reset-password');
+          hasProcessedRef.current = true;
+
           if (error) {
             console.error('[ResetPassword] Error verifying token_hash:', error);
-            setMessage('Error al validar el enlace de recuperación. El enlace puede haber expirado.');
+            // Check if session was somehow established despite error
+            const { data: { session: retrySession } } = await supabase.auth.getSession();
+            if (retrySession) {
+              console.log('[ResetPassword] Session exists despite error, continuing...');
+              setHasValidSession(true);
+              setIsValidatingToken(false);
+              return;
+            }
+            setMessage('Error al validar el enlace de recuperación. El enlace puede haber expirado. Por favor solicita un nuevo enlace.');
             setIsValidatingToken(false);
             return;
           }
@@ -80,7 +115,9 @@ export default function ResetPasswordPage() {
           }
         } catch (err) {
           console.error('[ResetPassword] Exception verifying token_hash:', err);
-          setMessage('Error al validar el enlace de recuperación.');
+          window.history.replaceState({}, '', '/reset-password');
+          hasProcessedRef.current = true;
+          setMessage('Error al validar el enlace de recuperación. Por favor solicita un nuevo enlace.');
           setIsValidatingToken(false);
           return;
         }
@@ -88,22 +125,9 @@ export default function ResetPasswordPage() {
 
       // Method 2: Handle raw token (from custom email template with {{ .Token }})
       if (token) {
-        if (codeProcessed) {
-          console.log('[ResetPassword] Token already being processed, checking session...');
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            setHasValidSession(true);
-            setIsValidatingToken(false);
-            window.history.replaceState({}, '', '/reset-password');
-          }
-          return;
-        }
-
-        codeProcessed = true;
+        hasProcessedRef.current = true;
         console.log('[ResetPassword] Raw token found, this requires email for verification');
         // Raw tokens need the user's email to verify - we don't have it here
-        // Show a message asking them to enter their email or use a different flow
         setMessage('Error: El enlace no contiene la información necesaria. Por favor solicita un nuevo enlace de recuperación.');
         setIsValidatingToken(false);
         return;
@@ -111,36 +135,26 @@ export default function ResetPasswordPage() {
 
       // Method 3: Handle PKCE code (from standard Supabase flow)
       if (code) {
-        if (codeProcessed) {
-          console.log('[ResetPassword] Code already being processed, checking session...');
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            console.log('[ResetPassword] Session found after waiting');
-            setHasValidSession(true);
-            setIsValidatingToken(false);
-            window.history.replaceState({}, '', '/reset-password');
-          }
-          return;
-        }
-
-        codeProcessed = true;
         console.log('[ResetPassword] PKCE code found, exchanging for session...');
-        window.history.replaceState({}, '', '/reset-password');
 
         try {
           const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
+          // Clean URL AFTER exchange attempt
+          window.history.replaceState({}, '', '/reset-password');
+          hasProcessedRef.current = true;
+
           if (error) {
             console.error('[ResetPassword] Error exchanging code:', error);
-            const { data: { session: existingSession } } = await supabase.auth.getSession();
-            if (existingSession) {
+            // Check if session was somehow established despite error
+            const { data: { session: retrySession } } = await supabase.auth.getSession();
+            if (retrySession) {
               console.log('[ResetPassword] Session exists despite error, continuing...');
               setHasValidSession(true);
               setIsValidatingToken(false);
               return;
             }
-            setMessage('Error al validar el enlace de recuperación. El enlace puede haber expirado.');
+            setMessage('Error al validar el enlace de recuperación. El enlace puede haber expirado. Por favor solicita un nuevo enlace.');
             setIsValidatingToken(false);
             return;
           }
@@ -153,14 +167,17 @@ export default function ResetPasswordPage() {
           }
         } catch (err) {
           console.error('[ResetPassword] Exception exchanging code:', err);
-          const { data: { session: existingSession } } = await supabase.auth.getSession();
-          if (existingSession) {
+          window.history.replaceState({}, '', '/reset-password');
+          hasProcessedRef.current = true;
+          // Check if session exists despite exception
+          const { data: { session: retrySession } } = await supabase.auth.getSession();
+          if (retrySession) {
             console.log('[ResetPassword] Session exists despite exception, continuing...');
             setHasValidSession(true);
             setIsValidatingToken(false);
             return;
           }
-          setMessage('Error al validar el enlace de recuperación.');
+          setMessage('Error al validar el enlace de recuperación. Por favor solicita un nuevo enlace.');
           setIsValidatingToken(false);
           return;
         }
@@ -169,9 +186,10 @@ export default function ResetPasswordPage() {
       // Handle implicit flow with hash fragment (legacy)
       if (hashType === 'recovery' && accessToken) {
         console.log('[ResetPassword] Recovery token found in hash, waiting for session...');
+        hasProcessedRef.current = true;
 
         // Give Supabase time to process the token
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
         const { data: { session }, error } = await supabase.auth.getSession();
 
@@ -190,10 +208,15 @@ export default function ResetPasswordPage() {
         }
       }
 
-      // No recovery token, check for existing session
-      const { data: { session } } = await supabase.auth.getSession();
+      // No recovery token found in URL
+      hasProcessedRef.current = true;
 
-      if (!session) {
+      // Wait a moment and check session one more time
+      // (auth state listener might have processed it)
+      await new Promise(resolve => setTimeout(resolve, 500));
+      const { data: { session: finalSession } } = await supabase.auth.getSession();
+
+      if (!finalSession) {
         console.log('[ResetPassword] No session and no recovery token, redirecting to login');
         router.push('/login');
         return;
@@ -204,16 +227,18 @@ export default function ResetPasswordPage() {
       setIsValidatingToken(false);
     };
 
-    // Also listen for auth state changes (Supabase may process the token asynchronously)
+    // Listen for auth state changes (Supabase may process the token asynchronously)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[ResetPassword] Auth state changed:', event, !!session);
 
       if (event === 'PASSWORD_RECOVERY') {
         console.log('[ResetPassword] PASSWORD_RECOVERY event received');
+        hasProcessedRef.current = true;
         setHasValidSession(true);
         setIsValidatingToken(false);
       } else if (event === 'SIGNED_IN' && session) {
         console.log('[ResetPassword] User signed in from recovery');
+        hasProcessedRef.current = true;
         setHasValidSession(true);
         setIsValidatingToken(false);
       }
@@ -223,6 +248,7 @@ export default function ResetPasswordPage() {
 
     return () => {
       subscription.unsubscribe();
+      processingRef.current = false;
     };
   }, [router, supabase.auth]);
 

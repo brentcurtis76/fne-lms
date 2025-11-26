@@ -12,6 +12,7 @@ import { invalidateAvatarCache, updateAvatarCache } from '../hooks/useAvatar';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { User as UserIcon, PencilIcon } from 'lucide-react';
 import { metadataHasRole } from '../utils/roleUtils';
+import PasswordChangeSection from '../components/profile/PasswordChangeSection';
 
 type School = {
   id: number;
@@ -34,6 +35,11 @@ type Profile = {
   growth_community: string;
 };
 
+type GrowthCommunity = {
+  id: string;
+  name: string;
+};
+
 export default function ProfilePage() {
   const router = useRouter();
   const supabase = useSupabaseClient();
@@ -54,6 +60,7 @@ export default function ProfilePage() {
   const [previewUrl, setPreviewUrl] = useState('');
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [growthCommunities, setGrowthCommunities] = useState<GrowthCommunity[]>([]);
 
   useEffect(() => {
     const getSessionAndProfile = async () => {
@@ -107,6 +114,44 @@ export default function ProfilePage() {
       } else {
         // No profile data means this is definitely a new user
         setIsNewUser(true);
+      }
+
+      // Fetch user's growth communities from user_roles
+      try {
+        const { data: userRolesData, error: rolesError } = await supabase
+          .from('user_roles')
+          .select(`
+            community_id,
+            growth_communities:community_id (
+              id,
+              name
+            )
+          `)
+          .eq('user_id', session.user.id)
+          .eq('is_active', true)
+          .not('community_id', 'is', null);
+
+        if (rolesError) {
+          console.error('Error fetching growth communities:', rolesError);
+        } else if (userRolesData) {
+          // Extract unique growth communities
+          const communities: GrowthCommunity[] = userRolesData
+            .filter((role: any) => role.growth_communities)
+            .map((role: any) => ({
+              id: role.growth_communities.id,
+              name: role.growth_communities.name
+            }));
+
+          // Remove duplicates (user might have multiple roles in same community)
+          const uniqueCommunities = communities.filter(
+            (community, index, self) =>
+              index === self.findIndex(c => c.id === community.id)
+          );
+
+          setGrowthCommunities(uniqueCommunities);
+        }
+      } catch (error) {
+        console.error('Exception when fetching growth communities:', error);
       }
 
       // Fetch schools for dropdown
@@ -549,15 +594,30 @@ export default function ProfilePage() {
                     </select>
                   </div>
 
-                  {/* Growth Community */}
+                  {/* Growth Communities */}
                   <div className="md:col-span-2">
-                    <label className="block text-[#00365b] font-medium mb-2">Comunidad de crecimiento</label>
-                    <input
-                      type="text"
-                      className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200"
-                      value={profile?.growth_community || 'No asignada'}
-                      readOnly
-                    />
+                    <label className="block text-[#00365b] font-medium mb-2">
+                      {growthCommunities.length > 1 ? 'Comunidades de crecimiento' : 'Comunidad de crecimiento'}
+                    </label>
+                    {growthCommunities.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {growthCommunities.map((community) => (
+                          <span
+                            key={community.id}
+                            className="inline-flex items-center px-4 py-2 rounded-xl bg-[#00365b]/10 text-[#00365b] border border-[#00365b]/20"
+                          >
+                            {community.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200"
+                        value="No asignada"
+                        readOnly
+                      />
+                    )}
                   </div>
 
                   {/* Description */}
@@ -572,7 +632,10 @@ export default function ProfilePage() {
                     ></textarea>
                   </div>
                 </div>
-                
+
+                {/* Password Change Section */}
+                <PasswordChangeSection userEmail={user?.email || ''} />
+
                 {/* Action Buttons */}
                 <div className="flex flex-col md:flex-row justify-end space-y-4 md:space-y-0 md:space-x-4 pt-6">
                   <button 

@@ -4,6 +4,7 @@ import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
 import Link from 'next/link';
 import MainLayout from '../components/layout/MainLayout';
+import { toastSuccess } from '../utils/toastUtils';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import Avatar from '../components/common/Avatar';
 import { getUserRoles, getCommunityMembers, getEffectiveRoleAndStatus, metadataHasRole } from '../utils/roleUtils';
@@ -36,6 +37,24 @@ export default function Dashboard() {
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
   
+  // Check for password change success notification (user may have been redirected here)
+  useEffect(() => {
+    try {
+      const passwordChangeSuccess = sessionStorage.getItem('fne-password-change-success');
+      console.log('[Dashboard] Checking password change success flag:', passwordChangeSuccess);
+      if (passwordChangeSuccess === 'true') {
+        console.log('[Dashboard] Password change success detected, showing toast');
+        sessionStorage.removeItem('fne-password-change-success');
+        // Small delay to ensure toast system is ready
+        setTimeout(() => {
+          toastSuccess('Contraseña actualizada exitosamente');
+        }, 100);
+      }
+    } catch (e) {
+      console.error('[Dashboard] Error checking password change success:', e);
+    }
+  }, []);
+
   // Try to load avatar from cache immediately on component mount
   useEffect(() => {
     const loadCachedAvatar = async () => {
@@ -57,7 +76,7 @@ export default function Dashboard() {
         // Ignore cache errors
       }
     };
-    
+
     loadCachedAvatar();
   }, [session]);
   

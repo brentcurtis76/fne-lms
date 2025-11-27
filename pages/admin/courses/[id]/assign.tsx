@@ -79,6 +79,7 @@ export default function AssignCourse() {
   // Assigned users section state
   const [assignedSectionExpanded, setAssignedSectionExpanded] = useState(false);
   const [assignedSchoolFilter, setAssignedSchoolFilter] = useState<string>('');
+  const [selectedToUnassign, setSelectedToUnassign] = useState<Set<string>>(new Set());
 
   // Schools and communities for filtering
   const [schools, setSchools] = useState<Array<{id: string, name: string}>>([]);
@@ -346,9 +347,16 @@ export default function AssignCourse() {
 
   const handleUnassign = async (userId: string) => {
     if (!course) return;
+    await handleBatchUnassign([userId]);
+  };
+
+  const handleBatchUnassign = async (userIds: string[]) => {
+    if (!course || userIds.length === 0) return;
 
     setUnassigning(true);
-    const loadingToast = toast.loading('Desasignando curso...');
+    const loadingToast = toast.loading(
+      userIds.length === 1 ? 'Desasignando curso...' : `Desasignando ${userIds.length} usuarios...`
+    );
 
     try {
       const response = await fetch('/api/courses/unassign', {
@@ -358,7 +366,7 @@ export default function AssignCourse() {
         },
         body: JSON.stringify({
           courseId: course.id,
-          userIds: [userId],
+          userIds,
         }),
       });
 
@@ -370,12 +378,17 @@ export default function AssignCourse() {
       const result = await response.json();
 
       toast.success(
-        `Curso desasignado exitosamente`,
+        userIds.length === 1
+          ? 'Curso desasignado exitosamente'
+          : `${userIds.length} usuarios desasignados exitosamente`,
         { id: loadingToast }
       );
 
       // Update assignment count
-      setTotalAssigned(prev => prev - 1);
+      setTotalAssigned(prev => prev - userIds.length);
+
+      // Clear selection
+      setSelectedToUnassign(new Set());
 
       // Refresh search results to show updated assignment status
       await searchAssignees(searchQuery || '', 1, false);
@@ -387,6 +400,27 @@ export default function AssignCourse() {
     } finally {
       setUnassigning(false);
     }
+  };
+
+  const toggleUnassignSelection = (userId: string) => {
+    setSelectedToUnassign(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        newSet.add(userId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllFilteredForUnassign = () => {
+    const newSet = new Set(filteredAssignedUsers.map(u => u.id));
+    setSelectedToUnassign(newSet);
+  };
+
+  const clearUnassignSelection = () => {
+    setSelectedToUnassign(new Set());
   };
 
   const loadAssignedUsers = async (courseIdToLoad: string) => {
@@ -561,28 +595,78 @@ export default function AssignCourse() {
                         </div>
                       )}
 
-                      {/* Filtered count indicator */}
-                      {assignedSchoolFilter && (
-                        <p className="text-sm text-gray-500 mb-2">
-                          Mostrando {filteredAssignedUsers.length} de {assignedUsers.length} usuarios
-                        </p>
-                      )}
+                      {/* Batch actions bar */}
+                      <div className="flex items-center justify-between py-3 border-b border-gray-100">
+                        <div className="flex items-center gap-3">
+                          {assignedSchoolFilter && (
+                            <span className="text-sm text-gray-500">
+                              Mostrando {filteredAssignedUsers.length} de {assignedUsers.length} usuarios
+                            </span>
+                          )}
+                          {selectedToUnassign.size > 0 && (
+                            <span className="text-sm font-medium text-red-600">
+                              {selectedToUnassign.size} seleccionado(s)
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {selectedToUnassign.size > 0 ? (
+                            <>
+                              <button
+                                onClick={clearUnassignSelection}
+                                className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200"
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                onClick={() => handleBatchUnassign(Array.from(selectedToUnassign))}
+                                disabled={unassigning}
+                                className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 disabled:opacity-50"
+                              >
+                                Desasignar ({selectedToUnassign.size})
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={selectAllFilteredForUnassign}
+                              className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200"
+                            >
+                              Seleccionar todos
+                            </button>
+                          )}
+                        </div>
+                      </div>
 
-                      <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pt-2">
                         {filteredAssignedUsers.map((user) => (
                           <div
                             key={user.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
+                            className={`flex items-center justify-between p-3 border rounded-lg cursor-pointer transition-colors ${
+                              selectedToUnassign.has(user.id) ? 'border-red-300 bg-red-50' : 'hover:bg-gray-50'
+                            }`}
+                            onClick={() => toggleUnassignSelection(user.id)}
                           >
-                            <div className="flex flex-col">
-                              <span className="text-sm font-medium text-gray-900">{user.name}</span>
-                              <span className="text-xs text-gray-500">{user.email}</span>
-                              {user.school_name && (
-                                <span className="text-xs text-gray-400">{user.school_name}</span>
-                              )}
+                            <div className="flex items-center gap-3">
+                              <input
+                                type="checkbox"
+                                checked={selectedToUnassign.has(user.id)}
+                                onChange={() => toggleUnassignSelection(user.id)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="h-4 w-4 text-red-600 border-gray-300 rounded focus:ring-red-500"
+                              />
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium text-gray-900">{user.name}</span>
+                                <span className="text-xs text-gray-500">{user.email}</span>
+                                {user.school_name && (
+                                  <span className="text-xs text-gray-400">{user.school_name}</span>
+                                )}
+                              </div>
                             </div>
                             <button
-                              onClick={() => handleUnassign(user.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleUnassign(user.id);
+                              }}
                               disabled={unassigning}
                               className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 disabled:opacity-50"
                             >

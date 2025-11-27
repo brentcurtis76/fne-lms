@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import Head from 'next/head';
 import MainLayout from '../../../../components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 import { getUserPrimaryRole } from '../../../../utils/roleUtils';
-import { ChevronLeft, UserPlus, X } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronUp, UserPlus, X } from 'lucide-react';
 import { SearchIcon } from '@heroicons/react/solid';
 import useDebounce from '../../../../hooks/useDebounce';
 
@@ -67,6 +67,10 @@ export default function AssignCourse() {
   const [totalAssigned, setTotalAssigned] = useState(0);
   const [assignedUsers, setAssignedUsers] = useState<AssignedUser[]>([]);
   const [loadingAssigned, setLoadingAssigned] = useState(false);
+
+  // Assigned users section state
+  const [assignedSectionExpanded, setAssignedSectionExpanded] = useState(false);
+  const [assignedSchoolFilter, setAssignedSchoolFilter] = useState<string>('');
 
   // Schools for filtering
   const [schools, setSchools] = useState<Array<{id: string, name: string}>>([]);
@@ -401,6 +405,20 @@ export default function AssignCourse() {
     router.push('/login');
   };
 
+  // Get unique schools from assigned users for filtering
+  const assignedSchools = useMemo(() => {
+    const schoolNames = assignedUsers
+      .map(u => u.school_name)
+      .filter((name): name is string => !!name);
+    return [...new Set(schoolNames)].sort();
+  }, [assignedUsers]);
+
+  // Filter assigned users by school
+  const filteredAssignedUsers = useMemo(() => {
+    if (!assignedSchoolFilter) return assignedUsers;
+    return assignedUsers.filter(u => u.school_name === assignedSchoolFilter);
+  }, [assignedUsers, assignedSchoolFilter]);
+
   if (loading || !course) {
     return (
       <div className="min-h-screen bg-brand_beige flex items-center justify-center">
@@ -455,39 +473,91 @@ export default function AssignCourse() {
               </p>
             </div>
 
-            {/* Assigned Users */}
-            <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Asignados actualmente</h3>
-                {loadingAssigned && (
-                  <span className="text-xs text-gray-500">Cargando...</span>
+            {/* Assigned Users - Collapsible */}
+            <div className="bg-white rounded-lg shadow-sm mb-6">
+              <button
+                onClick={() => setAssignedSectionExpanded(!assignedSectionExpanded)}
+                className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 transition-colors rounded-lg"
+              >
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-semibold text-gray-900">Asignados actualmente</h3>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand_blue/10 text-brand_blue">
+                    {assignedUsers.length}
+                  </span>
+                  {loadingAssigned && (
+                    <span className="text-xs text-gray-500">Cargando...</span>
+                  )}
+                </div>
+                {assignedSectionExpanded ? (
+                  <ChevronUp className="h-5 w-5 text-gray-500" />
+                ) : (
+                  <ChevronDown className="h-5 w-5 text-gray-500" />
                 )}
-              </div>
-              {assignedUsers.length === 0 ? (
-                <p className="text-sm text-gray-500">No hay usuarios asignados.</p>
-              ) : (
-                <div className="space-y-2">
-                  {assignedUsers.map((user) => (
-                    <div
-                      key={user.id}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div className="flex flex-col">
-                        <span className="text-sm font-medium text-gray-900">{user.name}</span>
-                        <span className="text-xs text-gray-500">{user.email}</span>
-                        {user.school_name && (
-                          <span className="text-xs text-gray-400">{user.school_name}</span>
-                        )}
+              </button>
+
+              {assignedSectionExpanded && (
+                <div className="px-4 pb-4 border-t border-gray-100">
+                  {assignedUsers.length === 0 ? (
+                    <p className="text-sm text-gray-500 pt-4">No hay usuarios asignados.</p>
+                  ) : (
+                    <>
+                      {/* School filter for assigned users */}
+                      {assignedSchools.length > 0 && (
+                        <div className="pt-4 pb-3">
+                          <label htmlFor="assignedSchoolFilter" className="block text-sm font-medium text-gray-700 mb-2">
+                            Filtrar por Colegio
+                          </label>
+                          <select
+                            id="assignedSchoolFilter"
+                            value={assignedSchoolFilter}
+                            onChange={(e) => setAssignedSchoolFilter(e.target.value)}
+                            className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-brand_blue focus:border-brand_blue sm:text-sm"
+                          >
+                            <option value="">Todos los colegios ({assignedUsers.length})</option>
+                            {assignedSchools.map((schoolName) => {
+                              const count = assignedUsers.filter(u => u.school_name === schoolName).length;
+                              return (
+                                <option key={schoolName} value={schoolName}>
+                                  {schoolName} ({count})
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Filtered count indicator */}
+                      {assignedSchoolFilter && (
+                        <p className="text-sm text-gray-500 mb-2">
+                          Mostrando {filteredAssignedUsers.length} de {assignedUsers.length} usuarios
+                        </p>
+                      )}
+
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                        {filteredAssignedUsers.map((user) => (
+                          <div
+                            key={user.id}
+                            className="flex items-center justify-between p-3 border rounded-lg"
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium text-gray-900">{user.name}</span>
+                              <span className="text-xs text-gray-500">{user.email}</span>
+                              {user.school_name && (
+                                <span className="text-xs text-gray-400">{user.school_name}</span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => handleUnassign(user.id)}
+                              disabled={unassigning}
+                              className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 disabled:opacity-50"
+                            >
+                              Desasignar
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                      <button
-                        onClick={() => handleUnassign(user.id)}
-                        disabled={unassigning}
-                        className="inline-flex items-center px-3 py-1 text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 disabled:opacity-50"
-                      >
-                        Desasignar
-                      </button>
-                    </div>
-                  ))}
+                    </>
+                  )}
                 </div>
               )}
             </div>

@@ -14,7 +14,14 @@ interface SearchResult {
   name: string;
   email: string;
   school_name?: string;
+  community_name?: string;
   isAlreadyAssigned: boolean;
+}
+
+interface GrowthCommunity {
+  id: string;
+  name: string;
+  school_id: number | string;
 }
 
 interface SelectedUser {
@@ -56,6 +63,7 @@ export default function AssignCourse() {
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSchool, setSelectedSchool] = useState<string>('');
+  const [selectedCommunity, setSelectedCommunity] = useState<string>('');
   const debouncedQuery = useDebounce(searchQuery, 300);
 
   // Search results
@@ -72,8 +80,9 @@ export default function AssignCourse() {
   const [assignedSectionExpanded, setAssignedSectionExpanded] = useState(false);
   const [assignedSchoolFilter, setAssignedSchoolFilter] = useState<string>('');
 
-  // Schools for filtering
+  // Schools and communities for filtering
   const [schools, setSchools] = useState<Array<{id: string, name: string}>>([]);
+  const [communities, setCommunities] = useState<GrowthCommunity[]>([]);
 
   // Loading states
   const [loading, setLoading] = useState(true);
@@ -99,29 +108,39 @@ export default function AssignCourse() {
     }
   }, [debouncedQuery, course, loading]);
 
-  // Search when school filter changes
+  // Search when school or community filter changes
   useEffect(() => {
     if (course && !loading) {
       setPage(1);
       searchAssignees(debouncedQuery || '', 1);
     }
-  }, [selectedSchool, course, loading]);
+  }, [selectedSchool, selectedCommunity, course, loading]);
 
-  const loadSchools = async () => {
+  // Reset community when school changes
+  useEffect(() => {
+    setSelectedCommunity('');
+  }, [selectedSchool]);
+
+  const loadSchoolsAndCommunities = async () => {
     try {
-      const { data: schoolsData, error } = await supabase
-        .from('schools')
-        .select('id, name')
-        .order('name');
+      const [schoolsResult, communitiesResult] = await Promise.all([
+        supabase.from('schools').select('id, name').order('name'),
+        supabase.from('growth_communities').select('id, name, school_id').order('name')
+      ]);
 
-      if (error) {
-        console.warn('Could not load schools for filtering:', error);
-        return;
+      if (schoolsResult.error) {
+        console.warn('Could not load schools for filtering:', schoolsResult.error);
+      } else {
+        setSchools(schoolsResult.data || []);
       }
 
-      setSchools(schoolsData || []);
+      if (communitiesResult.error) {
+        console.warn('Could not load communities for filtering:', communitiesResult.error);
+      } else {
+        setCommunities(communitiesResult.data || []);
+      }
     } catch (error) {
-      console.warn('Error loading schools:', error);
+      console.warn('Error loading schools/communities:', error);
     }
   };
 
@@ -168,8 +187,8 @@ export default function AssignCourse() {
       setCourse(courseData);
       setTotalAssigned(courseData.assignment_count || 0);
 
-      // Load schools for filtering
-      await loadSchools();
+      // Load schools and communities for filtering
+      await loadSchoolsAndCommunities();
       // Load already assigned users
       await loadAssignedUsers(courseData.id);
 
@@ -199,6 +218,7 @@ export default function AssignCourse() {
           courseId: courseId as string,
           query,
           schoolId: selectedSchool || undefined,
+          communityId: selectedCommunity || undefined,
           page: currentPage,
           pageSize: 20
         }),
@@ -419,6 +439,21 @@ export default function AssignCourse() {
     return assignedUsers.filter(u => u.school_name === assignedSchoolFilter);
   }, [assignedUsers, assignedSchoolFilter]);
 
+  // Filter communities by selected school
+  const filteredCommunities = useMemo(() => {
+    if (!selectedSchool) return [];
+    return communities.filter(c => String(c.school_id) === String(selectedSchool));
+  }, [communities, selectedSchool]);
+
+  // Select all unassigned users in current search results
+  const selectAllUnassigned = () => {
+    const unassignedUsers = searchResults.filter(u => !u.isAlreadyAssigned);
+    const newUsers = unassignedUsers
+      .filter(u => !selectedUsers.some(s => s.id === u.id))
+      .map(u => ({ id: u.id, name: u.name, email: u.email }));
+    setSelectedUsers(prev => [...prev, ...newUsers]);
+  };
+
   if (loading || !course) {
     return (
       <div className="min-h-screen bg-brand_beige flex items-center justify-center">
@@ -564,24 +599,49 @@ export default function AssignCourse() {
 
             {/* Content */}
             <div className="bg-white rounded-lg shadow-sm p-6">
-              {/* School Filter */}
-              <div className="mb-4">
-                <label htmlFor="schoolFilter" className="block text-sm font-medium text-gray-700 mb-2">
-                  Filtrar por Colegio
-                </label>
-                <select
-                  id="schoolFilter"
-                  value={selectedSchool}
-                  onChange={(e) => setSelectedSchool(e.target.value)}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-brand_blue focus:border-brand_blue sm:text-sm"
-                >
-                  <option value="">Todos los colegios</option>
-                  {schools.map((school) => (
-                    <option key={school.id} value={school.id}>
-                      {school.name}
-                    </option>
-                  ))}
-                </select>
+              {/* Filters Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {/* School Filter */}
+                <div>
+                  <label htmlFor="schoolFilter" className="block text-sm font-medium text-gray-700 mb-2">
+                    Filtrar por Colegio
+                  </label>
+                  <select
+                    id="schoolFilter"
+                    value={selectedSchool}
+                    onChange={(e) => setSelectedSchool(e.target.value)}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-brand_blue focus:border-brand_blue sm:text-sm"
+                  >
+                    <option value="">Todos los colegios</option>
+                    {schools.map((school) => (
+                      <option key={school.id} value={school.id}>
+                        {school.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Community Filter - only shows when school is selected */}
+                {selectedSchool && filteredCommunities.length > 0 && (
+                  <div>
+                    <label htmlFor="communityFilter" className="block text-sm font-medium text-gray-700 mb-2">
+                      Filtrar por Comunidad de Crecimiento
+                    </label>
+                    <select
+                      id="communityFilter"
+                      value={selectedCommunity}
+                      onChange={(e) => setSelectedCommunity(e.target.value)}
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-1 focus:ring-brand_blue focus:border-brand_blue sm:text-sm"
+                    >
+                      <option value="">Todas las comunidades</option>
+                      {filteredCommunities.map((community) => (
+                        <option key={community.id} value={community.id}>
+                          {community.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               {/* Search */}
@@ -597,6 +657,22 @@ export default function AssignCourse() {
                   className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-brand_blue focus:border-brand_blue sm:text-sm"
                 />
               </div>
+
+              {/* Select All Button - shows when there are unassigned users in results */}
+              {searchResults.length > 0 && searchResults.some(u => !u.isAlreadyAssigned) && (
+                <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
+                  <span className="text-sm text-gray-600">
+                    {searchResults.filter(u => !u.isAlreadyAssigned).length} usuario(s) disponible(s) para asignar
+                  </span>
+                  <button
+                    onClick={selectAllUnassigned}
+                    className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md text-brand_blue bg-brand_blue/10 hover:bg-brand_blue/20 transition-colors"
+                  >
+                    <UserPlus className="h-4 w-4 mr-1.5" />
+                    Seleccionar todos
+                  </button>
+                </div>
+              )}
 
               {/* User List */}
               <div
@@ -645,9 +721,11 @@ export default function AssignCourse() {
                                   <p className="text-sm text-gray-500">
                                     {user.email}
                                   </p>
-                                  {user.school_name && (
+                                  {(user.school_name || user.community_name) && (
                                     <p className="text-xs text-gray-400 mt-1">
                                       {user.school_name}
+                                      {user.school_name && user.community_name && ' · '}
+                                      {user.community_name}
                                     </p>
                                   )}
                                 </div>

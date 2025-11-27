@@ -6,6 +6,7 @@ interface SearchAssigneesRequest {
   courseId: string;
   query: string;
   schoolId?: string;
+  communityId?: string;
   page?: number;
   pageSize?: number;
 }
@@ -15,6 +16,7 @@ interface SearchResult {
   name: string;
   email: string;
   school_name?: string;
+  community_name?: string;
   isAlreadyAssigned: boolean;
 }
 
@@ -113,6 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let courseId: string = '';
   let query: string = '';
   let schoolId: string | undefined;
+  let communityId: string | undefined;
   let safePage: number = 1;
   let safePageSize: number = 20;
 
@@ -131,6 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     courseId = bodyData.courseId;
     query = bodyData.query;
     schoolId = bodyData.schoolId;
+    communityId = bodyData.communityId;
     const page = bodyData.page || 1;
     const pageSize = bodyData.pageSize || 20;
 
@@ -153,6 +157,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log(`[Course Search Assignees] Invalid schoolId`, { requestId, schoolId });
       return res.status(400).json({
         error: 'schoolId invalido - debe ser un ID valido'
+      });
+    }
+
+    if (communityId && !isValidUUID(communityId)) {
+      console.log(`[Course Search Assignees] Invalid communityId`, { requestId, communityId });
+      return res.status(400).json({
+        error: 'communityId invalido - debe ser un UUID valido'
       });
     }
 
@@ -181,15 +192,100 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let results: SearchResult[] = [];
     let totalCount = 0;
 
-    // Search users with optional school filtering
+    // Search users with optional school and community filtering
     let users, count, usersError;
+    const serviceClient = createServiceRoleClient();
 
-    if (schoolId) {
+    let schoolName: string | undefined;
+    let communityName: string | undefined;
+
+    // Get community info if filtering by community
+    if (communityId) {
+      console.log(`[Course Search Assignees] Filtering users by community: ${communityId}`);
+
+      const { data: communityRecord } = await serviceClient
+        .from('growth_communities')
+        .select('id, name, school_id')
+        .eq('id', communityId)
+        .single();
+
+      if (!communityRecord) {
+        return res.status(404).json({ error: 'Comunidad no encontrada' });
+      }
+
+      communityName = communityRecord.name;
+
+      // Get school name for display
+      if (communityRecord.school_id) {
+        const { data: schoolRecord } = await serviceClient
+          .from('schools')
+          .select('name')
+          .eq('id', communityRecord.school_id)
+          .single();
+        schoolName = schoolRecord?.name;
+      }
+
+      // Get users in this community via user_roles.community_id (not profiles.community_id)
+      const { data: communityRoles, error: rolesError } = await serviceClient
+        .from('user_roles')
+        .select('user_id')
+        .eq('community_id', communityId)
+        .eq('is_active', true);
+
+      if (rolesError) {
+        console.error('[Course Search Assignees] Failed to query user roles for community filter:', rolesError);
+        throw new Error('No se pudo filtrar por comunidad: error al consultar roles de usuario');
+      }
+
+      if (!communityRoles || communityRoles.length === 0) {
+        console.log(`[Course Search Assignees] No users found for community: ${communityId}`);
+        users = [];
+        count = 0;
+        usersError = null;
+      } else {
+        // Get unique user IDs (a user might have multiple roles in the same community)
+        const userIds = [...new Set(communityRoles.map(ur => ur.user_id))];
+        console.log(`[Course Search Assignees] Found ${userIds.length} unique users in community: ${communityId}`);
+
+        // Get profiles for those users
+        let userQuery = serviceClient
+          .from('profiles')
+          .select(
+            `
+              id,
+              first_name,
+              last_name,
+              email
+            `,
+            { count: 'exact' }
+          )
+          .in('id', userIds);
+
+        // Apply search filter if query is not empty
+        if (searchQuery) {
+          userQuery = userQuery.or(
+            `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
+          );
+        }
+
+        // Apply pagination
+        const result = await userQuery
+          .order('first_name')
+          .range(offset, offset + safePageSize - 1);
+
+        users = result.data?.map((u: any) => ({
+          ...u,
+          school_name: schoolName,
+          community_name: communityName
+        })) || [];
+        count = result.count;
+        usersError = result.error;
+      }
+
+    } else if (schoolId) {
       // Filter by school with explicit two-step to avoid ambiguous embeds
-      // Use service role client to bypass RLS on user_roles
       console.log(`[Course Search Assignees] Filtering users by school: ${schoolId}`);
 
-      const serviceClient = createServiceRoleClient();
       const { data: userRoles, error: rolesError } = await serviceClient
         .from('user_roles')
         .select('user_id')
@@ -216,18 +312,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .select('name')
           .eq('id', schoolId)
           .single();
-        const schoolName = schoolRecord?.name;
+        schoolName = schoolRecord?.name;
 
         // Get profiles for those users (no joins to avoid relationship ambiguity)
-        const profileClient = createServiceRoleClient();
-        let userQuery = profileClient
+        let userQuery = serviceClient
           .from('profiles')
           .select(
             `
               id,
               first_name,
               last_name,
-              email
+              email,
+              community_id
             `,
             { count: 'exact' }
           )
@@ -245,7 +341,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .order('first_name')
           .range(offset, offset + safePageSize - 1);
 
-        users = result.data?.map((u: any) => ({ ...u, school_name: schoolName })) || [];
+        // Get community names for users that have one
+        const communityIds = [...new Set((result.data || [])
+          .map((u: any) => u.community_id)
+          .filter(Boolean))];
+
+        let communityMap = new Map<string, string>();
+        if (communityIds.length > 0) {
+          const { data: communities } = await serviceClient
+            .from('growth_communities')
+            .select('id, name')
+            .in('id', communityIds);
+
+          communities?.forEach((c: any) => communityMap.set(c.id, c.name));
+        }
+
+        users = result.data?.map((u: any) => ({
+          ...u,
+          school_name: schoolName,
+          community_name: u.community_id ? communityMap.get(u.community_id) : undefined
+        })) || [];
         count = result.count;
         usersError = result.error;
       }
@@ -303,12 +418,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Format results
     results = (users || []).map(user => {
-      const schoolName = user.school_name || undefined;
       return {
         id: user.id,
-        name: `${user.first_name} ${user.last_name}`.trim(),
+        name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
         email: user.email,
-        school_name: schoolName,
+        school_name: user.school_name || undefined,
+        community_name: user.community_name || undefined,
         isAlreadyAssigned: assignedUserIds.has(user.id)
       };
     });
@@ -328,6 +443,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       requestId,
       query: query || '(empty)',
       schoolId: schoolId || '(no filter)',
+      communityId: communityId || '(no filter)',
       resultsCount: results.length,
       totalCount,
       page: safePage,
@@ -346,6 +462,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       courseId,
       query,
       schoolId,
+      communityId,
       page: safePage,
       pageSize: safePageSize,
       durationMs: Date.now() - startTime

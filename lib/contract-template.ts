@@ -130,7 +130,7 @@ Tan pronto como los hechos constitutivos de fuerza mayor hubieran cesado en sus 
 
 DÉCIMO CUARTO: Domicilio del Contrato
 
-Para todos los efectos legales, la FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN) fija su domicilio en la ciudad de Santiago y la comuna de La Reina. La {{CLIENTE_NOMBRE_LEGAL}} fija su domicilio en la ciudad y comuna de Santiago.
+Para todos los efectos legales, la FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN) fija su domicilio en la ciudad de Santiago y la comuna de La Reina. La {{CLIENTE_NOMBRE_LEGAL}} fija su domicilio en la ciudad de {{CLIENTE_CIUDAD}} y la comuna de {{CLIENTE_COMUNA}}.
 
 
 DÉCIMO QUINTO: Ejemplares
@@ -139,30 +139,9 @@ El presente contrato se firma en dos ejemplares, quedando uno en poder de cada u
 
 DÉCIMO SEXTO: Personerías.
 
-La personería de doña {{CLIENTE_REPRESENTANTE}} para representar a la {{CLIENTE_NOMBRE_LEGAL}} consta en la Escritura Pública del 22 de marzo del año 2024 suscrita ante don Ricardo Olivares Pizarro, notario público de Vallenar.
+{{IF_PERSONERIA_COMPLETA}}La personería de {{CLIENTE_REPRESENTANTE}} para representar a {{CLIENTE_NOMBRE_LEGAL}} consta en la Escritura Pública de fecha {{CLIENTE_FECHA_ESCRITURA}}, suscrita ante {{CLIENTE_NOMBRE_NOTARIO}}, Notario Público de {{CLIENTE_COMUNA_NOTARIA}}.{{/IF_PERSONERIA_COMPLETA}}{{IF_PERSONERIA_SIMPLE}}La personería de {{CLIENTE_REPRESENTANTE}} para representar a {{CLIENTE_NOMBRE_LEGAL}} consta en los instrumentos legales correspondientes.{{/IF_PERSONERIA_SIMPLE}}
 
-
-La personería de don Arnoldo Cisternas Chávez, para actuar en representación de FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN), consta en los “Estatutos Fundación Instituto Relacional” otorgados por la Municipalidad de la Reina con fecha 08 de marzo del año 2018.
-
-
-
-
-
-
-
-{{CLIENTE_REPRESENTANTE}}
-p.p. {{CLIENTE_NOMBRE_LEGAL}}  
-
-
-
-
-
-
- 
-ARNOLDO CISTERNAS CHÁVEZ
-p.p Representante Legal FUNDACIÓN NUEVA EDUCACIÓN
-
-
+La personería de don Arnoldo Cisternas Chávez, para actuar en representación de FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN), consta en los "Estatutos Fundación Instituto Relacional" otorgados por la Municipalidad de la Reina con fecha 08 de marzo del año 2018.
 
 `;
 
@@ -192,70 +171,86 @@ export function generateContractFromTemplate(contractData: any): string {
     return isUF ? formatCurrencyUF(amount) : formatCurrencyCLP(amount);
   };
   
-  // Calculate contract duration
+  // Calculate contract duration with exact years, months, and days
   const calculateDuration = (startDate: string, endDate: string) => {
     if (!startDate || !endDate) return 'duración a determinar';
-    
+
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     let years = end.getFullYear() - start.getFullYear();
     let months = end.getMonth() - start.getMonth();
     let days = end.getDate() - start.getDate();
-    
+
     // Adjust for negative days
     if (days < 0) {
       months--;
       const lastDayOfPrevMonth = new Date(end.getFullYear(), end.getMonth(), 0).getDate();
       days += lastDayOfPrevMonth;
     }
-    
+
     // Adjust for negative months
     if (months < 0) {
       years--;
       months += 12;
     }
-    
-    // Convert years to months
-    const totalMonths = years * 12 + months;
-    
-    // Format the duration text
-    let durationText = '';
-    if (totalMonths > 0 && days > 0) {
-      durationText = `${totalMonths} meses y ${days} días`;
-    } else if (totalMonths > 0) {
-      durationText = `${totalMonths} ${totalMonths === 1 ? 'mes' : 'meses'}`;
-    } else if (days > 0) {
-      durationText = `${days} ${days === 1 ? 'día' : 'días'}`;
-    } else {
-      durationText = 'misma fecha';
+
+    // Build the duration text with all components
+    const parts: string[] = [];
+
+    if (years > 0) {
+      parts.push(`${years} ${years === 1 ? 'año' : 'años'}`);
     }
-    
-    return durationText;
+
+    if (months > 0) {
+      parts.push(`${months} ${months === 1 ? 'mes' : 'meses'}`);
+    }
+
+    if (days > 0) {
+      parts.push(`${days} ${days === 1 ? 'día' : 'días'}`);
+    }
+
+    if (parts.length === 0) {
+      return 'misma fecha';
+    } else if (parts.length === 1) {
+      return parts[0];
+    } else if (parts.length === 2) {
+      return `${parts[0]} y ${parts[1]}`;
+    } else {
+      // 3 parts: "X años, Y meses y Z días"
+      return `${parts[0]}, ${parts[1]} y ${parts[2]}`;
+    }
   };
   
   // Generate installments details
   const generateCuotasDetalle = (cuotas: any[]) => {
     if (!cuotas || cuotas.length === 0) return 'Sin cuotas definidas';
-    
-    return cuotas.map(cuota => 
+
+    return cuotas.map(cuota =>
       `Cuota N° ${cuota.numero_cuota}: ${formatCurrencyByType(cuota.monto_uf || cuota.monto_clp || 0)} con vencimiento el ${formatDate(cuota.fecha_vencimiento)}`
     ).join('\n');
   };
 
+  // Check if we have complete personería information (notary details)
+  const hasPersoneriaCompleta = !!(
+    contractData.cliente.fecha_escritura &&
+    contractData.cliente.nombre_notario &&
+    contractData.cliente.comuna_notaria
+  );
+
   // Process conditional blocks first
-  contract = processConditionalBlocks(contract, isUF, isCLP);
+  contract = processConditionalBlocks(contract, isUF, isCLP, hasPersoneriaCompleta);
   
-  // Basic replacements
+  // Basic replacements - client names in uppercase to match FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN)
   const replacements: { [key: string]: string } = {
     '{{FECHA_CONTRATO}}': formatDate(contractData.fecha_contrato),
-    '{{CLIENTE_NOMBRE_LEGAL}}': contractData.cliente.nombre_legal || '',
-    '{{CLIENTE_NOMBRE_FANTASIA}}': contractData.cliente.nombre_fantasia || '',
+    '{{CLIENTE_NOMBRE_LEGAL}}': (contractData.cliente.nombre_legal || '').toUpperCase(),
+    '{{CLIENTE_NOMBRE_FANTASIA}}': (contractData.cliente.nombre_fantasia || '').toUpperCase(),
     '{{CLIENTE_RUT}}': contractData.cliente.rut || '',
     '{{CLIENTE_DIRECCION}}': contractData.cliente.direccion || '',
     '{{CLIENTE_COMUNA}}': contractData.cliente.comuna || '',
     '{{CLIENTE_CIUDAD}}': contractData.cliente.ciudad || '',
-    '{{CLIENTE_REPRESENTANTE}}': contractData.cliente.nombre_representante || '',
+    '{{CLIENTE_REPRESENTANTE}}': (contractData.cliente.nombre_representante || '').toUpperCase(),
     '{{CLIENTE_RUT_REPRESENTANTE}}': contractData.cliente.rut_representante || '',
     '{{CLIENTE_FECHA_ESCRITURA}}': contractData.cliente.fecha_escritura || '',
     '{{CLIENTE_NOMBRE_NOTARIO}}': contractData.cliente.nombre_notario || '',
@@ -287,11 +282,15 @@ export function generateContractFromTemplate(contractData: any): string {
 }
 
 // Process conditional blocks
-function processConditionalBlocks(contract: string, isUF: boolean, isCLP: boolean): string {
+function processConditionalBlocks(contract: string, isUF: boolean, isCLP: boolean, hasPersoneriaCompleta: boolean): string {
   // Process currency conditionals
   contract = processConditional(contract, 'IF_UF', isUF);
   contract = processConditional(contract, 'IF_CLP', isCLP);
-  
+
+  // Process personería conditionals
+  contract = processConditional(contract, 'IF_PERSONERIA_COMPLETA', hasPersoneriaCompleta);
+  contract = processConditional(contract, 'IF_PERSONERIA_SIMPLE', !hasPersoneriaCompleta);
+
   return contract;
 }
 

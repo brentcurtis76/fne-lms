@@ -144,7 +144,7 @@ Return ONLY valid JSON, no additional text or explanation.`;
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-3-5-sonnet-20241022",
+      model: "claude-opus-4-5-20251101",
       max_tokens: 4000,
       temperature: 0, // Deterministic for consistent extraction
       system: "You are a contract analysis expert specializing in Chilean legal documents. Extract data accurately and provide confidence scores. Always return valid JSON.",
@@ -172,8 +172,16 @@ Return ONLY valid JSON, no additional text or explanation.`;
     extractedData.overall_confidence = calculateOverallConfidence(extractedData);
 
     return extractedData as ExtractedContract;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error calling Claude API:', error);
+    // Provide more specific error messages
+    if (error?.status === 401) {
+      throw new Error('API key inválida o expirada');
+    } else if (error?.status === 429) {
+      throw new Error('Límite de API excedido - intente más tarde');
+    } else if (error?.message) {
+      throw new Error(`Error de API: ${error.message}`);
+    }
     throw new Error('Failed to extract contract data');
   }
 }
@@ -352,26 +360,32 @@ export default async function handler(
 
   } catch (error) {
     console.error('Error in PDF extraction endpoint:', error);
-    
+
     // Return appropriate error message
     if (error instanceof Error) {
-      if (error.message.includes('API key')) {
-        return res.status(500).json({ 
+      if (error.message.includes('API key') || error.message.includes('401')) {
+        return res.status(500).json({
           error: 'Error de configuración',
-          details: error.message 
+          details: error.message
         });
       }
-      if (error.message.includes('Failed to extract')) {
-        return res.status(500).json({ 
+      if (error.message.includes('429') || error.message.includes('rate')) {
+        return res.status(500).json({
+          error: 'Límite de API excedido',
+          details: 'Por favor espere unos minutos e intente nuevamente'
+        });
+      }
+      if (error.message.includes('Failed to extract') || error.message.includes('Error de API')) {
+        return res.status(500).json({
           error: 'Error al extraer datos del contrato',
-          details: 'El AI no pudo procesar el documento correctamente'
+          details: error.message || 'El AI no pudo procesar el documento correctamente'
         });
       }
     }
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       error: 'Error al procesar el PDF',
-      details: 'Por favor, intente nuevamente o ingrese los datos manualmente'
+      details: error instanceof Error ? error.message : 'Por favor, intente nuevamente o ingrese los datos manualmente'
     });
   }
 }

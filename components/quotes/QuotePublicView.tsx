@@ -641,7 +641,7 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
             <div className="space-y-4">
               <div>
                 <p className="text-gray-600 mb-2">Precio estimado del vuelo</p>
-                <p className="text-3xl font-bold">${quote.flight_price.toLocaleString()} USD</p>
+                <p className="text-3xl font-bold">${quote.flight_price.toLocaleString('es-CL')} CLP</p>
                 <p className="text-sm text-gray-500 mt-1">Por persona</p>
               </div>
               

@@ -159,7 +159,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } else if (req.method === 'GET') {
       // Get course assignments
       const { courseId } = req.query;
-      
+
       if (!courseId) {
         return res.status(400).json({ error: 'Missing courseId parameter' });
       }
@@ -173,8 +173,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             id,
             email,
             first_name,
-            last_name,
-            school
+            last_name
           )
         `)
         .eq('course_id', courseId);
@@ -184,9 +183,56 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Failed to fetch course assignments: ' + error.message });
       }
 
-      return res.status(200).json({ 
-        success: true, 
-        assignments: data 
+      // Get school names from user_roles for each assigned user
+      const teacherIds = (data || []).map(a => a.teacher_id);
+      let schoolMap = new Map<string, string>();
+
+      if (teacherIds.length > 0) {
+        // Get active user_roles with school_id for these users
+        const { data: userRoles } = await supabaseAdmin
+          .from('user_roles')
+          .select('user_id, school_id')
+          .in('user_id', teacherIds)
+          .eq('is_active', true)
+          .not('school_id', 'is', null);
+
+        if (userRoles && userRoles.length > 0) {
+          // Get unique school IDs
+          const schoolIds = [...new Set(userRoles.map(r => r.school_id).filter(Boolean))];
+
+          // Fetch school names
+          const { data: schools } = await supabaseAdmin
+            .from('schools')
+            .select('id, name')
+            .in('id', schoolIds);
+
+          const schoolNameMap = new Map<number, string>();
+          schools?.forEach(s => schoolNameMap.set(s.id, s.name));
+
+          // Map user_id to school name (use first active role with school)
+          userRoles.forEach(role => {
+            if (!schoolMap.has(role.user_id) && role.school_id) {
+              const schoolName = schoolNameMap.get(role.school_id);
+              if (schoolName) {
+                schoolMap.set(role.user_id, schoolName);
+              }
+            }
+          });
+        }
+      }
+
+      // Add school name to each assignment
+      const assignmentsWithSchool = (data || []).map(a => ({
+        ...a,
+        profiles: {
+          ...a.profiles,
+          school: schoolMap.get(a.teacher_id) || null
+        }
+      }));
+
+      return res.status(200).json({
+        success: true,
+        assignments: assignmentsWithSchool
       });
 
     } else {

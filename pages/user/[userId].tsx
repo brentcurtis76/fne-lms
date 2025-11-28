@@ -88,7 +88,34 @@ export default function UserProfileView() {
         return;
       }
 
-      setProfileData(profile);
+      // Get school name from user_roles (authoritative source) instead of profiles.school
+      let schoolName = null;
+      try {
+        const { data: userRolesData } = await supabase
+          .from('user_roles')
+          .select('school_id')
+          .eq('user_id', targetUserId)
+          .eq('is_active', true)
+          .not('school_id', 'is', null)
+          .limit(1);
+
+        if (userRolesData && userRolesData.length > 0 && userRolesData[0].school_id) {
+          const { data: schoolData } = await supabase
+            .from('schools')
+            .select('name')
+            .eq('id', userRolesData[0].school_id)
+            .single();
+
+          if (schoolData) {
+            schoolName = schoolData.name;
+          }
+        }
+      } catch (schoolError) {
+        console.error('Error fetching school from user_roles:', schoolError);
+      }
+
+      // Override profiles.school with the authoritative school name from user_roles
+      setProfileData({ ...profile, school: schoolName || profile.school });
 
       // Get user roles with error handling
       try {

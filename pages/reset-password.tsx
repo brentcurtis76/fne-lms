@@ -15,33 +15,55 @@ export default function ResetPasswordPage() {
   const [isValidatingToken, setIsValidatingToken] = useState(true);
   const [hasValidSession, setHasValidSession] = useState(false);
 
-  // Use ref instead of module-level variable to track processing state
-  // This ensures proper cleanup and doesn't persist across navigations
+  // Use ref to track if we've already attempted token processing
+  // IMPORTANT: Don't reset these on mount - they persist to prevent double-processing in Strict Mode
   const processingRef = useRef(false);
   const hasProcessedRef = useRef(false);
+  const mountCountRef = useRef(0);
 
   useEffect(() => {
-    // Reset processing state when component mounts (new navigation)
-    processingRef.current = false;
-    hasProcessedRef.current = false;
+    mountCountRef.current += 1;
+    const currentMount = mountCountRef.current;
+
+    console.log('[ResetPassword] useEffect mount #', currentMount);
 
     // Handle the password reset token
     const handleRecoveryToken = async () => {
+      // First, always check for existing session - this handles cases where
+      // the token was already processed (Strict Mode, email client prefetch, etc.)
+      const { data: { session: existingSession } } = await supabase.auth.getSession();
+      if (existingSession) {
+        console.log('[ResetPassword] Existing session found on mount #', currentMount);
+        setHasValidSession(true);
+        setIsValidatingToken(false);
+        // Clean up URL if it has tokens
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('code') || urlParams.get('token_hash') || urlParams.get('token')) {
+          window.history.replaceState({}, '', '/reset-password');
+        }
+        return;
+      }
+
       // Prevent double-processing in React Strict Mode
       if (processingRef.current || hasProcessedRef.current) {
-        console.log('[ResetPassword] Already processing or processed, checking for existing session...');
-        // Wait a bit and check for session that might have been established
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        console.log('[ResetPassword] Already processing or processed, waiting for session...');
+        // Wait and check for session that might have been established by the other mount
+        await new Promise(resolve => setTimeout(resolve, 1500));
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
           console.log('[ResetPassword] Session found from previous processing');
           setHasValidSession(true);
+          setIsValidatingToken(false);
+        } else {
+          // No session after waiting - show error
+          setMessage('Error al validar el enlace de recuperación. El enlace puede haber expirado o ya fue utilizado. Por favor solicita un nuevo enlace.');
           setIsValidatingToken(false);
         }
         return;
       }
 
       processingRef.current = true;
+      console.log('[ResetPassword] Starting token processing on mount #', currentMount);
 
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
@@ -62,21 +84,6 @@ export default function ResetPasswordPage() {
         hasAccessToken: !!accessToken,
         fullUrl: window.location.href
       });
-
-      // FIRST: Always check if there's already a valid session
-      // This handles cases where the token was already exchanged (e.g., by email client prefetch)
-      const { data: { session: existingSession } } = await supabase.auth.getSession();
-      if (existingSession) {
-        console.log('[ResetPassword] Existing session found, skipping token verification');
-        hasProcessedRef.current = true;
-        setHasValidSession(true);
-        setIsValidatingToken(false);
-        // Clean up URL
-        if (code || tokenHash || token) {
-          window.history.replaceState({}, '', '/reset-password');
-        }
-        return;
-      }
 
       // Method 1: Handle token_hash (from Supabase email links with PKCE)
       if (tokenHash) {

@@ -55,6 +55,7 @@ const MiAprendizajePage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [assignedCourses, setAssignedCourses] = useState<any[]>([]);
+  const [assignedCoursesProgress, setAssignedCoursesProgress] = useState<Map<string, number>>(new Map());
   const [learningPaths, setLearningPaths] = useState<LearningPath[]>([]);
   const [pathsLoading, setPathsLoading] = useState(true);
 
@@ -137,10 +138,25 @@ const MiAprendizajePage: React.FC = () => {
               )
             `)
             .eq('teacher_id', session.user.id);
-            
+
           if (assignments) {
             const courses = assignments.map(a => a.courses).filter(Boolean);
             setAssignedCourses(courses);
+
+            // Fetch progress for these courses from my-courses API
+            try {
+              const progressResponse = await fetch('/api/my-courses');
+              if (progressResponse.ok) {
+                const progressData = await progressResponse.json();
+                const progressMap = new Map<string, number>();
+                progressData.forEach((course: any) => {
+                  progressMap.set(course.id, course.progress_percentage || 0);
+                });
+                setAssignedCoursesProgress(progressMap);
+              }
+            } catch (err) {
+              console.error('Error fetching course progress:', err);
+            }
           }
           
           // Fetch learning paths
@@ -393,44 +409,59 @@ const MiAprendizajePage: React.FC = () => {
                         </div>
                       ) : (
                         assignedCourses
-                          .filter(course => 
-                            !searchQuery || 
+                          .filter(course =>
+                            !searchQuery ||
                             course.title.toLowerCase().includes(searchQuery.toLowerCase())
                           )
-                          .map(course => (
-                            <div key={course.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <h3 className="text-lg font-semibold text-gray-900">{course.title}</h3>
-                                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
-                                      Asignado
-                                    </span>
+                          .map(course => {
+                            const progress = assignedCoursesProgress.get(course.id) || 0;
+                            const isCompleted = progress === 100;
+                            return (
+                              <div key={course.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <h3 className="text-lg font-semibold text-gray-900">{course.title}</h3>
+                                      {isCompleted ? (
+                                        <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium flex items-center gap-1">
+                                          <Award className="w-3 h-3" />
+                                          Completado
+                                        </span>
+                                      ) : (
+                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                                          Asignado
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-gray-600 mt-1">{course.description}</p>
+                                    <p className="text-sm text-gray-500 mt-2">
+                                      Creado: {new Date(course.created_at).toLocaleDateString('es-ES')}
+                                    </p>
                                   </div>
-                                  <p className="text-gray-600 mt-1">{course.description}</p>
-                                  <p className="text-sm text-gray-500 mt-2">
-                                    Creado: {new Date(course.created_at).toLocaleDateString('es-ES')}
-                                  </p>
-                                </div>
-                                <div className="ml-4 flex gap-2">
-                                  <a
-                                    href={`/student/course/${course.id}`}
-                                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
-                                  >
-                                    Comenzar Curso
-                                  </a>
-                                  {isAdmin && (
+                                  <div className="ml-4 flex gap-2">
                                     <a
-                                      href={`/admin/course-builder/${course.id}`}
-                                      className="inline-flex items-center px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700 transition"
+                                      href={`/student/course/${course.id}`}
+                                      className={`inline-flex items-center px-4 py-2 rounded-md transition ${
+                                        isCompleted
+                                          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                          : 'bg-green-600 text-white hover:bg-green-700'
+                                      }`}
                                     >
-                                      Gestionar
+                                      {isCompleted ? 'Repasar Curso' : (progress > 0 ? 'Continuar Curso' : 'Comenzar Curso')}
                                     </a>
-                                  )}
+                                    {isAdmin && (
+                                      <a
+                                        href={`/admin/course-builder/${course.id}`}
+                                        className="inline-flex items-center px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700 transition"
+                                      >
+                                        Gestionar
+                                      </a>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ))
+                            );
+                          })
                       )}
                     </div>
                   </div>

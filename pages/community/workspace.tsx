@@ -34,6 +34,7 @@ import ActivitySummary from '../../components/activity/ActivitySummary';
 import ActivityNotifications from '../../components/activity/ActivityNotifications';
 import ActivityFeedPlaceholder from '../../components/activity/ActivityFeedPlaceholder';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
+import { ConfirmModal } from '../../components/common/ConfirmModal';
 import WorkspaceSettingsModal from '../../components/community/WorkspaceSettingsModal';
 import FeedContainer from '../../components/feed/FeedContainer';
 import WorkspaceTabNavigation from '../../components/workspace/WorkspaceTabNavigation';
@@ -87,7 +88,8 @@ import {
   MessageWithDetails,
   ThreadWithDetails,
   MessageAttachment,
-  MessagingPermissions
+  MessagingPermissions,
+  ReactionType
 } from '../../types/messaging';
 import {
   getWorkspaceMessages,
@@ -2026,7 +2028,11 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
   const [previewAttachment, setPreviewAttachment] = useState<MessageAttachment | null>(null);
   const [previewMessage, setPreviewMessage] = useState<MessageWithDetails | null>(null);
   const [showThreadCreationModal, setShowThreadCreationModal] = useState(false);
-  
+  const [replyToMessage, setReplyToMessage] = useState<MessageWithDetails | null>(null);
+  const [editingMessage, setEditingMessage] = useState<MessageWithDetails | null>(null);
+  const [deleteMessageId, setDeleteMessageId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
   // Filter state
   const [messageFilters, setMessageFilters] = useState<MessageFiltersType>({
     search: '',
@@ -2166,7 +2172,9 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       // This ensures @mentions work for admins even in communities without assigned members
       // Regular users will see no suggestions if their community has no members
       if (!roleData || roleData.length === 0) {
-        if (isAdmin) {
+        const userRoles = user?.user_metadata?.roles || [];
+        const isUserAdmin = userRoles.includes('admin');
+        if (isUserAdmin) {
           console.log('[Mentions] No community members found, admin fallback: loading all profiles');
 
           const { data: profilesData, error: profilesError } = await supabase
@@ -2323,10 +2331,23 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     try {
       const newMessage = await sendMessage(workspace.id, {
         ...messageData,
-        thread_id: selectedThread.id
+        thread_id: selectedThread.id,
+        reply_to_id: replyToMessage?.id || null
       }, user.id);
-      
-      setMessages(prev => [...prev, newMessage]);
+
+      // Populate reply_to_message with the parent message data if this is a reply
+      const messageWithReply = replyToMessage ? {
+        ...newMessage,
+        reply_to_message: {
+          id: replyToMessage.id,
+          author_name: replyToMessage.author_name,
+          content: replyToMessage.content,
+          created_at: replyToMessage.created_at
+        }
+      } : newMessage;
+
+      setMessages(prev => [...prev, messageWithReply]);
+      setReplyToMessage(null); // Clear reply state after sending
       toast.success('Mensaje enviado');
     } catch (error) {
       console.error('Error sending message:', error);
@@ -2351,25 +2372,180 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
   };
 
   const handleReplyToMessage = (message: MessageWithDetails) => {
-    // Focus on composer with reply context
-    toast(`Responder a mensaje de ${message.author_name}`, { icon: '💬' });
+    setReplyToMessage(message);
+    setEditingMessage(null); // Clear editing if replying
   };
 
-  // Handle message deletion
-  const handleDeleteMessage = async (messageId: string) => {
+  const handleCancelReply = () => {
+    setReplyToMessage(null);
+  };
+
+  const handleEditMessage = (message: MessageWithDetails) => {
+    setEditingMessage(message);
+    setReplyToMessage(null); // Clear reply if editing
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessage(null);
+  };
+
+  const handleSaveEdit = async (messageId: string, content: string) => {
     if (!user) return;
 
-    // Confirm deletion
-    if (!window.confirm('¿Estás seguro de que deseas eliminar este mensaje?')) {
-      return;
+    try {
+      const { error } = await supabase
+        .from('community_messages')
+        .update({
+          content,
+          is_edited: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', messageId);
+
+      if (error) {
+        console.error('Error editing message:', error);
+        toast.error('Error al editar el mensaje');
+        return;
+      }
+
+      // Update local state
+      setMessages(prev => prev.map(msg =>
+        msg.id === messageId
+          ? { ...msg, content, is_edited: true }
+          : msg
+      ));
+      setEditingMessage(null);
+      toast.success('Mensaje editado');
+    } catch (error) {
+      console.error('Error editing message:', error);
+      toast.error('Error al editar el mensaje');
     }
+  };
+
+  // Handle reaction toggle
+  const handleReaction = async (messageId: string, reactionType: ReactionType) => {
+    if (!user) return;
+
+    try {
+      // Check if user already has this reaction
+      const { data: existingReaction, error: checkError } = await supabase
+        .from('message_reactions')
+        .select('id')
+        .eq('message_id', messageId)
+        .eq('user_id', user.id)
+        .eq('reaction_type', reactionType)
+        .maybeSingle();
+
+      if (checkError) {
+        console.error('Error checking reaction:', checkError);
+        return;
+      }
+
+      if (existingReaction) {
+        // Remove reaction
+        const { error: deleteError } = await supabase
+          .from('message_reactions')
+          .delete()
+          .eq('id', existingReaction.id);
+
+        if (deleteError) {
+          console.error('Error removing reaction:', deleteError);
+          toast.error('Error al quitar la reacción');
+          return;
+        }
+
+        // Update local state - remove reaction
+        setMessages(prev => prev.map(msg => {
+          if (msg.id !== messageId) return msg;
+          const updatedReactions = msg.reactions.map(r => {
+            if (r.reaction_type !== reactionType) return r;
+            return {
+              ...r,
+              count: Math.max(0, r.count - 1),
+              user_reacted: false,
+              users: r.users.filter(u => u.user_id !== user.id)
+            };
+          }).filter(r => r.count > 0);
+          return { ...msg, reactions: updatedReactions };
+        }));
+      } else {
+        // Add reaction
+        const { error: insertError } = await supabase
+          .from('message_reactions')
+          .insert({
+            message_id: messageId,
+            user_id: user.id,
+            reaction_type: reactionType
+          });
+
+        if (insertError) {
+          console.error('Error adding reaction:', insertError);
+          toast.error('Error al agregar la reacción');
+          return;
+        }
+
+        // Get user profile for display
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('first_name, last_name')
+          .eq('id', user.id)
+          .single();
+
+        const userName = profile
+          ? `${profile.first_name} ${profile.last_name}`.trim()
+          : 'Usuario';
+
+        // Update local state - add reaction
+        setMessages(prev => prev.map(msg => {
+          if (msg.id !== messageId) return msg;
+          const existingReactionIndex = msg.reactions.findIndex(r => r.reaction_type === reactionType);
+          if (existingReactionIndex >= 0) {
+            // Add to existing reaction type
+            const updatedReactions = [...msg.reactions];
+            updatedReactions[existingReactionIndex] = {
+              ...updatedReactions[existingReactionIndex],
+              count: updatedReactions[existingReactionIndex].count + 1,
+              user_reacted: true,
+              users: [...updatedReactions[existingReactionIndex].users, { user_id: user.id, user_name: userName }]
+            };
+            return { ...msg, reactions: updatedReactions };
+          } else {
+            // Create new reaction type
+            return {
+              ...msg,
+              reactions: [...msg.reactions, {
+                reaction_type: reactionType,
+                count: 1,
+                user_reacted: true,
+                users: [{ user_id: user.id, user_name: userName }]
+              }]
+            };
+          }
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling reaction:', error);
+      toast.error('Error al procesar la reacción');
+    }
+  };
+
+  // Handle message deletion - show confirmation modal
+  const handleDeleteMessage = (messageId: string) => {
+    if (!user) return;
+    setDeleteMessageId(messageId);
+    setShowDeleteConfirm(true);
+  };
+
+  // Actually delete the message after confirmation
+  const confirmDeleteMessage = async () => {
+    if (!deleteMessageId) return;
 
     try {
       // Soft delete by setting is_deleted = true
       const { error } = await supabase
         .from('community_messages')
         .update({ is_deleted: true })
-        .eq('id', messageId);
+        .eq('id', deleteMessageId);
 
       if (error) {
         console.error('Error deleting message:', error);
@@ -2378,11 +2554,14 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       }
 
       // Remove from local state
-      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      setMessages(prev => prev.filter(msg => msg.id !== deleteMessageId));
       toast.success('Mensaje eliminado');
     } catch (error) {
       console.error('Error deleting message:', error);
       toast.error('Error al eliminar el mensaje');
+    } finally {
+      setDeleteMessageId(null);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -2567,8 +2746,9 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
                     message={message}
                     currentUserId={user?.id || ''}
                     onReply={handleReplyToMessage}
+                    onEdit={handleEditMessage}
                     onDelete={handleDeleteMessage}
-                    onReaction={() => {}}
+                    onReaction={handleReaction}
                     onPreviewAttachment={handleAttachmentPreview}
                     permissions={permissions}
                   />
@@ -2588,6 +2768,11 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
                   workspaceId={workspace.id}
                   threadId={selectedThread.id}
                   onSendMessage={handleMessageSend}
+                  replyToMessage={replyToMessage || undefined}
+                  onCancelReply={handleCancelReply}
+                  editingMessage={editingMessage || undefined}
+                  onCancelEdit={handleCancelEdit}
+                  onSaveEdit={handleSaveEdit}
                   mentionSuggestions={mentionSuggestions}
                   onRequestMentions={handleMentionRequest}
                   allowMentions={true}
@@ -2624,6 +2809,21 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
           loading={loading}
         />
       )}
+
+      {/* Delete Message Confirmation Modal */}
+      <ConfirmModal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setDeleteMessageId(null);
+        }}
+        onConfirm={confirmDeleteMessage}
+        title="Eliminar mensaje"
+        message="¿Estás seguro de que deseas eliminar este mensaje? Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        isDangerous={true}
+      />
     </div>
   );
 };

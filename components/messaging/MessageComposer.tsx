@@ -95,6 +95,23 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     }
   }, []);
 
+  // Update content when editingMessage changes
+  useEffect(() => {
+    if (editingMessage) {
+      setContent(editingMessage.content);
+      // Focus textarea and adjust height
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          adjustTextareaHeight();
+        }
+      }, 100);
+    } else {
+      // Clear content when not editing (unless there's already content being typed)
+      // Don't clear if user is typing a new message
+    }
+  }, [editingMessage, adjustTextareaHeight]);
+
   // Handle content change
   const handleContentChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;

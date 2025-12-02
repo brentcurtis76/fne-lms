@@ -210,14 +210,14 @@ export async function getWorkspaceMessages(
     // Get attachments for all messages
     const messageIds = (data || []).map(msg => msg.id);
     let attachmentsByMessage: Record<string, any[]> = {};
-    
+
     if (messageIds.length > 0) {
       const { data: attachments } = await supabase
         .from('message_attachments')
         .select('*')
         .in('message_id', messageIds)
         .eq('is_active', true);
-      
+
       if (attachments) {
         attachmentsByMessage = attachments.reduce((acc, att) => {
           if (!acc[att.message_id]) {
@@ -229,20 +229,129 @@ export async function getWorkspaceMessages(
       }
     }
 
+    // Get current user for reaction tracking
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    const currentUserId = currentUser?.id;
+
+    // Get reactions for all messages with user profile info
+    let reactionsByMessage: Record<string, any[]> = {};
+
+    if (messageIds.length > 0) {
+      const { data: reactions, error: reactionsError } = await supabase
+        .from('message_reactions')
+        .select(`
+          id,
+          message_id,
+          user_id,
+          reaction_type,
+          created_at,
+          profiles:user_id (
+            first_name,
+            last_name
+          )
+        `)
+        .in('message_id', messageIds);
+
+      if (reactionsError) {
+        console.warn('[getWorkspaceMessages] Error fetching reactions:', reactionsError);
+      } else if (reactions) {
+        // Group reactions by message_id and reaction_type
+        reactions.forEach(reaction => {
+          if (!reactionsByMessage[reaction.message_id]) {
+            reactionsByMessage[reaction.message_id] = [];
+          }
+
+          // Find existing reaction type group or create new
+          let reactionGroup = reactionsByMessage[reaction.message_id].find(
+            (r: any) => r.reaction_type === reaction.reaction_type
+          );
+
+          if (!reactionGroup) {
+            reactionGroup = {
+              reaction_type: reaction.reaction_type,
+              count: 0,
+              user_reacted: false,
+              users: []
+            };
+            reactionsByMessage[reaction.message_id].push(reactionGroup);
+          }
+
+          // Add to count and users list
+          reactionGroup.count++;
+          const profile = reaction.profiles as any;
+          const userName = profile?.first_name && profile?.last_name
+            ? `${profile.first_name} ${profile.last_name}`
+            : 'Usuario';
+          reactionGroup.users.push({ user_id: reaction.user_id, user_name: userName });
+
+          // Check if current user reacted
+          if (reaction.user_id === currentUserId) {
+            reactionGroup.user_reacted = true;
+          }
+        });
+      }
+    }
+
+    // Get reply_to messages if any messages have reply_to_id
+    const replyToIds = (data || [])
+      .map(msg => msg.reply_to_id)
+      .filter(id => id != null);
+    let replyToMessages: Record<string, any> = {};
+
+    if (replyToIds.length > 0) {
+      const { data: replyTos } = await supabase
+        .from('community_messages')
+        .select('id, content, author_id, created_at')
+        .in('id', replyToIds);
+
+      if (replyTos) {
+        // Get author info for reply messages
+        const replyAuthorIds = Array.from(new Set(replyTos.map(r => r.author_id)));
+        let replyAuthors: Record<string, any> = {};
+
+        if (replyAuthorIds.length > 0) {
+          const { data: replyAuthorData } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name')
+            .in('id', replyAuthorIds);
+
+          if (replyAuthorData) {
+            replyAuthors = replyAuthorData.reduce((acc, p) => {
+              acc[p.id] = p;
+              return acc;
+            }, {} as Record<string, any>);
+          }
+        }
+
+        replyTos.forEach(reply => {
+          const replyAuthor = replyAuthors[reply.author_id] || {};
+          const replyAuthorName = replyAuthor.first_name && replyAuthor.last_name
+            ? `${replyAuthor.first_name} ${replyAuthor.last_name}`
+            : 'Usuario';
+          replyToMessages[reply.id] = {
+            id: reply.id,
+            content: reply.content,
+            author_name: replyAuthorName,
+            created_at: reply.created_at
+          };
+        });
+      }
+    }
+
     // Transform to MessageWithDetails format
     return (data || []).map(message => {
       const author = authors[message.author_id] || {};
-      const authorName = author.first_name && author.last_name 
+      const authorName = author.first_name && author.last_name
         ? `${author.first_name} ${author.last_name}`
         : author.email || 'Usuario';
-        
+
       return {
         ...message,
         author_name: authorName,
         author_email: author.email || '',
         author_avatar: author.avatar_url || null,
-        reply_to_message: null,
-        reactions: [],
+        reply_to_message: message.reply_to_id ? replyToMessages[message.reply_to_id] || null : null,
+        reactions: reactionsByMessage[message.id] || [],
         attachments: attachmentsByMessage[message.id] || [],
         mentions: message.mentions || [],
         user_reaction: undefined,
@@ -561,14 +670,36 @@ export function subscribeToWorkspaceMessages(
           table: 'community_messages',
           filter: `workspace_id=eq.${workspaceId}`
         },
-        (payload) => {
+        async (payload) => {
           if (callbacks.onMessage) {
+            // Fetch author profile for the new message
+            const authorId = payload.new.author_id;
+            let authorName = 'Usuario';
+            let authorEmail = '';
+            let authorAvatar = null;
+
+            if (authorId) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('first_name, last_name, email, avatar_url')
+                .eq('id', authorId)
+                .single();
+
+              if (profile) {
+                authorName = profile.first_name && profile.last_name
+                  ? `${profile.first_name} ${profile.last_name}`
+                  : profile.email || 'Usuario';
+                authorEmail = profile.email || '';
+                authorAvatar = profile.avatar_url || null;
+              }
+            }
+
             // Transform payload to MessageWithDetails format
             const message = {
               ...payload.new,
-              author_name: 'Usuario',
-              author_email: '',
-              author_avatar: null,
+              author_name: authorName,
+              author_email: authorEmail,
+              author_avatar: authorAvatar,
               reply_to_message: null,
               reactions: [],
               attachments: [],
@@ -593,13 +724,33 @@ export function subscribeToWorkspaceMessages(
           table: 'message_threads',
           filter: `workspace_id=eq.${workspaceId}`
         },
-        (payload) => {
+        async (payload) => {
           if (callbacks.onThread) {
+            // Fetch creator profile for the new thread
+            const creatorId = payload.new.created_by;
+            let creatorName = 'Usuario';
+            let creatorEmail = '';
+
+            if (creatorId) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('first_name, last_name, email')
+                .eq('id', creatorId)
+                .single();
+
+              if (profile) {
+                creatorName = profile.first_name && profile.last_name
+                  ? `${profile.first_name} ${profile.last_name}`
+                  : profile.email || 'Usuario';
+                creatorEmail = profile.email || '';
+              }
+            }
+
             // Transform payload to ThreadWithDetails format
             const thread = {
               ...payload.new,
-              creator_name: 'Usuario',
-              creator_email: '',
+              creator_name: creatorName,
+              creator_email: creatorEmail,
               latest_message: null,
               participants: [],
               unread_count: 0,

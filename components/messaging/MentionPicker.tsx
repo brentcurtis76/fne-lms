@@ -107,27 +107,24 @@ const MentionPicker: React.FC<MentionPickerProps> = ({
     }
   };
 
-  // Filter and limit suggestions
-  const filteredSuggestions = suggestions
-    .filter(suggestion => 
-      query === '' || 
-      suggestion.display_name.toLowerCase().includes(query.toLowerCase()) ||
-      (suggestion.email && suggestion.email.toLowerCase().includes(query.toLowerCase()))
-    )
-    .slice(0, maxSuggestions);
+  // Use suggestions directly since filtering is done in parent component
+  // Only apply maxSuggestions limit here
+  const filteredSuggestions = suggestions.slice(0, maxSuggestions);
+
+  console.log('[MentionPicker] isVisible:', isVisible, 'suggestions:', suggestions.length, 'filtered:', filteredSuggestions.length);
 
   if (!isVisible || filteredSuggestions.length === 0) {
     return null;
   }
 
-  const containerStyle: React.CSSProperties = {
+  // Only apply inline positioning if position prop is provided
+  // Otherwise rely on parent container's positioning via className
+  const containerStyle: React.CSSProperties = position ? {
     position: 'absolute',
     zIndex: 1000,
-    ...(position && {
-      left: position.x,
-      top: position.y,
-    }),
-  };
+    left: position.x,
+    top: position.y,
+  } : {};
 
   return (
     <div

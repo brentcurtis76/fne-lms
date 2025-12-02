@@ -106,20 +106,21 @@ const MessageCard: React.FC<MessageCardProps> = ({
   const renderContent = (content: string) => {
     if (!content) return null;
 
-    // Simple mention highlighting - could be enhanced with proper parsing
+    // Mention highlighting - handles @First_Last format and displays with spaces
     const mentionRegex = /@([a-zA-Z0-9._-]+)/g;
     const parts = content.split(mentionRegex);
-    
+
     return parts.map((part, index) => {
       if (index % 2 === 1) {
-        // This is a mention
+        // This is a mention - convert underscores back to spaces for display
+        const displayName = part.replace(/_/g, ' ');
         return (
           <button
             key={index}
             onClick={() => onMentionClick && onMentionClick(part)}
             className="text-blue-600 hover:text-blue-800 font-medium bg-blue-50 px-1 rounded"
           >
-            @{part}
+            @{displayName}
           </button>
         );
       }

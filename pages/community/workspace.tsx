@@ -322,7 +322,7 @@ const CommunityWorkspacePage: React.FC = () => {
         window.location.href = '/login';
       });
     }
-  }, [user?.id, authLoading, router]);
+  }, [user?.id, authLoading, router, isAdmin]);
 
   useEffect(() => {
     if (selectedCommunityId && workspaceAccess) {
@@ -424,7 +424,8 @@ const CommunityWorkspacePage: React.FC = () => {
       setError('');
 
       // Get user's workspace access
-      const access = await getUserWorkspaceAccess(user.id);
+      // Pass isAdmin from useAuth() hook as override to handle RLS edge cases
+      const access = await getUserWorkspaceAccess(user.id, isAdmin);
       setWorkspaceAccess(access);
 
       if (!access.canAccess) {
@@ -2017,6 +2018,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
   
   // Mention state
   const [mentionSuggestions, setMentionSuggestions] = useState<any[]>([]);
+  const [communityMembers, setCommunityMembers] = useState<any[]>([]);
   
   // UI state
   const [activeView, setActiveView] = useState<'messages' | 'threads'>('threads');
@@ -2049,7 +2051,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     if (workspace && user) {
       loadMessagingData();
       loadPermissions();
-      loadCommunityMembers();
+      loadMentionSuggestions();
       setupRealtimeSubscription();
     }
 
@@ -2126,67 +2128,80 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     }
   };
 
-  const loadCommunityMembers = async () => {
-    if (!workspace || !workspace.community_id) return;
+  // Load community members for @mention suggestions
+  const loadMentionSuggestions = async () => {
+    if (!workspace || !workspace.community_id) {
+      console.log('[Mentions] No workspace or community_id, skipping load');
+      return;
+    }
+
+    console.log('[Mentions] Loading members for community:', workspace.community_id);
 
     try {
-      // Load members of the current community
-      const { data: members, error } = await supabase
-        .from('growth_communities')
+      // Load members of the current community using direct user_roles query
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
         .select(`
-          id,
-          name,
-          members:user_roles!user_roles_community_id_fkey(
-            user_id,
-            role_type,
-            user:profiles!user_roles_user_id_fkey(
-              id,
-              first_name,
-              last_name,
-              email,
-              avatar_url
-            )
+          user_id,
+          role_type,
+          profiles:user_id (
+            id,
+            first_name,
+            last_name,
+            email,
+            avatar_url
           )
         `)
-        .eq('id', workspace.community_id)
-        .single();
+        .eq('community_id', workspace.community_id)
+        .eq('is_active', true);
 
-      if (error) {
-        console.error('Error loading community members:', error);
+      if (roleError) {
+        console.error('[Mentions] Error loading community members:', roleError);
         return;
       }
 
-      // Transform members into mention suggestions format
-      const suggestions = (members?.members || []).map((member: any) => ({
-        id: member.user_id,
-        type: 'user' as const,
-        display_name: member.user?.first_name && member.user?.last_name
-          ? `${member.user.first_name} ${member.user.last_name}`
-          : member.user?.email || 'Usuario',
-        email: member.user?.email || '',
-        role: member.role,
-        avatar: member.user?.avatar_url || null
-      }));
+      console.log('[Mentions] Raw role data:', roleData?.length, 'records');
 
-      // @ts-expect-error - State variable defined at component level
+      // Transform members into mention suggestions format
+      const suggestions = (roleData || []).map((member: any) => {
+        const profile = member.profiles;
+        return {
+          id: member.user_id,
+          type: 'user' as const,
+          display_name: profile?.first_name && profile?.last_name
+            ? `${profile.first_name} ${profile.last_name}`
+            : profile?.email?.split('@')[0] || 'Usuario',
+          email: profile?.email || '',
+          role: member.role_type,
+          avatar: profile?.avatar_url || null
+        };
+      });
+
+      console.log('[Mentions] Processed suggestions:', suggestions.length);
       setCommunityMembers(suggestions);
     } catch (error) {
-      console.error('Error loading community members:', error);
+      console.error('[Mentions] Error loading community members:', error);
     }
   };
 
+  // Handle @mention autocomplete
   const handleMentionRequest = (query: string) => {
-    // @ts-expect-error - State variable defined at component level
-    if (!communityMembers.length) return;
+    console.log('[Mentions] Request for query:', query, 'Available members:', communityMembers.length);
+
+    if (!communityMembers.length) {
+      // Try to load members if not loaded yet
+      loadMentionSuggestions();
+      return;
+    }
 
     // Filter members based on query
-    // @ts-expect-error - State variable defined at component level
-    const filtered = communityMembers.filter(member => {
+    const filtered = communityMembers.filter((member: any) => {
       const searchQuery = query.toLowerCase();
       return member.display_name.toLowerCase().includes(searchQuery) ||
              member.email.toLowerCase().includes(searchQuery);
     });
 
+    console.log('[Mentions] Filtered results:', filtered.length);
     setMentionSuggestions(filtered.slice(0, 10)); // Limit to 10 suggestions
   };
 
@@ -2498,7 +2513,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
 
             {/* Message Composer */}
             {permissions.can_send_messages && (
-              <div className="border-t border-gray-200">
+              <div className="border-t border-gray-200 overflow-visible relative z-20">
                 <MessageComposer
                   workspaceId={workspace.id}
                   threadId={selectedThread.id}

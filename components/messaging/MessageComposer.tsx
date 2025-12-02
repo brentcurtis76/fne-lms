@@ -108,7 +108,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     };
     setValidation(validateMessage(messageData));
 
-    // Handle mention detection
+    // Handle mention detection (includes underscores for multi-word names like @Bob_Dylan)
     if (allowMentions && onRequestMentions) {
       const cursorPosition = e.target.selectionStart;
       const textBeforeCursor = newContent.substring(0, cursorPosition);
@@ -163,17 +163,19 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
 
     const beforeMention = content.substring(0, mentionPosition.start);
     const afterMention = content.substring(mentionPosition.end);
-    const mentionText = `@${mention.display_name}`;
+    // Replace spaces with underscores for reliable parsing, but display will show original name
+    const mentionHandle = mention.display_name.replace(/\s+/g, '_');
+    const mentionText = `@${mentionHandle}`;
     const newContent = beforeMention + mentionText + ' ' + afterMention;
-    
+
     setContent(newContent);
     setShowMentionPicker(false);
     setMentionPosition(null);
-    
-    // Track the mentioned user's ID
+
+    // Track the mentioned user's ID using the handle format (with underscores)
     setMentionedUsers(prev => {
       const newMap = new Map(prev);
-      newMap.set(mention.display_name, mention.id);
+      newMap.set(mentionHandle, mention.id);
       return newMap;
     });
     
@@ -239,13 +241,13 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
     if (!content.trim() && attachments.length === 0) return;
     if (isSubmitting || disabled) return;
 
-    // Extract mentioned user IDs from content
+    // Extract mentioned user IDs from content (handles @First_Last format with underscores)
     const mentionedUserIds: string[] = [];
-    const mentionRegex = /@(\w+(?:\s+\w+)*)/g;
+    const mentionRegex = /@([a-zA-Z0-9_]+)/g;
     let match;
     while ((match = mentionRegex.exec(content)) !== null) {
-      const displayName = match[1];
-      const userId = mentionedUsers.get(displayName);
+      const mentionHandle = match[1]; // This will be "Bob_Dylan" format
+      const userId = mentionedUsers.get(mentionHandle);
       if (userId) {
         mentionedUserIds.push(userId);
       }
@@ -313,7 +315,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
   const quickEmojis = ['😊', '👍', '❤️', '😂', '🎉', '💡', '👏', '🔥'];
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-visible">
       {/* Reply/Edit indicator */}
       {(replyToMessage || editingMessage) && (
         <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
@@ -344,8 +346,8 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
       )}
 
       {/* Main composer area */}
-      <div 
-        className="relative"
+      <div
+        className="relative overflow-visible"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
@@ -381,33 +383,37 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
         </button>
 
         {/* Mention picker */}
-        {showMentionPicker && (
-          <MentionPicker
-            isVisible={showMentionPicker}
-            query={mentionQuery}
-            suggestions={mentionSuggestions}
-            selectedIndex={selectedMentionIndex}
-            position={{ x: 16, y: -8 }}
-            onSelect={insertMention}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                setSelectedMentionIndex(prev => Math.min(prev + 1, mentionSuggestions.length - 1));
-              } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                setSelectedMentionIndex(prev => Math.max(prev - 1, 0));
-              } else if (e.key === 'Enter') {
-                e.preventDefault();
-                if (mentionSuggestions[selectedMentionIndex]) {
-                  insertMention(mentionSuggestions[selectedMentionIndex]);
+        {showMentionPicker && mentionSuggestions.length > 0 && (
+          <div
+            ref={mentionPickerRef}
+            className="absolute left-4 top-0 z-[100] w-80 bg-white rounded-lg shadow-xl border border-gray-200"
+            style={{ transform: 'translateY(-100%) translateY(-8px)' }}
+          >
+            <MentionPicker
+              isVisible={showMentionPicker}
+              query={mentionQuery}
+              suggestions={mentionSuggestions}
+              selectedIndex={selectedMentionIndex}
+              onSelect={insertMention}
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault();
+                  setSelectedMentionIndex(prev => Math.min(prev + 1, mentionSuggestions.length - 1));
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault();
+                  setSelectedMentionIndex(prev => Math.max(prev - 1, 0));
+                } else if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (mentionSuggestions[selectedMentionIndex]) {
+                    insertMention(mentionSuggestions[selectedMentionIndex]);
+                  }
+                } else if (e.key === 'Escape') {
+                  setShowMentionPicker(false);
                 }
-              } else if (e.key === 'Escape') {
-                setShowMentionPicker(false);
-              }
-            }}
-            onClose={() => setShowMentionPicker(false)}
-            className="absolute bottom-full left-4 mb-2"
-          />
+              }}
+              onClose={() => setShowMentionPicker(false)}
+            />
+          </div>
         )}
       </div>
 

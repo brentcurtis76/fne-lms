@@ -2162,35 +2162,41 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
 
       console.log('[Mentions] Raw role data:', roleData?.length, 'records');
 
-      // If no community members found, fall back to loading all profiles
-      // This ensures @mentions work even for communities without assigned members
+      // If no community members found and user is admin, fall back to loading all profiles
+      // This ensures @mentions work for admins even in communities without assigned members
+      // Regular users will see no suggestions if their community has no members
       if (!roleData || roleData.length === 0) {
-        console.log('[Mentions] No community members found, loading all profiles as fallback');
+        if (isAdmin) {
+          console.log('[Mentions] No community members found, admin fallback: loading all profiles');
 
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, email, avatar_url')
-          .order('first_name')
-          .limit(100);
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, first_name, last_name, email, avatar_url')
+            .order('first_name')
+            .limit(100);
 
-        if (profilesError) {
-          console.error('[Mentions] Error loading fallback profiles:', profilesError);
-          return;
+          if (profilesError) {
+            console.error('[Mentions] Error loading fallback profiles:', profilesError);
+            return;
+          }
+
+          const fallbackSuggestions = (profilesData || []).map((profile: any) => ({
+            id: profile.id,
+            type: 'user' as const,
+            display_name: profile.first_name && profile.last_name
+              ? `${profile.first_name} ${profile.last_name}`
+              : profile.email?.split('@')[0] || 'Usuario',
+            email: profile.email || '',
+            role: 'usuario',
+            avatar: profile.avatar_url || null
+          }));
+
+          console.log('[Mentions] Fallback suggestions loaded:', fallbackSuggestions.length);
+          setCommunityMembers(fallbackSuggestions);
+        } else {
+          console.log('[Mentions] No community members found and user is not admin - no suggestions available');
+          setCommunityMembers([]);
         }
-
-        const fallbackSuggestions = (profilesData || []).map((profile: any) => ({
-          id: profile.id,
-          type: 'user' as const,
-          display_name: profile.first_name && profile.last_name
-            ? `${profile.first_name} ${profile.last_name}`
-            : profile.email?.split('@')[0] || 'Usuario',
-          email: profile.email || '',
-          role: 'usuario',
-          avatar: profile.avatar_url || null
-        }));
-
-        console.log('[Mentions] Fallback suggestions loaded:', fallbackSuggestions.length);
-        setCommunityMembers(fallbackSuggestions);
         return;
       }
 

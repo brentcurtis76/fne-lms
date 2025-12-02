@@ -2355,6 +2355,37 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     toast(`Responder a mensaje de ${message.author_name}`, { icon: '💬' });
   };
 
+  // Handle message deletion
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!user) return;
+
+    // Confirm deletion
+    if (!window.confirm('¿Estás seguro de que deseas eliminar este mensaje?')) {
+      return;
+    }
+
+    try {
+      // Soft delete by setting is_deleted = true
+      const { error } = await supabase
+        .from('community_messages')
+        .update({ is_deleted: true })
+        .eq('id', messageId);
+
+      if (error) {
+        console.error('Error deleting message:', error);
+        toast.error('Error al eliminar el mensaje');
+        return;
+      }
+
+      // Remove from local state
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      toast.success('Mensaje eliminado');
+    } catch (error) {
+      console.error('Error deleting message:', error);
+      toast.error('Error al eliminar el mensaje');
+    }
+  };
+
   if (!workspace) {
     return (
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
@@ -2536,6 +2567,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
                     message={message}
                     currentUserId={user?.id || ''}
                     onReply={handleReplyToMessage}
+                    onDelete={handleDeleteMessage}
                     onReaction={() => {}}
                     onPreviewAttachment={handleAttachmentPreview}
                     permissions={permissions}

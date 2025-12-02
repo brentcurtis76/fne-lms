@@ -1,16 +1,17 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../../../lib/supabase';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 
 import Head from 'next/head';
-import { ArrowLeft, ArrowRight, CheckCircle, Clock, ThumbsUp, Star, BookOpen } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle, Clock, ThumbsUp, Star, BookOpen, Menu, X, List } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import StudentBlockRenderer from '../../../components/student/StudentBlockRenderer';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
+import LessonSidebar from '../../../components/student/LessonSidebar';
 
 // Types
 interface Block {
@@ -24,11 +25,28 @@ interface Lesson {
   id: string;
   title: string;
   content: any;
+  order_number: number;
   module_id?: string;
+  course_id?: string;
   module?: {
     id: string;
     course_id: string;
+    order_number: number;
   };
+}
+
+interface CourseModule {
+  id: string;
+  title: string;
+  order_number: number;
+  lessons: { id: string; title: string; order_number: number; module_id?: string }[];
+}
+
+interface LessonProgressForSidebar {
+  lessonId: string;
+  completedBlocks: number;
+  totalBlocks: number;
+  isCompleted: boolean;
 }
 
 interface Progress {
@@ -56,7 +74,19 @@ export default function StudentLessonViewer() {
   const [startTime, setStartTime] = useState<Date>(new Date());
   const [showCompletionPage, setShowCompletionPage] = useState(false);
   const [nextLesson, setNextLesson] = useState<any>(null);
+  const [previousLesson, setPreviousLesson] = useState<any>(null);
   const [courseCompleted, setCourseCompleted] = useState(false);
+
+  // Sidebar state
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [courseTitle, setCourseTitle] = useState('');
+  const [courseStructureType, setCourseStructureType] = useState<'simple' | 'structured'>('simple');
+  const [courseModules, setCourseModules] = useState<CourseModule[]>([]);
+  const [courseDirectLessons, setCourseDirectLessons] = useState<{ id: string; title: string; order_number: number }[]>([]);
+  const [allLessonsProgress, setAllLessonsProgress] = useState<Record<string, LessonProgressForSidebar>>({});
+
+  // Ref for scrolling to top on lesson change
+  const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const initializeViewer = async () => {
@@ -194,8 +224,170 @@ export default function StudentLessonViewer() {
                 }
               }
             }
+          // Also fetch previous lesson for navigation
+              if (!lessonData.module_id && lessonData.course_id) {
+                // Simple course: find previous lesson
+                const { data: prevLessonData } = await supabase
+                  .from('lessons')
+                  .select('id, title, order_number')
+                  .eq('course_id', lessonData.course_id)
+                  .is('module_id', null)
+                  .lt('order_number', lessonData.order_number)
+                  .order('order_number', { ascending: false })
+                  .limit(1)
+                  .single();
+
+                if (prevLessonData) {
+                  setPreviousLesson(prevLessonData);
+                }
+              } else if (lessonData?.module_id) {
+                // Structured course: find previous lesson in same module first
+                const { data: prevLessonData } = await supabase
+                  .from('lessons')
+                  .select('id, title, order_number')
+                  .eq('module_id', lessonData.module_id)
+                  .lt('order_number', lessonData.order_number)
+                  .order('order_number', { ascending: false })
+                  .limit(1)
+                  .single();
+
+                if (prevLessonData) {
+                  setPreviousLesson(prevLessonData);
+                } else if (lessonData.module?.order_number > 1) {
+                  // Check previous module
+                  const { data: prevModuleData } = await supabase
+                    .from('modules')
+                    .select('id, title, lessons(id, title, order_number)')
+                    .eq('course_id', lessonData.module.course_id)
+                    .lt('order_number', lessonData.module.order_number)
+                    .order('order_number', { ascending: false })
+                    .limit(1)
+                    .single();
+
+                  if (prevModuleData?.lessons?.length > 0) {
+                    const lastLessonInPrevModule = prevModuleData.lessons
+                      .sort((a: any, b: any) => b.order_number - a.order_number)[0];
+                    setPreviousLesson(lastLessonInPrevModule);
+                  }
+                }
+              }
+            } catch (error) {
+            console.error('Error fetching next/previous lesson:', error);
+          }
+
+          // Fetch course data for sidebar
+          try {
+            const { data: courseData, error: courseError } = await supabase
+              .from('courses')
+              .select('id, title, structure_type')
+              .eq('id', courseId)
+              .single();
+
+            if (!courseError && courseData) {
+              setCourseTitle(courseData.title);
+              setCourseStructureType(courseData.structure_type || 'simple');
+
+              // Fetch all lessons for the sidebar
+              if (courseData.structure_type === 'simple') {
+                const { data: allLessons } = await supabase
+                  .from('lessons')
+                  .select('id, title, order_number')
+                  .eq('course_id', courseId)
+                  .is('module_id', null)
+                  .order('order_number', { ascending: true });
+
+                setCourseDirectLessons(allLessons || []);
+
+                // Fetch progress for all lessons
+                if (allLessons && allLessons.length > 0) {
+                  const lessonIds = allLessons.map(l => l.id);
+                  const progressLookup: Record<string, LessonProgressForSidebar> = {};
+
+                  for (const lessonItem of allLessons) {
+                    // Get block count
+                    const { count: blockCount } = await supabase
+                      .from('blocks')
+                      .select('*', { count: 'exact', head: true })
+                      .eq('lesson_id', lessonItem.id);
+
+                    // Get completed blocks
+                    const { data: completedBlocksData } = await supabase
+                      .from('lesson_progress')
+                      .select('block_id')
+                      .eq('lesson_id', lessonItem.id)
+                      .eq('user_id', session.user.id)
+                      .not('completed_at', 'is', null);
+
+                    const totalBlocks = blockCount || 0;
+                    const completedBlocks = completedBlocksData?.length || 0;
+
+                    progressLookup[lessonItem.id] = {
+                      lessonId: lessonItem.id,
+                      completedBlocks,
+                      totalBlocks,
+                      isCompleted: totalBlocks > 0 && completedBlocks >= totalBlocks
+                    };
+                  }
+
+                  setAllLessonsProgress(progressLookup);
+                }
+              } else {
+                // Structured course with modules
+                const { data: modulesData } = await supabase
+                  .from('modules')
+                  .select('id, title, order_number')
+                  .eq('course_id', courseId)
+                  .order('order_number', { ascending: true });
+
+                if (modulesData) {
+                  const modulesWithLessons: CourseModule[] = [];
+                  const progressLookup: Record<string, LessonProgressForSidebar> = {};
+
+                  for (const module of modulesData) {
+                    const { data: moduleLessons } = await supabase
+                      .from('lessons')
+                      .select('id, title, order_number, module_id')
+                      .eq('module_id', module.id)
+                      .order('order_number', { ascending: true });
+
+                    modulesWithLessons.push({
+                      ...module,
+                      lessons: moduleLessons || []
+                    });
+
+                    // Fetch progress for each lesson
+                    for (const lessonItem of moduleLessons || []) {
+                      const { count: blockCount } = await supabase
+                        .from('blocks')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('lesson_id', lessonItem.id);
+
+                      const { data: completedBlocksData } = await supabase
+                        .from('lesson_progress')
+                        .select('block_id')
+                        .eq('lesson_id', lessonItem.id)
+                        .eq('user_id', session.user.id)
+                        .not('completed_at', 'is', null);
+
+                      const totalBlocks = blockCount || 0;
+                      const completedBlocks = completedBlocksData?.length || 0;
+
+                      progressLookup[lessonItem.id] = {
+                        lessonId: lessonItem.id,
+                        completedBlocks,
+                        totalBlocks,
+                        isCompleted: totalBlocks > 0 && completedBlocks >= totalBlocks
+                      };
+                    }
+                  }
+
+                  setCourseModules(modulesWithLessons);
+                  setAllLessonsProgress(progressLookup);
+                }
+              }
+            }
           } catch (error) {
-            console.error('Error fetching next lesson:', error);
+            console.error('Error fetching course data for sidebar:', error);
           }
         }
 
@@ -264,6 +456,18 @@ export default function StudentLessonViewer() {
 
     initializeViewer();
   }, [router.isReady, lessonId]);
+
+  // Scroll to top when lesson changes and reset completion page state
+  useEffect(() => {
+    if (lessonId) {
+      setShowCompletionPage(false);
+      setCurrentBlockIndex(0);
+      if (contentRef.current) {
+        contentRef.current.scrollTop = 0;
+      }
+      window.scrollTo(0, 0);
+    }
+  }, [lessonId]);
 
   const updateProgress = async (blockId: string, data: Partial<Progress>) => {
     if (!user || !lessonId) return;
@@ -444,6 +648,15 @@ export default function StudentLessonViewer() {
         title={lesson.title}
         subtitle={showCompletionPage ? "Lección completada" : `Bloque ${currentBlockIndex + 1} de ${blocks.length}`}
       >
+        {/* Sidebar toggle button */}
+        <button
+          onClick={() => setShowSidebar(!showSidebar)}
+          className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+          title="Ver lista de lecciones"
+        >
+          <List className="w-4 h-4" />
+        </button>
+
         <button
           onClick={() => {
             if (isAdmin && lesson?.module?.course_id && lesson?.module?.id) {
@@ -516,10 +729,43 @@ export default function StudentLessonViewer() {
           <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">ADMIN</span>
         )}
       </ResponsiveFunctionalPageHeader>
-      
-      <div className="min-h-screen bg-gray-100">
+
+      <div className="min-h-screen bg-gray-100 flex">
+        {/* Sidebar */}
+        {showSidebar && (
+          <div className="fixed inset-0 z-40 lg:relative lg:inset-auto">
+            {/* Overlay for mobile */}
+            <div
+              className="fixed inset-0 bg-black/50 lg:hidden"
+              onClick={() => setShowSidebar(false)}
+            />
+
+            {/* Sidebar panel */}
+            <div className="fixed left-0 top-0 h-full w-72 bg-white shadow-lg z-50 lg:relative lg:shadow-none">
+              {/* Close button for mobile */}
+              <button
+                onClick={() => setShowSidebar(false)}
+                className="absolute top-4 right-4 p-1 text-gray-500 hover:text-gray-700 lg:hidden"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <LessonSidebar
+                courseId={lesson?.module?.course_id || lesson?.course_id || ''}
+                courseTitle={courseTitle}
+                structureType={courseStructureType}
+                modules={courseModules}
+                directLessons={courseDirectLessons}
+                currentLessonId={lessonId as string}
+                progress={allLessonsProgress}
+                onClose={() => setShowSidebar(false)}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Main Content */}
+        <div className="flex-1" ref={contentRef}>
         {showCompletionPage ? (
           /* Completion Page */
           <div className="max-w-4xl mx-auto p-6 pt-8">
@@ -577,15 +823,27 @@ export default function StudentLessonViewer() {
                   </div>
                 </div>
                 
-                <div className="flex justify-center gap-4">
-                  <button
-                    onClick={() => router.push('/dashboard')}
-                    className="px-6 py-3 bg-white text-[#00365b] rounded-lg font-medium hover:bg-gray-100 transition flex items-center gap-2"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    Volver a mi Panel
-                  </button>
-                  
+                <div className="flex justify-center gap-4 flex-wrap">
+                  {/* Previous Lesson button */}
+                  {previousLesson ? (
+                    <button
+                      onClick={() => router.push(`/student/lesson/${previousLesson.id}`)}
+                      className="px-6 py-3 bg-white/20 text-white rounded-lg font-medium hover:bg-white/30 transition flex items-center gap-2 border border-white/30"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      Lección Anterior
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => router.push('/dashboard')}
+                      className="px-6 py-3 bg-white text-[#00365b] rounded-lg font-medium hover:bg-gray-100 transition flex items-center gap-2"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      Volver a mi Panel
+                    </button>
+                  )}
+
+                  {/* Next Lesson button */}
                   {nextLesson ? (
                     <button
                       onClick={() => router.push(`/student/lesson/${nextLesson.id}`)}
@@ -595,10 +853,20 @@ export default function StudentLessonViewer() {
                       <ArrowRight className="w-4 h-4" />
                     </button>
                   ) : courseCompleted ? (
-                    <div className="px-6 py-3 bg-[#fdb933] text-[#00365b] rounded-lg font-medium flex items-center gap-2">
-                      <ThumbsUp className="w-4 h-4" />
-                      Curso Completado
-                    </div>
+                    <button
+                      onClick={() => {
+                        const courseId = lesson?.module?.course_id || lesson?.course_id;
+                        if (courseId) {
+                          router.push(`/student/course/${courseId}`);
+                        } else {
+                          router.push('/dashboard');
+                        }
+                      }}
+                      className="px-6 py-3 bg-[#fdb933] text-[#00365b] rounded-lg font-medium hover:bg-yellow-400 transition flex items-center gap-2"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Ver Curso Completado
+                    </button>
                   ) : (
                     <button
                       onClick={() => router.push('/dashboard')}
@@ -695,6 +963,7 @@ export default function StudentLessonViewer() {
             </div>
           </div>
         )}
+        </div> {/* End of flex-1 content wrapper */}
       </div>
     </MainLayout>
   );

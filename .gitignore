@@ -20,7 +20,12 @@ dist/
 
 # IDE and Editor files
 .vscode/
+!.vscode/settings.json  # Share VS Code settings across team
+!.vscode/extensions.json  # Recommend extensions to team
 .idea/
+
+# Claude Code agents (local only)
+.claude/agents/
 *.swp
 *.swo
 *~
@@ -93,8 +98,10 @@ run-*.mjs
 
 # Reports and Analysis
 *.md
+!CLAUDE.md  # Project instructions for Claude Code
 !PERSONALIZACION.md  # Questions file for production transformation API (exception must come AFTER wildcard)
 !PROGRESION-APRENDIZAJE.md  # Questions file for aprendizaje transformation API
+!docs/qa/*.md  # QA testing documentation
 *.json
 !.eslintrc.json  # ESLint configuration must be tracked
 

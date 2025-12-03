@@ -118,7 +118,7 @@ export function ObjectiveResults({ objective, responses, viewMode, evaluation }:
 
   // Helper to find evaluation for a specific rubric item
   const getEvaluationForItem = (rubricItemId: string): DimensionEvaluation | undefined => {
-    return evaluation?.dimension_evaluations.find(e => e.rubricItemId === rubricItemId);
+    return evaluation?.dimension_evaluations?.find(e => e.rubricItemId === rubricItemId);
   };
   return (
     <div className="p-6 space-y-6">

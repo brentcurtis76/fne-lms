@@ -48,6 +48,12 @@ interface DimensionResponse {
   confirmedLevel?: number | null;
 }
 
+interface Collaborator {
+  id: string;
+  full_name: string;
+  role?: string;
+}
+
 interface ReportData {
   communityName: string;
   schoolName?: string;
@@ -58,6 +64,9 @@ interface ReportData {
   rubricItems: RubricItem[];
   responses: Record<string, DimensionResponse>;
   viewMode?: 'detailed' | 'summary';
+  collaborators?: Collaborator[];
+  grades?: string;  // Formatted grades string (e.g. "1° Básico - 3° Básico")
+  creatorName?: string;  // Name of the assessment creator/owner
 }
 
 // FNE Brand Colors
@@ -90,11 +99,212 @@ const LEVEL_LABELS: Record<number, string> = {
 };
 
 /**
+ * Generate SVG RadarChart for dimension balance
+ */
+function generateRadarChartSvg(evaluation: AssessmentEvaluation): string {
+  // Calculate average levels per dimension
+  const grouped: Record<string, number[]> = {
+    cobertura: [],
+    frecuencia: [],
+    profundidad: [],
+  };
+
+  evaluation.dimension_evaluations?.forEach((dimEval) => {
+    // The dimension field might be "Cobertura - Plan Personal de Crecimiento"
+    // or just "cobertura", so we extract the first word and lowercase it
+    const dimRaw = dimEval.dimension?.toLowerCase() || '';
+    const dimType = dimRaw.split(' ')[0].replace('-', '').trim();
+
+    if (grouped[dimType]) {
+      grouped[dimType].push(dimEval.level);
+    }
+  });
+
+  const coberturaAvg = grouped.cobertura.length > 0
+    ? grouped.cobertura.reduce((a, b) => a + b, 0) / grouped.cobertura.length
+    : 0;
+  const frecuenciaAvg = grouped.frecuencia.length > 0
+    ? grouped.frecuencia.reduce((a, b) => a + b, 0) / grouped.frecuencia.length
+    : 0;
+  const profundidadAvg = grouped.profundidad.length > 0
+    ? grouped.profundidad.reduce((a, b) => a + b, 0) / grouped.profundidad.length
+    : 0;
+
+  // Radar chart geometry (3 axes at 120 degrees apart)
+  const centerX = 150;
+  const centerY = 130;
+  const maxRadius = 90;
+
+  // Convert level (0-4) to radius
+  const getRadius = (level: number) => (level / 4) * maxRadius;
+
+  // Angles for 3 axes (top, bottom-left, bottom-right)
+  const angles = [
+    -Math.PI / 2,           // Top (Cobertura)
+    -Math.PI / 2 + (2 * Math.PI / 3),  // Bottom-left (Frecuencia)
+    -Math.PI / 2 + (4 * Math.PI / 3),  // Bottom-right (Profundidad)
+  ];
+
+  // Calculate data points
+  const dataPoints = [
+    { x: centerX + getRadius(coberturaAvg) * Math.cos(angles[0]), y: centerY + getRadius(coberturaAvg) * Math.sin(angles[0]) },
+    { x: centerX + getRadius(frecuenciaAvg) * Math.cos(angles[1]), y: centerY + getRadius(frecuenciaAvg) * Math.sin(angles[1]) },
+    { x: centerX + getRadius(profundidadAvg) * Math.cos(angles[2]), y: centerY + getRadius(profundidadAvg) * Math.sin(angles[2]) },
+  ];
+
+  // Generate grid circles (levels 1-4)
+  const gridCircles = [1, 2, 3, 4].map(level => {
+    const r = getRadius(level);
+    const points = angles.map(angle => ({
+      x: centerX + r * Math.cos(angle),
+      y: centerY + r * Math.sin(angle),
+    }));
+    return `<polygon points="${points.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="#cbd5e1" stroke-width="1"/>`;
+  }).join('\n    ');
+
+  // Generate axis lines
+  const axisLines = angles.map(angle => {
+    const endX = centerX + maxRadius * Math.cos(angle);
+    const endY = centerY + maxRadius * Math.sin(angle);
+    return `<line x1="${centerX}" y1="${centerY}" x2="${endX}" y2="${endY}" stroke="#cbd5e1" stroke-width="1"/>`;
+  }).join('\n    ');
+
+  // Data polygon
+  const dataPolygon = `<polygon points="${dataPoints.map(p => `${p.x},${p.y}`).join(' ')}" fill="${BRAND.blue}" fill-opacity="0.4" stroke="${BRAND.blue}" stroke-width="2"/>`;
+
+  // Labels
+  const labelOffsets = [
+    { x: 0, y: -15 },   // Top
+    { x: -50, y: 15 },  // Bottom-left
+    { x: 50, y: 15 },   // Bottom-right
+  ];
+  const labels = ['Cobertura', 'Frecuencia', 'Profundidad'];
+  const values = [coberturaAvg, frecuenciaAvg, profundidadAvg];
+
+  const labelTexts = angles.map((angle, i) => {
+    const labelX = centerX + (maxRadius + 25) * Math.cos(angle) + labelOffsets[i].x;
+    const labelY = centerY + (maxRadius + 25) * Math.sin(angle) + labelOffsets[i].y;
+    return `<text x="${labelX}" y="${labelY}" text-anchor="middle" font-size="11" font-weight="600" fill="#475569">${labels[i]}</text>
+    <text x="${labelX}" y="${labelY + 14}" text-anchor="middle" font-size="10" fill="#64748b">(${values[i].toFixed(1)})</text>`;
+  }).join('\n    ');
+
+  return `
+  <svg viewBox="0 0 300 260" xmlns="http://www.w3.org/2000/svg" style="width: 100%; max-width: 280px; height: auto;">
+    ${gridCircles}
+    ${axisLines}
+    ${dataPolygon}
+    ${labelTexts}
+  </svg>`;
+}
+
+/**
+ * Generate SVG BarChart for objective progress
+ */
+function generateBarChartSvg(evaluation: AssessmentEvaluation, rubricItems: RubricItem[]): string {
+  // Build mapping from rubricItemId to objective_number
+  const rubricIdToObjective: Record<string, number> = {};
+  for (const item of rubricItems) {
+    rubricIdToObjective[item.id] = item.objective_number;
+  }
+
+  // Group by objective and calculate averages
+  const grouped: Record<number, number[]> = {};
+  evaluation.dimension_evaluations?.forEach((dimEval) => {
+    const objNum = rubricIdToObjective[dimEval.rubricItemId] || 1;
+    if (!grouped[objNum]) {
+      grouped[objNum] = [];
+    }
+    grouped[objNum].push(dimEval.level);
+  });
+
+  const barData = Object.entries(grouped)
+    .map(([objNum, levels]) => {
+      const avg = levels.reduce((a, b) => a + b, 0) / levels.length;
+      return {
+        objective: parseInt(objNum),
+        level: Math.round(avg * 10) / 10,
+      };
+    })
+    .sort((a, b) => a.objective - b.objective);
+
+  // Chart dimensions
+  const chartWidth = 320;
+  const chartHeight = 180;
+  const barHeight = 22;
+  const barGap = 6;
+  const leftMargin = 50;
+  const rightMargin = 30;
+  const maxBarWidth = chartWidth - leftMargin - rightMargin;
+
+  // Get bar color based on level
+  const getBarColor = (level: number): string => {
+    if (level >= 3.0) return BRAND.blue;
+    if (level >= 2.0) return BRAND.yellow;
+    return '#94a3b8'; // slate
+  };
+
+  // Generate bars
+  const bars = barData.map((item, index) => {
+    const y = 20 + index * (barHeight + barGap);
+    const width = (item.level / 4) * maxBarWidth;
+    const color = getBarColor(item.level);
+
+    return `
+    <text x="${leftMargin - 8}" y="${y + barHeight / 2 + 4}" text-anchor="end" font-size="11" font-weight="600" fill="#475569">Obj ${item.objective}</text>
+    <rect x="${leftMargin}" y="${y}" width="${width}" height="${barHeight}" rx="4" fill="${color}"/>
+    <text x="${leftMargin + width + 6}" y="${y + barHeight / 2 + 4}" font-size="10" fill="#64748b">${item.level.toFixed(1)}</text>`;
+  }).join('\n');
+
+  // X-axis labels (0, 1, 2, 3, 4)
+  const xAxisLabels = [0, 1, 2, 3, 4].map(val => {
+    const x = leftMargin + (val / 4) * maxBarWidth;
+    return `<text x="${x}" y="${chartHeight - 5}" text-anchor="middle" font-size="9" fill="#64748b">${val}</text>`;
+  }).join('\n  ');
+
+  // X-axis line
+  const xAxisLine = `<line x1="${leftMargin}" y1="${chartHeight - 20}" x2="${leftMargin + maxBarWidth}" y2="${chartHeight - 20}" stroke="#e2e8f0" stroke-width="1"/>`;
+
+  return `
+  <svg viewBox="0 0 ${chartWidth} ${chartHeight}" xmlns="http://www.w3.org/2000/svg" style="width: 100%; max-width: 320px; height: auto;">
+    ${xAxisLine}
+    ${xAxisLabels}
+    ${bars}
+  </svg>`;
+}
+
+/**
  * Generate HTML content for PDF export
  * This creates a print-optimized HTML document with FNE branding
  */
 export function generateReportHtml(data: ReportData): string {
-  const { communityName, schoolName, generatedBy, area, completedDate, evaluation, rubricItems, responses, viewMode = 'detailed' } = data;
+  const { communityName, schoolName, generatedBy, area, completedDate, evaluation, rubricItems, responses, viewMode = 'detailed', collaborators, grades, creatorName } = data;
+
+  // Build collaborators string for display
+  // Include creator name if provided, then add collaborators
+  let elaboradoPor = '';
+  if (creatorName) {
+    elaboradoPor = creatorName;
+    if (collaborators && collaborators.length > 0) {
+      const collabNames = collaborators
+        .filter(c => c.role !== 'creator')  // Don't duplicate creator
+        .map(c => c.full_name);
+      if (collabNames.length > 0) {
+        elaboradoPor += ', ' + collabNames.join(', ');
+      }
+    }
+  } else if (collaborators && collaborators.length > 0) {
+    elaboradoPor = collaborators.map(c => c.full_name).join(', ');
+  } else if (generatedBy) {
+    elaboradoPor = generatedBy;
+  }
+
+  // Only show school name if it's different from "Fundación Nueva Educación"
+  // (since the logo already shows "Fundación Nueva Educación")
+  const displaySchoolName = schoolName &&
+    schoolName.toLowerCase() !== 'fundación nueva educación' &&
+    schoolName.toLowerCase() !== 'fundacion nueva educacion'
+    ? schoolName
+    : null;
 
   // Group rubric items by objective and action
   const objectives = groupByObjective(rubricItems);
@@ -145,7 +355,7 @@ export function generateReportHtml(data: ReportData): string {
     /* Header */
     .report-header {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       padding-bottom: 20px;
       border-bottom: 3px solid ${BRAND.blue};
@@ -154,6 +364,7 @@ export function generateReportHtml(data: ReportData): string {
 
     .header-logo {
       flex-shrink: 0;
+      padding-top: 4px;
     }
 
     .header-logo img {
@@ -188,12 +399,23 @@ export function generateReportHtml(data: ReportData): string {
       color: #666;
     }
 
-    .report-meta span {
-      margin-left: 16px;
+    .report-meta-inline {
+      display: inline;
     }
 
-    .report-meta span:first-child {
+    .report-meta-inline span {
+      margin-left: 16px;
+      white-space: nowrap;
+    }
+
+    .report-meta-inline span:first-child {
       margin-left: 0;
+    }
+
+    .report-meta-elaborado {
+      display: block;
+      margin-top: 6px;
+      line-height: 1.4;
     }
 
     .school-banner {
@@ -438,6 +660,66 @@ export function generateReportHtml(data: ReportData): string {
       color: ${BRAND.blue};
     }
 
+    /* Charts Section */
+    .charts-section {
+      margin-bottom: 28px;
+    }
+
+    .charts-grid {
+      display: flex;
+      gap: 20px;
+      justify-content: space-between;
+    }
+
+    .chart-box {
+      flex: 1;
+      background: ${BRAND.beige};
+      border: 1px solid #d5d2cf;
+      border-radius: 8px;
+      padding: 16px;
+      text-align: center;
+    }
+
+    .chart-title {
+      font-size: 11pt;
+      font-weight: 700;
+      color: ${BRAND.blue};
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .chart-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 180px;
+    }
+
+    .chart-legend {
+      margin-top: 12px;
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 8pt;
+      color: #666;
+    }
+
+    .legend-color {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+
     /* Objectives Section */
     .objective-section {
       margin-bottom: 24px;
@@ -619,13 +901,15 @@ export function generateReportHtml(data: ReportData): string {
       <img src="/Logo BW.png" alt="Fundación Nueva Educación" onerror="this.style.display='none'">
     </div>
     <div class="header-content">
-      ${schoolName ? `<div class="school-banner">${escapeHtml(schoolName)}</div>` : ''}
+      ${displaySchoolName ? `<div class="school-banner">${escapeHtml(displaySchoolName)}</div>` : ''}
       <h1>Reporte de Evaluación</h1>
       <h2>Vía de Transformación: ${areaTitle}</h2>
       <div class="report-meta">
-        <span><strong>Comunidad:</strong> ${escapeHtml(communityName)}</span>
-        <span><strong>Fecha:</strong> ${completedDate}</span>
-        ${generatedBy ? `<span><strong>Generado por:</strong> ${escapeHtml(generatedBy)}</span>` : ''}
+        <div class="report-meta-inline">
+          <span><strong>Fecha:</strong> ${completedDate}</span>
+          ${grades ? `<span><strong>Niveles:</strong> ${escapeHtml(grades)}</span>` : ''}
+        </div>
+        ${elaboradoPor ? `<div class="report-meta-elaborado"><strong>Elaborado por:</strong> ${escapeHtml(elaboradoPor)}</div>` : ''}
       </div>
     </div>
   </header>
@@ -682,6 +966,39 @@ export function generateReportHtml(data: ReportData): string {
     <ol class="recommendations-list">
       ${evaluation.recommendations.map(r => `<li>${escapeHtml(r)}</li>`).join('\n      ')}
     </ol>
+  </section>
+
+  <!-- Visual Charts -->
+  <section class="charts-section avoid-break">
+    <h2 class="section-title">Análisis Visual</h2>
+    <div class="charts-grid">
+      <div class="chart-box">
+        <div class="chart-title">Balance entre Dimensiones</div>
+        <div class="chart-container">
+          ${generateRadarChartSvg(evaluation)}
+        </div>
+      </div>
+      <div class="chart-box">
+        <div class="chart-title">Progreso por Objetivo</div>
+        <div class="chart-container">
+          ${generateBarChartSvg(evaluation, rubricItems)}
+        </div>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <div class="legend-color" style="background: #94a3b8;"></div>
+            <span>Nivel 1 (Incipiente)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: ${BRAND.yellow};"></div>
+            <span>Nivel 2-2.9 (Emergente)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: ${BRAND.blue};"></div>
+            <span>Nivel 3+ (Avanzado)</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <div class="page-break"></div>

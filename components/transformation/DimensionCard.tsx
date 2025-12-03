@@ -57,10 +57,10 @@ const LEVEL_LABELS: Record<number, string> = {
 };
 
 const LEVEL_COLORS: Record<number, { bg: string; text: string; border: string }> = {
-  1: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-300' },
-  2: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-300' },
-  3: { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-300' },
-  4: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-300' },
+  1: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-300' },
+  2: { bg: 'bg-brand_yellow/10', text: 'text-brand_yellow', border: 'border-brand_yellow/30' },
+  3: { bg: 'bg-brand_blue/10', text: 'text-brand_blue', border: 'border-brand_blue/30' },
+  4: { bg: 'bg-brand_blue/20', text: 'text-brand_blue', border: 'border-brand_blue/50' },
 };
 
 export function DimensionCard({
@@ -112,11 +112,11 @@ export function DimensionCard({
         <h5 className={`text-base font-semibold ${colors.text}`}>{label}</h5>
         {hasResponse && (
           <div className="ml-auto">
-            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-emerald-100 border border-emerald-300">
-              <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand_blue/10 border border-brand_blue/30">
+              <svg className="w-4 h-4 text-brand_blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span className="text-xs font-semibold text-emerald-700">Completado</span>
+              <span className="text-xs font-semibold text-brand_blue">Completado</span>
             </span>
           </div>
         )}

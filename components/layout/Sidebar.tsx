@@ -30,7 +30,8 @@ import {
   ExclamationCircleIcon as BugIcon,
   MapIcon,
   GlobeIcon as NetworkIcon,
-  NewspaperIcon
+  NewspaperIcon,
+  LightningBoltIcon
 } from '@heroicons/react/outline';
 import { CalendarIcon } from '@heroicons/react/solid';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
@@ -62,6 +63,7 @@ interface NavigationItem {
   restrictedRoles?: string[];
   permission?: string | string[]; // Required permission(s)
   requireAllPermissions?: boolean; // If true, require ALL permissions (AND logic)
+  requiresCommunity?: boolean; // If true, only show for users with community_id
   children?: NavigationChild[];
   isExpanded?: boolean;
 }
@@ -278,10 +280,34 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     permission: ['view_reports_all', 'view_reports_network', 'view_reports_school', 'view_reports_generation', 'view_reports_community']
   },
   {
+    id: 'vias-transformacion',
+    label: 'Vías de Transformación',
+    icon: LightningBoltIcon,
+    href: '/vias-transformacion',
+    description: 'Evaluaciones de transformación escolar',
+    // Note: Visible to all users with a school - access checked on the page
+    children: [
+      {
+        id: 'vias-mis-evaluaciones',
+        label: 'Mis Evaluaciones',
+        href: '/vias-transformacion',
+        description: 'Ver mis evaluaciones'
+      },
+      {
+        id: 'vias-admin-todas',
+        label: 'Todas las Evaluaciones',
+        href: '/admin/transformation/assessments',
+        description: 'Ver evaluaciones por escuela',
+        adminOnly: true
+      }
+    ]
+  },
+  {
     id: 'workspace',
     label: 'Espacio Colaborativo',
     icon: UserGroupIcon,
     description: 'Comunidades de crecimiento',
+    requiresCommunity: true, // Only show for users with community_id or admins
     children: [
       {
         id: 'workspace-overview',
@@ -294,13 +320,6 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         label: 'Gestión Comunidades',
         href: '/community/workspace?section=communities',
         description: 'Administrar comunidades',
-        permission: 'manage_communities_all'
-      },
-      {
-        id: 'transformation-access',
-        label: 'Vías de Transformación',
-        href: '/admin/transformation',
-        description: 'Gestión de acceso a vías',
         permission: 'manage_communities_all'
       }
     ]
@@ -342,6 +361,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const [newFeedbackCount, setNewFeedbackCount] = useState(0);
   const [isSuperadmin, setIsSuperadmin] = useState(false);
   const [superadminCheckDone, setSuperadminCheckDone] = useState(false);
+  const [hasCommunity, setHasCommunity] = useState(false);
+  const [communityCheckDone, setCommunityCheckDone] = useState(false);
 
   const fetchNewFeedbackCount = useCallback(async () => {
     try {
@@ -384,6 +405,43 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     };
 
     checkSuperadmin();
+  }, [user, isAdmin, supabase]);
+
+  // Check if user has community membership
+  useEffect(() => {
+    const checkCommunity = async () => {
+      if (!user) {
+        setHasCommunity(false);
+        setCommunityCheckDone(true);
+        return;
+      }
+
+      // Admins always have access to workspace
+      if (isAdmin) {
+        setHasCommunity(true);
+        setCommunityCheckDone(true);
+        return;
+      }
+
+      try {
+        // Check if user has any role with a community_id
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('community_id')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .not('community_id', 'is', null)
+          .limit(1);
+
+        setHasCommunity(!error && data && data.length > 0);
+      } catch (error) {
+        setHasCommunity(false);
+      } finally {
+        setCommunityCheckDone(true);
+      }
+    };
+
+    checkCommunity();
   }, [user, isAdmin, supabase]);
 
   // Fetch new feedback count for admins
@@ -493,6 +551,18 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         return false;
       }
 
+      // Check requiresCommunity items - user must have community membership
+      if (item.requiresCommunity) {
+        // Wait for community check to complete
+        if (!communityCheckDone) {
+          return false;
+        }
+        // Hide if user doesn't have a community (admins are handled in the check)
+        if (!hasCommunity) {
+          return false;
+        }
+      }
+
       // Check restricted roles - user must have specific role listed
       if (item.restrictedRoles && item.restrictedRoles.length > 0) {
         if (item.id === 'events') {
@@ -545,7 +615,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
       return true;
     });
-  }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone]);
+  }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone]);
 
   const SidebarItem: React.FC<{ item: NavigationItem }> = React.memo(({ item }) => {
     const [showCollapsedMenu, setShowCollapsedMenu] = useState(false);

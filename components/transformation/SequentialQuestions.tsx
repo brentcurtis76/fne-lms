@@ -42,6 +42,7 @@ interface SequentialQuestionsProps {
   onSavingStateChange?: (isSaving: boolean) => void;
   onSaved?: (savedAt: Date) => void;
   onSaveError?: (message: string) => void;
+  readOnly?: boolean;
 }
 
 export function SequentialQuestions({
@@ -52,6 +53,7 @@ export function SequentialQuestions({
   onSavingStateChange,
   onSaved,
   onSaveError,
+  readOnly = false,
 }: SequentialQuestionsProps) {
   // State
   const [sections, setSections] = useState<FlattenedSection[]>([]);
@@ -123,9 +125,11 @@ export function SequentialQuestions({
 
         setSections(data.flattened);
 
-        // Resume at first unanswered section ONLY on initial load
+        // Resume at first unanswered section ONLY on initial load AND only if NOT in read-only mode
+        // For read-only mode (admin viewers), always start from the beginning
         // This prevents auto-navigation when responses are saved during the session
         if (!hasInitiallyLoadedRef.current &&
+            !readOnly &&
             initialResponses &&
             Object.keys(initialResponses).length > 0) {
           const firstUnansweredIndex = data.flattened.findIndex((s: FlattenedSection) => {
@@ -350,6 +354,7 @@ export function SequentialQuestions({
 
   // Handle save edited answer
   const handleSaveEditedAnswer = () => {
+    if (readOnly) return;
     if (!currentResponse.trim()) return;
 
     const savedResponse = responses[sectionId];
@@ -371,6 +376,7 @@ export function SequentialQuestions({
 
   // Handle submit answer button
   const handleSubmitAnswer = () => {
+    if (readOnly) return;
     if (!currentResponse.trim()) return;
 
     const newResponse: SectionResponse = {
@@ -397,6 +403,7 @@ export function SequentialQuestions({
 
   // Handle level selection
   const handleLevelSelect = (level: 'incipiente' | 'en_desarrollo' | 'avanzado' | 'consolidado') => {
+    if (readOnly) return;
     setSelectedLevel(level);
 
     const updatedResponse: SectionResponse = {
@@ -427,6 +434,12 @@ export function SequentialQuestions({
 
   const handleNext = async () => {
     if (currentSectionIndex >= totalSections - 1) return;
+
+    // In read-only mode, just navigate without evaluation
+    if (readOnly) {
+      setCurrentSectionIndex(prev => prev + 1);
+      return;
+    }
 
     // FIX #3: Dynamically check if this is the last section of an objective
     const currentObjective = currentSectionData?.objetivoNumber;
@@ -539,6 +552,15 @@ export function SequentialQuestions({
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      {/* Read-only banner */}
+      {readOnly && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <p className="text-amber-800 text-sm font-medium">
+            Vista de solo lectura - Estás viendo las respuestas de esta evaluación
+          </p>
+        </div>
+      )}
+
       {/* Loading Modal for Evaluation */}
       {isEvaluating && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
@@ -662,8 +684,8 @@ export function SequentialQuestions({
           ))}
         </div>
 
-        {/* Text area for response - show ONLY if not answered yet */}
-        {!hasAnswered && (
+        {/* Text area for response - show ONLY if not answered yet AND not in read-only mode */}
+        {!hasAnswered && !readOnly && (
           <div className="space-y-4">
             <textarea
               value={currentResponse}
@@ -682,12 +704,19 @@ export function SequentialQuestions({
           </div>
         )}
 
+        {/* Show "no answer yet" message in read-only mode for unanswered questions */}
+        {!hasAnswered && readOnly && (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-gray-500 text-sm italic">
+            Esta pregunta aún no ha sido respondida.
+          </div>
+        )}
+
         {/* Read-only box with edit button - shown for ALL answered questions */}
         {hasAnswered && (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-medium text-gray-700">Su respuesta:</p>
-              {!isEditingAnswer && (
+              {!isEditingAnswer && !readOnly && (
                 <button
                   onClick={() => setIsEditingAnswer(true)}
                   className="text-sm text-blue-600 hover:text-blue-700 font-medium"
@@ -697,7 +726,7 @@ export function SequentialQuestions({
               )}
             </div>
 
-            {isEditingAnswer ? (
+            {isEditingAnswer && !readOnly ? (
               <div className="space-y-2">
                 <textarea
                   value={currentResponse}
@@ -737,14 +766,18 @@ export function SequentialQuestions({
         {hasAnswered && section.type !== 'accion' && section.levels && (
           <div className="mt-4 space-y-3">
             <p className="font-medium text-gray-900">
-              Seleccione el nivel de avance:
+              {readOnly ? 'Nivel de avance seleccionado:' : 'Seleccione el nivel de avance:'}
             </p>
             {section.levels.map((level) => (
               <label
                 key={level.value}
-                className={`flex items-start space-x-3 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                className={`flex items-start space-x-3 p-4 border-2 rounded-lg transition-all ${
+                  readOnly ? 'cursor-default' : 'cursor-pointer'
+                } ${
                   selectedLevel === level.value
                     ? 'border-blue-600 bg-blue-50'
+                    : readOnly
+                    ? 'border-gray-200'
                     : 'border-gray-200 hover:bg-blue-50 hover:border-blue-300'
                 }`}
               >
@@ -754,6 +787,7 @@ export function SequentialQuestions({
                   value={level.value}
                   checked={selectedLevel === level.value}
                   onChange={(e) => handleLevelSelect(e.target.value as typeof level.value)}
+                  disabled={readOnly}
                   className="mt-1 h-4 w-4 text-blue-600"
                 />
                 <div>
@@ -779,21 +813,28 @@ export function SequentialQuestions({
         {currentSectionIndex < totalSections - 1 && (
           <button
             onClick={handleNext}
-            disabled={!canProceed() || isEvaluating}
+            disabled={readOnly ? false : (!canProceed() || isEvaluating)}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
             Siguiente →
           </button>
         )}
 
-        {currentSectionIndex === totalSections - 1 && (
+        {currentSectionIndex === totalSections - 1 && !readOnly && (
           <button
             onClick={handleFinalize}
             disabled={!canProceed() || isEvaluating}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-brand_blue text-white rounded-lg hover:bg-brand_blue/90 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
             Finalizar Evaluación
           </button>
+        )}
+
+        {/* Show indicator when at end in read-only mode */}
+        {currentSectionIndex === totalSections - 1 && readOnly && (
+          <div className="px-4 py-2 text-gray-500 text-sm">
+            Fin de las preguntas
+          </div>
         )}
       </div>
     </div>

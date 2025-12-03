@@ -27,6 +27,7 @@ interface PreAssessmentQuestionsProps {
   onComplete: (answers: PreAssessmentAnswers) => void;
   onSave: (answers: PreAssessmentAnswers) => void;
   initialAnswers?: PreAssessmentAnswers;
+  readOnly?: boolean;
 }
 
 const INITIAL_STATE: PreAssessmentAnswers = {
@@ -56,6 +57,7 @@ export function PreAssessmentQuestions({
   onComplete,
   onSave,
   initialAnswers,
+  readOnly = false,
 }: PreAssessmentQuestionsProps) {
   const [answers, setAnswers] = useState<PreAssessmentAnswers>(
     initialAnswers ? { ...INITIAL_STATE, ...initialAnswers } : INITIAL_STATE
@@ -73,6 +75,7 @@ export function PreAssessmentQuestions({
   }, [answers, onSave]);
 
   const handleRadioChange = (questionKey: keyof PreAssessmentAnswers, value: string) => {
+    if (readOnly) return;
     setAnswers((prev) => ({ ...prev, [questionKey]: value }));
     setValidationError('');
   };
@@ -82,6 +85,7 @@ export function PreAssessmentQuestions({
     value: string,
     checked: boolean
   ) => {
+    if (readOnly) return;
     setAnswers((prev) => {
       const currentValues = prev[questionKey] as string[];
       const newValues = checked
@@ -168,14 +172,24 @@ export function PreAssessmentQuestions({
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {/* Read-only banner */}
+      {readOnly && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <p className="text-amber-800 text-sm font-medium">
+            Vista de solo lectura - No puedes modificar estas respuestas
+          </p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
         <h2 className="text-2xl font-bold text-slate-900 mb-2">
           Preguntas de Contexto
         </h2>
         <p className="text-sm text-slate-600 mb-4">
-          Antes de comenzar la evaluación, necesitamos conocer el contexto de tu
-          colegio. Estas preguntas nos ayudarán a personalizar la conversación.
+          {readOnly
+            ? 'Respuestas del contexto institucional proporcionadas para esta evaluación.'
+            : 'Antes de comenzar la evaluación, necesitamos conocer el contexto de tu colegio. Estas preguntas nos ayudarán a personalizar la conversación.'}
         </p>
 
         {/* Progress Indicator */}
@@ -229,14 +243,16 @@ export function PreAssessmentQuestions({
           <div className="space-y-3">
             <label className="block text-sm font-semibold text-slate-900">
               1. ¿Cuántos estudiantes tiene aproximadamente tu colegio?
-              <span className="text-rose-500 ml-1">*</span>
+              {!readOnly && <span className="text-rose-500 ml-1">*</span>}
             </label>
             <div className="space-y-2">
               {['300-600', '600-900', '900-1200', '1200-1500', 'Más de 1500'].map(
                 (option) => (
                   <label
                     key={option}
-                    className="flex items-center gap-3 p-3 border border-slate-200 rounded-lg hover:bg-slate-50 cursor-pointer transition"
+                    className={`flex items-center gap-3 p-3 border border-slate-200 rounded-lg transition ${
+                      readOnly ? 'cursor-default' : 'hover:bg-slate-50 cursor-pointer'
+                    }`}
                   >
                     <input
                       type="radio"
@@ -246,6 +262,7 @@ export function PreAssessmentQuestions({
                       onChange={(e) =>
                         handleRadioChange('q1_num_estudiantes', e.target.value)
                       }
+                      disabled={readOnly}
                       className="w-4 h-4 text-sky-600 focus:ring-sky-500"
                     />
                     <span className="text-sm text-slate-700">{option}</span>
@@ -869,7 +886,7 @@ export function PreAssessmentQuestions({
 
       {/* SECCIÓN D */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="bg-gradient-to-r from-emerald-50 to-teal-50 px-6 py-4 border-b border-slate-200">
+        <div className="bg-gradient-to-r from-brand_beige to-brand_beige/70 px-6 py-4 border-b border-slate-200">
           <h3 className="text-lg font-bold text-slate-900">
             SECCIÓN D: Capacidad y Percepción
           </h3>
@@ -986,28 +1003,30 @@ export function PreAssessmentQuestions({
         </div>
       </div>
 
-      {/* Action Buttons */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
-        <div className="flex flex-col sm:flex-row gap-4 justify-between">
-          <button
-            onClick={handleSaveDraft}
-            className="px-6 py-3 border border-slate-300 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition"
-          >
-            Guardar Borrador
-          </button>
-          <button
-            onClick={handleContinue}
-            disabled={!isComplete()}
-            className={`px-6 py-3 rounded-lg font-semibold transition ${
-              isComplete()
-                ? 'bg-sky-600 text-white hover:bg-sky-700'
-                : 'bg-slate-300 text-slate-500 cursor-not-allowed'
-            }`}
-          >
-            Continuar a la Evaluación
-          </button>
+      {/* Action Buttons - Hidden in read-only mode */}
+      {!readOnly && (
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between">
+            <button
+              onClick={handleSaveDraft}
+              className="px-6 py-3 border border-slate-300 text-slate-700 rounded-lg font-semibold hover:bg-slate-50 transition"
+            >
+              Guardar Borrador
+            </button>
+            <button
+              onClick={handleContinue}
+              disabled={!isComplete()}
+              className={`px-6 py-3 rounded-lg font-semibold transition ${
+                isComplete()
+                  ? 'bg-sky-600 text-white hover:bg-sky-700'
+                  : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+              }`}
+            >
+              Continuar a la Evaluación
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

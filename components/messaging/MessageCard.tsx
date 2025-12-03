@@ -236,15 +236,15 @@ const MessageCard: React.FC<MessageCardProps> = ({
             <div className="space-y-2 mb-3">
               {/* Group attachments by type */}
               {message.attachments.filter(att => att.mime_type && att.mime_type.startsWith('image/')).length > 0 && (
-                <div className="grid grid-cols-2 gap-2 mb-2">
+                <div className="flex flex-wrap gap-2 mb-2">
                   {message.attachments
                     .filter(att => att.mime_type && att.mime_type.startsWith('image/'))
                     .map((attachment) => (
-                      <div key={attachment.id} className="relative group">
+                      <div key={attachment.id} className="relative group max-w-sm">
                         <img
                           src={attachment.storage_path}
                           alt={attachment.file_name}
-                          className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                          className="max-w-full max-h-80 w-auto h-auto rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                           onClick={() => onPreviewAttachment && onPreviewAttachment(attachment)}
                         />
                         <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">

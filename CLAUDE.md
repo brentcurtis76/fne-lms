@@ -143,12 +143,42 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 - Use test environment: `.env.test.local`
 - Debug specific test: `npm run e2e:debug path/to/test.spec.ts`
 
+### Manual QA Testing
+Documentation in `docs/qa/`:
+- `manual_pruebas_docente.md` - Full test manual for docente role
+- `verificacion_docente_v2.md` - Quick verification checklist
+- `DOCENTE_FIXES_REQUIRED.md` - Issue tracking from QA rounds
+
+**Docente Test Users (Password: `Prueba2025!` for all):**
+| Email | Scenario |
+|-------|----------|
+| docente.test1@fne-lms.test | School + Generation + Community |
+| docente.test2@fne-lms.test | School + Generation + Community (different) |
+| docente.test3@fne-lms.test | School (no generation) + Community |
+| docente.test4@fne-lms.test | School + Generation + NO Community |
+| docente.test5@fne-lms.test | Minimal config (no gen/community) |
+
 ### Test Data Management
 - Test users have specific email patterns
 - Clean up test data after runs
 - Use transactions for test isolation
 
 ## Common Pitfalls & Solutions
+
+### Learning Path Course Access
+Users assigned to learning paths need access to view courses even before enrollment completes. The RLS policy `courses_learning_path_member_view` (migration 032) uses `auth_is_learning_path_member()` to allow this. Without this, users see "Curso sin título" for courses they can't access.
+
+### Page Header Consistency
+For pages in the "Mi Aprendizaje" section, use `ResponsiveFunctionalPageHeader` with:
+- `pageTitle=""` in MainLayout (to avoid duplicate titles)
+- Consistent title "Mi Aprendizaje" with section-specific subtitle
+```typescript
+<ResponsiveFunctionalPageHeader
+  icon={<SomeIcon className="h-6 w-6" />}
+  title="Mi Aprendizaje"
+  subtitle="Section Name - Description"
+/>
+```
 
 ### Navigation Throttling
 Use the centralized navigation manager:

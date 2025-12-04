@@ -79,10 +79,16 @@ export function EvaluationCharts({ evaluation, rubricItems }: EvaluationChartsPr
     };
 
     evaluation.dimension_evaluations?.forEach((dimEval) => {
-      // The dimension field might be "Cobertura - Plan Personal de Crecimiento"
-      // or just "cobertura", so we extract the first word and lowercase it
+      // The dimension field format is "Action Name - DimensionType"
+      // e.g., "Plan Personal de Crecimiento - Cobertura"
+      // We need to extract the dimension type from the END
       const dimRaw = dimEval.dimension?.toLowerCase() || '';
-      const dimType = dimRaw.split(' ')[0].replace('-', '').trim();
+
+      // Try to extract dimension type from end of string (after the last " - ")
+      const parts = dimRaw.split(' - ');
+      const dimType = parts.length > 1
+        ? parts[parts.length - 1].trim()  // Last part after " - "
+        : dimRaw.split(' ')[0].trim();     // Fallback to first word
 
       if (grouped[dimType]) {
         grouped[dimType].push(dimEval.level);

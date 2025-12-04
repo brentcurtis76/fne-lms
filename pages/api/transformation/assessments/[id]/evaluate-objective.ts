@@ -89,12 +89,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Allow admins (global) OR users with an active role in this community
     console.log('🔐 Verifying user access to community...');
 
-    const userIsAdmin = isAdmin(session);
-    console.log('🔍 Is admin?', userIsAdmin);
+    // Check admin status from user_metadata first
+    let userIsAdmin = isAdmin(session);
+    console.log('🔍 Is admin (from metadata)?', userIsAdmin);
+
+    // If not admin from metadata, check user_roles table for admin role
+    if (!userIsAdmin) {
+      const { data: adminRoles } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('role_type', 'admin')
+        .eq('is_active', true)
+        .limit(1);
+
+      if (adminRoles && adminRoles.length > 0) {
+        userIsAdmin = true;
+        console.log('🔍 Is admin (from user_roles table)? true');
+      }
+    }
 
     if (userIsAdmin) {
       console.log('✅ User is admin - access granted to all communities');
     } else {
+      // Check if user has any active role in this specific community
       const { data: userRole, error: roleError } = await supabase
         .from('user_roles')
         .select('id')
@@ -105,6 +123,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (roleError || !userRole) {
         console.error('❌ User does not have access to this community');
+        console.error('   User ID:', session.user.id);
+        console.error('   Community ID:', assessment.growth_community_id);
         return res.status(403).json({ error: 'No tienes permiso para evaluar esta evaluación' });
       }
 

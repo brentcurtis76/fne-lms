@@ -74,7 +74,22 @@ export default async function handler(
 
     // Verify user has access to this community
     // Allow admins (global) OR users with an active role in this community
-    const userIsAdmin = isAdmin(session);
+    let userIsAdmin = isAdmin(session);
+
+    // If not admin from metadata, check user_roles table for admin role
+    if (!userIsAdmin) {
+      const { data: adminRoles } = await supabase
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('role_type', 'admin')
+        .eq('is_active', true)
+        .limit(1);
+
+      if (adminRoles && adminRoles.length > 0) {
+        userIsAdmin = true;
+      }
+    }
 
     if (!userIsAdmin) {
       // For non-admins, check if they have a role in this specific community

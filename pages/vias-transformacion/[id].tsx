@@ -448,10 +448,30 @@ export default function AssessmentDetailPage() {
   }, [assessment]);
 
   // Handle questions completion (called by SequentialQuestions)
-  const handleQuestionsComplete = useCallback(() => {
-    // Move to evaluation/results step
-    handleEvaluate();
-  }, [handleEvaluate]);
+  // This is called after finalize endpoint has already completed the assessment
+  // The progressive evaluation has already run, so we just need to reload and show results
+  const handleQuestionsComplete = useCallback(async () => {
+    // Reload the assessment to get the latest evaluation data
+    // The finalize endpoint already marked the assessment as completed
+    // and progressive evaluation has already populated evaluation data
+    try {
+      const response = await fetch(`/api/vias-transformacion/${assessment?.id}`);
+      const data = await response.json();
+
+      if (response.ok && data) {
+        setAssessment(data);
+        setCurrentStep('results');
+      } else {
+        // Fallback: still try to show results with existing data
+        console.warn('Failed to reload assessment, showing results with existing data');
+        setCurrentStep('results');
+      }
+    } catch (error) {
+      console.error('Error reloading assessment:', error);
+      // Fallback: still navigate to results
+      setCurrentStep('results');
+    }
+  }, [assessment?.id]);
 
   // Handle sequential questions save callback
   const handleSequentialSaved = useCallback((savedAt: Date) => {

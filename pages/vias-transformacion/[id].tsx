@@ -244,7 +244,7 @@ export default function AssessmentDetailPage() {
     }
   };
 
-  const loadRubricItems = async (area: string) => {
+  const loadRubricItems = useCallback(async (area: string) => {
     try {
       const { data, error } = await supabase
         .from('transformation_rubric')
@@ -257,7 +257,7 @@ export default function AssessmentDetailPage() {
     } catch (error) {
       console.error('[AssessmentDetail] Error loading rubric:', error);
     }
-  };
+  }, [supabase]);
 
   // Save pre-assessment answers
   const handlePreAssessmentChange = useCallback(
@@ -460,6 +460,10 @@ export default function AssessmentDetailPage() {
 
       if (response.ok && data) {
         setAssessment(data);
+        // Ensure rubric items are loaded for results display
+        if (data.area && rubricItems.length === 0) {
+          await loadRubricItems(data.area);
+        }
         setCurrentStep('results');
       } else {
         // Fallback: still try to show results with existing data
@@ -471,7 +475,7 @@ export default function AssessmentDetailPage() {
       // Fallback: still navigate to results
       setCurrentStep('results');
     }
-  }, [assessment?.id]);
+  }, [assessment?.id, rubricItems.length, loadRubricItems]);
 
   // Handle sequential questions save callback
   const handleSequentialSaved = useCallback((savedAt: Date) => {

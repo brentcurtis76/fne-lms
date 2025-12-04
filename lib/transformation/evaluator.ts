@@ -82,13 +82,38 @@ Esta vía se centra en:
 - "Equipos base": Grupos estables de estudiantes que colaboran durante el año
 - "Ambientes de aprendizaje": Espacios flexibles que fomentan colaboración y autonomía
 `,
+  evaluacion: `
+## ENFOQUE: EVALUACIÓN
+
+Esta vía se centra en:
+- **Evaluación formativa y formadora**: Estrategias continuas orientadas a acompañar el aprendizaje
+- **Retroalimentación constructiva**: Feedback específico, oportuno y que impulsa la mejora
+- **Autoevaluación y coevaluación**: Participación activa del estudiante en procesos evaluativos
+- **Instrumentos diversificados**: Rúbricas, portafolios, observaciones, informes descriptivos (no solo exámenes)
+- **Metacognición sistemática**: Reflexión sobre el propio proceso de aprendizaje
+
+**Terminología clave Evaluación:**
+- "Evaluación formativa": Evaluación continua que acompaña el proceso de aprendizaje, no solo certifica
+- "Retroalimentación": Feedback cualitativo específico dirigido a mejorar, no solo calificaciones
+- "Autoevaluación": El estudiante evalúa su propio proceso, desempeño y estrategias
+- "Coevaluación": Estudiantes evalúan el trabajo de sus compañeros
+- "Rúbrica": Instrumento que define criterios de desempeño en niveles claros
+- "Portafolio": Colección de evidencias del aprendizaje del estudiante a lo largo del tiempo
+- "Metacognición": Reflexión sobre cómo se aprende, qué estrategias funcionan y cuáles no
+- "Presentaciones de aprendizaje": Instancias donde estudiantes comparten evidencias ante familias
+`,
 };
 
 /**
  * Build area-specific evaluation prompt
  */
-function buildEvaluationPrompt(area: 'personalizacion' | 'aprendizaje'): string {
-  const areaLabel = area === 'personalizacion' ? 'Personalización' : 'Aprendizaje';
+function buildEvaluationPrompt(area: 'personalizacion' | 'aprendizaje' | 'evaluacion'): string {
+  const areaLabels: Record<string, string> = {
+    personalizacion: 'Personalización',
+    aprendizaje: 'Aprendizaje',
+    evaluacion: 'Evaluación',
+  };
+  const areaLabel = areaLabels[area] || area;
   const areaFocus = AREA_FOCUS[area];
 
   return `Eres un experto en evaluación educativa especializado en transformación escolar en Chile.
@@ -205,8 +230,13 @@ const EVALUATION_PROMPT = buildEvaluationPrompt('personalizacion');
 /**
  * Build area-specific objective evaluation prompt (simplified, no overall summary)
  */
-function buildObjectiveEvaluationPrompt(area: 'personalizacion' | 'aprendizaje'): string {
-  const areaLabel = area === 'personalizacion' ? 'Personalización' : 'Aprendizaje';
+function buildObjectiveEvaluationPrompt(area: 'personalizacion' | 'aprendizaje' | 'evaluacion'): string {
+  const areaLabels: Record<string, string> = {
+    personalizacion: 'Personalización',
+    aprendizaje: 'Aprendizaje',
+    evaluacion: 'Evaluación',
+  };
+  const areaLabel = areaLabels[area] || area;
   const areaFocus = AREA_FOCUS[area];
 
   return `Eres un experto en evaluación educativa especializado en transformación escolar en Chile.
@@ -308,8 +338,13 @@ const OBJECTIVE_EVALUATION_PROMPT = buildObjectiveEvaluationPrompt('personalizac
 /**
  * Build area-specific summary prompt for objective-by-objective evaluation
  */
-function buildSummaryPrompt(area: 'personalizacion' | 'aprendizaje', dimensionEvaluations: any[]): string {
-  const areaLabel = area === 'personalizacion' ? 'Personalización' : 'Aprendizaje';
+function buildSummaryPrompt(area: 'personalizacion' | 'aprendizaje' | 'evaluacion', dimensionEvaluations: any[]): string {
+  const areaLabels: Record<string, string> = {
+    personalizacion: 'Personalización',
+    aprendizaje: 'Aprendizaje',
+    evaluacion: 'Evaluación',
+  };
+  const areaLabel = areaLabels[area] || area;
 
   return `Eres un experto en evaluación educativa especializado en transformación escolar en Chile.
 
@@ -371,14 +406,22 @@ IMPORTANTE: Responde SOLO con el JSON, sin texto adicional antes o después.`;
 
 export class RubricEvaluator {
   private anthropic: Anthropic;
-  private area: 'personalizacion' | 'aprendizaje';
+  private area: 'personalizacion' | 'aprendizaje' | 'evaluacion';
+  private modelId: string;
 
-  constructor(apiKey: string, area: 'personalizacion' | 'aprendizaje' = 'personalizacion') {
+  constructor(
+    apiKey: string,
+    area: 'personalizacion' | 'aprendizaje' | 'evaluacion' = 'personalizacion',
+    modelId?: string
+  ) {
     console.log('🔧 RubricEvaluator constructor called');
     console.log('📊 API key length:', apiKey.length);
     console.log('🎯 Área:', area);
 
     this.area = area;
+    // Use provided modelId, or fall back to env var, or default to Sonnet 4
+    this.modelId = modelId || process.env.ANTHROPIC_MODEL_ID || 'claude-sonnet-4-20250514';
+    console.log('🤖 Model ID:', this.modelId);
 
     try {
       this.anthropic = new Anthropic({
@@ -697,15 +740,14 @@ export class RubricEvaluator {
 
     // Call Claude API
     console.log('✅ Calling Anthropic API...');
-    const MODEL = 'claude-sonnet-4-20250514';  // Upgraded from Haiku for better reasoning
-    console.log('📋 Using model:', MODEL);
+    console.log('📋 Using model:', this.modelId);
     console.log('📋 Max tokens: 16000');
     console.log('📋 Temperature: 0.3');
 
     let message;
     try {
       message = await this.anthropic.messages.create({
-        model: MODEL,
+        model: this.modelId,
         max_tokens: 16000, // Increased to handle full 33-dimension evaluation JSON
         temperature: 0.3, // Lower temperature for more consistent evaluations
         messages: [
@@ -885,15 +927,14 @@ export class RubricEvaluator {
 
     // Call Claude API
     console.log('✅ Calling Anthropic API for objective evaluation...');
-    const MODEL = 'claude-sonnet-4-20250514';
-    console.log('📋 Using model:', MODEL);
+    console.log('📋 Using model:', this.modelId);
     console.log('📋 Max tokens: 8000'); // Increased to handle detailed evidence_quote fields
     console.log('📋 Temperature: 0.3');
 
     let message;
     try {
       message = await this.anthropic.messages.create({
-        model: MODEL,
+        model: this.modelId,
         max_tokens: 8000, // Increased from 4000 to prevent truncation
         temperature: 0.3,
         messages: [
@@ -1030,15 +1071,14 @@ export class RubricEvaluator {
 
     // Call Claude API
     console.log('✅ Calling Anthropic API for overall summary...');
-    const MODEL = 'claude-sonnet-4-20250514';
-    console.log('📋 Using model:', MODEL);
+    console.log('📋 Using model:', this.modelId);
     console.log('📋 Max tokens: 2000');
     console.log('📋 Temperature: 0.3');
 
     let message;
     try {
       message = await this.anthropic.messages.create({
-        model: MODEL,
+        model: this.modelId,
         max_tokens: 2000,
         temperature: 0.3,
         messages: [

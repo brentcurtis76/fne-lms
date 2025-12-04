@@ -242,7 +242,7 @@ async function handlePost(
       return res.status(400).json({ error: 'schoolId es requerido' });
     }
 
-    const VALID_AREAS = ['personalizacion', 'aprendizaje'] as const;
+    const VALID_AREAS = ['personalizacion', 'aprendizaje', 'evaluacion'] as const;
     if (!area || !VALID_AREAS.includes(area)) {
       return res.status(400).json({
         error: 'Área inválida',

@@ -1,16 +1,18 @@
 /**
  * Dynamic API endpoint for área-specific transformation questions
- * Supports: personalizacion (44 sections), aprendizaje (68 sections)
+ * Supports: personalizacion (44 sections), aprendizaje (68 sections), evaluacion (36 sections)
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { parsePersonalizacionMD } from '@/utils/parsePersonalizacionQuestions';
 import { parseAprendizajeMD } from '@/utils/parseAprendizajeQuestions';
+import { parseEvaluacionMD } from '@/utils/parseEvaluacionQuestions';
 import { getFlattenedSections as getFlatPersonalizacion } from '@/utils/parsePersonalizacionQuestions';
 import { getFlattenedSections as getFlatAprendizaje } from '@/utils/parseAprendizajeQuestions';
-import { getPersonalizacionMarkdown, getAprendizajeMarkdown } from '@/lib/transformation/rubricData';
+import { getFlattenedSections as getFlatEvaluacion } from '@/utils/parseEvaluacionQuestions';
+import { getPersonalizacionMarkdown, getAprendizajeMarkdown, getEvaluacionMarkdown } from '@/lib/transformation/rubricData';
 
-const VALID_AREAS = ['personalizacion', 'aprendizaje'] as const;
+const VALID_AREAS = ['personalizacion', 'aprendizaje', 'evaluacion'] as const;
 type ValidArea = typeof VALID_AREAS[number];
 
 interface AreaConfig {
@@ -29,6 +31,11 @@ const AREA_CONFIGS: Record<ValidArea, AreaConfig> = {
     getContent: getAprendizajeMarkdown,
     parser: parseAprendizajeMD,
     flattener: getFlatAprendizaje,
+  },
+  evaluacion: {
+    getContent: getEvaluacionMarkdown,
+    parser: parseEvaluacionMD,
+    flattener: getFlatEvaluacion,
   },
 };
 

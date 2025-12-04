@@ -59,7 +59,7 @@ export type AreaAvailability = 'available' | 'coming_soon';
 export const AREA_STATUS: Record<TransformationArea, AreaAvailability> = {
   aprendizaje: 'available', // Disponible: parser + markdown implementados
   personalizacion: 'available', // Disponible: rúbricas en DB + parser
-  evaluacion: 'coming_soon',
+  evaluacion: 'available', // Disponible: parser + markdown implementados
   proposito: 'coming_soon',
   familias: 'coming_soon',
   trabajo_docente: 'coming_soon',

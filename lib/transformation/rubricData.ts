@@ -9,10 +9,11 @@ import path from 'path';
 // Cache the markdown content at build time
 let personalizacionContent: string | null = null;
 let aprendizajeContent: string | null = null;
+let evaluacionContent: string | null = null;
 
 export function getPersonalizacionMarkdown(): string {
   if (personalizacionContent === null) {
-    const filePath = path.join(process.cwd(), 'PERSONALIZACION.md');
+    const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-PERSONALIZACION.md');
     personalizacionContent = fs.readFileSync(filePath, 'utf-8');
   }
   return personalizacionContent;
@@ -20,8 +21,16 @@ export function getPersonalizacionMarkdown(): string {
 
 export function getAprendizajeMarkdown(): string {
   if (aprendizajeContent === null) {
-    const filePath = path.join(process.cwd(), 'PROGRESION-APRENDIZAJE.md');
+    const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-APRENDIZAJE.md');
     aprendizajeContent = fs.readFileSync(filePath, 'utf-8');
   }
   return aprendizajeContent;
+}
+
+export function getEvaluacionMarkdown(): string {
+  if (evaluacionContent === null) {
+    const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-EVALUACION.md');
+    evaluacionContent = fs.readFileSync(filePath, 'utf-8');
+  }
+  return evaluacionContent;
 }

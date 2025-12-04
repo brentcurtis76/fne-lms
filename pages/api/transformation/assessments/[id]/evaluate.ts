@@ -5,19 +5,19 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
- * Get Anthropic API key with fallback to .env.local file
+ * Get environment variable with fallback to .env.local file
  * This handles the case where an empty shell environment variable
  * overrides the .env.local value (common with Claude Code sessions)
  */
-function getAnthropicApiKey(): string | null {
+function getEnvVar(varName: string): string | null {
   // First try process.env (works when env var is properly set)
-  const envKey = process.env.ANTHROPIC_API_KEY;
-  if (envKey && envKey.trim().length > 0) {
-    return envKey;
+  const envValue = process.env[varName];
+  if (envValue && envValue.trim().length > 0) {
+    return envValue;
   }
 
   // Fallback: Read directly from .env.local file
-  // This handles the case where shell has empty ANTHROPIC_API_KEY=
+  // This handles the case where shell has empty VAR=
   try {
     const envLocalPath = path.join(process.cwd(), '.env.local');
     if (fs.existsSync(envLocalPath)) {
@@ -30,7 +30,8 @@ function getAnthropicApiKey(): string | null {
         if (!trimmedLine || trimmedLine.startsWith('#')) continue;
 
         // Parse KEY=VALUE format
-        const match = trimmedLine.match(/^ANTHROPIC_API_KEY=(.+)$/);
+        const regex = new RegExp(`^${varName}=(.+)$`);
+        const match = trimmedLine.match(regex);
         if (match) {
           const value = match[1].trim();
           // Remove quotes if present
@@ -43,10 +44,24 @@ function getAnthropicApiKey(): string | null {
       }
     }
   } catch (err) {
-    console.error('Error reading .env.local for ANTHROPIC_API_KEY fallback:', err);
+    console.error(`Error reading .env.local for ${varName} fallback:`, err);
   }
 
   return null;
+}
+
+/**
+ * Get Anthropic API key with fallback to .env.local file
+ */
+function getAnthropicApiKey(): string | null {
+  return getEnvVar('ANTHROPIC_API_KEY');
+}
+
+/**
+ * Get Anthropic Model ID with fallback to .env.local file
+ */
+function getAnthropicModelId(): string {
+  return getEnvVar('ANTHROPIC_MODEL_ID') || 'claude-sonnet-4-20250514';
 }
 
 export const config = {
@@ -218,11 +233,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('✅ API key configured:', apiKey.substring(0, 15) + '...');
 
-    // 5. Create evaluator and run evaluation (pass assessment's área)
+    // Get model ID from env (with fallback to .env.local)
+    const modelId = getAnthropicModelId();
+    console.log('✅ Model ID configured:', modelId);
+
+    // 5. Create evaluator and run evaluation (pass assessment's área and model ID)
     console.log('✅ Initializing RubricEvaluator with área:', assessment.area);
     let evaluator;
     try {
-      evaluator = new RubricEvaluator(apiKey, assessment.area as 'personalizacion' | 'aprendizaje');
+      evaluator = new RubricEvaluator(apiKey, assessment.area as 'personalizacion' | 'aprendizaje' | 'evaluacion', modelId);
       console.log('✅ RubricEvaluator initialized successfully');
     } catch (evalError: any) {
       console.error('❌ Error initializing evaluator:', evalError);

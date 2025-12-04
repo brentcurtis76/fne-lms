@@ -1,6 +1,6 @@
 /**
  * Shared markdown parser for Transformation assessment areas
- * Handles both PERSONALIZACION.md and PROGRESION-APRENDIZAJE.md
+ * Handles PERSONALIZACION.md, PROGRESION-APRENDIZAJE.md, and PROGRESION-EVALUACION.md
  */
 
 // Type definitions
@@ -56,6 +56,13 @@ const EXPECTED_STRUCTURES: Record<string, ExpectedStructure> = {
       4: 2,
       5: 2,
       6: 2,
+    },
+  },
+  evaluacion: {
+    totalAcciones: 9,
+    distribution: {
+      1: 4,
+      2: 5,
     },
   },
 };

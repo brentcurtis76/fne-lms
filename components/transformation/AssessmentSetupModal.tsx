@@ -6,7 +6,7 @@ import GradeSelector from './GradeSelector';
 import { AREA_LABELS, AREA_ICONS, AREA_DESCRIPTIONS } from '@/types/transformation';
 import type { ChileanGrade } from '@/types/grades';
 
-type TransformationArea = 'personalizacion' | 'aprendizaje';
+type TransformationArea = 'personalizacion' | 'aprendizaje' | 'evaluacion';
 
 interface AssessmentSetupModalProps {
   schoolId: number;
@@ -27,8 +27,8 @@ export default function AssessmentSetupModal({
   const [selectedCollaborators, setSelectedCollaborators] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get available areas (only personalizacion and aprendizaje are available)
-  const availableAreas: TransformationArea[] = ['personalizacion', 'aprendizaje'];
+  // Get available areas (personalizacion, aprendizaje, and evaluacion are available)
+  const availableAreas: TransformationArea[] = ['personalizacion', 'aprendizaje', 'evaluacion'];
 
   const getAreaInfo = (area: TransformationArea) => {
     return {

@@ -36,7 +36,7 @@ export type ObjectiveResponse = SectionResponse;
 
 interface SequentialQuestionsProps {
   assessmentId: string;
-  area: 'personalizacion' | 'aprendizaje';
+  area: 'personalizacion' | 'aprendizaje' | 'evaluacion';
   onComplete: () => void;
   initialResponses?: Record<string, SectionResponse>;
   onSavingStateChange?: (isSaving: boolean) => void;
@@ -67,6 +67,7 @@ export function SequentialQuestions({
   const [isEditingAnswer, setIsEditingAnswer] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isFinalizationComplete, setIsFinalizationComplete] = useState(false);
   const [evaluationError, setEvaluationError] = useState<string | null>(null);
 
   // Refs for auto-save debouncing
@@ -488,9 +489,14 @@ export function SequentialQuestions({
       // Save responses
       await saveToDatabase(responses);
 
-      // Evaluate Objective 6 (if not already evaluated)
-      console.log('📊 Evaluating final Objective 6...');
-      await evaluateObjective(6);
+      // Calculate the last objective number from sections data
+      const lastObjectiveNumber = sections.length > 0
+        ? Math.max(...sections.map(s => s.objetivoNumber))
+        : 1;
+
+      // Evaluate the final objective (if not already evaluated)
+      console.log(`📊 Evaluating final Objective ${lastObjectiveNumber}...`);
+      await evaluateObjective(lastObjectiveNumber);
 
       // Generate overall summary via finalize endpoint
       console.log('🎯 Generating overall evaluation summary...');
@@ -508,6 +514,12 @@ export function SequentialQuestions({
 
       const finalizeResult = await finalizeResponse.json();
       console.log('✅ Evaluation finalized successfully');
+
+      // Show success state before redirecting
+      setIsFinalizationComplete(true);
+
+      // Brief delay to show success message, then redirect
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       // Complete the assessment
       onComplete();
@@ -566,17 +578,37 @@ export function SequentialQuestions({
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
           <div className="bg-white rounded-lg p-8 max-w-md mx-4">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
-                {currentSectionIndex === totalSections - 1
-                  ? 'Generando Reporte Final'
-                  : 'Procesando Respuestas'}
-              </h3>
-              <p className="text-gray-600">
-                {currentSectionIndex === totalSections - 1
-                  ? 'Estamos generando el reporte completo de esta vía de transformación. Esto puede tomar unos momentos...'
-                  : 'Espera unos momentos, estamos procesando tus respuestas antes de seguir con el siguiente objetivo...'}
-              </p>
+              {isFinalizationComplete ? (
+                <>
+                  {/* Success State */}
+                  <div className="h-12 w-12 rounded-full bg-green-100 mx-auto mb-4 flex items-center justify-center">
+                    <svg className="h-8 w-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    ¡Evaluación Completada!
+                  </h3>
+                  <p className="text-gray-600">
+                    Redirigiendo al reporte de resultados...
+                  </p>
+                </>
+              ) : (
+                <>
+                  {/* Loading State */}
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
+                    {currentSectionIndex === totalSections - 1
+                      ? 'Generando Reporte Final'
+                      : 'Procesando Respuestas'}
+                  </h3>
+                  <p className="text-gray-600">
+                    {currentSectionIndex === totalSections - 1
+                      ? 'Estamos generando el reporte completo de esta vía de transformación. Esto puede tomar unos momentos...'
+                      : 'Espera unos momentos, estamos procesando tus respuestas antes de seguir con el siguiente objetivo...'}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         </div>

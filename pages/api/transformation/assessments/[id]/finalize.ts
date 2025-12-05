@@ -5,7 +5,7 @@ import { isAdmin } from '@/utils/getUserRoles';
 
 export const config = {
   api: {
-    responseTimeout: 120000, // 2 minutes (sufficient for summary generation)
+    responseTimeout: 120000, // 2 minutes - dynamically loads objectives from rubric
     bodyParser: {
       sizeLimit: '10mb',
     },
@@ -56,10 +56,10 @@ export default async function handler(
   }
 
   try {
-    // First, verify the assessment exists and belongs to user's community
+    // First, verify the assessment exists and belongs to user's community/school
     const { data: assessmentCheck, error: fetchError } = await supabase
       .from('transformation_assessments')
-      .select('id, growth_community_id, status')
+      .select('id, growth_community_id, school_id, status')
       .eq('id', id)
       .single();
 
@@ -92,16 +92,42 @@ export default async function handler(
     }
 
     if (!userIsAdmin) {
-      // For non-admins, check if they have a role in this specific community
-      const { data: userRole, error: roleError } = await supabase
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .eq('community_id', assessmentCheck.growth_community_id)
-        .eq('is_active', true)
-        .maybeSingle();
+      // For non-admins, check if they have a role matching either:
+      // 1. The assessment's growth_community_id (legacy community-based assessments)
+      // 2. The assessment's school_id (new school-based assessments)
+      let hasAccess = false;
 
-      if (roleError || !userRole) {
+      // First try community_id match (if assessment has growth_community_id)
+      if (assessmentCheck.growth_community_id) {
+        const { data: communityRole } = await supabase
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('community_id', assessmentCheck.growth_community_id)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (communityRole) {
+          hasAccess = true;
+        }
+      }
+
+      // Then try school_id match (if assessment has school_id)
+      if (!hasAccess && assessmentCheck.school_id) {
+        const { data: schoolRole } = await supabase
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('school_id', assessmentCheck.school_id)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (schoolRole) {
+          hasAccess = true;
+        }
+      }
+
+      if (!hasAccess) {
         return res.status(403).json({ error: 'No tienes permiso para finalizar esta evaluación' });
       }
     }
@@ -132,24 +158,8 @@ export default async function handler(
       });
     }
 
-    // Verify all 6 objectives have been evaluated
-    const expectedObjectives = [1, 2, 3, 4, 5, 6];
-    const missingObjectives = expectedObjectives.filter(
-      objNum => !objectiveEvaluations[objNum]
-    );
-
-    if (missingObjectives.length > 0) {
-      console.error('[finalize] Missing objective evaluations:', missingObjectives);
-      return res.status(400).json({
-        error: `Faltan evaluaciones para los objetivos: ${missingObjectives.join(', ')}`,
-        missingObjectives,
-      });
-    }
-
-    console.log('[finalize] All 6 objectives have been evaluated');
-
-    // Load rubric items to get the actual expected dimension counts per objective
-    console.log('[finalize] Loading rubric to validate dimension counts...');
+    // Load rubric items to determine expected objectives and dimension counts
+    console.log('[finalize] Loading rubric to determine expected objectives...');
     const { data: rubricItems, error: rubricError } = await supabase
       .from('transformation_rubric')
       .select('objective_number, action_number, dimension')
@@ -170,7 +180,28 @@ export default async function handler(
       expectedDimensionsPerObjective[item.objective_number]++;
     });
 
+    // Dynamically get expected objectives from rubric (not hardcoded!)
+    const expectedObjectives = Object.keys(expectedDimensionsPerObjective)
+      .map(Number)
+      .sort((a, b) => a - b);
+
+    console.log('[finalize] Expected objectives for area', assessment.area + ':', expectedObjectives);
     console.log('[finalize] Expected dimensions per objective:', expectedDimensionsPerObjective);
+
+    // Verify all objectives have been evaluated
+    const missingObjectives = expectedObjectives.filter(
+      objNum => !objectiveEvaluations[objNum]
+    );
+
+    if (missingObjectives.length > 0) {
+      console.error('[finalize] Missing objective evaluations:', missingObjectives);
+      return res.status(400).json({
+        error: `Faltan evaluaciones para los objetivos: ${missingObjectives.join(', ')}`,
+        missingObjectives,
+      });
+    }
+
+    console.log(`[finalize] All ${expectedObjectives.length} objectives have been evaluated`);
 
     // CRITICAL: Validate each objective has the correct number of dimensions
     const incompleteObjectives: Array<{ objNum: number; actual: number; expected: number }> = [];
@@ -208,7 +239,7 @@ export default async function handler(
       return res.status(500).json({ error: 'API key no configurada' });
     }
 
-    const evaluator = new RubricEvaluator(apiKey, assessment.area as 'personalizacion' | 'aprendizaje');
+    const evaluator = new RubricEvaluator(apiKey, assessment.area as 'personalizacion' | 'aprendizaje' | 'evaluacion');
 
     // Generate overall summary
     console.log('[finalize] Generating overall summary...');

@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { RubricEvaluator } from '@/lib/transformation/evaluator';
 import { isAdmin } from '@/utils/getUserRoles';
 
@@ -53,8 +54,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   console.log('📊 Evaluating Objective:', objectiveNumber);
 
   try {
-    // Initialize Supabase client
+    // Initialize Supabase client (respects RLS)
     const supabase = createPagesServerClient({ req, res });
+
+    // Initialize service role client for permission checks (bypasses RLS)
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     // Check authentication
     const {
@@ -94,8 +101,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('🔍 Is admin (from metadata)?', userIsAdmin);
 
     // If not admin from metadata, check user_roles table for admin role
+    // Use service role client to bypass RLS restrictions on user_roles
     if (!userIsAdmin) {
-      const { data: adminRoles } = await supabase
+      const { data: adminRoles } = await supabaseAdmin
         .from('user_roles')
         .select('id')
         .eq('user_id', session.user.id)
@@ -112,23 +120,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (userIsAdmin) {
       console.log('✅ User is admin - access granted to all communities');
     } else {
-      // Check if user has any active role in this specific community
-      const { data: userRole, error: roleError } = await supabase
-        .from('user_roles')
-        .select('id')
-        .eq('user_id', session.user.id)
-        .eq('community_id', assessment.growth_community_id)
-        .eq('is_active', true)
-        .maybeSingle();
+      // Check if user has any active role matching either:
+      // 1. The assessment's growth_community_id (legacy community-based assessments)
+      // 2. The assessment's school_id (new school-based assessments)
+      let hasAccess = false;
 
-      if (roleError || !userRole) {
-        console.error('❌ User does not have access to this community');
-        console.error('   User ID:', session.user.id);
-        console.error('   Community ID:', assessment.growth_community_id);
-        return res.status(403).json({ error: 'No tienes permiso para evaluar esta evaluación' });
+      // First try community_id match (if assessment has growth_community_id)
+      // Use service role client to bypass RLS restrictions on user_roles
+      if (assessment.growth_community_id) {
+        const { data: communityRole } = await supabaseAdmin
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('community_id', assessment.growth_community_id)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (communityRole) {
+          hasAccess = true;
+          console.log('✅ User has role in this community (community_id match)');
+        }
       }
 
-      console.log('✅ User has role in this community');
+      // Then try school_id match (if assessment has school_id)
+      // Use service role client to bypass RLS restrictions on user_roles
+      if (!hasAccess && assessment.school_id) {
+        const { data: schoolRole } = await supabaseAdmin
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', session.user.id)
+          .eq('school_id', assessment.school_id)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (schoolRole) {
+          hasAccess = true;
+          console.log('✅ User has role in this school (school_id match)');
+        }
+      }
+
+      if (!hasAccess) {
+        console.error('❌ User does not have access to this assessment');
+        console.error('   User ID:', session.user.id);
+        console.error('   Community ID:', assessment.growth_community_id);
+        console.error('   School ID:', assessment.school_id);
+        return res.status(403).json({ error: 'No tienes permiso para evaluar esta evaluación' });
+      }
     }
 
     // GUARD: Prevent evaluation of already-completed assessments

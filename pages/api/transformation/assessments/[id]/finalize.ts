@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 import { RubricEvaluator } from '@/lib/transformation/evaluator';
 import { isAdmin } from '@/utils/getUserRoles';
 
@@ -37,6 +38,12 @@ export default async function handler(
   }
 
   const supabase = createPagesServerClient({ req, res });
+
+  // Initialize service role client for permission checks (bypasses RLS)
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   // Check authentication
   const {
@@ -77,8 +84,9 @@ export default async function handler(
     let userIsAdmin = isAdmin(session);
 
     // If not admin from metadata, check user_roles table for admin role
+    // Use service role client to bypass RLS restrictions on user_roles
     if (!userIsAdmin) {
-      const { data: adminRoles } = await supabase
+      const { data: adminRoles } = await supabaseAdmin
         .from('user_roles')
         .select('id')
         .eq('user_id', session.user.id)
@@ -98,8 +106,9 @@ export default async function handler(
       let hasAccess = false;
 
       // First try community_id match (if assessment has growth_community_id)
+      // Use service role client to bypass RLS restrictions on user_roles
       if (assessmentCheck.growth_community_id) {
-        const { data: communityRole } = await supabase
+        const { data: communityRole } = await supabaseAdmin
           .from('user_roles')
           .select('id')
           .eq('user_id', session.user.id)
@@ -113,8 +122,9 @@ export default async function handler(
       }
 
       // Then try school_id match (if assessment has school_id)
+      // Use service role client to bypass RLS restrictions on user_roles
       if (!hasAccess && assessmentCheck.school_id) {
-        const { data: schoolRole } = await supabase
+        const { data: schoolRole } = await supabaseAdmin
           .from('user_roles')
           .select('id')
           .eq('user_id', session.user.id)

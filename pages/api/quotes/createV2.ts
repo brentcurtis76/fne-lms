@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
+import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -11,18 +12,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     // Check authentication
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     if (!session) {
       return res.status(401).json({ error: 'No autorizado' });
     }
 
-    // Check if user is admin, consultor, or community_manager
-    const { data: userRoles } = await supabase
+    // Create service role client to bypass RLS for database operations
+    const serviceSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Check if user is admin, consultor, or community_manager using service role
+    const { data: userRoles, error: rolesError } = await serviceSupabase
       .from('user_roles')
       .select('role_type')
       .eq('user_id', session.user.id)
       .eq('is_active', true)
       .in('role_type', ['admin', 'consultor', 'community_manager']);
+
+    if (rolesError) {
+      console.error('Error checking user roles:', rolesError);
+      return res.status(500).json({ error: 'Error al verificar permisos' });
+    }
 
     if (!userRoles || userRoles.length === 0) {
       return res.status(403).json({ error: 'No tienes permisos para crear cotizaciones' });
@@ -104,12 +122,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       quoteData.double_room_price = double_room_price || 0;
       quoteData.num_pasantes = num_pasantes;
     } else {
+      // For group mode, set placeholder values to satisfy database constraints
+      // The 'nights' column is a GENERATED column that requires non-null dates
+      // These values are not used when use_groups=true, but prevent database errors
+      const today = new Date().toISOString().split('T')[0];
+      quoteData.arrival_date = today;
+      quoteData.departure_date = today;
+      quoteData.room_type = 'double'; // Placeholder, actual room types are per-group
+      quoteData.num_pasantes = 1; // Will be recalculated from groups
       // Set room prices for reference
       quoteData.single_room_price = single_room_price || 150000;
       quoteData.double_room_price = double_room_price || 100000;
     }
 
-    const { data: quote, error } = await supabase
+    // Use service role client for all database operations to bypass RLS
+    const { data: quote, error } = await serviceSupabase
       .from('pasantias_quotes')
       .insert(quoteData)
       .select()
@@ -117,9 +144,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) {
       console.error('Error creating quote:', error);
-      return res.status(500).json({ 
+      console.error('Quote data:', quoteData);
+      return res.status(500).json({
         error: 'Error al crear la cotización',
-        details: error.message 
+        details: error.message
       });
     }
 
@@ -138,40 +166,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         room_price_per_night: group.room_price_per_night
       }));
 
-      const { error: groupsError } = await supabase
+      const { error: groupsError } = await serviceSupabase
         .from('pasantias_quote_groups')
         .insert(groupsToInsert);
 
       if (groupsError) {
         console.error('Error creating groups:', groupsError);
         // If groups fail, delete the quote to maintain consistency
-        await supabase
+        await serviceSupabase
           .from('pasantias_quotes')
           .delete()
           .eq('id', quoteId);
-          
-        return res.status(500).json({ 
+
+        return res.status(500).json({
           error: 'Error al crear los grupos de viaje',
-          details: groupsError.message 
+          details: groupsError.message
         });
       }
 
       // Force recalculation of totals
-      await supabase
+      await serviceSupabase
         .from('pasantias_quotes')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', quoteId);
     }
 
     // Get the updated quote with calculated totals
-    const { data: finalQuote } = await supabase
+    const { data: finalQuote } = await serviceSupabase
       .from('pasantias_quotes')
       .select('*')
       .eq('id', quoteId)
       .single();
 
     // Log activity
-    await supabase
+    await serviceSupabase
       .from('activity_logs')
       .insert({
         user_id: session.user.id,

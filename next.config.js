@@ -34,7 +34,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  
+
   // Image optimization configuration
   images: {
     remotePatterns: [
@@ -48,22 +48,22 @@ const nextConfig = {
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 60,
   },
-  
+
   // Optimize for development stability
   experimental: {
     // Reduce memory usage
-    workerThreads: false,
     esmExternals: true,
     // Improve hot reload stability
     optimizePackageImports: ['@heroicons/react', 'lucide-react'],
   },
-  
+
+
   // Performance optimizations
   compress: true,
   poweredByHeader: false,
   generateEtags: true,
   optimizeFonts: false,
-  
+
   // Better error handling
   onDemandEntries: {
     // Period (in ms) where the server will keep pages in the buffer
@@ -71,17 +71,13 @@ const nextConfig = {
     // Number of pages that should be kept simultaneously without being disposed
     pagesBufferLength: 5,
   },
-  
+
   // Webpack optimizations for stability
   webpack: (config, { dev, isServer }) => {
     if (dev) {
       // Reduce memory usage in development
-      config.watchOptions = {
-        poll: 1000,
-        aggregateTimeout: 300,
-        ignored: ['**/node_modules/**', '**/.git/**', '**/.next/**'],
-      }
-      
+      // config.watchOptions removed to use defaults
+
       // Prevent memory leaks
       config.optimization.removeAvailableModules = false
       config.optimization.removeEmptyChunks = false
@@ -135,10 +131,11 @@ const nextConfig = {
         maxInitialRequests: 25,
       }
     }
-    
+
     return config
   },
-  
+
+
   // Environment variables
   env: {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -168,4 +165,5 @@ const sentryWebpackPluginOptions = {
 };
 
 // Wrap Next.js config with Sentry
-module.exports = hasSentryAuth ? withSentryConfig(nextConfig, sentryWebpackPluginOptions) : nextConfig;
+// module.exports = hasSentryAuth ? withSentryConfig(nextConfig, sentryWebpackPluginOptions) : nextConfig;
+module.exports = nextConfig;

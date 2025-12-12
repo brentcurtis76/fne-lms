@@ -88,30 +88,16 @@ export default function UserProfileView() {
         return;
       }
 
-      // Get school name from user_roles (authoritative source) instead of profiles.school
+      // Get school name from API (uses service role to bypass RLS on user_roles)
       let schoolName = null;
       try {
-        const { data: userRolesData } = await supabase
-          .from('user_roles')
-          .select('school_id')
-          .eq('user_id', targetUserId)
-          .eq('is_active', true)
-          .not('school_id', 'is', null)
-          .limit(1);
-
-        if (userRolesData && userRolesData.length > 0 && userRolesData[0].school_id) {
-          const { data: schoolData } = await supabase
-            .from('schools')
-            .select('name')
-            .eq('id', userRolesData[0].school_id)
-            .single();
-
-          if (schoolData) {
-            schoolName = schoolData.name;
-          }
+        const schoolResponse = await fetch(`/api/users/${targetUserId}/school`);
+        if (schoolResponse.ok) {
+          const schoolData = await schoolResponse.json();
+          schoolName = schoolData.school_name;
         }
       } catch (schoolError) {
-        console.error('Error fetching school from user_roles:', schoolError);
+        console.error('Error fetching school from API:', schoolError);
       }
 
       // Override profiles.school with the authoritative school name from user_roles

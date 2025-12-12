@@ -1,6 +1,7 @@
 /**
  * Unit tests for área-specific markdown parser
- * Tests both PERSONALIZACION.md (44 sections) and PROGRESION-APRENDIZAJE.md (68 sections)
+ * Tests both PROGRESION-PERSONALIZACION.md (44 sections) and PROGRESION-APRENDIZAJE.md (68 sections)
+ * Files located in Progresión/ folder
  */
 
 import { describe, it, expect } from 'vitest';
@@ -9,9 +10,9 @@ import path from 'path';
 import { parseAreaMarkdown, getFlattenedSections } from '@/utils/parseAreaQuestions';
 
 describe('parseAreaMarkdown', () => {
-  describe('PERSONALIZACION.md parsing', () => {
+  describe('PROGRESION-PERSONALIZACION.md parsing', () => {
     it('should parse Personalización markdown and return 44 sections', () => {
-      const filePath = path.join(process.cwd(), 'PERSONALIZACION.md');
+      const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-PERSONALIZACION.md');
       const content = fs.readFileSync(filePath, 'utf-8');
 
       const result = parseAreaMarkdown(content, 'personalizacion');
@@ -22,7 +23,7 @@ describe('parseAreaMarkdown', () => {
     });
 
     it('should have correct distribution of acciones by objetivo', () => {
-      const filePath = path.join(process.cwd(), 'PERSONALIZACION.md');
+      const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-PERSONALIZACION.md');
       const content = fs.readFileSync(filePath, 'utf-8');
 
       const result = parseAreaMarkdown(content, 'personalizacion');
@@ -43,7 +44,7 @@ describe('parseAreaMarkdown', () => {
     });
 
     it('should have exactly 4 sections per acción', () => {
-      const filePath = path.join(process.cwd(), 'PERSONALIZACION.md');
+      const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-PERSONALIZACION.md');
       const content = fs.readFileSync(filePath, 'utf-8');
 
       const result = parseAreaMarkdown(content, 'personalizacion');
@@ -63,7 +64,7 @@ describe('parseAreaMarkdown', () => {
 
   describe('PROGRESION-APRENDIZAJE.md parsing', () => {
     it('should parse Aprendizaje markdown and return 68 sections', () => {
-      const filePath = path.join(process.cwd(), 'PROGRESION-APRENDIZAJE.md');
+      const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-APRENDIZAJE.md');
       const content = fs.readFileSync(filePath, 'utf-8');
 
       const result = parseAreaMarkdown(content, 'aprendizaje');
@@ -74,7 +75,7 @@ describe('parseAreaMarkdown', () => {
     });
 
     it('should have correct distribution of acciones by objetivo', () => {
-      const filePath = path.join(process.cwd(), 'PROGRESION-APRENDIZAJE.md');
+      const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-APRENDIZAJE.md');
       const content = fs.readFileSync(filePath, 'utf-8');
 
       const result = parseAreaMarkdown(content, 'aprendizaje');
@@ -95,7 +96,7 @@ describe('parseAreaMarkdown', () => {
     });
 
     it('should have exactly 4 sections per acción', () => {
-      const filePath = path.join(process.cwd(), 'PROGRESION-APRENDIZAJE.md');
+      const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-APRENDIZAJE.md');
       const content = fs.readFileSync(filePath, 'utf-8');
 
       const result = parseAreaMarkdown(content, 'aprendizaje');
@@ -113,7 +114,7 @@ describe('parseAreaMarkdown', () => {
     });
 
     it('should handle tab indentation in level descriptors', () => {
-      const filePath = path.join(process.cwd(), 'PROGRESION-APRENDIZAJE.md');
+      const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-APRENDIZAJE.md');
       const content = fs.readFileSync(filePath, 'utf-8');
 
       // Should not throw even with tab-indented content
@@ -134,7 +135,7 @@ describe('parseAreaMarkdown', () => {
 
   describe('Section structure validation', () => {
     it('should have questions array for all sections', () => {
-      const filePath = path.join(process.cwd(), 'PERSONALIZACION.md');
+      const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-PERSONALIZACION.md');
       const content = fs.readFileSync(filePath, 'utf-8');
 
       const result = parseAreaMarkdown(content, 'personalizacion');
@@ -148,7 +149,7 @@ describe('parseAreaMarkdown', () => {
     });
 
     it('should have level options for dimension sections (not accion)', () => {
-      const filePath = path.join(process.cwd(), 'PERSONALIZACION.md');
+      const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-PERSONALIZACION.md');
       const content = fs.readFileSync(filePath, 'utf-8');
 
       const result = parseAreaMarkdown(content, 'personalizacion');
@@ -179,7 +180,7 @@ describe('parseAreaMarkdown', () => {
     });
 
     it('should generate valid section IDs', () => {
-      const filePath = path.join(process.cwd(), 'PERSONALIZACION.md');
+      const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-PERSONALIZACION.md');
       const content = fs.readFileSync(filePath, 'utf-8');
 
       const result = parseAreaMarkdown(content, 'personalizacion');
@@ -202,7 +203,7 @@ describe('parseAreaMarkdown', () => {
 
   describe('getFlattenedSections', () => {
     it('should flatten Personalización sections correctly', () => {
-      const filePath = path.join(process.cwd(), 'PERSONALIZACION.md');
+      const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-PERSONALIZACION.md');
       const content = fs.readFileSync(filePath, 'utf-8');
 
       const parsed = parseAreaMarkdown(content, 'personalizacion');
@@ -227,7 +228,7 @@ describe('parseAreaMarkdown', () => {
     });
 
     it('should flatten Aprendizaje sections correctly', () => {
-      const filePath = path.join(process.cwd(), 'PROGRESION-APRENDIZAJE.md');
+      const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-APRENDIZAJE.md');
       const content = fs.readFileSync(filePath, 'utf-8');
 
       const parsed = parseAreaMarkdown(content, 'aprendizaje');

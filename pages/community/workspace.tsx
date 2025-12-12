@@ -38,8 +38,6 @@ import { ConfirmModal } from '../../components/common/ConfirmModal';
 import WorkspaceSettingsModal from '../../components/community/WorkspaceSettingsModal';
 import FeedContainer from '../../components/feed/FeedContainer';
 import WorkspaceTabNavigation from '../../components/workspace/WorkspaceTabNavigation';
-import { AreaSelectionModal } from '../../components/transformation/AreaSelectionModal';
-import { getAvailableAreas, getAreaMetadata, TransformationArea } from '../../types/transformation';
 import { useAuth } from '../../hooks/useAuth';
 import { communityWorkspaceService } from '../../lib/services/communityWorkspace';
 import { 
@@ -125,13 +123,12 @@ import {
   SwitchVerticalIcon,
   MenuIcon,
   ClipboardCheckIcon,
-  UserGroupIcon,
-  LightningBoltIcon
+  UserGroupIcon
 } from '@heroicons/react/outline';
 import { X, Users, CheckCircle, Settings } from 'lucide-react';
 import { navigationManager } from '../../utils/navigationManager';
 
-type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging' | 'transformation';
+type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging';
 
 // Sidebar state management
 interface SidebarState {
@@ -155,30 +152,6 @@ const CommunityWorkspacePage: React.FC = () => {
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Transformation state
-  const [transformationAssessments, setTransformationAssessments] = useState<Array<{
-    id: string;
-    area: string;
-    status: 'in_progress' | 'completed' | 'archived';
-    started_at?: string | null;
-    updated_at?: string | null;
-    created_by?: string | null;
-    creator_name?: string | null;
-  }>>([]);
-  const [transformationLoading, setTransformationLoading] = useState(false);
-  const [hasTransformationAccess, setHasTransformationAccess] = useState(false);
-  const [showAreaSelectionModal, setShowAreaSelectionModal] = useState(false);
-  const [preferredArea, setPreferredArea] = useState<'personalizacion' | 'aprendizaje' | null>(null);
-
-  const availableTransformationAreas = getAvailableAreas().filter(
-    (area): area is 'personalizacion' | 'aprendizaje' =>
-      area === 'personalizacion' || area === 'aprendizaje'
-  );
-
-  const missingTransformationAreas = availableTransformationAreas.filter(
-    (area) => !transformationAssessments.some((assessment) => assessment.area === area)
-  );
 
   // Load community members when workspace changes
   useEffect(() => {
@@ -332,92 +305,6 @@ const CommunityWorkspacePage: React.FC = () => {
     }
   }, [selectedCommunityId, workspaceAccess]);
 
-  // Check transformation access and load assessments
-  useEffect(() => {
-    const communityId = currentWorkspace?.community_id;
-    if (!communityId) {
-      setTransformationAssessments([]);
-      setHasTransformationAccess(false);
-      return;
-    }
-
-    const fetchAssessments = async () => {
-      setTransformationLoading(true);
-
-      // Check if community has transformation access
-      const { data: accessData, error: accessError } = await supabase
-        .from('growth_community_transformation_access')
-        .select('is_active')
-        .eq('growth_community_id', communityId)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (accessError) {
-        console.error('Error checking transformation access:', accessError);
-        setHasTransformationAccess(false);
-      } else {
-        setHasTransformationAccess(!!accessData);
-      }
-
-      // Only fetch assessments if has access
-      if (accessData) {
-        const { data, error } = await supabase
-          .from('transformation_assessments')
-          .select(`
-            id,
-            area,
-            status,
-            started_at,
-            updated_at,
-            created_by
-          `)
-          .eq('growth_community_id', communityId)
-          .order('updated_at', { ascending: false })
-          .limit(20);
-
-        if (error) {
-          console.error('Error loading transformation assessments:', error);
-          setTransformationAssessments([]);
-        } else {
-          // Fetch profiles for all creators
-          const creatorIds = [...new Set((data ?? []).map(a => a.created_by).filter(Boolean))];
-          let profilesMap: Record<string, any> = {};
-
-          if (creatorIds.length > 0) {
-            const { data: profilesData, error: profilesError } = await supabase
-              .from('profiles')
-              .select('id, first_name, last_name, email')
-              .in('id', creatorIds);
-
-            if (!profilesError && profilesData) {
-              profilesMap = Object.fromEntries(
-                profilesData.map(p => [p.id, p])
-              );
-            }
-          }
-
-          // Map to include creator_name
-          const assessmentsWithCreator = (data ?? []).map((assessment: any) => {
-            const profile = profilesMap[assessment.created_by];
-            return {
-              ...assessment,
-              creator_name: profile
-                ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || profile.email
-                : 'Usuario desconocido'
-            };
-          });
-          setTransformationAssessments(assessmentsWithCreator);
-        }
-      } else {
-        setTransformationAssessments([]);
-      }
-
-      setTransformationLoading(false);
-    };
-
-    fetchAssessments();
-  }, [currentWorkspace?.community_id, supabase]);
-
   const initializeWorkspace = async () => {
     if (!user) return;
 
@@ -494,67 +381,6 @@ const CommunityWorkspacePage: React.FC = () => {
       setError('Error al cargar el espacio de trabajo');
       toast.error('Error al cargar el espacio de trabajo');
     }
-  };
-
-  const goToAssessment = (
-    communityId: string,
-    area?: 'personalizacion' | 'aprendizaje'
-  ) => {
-    // Store current community in sessionStorage so we can return to it
-    sessionStorage.setItem('workspace_return_community', communityId);
-
-    const searchParams = new URLSearchParams();
-    searchParams.set('communityId', communityId);
-    if (area) {
-      searchParams.set('area', area);
-    }
-
-    const targetUrl = `/community/transformation/assessment?${searchParams.toString()}`;
-
-    navigationManager
-      .navigate(async () => {
-        await router.push(targetUrl);
-      })
-      .catch(async () => {
-        await router.push(targetUrl);
-      });
-  };
-
-  const createNewAssessment = async () => {
-    if (!currentWorkspace?.community_id) {
-      toast.error('No se pudo identificar la comunidad');
-      return;
-    }
-
-    // Show área selection modal
-    setPreferredArea(null);
-    setShowAreaSelectionModal(true);
-  };
-
-  const handleAreaSelection = (selectedArea: 'personalizacion' | 'aprendizaje') => {
-    if (!currentWorkspace?.community_id) {
-      toast.error('No se pudo identificar la comunidad');
-      return;
-    }
-
-    setShowAreaSelectionModal(false);
-    setPreferredArea(null);
-
-    // Navigate with forceNew=true to ensure a new assessment is created
-    const searchParams = new URLSearchParams();
-    searchParams.set('communityId', currentWorkspace.community_id);
-    searchParams.set('area', selectedArea);
-    searchParams.set('forceNew', 'true');
-
-    const targetUrl = `/community/transformation/assessment?${searchParams.toString()}`;
-
-    navigationManager
-      .navigate(async () => {
-        await router.push(targetUrl);
-      })
-      .catch(async () => {
-        await router.push(targetUrl);
-      });
   };
 
   const handleCommunityChange = (communityId: string) => {
@@ -885,175 +711,7 @@ const CommunityWorkspacePage: React.FC = () => {
           />
         </div>
 
-        <div style={{ display: activeSection === 'transformation' ? 'block' : 'none' }}>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-2xl font-bold text-[#00365b] mb-4">
-              Vías de Transformación
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Evalúa el progreso de tu comunidad de crecimiento a través de evaluaciones de transformación guiadas.
-            </p>
-
-            {transformationLoading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00365b] mx-auto mb-4"></div>
-                <p className="text-gray-600">Cargando evaluaciones...</p>
-              </div>
-            ) : transformationAssessments.length > 0 ? (
-              <>
-                {/* Create New Assessment Button */}
-                <div className="mb-6">
-                  <button
-                    onClick={createNewAssessment}
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition shadow-sm"
-                  >
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Nueva Evaluación
-                  </button>
-                </div>
-
-                {/* Existing Assessments List */}
-                <div className="space-y-4">
-                  {transformationAssessments.map(assessment => (
-                  <div key={assessment.id} className="border border-gray-200 rounded-lg p-4 hover:border-[#00365b] transition">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          Evaluación de {assessment.area === 'personalizacion' ? 'Personalización' : 'Aprendizaje'}
-                        </h3>
-                        {assessment.creator_name && (
-                          <p className="mt-1 text-sm text-gray-600">
-                            <span className="flex items-center gap-1">
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                              </svg>
-                              Realizada por: <span className="font-medium">{assessment.creator_name}</span>
-                            </span>
-                          </p>
-                        )}
-                        <div className="mt-2 flex items-center gap-4 text-sm text-gray-600">
-                          <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Iniciado: {assessment.started_at ? new Date(assessment.started_at).toLocaleDateString('es-CL') : 'N/A'}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            Última actualización: {assessment.updated_at ? new Date(assessment.updated_at).toLocaleDateString('es-CL') : 'N/A'}
-                          </span>
-                        </div>
-                        <div className="mt-2">
-                          {assessment.status === 'completed' ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-                              Completada
-                            </span>
-                          ) : assessment.status === 'in_progress' ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              En progreso
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              {assessment.status}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        {assessment.status === 'completed' ? (
-                          <Link
-                            href={`/community/transformation/results/${assessment.id}`}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-semibold rounded-lg hover:bg-emerald-500 transition"
-                          >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                            </svg>
-                            Ver Resultados
-                          </Link>
-                        ) : (
-                          <button
-                            onClick={() =>
-                              currentWorkspace?.community_id &&
-                              goToAssessment(
-                                currentWorkspace.community_id,
-                                assessment.area as 'personalizacion' | 'aprendizaje'
-                              )
-                            }
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition"
-                          >
-                            Continuar evaluación
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                </div>
-              </>
-            ) : (
-              <div className="text-center py-12 border-2 border-dashed border-gray-300 rounded-lg">
-                <div className="h-16 w-16 rounded-full bg-[#fdb933]/20 flex items-center justify-center mx-auto mb-4">
-                  <LightningBoltIcon className="h-8 w-8 text-[#00365b]" />
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No hay evaluaciones todavía
-                </h3>
-                <p className="text-gray-600 mb-6">
-                  Comienza tu primera evaluación de transformación para medir el progreso de tu comunidad.
-                </p>
-                <button
-                  onClick={createNewAssessment}
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition"
-                >
-                  <LightningBoltIcon className="h-5 w-5" />
-                  Crear primera evaluación
-                </button>
-              </div>
-            )}
-
-            {missingTransformationAreas.length > 0 && (
-              <div className="mt-6 space-y-4">
-                {missingTransformationAreas.map((area) => {
-                  const metadata = getAreaMetadata(area as TransformationArea);
-                  return (
-                    <div
-                      key={`missing-${area}`}
-                      className="border border-dashed border-gray-300 rounded-lg p-4 bg-gray-50"
-                    >
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-2xl" aria-hidden>{metadata.icon}</span>
-                        <h4 className="text-base font-semibold text-gray-900">
-                          Inicia la evaluación de {metadata.label}
-                        </h4>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-4">
-                        {metadata.description}
-                      </p>
-                      <button
-                        onClick={() => {
-                          if (!currentWorkspace?.community_id) {
-                            toast.error('No se pudo identificar la comunidad');
-                            return;
-                          }
-                          setPreferredArea(area);
-                          setShowAreaSelectionModal(true);
-                        }}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-[#00365b] text-white text-sm font-semibold rounded-lg hover:bg-[#002645] transition"
-                      >
-                        <LightningBoltIcon className="w-4 h-4" />
-                        Iniciar evaluación de {metadata.label}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Transformation section removed - now at /vias-transformacion */}
       </>
     );
   };
@@ -1228,7 +886,6 @@ const CommunityWorkspacePage: React.FC = () => {
           activeSection={activeSection}
           onSectionChange={handleSectionChange}
           isAdmin={isAdmin}
-          hasTransformationAccess={hasTransformationAccess}
         />
 
         {/* Current Workspace Info (for sections that need it) */}
@@ -1297,15 +954,6 @@ const CommunityWorkspacePage: React.FC = () => {
             });
             toast.success('Configuración actualizada');
           }}
-        />
-      )}
-
-      {/* Área Selection Modal */}
-      {showAreaSelectionModal && (
-        <AreaSelectionModal
-          onSelect={handleAreaSelection}
-          initialArea={preferredArea}
-          onCancel={() => setShowAreaSelectionModal(false)}
         />
       )}
     </MainLayout>

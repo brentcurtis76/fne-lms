@@ -1,0 +1,1545 @@
+================================================================================
+MANUAL DE PRUEBAS MANUALES - ROL DOCENTE
+================================================================================
+Proyecto: FNE LMS (Learning Management System)
+Versión: 1.0.0
+Fecha: 2025-01-19
+Idioma: Español
+Audiencia: Testers no técnicos
+
+================================================================================
+TABLA DE CONTENIDOS
+================================================================================
+
+PARTE 0: CONTEXTO Y CONFIGURACIÓN INICIAL .......................... Línea 30
+PARTE 1: USUARIOS DE PRUEBA Y CONFIGURACIONES ...................... Línea 85
+PARTE 2: INSTRUCCIONES DETALLADAS DE PRUEBA ....................... Línea 150
+  2.1 Autenticación y Gestión de Perfil (≈15 min) ................. Línea 160
+  2.2 Cursos Individuales (≈30 min) ............................... Línea 280
+  2.3 Rutas de Aprendizaje (≈30 min) .............................. Línea 445
+  2.4 Tareas y Asignaciones Grupales (≈25 min) .................... Línea 590
+  2.5 Espacio Colaborativo (≈40 min) .............................. Línea 750
+PARTE 3: CHECKLIST DE VALIDACIÓN COMPLETA ......................... Línea 950
+PARTE 4: PROBLEMAS COMUNES Y SOLUCIONES .......................... Línea 1020
+PARTE 5: PLANTILLA DE REPORTE DE PRUEBAS ......................... Línea 1140
+
+Tiempo Total Estimado: ≈2 horas 20 minutos
+
+
+================================================================================
+PARTE 0: CONTEXTO Y CONFIGURACIÓN INICIAL
+================================================================================
+
+0.1 ¿QUÉ ES ESTE MANUAL?
+-------------------------
+Este manual guía las pruebas del rol "Docente" en el sistema FNE LMS.
+Un docente es un usuario que:
+  - Accede a cursos y rutas de aprendizaje asignadas
+  - Completa lecciones con diferentes tipos de contenido
+  - Realiza tareas individuales y grupales
+  - Colabora con otros docentes en comunidades de crecimiento
+  - Gestiona su perfil y configuración personal
+
+Las pruebas cubren 5 flujos principales:
+  1. Autenticación (login, recuperación de contraseña, perfil)
+  2. Cursos individuales (ver, navegar, completar lecciones)
+  3. Rutas de aprendizaje (ver rutas asignadas, progreso)
+  4. Tareas (individuales y grupales, envío, retroalimentación)
+  5. Espacio colaborativo (mensajería, workspace, comunidades)
+
+
+0.2 ACCESO AL SISTEMA
+---------------------
+URL de Prueba: https://fne-lms.vercel.app
+Navegadores Recomendados: Chrome, Firefox, Safari (última versión)
+
+IMPORTANTE: Si el sistema está en desarrollo local:
+  - URL Local: http://localhost:3000
+  - Asegurarse de que el servidor esté corriendo antes de las pruebas
+
+
+0.3 USUARIOS DE PRUEBA DISPONIBLES
+-----------------------------------
+Se han creado 5 usuarios docentes con diferentes configuraciones:
+
+Email                         | Contraseña    | Escenario
+------------------------------|---------------|----------------------------------
+docente.test1@fne-lms.test   | Prueba2025!   | Escuela con gen + Comunidad
+docente.test2@fne-lms.test   | Prueba2025!   | Escuela con gen + Comunidad (diff)
+docente.test3@fne-lms.test   | Prueba2025!   | Escuela sin gen + Comunidad
+docente.test4@fne-lms.test   | Prueba2025!   | Escuela con gen + Sin comunidad
+docente.test5@fne-lms.test   | Prueba2025!   | Configuración mínima (sin gen/com)
+
+NOTA: Todos los usuarios tienen la misma contraseña: Prueba2025!
+
+
+0.4 CONTEXTO TÉCNICO RESUMIDO
+------------------------------
+Para referencia del equipo técnico, este manual cubre las siguientes páginas:
+
+Autenticación:
+  - /pages/login.tsx - Página de inicio de sesión (incluye modo de recuperación)
+  - /pages/reset-password.tsx - Reseteo de contraseña (accedido desde link de email)
+
+Perfil y Dashboard:
+  - /pages/dashboard.tsx - Dashboard principal
+  - /pages/profile.tsx - Gestión de perfil
+
+Cursos y Rutas:
+  - /pages/mi-aprendizaje.tsx - Lista de cursos asignados
+  - /pages/student/course/[courseId].tsx - Visor de curso
+  - /pages/my-paths.tsx - Rutas de aprendizaje
+
+Tareas:
+  - /pages/api/assignments/* - APIs de gestión de tareas
+  - Componentes: GroupAssignmentBlockEditor, blocks/BlockRenderer
+
+Espacio Colaborativo:
+  - /pages/community/workspace.tsx - Workspace colaborativo
+  - /components/notifications/ModernNotificationCenter.tsx - Notificaciones
+
+Base de Datos (tablas principales):
+  - profiles, user_roles, course_assignments, course_enrollments
+  - learning_path_assignments, lesson_assignment_submissions
+  - group_assignment_members, growth_communities
+
+
+================================================================================
+PARTE 1: USUARIOS DE PRUEBA Y CONFIGURACIONES
+================================================================================
+
+1.1 TABLA DETALLADA DE USUARIOS DE PRUEBA
+------------------------------------------
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ USUARIO 1: docente.test1@fne-lms.test                                     │
+├────────────────────────────────────────────────────────────────────────────┤
+│ Contraseña:       Prueba2025!                                             │
+│ Escuela:          Escuela con generaciones                                │
+│ Generación:       ✓ SÍ (asignado)                                         │
+│ Comunidad:        ✓ SÍ (Comunidad A)                                      │
+│ Cursos Asignados: 2-3 cursos (compartidos con Usuario 2, 3)               │
+│ Rutas Asignadas:  1 ruta (Ruta 1 - compartida con Usuario 2, 3)           │
+│ Tareas Grupales:  ✓ Visibles (inscrito en cursos con tareas)              │
+│ Workspace:        ✓ Acceso (tiene comunidad)                              │
+│ Propósito:        Usuario con configuración completa                       │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ USUARIO 2: docente.test2@fne-lms.test                                     │
+├────────────────────────────────────────────────────────────────────────────┤
+│ Contraseña:       Prueba2025!                                             │
+│ Escuela:          Escuela con generaciones                                │
+│ Generación:       ✓ SÍ (asignado)                                         │
+│ Comunidad:        ✓ SÍ (Comunidad B - diferente de Usuario 1)             │
+│ Cursos Asignados: 2-3 cursos (algunos compartidos con Usuario 1, 3)       │
+│ Rutas Asignadas:  1 ruta (Ruta 1 - compartida con Usuario 1, 3)           │
+│ Tareas Grupales:  ✓ Visibles (inscrito en cursos con tareas)              │
+│ Workspace:        ✓ Acceso (tiene comunidad)                              │
+│ Propósito:        Simular diferente comunidad, workspace separado          │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ USUARIO 3: docente.test3@fne-lms.test                                     │
+├────────────────────────────────────────────────────────────────────────────┤
+│ Contraseña:       Prueba2025!                                             │
+│ Escuela:          Escuela sin generaciones                                │
+│ Generación:       ✗ NO                                                    │
+│ Comunidad:        ✓ SÍ (Comunidad standalone)                             │
+│ Cursos Asignados: 2-3 cursos (compartidos con Usuario 1, 2)               │
+│ Rutas Asignadas:  2 rutas (Ruta 1 + Ruta 2)                               │
+│ Tareas Grupales:  ✓ Visibles (inscrito en cursos con tareas)              │
+│ Workspace:        ✓ Acceso (tiene comunidad)                              │
+│ Propósito:        Usuario con múltiples rutas, sin generación              │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ USUARIO 4: docente.test4@fne-lms.test                                     │
+├────────────────────────────────────────────────────────────────────────────┤
+│ Contraseña:       Prueba2025!                                             │
+│ Escuela:          Escuela con generaciones                                │
+│ Generación:       ✓ SÍ (asignado)                                         │
+│ Comunidad:        ✗ NO                                                    │
+│ Cursos Asignados: 2-3 cursos                                              │
+│ Rutas Asignadas:  1 ruta (Ruta 2 - compartida con Usuario 3)              │
+│ Tareas Grupales:  ✓ Visibles (inscrito en cursos con tareas)              │
+│ Workspace:        ✗ SIN acceso (sin comunidad)                            │
+│ Propósito:        Usuario sin acceso a espacio colaborativo                │
+└────────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│ USUARIO 5: docente.test5@fne-lms.test                                     │
+├────────────────────────────────────────────────────────────────────────────┤
+│ Contraseña:       Prueba2025!                                             │
+│ Escuela:          Escuela sin generaciones                                │
+│ Generación:       ✗ NO                                                    │
+│ Comunidad:        ✗ NO                                                    │
+│ Cursos Asignados: 2-3 cursos                                              │
+│ Rutas Asignadas:  1 ruta (Ruta 3, si existe)                              │
+│ Tareas Grupales:  ✓ Visibles (inscrito en cursos con tareas)              │
+│ Workspace:        ✗ SIN acceso (sin comunidad)                            │
+│ Propósito:        Configuración mínima, experiencia básica                 │
+└────────────────────────────────────────────────────────────────────────────┘
+
+
+1.2 DATOS DE CONTENIDO ASIGNADO
+--------------------------------
+Total de Cursos Disponibles: 13 cursos
+Total de Rutas Disponibles: 6 rutas de aprendizaje
+
+Distribución de Cursos:
+  - Cada usuario tiene 2-3 cursos asignados
+  - Total de asignaciones: 12-15 (con overlap estratégico)
+  - Varios cursos son compartidos entre usuarios (simula colaboración)
+
+Distribución de Rutas:
+  - Ruta 1: Asignada a Usuarios 1, 2, 3 (3 usuarios comparten)
+  - Ruta 2: Asignada a Usuarios 3, 4 (2 usuarios comparten)
+  - Ruta 3: Asignada a Usuario 5 (único)
+  - Total de asignaciones: 6
+
+Tareas Grupales:
+  - Visibles para TODOS los usuarios inscritos en cursos (independiente de comunidad)
+  - Usuarios 1, 2, 3 (con comunidad): Pueden colaborar en workspace
+  - Usuarios 4, 5 (sin comunidad): Ven tareas pero sin acceso a workspace
+
+
+================================================================================
+PARTE 2: INSTRUCCIONES DETALLADAS DE PRUEBA
+================================================================================
+
+NOTA GENERAL: Completar las pruebas en orden secuencial. Marcar cada prueba
+como APROBADA o FALLIDA y anotar observaciones en la plantilla de reporte.
+
+
+────────────────────────────────────────────────────────────────────────────
+2.1 AUTENTICACIÓN Y GESTIÓN DE PERFIL (≈15 minutos)
+────────────────────────────────────────────────────────────────────────────
+
+Referencia Técnica:
+  Páginas: /pages/login.tsx (incluye modo recuperación), /pages/profile.tsx
+  APIs: /pages/api/auth/* (Supabase Auth), /pages/api/user/notification-preferences.ts
+  Tablas DB: profiles, auth.users
+
+
+2.1.1 PRUEBA: Login Exitoso
+----------------------------
+Usuario a Probar: docente.test1@fne-lms.test
+
+PASOS:
+  1. Abrir navegador y navegar a la URL del sistema
+  2. Verificar que aparece el formulario de login
+  3. Ingresar email: docente.test1@fne-lms.test
+  4. Ingresar contraseña: Prueba2025!
+  5. Hacer clic en el botón "Iniciar Sesión"
+
+RESULTADO ESPERADO:
+  ✓ El sistema redirige al dashboard principal (/dashboard)
+  ✓ El sidebar muestra el nombre del usuario: "Docente Test 1"
+  ✓ El sidebar muestra opciones de navegación:
+      - Dashboard (ícono de casa)
+      - Mi Aprendizaje (ícono de libro)
+      - Mis Rutas (ícono de ruta/mapa)
+      - Mis Tareas (ícono de clipboard)
+      - Espacio Colaborativo (ícono de usuarios)
+      - Notificaciones (ícono de campana con badge si hay notificaciones)
+  ✓ No aparecen mensajes de error
+
+NOTAS DE VERIFICACIÓN:
+  - El avatar del usuario aparece en la esquina superior derecha
+  - El nombre de la escuela aparece debajo del nombre del usuario (si aplica)
+  - La URL cambió de /login a /dashboard
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.1.2 PRUEBA: Login con Credenciales Incorrectas
+-------------------------------------------------
+PASOS:
+  1. Cerrar sesión (clic en avatar → "Cerrar Sesión")
+  2. Volver a la página de login
+  3. Ingresar email: docente.test1@fne-lms.test
+  4. Ingresar contraseña INCORRECTA: ContraseñaIncorrecta123
+  5. Hacer clic en "Iniciar Sesión"
+
+RESULTADO ESPERADO:
+  ✓ El sistema muestra mensaje de error: "Credenciales inválidas" o similar
+  ✓ El usuario permanece en la página de login
+  ✓ Los campos de email y contraseña se mantienen visibles
+  ✓ NO se redirige al dashboard
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.1.3 PRUEBA: Recuperación de Contraseña
+-----------------------------------------
+PASOS:
+  1. Desde la página de login, hacer clic en "¿Olvidaste tu contraseña?"
+  2. Verificar que la misma página cambia a "modo de recuperación"
+  3. Ingresar email: docente.test1@fne-lms.test
+  4. Hacer clic en "Enviar instrucciones" o "Recuperar Contraseña"
+
+RESULTADO ESPERADO:
+  ✓ La página de login cambia a modo de recuperación (mismo URL /login)
+  ✓ El sistema muestra mensaje de confirmación:
+      "Se ha enviado un link de recuperación a tu correo electrónico"
+  ✓ (OPCIONAL) Revisar bandeja de entrada del email de prueba
+  ✓ El formulario vuelve al modo de login normal después del envío
+
+NOTAS DE VERIFICACIÓN:
+  - La recuperación NO redirige a otra página, es un cambio de estado (isResetMode)
+  - En entorno de prueba, verificar que el email se envió correctamente
+  - Si NO se recibe email, verificar configuración de Supabase Auth
+  - El link de recuperación del email debe dirigir a /reset-password
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.1.4 PRUEBA: Visualización y Edición de Perfil
+------------------------------------------------
+Usuario a Probar: docente.test1@fne-lms.test (ya autenticado)
+
+PASOS:
+  1. Desde el dashboard, hacer clic en el avatar (esquina superior derecha)
+  2. Seleccionar "Mi Perfil" del menú desplegable
+  3. Verificar que se redirige a /profile
+  4. Revisar que aparecen los datos del usuario:
+       - Nombre completo
+       - Email (no editable)
+       - Escuela asignada
+       - Generación (si aplica)
+       - Comunidad (si aplica)
+  5. Cambiar el nombre completo a: "Docente Test 1 - EDITADO"
+  6. Hacer clic en "Guardar Cambios"
+
+RESULTADO ESPERADO:
+  ✓ El sistema muestra mensaje de éxito: "Perfil actualizado correctamente"
+  ✓ El nombre actualizado aparece en el sidebar
+  ✓ Al recargar la página, el nombre editado se mantiene
+  ✓ El avatar refleja el cambio (si tiene iniciales)
+
+NOTAS DE VERIFICACIÓN:
+  - Verificar que el email NO es editable (campo deshabilitado)
+  - Verificar que la escuela y comunidad aparecen como texto (no editables)
+  - Después de la prueba, RESTAURAR el nombre original: "Docente Test 1"
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.1.5 PRUEBA: Cierre de Sesión
+-------------------------------
+PASOS:
+  1. Hacer clic en el avatar (esquina superior derecha)
+  2. Seleccionar "Cerrar Sesión"
+
+RESULTADO ESPERADO:
+  ✓ El sistema redirige a la página de login (/login)
+  ✓ El sidebar desaparece
+  ✓ No es posible acceder a páginas protegidas (dashboard, cursos, etc.)
+  ✓ Si se intenta acceder a /dashboard directamente, redirige a /login
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+────────────────────────────────────────────────────────────────────────────
+2.2 CURSOS INDIVIDUALES (≈30 minutos)
+────────────────────────────────────────────────────────────────────────────
+
+Referencia Técnica:
+  Páginas: /pages/mi-aprendizaje.tsx, /pages/student/course/[courseId].tsx
+  Componentes: BlockRenderer, LessonTimeline, TextBlockEditor, VideoBlockEditor
+  APIs: /pages/api/courses/*, /pages/api/lessons/*
+  Tablas DB: courses, course_assignments, course_enrollments, lessons, blocks
+
+
+2.2.1 PRUEBA: Visualizar Lista de Cursos Asignados
+---------------------------------------------------
+Usuario a Probar: docente.test1@fne-lms.test
+
+PASOS:
+  1. Iniciar sesión con docente.test1@fne-lms.test
+  2. Desde el dashboard, hacer clic en "Mi Aprendizaje" en el sidebar
+  3. Verificar que se redirige a /mi-aprendizaje
+
+RESULTADO ESPERADO:
+  ✓ Aparece una lista de 2-3 cursos asignados al usuario
+  ✓ Cada tarjeta de curso muestra:
+      - Título del curso
+      - Descripción breve
+      - Barra de progreso (% completado)
+      - Botón "Comenzar Curso" o "Continuar Curso"
+      - Badge con estado: "En Progreso", "Completado", etc.
+  ✓ Si no hay cursos asignados, aparece mensaje:
+      "No tienes cursos asignados en este momento"
+
+NOTAS DE VERIFICACIÓN:
+  - Anotar los títulos de los cursos visibles
+  - Verificar que el progreso inicial es 0% (si es primera vez)
+  - Verificar que los cursos coinciden con lo esperado (ver Parte 1)
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+  Cursos Visibles (anotar títulos):
+    1. _______________________________________________
+    2. _______________________________________________
+    3. _______________________________________________
+
+
+2.2.2 PRUEBA: Entrar a un Curso y Navegar Lecciones
+----------------------------------------------------
+PASOS:
+  1. Desde la lista de cursos, hacer clic en "Comenzar Curso" del primer curso
+  2. Verificar que se redirige a /student/course/[courseId]
+  3. Revisar la interfaz del visor de curso:
+       - Sidebar izquierdo con lista de lecciones (LessonTimeline)
+       - Área central con contenido de la lección actual
+       - Breadcrumb de navegación en la parte superior
+       - Botones "Anterior" y "Siguiente" al final del contenido
+
+RESULTADO ESPERADO:
+  ✓ El curso se carga correctamente
+  ✓ Aparece la primera lección del curso en el área central
+  ✓ El sidebar muestra todas las lecciones disponibles
+  ✓ La lección actual está resaltada en el sidebar
+  ✓ El breadcrumb muestra: "Mis Cursos > [Nombre del Curso] > [Lección Actual]"
+
+NOTAS DE VERIFICACIÓN:
+  - Si el curso tiene módulos, el sidebar agrupa lecciones por módulo
+  - Si el curso es "simple", las lecciones aparecen en lista plana
+  - Las lecciones completadas tienen un ícono de check (✓)
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.2.3 PRUEBA: Visualizar Bloques de Contenido
+----------------------------------------------
+PASOS:
+  1. Dentro del visor de curso, revisar los diferentes tipos de bloques:
+       a) Bloques de TEXTO: Texto enriquecido con formato
+       b) Bloques de VIDEO: Videos embebidos de YouTube o Vimeo
+       c) Bloques de IMAGEN: Imágenes con descripción
+       d) Bloques de QUIZ: Preguntas interactivas
+       e) Bloques de TAREA: Tareas individuales o grupales
+
+RESULTADO ESPERADO:
+  ✓ Bloque de TEXTO:
+      - El texto se renderiza correctamente con formato (negritas, cursivas)
+      - Los enlaces son clicables
+      - Los párrafos tienen espaciado adecuado
+
+  ✓ Bloque de VIDEO:
+      - El video se carga y reproduce correctamente
+      - Aparece el título del video
+      - Controles de reproducción funcionan (play, pause, volumen)
+
+  ✓ Bloque de IMAGEN:
+      - La imagen se carga y se muestra en tamaño adecuado
+      - Aparece la descripción/caption de la imagen
+
+  ✓ Bloque de QUIZ:
+      - Las preguntas aparecen con opciones de respuesta
+      - Se puede seleccionar una respuesta
+      - Al enviar, aparece feedback (correcto/incorrecto)
+
+  ✓ Bloque de TAREA:
+      - Aparece el título y descripción de la tarea
+      - Hay un campo para subir archivo o ingresar texto
+      - Hay botón "Enviar Tarea"
+
+NOTAS DE VERIFICACIÓN:
+  - No todos los cursos tienen todos los tipos de bloques
+  - Si falta algún tipo de bloque, anotar en observaciones
+  - Los bloques de tarea se probarán en detalle en la Sección 2.4
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+  Tipos de Bloques Encontrados:
+    [ ] Texto
+    [ ] Video
+    [ ] Imagen
+    [ ] Quiz
+    [ ] Tarea Individual
+    [ ] Tarea Grupal
+
+
+2.2.4 PRUEBA: Navegación entre Lecciones
+-----------------------------------------
+PASOS:
+  1. Estando en la primera lección, hacer clic en "Siguiente" al final
+  2. Verificar que se carga la segunda lección
+  3. Hacer clic en "Anterior" para volver a la primera lección
+  4. Desde el sidebar, hacer clic directamente en la tercera lección (si existe)
+
+RESULTADO ESPERADO:
+  ✓ El botón "Siguiente" carga la siguiente lección sin recargar la página
+  ✓ El botón "Anterior" vuelve a la lección previa
+  ✓ El clic en el sidebar cambia directamente a la lección seleccionada
+  ✓ El breadcrumb se actualiza con el nombre de la lección actual
+  ✓ La URL cambia para reflejar la lección actual (query param o hash)
+  ✓ La lección actual se resalta en el sidebar
+
+NOTAS DE VERIFICACIÓN:
+  - Si es la primera lección, el botón "Anterior" debe estar deshabilitado
+  - Si es la última lección, el botón "Siguiente" debe estar deshabilitado
+  - La navegación debe ser fluida sin parpadeos
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.2.5 PRUEBA: Marcar Lección como Completada
+---------------------------------------------
+PASOS:
+  1. Desplazarse hasta el final de una lección
+  2. Buscar el botón "Marcar como Completada" o checkbox "He completado esta lección"
+  3. Hacer clic en el botón/checkbox
+
+RESULTADO ESPERADO:
+  ✓ La lección se marca como completada
+  ✓ Aparece un ícono de check (✓) junto a la lección en el sidebar
+  ✓ La barra de progreso del curso se actualiza (incrementa el %)
+  ✓ Si se recarga la página, la lección sigue marcada como completada
+  ✓ Aparece mensaje de confirmación: "Lección completada" o similar
+
+NOTAS DE VERIFICACIÓN:
+  - El progreso debe persistir al cerrar sesión y volver a entrar
+  - Si se completan todas las lecciones, el curso se marca como "Completado"
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.2.6 PRUEBA: Progreso de Curso
+--------------------------------
+PASOS:
+  1. Desde el visor de curso, verificar la barra de progreso en la parte superior
+  2. Completar 2-3 lecciones adicionales
+  3. Regresar a "Mi Aprendizaje" (clic en el breadcrumb o sidebar)
+  4. Verificar que la barra de progreso en la tarjeta del curso se actualizó
+
+RESULTADO ESPERADO:
+  ✓ La barra de progreso muestra el porcentaje correcto
+  ✓ El cálculo es: (Lecciones Completadas / Total Lecciones) × 100
+  ✓ El progreso se sincroniza entre el visor de curso y la lista de cursos
+  ✓ Si se completa el curso (100%), aparece badge "Completado"
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.2.7 PRUEBA: Cursos Compartidos entre Usuarios
+------------------------------------------------
+PASOS:
+  1. Cerrar sesión de docente.test1@fne-lms.test
+  2. Iniciar sesión con docente.test2@fne-lms.test
+  3. Ir a "Mi Aprendizaje"
+  4. Comparar la lista de cursos con los del Usuario 1
+
+RESULTADO ESPERADO:
+  ✓ Al menos 1-2 cursos son compartidos entre Usuario 1 y Usuario 2
+  ✓ Los cursos compartidos tienen los mismos títulos y contenido
+  ✓ El progreso es INDEPENDIENTE (cada usuario tiene su propio progreso)
+  ✓ Si Usuario 1 completó una lección, Usuario 2 la ve como "No Completada"
+
+NOTAS DE VERIFICACIÓN:
+  - Esto simula la experiencia de múltiples docentes tomando el mismo curso
+  - El overlap de cursos se configuró intencionalmente en el setup
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+  Cursos Compartidos Detectados (anotar títulos):
+    1. _______________________________________________
+    2. _______________________________________________
+
+
+────────────────────────────────────────────────────────────────────────────
+2.3 RUTAS DE APRENDIZAJE (≈30 minutos)
+────────────────────────────────────────────────────────────────────────────
+
+Referencia Técnica:
+  Páginas: /pages/my-paths.tsx
+  APIs: /pages/api/learning-paths/*
+  Tablas DB: learning_paths, learning_path_assignments, learning_path_courses
+
+
+2.3.1 PRUEBA: Visualizar Rutas Asignadas
+-----------------------------------------
+Usuario a Probar: docente.test1@fne-lms.test
+
+PASOS:
+  1. Iniciar sesión con docente.test1@fne-lms.test
+  2. Desde el sidebar, hacer clic en "Mis Rutas"
+  3. Verificar que se redirige a /my-paths
+
+RESULTADO ESPERADO:
+  ✓ Aparece 1 ruta asignada: "Ruta 1"
+  ✓ La tarjeta de la ruta muestra:
+      - Nombre de la ruta
+      - Descripción
+      - Número de cursos incluidos en la ruta
+      - Barra de progreso general de la ruta
+      - Botón "Ver Ruta" o "Continuar"
+  ✓ Si no hay rutas asignadas, aparece mensaje:
+      "No tienes rutas de aprendizaje asignadas"
+
+NOTAS DE VERIFICACIÓN:
+  - Usuario 1 debe tener 1 ruta asignada (Ruta 1)
+  - Usuario 3 debe tener 2 rutas asignadas (Ruta 1 + Ruta 2)
+  - El progreso de la ruta se calcula en base a los cursos completados
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+  Rutas Asignadas (anotar nombres):
+    1. _______________________________________________
+
+
+2.3.2 PRUEBA: Entrar a una Ruta y Ver Cursos Incluidos
+-------------------------------------------------------
+PASOS:
+  1. Desde la lista de rutas, hacer clic en "Ver Ruta"
+  2. Verificar que se muestra el detalle de la ruta
+  3. Revisar la lista de cursos incluidos en la ruta
+
+RESULTADO ESPERADO:
+  ✓ Aparece una vista detallada de la ruta con:
+      - Nombre y descripción completa
+      - Lista ordenada de cursos que componen la ruta
+      - Para cada curso:
+          * Título del curso
+          * Descripción breve
+          * Estado: "No Iniciado", "En Progreso", "Completado"
+          * Botón "Comenzar Curso" o "Continuar"
+  ✓ Los cursos se muestran en el orden configurado (secuencial)
+  ✓ El progreso de cada curso se refleja individualmente
+
+NOTAS DE VERIFICACIÓN:
+  - Los cursos en la ruta pueden ser los mismos que aparecen en "Mi Aprendizaje"
+  - El progreso es consistente entre "Mi Aprendizaje" y "Mis Rutas"
+  - Las rutas agrupan cursos relacionados temáticamente
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+  Cursos en la Ruta (anotar títulos):
+    1. _______________________________________________
+    2. _______________________________________________
+    3. _______________________________________________
+
+
+2.3.3 PRUEBA: Navegar desde Ruta a Curso Individual
+----------------------------------------------------
+PASOS:
+  1. Estando en el detalle de la ruta, hacer clic en "Comenzar Curso" de uno de los cursos
+  2. Verificar que se redirige al visor de curso
+
+RESULTADO ESPERADO:
+  ✓ Se abre el visor de curso (igual que desde "Mi Aprendizaje")
+  ✓ El breadcrumb muestra: "Mis Rutas > [Nombre de la Ruta] > [Nombre del Curso]"
+  ✓ El contenido del curso es idéntico al acceso desde "Mi Aprendizaje"
+  ✓ Al terminar el curso, hay opción para volver a la ruta
+
+NOTAS DE VERIFICACIÓN:
+  - La navegación debe ser coherente entre ambas entradas (ruta vs lista de cursos)
+  - El progreso se sincroniza automáticamente
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.3.4 PRUEBA: Progreso de Ruta de Aprendizaje
+----------------------------------------------
+PASOS:
+  1. Desde el visor de curso (accedido desde la ruta), completar 1-2 lecciones
+  2. Regresar a "Mis Rutas"
+  3. Verificar que el progreso de la ruta se actualizó
+
+RESULTADO ESPERADO:
+  ✓ La barra de progreso de la ruta aumenta
+  ✓ El cálculo es: (Suma de progreso de todos los cursos) / (Total de cursos)
+  ✓ Si un curso de la ruta se completa, el estado cambia a "Completado"
+  ✓ Si TODOS los cursos de la ruta se completan, la ruta se marca "Completada"
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.3.5 PRUEBA: Rutas Compartidas entre Usuarios
+-----------------------------------------------
+PASOS:
+  1. Cerrar sesión de docente.test1@fne-lms.test
+  2. Iniciar sesión con docente.test3@fne-lms.test
+  3. Ir a "Mis Rutas"
+
+RESULTADO ESPERADO:
+  ✓ Usuario 3 tiene 2 rutas asignadas (Ruta 1 + Ruta 2)
+  ✓ Ruta 1 es compartida con Usuario 1 y Usuario 2
+  ✓ Cada usuario tiene su propio progreso independiente
+  ✓ Los cursos dentro de la ruta son los mismos para todos los usuarios
+
+NOTAS DE VERIFICACIÓN:
+  - Esto permite colaboración: múltiples docentes en la misma ruta
+  - El overlap de rutas se configuró intencionalmente en el setup
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+  Rutas Asignadas a Usuario 3 (anotar nombres):
+    1. _______________________________________________
+    2. _______________________________________________
+
+
+2.3.6 PRUEBA: Usuario con Ruta Única (Sin Compartir)
+-----------------------------------------------------
+PASOS:
+  1. Cerrar sesión de docente.test3@fne-lms.test
+  2. Iniciar sesión con docente.test5@fne-lms.test
+  3. Ir a "Mis Rutas"
+
+RESULTADO ESPERADO:
+  ✓ Usuario 5 tiene 1 ruta asignada (Ruta 3)
+  ✓ Esta ruta NO es compartida con otros usuarios
+  ✓ La funcionalidad es idéntica a las rutas compartidas
+
+NOTAS DE VERIFICACIÓN:
+  - Usuario 5 tiene configuración mínima (sin gen/com)
+  - Aun así, puede acceder a cursos y rutas normalmente
+  - La falta de comunidad NO afecta el acceso a rutas
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+────────────────────────────────────────────────────────────────────────────
+2.4 TAREAS Y ASIGNACIONES GRUPALES (≈25 minutos)
+────────────────────────────────────────────────────────────────────────────
+
+Referencia Técnica:
+  Páginas: /pages/api/assignments/*
+  Componentes: GroupAssignmentBlockEditor, blocks/BlockRenderer
+  APIs: /pages/api/assignments/feedback.ts, eligible-classmates.ts
+  Tablas DB: blocks, lesson_assignment_submissions, group_assignment_members
+
+NOTA IMPORTANTE SOBRE TAREAS GRUPALES:
+  ⚠ Las tareas grupales son VISIBLES para TODOS los usuarios inscritos en cursos.
+  ⚠ La visibilidad NO depende de tener comunidad asignada.
+  ⚠ La COMUNIDAD solo afecta el acceso al "Espacio Colaborativo" (workspace).
+  ⚠ Usuarios test4 y test5 (sin comunidad) verán tareas grupales en sus cursos.
+
+
+2.4.1 PRUEBA: Visualizar Tareas Individuales
+---------------------------------------------
+Usuario a Probar: docente.test1@fne-lms.test
+
+PASOS:
+  1. Iniciar sesión con docente.test1@fne-lms.test
+  2. Ir a "Mi Aprendizaje" y entrar a un curso que tenga tareas
+  3. Navegar hasta una lección que contenga un bloque de "Tarea Individual"
+
+RESULTADO ESPERADO:
+  ✓ El bloque de tarea muestra:
+      - Título de la tarea
+      - Descripción/instrucciones
+      - Tipo de entrega: Texto o Archivo
+      - Campo de entrada (textarea o botón de subir archivo)
+      - Botón "Enviar Tarea"
+      - Estado: "Pendiente", "Enviada", "Con Retroalimentación"
+  ✓ Si la tarea NO ha sido enviada, el botón está habilitado
+  ✓ Si la tarea YA fue enviada, aparece el contenido enviado
+
+NOTAS DE VERIFICACIÓN:
+  - Las tareas individuales NO requieren comunidad
+  - Todos los usuarios pueden ver y enviar tareas individuales
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.4.2 PRUEBA: Enviar Tarea Individual
+--------------------------------------
+PASOS:
+  1. En el bloque de tarea individual, ingresar texto de prueba:
+       "Esta es mi respuesta de prueba para la tarea individual."
+  2. Hacer clic en "Enviar Tarea"
+
+RESULTADO ESPERADO:
+  ✓ Aparece mensaje de confirmación: "Tarea enviada correctamente"
+  ✓ El botón "Enviar Tarea" cambia a "Tarea Enviada" (deshabilitado)
+  ✓ El texto enviado se muestra en modo de solo lectura
+  ✓ Aparece indicador de estado: "Enviada" o "Pendiente de Retroalimentación"
+  ✓ Si se recarga la página, la tarea sigue mostrándose como enviada
+
+NOTAS DE VERIFICACIÓN:
+  - La tarea se guarda en la tabla `lesson_assignment_submissions`
+  - El botón debe deshabilitarse para prevenir envíos duplicados
+  - Si hay opción de "Reenviar", debe aparecer claramente
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.4.3 PRUEBA: Visualizar Tareas Grupales
+-----------------------------------------
+Usuario a Probar: docente.test1@fne-lms.test
+
+PASOS:
+  1. Estando en un curso, navegar hasta una lección que tenga "Tarea Grupal"
+  2. Identificar el bloque de tarea grupal (debe tener badge "Grupal")
+
+RESULTADO ESPERADO:
+  ✓ El bloque de tarea grupal muestra:
+      - Título de la tarea
+      - Badge "Tarea Grupal" o ícono de grupo
+      - Descripción/instrucciones
+      - Sección de "Miembros del Grupo"
+      - Botón "Invitar Compañeros" o "Formar Grupo"
+      - Campo de entrega (texto o archivo)
+      - Botón "Enviar Tarea Grupal"
+  ✓ La tarea es visible para cualquier usuario inscrito en el curso
+
+NOTAS DE VERIFICACIÓN:
+  - Las tareas grupales son visibles para TODOS los usuarios inscritos en cursos
+  - La visibilidad NO depende de tener comunidad asignada
+  - La comunidad solo afecta el acceso al workspace colaborativo
+  - IMPORTANTE: Usuarios test4 y test5 (sin comunidad) también verán tareas grupales
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.4.4 PRUEBA: Formar Grupo para Tarea Grupal
+---------------------------------------------
+PASOS:
+  1. En el bloque de tarea grupal, hacer clic en "Invitar Compañeros"
+  2. Verificar que aparece modal o lista de compañeros elegibles
+  3. Seleccionar 1-2 compañeros de la lista (otros docentes de prueba)
+  4. Hacer clic en "Agregar al Grupo"
+
+RESULTADO ESPERADO:
+  ✓ Aparece modal con lista de compañeros elegibles (usuarios en la misma comunidad o curso)
+  ✓ Se pueden seleccionar múltiples compañeros
+  ✓ Al confirmar, los compañeros se agregan al grupo
+  ✓ Aparece lista de "Miembros del Grupo" con nombres/avatares
+  ✓ Los miembros agregados reciben notificación (opcional)
+
+NOTAS DE VERIFICACIÓN:
+  - Los miembros elegibles son usuarios que:
+      * Están inscritos en el mismo curso
+      * (Opcional) Están en la misma comunidad
+  - El grupo se guarda en la tabla `group_assignment_members`
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.4.5 PRUEBA: Enviar Tarea Grupal
+----------------------------------
+PASOS:
+  1. En el bloque de tarea grupal (con grupo formado), ingresar texto de prueba:
+       "Esta es la respuesta grupal de nuestro equipo."
+  2. Hacer clic en "Enviar Tarea Grupal"
+
+RESULTADO ESPERADO:
+  ✓ Aparece mensaje de confirmación: "Tarea grupal enviada correctamente"
+  ✓ El botón se deshabilita
+  ✓ La tarea se marca como "Enviada" para TODOS los miembros del grupo
+  ✓ Los demás miembros del grupo ven la tarea como enviada al entrar al curso
+
+NOTAS DE VERIFICACIÓN:
+  - Todos los miembros del grupo comparten la misma entrega
+  - Cualquier miembro del grupo puede enviar la tarea
+  - Una vez enviada, NO se puede modificar (a menos que haya opción "Reenviar")
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.4.6 PRUEBA: Tareas Grupales Visibles SIN Comunidad (Workspace Limitado)
+--------------------------------------------------------------------------
+Usuario a Probar: docente.test4@fne-lms.test (SIN comunidad)
+
+PASOS:
+  1. Cerrar sesión de docente.test1@fne-lms.test
+  2. Iniciar sesión con docente.test4@fne-lms.test
+  3. Ir a "Mi Aprendizaje" y entrar a un curso
+  4. Navegar las lecciones buscando tareas grupales
+
+RESULTADO ESPERADO:
+  ✓ Las tareas grupales SÍ aparecen en las lecciones
+  ✓ El usuario puede ver todos los bloques de tipo "Tarea Grupal"
+  ✓ Puede formar grupos e invitar compañeros del mismo curso
+  ✓ Puede enviar tareas grupales normalmente
+  ✓ NO tiene acceso al "Espacio Colaborativo" (workspace) en el sidebar
+
+NOTAS DE VERIFICACIÓN:
+  - Usuario 4 y Usuario 5 NO tienen comunidad asignada
+  - IMPORTANTE: La comunidad NO afecta la visibilidad de tareas grupales
+  - La comunidad SOLO afecta el acceso al workspace colaborativo
+  - Las tareas grupales son visibles para cualquier usuario inscrito en cursos
+  - La diferencia es que usuarios sin comunidad no pueden usar el workspace
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.4.7 PRUEBA: Retroalimentación en Tareas (Opcional)
+-----------------------------------------------------
+NOTA: Esta prueba requiere que un usuario con rol "consultor" deje retroalimentación.
+Si no hay consultores configurados, OMITIR esta prueba.
+
+PASOS:
+  1. (Como consultor) Entrar al sistema con credenciales de consultor
+  2. Acceder a la lista de tareas enviadas
+  3. Seleccionar una tarea enviada por docente.test1@fne-lms.test
+  4. Dejar retroalimentación: "Excelente trabajo. Bien fundamentado."
+  5. Guardar retroalimentación
+  6. (Como docente.test1) Volver al curso y revisar la tarea
+
+RESULTADO ESPERADO:
+  ✓ La retroalimentación aparece en el bloque de tarea
+  ✓ Aparece indicador visual: "Con Retroalimentación" o badge
+  ✓ El docente recibe notificación (opcional)
+  ✓ La retroalimentación es visible solo para el docente que envió la tarea
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+  [ ] OMITIDO - No hay consultores configurados
+
+
+────────────────────────────────────────────────────────────────────────────
+2.5 ESPACIO COLABORATIVO (≈40 minutos)
+────────────────────────────────────────────────────────────────────────────
+
+Referencia Técnica:
+  Páginas: /pages/community/workspace.tsx
+  Componentes: ModernNotificationCenter, NotificationSkeleton
+  APIs: /pages/api/notifications/*, /pages/api/messages/*
+  Tablas DB: growth_communities, community_members, notifications, messages
+
+
+2.5.1 PRUEBA: Acceder al Espacio Colaborativo (Usuarios CON Comunidad)
+-----------------------------------------------------------------------
+Usuario a Probar: docente.test1@fne-lms.test (tiene comunidad)
+
+PASOS:
+  1. Iniciar sesión con docente.test1@fne-lms.test
+  2. Desde el sidebar, hacer clic en "Espacio Colaborativo"
+  3. Verificar que se redirige a /community/workspace
+
+RESULTADO ESPERADO:
+  ✓ Se carga la página del workspace colaborativo
+  ✓ Aparece el nombre de la comunidad en la parte superior
+  ✓ La interfaz muestra secciones:
+      - Lista de miembros de la comunidad (sidebar o panel lateral)
+      - Área de mensajería o chat
+      - (Opcional) Recursos compartidos
+      - (Opcional) Calendario de eventos
+  ✓ Se ven los avatares/nombres de otros miembros de la comunidad
+
+NOTAS DE VERIFICACIÓN:
+  - Usuario 1 debe ver miembros de "Comunidad A"
+  - Usuario 2 debe ver miembros de "Comunidad B" (diferente)
+  - El workspace es PRIVADO por comunidad (usuarios de otras comunidades no tienen acceso)
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.5.2 PRUEBA: Ver Lista de Miembros de la Comunidad
+----------------------------------------------------
+PASOS:
+  1. Desde el workspace, localizar la sección "Miembros" o "Integrantes"
+  2. Revisar la lista de miembros
+
+RESULTADO ESPERADO:
+  ✓ Aparece lista de miembros de la comunidad actual
+  ✓ Cada miembro muestra:
+      - Avatar o iniciales
+      - Nombre completo
+      - Indicador de estado: Online/Offline (opcional)
+      - Rol: "Docente", "Consultor", etc.
+  ✓ El usuario actual (docente.test1) aparece en la lista
+  ✓ El conteo de miembros es correcto
+
+NOTAS DE VERIFICACIÓN:
+  - La comunidad puede tener 1 o más miembros
+  - Si la comunidad tiene solo 1 miembro, aparece mensaje:
+      "Eres el único miembro de esta comunidad por ahora"
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+  Miembros Visibles (anotar nombres):
+    1. _______________________________________________
+    2. _______________________________________________
+    3. _______________________________________________
+
+
+2.5.3 PRUEBA: Enviar Mensaje en Workspace
+------------------------------------------
+NOTA: Esta funcionalidad puede variar dependiendo de la implementación.
+Si NO hay sistema de mensajería, OMITIR esta prueba.
+
+PASOS:
+  1. Desde el workspace, localizar el área de mensajes o chat
+  2. Escribir un mensaje de prueba: "Hola, esta es una prueba del workspace."
+  3. Hacer clic en "Enviar" o presionar Enter
+
+RESULTADO ESPERADO:
+  ✓ El mensaje aparece en el área de chat
+  ✓ El mensaje muestra:
+      - Nombre del autor
+      - Timestamp (fecha/hora)
+      - Contenido del mensaje
+  ✓ Los demás miembros de la comunidad ven el mensaje (en tiempo real o al recargar)
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+  [ ] OMITIDO - No hay sistema de mensajería implementado
+
+
+2.5.4 PRUEBA: Espacio Colaborativo NO Accesible para Usuarios SIN Comunidad
+----------------------------------------------------------------------------
+Usuario a Probar: docente.test4@fne-lms.test (SIN comunidad)
+
+PASOS:
+  1. Cerrar sesión de docente.test1@fne-lms.test
+  2. Iniciar sesión con docente.test4@fne-lms.test
+  3. Revisar el sidebar
+
+RESULTADO ESPERADO:
+  ✓ La opción "Espacio Colaborativo" NO aparece en el sidebar
+  ✓ Si se intenta acceder directamente a /community/workspace, aparece:
+      - Mensaje de error: "No tienes acceso a este espacio"
+      - Redirige al dashboard
+  ✓ No hay enlaces ni menciones al espacio colaborativo
+
+NOTAS DE VERIFICACIÓN:
+  - Usuario 4 y Usuario 5 NO tienen comunidad asignada
+  - El sistema debe prevenir acceso a workspaces sin membresía
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.5.5 PRUEBA: Notificaciones - Ver Centro de Notificaciones
+------------------------------------------------------------
+Usuario a Probar: docente.test1@fne-lms.test
+
+PASOS:
+  1. Iniciar sesión con docente.test1@fne-lms.test
+  2. En la barra superior, hacer clic en el ícono de campana (notificaciones)
+  3. Verificar que aparece el panel de notificaciones
+
+RESULTADO ESPERADO:
+  ✓ Aparece panel desplegable con lista de notificaciones
+  ✓ Cada notificación muestra:
+      - Tipo de notificación (ícono): Curso, Tarea, Mensaje, etc.
+      - Título/descripción
+      - Timestamp (hace X minutos/horas/días)
+      - Indicador de leída/no leída (punto azul o negrita)
+  ✓ Si no hay notificaciones, aparece mensaje:
+      "No tienes notificaciones nuevas"
+  ✓ Hay botón "Marcar todas como leídas"
+
+NOTAS DE VERIFICACIÓN:
+  - El badge en el ícono de campana muestra el número de notificaciones NO leídas
+  - Al abrir el panel, el badge puede desaparecer o reducirse
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.5.6 PRUEBA: Marcar Notificación como Leída
+---------------------------------------------
+PASOS:
+  1. Desde el panel de notificaciones, hacer clic en una notificación no leída
+  2. Verificar el comportamiento
+
+RESULTADO ESPERADO:
+  ✓ La notificación se marca como leída (pierde el punto azul o negrita)
+  ✓ El contador de notificaciones en el badge disminuye
+  ✓ Si la notificación tiene un enlace, redirige a la página correspondiente:
+      - Notificación de curso → Abre el curso
+      - Notificación de tarea → Abre la lección con la tarea
+      - Notificación de mensaje → Abre el workspace
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.5.7 PRUEBA: Marcar Todas las Notificaciones como Leídas
+----------------------------------------------------------
+PASOS:
+  1. Desde el panel de notificaciones, hacer clic en "Marcar todas como leídas"
+
+RESULTADO ESPERADO:
+  ✓ Todas las notificaciones cambian a estado "leída"
+  ✓ El badge en el ícono de campana desaparece o muestra "0"
+  ✓ Aparece mensaje de confirmación: "Todas las notificaciones marcadas como leídas"
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.5.8 PRUEBA: Generar Notificación (Acción de Prueba)
+------------------------------------------------------
+PASOS:
+  1. Realizar una acción que genere notificación:
+       - Opción A: Enviar una tarea
+       - Opción B: Completar una lección
+       - Opción C: (Si hay otro usuario) Enviar mensaje en workspace
+  2. Esperar 5-10 segundos
+  3. Verificar el ícono de campana
+
+RESULTADO ESPERADO:
+  ✓ Aparece notificación nueva en el panel
+  ✓ El badge se actualiza con el nuevo conteo
+  ✓ La notificación contiene información relevante de la acción
+
+NOTAS DE VERIFICACIÓN:
+  - Las notificaciones pueden tardar unos segundos en aparecer
+  - Si el sistema usa Realtime subscriptions, deben aparecer instantáneamente
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+2.5.9 PRUEBA: Configurar Preferencias de Notificaciones (Opcional)
+-------------------------------------------------------------------
+NOTA: Esta funcionalidad puede no estar implementada. Si NO existe, OMITIR.
+
+PASOS:
+  1. Ir a "Mi Perfil" o "Configuración"
+  2. Buscar sección de "Preferencias de Notificaciones"
+  3. Desactivar notificaciones de "Cursos Nuevos"
+  4. Guardar cambios
+
+RESULTADO ESPERADO:
+  ✓ Las preferencias se guardan correctamente
+  ✓ Al realizar una acción de "Curso Nuevo", NO se genera notificación
+  ✓ Las demás notificaciones siguen funcionando
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+  [ ] OMITIDO - Funcionalidad no implementada
+
+
+2.5.10 PRUEBA: Comunidades Diferentes - Aislamiento de Datos
+-------------------------------------------------------------
+Usuario a Probar: docente.test2@fne-lms.test (Comunidad B)
+
+PASOS:
+  1. Cerrar sesión de docente.test1@fne-lms.test (Comunidad A)
+  2. Iniciar sesión con docente.test2@fne-lms.test (Comunidad B)
+  3. Ir a "Espacio Colaborativo"
+  4. Comparar miembros y contenido con Comunidad A
+
+RESULTADO ESPERADO:
+  ✓ Usuario 2 ve miembros de Comunidad B (diferentes de Comunidad A)
+  ✓ Los mensajes de Comunidad A NO son visibles para Usuario 2
+  ✓ Los recursos/tareas grupales son independientes por comunidad
+  ✓ El workspace es completamente aislado entre comunidades
+
+NOTAS DE VERIFICACIÓN:
+  - Esto garantiza privacidad y segmentación de datos
+  - Usuarios de diferentes comunidades NO interactúan entre sí
+
+RESULTADO DE LA PRUEBA:
+  [ ] APROBADO
+  [ ] FALLIDO - Anotar motivo: _______________________________________
+
+
+================================================================================
+PARTE 3: CHECKLIST DE VALIDACIÓN COMPLETA
+================================================================================
+
+Marcar cada sección como ✓ COMPLETA o ✗ PENDIENTE después de ejecutar todas
+las pruebas.
+
+SECCIÓN 2.1: AUTENTICACIÓN Y GESTIÓN DE PERFIL
+  [ ] 2.1.1 - Login Exitoso
+  [ ] 2.1.2 - Login con Credenciales Incorrectas
+  [ ] 2.1.3 - Recuperación de Contraseña
+  [ ] 2.1.4 - Visualización y Edición de Perfil
+  [ ] 2.1.5 - Cierre de Sesión
+  Estado: [ ] ✓ COMPLETA  [ ] ✗ PENDIENTE  [ ] ✗ FALLOS DETECTADOS
+
+SECCIÓN 2.2: CURSOS INDIVIDUALES
+  [ ] 2.2.1 - Visualizar Lista de Cursos Asignados
+  [ ] 2.2.2 - Entrar a un Curso y Navegar Lecciones
+  [ ] 2.2.3 - Visualizar Bloques de Contenido
+  [ ] 2.2.4 - Navegación entre Lecciones
+  [ ] 2.2.5 - Marcar Lección como Completada
+  [ ] 2.2.6 - Progreso de Curso
+  [ ] 2.2.7 - Cursos Compartidos entre Usuarios
+  Estado: [ ] ✓ COMPLETA  [ ] ✗ PENDIENTE  [ ] ✗ FALLOS DETECTADOS
+
+SECCIÓN 2.3: RUTAS DE APRENDIZAJE
+  [ ] 2.3.1 - Visualizar Rutas Asignadas
+  [ ] 2.3.2 - Entrar a una Ruta y Ver Cursos Incluidos
+  [ ] 2.3.3 - Navegar desde Ruta a Curso Individual
+  [ ] 2.3.4 - Progreso de Ruta de Aprendizaje
+  [ ] 2.3.5 - Rutas Compartidas entre Usuarios
+  [ ] 2.3.6 - Usuario con Ruta Única (Sin Compartir)
+  Estado: [ ] ✓ COMPLETA  [ ] ✗ PENDIENTE  [ ] ✗ FALLOS DETECTADOS
+
+SECCIÓN 2.4: TAREAS Y ASIGNACIONES GRUPALES
+  [ ] 2.4.1 - Visualizar Tareas Individuales
+  [ ] 2.4.2 - Enviar Tarea Individual
+  [ ] 2.4.3 - Visualizar Tareas Grupales (Usuarios CON Comunidad)
+  [ ] 2.4.4 - Formar Grupo para Tarea Grupal
+  [ ] 2.4.5 - Enviar Tarea Grupal
+  [ ] 2.4.6 - Tareas Grupales NO Visibles para Usuarios SIN Comunidad
+  [ ] 2.4.7 - Retroalimentación en Tareas (Opcional)
+  Estado: [ ] ✓ COMPLETA  [ ] ✗ PENDIENTE  [ ] ✗ FALLOS DETECTADOS
+
+SECCIÓN 2.5: ESPACIO COLABORATIVO
+  [ ] 2.5.1 - Acceder al Espacio Colaborativo (Usuarios CON Comunidad)
+  [ ] 2.5.2 - Ver Lista de Miembros de la Comunidad
+  [ ] 2.5.3 - Enviar Mensaje en Workspace (Opcional)
+  [ ] 2.5.4 - Espacio Colaborativo NO Accesible para Usuarios SIN Comunidad
+  [ ] 2.5.5 - Notificaciones - Ver Centro de Notificaciones
+  [ ] 2.5.6 - Marcar Notificación como Leída
+  [ ] 2.5.7 - Marcar Todas las Notificaciones como Leídas
+  [ ] 2.5.8 - Generar Notificación (Acción de Prueba)
+  [ ] 2.5.9 - Configurar Preferencias de Notificaciones (Opcional)
+  [ ] 2.5.10 - Comunidades Diferentes - Aislamiento de Datos
+  Estado: [ ] ✓ COMPLETA  [ ] ✗ PENDIENTE  [ ] ✗ FALLOS DETECTADOS
+
+
+RESUMEN DE VALIDACIÓN:
+  Total de Pruebas Ejecutadas: ____ / 33
+  Pruebas Aprobadas: ____
+  Pruebas Fallidas: ____
+  Pruebas Omitidas: ____
+
+  Estado General: [ ] ✓ TODAS APROBADAS  [ ] ✗ FALLOS DETECTADOS
+
+
+================================================================================
+PARTE 4: PROBLEMAS COMUNES Y SOLUCIONES
+================================================================================
+
+Esta sección lista problemas típicos que pueden ocurrir durante las pruebas
+y sus posibles soluciones.
+
+
+PROBLEMA 1: No puedo iniciar sesión - "Credenciales inválidas"
+---------------------------------------------------------------
+POSIBLES CAUSAS:
+  - Email o contraseña incorrectos
+  - Usuario no existe en la base de datos
+  - Usuario fue eliminado o desactivado
+
+SOLUCIONES:
+  1. Verificar que el email sea exacto: docente.test1@fne-lms.test
+  2. Verificar que la contraseña sea: Prueba2025! (con mayúscula y signo)
+  3. Consultar con el equipo técnico si los usuarios fueron creados
+  4. Ejecutar el script 01-create-docente-test-users.sql nuevamente
+
+
+PROBLEMA 2: El sidebar no muestra "Espacio Colaborativo"
+---------------------------------------------------------
+POSIBLES CAUSAS:
+  - El usuario NO tiene comunidad asignada
+  - El usuario logueado es test4 o test5 (sin comunidad)
+
+SOLUCIONES:
+  1. Verificar qué usuario está logueado (revisar nombre en sidebar)
+  2. Si es test4 o test5, esto es ESPERADO (no tienen comunidad)
+  3. Cambiar a usuario test1, test2 o test3 para ver la opción
+  4. Consultar con técnico para asignar comunidad si es necesario
+
+
+PROBLEMA 3: No veo cursos en "Mi Aprendizaje"
+----------------------------------------------
+POSIBLES CAUSAS:
+  - No se ejecutó el script de asignación de cursos
+  - El usuario no tiene cursos asignados
+  - Error en la tabla `course_assignments` o `course_enrollments`
+
+SOLUCIONES:
+  1. Ejecutar el script 02-assign-courses-to-docentes.sql
+  2. Verificar con el equipo técnico que hay cursos disponibles en el sistema
+  3. Ejecutar query de verificación (03-verify-docente-setup.sql)
+  4. Revisar logs de la consola del navegador (F12 → Console)
+
+
+PROBLEMA 4: El progreso de lecciones no se guarda
+--------------------------------------------------
+POSIBLES CAUSAS:
+  - Error en la API de progreso
+  - Tabla `lesson_progress` tiene restricciones o problemas
+  - Problema de conectividad con la base de datos
+
+SOLUCIONES:
+  1. Abrir consola del navegador (F12) y revisar errores
+  2. Verificar que la petición POST se envía correctamente (pestaña Network)
+  3. Consultar con técnico para revisar logs del servidor
+  4. Intentar con otro usuario para descartar problema específico
+
+
+PROBLEMA 5: Las tareas grupales NO aparecen
+--------------------------------------------
+POSIBLES CAUSAS:
+  - El usuario NO está inscrito en el curso
+  - El curso no tiene bloques de tipo "group-assignment"
+  - El bloque de tarea grupal tiene `is_visible = false`
+
+SOLUCIONES:
+  1. Verificar que el usuario está inscrito en el curso (ver "Mi Aprendizaje")
+  2. Consultar con técnico para verificar que el curso tiene tareas grupales
+  3. Revisar con técnico la tabla `blocks` y filtrar por type='group-assignment'
+  4. NOTA: La comunidad NO afecta visibilidad de tareas, solo afecta workspace
+
+
+PROBLEMA 6: No puedo enviar mensajes en el workspace
+-----------------------------------------------------
+POSIBLES CAUSAS:
+  - La funcionalidad de mensajería no está implementada
+  - Error en la API de mensajes
+  - Permisos insuficientes
+
+SOLUCIONES:
+  1. Consultar con técnico si la mensajería está implementada
+  2. Si NO está implementada, marcar la prueba como OMITIDA
+  3. Revisar consola del navegador (F12) para errores
+  4. Verificar que el usuario tiene comunidad activa
+
+
+PROBLEMA 7: Las notificaciones no aparecen
+-------------------------------------------
+POSIBLES CAUSAS:
+  - No hay acciones recientes que generen notificaciones
+  - El sistema de notificaciones usa Realtime y no está conectado
+  - El usuario tiene preferencias de notificaciones desactivadas
+
+SOLUCIONES:
+  1. Realizar una acción que genere notificación (enviar tarea, completar lección)
+  2. Esperar 10-15 segundos y refrescar el panel de notificaciones
+  3. Revisar consola del navegador para errores de conexión
+  4. Consultar con técnico para verificar suscripciones de Supabase Realtime
+
+
+PROBLEMA 8: Error "No autorizado" al acceder a páginas
+-------------------------------------------------------
+POSIBLES CAUSAS:
+  - La sesión expiró
+  - Token de autenticación inválido
+  - Problema con cookies del navegador
+
+SOLUCIONES:
+  1. Cerrar sesión y volver a iniciar sesión
+  2. Limpiar cookies del navegador (Ctrl+Shift+Delete)
+  3. Probar en modo incógnito/privado
+  4. Consultar con técnico para revisar configuración de Supabase Auth
+
+
+================================================================================
+PARTE 5: PLANTILLA DE REPORTE DE PRUEBAS
+================================================================================
+
+Completar esta plantilla al finalizar las pruebas y enviar al equipo técnico.
+
+────────────────────────────────────────────────────────────────────────────
+REPORTE DE PRUEBAS MANUALES - ROL DOCENTE
+────────────────────────────────────────────────────────────────────────────
+
+INFORMACIÓN GENERAL
+-------------------
+Tester: _______________________________________________
+Fecha de Pruebas: _____________________________________
+Versión del Sistema: __________________________________
+Entorno: [ ] Producción  [ ] Desarrollo  [ ] Local
+URL Probada: __________________________________________
+
+
+RESUMEN EJECUTIVO
+-----------------
+Total de Pruebas Ejecutadas: ____ / 33
+Pruebas Aprobadas: ____
+Pruebas Fallidas: ____
+Pruebas Omitidas: ____
+
+Estado General: [ ] APROBADO  [ ] FALLIDO  [ ] PARCIAL
+
+
+PRUEBAS POR SECCIÓN
+-------------------
+
+SECCIÓN 2.1: AUTENTICACIÓN Y GESTIÓN DE PERFIL
+  Pruebas Ejecutadas: ____ / 5
+  Estado: [ ] ✓ APROBADO  [ ] ✗ FALLIDO
+  Observaciones:
+  _________________________________________________________________
+  _________________________________________________________________
+
+SECCIÓN 2.2: CURSOS INDIVIDUALES
+  Pruebas Ejecutadas: ____ / 7
+  Estado: [ ] ✓ APROBADO  [ ] ✗ FALLIDO
+  Observaciones:
+  _________________________________________________________________
+  _________________________________________________________________
+
+SECCIÓN 2.3: RUTAS DE APRENDIZAJE
+  Pruebas Ejecutadas: ____ / 6
+  Estado: [ ] ✓ APROBADO  [ ] ✗ FALLIDO
+  Observaciones:
+  _________________________________________________________________
+  _________________________________________________________________
+
+SECCIÓN 2.4: TAREAS Y ASIGNACIONES GRUPALES
+  Pruebas Ejecutadas: ____ / 7
+  Estado: [ ] ✓ APROBADO  [ ] ✗ FALLIDO
+  Observaciones:
+  _________________________________________________________________
+  _________________________________________________________________
+
+SECCIÓN 2.5: ESPACIO COLABORATIVO
+  Pruebas Ejecutadas: ____ / 10
+  Estado: [ ] ✓ APROBADO  [ ] ✗ FALLIDO
+  Observaciones:
+  _________________________________________________________________
+  _________________________________________________________________
+
+
+PROBLEMAS DETECTADOS
+--------------------
+
+PROBLEMA 1:
+  Prueba Relacionada: ________________________________________
+  Descripción Detallada:
+  _________________________________________________________________
+  _________________________________________________________________
+  _________________________________________________________________
+
+  Pasos para Reproducir:
+  1. _________________________________________________________________
+  2. _________________________________________________________________
+  3. _________________________________________________________________
+
+  Resultado Esperado:
+  _________________________________________________________________
+
+  Resultado Obtenido:
+  _________________________________________________________________
+
+  Severidad: [ ] CRÍTICO  [ ] ALTO  [ ] MEDIO  [ ] BAJO
+
+  Captura de Pantalla: [ ] Adjunta  [ ] No disponible
+
+  Observaciones Adicionales:
+  _________________________________________________________________
+
+────────────────────────────────────────────────────────────────────────────
+
+PROBLEMA 2:
+  Prueba Relacionada: ________________________________________
+  Descripción Detallada:
+  _________________________________________________________________
+  _________________________________________________________________
+  _________________________________________________________________
+
+  Pasos para Reproducir:
+  1. _________________________________________________________________
+  2. _________________________________________________________________
+  3. _________________________________________________________________
+
+  Resultado Esperado:
+  _________________________________________________________________
+
+  Resultado Obtenido:
+  _________________________________________________________________
+
+  Severidad: [ ] CRÍTICO  [ ] ALTO  [ ] MEDIO  [ ] BAJO
+
+  Captura de Pantalla: [ ] Adjunta  [ ] No disponible
+
+  Observaciones Adicionales:
+  _________________________________________________________________
+
+────────────────────────────────────────────────────────────────────────────
+
+[Añadir más problemas según sea necesario]
+
+
+SUGERENCIAS Y MEJORAS
+---------------------
+(Anotar cualquier sugerencia de mejora, funcionalidad que sería útil, etc.)
+
+_________________________________________________________________
+_________________________________________________________________
+_________________________________________________________________
+_________________________________________________________________
+
+
+COMENTARIOS FINALES
+-------------------
+(Impresión general del sistema, usabilidad, comentarios para el equipo)
+
+_________________________________________________________________
+_________________________________________________________________
+_________________________________________________________________
+_________________________________________________________________
+
+
+────────────────────────────────────────────────────────────────────────────
+Firma del Tester: _________________________  Fecha: ______________
+────────────────────────────────────────────────────────────────────────────
+
+
+================================================================================
+FIN DEL MANUAL DE PRUEBAS MANUALES - ROL DOCENTE
+================================================================================
+
+Versión: 1.0.0
+Última Actualización: 2025-01-19
+
+Para consultas técnicas, contactar al equipo de desarrollo.
+Para reportar problemas, usar la plantilla de reporte en PARTE 5.
+
+================================================================================

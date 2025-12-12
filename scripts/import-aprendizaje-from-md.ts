@@ -40,7 +40,7 @@ function assertEnv(): void {
 async function importAprendizajeRubric(): Promise<void> {
   assertEnv();
 
-  const mdPath = path.join(process.cwd(), 'PROGRESION-APRENDIZAJE.md');
+  const mdPath = path.join(process.cwd(), 'Progresión', 'PROGRESION-APRENDIZAJE.md');
   console.log('📥 Importing Aprendizaje rubric from markdown');
   console.log('   • File:', mdPath);
 

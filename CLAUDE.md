@@ -218,9 +218,29 @@ fne-lms-working/
 │   └── notificationService.ts
 ├── utils/             # Helper functions
 ├── database/          # SQL migrations and tests
+├── Progresión/        # Vías de Transformación rubric files
 ├── e2e/              # Playwright E2E tests
 └── __tests__/        # Vitest unit tests
 ```
+
+## Vías de Transformación (Progresión/)
+
+The `Progresión/` folder contains rubric data for the transformation assessment system:
+
+| File | Description |
+|------|-------------|
+| `PROGRESION.xlsx` | Master Excel file with all 7 transformation areas |
+| `PROGRESION-PERSONALIZACION.md` | Personalización rubric (11 actions, 44 sections) |
+| `PROGRESION-APRENDIZAJE.md` | Aprendizaje rubric (17 actions, 68 sections) |
+| `PROGRESION-EVALUACION.md` | Evaluación rubric (9 actions, 27 sections) |
+| `CONVERSION-GUIDE.md` | Documentation for converting XLSX tabs to MD format |
+
+### Converting New Areas
+When implementing new transformation areas (Propósito, Familias, Trabajo Docente, Liderazgo):
+1. Read `Progresión/CONVERSION-GUIDE.md` for the conversion process
+2. Use the Python script pattern documented there
+3. Follow the same MD structure as existing files
+4. Update `lib/transformation/rubricData.ts` to load the new file
 
 ## Deployment & Production
 

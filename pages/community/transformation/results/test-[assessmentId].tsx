@@ -274,7 +274,7 @@ export default function TransformationResultsTestPage({
                 </div>
                 <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 text-center">
                   <div className="text-4xl font-bold text-sky-600 mb-2">
-                    {evaluation.dimension_evaluations.length}
+                    {evaluation.dimension_evaluations?.length || 0}
                   </div>
                   <div className="text-sm text-slate-600">Dimensiones Evaluadas</div>
                 </div>

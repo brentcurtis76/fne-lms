@@ -37,7 +37,7 @@ function verifyAprendizajeStructure(): VerificationResult {
 
   try {
     // Read the markdown file
-    const filePath = path.join(process.cwd(), 'PROGRESION-APRENDIZAJE.md');
+    const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-APRENDIZAJE.md');
     if (!fs.existsSync(filePath)) {
       result.success = false;
       result.errors.push(`File not found: ${filePath}`);

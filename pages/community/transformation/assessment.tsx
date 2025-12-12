@@ -433,6 +433,8 @@ export default function TransformationAssessmentPage() {
     // CRITICAL FIX: Check for evaluation FIRST, regardless of completion status
     // This prevents bouncing back to questions after evaluation completes
     if (hasEvaluation) {
+      // Clear any stale error state when a valid evaluation exists
+      setEvaluationError(null);
       // If we have an evaluation, stay/go to results
       // Don't change step if already on results (prevents unnecessary re-renders)
       if (currentStep !== 'results') {
@@ -1104,8 +1106,8 @@ export default function TransformationAssessmentPage() {
               </div>
             )}
 
-            {/* Error State */}
-            {evaluationError && (
+            {/* Error State - only show if no evaluation exists */}
+            {evaluationError && !assessment.context_metadata?.evaluation && (
               <div className="bg-red-50 border border-red-200 rounded-xl p-6">
                 <div className="flex items-start gap-3">
                   <svg

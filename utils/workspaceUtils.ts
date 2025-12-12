@@ -41,10 +41,25 @@ export interface CommunityWorkspace {
 
 /**
  * Determine user's workspace access level and available communities
+ * @param userId - The user's ID
+ * @param isAdminOverride - Optional: If true, treat user as admin (useful when RLS blocks role query)
  */
-export async function getUserWorkspaceAccess(userId: string): Promise<WorkspaceAccess> {
+export async function getUserWorkspaceAccess(userId: string, isAdminOverride?: boolean): Promise<WorkspaceAccess> {
   try {
-    console.log('[WorkspaceUtils] Getting workspace access for user:', userId);
+    console.log('[WorkspaceUtils] Getting workspace access for user:', userId, 'isAdminOverride:', isAdminOverride);
+
+    // If we have an admin override from the auth hook, skip the role query and grant admin access
+    if (isAdminOverride === true) {
+      console.log('[WorkspaceUtils] Admin override active, granting admin access');
+      const allCommunities = await getAllCommunitiesForAdmin();
+      console.log('[WorkspaceUtils] Admin access granted via override, communities:', allCommunities.length);
+      return {
+        canAccess: true,
+        accessType: 'admin',
+        availableCommunities: allCommunities,
+        defaultCommunityId: allCommunities.length > 0 ? allCommunities[0].id : undefined
+      };
+    }
 
     // Get user roles
     const { data: userRoles, error: rolesError } = await supabase

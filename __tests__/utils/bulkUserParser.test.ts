@@ -359,6 +359,198 @@ invalid-email,Jane,Smith,docente`;
     });
   });
 
+  describe('Organizational Assignment', () => {
+    it('should parse CSV with organizational columns', () => {
+      const csv = `email,firstName,lastName,role,rut,password,school_id,generation_id,community_id
+john@test.com,John,Doe,docente,,TestPass123,5,gen-uuid-123,comm-uuid-456
+jane@test.com,Jane,Smith,lider_comunidad,,Pass456!,3,,`;
+
+      const result = parseBulkUserData(csv, { validateRut: false });
+
+      expect(result.valid).toHaveLength(2);
+
+      // First user with all org IDs
+      expect(result.valid[0]).toMatchObject({
+        email: 'john@test.com',
+        school_id: 5,
+        generation_id: 'gen-uuid-123',
+        community_id: 'comm-uuid-456'
+      });
+      expect(result.valid[0].csv_overrides).toEqual({
+        school: true,
+        generation: true,
+        community: true
+      });
+
+      // Second user with only school
+      expect(result.valid[1]).toMatchObject({
+        email: 'jane@test.com',
+        school_id: 3,
+        generation_id: undefined,
+        community_id: undefined
+      });
+      expect(result.valid[1].csv_overrides?.school).toBe(true);
+      expect(result.valid[1].csv_overrides?.generation).toBe(false);
+    });
+
+    it('should apply global organizational scope when CSV values missing', () => {
+      const csv = `email,firstName,lastName,role
+john@test.com,John,Doe,docente
+jane@test.com,Jane,Smith,admin`;
+
+      const result = parseBulkUserData(csv, {
+        validateRut: false,
+        organizationalScope: {
+          globalSchoolId: 10,
+          globalGenerationId: 'global-gen-uuid',
+          globalCommunityId: 'global-comm-uuid'
+        }
+      });
+
+      expect(result.valid).toHaveLength(2);
+
+      // Both users should have global values applied
+      result.valid.forEach(user => {
+        expect(user.school_id).toBe(10);
+        expect(user.generation_id).toBe('global-gen-uuid');
+        expect(user.community_id).toBe('global-comm-uuid');
+        // csv_overrides should all be false since values came from global
+        expect(user.csv_overrides?.school).toBe(false);
+        expect(user.csv_overrides?.generation).toBe(false);
+        expect(user.csv_overrides?.community).toBe(false);
+      });
+    });
+
+    it('should allow CSV values to override global selections', () => {
+      const csv = `email,firstName,lastName,role,school_id,generation_id
+john@test.com,John,Doe,docente,99,csv-gen-uuid
+jane@test.com,Jane,Smith,admin,,`;
+
+      const result = parseBulkUserData(csv, {
+        validateRut: false,
+        organizationalScope: {
+          globalSchoolId: 10,
+          globalGenerationId: 'global-gen-uuid',
+          globalCommunityId: 'global-comm-uuid'
+        }
+      });
+
+      expect(result.valid).toHaveLength(2);
+
+      // First user: CSV override for school and generation
+      expect(result.valid[0].school_id).toBe(99);
+      expect(result.valid[0].generation_id).toBe('csv-gen-uuid');
+      expect(result.valid[0].community_id).toBe('global-comm-uuid'); // From global
+      expect(result.valid[0].csv_overrides).toEqual({
+        school: true,
+        generation: true,
+        community: false
+      });
+
+      // Second user: Global values (empty CSV cells)
+      expect(result.valid[1].school_id).toBe(10);
+      expect(result.valid[1].generation_id).toBe('global-gen-uuid');
+      expect(result.valid[1].community_id).toBe('global-comm-uuid');
+    });
+
+    it('should detect Spanish organizational column headers', () => {
+      const csv = `correo,nombre,apellido,rol,colegio_id,generacion_id,comunidad_id
+juan@test.com,Juan,Pérez,docente,7,gen-123,comm-456`;
+
+      const result = parseBulkUserData(csv, { validateRut: false });
+
+      expect(result.valid).toHaveLength(1);
+      expect(result.valid[0]).toMatchObject({
+        school_id: 7,
+        generation_id: 'gen-123',
+        community_id: 'comm-456'
+      });
+    });
+
+    it('should handle school_id as string from CSV and convert to number', () => {
+      const csv = `email,firstName,lastName,role,school_id
+john@test.com,John,Doe,docente,"15"`;
+
+      const result = parseBulkUserData(csv, { validateRut: false });
+
+      expect(result.valid).toHaveLength(1);
+      expect(result.valid[0].school_id).toBe(15);
+      expect(typeof result.valid[0].school_id).toBe('number');
+    });
+
+    it('should handle invalid school_id gracefully', () => {
+      const csv = `email,firstName,lastName,role,school_id
+john@test.com,John,Doe,docente,not-a-number`;
+
+      const result = parseBulkUserData(csv, { validateRut: false });
+
+      expect(result.valid).toHaveLength(1);
+      expect(result.valid[0].school_id).toBeUndefined();
+    });
+
+    it('should include organizational columns in exported CSV', () => {
+      const users: BulkUserData[] = [
+        {
+          email: 'john@test.com',
+          firstName: 'John',
+          lastName: 'Doe',
+          role: 'docente',
+          rut: '',
+          password: 'Test1234',
+          rowNumber: 1,
+          school_id: 5,
+          generation_id: 'gen-uuid-123',
+          community_id: 'comm-uuid-456'
+        }
+      ];
+
+      const csv = exportAsCSV(users);
+
+      expect(csv).toContain('school_id,generation_id,community_id');
+      expect(csv).toContain('"5"');
+      expect(csv).toContain('"gen-uuid-123"');
+      expect(csv).toContain('"comm-uuid-456"');
+    });
+
+    it('should handle mixed organizational data in batch', () => {
+      const csv = `email,firstName,lastName,role,school_id,generation_id,community_id
+user1@test.com,User,One,docente,5,gen-1,comm-1
+user2@test.com,User,Two,admin,,,
+user3@test.com,User,Three,lider_comunidad,8,gen-2,
+user4@test.com,User,Four,consultor,,,comm-4`;
+
+      const result = parseBulkUserData(csv, {
+        validateRut: false,
+        organizationalScope: {
+          globalSchoolId: 1,
+          globalGenerationId: 'default-gen'
+        }
+      });
+
+      expect(result.valid).toHaveLength(4);
+
+      // User 1: All from CSV
+      expect(result.valid[0].school_id).toBe(5);
+      expect(result.valid[0].generation_id).toBe('gen-1');
+      expect(result.valid[0].community_id).toBe('comm-1');
+
+      // User 2: All from global (admin doesn't require school)
+      expect(result.valid[1].school_id).toBe(1);
+      expect(result.valid[1].generation_id).toBe('default-gen');
+      expect(result.valid[1].community_id).toBeUndefined();
+
+      // User 3: School and gen from CSV, no community
+      expect(result.valid[2].school_id).toBe(8);
+      expect(result.valid[2].generation_id).toBe('gen-2');
+      expect(result.valid[2].community_id).toBeUndefined();
+
+      // User 4: Global school/gen, community from CSV
+      expect(result.valid[3].school_id).toBe(1);
+      expect(result.valid[3].generation_id).toBe('default-gen');
+      expect(result.valid[3].community_id).toBe('comm-4');
+    });
+  });
+
   describe('Integration tests', () => {
     it('should handle complete workflow', () => {
       // Generate sample data

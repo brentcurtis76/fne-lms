@@ -1,8 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { parseBulkUserData, type BulkUserData } from '../../../utils/bulkUserParser';
+import { BulkImportOrganizationalScope } from '../../../types/bulk';
 import { validatePassword } from '../../../utils/passwordGenerator';
 import { passwordStore, generateSessionId } from '../../../lib/temporaryPasswordStore';
+import { UserRoleType, validateRoleAssignment, ROLE_ORGANIZATIONAL_REQUIREMENTS } from '../../../types/roles';
 
 // Create a function to get the Supabase admin client
 function getSupabaseAdmin() {
@@ -52,6 +54,116 @@ const MAX_REQUESTS_PER_HOUR = 10; // Rate limit
 
 // Simple in-memory rate limiter (should use Redis in production)
 const rateLimitStore = new Map<string, { count: number; resetTime: Date }>();
+
+/**
+ * Create a community for a lider_comunidad role during bulk import
+ * Follows the same pattern as assign-role.ts
+ */
+async function createCommunityForBulkLeader(
+  supabaseAdmin: any,
+  firstName: string,
+  lastName: string,
+  schoolId: number,
+  generationId: string | undefined
+): Promise<{ success: boolean; communityId?: string; error?: string }> {
+  try {
+    // Check if school requires generations
+    const { data: schoolData, error: schoolError } = await supabaseAdmin
+      .from('schools')
+      .select('id, name, has_generations')
+      .eq('id', schoolId)
+      .single();
+
+    if (schoolError || !schoolData) {
+      console.error('[BULK-IMPORT] Failed to get school data:', { schoolError, schoolId });
+      return { success: false, error: 'No se pudo encontrar información del colegio' };
+    }
+
+    const schoolHasGenerations = schoolData.has_generations === true;
+
+    // Validate generation requirement
+    if (schoolHasGenerations && !generationId) {
+      return {
+        success: false,
+        error: `La escuela "${schoolData.name}" utiliza generaciones. Debe seleccionar una generación para crear la comunidad.`
+      };
+    }
+
+    // Validate generation_id exists if provided
+    if (generationId) {
+      const { data: generationData, error: generationError } = await supabaseAdmin
+        .from('generations')
+        .select('id, name')
+        .eq('id', generationId)
+        .eq('school_id', schoolId)
+        .single();
+
+      if (generationError || !generationData) {
+        return { success: false, error: 'La generación seleccionada no es válida para esta escuela' };
+      }
+    }
+
+    const communityName = `Comunidad ${firstName || ''} ${lastName || ''}`.trim();
+
+    console.log('[BULK-IMPORT] Creating community:', {
+      communityName,
+      schoolId,
+      generationId
+    });
+
+    // Create the community
+    const communityData = {
+      name: communityName,
+      school_id: schoolId,
+      generation_id: generationId || null
+    };
+
+    const { data: newCommunity, error: communityError } = await supabaseAdmin
+      .from('growth_communities')
+      .insert(communityData)
+      .select()
+      .single();
+
+    if (communityError) {
+      console.error('[BULK-IMPORT] Error creating community:', {
+        error: communityError,
+        code: communityError.code,
+        message: communityError.message,
+        communityData
+      });
+
+      // Handle duplicate name - try to find existing community
+      if (communityError.code === '23505') {
+        const { data: existingCommunity } = await supabaseAdmin
+          .from('growth_communities')
+          .select('id')
+          .eq('name', communityName)
+          .eq('school_id', schoolId)
+          .single();
+
+        if (existingCommunity) {
+          console.log('[BULK-IMPORT] Found existing community:', existingCommunity.id);
+          return { success: true, communityId: existingCommunity.id };
+        }
+        return { success: false, error: `Ya existe una comunidad con el nombre "${communityName}"` };
+      }
+
+      // Foreign key constraint violation
+      if (communityError.code === '23503') {
+        return { success: false, error: 'Error de configuración: referencias inválidas en la base de datos' };
+      }
+
+      return { success: false, error: 'Error al crear la comunidad' };
+    }
+
+    console.log('[BULK-IMPORT] Community created successfully:', newCommunity.id);
+    return { success: true, communityId: newCommunity.id };
+
+  } catch (error: any) {
+    console.error('[BULK-IMPORT] createCommunityForBulkLeader error:', error);
+    return { success: false, error: 'Error inesperado al crear comunidad' };
+  }
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -261,14 +373,17 @@ export default async function handler(
     let succeeded = 0;
     let failed = 0;
 
+    // Get global password from options if provided
+    const globalPassword = options?.globalPassword;
+
     // Process users SEQUENTIALLY to avoid Supabase Auth rate limits
     console.log('[BULK-IMPORT] Processing users sequentially to avoid rate limits...');
-    
+
     for (let i = 0; i < parseResult.valid.length; i++) {
       const userData = parseResult.valid[i];
       console.log(`[BULK-IMPORT] Creating user ${i + 1}/${parseResult.valid.length}: ${userData.email}`);
-      
-      const result = await createUser(userData, supabaseAdmin, sessionId);
+
+      const result = await createUser(userData, supabaseAdmin, sessionId, user.id, globalPassword);
       results.push(result);
       
       if (result.success) {
@@ -295,6 +410,18 @@ export default async function handler(
         warnings: invalidUser.warnings
       });
       failed++;
+    }
+
+    // Refresh user roles cache after all users are processed
+    if (succeeded > 0) {
+      console.log('[BULK-IMPORT] Refreshing user roles cache...');
+      const { error: cacheRefreshError } = await supabaseAdmin.rpc('refresh_user_roles_cache');
+      if (cacheRefreshError) {
+        console.error('[BULK-IMPORT] Failed to refresh user_roles_cache:', cacheRefreshError);
+        // Don't fail the whole import, just log the error
+      } else {
+        console.log('[BULK-IMPORT] User roles cache refreshed successfully');
+      }
     }
 
     // Return results with session ID for secure password retrieval
@@ -348,19 +475,83 @@ export default async function handler(
 }
 
 /**
- * Create a single user
+ * Create a single user with role assignment
  */
-async function createUser(userData: BulkUserData, supabaseAdmin: any, sessionId: string): Promise<UserCreationResult> {
+async function createUser(
+  userData: BulkUserData,
+  supabaseAdmin: any,
+  sessionId: string,
+  adminUserId: string,
+  globalPassword?: string
+): Promise<UserCreationResult> {
   try {
-    // Use default password if none provided or if generated password is weak
-    let finalPassword = userData.password;
-    if (!finalPassword || finalPassword.length < 8) {
-      finalPassword = 'FnePassword123!'; // Default password meeting all requirements: 8+ chars, upper, lower, number, special
+    const roleType = (userData.role || 'docente') as UserRoleType;
+    const schoolId = typeof userData.school_id === 'string'
+      ? parseInt(userData.school_id, 10)
+      : userData.school_id;
+    const generationId = userData.generation_id;
+    const communityId = userData.community_id;
+
+    console.log(`[BULK-IMPORT] Creating user ${userData.email} with organizational scope:`, {
+      roleType,
+      schoolId,
+      generationId,
+      communityId
+    });
+
+    // --- Step 1: Validate role organizational requirements ---
+    const organizationalScope = {
+      schoolId: schoolId ? String(schoolId) : null,
+      generationId: generationId || null,
+      communityId: communityId || null
+    };
+
+    const roleValidation = validateRoleAssignment(roleType, organizationalScope);
+    if (!roleValidation.isValid) {
+      console.log(`[BULK-IMPORT] Role validation failed for ${userData.email}:`, roleValidation.error);
+      return {
+        email: userData.email,
+        success: false,
+        error: roleValidation.error || 'Error de validación de rol',
+        warnings: userData.warnings
+      };
     }
 
-    // Validate final password
-    const validation = validatePassword(finalPassword);
-    if (!validation.valid) {
+    // --- Step 2: Handle lider_comunidad auto-community creation ---
+    let finalCommunityId = communityId;
+    if (roleType === 'lider_comunidad' && schoolId && !communityId) {
+      console.log(`[BULK-IMPORT] Creating auto-community for lider_comunidad: ${userData.email}`);
+
+      const communityResult = await createCommunityForBulkLeader(
+        supabaseAdmin,
+        userData.firstName || '',
+        userData.lastName || '',
+        schoolId,
+        generationId
+      );
+
+      if (!communityResult.success) {
+        return {
+          email: userData.email,
+          success: false,
+          error: communityResult.error || 'Error al crear comunidad automática',
+          warnings: userData.warnings
+        };
+      }
+
+      finalCommunityId = communityResult.communityId;
+      console.log(`[BULK-IMPORT] Auto-community created: ${finalCommunityId}`);
+    }
+
+    // --- Step 3: Determine password ---
+    // Priority: globalPassword > userData.password > generated default
+    let finalPassword = globalPassword || userData.password;
+    if (!finalPassword || finalPassword.length < 8) {
+      finalPassword = 'FnePassword123!'; // Default password meeting all requirements
+    }
+
+    const passwordValidation = validatePassword(finalPassword);
+    if (!passwordValidation.valid) {
       return {
         email: userData.email,
         success: false,
@@ -369,47 +560,29 @@ async function createUser(userData: BulkUserData, supabaseAdmin: any, sessionId:
       };
     }
 
-    // DIAGNOSTIC: Log exact parameters being passed to createUser
+    // --- Step 4: Create auth user ---
     const createUserParams = {
       email: userData.email,
       password: finalPassword,
-      email_confirm: true, // Auto-confirm email
+      email_confirm: true,
       user_metadata: {
         first_name: userData.firstName || null,
         last_name: userData.lastName || null,
-        role: userData.role || 'docente'
+        role: roleType
       }
     };
-    
-    console.log(`[BULK-IMPORT] DIAGNOSTIC: createUser parameters for ${userData.email}:`, {
-      email: createUserParams.email,
-      password: '***HIDDEN***',
-      email_confirm: createUserParams.email_confirm,
-      user_metadata: createUserParams.user_metadata,
-      parameterTypes: {
-        email: typeof createUserParams.email,
-        password: typeof createUserParams.password,
-        email_confirm: typeof createUserParams.email_confirm,
-        user_metadata: typeof createUserParams.user_metadata
-      }
-    });
 
-    // Create the user with admin privileges
+    console.log(`[BULK-IMPORT] Creating auth user for ${userData.email}`);
+
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser(createUserParams);
 
     if (createError) {
-      // DIAGNOSTIC: Log detailed error information
-      console.log(`[BULK-IMPORT] DETAILED ERROR for ${userData.email}:`, {
+      console.log(`[BULK-IMPORT] Auth creation error for ${userData.email}:`, {
         errorMessage: createError.message,
-        errorCode: createError.code,
-        errorStatus: createError.status,
-        fullErrorObject: JSON.stringify(createError, null, 2),
-        errorType: createError.constructor?.name,
-        additionalProperties: Object.keys(createError)
+        errorCode: createError.code
       });
-      
-      // Check if user already exists
-      if (createError.message?.includes('already registered') || 
+
+      if (createError.message?.includes('already registered') ||
           createError.message?.includes('duplicate key')) {
         return {
           email: userData.email,
@@ -425,133 +598,175 @@ async function createUser(userData: BulkUserData, supabaseAdmin: any, sessionId:
       throw new Error('User creation failed - no user returned');
     }
 
-    // Create or update profile
+    const userId = newUser.user.id;
+
+    // --- Step 5: Create profile with dynamic school_id ---
     const profileData = {
-      id: newUser.user.id,
+      id: userId,
       email: userData.email,
       first_name: userData.firstName || null,
       last_name: userData.lastName || null,
-      name: userData.firstName && userData.lastName 
-        ? `${userData.firstName} ${userData.lastName}` 
+      name: userData.firstName && userData.lastName
+        ? `${userData.firstName} ${userData.lastName}`
         : null,
-      school_id: 3, // Santa Marta de Valdivia - hardcoded for now
-      approval_status: 'approved', // Admin-created users are auto-approved
-      must_change_password: true // Force password change on first login
+      school_id: schoolId || null,
+      approval_status: 'approved',
+      must_change_password: true
     };
 
-    // Check if profile already exists
+    console.log(`[BULK-IMPORT] Creating profile for ${userData.email} with school_id: ${schoolId}`);
+
     const { data: existingProfile } = await supabaseAdmin
       .from('profiles')
       .select('id')
-      .eq('id', newUser.user.id)
+      .eq('id', userId)
       .single();
 
     if (existingProfile) {
-      // Update existing profile
       const { error: updateError } = await supabaseAdmin
         .from('profiles')
         .update(profileData)
-        .eq('id', newUser.user.id);
+        .eq('id', userId);
 
       if (updateError) {
-        // If profile update fails, try to delete the auth user
-        await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+        await supabaseAdmin.auth.admin.deleteUser(userId);
         throw updateError;
       }
     } else {
-      // Create new profile
       const { error: profileError } = await supabaseAdmin
         .from('profiles')
         .insert(profileData);
 
       if (profileError) {
-        // If profile creation fails, delete the auth user
-        await supabaseAdmin.auth.admin.deleteUser(newUser.user.id);
+        await supabaseAdmin.auth.admin.deleteUser(userId);
         throw profileError;
       }
     }
 
-    // Log the creation in audit_logs with enhanced details
+    // --- Step 6: Create user_roles entry ---
+    const roleInsertData = {
+      user_id: userId,
+      role_type: roleType,
+      school_id: schoolId || null,
+      generation_id: generationId || null,
+      community_id: finalCommunityId || null,
+      is_active: true,
+      assigned_by: adminUserId,
+      assigned_at: new Date().toISOString()
+    };
+
+    console.log(`[BULK-IMPORT] Creating user_roles entry for ${userData.email}:`, roleInsertData);
+
+    const { error: roleError } = await supabaseAdmin
+      .from('user_roles')
+      .insert(roleInsertData);
+
+    if (roleError) {
+      console.error(`[BULK-IMPORT] Error creating user_roles for ${userData.email}:`, {
+        error: roleError,
+        code: roleError.code,
+        message: roleError.message
+      });
+
+      // Handle specific errors
+      if (roleError.code === '23505') {
+        // Duplicate role - this is okay, log warning and continue
+        console.warn(`[BULK-IMPORT] Duplicate role entry for ${userData.email}, continuing...`);
+      } else if (roleError.code === '23503') {
+        // FK violation - this is critical, clean up
+        console.error(`[BULK-IMPORT] FK violation for ${userData.email}, cleaning up...`);
+        await supabaseAdmin.auth.admin.deleteUser(userId);
+        return {
+          email: userData.email,
+          success: false,
+          error: 'Error de configuración: referencias organizacionales inválidas',
+          warnings: userData.warnings
+        };
+      } else {
+        // Other errors - log but continue (user and profile were created)
+        console.warn(`[BULK-IMPORT] Non-critical role error for ${userData.email}:`, roleError.message);
+      }
+    }
+
+    // --- Step 7: Update profile with school name for backward compatibility ---
+    if (schoolId) {
+      const { data: schoolData } = await supabaseAdmin
+        .from('schools')
+        .select('name')
+        .eq('id', schoolId)
+        .single();
+
+      if (schoolData?.name) {
+        await supabaseAdmin
+          .from('profiles')
+          .update({ school: schoolData.name })
+          .eq('id', userId);
+      }
+    }
+
+    // --- Step 8: Log to audit_logs ---
     await supabaseAdmin
       .from('audit_logs')
       .insert({
-        user_id: newUser.user.id,
+        user_id: userId,
         action: 'bulk_user_created',
         details: {
-          created_by: 'admin',
+          created_by: adminUserId,
           email: userData.email,
-          role: userData.role,
-          // Note: Never log passwords
+          role: roleType,
+          school_id: schoolId,
+          generation_id: generationId,
+          community_id: finalCommunityId,
           bulk_import_session: sessionId
         }
       });
 
-    // SECURITY: Store password securely in temporary store
+    // --- Step 9: Store password securely ---
     if (finalPassword) {
       passwordStore.store(sessionId, userData.email, finalPassword);
     }
 
+    console.log(`[BULK-IMPORT] Successfully created user ${userData.email} with role ${roleType}`);
+
     return {
       email: userData.email,
       success: true,
-      userId: newUser.user.id,
-      // SECURITY FIX: Never return passwords in API responses
+      userId: userId,
       warnings: userData.warnings
     };
 
   } catch (error: any) {
-    // ENHANCED DIAGNOSTICS: Comprehensive server-side logging (NO PII)
     console.error(`[BULK-IMPORT] User creation failed:`, {
-      email: userData.email, // Email is not PII in this context - needed for diagnostics
+      email: userData.email,
       timestamp: new Date().toISOString(),
       errorType: error.name || 'UnknownError',
       errorMessage: error.message,
       errorCode: error.code,
-      stackTrace: error.stack?.split('\n').slice(0, 3), // First 3 lines only
-      // Additional diagnostic context
-      authStep: error.message?.includes('auth') ? 'AUTH_CREATION' : 
-                error.message?.includes('profile') ? 'PROFILE_CREATION' : 'UNKNOWN',
-      validationStep: error.message?.includes('password') ? 'PASSWORD_VALIDATION' : 
-                     error.message?.includes('email') ? 'EMAIL_VALIDATION' : 'NO_VALIDATION_ERROR',
-      databaseStep: error.code === '23505' ? 'DUPLICATE_CONSTRAINT' :
-                   error.code === '23503' ? 'FOREIGN_KEY_CONSTRAINT' :
-                   error.code === '42501' ? 'INSUFFICIENT_PRIVILEGES' : 'NO_DB_ERROR'
+      stackTrace: error.stack?.split('\n').slice(0, 3)
     });
-    
-    // SECURITY: Return sanitized error messages with enhanced categories
+
+    // Sanitized error messages
     let sanitizedError = 'Error al crear usuario';
-    let errorCategory = 'general';
-    
-    // Enhanced error categorization for better user feedback
-    if (error.message?.includes('already registered') || 
+
+    if (error.message?.includes('already registered') ||
         error.message?.includes('duplicate key') ||
         error.code === '23505') {
       sanitizedError = 'Este email ya está registrado';
-      errorCategory = 'duplicate';
-    } else if (error.message?.includes('Invalid email') || 
+    } else if (error.message?.includes('Invalid email') ||
                error.message?.includes('email')) {
       sanitizedError = 'Email inválido';
-      errorCategory = 'email';
     } else if (error.message?.includes('password')) {
       sanitizedError = 'La contraseña no cumple con los requisitos';
-      errorCategory = 'password';
     } else if (error.code === '23503') {
       sanitizedError = 'Error de configuración de datos (clave foránea)';
-      errorCategory = 'foreign_key';
     } else if (error.code === '42501' || error.message?.includes('permission')) {
       sanitizedError = 'Error de permisos del sistema';
-      errorCategory = 'permissions';
     } else if (error.message?.includes('timeout') || error.message?.includes('network')) {
       sanitizedError = 'Error de conexión - intente nuevamente';
-      errorCategory = 'network';
     } else if (error.message?.includes('rate limit') || error.message?.includes('too many')) {
       sanitizedError = 'Demasiadas solicitudes - espere un momento';
-      errorCategory = 'rate_limit';
     }
-    
-    // Log the sanitized error category for pattern analysis
-    console.warn(`[BULK-IMPORT] Sanitized error category: ${errorCategory} for email: ${userData.email}`);
-    
+
     return {
       email: userData.email,
       success: false,

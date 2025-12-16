@@ -1,36 +1,22 @@
 /**
  * Pre-loaded rubric markdown data for transformation assessments
- * This allows Vercel serverless functions to access the content without filesystem reads
+ * Uses embedded content for Vercel serverless compatibility
  */
 
-import fs from 'fs';
-import path from 'path';
-
-// Cache the markdown content at build time
-let personalizacionContent: string | null = null;
-let aprendizajeContent: string | null = null;
-let evaluacionContent: string | null = null;
+import {
+  PERSONALIZACION_CONTENT,
+  APRENDIZAJE_CONTENT,
+  EVALUACION_CONTENT
+} from './rubricContent';
 
 export function getPersonalizacionMarkdown(): string {
-  if (personalizacionContent === null) {
-    const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-PERSONALIZACION.md');
-    personalizacionContent = fs.readFileSync(filePath, 'utf-8');
-  }
-  return personalizacionContent;
+  return PERSONALIZACION_CONTENT;
 }
 
 export function getAprendizajeMarkdown(): string {
-  if (aprendizajeContent === null) {
-    const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-APRENDIZAJE.md');
-    aprendizajeContent = fs.readFileSync(filePath, 'utf-8');
-  }
-  return aprendizajeContent;
+  return APRENDIZAJE_CONTENT;
 }
 
 export function getEvaluacionMarkdown(): string {
-  if (evaluacionContent === null) {
-    const filePath = path.join(process.cwd(), 'Progresión', 'PROGRESION-EVALUACION.md');
-    evaluacionContent = fs.readFileSync(filePath, 'utf-8');
-  }
-  return evaluacionContent;
+  return EVALUACION_CONTENT;
 }

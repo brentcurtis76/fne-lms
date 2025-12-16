@@ -604,7 +604,16 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                   <div className="font-semibold text-brand_blue">{contrato.numero_contrato}</div>
                   <div className="text-sm text-gray-600">{contrato.programas.nombre}</div>
                   <div className="text-sm text-gray-500">
-                    Fecha: {new Date(contrato.fecha_contrato).toLocaleDateString('es-CL')}
+                    Fecha: {(() => {
+                      const parts = contrato.fecha_contrato.split('T')[0].split('-');
+                      if (parts.length === 3) {
+                        const year = parseInt(parts[0], 10);
+                        const month = parseInt(parts[1], 10) - 1;
+                        const day = parseInt(parts[2], 10);
+                        return new Date(year, month, day).toLocaleDateString('es-CL');
+                      }
+                      return new Date(contrato.fecha_contrato).toLocaleDateString('es-CL');
+                    })()}
                   </div>
                   <div className="text-sm text-gray-500">
                     Valor: {contrato.tipo_moneda === 'CLP' ? '$' : 'UF '}{contrato.precio_total_uf.toLocaleString('es-CL')}

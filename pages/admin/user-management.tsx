@@ -45,6 +45,7 @@ export default function UserManagement() {
   const [totalUsers, setTotalUsers] = useState(0);
   const PAGE_SIZE = 25;
   const [summary, setSummary] = useState({ total: 0, pending: 0, approved: 0 });
+  const [schools, setSchools] = useState<Array<{ id: string; name: string }>>([]);
   
   // Add user form state
   const [showAddForm, setShowAddForm] = useState(false);
@@ -61,6 +62,7 @@ export default function UserManagement() {
   const [searchInput, setSearchInput] = useState('');
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<'all' | 'pending' | 'approved'>('all');
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
   const [selectedCommunityId, setSelectedCommunityId] = useState<string>('');
   
   // Bulk import modal state
@@ -140,6 +142,7 @@ export default function UserManagement() {
   const fetchUsers = useCallback(async (page = 1, overrides?: {
     search?: string;
     status?: 'all' | 'pending' | 'approved';
+    schoolId?: string;
     communityId?: string;
   }) => {
     try {
@@ -152,6 +155,7 @@ export default function UserManagement() {
 
       const searchTerm = overrides?.search ?? appliedSearchQuery;
       const statusFilter = overrides?.status ?? selectedStatus;
+      const schoolFilter = overrides?.schoolId ?? selectedSchoolId;
       const communityFilter = overrides?.communityId ?? selectedCommunityId;
 
       if (searchTerm.trim()) {
@@ -159,6 +163,9 @@ export default function UserManagement() {
       }
       if (statusFilter !== 'all') {
         params.append('status', statusFilter);
+      }
+      if (schoolFilter) {
+        params.append('schoolId', schoolFilter);
       }
       if (communityFilter) {
         params.append('communityId', communityFilter);
@@ -207,13 +214,16 @@ export default function UserManagement() {
           approved: data.summary.approved ?? 0
         });
       }
+      if (data.schools) {
+        setSchools(data.schools);
+      }
     } catch (error) {
       console.error('Unexpected error fetching users:', error);
       toast.error('Error al cargar usuarios');
     } finally {
       setLoading(false);
     }
-  }, [PAGE_SIZE, appliedSearchQuery, selectedStatus, selectedCommunityId, supabase]);
+  }, [PAGE_SIZE, appliedSearchQuery, selectedStatus, selectedSchoolId, selectedCommunityId, supabase]);
 
 
   const totalPages = Math.max(1, Math.ceil(totalUsers / PAGE_SIZE));
@@ -409,6 +419,17 @@ export default function UserManagement() {
     setSelectedStatus(value);
     setCurrentPage(1);
     fetchUsers(1, { status: value });
+  };
+
+  const handleSchoolFilterChange = (value: string) => {
+    if (selectedSchoolId === value) {
+      return;
+    }
+    setSelectedSchoolId(value);
+    // Clear community filter when school changes
+    setSelectedCommunityId('');
+    setCurrentPage(1);
+    fetchUsers(1, { schoolId: value, communityId: '' });
   };
 
   const handleCommunityFilterChange = (value: string) => {
@@ -788,13 +809,16 @@ export default function UserManagement() {
         <UnifiedUserManagement
           users={users}
           summary={summary}
+          schools={schools}
           searchQuery={searchInput}
           selectedStatus={selectedStatus}
+          selectedSchoolId={selectedSchoolId}
           selectedCommunityId={selectedCommunityId}
           onSearchChange={handleSearchChange}
           onSearchSubmit={handleSearchSubmit}
           onClearSearch={handleSearchClear}
           onStatusChange={handleStatusFilterChange}
+          onSchoolChange={handleSchoolFilterChange}
           onCommunityChange={handleCommunityFilterChange}
           isLoading={loading}
           onApprove={handleApproveUser}

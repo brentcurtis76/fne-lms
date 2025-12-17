@@ -41,6 +41,7 @@ interface UserType {
   consultant_assignments?: any[];
   student_assignments?: any[];
   course_assignments?: any[];
+  learning_path_assignments?: any[];
   created_at?: string;
   expense_access_enabled?: boolean;
   is_global_admin?: boolean;
@@ -49,13 +50,16 @@ interface UserType {
 interface UnifiedUserManagementProps {
   users: UserType[];
   summary?: { total: number; pending: number; approved: number };
+  schools?: Array<{ id: string; name: string }>;
   searchQuery: string;
   selectedStatus: 'all' | 'pending' | 'approved';
+  selectedSchoolId: string;
   selectedCommunityId: string;
   onSearchChange: (value: string) => void;
   onSearchSubmit: () => void;
   onClearSearch?: () => void;
   onStatusChange: (value: 'all' | 'pending' | 'approved') => void;
+  onSchoolChange: (value: string) => void;
   onCommunityChange: (value: string) => void;
   onApprove: (userId: string) => void;
   onReject: (userId: string) => void;
@@ -85,13 +89,16 @@ export const resolvePrimaryRole = (user: UserType): string | null => {
 export default function UnifiedUserManagement({
   users,
   summary,
+  schools = [],
   searchQuery,
   selectedStatus,
+  selectedSchoolId,
   selectedCommunityId,
   onSearchChange,
   onSearchSubmit,
   onClearSearch,
   onStatusChange,
+  onSchoolChange,
   onCommunityChange,
   onApprove,
   onReject,
@@ -176,19 +183,28 @@ export default function UnifiedUserManagement({
     return colors[role] || 'bg-gray-50 text-gray-700 border-gray-200';
   };
 
-  // Get unique communities from all users
+
+  // Get unique communities from all users, filtered by selected school
   const uniqueCommunities = (() => {
     const communitiesMap = new Map();
     users.forEach(user => {
       if (user.user_roles && user.user_roles.length > 0) {
         user.user_roles.forEach((role: any) => {
           if (role.community?.id && role.community?.name) {
-            communitiesMap.set(role.community.id, role.community.name);
+            // If a school is selected, only include communities from that school
+            if (selectedSchoolId) {
+              const communitySchoolId = role.community?.school?.id?.toString() || role.school?.id?.toString();
+              if (communitySchoolId === selectedSchoolId) {
+                communitiesMap.set(role.community.id, role.community.name);
+              }
+            } else {
+              communitiesMap.set(role.community.id, role.community.name);
+            }
           }
         });
       }
     });
-    return Array.from(communitiesMap, ([id, name]) => ({ id, name })).sort((a, b) => 
+    return Array.from(communitiesMap, ([id, name]) => ({ id, name })).sort((a, b) =>
       a.name.localeCompare(b.name)
     );
   })();
@@ -340,27 +356,52 @@ export default function UnifiedUserManagement({
           </div>
         </form>
 
-        {/* Community Filter */}
-        {uniqueCommunities.length > 0 && (
-          <div>
-            <label htmlFor="community-filter" className="block text-sm font-medium text-gray-700 mb-1">
-              Filtrar por Comunidad
-            </label>
-            <select
-              id="community-filter"
-              value={selectedCommunityId || ''}
-              onChange={(e) => onCommunityChange(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-[#00365b]"
-            >
-              <option value="">Todas las comunidades</option>
-              {uniqueCommunities.map(community => (
-                <option key={community.id} value={community.id}>
-                  {community.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        {/* School and Community Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* School Filter */}
+          {schools.length > 0 && (
+            <div>
+              <label htmlFor="school-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                Filtrar por Colegio
+              </label>
+              <select
+                id="school-filter"
+                value={selectedSchoolId || ''}
+                onChange={(e) => onSchoolChange(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-[#00365b]"
+              >
+                <option value="">Todos los colegios</option>
+                {schools.map(school => (
+                  <option key={school.id} value={school.id}>
+                    {school.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Community Filter */}
+          {uniqueCommunities.length > 0 && (
+            <div>
+              <label htmlFor="community-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                Filtrar por Comunidad
+              </label>
+              <select
+                id="community-filter"
+                value={selectedCommunityId || ''}
+                onChange={(e) => onCommunityChange(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-[#00365b]"
+              >
+                <option value="">Todas las comunidades</option>
+                {uniqueCommunities.map(community => (
+                  <option key={community.id} value={community.id}>
+                    {community.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Users List */}
@@ -607,9 +648,10 @@ export default function UnifiedUserManagement({
                   </div>
 
                   {/* Assignments Section */}
-                  {(user.consultant_assignments && user.consultant_assignments.length > 0) || 
+                  {(user.consultant_assignments && user.consultant_assignments.length > 0) ||
                    (user.student_assignments && user.student_assignments.length > 0) ||
-                   (user.course_assignments && user.course_assignments.length > 0) ? (
+                   (user.course_assignments && user.course_assignments.length > 0) ||
+                   (user.learning_path_assignments && user.learning_path_assignments.length > 0) ? (
                     <div className="mt-4 pt-4 border-t border-gray-200">
                       <h4 className="text-sm font-medium text-gray-900 mb-2">Asignaciones</h4>
                       
@@ -652,6 +694,22 @@ export default function UnifiedUserManagement({
                             {user.course_assignments.map((assignment: any, index: number) => (
                               <div key={index} className="text-sm text-gray-600">
                                 • {assignment.course?.title || 'Curso sin título'}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {user.learning_path_assignments && user.learning_path_assignments.length > 0 && (
+                        <div className="mt-3">
+                          <h5 className="text-xs font-medium text-gray-700 mb-1">Rutas de Aprendizaje Asignadas ({user.learning_path_assignments.length}):</h5>
+                          <div className="space-y-1">
+                            {user.learning_path_assignments.map((assignment: any, index: number) => (
+                              <div key={index} className="text-sm text-gray-600">
+                                • {assignment.path?.name || 'Ruta sin título'}
+                                {assignment.path?.description && (
+                                  <span className="ml-1 text-gray-500">({assignment.path.description})</span>
+                                )}
                               </div>
                             ))}
                           </div>

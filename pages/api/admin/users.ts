@@ -16,6 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const pageSize = Math.min(Math.max(parseInt((req.query.pageSize as string) || '25', 10), 1), 100);
     const search = (req.query.search as string)?.trim() || '';
     const status = (req.query.status as string) || 'all';
+    const schoolId = (req.query.schoolId as string) || '';
     const communityId = (req.query.communityId as string) || '';
     const offset = (page - 1) * pageSize;
 
@@ -54,7 +55,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       allowedUserIds = (communityUsers || []).map(row => row.user_id);
       if (!allowedUserIds.length) {
-        return res.status(200).json({ page, pageSize, total: 0, users: [] });
+        return res.status(200).json({ page, pageSize, total: 0, users: [], schools: [] });
       }
     }
 
@@ -74,6 +75,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (status !== 'all') {
       profileQuery = profileQuery.eq('approval_status', status);
+    }
+
+    if (schoolId) {
+      profileQuery = profileQuery.eq('school_id', parseInt(schoolId, 10));
     }
 
     if (allowedUserIds) {
@@ -98,10 +103,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       supabaseService
         .from('profiles')
         .select('id', { head: true, count: 'exact' })
-        .eq('approval_status', 'approved')
+        .eq('approval_status', 'approved'),
+      // Fetch all schools for filter dropdown
+      supabaseService
+        .from('schools')
+        .select('id, name')
+        .order('name', { ascending: true })
     ];
 
-    const [totalCountRes, pendingCountRes, approvedCountRes] = await Promise.all(summaryPromises);
+    const [totalCountRes, pendingCountRes, approvedCountRes, schoolsRes] = await Promise.all(summaryPromises);
 
     const summary = {
       total: totalCountRes.count || 0,
@@ -109,9 +119,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       approved: approvedCountRes.count || 0
     };
 
+    const schools = (schoolsRes.data || []).map((s: any) => ({
+      id: s.id.toString(),
+      name: s.name
+    }));
+
     const users = profiles || [];
     if (users.length === 0) {
-      return res.status(200).json({ page, pageSize, total: count || 0, users: [], summary });
+      return res.status(200).json({ page, pageSize, total: count || 0, users: [], summary, schools });
     }
 
     const userIds = users.map(user => user.id);
@@ -198,6 +213,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener cursos asignados' });
     }
 
+    // Fetch learning path assignments - direct user assignments
+    const { data: directLPData, error: directLPError } = await supabaseService
+      .from('learning_path_assignments')
+      .select(`
+        user_id,
+        assigned_at,
+        path:learning_paths(id, name, description)
+      `)
+      .in('user_id', userIds);
+
+    if (directLPError) {
+      console.error('[users API] Error fetching direct learning path assignments:', directLPError);
+      return res.status(500).json({ error: 'Error al obtener vías de aprendizaje asignadas' });
+    }
+
+    // Fetch learning path assignments - group-based (using uniqueCommunityIds already extracted)
+    let groupLPData: any[] = [];
+    if (uniqueCommunityIds.length > 0) {
+      const { data: groupLP, error: groupLPError } = await supabaseService
+        .from('learning_path_assignments')
+        .select(`
+          group_id,
+          assigned_at,
+          path:learning_paths(id, name, description)
+        `)
+        .in('group_id', uniqueCommunityIds);
+
+      if (groupLPError) {
+        console.error('[users API] Error fetching group learning path assignments:', groupLPError);
+        return res.status(500).json({ error: 'Error al obtener vías de aprendizaje de grupos' });
+      }
+      groupLPData = groupLP || [];
+    }
+
     const rolesMap = new Map<string, any[]>();
     (rolesData || []).forEach(role => {
       const arr = rolesMap.get(role.user_id) || [];
@@ -244,6 +293,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       courseMap.set(entry.teacher_id, arr);
     });
 
+    // Build learning path map - combine direct and group-based assignments
+    const learningPathMap = new Map<string, any[]>();
+
+    // Add direct assignments
+    (directLPData || []).forEach(entry => {
+      if (!entry.user_id) return;
+      const arr = learningPathMap.get(entry.user_id) || [];
+      arr.push({ ...entry, assignment_type: 'direct' });
+      learningPathMap.set(entry.user_id, arr);
+    });
+
+    // Add group-based assignments (map group_id back to users via their community membership)
+    groupLPData.forEach(entry => {
+      if (!entry.group_id) return;
+      // Find users who belong to this community/group
+      (rolesData || [])
+        .filter(role => role.community_id === entry.group_id)
+        .forEach(role => {
+          const arr = learningPathMap.get(role.user_id) || [];
+          // Avoid duplicates if same path assigned both directly and via group
+          const alreadyHasPath = arr.some(a => a.path?.id === entry.path?.id);
+          if (!alreadyHasPath) {
+            arr.push({ ...entry, assignment_type: 'group' });
+            learningPathMap.set(role.user_id, arr);
+          }
+        });
+    });
+
     const payload = users.map((user: any) => {
       const roles = sortRoles([...(rolesMap.get(user.id) || [])]);
       const highestRole = roles[0]?.role_type || user.role || null;
@@ -260,7 +337,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ...(studentMap.get(user.id) || []),
           ...(communityAssignmentsMap.get(user.id) || [])
         ],
-        course_assignments: courseMap.get(user.id) || []
+        course_assignments: courseMap.get(user.id) || [],
+        learning_path_assignments: learningPathMap.get(user.id) || []
       };
     });
 
@@ -270,6 +348,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       total: count || 0,
       users: payload,
       summary,
+      schools,
     });
   } catch (error) {
     console.error('[users API] Unexpected error:', error);

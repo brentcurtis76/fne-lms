@@ -87,6 +87,7 @@
     "@supabase/auth-helpers-react": "^0.5.0",
     "@supabase/supabase-js": "^2.49.4",
     "@tailwindcss/typography": "^0.5.16",
+    "@tanstack/react-virtual": "^3.13.13",
     "@tiptap/extension-bullet-list": "^2.12.0",
     "@tiptap/extension-heading": "^2.12.0",
     "@tiptap/extension-history": "^2.12.0",

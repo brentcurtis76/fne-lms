@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Search, Users, Loader2, Check, BookOpen, Route } from 'lucide-react';
+import { X, Search, Users, Loader2, Check, BookOpen, Route, Building2, UsersRound, CheckSquare } from 'lucide-react';
 import useDebounce from '../../../hooks/useDebounce';
 import { toast } from 'react-hot-toast';
 
@@ -12,22 +12,36 @@ interface BatchAssignModalProps {
   onAssignComplete: () => void;
 }
 
-// Simplified user target for Phase 3 MVP
+// Enhanced user target for Phase 5
 interface UserTarget {
   id: string;
   name: string;
   email: string;
+  school_name?: string;
+  community_name?: string;
+  isAlreadyAssigned: boolean;
+}
+
+interface School {
+  id: string;
+  name: string;
+}
+
+interface Community {
+  id: string;
+  name: string;
 }
 
 /**
- * Batch Assign Modal - Phase 3 MVP
- * Allows assigning a course or LP to multiple users at once.
+ * Batch Assign Modal - Phase 5 Enhanced
  *
- * NOTE: School/community batch assignment deferred to future phase.
- * The existing learning_path_assignments.group_id is FK to community_workspaces,
- * NOT schools or growth_communities. Future implementation would require:
- * 1. New RPC to expand school/community to member list
- * 2. Batch assign to each individual user
+ * Features:
+ * - Browse-first: Pre-populates users on modal open (no search required)
+ * - School/Community filters: Dropdown filters for quick narrowing
+ * - "Ya asignado" badge: Shows already-assigned users (disabled from selection)
+ * - "Seleccionar todos": Select all non-assigned users at once
+ *
+ * Uses existing search-assignees APIs which already support filtering.
  */
 export function BatchAssignModal({
   isOpen,
@@ -37,86 +51,185 @@ export function BatchAssignModal({
   contentTitle,
   onAssignComplete
 }: BatchAssignModalProps) {
+  // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<UserTarget[]>([]);
-  const [selectedUsers, setSelectedUsers] = useState<UserTarget[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [schoolId, setSchoolId] = useState<string>('');
+  const [communityId, setCommunityId] = useState<string>('');
+
+  // Data state
+  const [users, setUsers] = useState<UserTarget[]>([]);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<Set<string>>(new Set());
+
+  // Loading states
+  const [loading, setLoading] = useState(false);
+  const [loadingSchools, setLoadingSchools] = useState(false);
+  const [loadingCommunities, setLoadingCommunities] = useState(false);
   const [assigning, setAssigning] = useState(false);
+
+  // Pagination
+  const [totalCount, setTotalCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
 
   const debouncedSearch = useDebounce(searchQuery, 300);
 
-  // Search for users
-  const searchUsers = useCallback(async () => {
-    if (!debouncedSearch.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    setSearching(true);
+  // Fetch schools and communities for dropdowns
+  const fetchFilterOptions = useCallback(async () => {
+    setLoadingSchools(true);
+    setLoadingCommunities(true);
     try {
-      const response = await fetch(`/api/admin/users?search=${encodeURIComponent(debouncedSearch)}&pageSize=20`);
+      // Use the reports filter-options endpoint which returns schools, generations, and communities
+      const response = await fetch('/api/reports/filter-options');
       if (response.ok) {
         const data = await response.json();
-        const users: UserTarget[] = (data.users || []).map((u: any) => ({
-          id: u.id,
-          name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
-          email: u.email
-        }));
-        setSearchResults(users);
+        setSchools(data.schools || []);
+        setCommunities(data.communities || []);
       } else {
-        toast.error('Error al buscar usuarios');
-        setSearchResults([]);
+        console.error('Error fetching filter options:', response.status);
       }
     } catch (error) {
-      console.error('Error searching users:', error);
-      toast.error('Error al buscar usuarios');
-      setSearchResults([]);
+      console.error('Error fetching filter options:', error);
     } finally {
-      setSearching(false);
+      setLoadingSchools(false);
+      setLoadingCommunities(false);
     }
-  }, [debouncedSearch]);
+  }, []);
 
+  // Fetch users with filters
+  const fetchUsers = useCallback(async (resetPage = false) => {
+    if (!contentId) return;
+
+    const currentPage = resetPage ? 1 : page;
+    if (resetPage) setPage(1);
+
+    setLoading(true);
+    try {
+      // Use the appropriate search-assignees endpoint based on content type
+      const endpoint = contentType === 'course'
+        ? '/api/courses/search-assignees'
+        : '/api/learning-paths/search-assignees';
+
+      const body: any = contentType === 'course'
+        ? { courseId: contentId, query: debouncedSearch, page: currentPage, pageSize }
+        : { pathId: contentId, query: debouncedSearch, page: currentPage, pageSize };
+
+      // Add optional filters
+      if (schoolId) body.schoolId = schoolId;
+      if (communityId) body.communityId = communityId;
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const fetchedUsers: UserTarget[] = (data.results || []).map((u: any) => ({
+          id: u.id,
+          name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email,
+          email: u.email,
+          school_name: u.school_name,
+          community_name: u.community_name,
+          isAlreadyAssigned: u.isAlreadyAssigned || false
+        }));
+        setUsers(fetchedUsers);
+        setTotalCount(data.totalCount || 0);
+        setHasMore(data.hasMore || false);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error fetching users:', errorData);
+        toast.error(errorData.error || 'Error al cargar usuarios');
+        setUsers([]);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      toast.error('Error al cargar usuarios');
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [contentId, contentType, debouncedSearch, schoolId, communityId, page, pageSize]);
+
+  // Fetch schools and communities on mount
   useEffect(() => {
-    searchUsers();
-  }, [searchUsers]);
+    if (isOpen) {
+      fetchFilterOptions();
+    }
+  }, [isOpen, fetchFilterOptions]);
+
+  // Fetch users when filters change
+  useEffect(() => {
+    if (isOpen && contentId) {
+      fetchUsers(true); // Reset to page 1 when filters change
+    }
+  }, [isOpen, contentId, debouncedSearch, schoolId, communityId]);
 
   // Reset state when modal opens/closes
   useEffect(() => {
     if (isOpen) {
       setSearchQuery('');
-      setSearchResults([]);
-      setSelectedUsers([]);
+      setSchoolId('');
+      setCommunityId('');
+      setSelectedUserIds(new Set());
+      setPage(1);
     }
   }, [isOpen]);
 
+  // Get users that can be selected (not already assigned)
+  const selectableUsers = users.filter(u => !u.isAlreadyAssigned);
+  const selectedCount = selectedUserIds.size;
+  const allSelectableSelected = selectableUsers.length > 0 &&
+    selectableUsers.every(u => selectedUserIds.has(u.id));
+
   // Toggle user selection
   const toggleUser = (user: UserTarget) => {
-    setSelectedUsers(prev => {
-      const exists = prev.find(u => u.id === user.id);
-      if (exists) {
-        return prev.filter(u => u.id !== user.id);
+    if (user.isAlreadyAssigned) return;
+
+    setSelectedUserIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(user.id)) {
+        newSet.delete(user.id);
+      } else {
+        newSet.add(user.id);
       }
-      return [...prev, user];
+      return newSet;
     });
   };
 
-  // Check if user is selected
-  const isSelected = (user: UserTarget) => {
-    return selectedUsers.some(u => u.id === user.id);
+  // Toggle all selectable users
+  const toggleSelectAll = () => {
+    if (allSelectableSelected) {
+      // Deselect all
+      setSelectedUserIds(new Set());
+    } else {
+      // Select all non-assigned users
+      setSelectedUserIds(new Set(selectableUsers.map(u => u.id)));
+    }
   };
 
   // Remove selected user
-  const removeSelected = (user: UserTarget) => {
-    setSelectedUsers(prev => prev.filter(u => u.id !== user.id));
+  const removeSelected = (userId: string) => {
+    setSelectedUserIds(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(userId);
+      return newSet;
+    });
   };
+
+  // Get selected users for display
+  const selectedUsers = users.filter(u => selectedUserIds.has(u.id));
 
   // Perform batch assignment
   const handleAssign = async () => {
-    if (selectedUsers.length === 0) return;
+    if (selectedUserIds.size === 0) return;
 
     setAssigning(true);
     try {
-      const userIds = selectedUsers.map(u => u.id);
+      const userIds = Array.from(selectedUserIds);
       const endpoint = contentType === 'course'
         ? '/api/courses/batch-assign'
         : '/api/learning-paths/batch-assign';
@@ -132,7 +245,7 @@ export function BatchAssignModal({
       });
 
       if (response.ok) {
-        toast.success(`Asignado a ${selectedUsers.length} usuario(s)`);
+        toast.success(`Asignado a ${userIds.length} usuario(s)`);
         onAssignComplete();
         onClose();
       } else {
@@ -160,7 +273,7 @@ export function BatchAssignModal({
       >
         {/* Modal */}
         <div
-          className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col"
+          className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[85vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -188,36 +301,64 @@ export function BatchAssignModal({
 
           {/* Body */}
           <div className="flex-1 overflow-hidden flex flex-col p-6">
-            {/* Header label */}
-            <div className="flex items-center gap-2 mb-4">
-              <div className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-blue-100 text-blue-700">
-                <Users className="h-4 w-4" />
-                Buscar Usuarios
+            {/* Filters Row */}
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              {/* School Filter */}
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-gray-400" />
+                <select
+                  value={schoolId}
+                  onChange={(e) => setSchoolId(e.target.value)}
+                  disabled={loadingSchools}
+                  className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[180px]"
+                >
+                  <option value="">Todas las escuelas</option>
+                  {schools.map(school => (
+                    <option key={school.id} value={school.id}>
+                      {school.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Community Filter */}
+              <div className="flex items-center gap-2">
+                <UsersRound className="h-4 w-4 text-gray-400" />
+                <select
+                  value={communityId}
+                  onChange={(e) => setCommunityId(e.target.value)}
+                  disabled={loadingCommunities}
+                  className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[180px]"
+                >
+                  <option value="">Todas las comunidades</option>
+                  {communities.map(community => (
+                    <option key={community.id} value={community.id}>
+                      {community.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Search Input */}
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre o email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
               </div>
             </div>
 
-            {/* Search input */}
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar usuarios por nombre o email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              {searching && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500 animate-spin" />
-              )}
-            </div>
-
-            {/* Selected users */}
+            {/* Selected users chips */}
             {selectedUsers.length > 0 && (
               <div className="mb-4">
                 <p className="text-xs text-gray-500 mb-2">
-                  {selectedUsers.length} usuario(s) seleccionado(s)
+                  {selectedCount} usuario(s) seleccionado(s)
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 max-h-20 overflow-y-auto">
                   {selectedUsers.map((user) => (
                     <span
                       key={user.id}
@@ -226,7 +367,7 @@ export function BatchAssignModal({
                       <Users className="h-3 w-3" />
                       {user.name}
                       <button
-                        onClick={() => removeSelected(user)}
+                        onClick={() => removeSelected(user.id)}
                         className="ml-1 hover:text-blue-900"
                       >
                         <X className="h-3 w-3" />
@@ -237,45 +378,97 @@ export function BatchAssignModal({
               </div>
             )}
 
-            {/* Search results */}
+            {/* Select All + Count Header */}
+            <div className="flex items-center justify-between mb-2 px-1">
+              <button
+                onClick={toggleSelectAll}
+                disabled={selectableUsers.length === 0 || loading}
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                  allSelectableSelected && selectableUsers.length > 0
+                    ? 'bg-blue-600 border-blue-600'
+                    : 'border-gray-300'
+                }`}>
+                  {allSelectableSelected && selectableUsers.length > 0 && (
+                    <Check className="h-3 w-3 text-white" />
+                  )}
+                </div>
+                <span>
+                  Seleccionar todos ({selectableUsers.length} disponibles)
+                </span>
+              </button>
+              <span className="text-xs text-gray-500">
+                {totalCount} usuario(s) total
+              </span>
+            </div>
+
+            {/* User list */}
             <div className="flex-1 overflow-y-auto border border-gray-200 rounded-lg">
-              {searchResults.length === 0 && !searching && searchQuery && (
-                <div className="p-4 text-center text-sm text-gray-500">
-                  No se encontraron usuarios
+              {loading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />
+                  <span className="ml-2 text-sm text-gray-500">Cargando usuarios...</span>
                 </div>
-              )}
-              {searchResults.length === 0 && !searching && !searchQuery && (
-                <div className="p-4 text-center text-sm text-gray-500">
-                  Escribe para buscar usuarios
+              ) : users.length === 0 ? (
+                <div className="p-8 text-center text-sm text-gray-500">
+                  {searchQuery || schoolId || communityId
+                    ? 'No se encontraron usuarios con los filtros seleccionados'
+                    : 'No hay usuarios disponibles'}
                 </div>
-              )}
-              {searchResults.length > 0 && (
+              ) : (
                 <ul className="divide-y divide-gray-100">
-                  {searchResults.map((user) => {
-                    const selected = isSelected(user);
+                  {users.map((user) => {
+                    const isSelected = selectedUserIds.has(user.id);
+                    const isDisabled = user.isAlreadyAssigned;
+
                     return (
                       <li key={user.id}>
                         <button
                           onClick={() => toggleUser(user)}
+                          disabled={isDisabled}
                           className={`w-full px-4 py-3 text-left flex items-center justify-between gap-3 transition-colors ${
-                            selected ? 'bg-blue-50' : 'hover:bg-gray-50'
+                            isDisabled
+                              ? 'bg-gray-50 cursor-not-allowed'
+                              : isSelected
+                              ? 'bg-blue-50'
+                              : 'hover:bg-gray-50'
                           }`}
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900 truncate">
-                              {user.name}
-                            </p>
-                            <p className="text-xs text-gray-500 truncate">
+                            <div className="flex items-center gap-2">
+                              <p className={`text-sm font-medium truncate ${
+                                isDisabled ? 'text-gray-400' : 'text-gray-900'
+                              }`}>
+                                {user.name}
+                              </p>
+                              {user.isAlreadyAssigned && (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs whitespace-nowrap">
+                                  <Check className="h-3 w-3" />
+                                  Ya asignado
+                                </span>
+                              )}
+                            </div>
+                            <p className={`text-xs truncate ${
+                              isDisabled ? 'text-gray-300' : 'text-gray-500'
+                            }`}>
                               {user.email}
+                              {(user.school_name || user.community_name) && (
+                                <span className="ml-2">
+                                  {[user.school_name, user.community_name].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
                             </p>
                           </div>
-                          <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${
-                            selected
-                              ? 'bg-blue-600 border-blue-600'
-                              : 'border-gray-300'
-                          }`}>
-                            {selected && <Check className="h-3 w-3 text-white" />}
-                          </div>
+                          {!isDisabled && (
+                            <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${
+                              isSelected
+                                ? 'bg-blue-600 border-blue-600'
+                                : 'border-gray-300'
+                            }`}>
+                              {isSelected && <Check className="h-3 w-3 text-white" />}
+                            </div>
+                          )}
                         </button>
                       </li>
                     );
@@ -283,25 +476,43 @@ export function BatchAssignModal({
                 </ul>
               )}
             </div>
+
+            {/* Load more */}
+            {hasMore && !loading && (
+              <button
+                onClick={() => {
+                  setPage(p => p + 1);
+                  fetchUsers(false);
+                }}
+                className="mt-3 text-sm text-blue-600 hover:text-blue-700 text-center"
+              >
+                Cargar más usuarios...
+              </button>
+            )}
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
-            <button
-              onClick={onClose}
-              disabled={assigning}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleAssign}
-              disabled={selectedUsers.length === 0 || assigning}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {assigning && <Loader2 className="h-4 w-4 animate-spin" />}
-              Asignar ({selectedUsers.length})
-            </button>
+          <div className="flex justify-between items-center gap-3 p-6 border-t border-gray-200">
+            <span className="text-sm text-gray-500">
+              {selectedCount > 0 && `${selectedCount} seleccionado(s)`}
+            </span>
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                disabled={assigning}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAssign}
+                disabled={selectedCount === 0 || assigning}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {assigning && <Loader2 className="h-4 w-4 animate-spin" />}
+                Asignar a {selectedCount} usuario(s)
+              </button>
+            </div>
           </div>
         </div>
       </div>

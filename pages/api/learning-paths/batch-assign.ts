@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { LearningPathsService } from '../../../lib/services/learningPathsService';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '../../../lib/api-auth';
+import { logBatchAssignmentAudit, createLPAssignmentAuditEntries } from '../../../lib/auditLog';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Only allow POST method
@@ -69,6 +70,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       groupIds || [],
       assignedBy
     );
+
+    // Log to audit trail (non-blocking)
+    if (hasUsers && result.assignments_created > 0) {
+      const auditEntries = createLPAssignmentAuditEntries(
+        'assigned',
+        pathId,
+        userIds!,
+        assignedBy,
+        userIds!.length
+      );
+      logBatchAssignmentAudit(supabaseClient, auditEntries);
+    }
 
     // Return detailed success response
     return res.status(201).json({

@@ -31,7 +31,8 @@ import {
   MapIcon,
   GlobeIcon as NetworkIcon,
   NewspaperIcon,
-  LightningBoltIcon
+  LightningBoltIcon,
+  ViewGridIcon
 } from '@heroicons/react/outline';
 import { CalendarIcon } from '@heroicons/react/solid';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
@@ -134,6 +135,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     permission: ['view_courses_all', 'view_courses_school', 'view_courses_own']
   },
   {
+    id: 'assessment-builder',
+    label: 'Evaluaciones',
+    icon: ClipboardDocumentListIcon,
+    href: '/admin/assessment-builder',
+    description: 'Constructor de evaluaciones y rúbricas',
+    adminOnly: true
+  },
+  {
     id: 'news',
     label: 'Noticias',
     icon: NewspaperIcon,
@@ -156,6 +165,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     href: '/admin/learning-paths',
     description: 'Gestión de rutas de aprendizaje',
     permission: ['view_learning_paths_all', 'view_learning_paths_school', 'view_learning_paths_own']
+  },
+  {
+    id: 'assignment-matrix',
+    label: 'Matriz de Asignaciones',
+    icon: ViewGridIcon,
+    href: '/admin/assignment-matrix',
+    description: 'Asignaciones por usuario',
+    consultantOnly: true
   },
   {
     id: 'users',

@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { LearningPathsService } from '../../../lib/services/learningPathsService';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '../../../lib/api-auth';
+import { logBatchAssignmentAudit, createLPAssignmentAuditEntries } from '../../../lib/auditLog';
 
 interface UnassignRequest {
   pathId: string;
@@ -83,6 +84,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       unassignedCount += userIds!.length;
+
+      // Log to audit trail (non-blocking)
+      const auditEntries = createLPAssignmentAuditEntries(
+        'unassigned',
+        pathId,
+        userIds!,
+        user.id,
+        userIds!.length
+      );
+      logBatchAssignmentAudit(supabaseClient, auditEntries);
     }
 
     // Unassign from groups (and their members)
@@ -121,7 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         if (members && members.length > 0) {
           const memberIds = members.map(m => m.user_id);
-          
+
           const { error: memberError } = await supabaseClient
             .from('learning_path_assignments')
             .delete()
@@ -131,6 +142,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
           if (memberError) {
             console.warn(`Warning: Failed to remove some individual member assignments: ${memberError.message}`);
+          }
+
+          // Log group unassignment to audit trail (non-blocking)
+          // For large groups, log a single summary entry instead of per-member entries
+          // to avoid bloating the audit table
+          const MAX_INDIVIDUAL_AUDIT_ENTRIES = 20;
+
+          if (memberIds.length <= MAX_INDIVIDUAL_AUDIT_ENTRIES) {
+            // Small group: log each member individually
+            const memberAuditEntries = createLPAssignmentAuditEntries(
+              'unassigned',
+              pathId,
+              memberIds,
+              user.id,
+              memberIds.length
+            );
+            memberAuditEntries.forEach(entry => {
+              entry.metadata = { ...entry.metadata, viaWorkspaceGroup: groupId };
+            });
+            logBatchAssignmentAudit(supabaseClient, memberAuditEntries);
+          } else {
+            // Large group: log a single summary entry with member count
+            // Individual member IDs stored in metadata (capped to first 50 for reference)
+            const summaryEntry = createLPAssignmentAuditEntries(
+              'unassigned',
+              pathId,
+              [memberIds[0]], // Use first member as representative entity
+              user.id,
+              1
+            )[0];
+            summaryEntry.metadata = {
+              viaWorkspaceGroup: groupId,
+              bulkUnassignment: true,
+              memberCount: memberIds.length,
+              sampleMemberIds: memberIds.slice(0, 50) // First 50 for debugging reference
+            };
+            logBatchAssignmentAudit(supabaseClient, [summaryEntry]);
           }
 
           unassignedCount += memberIds.length;

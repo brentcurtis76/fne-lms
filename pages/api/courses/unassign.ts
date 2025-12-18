@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '../../../lib/api-auth';
+import { logBatchAssignmentAudit, createCourseAssignmentAuditEntries } from '../../../lib/auditLog';
 
 interface UnassignRequest {
   courseId: string;
@@ -76,8 +77,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Execute batch unassignment using atomic database function
-    // NOTE: Database function now derives caller ID from auth.uid() for security
-    // Ensures both assignment deletion and enrollment update happen atomically
+    // NOTE: Database function derives caller ID from auth.uid() for security
+    // Removes assignment record only - enrollment and progress are preserved
     const { data: result, error: dbError } = await supabaseClient
       .rpc('batch_unassign_courses', {
         p_course_id: courseId,
@@ -87,6 +88,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (dbError) {
       console.error('Database function error:', dbError);
       throw new Error(dbError.message || 'Error al desasignar curso');
+    }
+
+    // Log to audit trail (non-blocking)
+    if (result && result.unassigned_count > 0) {
+      const auditEntries = createCourseAssignmentAuditEntries(
+        'unassigned',
+        courseId,
+        userIds,
+        user.id,
+        userIds.length
+      );
+      logBatchAssignmentAudit(supabaseClient, auditEntries);
     }
 
     // Return success response

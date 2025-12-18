@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '../../../lib/api-auth';
 import NotificationService from '../../../lib/notificationService';
+import { logBatchAssignmentAudit, createCourseAssignmentAuditEntries } from '../../../lib/auditLog';
 
 // Check if user has permission to assign courses
 async function hasAssignPermission(supabaseClient: any, userId: string): Promise<boolean> {
@@ -107,6 +108,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             assigned_by: assignedBy
           });
           console.log(`✅ Course assignment notifications triggered for ${assignedUserIds.length} user(s)`);
+
+          // Log to audit trail (non-blocking)
+          const auditEntries = createCourseAssignmentAuditEntries(
+            'assigned',
+            courseId,
+            assignedUserIds,
+            assignedBy,
+            assignedUserIds.length
+          );
+          logBatchAssignmentAudit(supabaseClient, auditEntries);
         }
       } catch (notificationError) {
         console.error('❌ Failed to trigger course assignment notifications:', notificationError);

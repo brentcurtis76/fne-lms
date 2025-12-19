@@ -17,6 +17,8 @@ dist/
 .env.development
 .env.test
 .env.production
+.env.test.local
+.env.staging
 
 # IDE and Editor files
 .vscode/

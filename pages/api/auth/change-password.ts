@@ -9,6 +9,11 @@ import {
   logApiRequest
 } from '../../../lib/api-auth';
 import { ApiError, ApiSuccess } from '../../../lib/types/api-auth.types';
+import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
+import { logAuthEvent, logSecurityIncident } from '../../../lib/securityAuditLog';
+
+// Rate limiter for password change (auth-level: 10 req/min)
+const rateLimitCheck = rateLimit(RATE_LIMITS.auth, 'change-password');
 
 // Password validation function (matches client-side)
 function validatePassword(password: string): string | null {
@@ -36,6 +41,10 @@ export default async function handler(
   if (req.method !== 'POST') {
     return sendAuthError(res, 'Método no permitido', 405);
   }
+
+  // Apply rate limiting
+  const allowed = await rateLimitCheck(req, res);
+  if (!allowed) return;
 
   try {
     // Get the authenticated user's session
@@ -118,7 +127,7 @@ export default async function handler(
       return sendAuthError(res, 'Error al actualizar la contraseña', 500);
     }
 
-    // Log the password change to audit_logs
+    // Log the password change to audit_logs (database)
     const { error: logError } = await supabaseAdmin
       .from('audit_logs')
       .insert({
@@ -136,6 +145,13 @@ export default async function handler(
       console.error('[Change Password API] Audit log failed:', logError);
       // Continue anyway - password was changed successfully
     }
+
+    // Log to security audit (console/external service)
+    logAuthEvent('PASSWORD_CHANGE', {
+      userId: user.id,
+      req,
+      details: { change_type: 'user_initiated' }
+    });
 
     console.log('[Change Password API] Password changed successfully for user:', user.id);
 

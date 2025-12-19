@@ -27,12 +27,14 @@ const nextConfig = {
     return `build-${Date.now()}`
   },
 
-  // EMERGENCY: Ignore errors for deployment
+  // Build checks enabled - errors fixed as of Phase 4 security remediation
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
+    // Only check main source directories
+    dirs: ['pages', 'components', 'lib', 'utils'],
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
 
   // Image optimization configuration
@@ -63,6 +65,46 @@ const nextConfig = {
   poweredByHeader: false,
   generateEtags: true,
   optimizeFonts: false,
+
+  // Security headers
+  async headers() {
+    return [
+      {
+        // Apply to all routes
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on',
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
+        ],
+      },
+    ];
+  },
 
   // Better error handling
   onDemandEntries: {
@@ -164,6 +206,5 @@ const sentryWebpackPluginOptions = {
   autoInstrumentServerFunctions: true,
 };
 
-// Wrap Next.js config with Sentry
-// module.exports = hasSentryAuth ? withSentryConfig(nextConfig, sentryWebpackPluginOptions) : nextConfig;
-module.exports = nextConfig;
+// Wrap Next.js config with Sentry (re-enabled after @sentry/nextjs upgrade to 7.120.4)
+module.exports = hasSentryAuth ? withSentryConfig(nextConfig, sentryWebpackPluginOptions) : nextConfig;

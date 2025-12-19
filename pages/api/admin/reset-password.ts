@@ -1,16 +1,20 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { 
-  checkIsAdmin, 
-  createServiceRoleClient, 
-  sendAuthError, 
+import {
+  checkIsAdmin,
+  createServiceRoleClient,
+  sendAuthError,
   sendApiResponse,
   validateRequestBody,
   logApiRequest
 } from '../../../lib/api-auth';
 import { ApiError, ApiSuccess } from '../../../lib/types/api-auth.types';
+import { rateLimit, RATE_LIMITS } from '../../../lib/rateLimit';
+
+// Rate limiter for password reset (auth-level: 10 req/min)
+const rateLimitCheck = rateLimit(RATE_LIMITS.auth, 'admin-reset-password');
 
 export default async function handler(
-  req: NextApiRequest, 
+  req: NextApiRequest,
   res: NextApiResponse<ApiSuccess<any> | ApiError>
 ) {
   // Log the request
@@ -19,6 +23,10 @@ export default async function handler(
   if (req.method !== 'POST') {
     return sendAuthError(res, 'Method not allowed', 405);
   }
+
+  // Apply rate limiting
+  const allowed = await rateLimitCheck(req, res);
+  if (!allowed) return;
 
   try {
     // Verify admin access using the centralized auth utility

@@ -281,7 +281,7 @@ export default function ResetPasswordPage() {
         return;
       }
 
-      console.log('[ResetPassword] Session found, updating password for user:', session.user.email);
+      console.log('[ResetPassword] Session found, updating password for user:', session.user.id);
 
       const { error } = await supabase.auth.updateUser({
         password: password

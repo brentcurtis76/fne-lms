@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Play, Pause, Download, ExternalLink, BookOpen, FileText, Image } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import LearningQuizTaker from '@/components/quiz/LearningQuizTaker';
+import { sanitizeHtml } from '@/lib/sanitize';
+import { isSafeForIframe, isExternalUrl } from '@/utils/urlValidator';
 
 interface StudentBlockRendererProps {
   block: {
@@ -137,7 +139,7 @@ export default function StudentBlockRenderer({
     return (
       <div className="space-y-6">
         <div className="prose prose-lg max-w-none prose-headings:text-[#00365b] prose-p:text-gray-700 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-ol:text-gray-700">
-          <div dangerouslySetInnerHTML={{ __html: content }} />
+          <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }} />
         </div>
         
         {!isCompleted && (
@@ -584,18 +586,28 @@ export default function StudentBlockRenderer({
             <div className="space-y-3">
               {links.map((link: any, index: number) => (
                 <div key={link.id || index} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                  {/* Link Preview - Always show iframe preview by default */}
+                  {/* Link Preview - Only show iframe for safe domains */}
                   <div className="aspect-video bg-gray-100 relative">
-                    {/* Always show iframe preview */}
-                    <iframe
-                      src={link.url}
-                      className="w-full h-full"
-                      frameBorder="0"
-                      title="Vista previa del enlace"
-                      sandbox="allow-scripts allow-same-origin allow-forms"
-                      onLoad={() => setHasVisited(true)}
-                    />
-                    
+                    {isSafeForIframe(link.url) ? (
+                      <iframe
+                        src={link.url}
+                        className="w-full h-full"
+                        frameBorder="0"
+                        title="Vista previa del enlace"
+                        sandbox="allow-scripts allow-same-origin allow-forms"
+                        onLoad={() => setHasVisited(true)}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-4 text-center">
+                        <ExternalLink className="w-12 h-12 text-gray-400 mb-3" />
+                        <p className="text-gray-600 text-sm">
+                          Vista previa no disponible para este enlace.
+                        </p>
+                        <p className="text-gray-500 text-xs mt-1">
+                          Haz clic en &quot;Visitar enlace&quot; para ver el contenido.
+                        </p>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Link Content */}
@@ -609,16 +621,23 @@ export default function StudentBlockRenderer({
                     <p className="text-xs text-gray-500 mb-3 truncate">{link.url}</p>
                     
                     {/* Only Visit Button - No Preview Button */}
-                    <a
-                      href={link.url}
-                      target={link.openInNewTab !== false ? '_blank' : '_self'}
-                      rel="noopener noreferrer"
-                      onClick={() => setHasVisited(true)}
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      Visitar enlace
-                    </a>
+                    {isExternalUrl(link.url) ? (
+                      <a
+                        href={link.url}
+                        target={link.openInNewTab !== false ? '_blank' : '_self'}
+                        rel="noopener noreferrer"
+                        onClick={() => setHasVisited(true)}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        Visitar enlace
+                      </a>
+                    ) : (
+                      <span className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed">
+                        <ExternalLink className="w-4 h-4" />
+                        Enlace no válido
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}

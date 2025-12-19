@@ -1,9 +1,9 @@
 /**
  * Frontend Authentication Utilities
- * 
+ *
  * Centralized authentication utilities for frontend pages to ensure
  * consistent authentication patterns and prevent security vulnerabilities.
- * 
+ *
  * PRINCIPLES:
  * 1. Single source of truth for authentication state
  * 2. Type-safe authentication checks
@@ -11,10 +11,59 @@
  * 4. No direct Supabase client imports in pages
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import { User, SupabaseClient } from '@supabase/supabase-js';
+
+// ============================================
+// SECURE MODULE-LEVEL CACHE (H-1 FIX)
+// ============================================
+// SECURITY: Profile cache stored in module closure, NOT on window object
+// This prevents XSS attacks from accessing cached profile data
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+}
+
+const profileCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Get cached profile data (internal use only)
+ */
+function getCachedProfile(userId: string): any | null {
+  const entry = profileCache.get(`profile-${userId}`);
+  if (entry && Date.now() - entry.timestamp < CACHE_TTL_MS) {
+    return entry.data;
+  }
+  // Clean up expired entry
+  if (entry) {
+    profileCache.delete(`profile-${userId}`);
+  }
+  return null;
+}
+
+/**
+ * Set cached profile data (internal use only)
+ */
+function setCachedProfile(userId: string, data: any): void {
+  profileCache.set(`profile-${userId}`, {
+    data,
+    timestamp: Date.now(),
+  });
+}
+
+/**
+ * Clear profile cache for a user or all users
+ */
+export function clearProfileCache(userId?: string): void {
+  if (userId) {
+    profileCache.delete(`profile-${userId}`);
+  } else {
+    profileCache.clear();
+  }
+}
 
 export interface AuthCheckOptions {
   redirectTo?: string;
@@ -36,6 +85,9 @@ export interface ProfileCheckResult {
 /**
  * Hook to check authentication and redirect if not authenticated
  * This replaces the old pattern of checking session in useEffect
+ *
+ * H-2 FIX: Uses refs for callbacks to prevent infinite re-renders
+ * when callbacks are not memoized by the caller
  */
 export function useAuthCheck(options: AuthCheckOptions = {}) {
   const router = useRouter();
@@ -43,15 +95,29 @@ export function useAuthCheck(options: AuthCheckOptions = {}) {
   const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  
+
   const {
     redirectTo = '/login',
     requireProfile = true,
     requireApproval = true,
     requireRole = [],
     onSuccess,
-    onError
+    onError,
   } = options;
+
+  // H-2 FIX: Use refs for callbacks to avoid dependency array issues
+  // This prevents infinite re-renders when callbacks are not memoized
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+
+  // Keep refs up to date
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+    onErrorRef.current = onError;
+  });
+
+  // Memoize requireRole to prevent unnecessary re-renders
+  const requireRoleKey = JSON.stringify(requireRole);
 
   useEffect(() => {
     let isMounted = true;
@@ -69,7 +135,7 @@ export function useAuthCheck(options: AuthCheckOptions = {}) {
         if (requireProfile) {
           const profileCheck = await checkUserProfile(supabase, {
             requireApproval,
-            requireRole
+            requireRole,
           });
 
           if (profileCheck.error || !profileCheck.hasProfile) {
@@ -90,21 +156,21 @@ export function useAuthCheck(options: AuthCheckOptions = {}) {
             return;
           }
 
-          // Call success callback with user and profile
-          if (onSuccess && isMounted) {
-            onSuccess(session.user, profileCheck.profile);
+          // Call success callback with user and profile (using ref)
+          if (onSuccessRef.current && isMounted) {
+            onSuccessRef.current(session.user, profileCheck.profile);
           }
         } else {
           // Just authenticated, no profile check needed
-          if (onSuccess && isMounted) {
-            onSuccess(session.user, null);
+          if (onSuccessRef.current && isMounted) {
+            onSuccessRef.current(session.user, null);
           }
         }
       } catch (err) {
         console.error('[Auth] Error during authentication check:', err);
         if (isMounted) setError(err as Error);
-        if (onError && isMounted) {
-          onError(err as Error);
+        if (onErrorRef.current && isMounted) {
+          onErrorRef.current(err as Error);
         } else {
           // Default error handling - redirect to login
           if (isMounted) router.push(redirectTo);
@@ -112,7 +178,8 @@ export function useAuthCheck(options: AuthCheckOptions = {}) {
       }
     };
 
-    if (session !== undefined) { // Only run check once session is loaded
+    if (session !== undefined) {
+      // Only run check once session is loaded
       checkAuth().finally(() => {
         if (isMounted) {
           setLoading(false);
@@ -123,13 +190,14 @@ export function useAuthCheck(options: AuthCheckOptions = {}) {
     return () => {
       isMounted = false;
     };
-  }, [session, router, supabase, redirectTo, requireProfile, requireApproval, JSON.stringify(requireRole), onSuccess, onError]);
+    // H-2 FIX: Removed onSuccess/onError from deps - using refs instead
+  }, [session, router, supabase, redirectTo, requireProfile, requireApproval, requireRoleKey]);
 
   return {
     user: session?.user || null,
     loading: loading || session === undefined,
     authenticated: !!session?.user,
-    error
+    error,
   };
 }
 
@@ -208,6 +276,8 @@ export async function checkUserProfile(
 /**
  * Hook to get current user profile with caching
  * This prevents multiple queries to the profiles table
+ *
+ * H-1 FIX: Uses module-level cache instead of window object
  */
 export function useUserProfile() {
   const session = useSession();
@@ -225,34 +295,26 @@ export function useUserProfile() {
 
     const loadProfile = async () => {
       try {
-        // Check session storage cache first
-        const cacheKey = `profile-${session.user.id}`;
-        const cached = sessionStorage.getItem(cacheKey);
-        
+        // H-1 FIX: Use secure module-level cache instead of window object
+        const cached = getCachedProfile(session.user.id);
         if (cached) {
-          const { data, timestamp } = JSON.parse(cached);
-          // Cache for 5 minutes
-          if (Date.now() - timestamp < 5 * 60 * 1000) {
-            setProfile(data);
-            setLoading(false);
-            return;
-          }
+          setProfile(cached);
+          setLoading(false);
+          return;
         }
 
         // Fetch from database - RLS is enforced by the authenticated client.
-        const { data, error } = await supabase
+        // SECURITY: Always filter by authenticated user ID
+        const { data, error: fetchError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
 
-        if (error) throw error;
+        if (fetchError) throw fetchError;
 
-        // Cache the result
-        sessionStorage.setItem(cacheKey, JSON.stringify({
-          data,
-          timestamp: Date.now()
-        }));
+        // H-1 FIX: Store in secure module-level cache
+        setCachedProfile(session.user.id, data);
 
         setProfile(data);
         setError(null);
@@ -320,17 +382,21 @@ export function useLogout() {
 
   const logout = async () => {
     try {
-      // Clear all caches
+      // H-1 FIX: Clear secure module-level profile cache
+      clearProfileCache();
+
+      // Clear browser storage
       sessionStorage.clear();
       localStorage.removeItem('supabase.auth.token');
-      
+      localStorage.removeItem('rememberMe');
+
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
-      
+
       if (error) {
         console.error('[Auth] Error during logout:', error);
       }
-      
+
       // Always redirect to login, even if there's an error
       router.push('/login');
     } catch (error) {

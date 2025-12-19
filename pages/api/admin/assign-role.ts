@@ -34,6 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const supabaseService = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check if the current user is an admin using service role
+    // SECURITY: Only check user_roles table, do NOT use legacy metadata fallback
     const { data: adminCheck, error: adminError } = await supabaseService
       .from('user_roles')
       .select('id')
@@ -42,13 +43,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('is_active', true)
       .limit(1);
 
-    // Check legacy admin role in metadata as fallback
-    const isLegacyAdmin =
-      session.user.user_metadata?.role === 'admin' ||
-      (Array.isArray(session.user.user_metadata?.roles) && session.user.user_metadata.roles.includes('admin'));
-
-    if ((adminError || !adminCheck || adminCheck.length === 0) && !isLegacyAdmin) {
-      console.error('[assign-role API] Admin check failed:', { adminError, adminCheck, currentUserId, isLegacyAdmin });
+    if (adminError || !adminCheck || adminCheck.length === 0) {
+      console.error('[assign-role API] Admin check failed:', { adminError, adminCheck, currentUserId });
       return res.status(403).json({ error: 'Solo administradores pueden asignar roles' });
     }
 

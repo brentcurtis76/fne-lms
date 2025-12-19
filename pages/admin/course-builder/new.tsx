@@ -130,7 +130,7 @@ export default function NewCourse() {
       if (!session) {
         throw new Error('No active session. Please login again.');
       }
-      console.log('Authenticated as:', session.user.email);
+      console.log('Authenticated as user:', session.user.id);
       
       // 2. Handle thumbnail upload (if provided)
       let thumbnailUrl = 'https://example.com/default-thumbnail.png';

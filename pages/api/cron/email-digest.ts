@@ -143,7 +143,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .lte('scheduled_for', scheduledFor.toISOString());
 
           successCount++;
-          console.log(`✅ Sent ${digestType} digest to ${userDigest.email}`);
+          console.log(`✅ Sent ${digestType} digest to user ${userDigest.user_id}`);
         } else {
           errorCount++;
         }
@@ -197,7 +197,7 @@ async function sendDigestEmail(
   digestType: 'daily' | 'weekly'
 ): Promise<boolean> {
   try {
-    console.log(`📨 Sending ${digestType} digest to ${userDigest.email}`);
+    console.log(`📨 Sending ${digestType} digest to user ${userDigest.user_id}`);
     
     // Count total notifications
     const totalNotifications = Object.values(groupedNotifications).reduce(

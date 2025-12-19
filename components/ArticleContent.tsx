@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { sanitizeRichContent } from '@/lib/sanitize';
 
 interface VideoPlayerProps {
   videoId: string;
@@ -111,11 +112,11 @@ export default function ArticleContent({ content }: ArticleContentProps) {
     const hasYouTubeUrls = youtubeUrlPattern.test(htmlContent);
     
     if (!hasYouTubeUrls) {
-      // No YouTube URLs - render the HTML content as-is to preserve all formatting
+      // No YouTube URLs - render the sanitized HTML content to preserve formatting
       processedContent.push(
-        <div 
+        <div
           key={`content-${keyIndex++}`}
-          dangerouslySetInnerHTML={{ __html: htmlContent }}
+          dangerouslySetInnerHTML={{ __html: sanitizeRichContent(htmlContent) }}
         />
       );
       return processedContent;
@@ -147,9 +148,9 @@ export default function ArticleContent({ content }: ArticleContentProps) {
         const htmlBefore = htmlContent.substring(lastIndex, urlMatch.index);
         if (htmlBefore.trim()) {
           processedContent.push(
-            <div 
+            <div
               key={`html-${keyIndex++}`}
-              dangerouslySetInnerHTML={{ __html: htmlBefore }}
+              dangerouslySetInnerHTML={{ __html: sanitizeRichContent(htmlBefore) }}
             />
           );
         }
@@ -168,9 +169,9 @@ export default function ArticleContent({ content }: ArticleContentProps) {
       const htmlAfter = htmlContent.substring(lastIndex);
       if (htmlAfter.trim()) {
         processedContent.push(
-          <div 
+          <div
             key={`html-${keyIndex++}`}
-            dangerouslySetInnerHTML={{ __html: htmlAfter }}
+            dangerouslySetInnerHTML={{ __html: sanitizeRichContent(htmlAfter) }}
           />
         );
       }

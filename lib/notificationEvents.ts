@@ -131,14 +131,21 @@ export type NotificationEventData =
 // ============================================
 
 /**
- * Event data accessor type - uses 'any' for runtime flexibility
- * while interface definitions above provide documentation.
- * This allows accessing nested properties like d.course?.name
- * without TypeScript errors, while still having typed interfaces
- * for reference.
+ * Event data accessor type for runtime flexibility.
+ *
+ * H-3 NOTE: We use Record<string, any> for the accessor because template
+ * functions need to access nested properties dynamically (d.course?.name).
+ * The typed interfaces above serve as documentation for expected data shapes.
+ *
+ * The template functions safely handle missing properties via optional
+ * chaining, so undefined access returns undefined rather than throwing.
+ *
+ * For type-safe calls, use explicit typing:
+ * @example
+ * const data: CourseEventData = { course: { name: 'Test' } };
+ * NOTIFICATION_EVENTS['course_assigned'].defaultTitle(data);
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type EventDataAccessor = any;
+type EventDataAccessor = Record<string, any>;
 
 export interface NotificationEventConfig {
   /** Function to generate default title from event data */

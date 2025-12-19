@@ -27,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ user: null });
     }
 
-    console.log('[session API] Found session for user:', session.user.id, session.user.email);
+    console.log('[session API] Found session for user:', session.user.id);
     
     // Return user information
     return res.status(200).json({

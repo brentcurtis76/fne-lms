@@ -58,7 +58,7 @@ export default function NewsAdmin() {
 
   // FIXED: Use enhanced auth detection with multiple fallback strategies
   useEffect(() => {
-    console.log('🚀 [news.tsx] Enhanced auth detection triggered, user:', user?.id, user?.email);
+    console.log('🚀 [news.tsx] Enhanced auth detection triggered, user:', user?.id);
     
     const detectUserRole = async () => {
       try {

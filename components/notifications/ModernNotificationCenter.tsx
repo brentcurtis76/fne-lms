@@ -132,41 +132,6 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
       // Don't use mock data - show real error
       setNotifications([]);
       setUnreadCount(0);
-      return;
-      
-      // Fall back to mock data if API fails
-      const mockNotifications: NotificationItem[] = [
-        {
-          id: '1',
-          title: 'Nueva tarea: Análisis de Liderazgo',
-          description: 'Se ha asignado una nueva tarea para el módulo de Gestión de Equipos',
-          category: 'assignments',
-          is_read: false,
-          created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-          related_url: '/assignments/123'
-        },
-        {
-          id: '2', 
-          title: 'Curso completado exitosamente',
-          description: 'Has finalizado el curso "Innovación en Educación" con excelencia',
-          category: 'courses',
-          is_read: false,
-          created_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-          related_url: '/courses/456'
-        },
-        {
-          id: '3',
-          title: 'Nuevo mensaje de María González',
-          description: 'Te ha enviado información sobre el proyecto colaborativo',
-          category: 'messaging',
-          is_read: false,
-          created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-          related_url: '/messages/789'
-        }
-      ];
-      
-      setNotifications(mockNotifications);
-      setUnreadCount(mockNotifications.filter(n => !n.is_read).length);
     } finally {
       if (showLoading) setLoading(false);
       isFetchingRef.current = false;
@@ -574,23 +539,25 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
                               <h4 className={`text-sm leading-5 ${
-                                isUnread 
-                                  ? 'font-semibold text-slate-900' 
+                                isUnread
+                                  ? 'font-semibold text-slate-900'
                                   : 'font-medium text-slate-700'
                               }`}>
-                                {notification.title.length > 60 
-                                  ? `${notification.title.substring(0, 57)}...`
+                                {notification.title.length > 100
+                                  ? `${notification.title.substring(0, 97)}...`
                                   : notification.title
                                 }
                               </h4>
-                              <p className={`text-sm mt-1 leading-5 ${
-                                isUnread ? 'text-slate-700' : 'text-slate-500'
-                              }`}>
-                                {notification.description.length > 90
-                                  ? `${notification.description.substring(0, 87)}...`
-                                  : notification.description
-                                }
-                              </p>
+                              {notification.description && (
+                                <p className={`text-sm mt-1 leading-5 ${
+                                  isUnread ? 'text-slate-700' : 'text-slate-500'
+                                }`}>
+                                  {notification.description.length > 150
+                                    ? `${notification.description.substring(0, 147)}...`
+                                    : notification.description
+                                  }
+                                </p>
+                              )}
                             </div>
                             
                             {/* Timestamp and Unread Dot */}

@@ -1,10 +1,79 @@
 /**
- * FNE LMS - Phase 3 Notification Triggers System
+ * FNE LMS - Notification Triggers System
  * Centralized service for automated notification generation
+ *
+ * Architecture: Hybrid (Code Defaults + DB Override)
+ * - Code provides sensible defaults via notificationEvents registry
+ * - Database templates can override when more flexibility is needed
+ * - If DB template substitution fails, code defaults are used
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getAccessibleUrl } from '../utils/notificationPermissions';
+import { getEventConfig, hasEventConfig } from './notificationEvents';
+
+// Type definitions for notification service
+interface TriggerOptions {
+  skipDuplicateCheck?: boolean;
+  forceImmediate?: boolean;
+}
+
+interface TriggerResult {
+  success: boolean;
+  notificationsCreated?: number;
+  error?: string;
+}
+
+interface NotificationTrigger {
+  trigger_id: string;
+  template: NotificationTemplate | null;
+  category: string;
+}
+
+interface NotificationTemplate {
+  title_template?: string;
+  description_template?: string;
+  url_template?: string;
+  importance?: 'low' | 'normal' | 'high';
+}
+
+interface NotificationContent {
+  title: string;
+  description: string;
+  related_url: string;
+  importance: 'low' | 'normal' | 'high';
+}
+
+interface Recipient {
+  id: string;
+}
+
+interface NotificationData {
+  user_id: string;
+  title: string;
+  description: string;
+  category: string;
+  related_url: string;
+  importance: 'low' | 'normal' | 'high';
+  read_at: null;
+  event_type?: string;
+  idempotency_key?: string | null;
+}
+
+interface UserPreferences {
+  do_not_disturb: boolean;
+  quiet_hours_start: string;
+  quiet_hours_end: string;
+  weekend_quiet: boolean;
+  priority_override: boolean;
+  notification_settings: Record<string, unknown>;
+}
+
+interface SendCheckResult {
+  send_in_app: boolean;
+  send_email: boolean;
+  email_frequency: 'immediate' | 'daily' | 'weekly' | 'never';
+}
 
 // Use service role key for bypassing RLS when creating notifications
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -15,13 +84,12 @@ if (!supabaseUrl) {
 }
 
 if (!supabaseServiceKey) {
+  // Don't log env var names in production - potential security info leak
   console.error('❌ Missing SUPABASE_SERVICE_ROLE_KEY environment variable');
-  console.error('Available env vars:', Object.keys(process.env).filter(key => key.includes('SUPABASE')));
-  console.error('Current NODE_ENV:', process.env.NODE_ENV);
   throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY environment variable. Please ensure it is set in your .env.local file.');
 }
 
-let supabaseServiceRole: any;
+let supabaseServiceRole: SupabaseClient;
 try {
   supabaseServiceRole = createClient(supabaseUrl, supabaseServiceKey);
   console.log('✅ Supabase service role client initialized successfully');
@@ -34,38 +102,62 @@ class NotificationService {
   
   /**
    * Main trigger function - Entry point for all notification events
-   * @param {string} eventType - Type of event that occurred
-   * @param {Object} eventData - Data related to the event
-   * @param {Object} options - Additional options for processing
+   * @param eventType - Type of event that occurred
+   * @param eventData - Data related to the event
+   * @param options - Additional options for processing
    */
-  async triggerNotification(eventType, eventData, options = {}) {
+  async triggerNotification(
+    eventType: string,
+    eventData: Record<string, unknown>,
+    options: TriggerOptions = {}
+  ): Promise<TriggerResult> {
     try {
       console.log(`🔔 Notification trigger fired: ${eventType}`, eventData);
-      
-      // Get active triggers for this event type
+
+      // Get active triggers for this event type from database
       const triggers = await this.getActiveTriggers(eventType);
-      
-      if (!triggers || triggers.length === 0) {
-        console.log(`⚠️ No active triggers found for event type: ${eventType}`);
-        return { success: false, reason: 'No active triggers' };
-      }
 
       let totalNotificationsCreated = 0;
-      
-      // Process each trigger
-      for (const trigger of triggers) {
+
+      // If we have database triggers, use them
+      if (triggers && triggers.length > 0) {
+        for (const trigger of triggers) {
+          try {
+            const notificationCount = await this.processNotification(trigger, eventData, eventType, options);
+            totalNotificationsCreated += notificationCount;
+          } catch (error) {
+            console.error(`❌ Error processing trigger ${trigger.trigger_id}:`, error);
+            // Continue with other triggers even if one fails
+          }
+        }
+      } else {
+        // No DB triggers - use code-based defaults from notificationEvents registry
+        console.log(`📋 No DB triggers for ${eventType}, using code defaults`);
+
+        // Check if we have a registered event config
+        if (!hasEventConfig(eventType)) {
+          console.warn(`⚠️ Unknown event type: ${eventType} - no code defaults available`);
+        }
+
+        // Create a synthetic trigger using code defaults
+        const eventConfig = getEventConfig(eventType);
+        const syntheticTrigger = {
+          trigger_id: `code-default-${eventType}`,
+          template: null, // Will use code defaults
+          category: eventConfig.category,
+        };
+
         try {
-          const notificationCount = await this.processNotification(trigger, eventData, eventType, options);
+          const notificationCount = await this.processNotification(syntheticTrigger, eventData, eventType, options);
           totalNotificationsCreated += notificationCount;
         } catch (error) {
-          console.error(`❌ Error processing trigger ${trigger.trigger_id}:`, error);
-          // Continue with other triggers even if one fails
+          console.error(`❌ Error processing code-based notification for ${eventType}:`, error);
         }
       }
 
       // Log the event for audit trail
       await this.logNotificationEvent(eventType, eventData, null, totalNotificationsCreated, 'success');
-      
+
       console.log(`✅ Notification processing complete: ${totalNotificationsCreated} notifications created`);
       return { success: true, notificationsCreated: totalNotificationsCreated };
 
@@ -78,9 +170,9 @@ class NotificationService {
 
   /**
    * Get active triggers for a specific event type
-   * @param {string} eventType - The event type to get triggers for
+   * @param eventType - The event type to get triggers for
    */
-  async getActiveTriggers(eventType) {
+  async getActiveTriggers(eventType: string): Promise<NotificationTrigger[]> {
     try {
       const { data, error } = await supabaseServiceRole.rpc('get_active_triggers', {
         p_event_type: eventType
@@ -100,12 +192,17 @@ class NotificationService {
 
   /**
    * Process individual notification trigger
-   * @param {Object} trigger - The trigger configuration
-   * @param {Object} eventData - Event data for template substitution
-   * @param {string} eventType - The event type
-   * @param {Object} options - Processing options
+   * @param trigger - The trigger configuration
+   * @param eventData - Event data for template substitution
+   * @param eventType - The event type
+   * @param options - Processing options
    */
-  async processNotification(trigger, eventData, eventType, options = {}) {
+  async processNotification(
+    trigger: NotificationTrigger,
+    eventData: Record<string, unknown>,
+    eventType: string,
+    options: TriggerOptions = {}
+  ): Promise<number> {
     try {
       // Get recipients for this trigger
       const recipients = await this.getRecipients(trigger, eventData, eventType);
@@ -115,8 +212,8 @@ class NotificationService {
         return 0;
       }
 
-      // Generate notification content from template
-      const content = await this.generateContent(trigger.template, eventData);
+      // Generate notification content from template (hybrid: DB template with code fallback)
+      const content = await this.generateContent(trigger.template, eventData, eventType);
       
       let notificationsCreated = 0;
 
@@ -190,11 +287,15 @@ class NotificationService {
 
   /**
    * Determine recipients based on trigger type and event data
-   * @param {Object} trigger - The trigger configuration
-   * @param {Object} eventData - Event data containing recipient information
-   * @param {string} eventType - The event type
+   * @param trigger - The trigger configuration
+   * @param eventData - Event data containing recipient information
+   * @param eventType - The event type
    */
-  async getRecipients(trigger, eventData, eventType) {
+  async getRecipients(
+    trigger: NotificationTrigger,
+    eventData: Record<string, unknown>,
+    eventType: string
+  ): Promise<Recipient[]> {
     try {
       const recipients = [];
 
@@ -257,14 +358,25 @@ class NotificationService {
           break;
 
         case 'system_update':
-          // All active users - need to query database
-          const { data: activeUsers } = await supabaseServiceRole
-            .from('profiles')
-            .select('id')
-            .eq('is_active', true);
-          
-          if (activeUsers) {
-            activeUsers.forEach(user => recipients.push({ id: user.id }));
+          // All active users - batch process to avoid memory issues
+          const BATCH_SIZE = 100;
+          let offset = 0;
+          let hasMore = true;
+
+          while (hasMore) {
+            const { data: userBatch } = await supabaseServiceRole
+              .from('profiles')
+              .select('id')
+              .eq('is_active', true)
+              .range(offset, offset + BATCH_SIZE - 1);
+
+            if (userBatch && userBatch.length > 0) {
+              userBatch.forEach(user => recipients.push({ id: user.id }));
+              hasMore = userBatch.length === BATCH_SIZE;
+              offset += BATCH_SIZE;
+            } else {
+              hasMore = false;
+            }
           }
           break;
 
@@ -289,59 +401,91 @@ class NotificationService {
   }
 
   /**
-   * Generate notification content from template and event data
-   * @param {Object} template - The notification template
-   * @param {Object} eventData - Event data for substitution
+   * Generate notification content using hybrid approach:
+   * 1. Try database template first (if exists and valid)
+   * 2. Fall back to code-based defaults from notificationEvents registry
+   *
+   * @param template - The notification template from database (may be null)
+   * @param eventData - Event data for substitution
+   * @param eventType - The event type for code-based fallback
    */
-  async generateContent(template, eventData) {
+  async generateContent(
+    template: NotificationTemplate | null,
+    eventData: Record<string, unknown>,
+    eventType: string
+  ): Promise<NotificationContent> {
+    const eventConfig = getEventConfig(eventType);
+
     try {
-      // Template substitution function
-      const substitute = (text, data) => {
-        if (!text) {
-          return '';
+      // Try database template first (if exists and has valid templates)
+      if (template?.title_template) {
+        const substitutedTitle = this.substituteTemplate(template.title_template, eventData);
+        const substitutedDesc = this.substituteTemplate(template.description_template, eventData);
+        const substitutedUrl = this.substituteTemplate(template.url_template, eventData);
+
+        // Only use DB template if substitution succeeded (no remaining placeholders)
+        if (substitutedTitle && !substitutedTitle.includes('{')) {
+          console.log(`✅ Using DB template for ${eventType}`);
+          return {
+            title: substitutedTitle,
+            description: substitutedDesc || eventConfig.defaultDescription(eventData),
+            related_url: substitutedUrl || eventConfig.defaultUrl,
+            importance: template.importance || eventConfig.importance,
+          };
         }
-        
-        const result = text.replace(/\{([^}]+)\}/g, (match, key) => {
-          const value = this.getNestedValue(data, key);
-          return value !== undefined ? value : match;
-        });
-        
-        // Check if substitution failed (still contains placeholders)
-        if (result.includes('{') && result.includes('}')) {
-          console.warn(`⚠️ Template substitution incomplete for "${text}" -> "${result}"`);
-          return ''; // Return empty string if substitution failed
-        }
-        
-        return result;
+
+        // Log template substitution failure for debugging
+        console.warn(`⚠️ DB template substitution failed for ${eventType}, using code defaults`);
+      }
+
+      // Fall back to code-based defaults from notificationEvents registry
+      console.log(`📋 Using code defaults for ${eventType}`);
+      return {
+        title: eventConfig.defaultTitle(eventData),
+        description: eventConfig.defaultDescription(eventData),
+        related_url: eventConfig.defaultUrl,
+        importance: eventConfig.importance,
       };
 
-      const content = {
-        title: substitute(template.title_template, eventData),
-        description: substitute(template.description_template, eventData),
-        related_url: substitute(template.url_template, eventData),
-        importance: template.importance || 'normal'
-      };
-
-      return content;
     } catch (error) {
       console.error('Error generating content:', error);
+      // Ultimate fallback - should rarely happen
       return {
-        title: 'Notificación',
-        description: 'Ha ocurrido un evento en la plataforma',
-        related_url: '/dashboard',
-        importance: 'normal'
+        title: eventConfig.defaultTitle(eventData),
+        description: eventConfig.defaultDescription(eventData),
+        related_url: eventConfig.defaultUrl,
+        importance: eventConfig.importance,
       };
     }
   }
 
   /**
-   * Get nested value from object using dot notation
-   * @param {Object} obj - Object to search in
-   * @param {string} path - Dot notation path (e.g., 'user.name')
+   * Substitute placeholders in a template string with event data values
+   * @param template - Template string with {placeholder} syntax
+   * @param data - Data object for substitution
+   * @returns Substituted string, or empty if template is null/undefined
    */
-  getNestedValue(obj, path) {
-    return path.split('.').reduce((current, key) => {
-      return current && current[key] !== undefined ? current[key] : undefined;
+  substituteTemplate(template: string | undefined, data: Record<string, unknown>): string {
+    if (!template) return '';
+
+    // Only allow alphanumeric keys with dots and underscores (prevents unusual access patterns)
+    return template.replace(/\{([a-zA-Z_][a-zA-Z0-9_.]*)\}/g, (match, key) => {
+      const value = this.getNestedValue(data, key);
+      return value !== undefined ? String(value) : match;
+    });
+  }
+
+  /**
+   * Get nested value from object using dot notation
+   * @param obj - Object to search in
+   * @param path - Dot notation path (e.g., 'user.name')
+   */
+  getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+    return path.split('.').reduce((current: unknown, key: string) => {
+      if (current && typeof current === 'object' && key in (current as Record<string, unknown>)) {
+        return (current as Record<string, unknown>)[key];
+      }
+      return undefined;
     }, obj);
   }
 

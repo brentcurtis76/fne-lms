@@ -477,7 +477,7 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
         cursorY + 36
       );
       pdf.text(
-        'Válido pagando antes del 30 de noviembre de 2025',
+        'Válido pagando antes del 31 de marzo de 2026',
         tableLeft + 14,
         cursorY + 48
       );
@@ -806,7 +806,7 @@ export default function QuotePublicView({ quote }: QuotePublicViewProps) {
                 Se ha aplicado un descuento de <strong>${(500000 * (quote.programs?.length || 0)).toLocaleString('es-CL')} CLP por persona</strong> en los programas seleccionados.
               </p>
               <p className="text-sm text-yellow-700">
-                Este descuento es válido realizando el pago antes del <strong>30 de noviembre de 2025</strong>.
+                Este descuento es válido realizando el pago antes del <strong>31 de marzo de 2026</strong>.
               </p>
             </div>
           </div>

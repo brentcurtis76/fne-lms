@@ -598,7 +598,7 @@ export default function QuoteFormV2({ initialData, onSubmit, isEditing = false }
               🎉 Descuento por Pago Anticipado
             </h3>
             <p className="text-gray-700 mb-4">
-              Aplica un descuento de <strong>$500.000 CLP por programa</strong> si el pago se realiza antes del 30 de noviembre de 2025.
+              Aplica un descuento de <strong>$500.000 CLP por programa</strong> si el pago se realiza antes del 31 de marzo de 2026.
             </p>
             <div className="bg-white/80 rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
@@ -621,7 +621,7 @@ export default function QuoteFormV2({ initialData, onSubmit, isEditing = false }
                     ✅ Se aplicará un descuento de <strong>${(calculations.discountAmount || 0).toLocaleString('es-CL')} CLP</strong> al total
                   </p>
                   <p className="text-xs text-green-700 mt-1">
-                    Fecha límite de pago: 30 de noviembre de 2025
+                    Fecha límite de pago: 31 de marzo de 2026
                   </p>
                 </div>
               )}

@@ -1,143 +1,89 @@
-<testsuites id="" name="" tests="7" failures="7" skipped="0" errors="0" time="18.331572">
-<testsuite name="debug-assessments-issue.spec.ts" timestamp="2025-10-30T19:39:22.709Z" hostname="chromium" tests="1" failures="1" skipped="0" time="0.003" errors="0">
-<testcase name="debug assessments not showing" classname="debug-assessments-issue.spec.ts" time="0.003">
-<failure message="debug-assessments-issue.spec.ts:4:5 debug assessments not showing" type="FAILURE">
-<![CDATA[  [chromium] › debug-assessments-issue.spec.ts:4:5 › debug assessments not showing ─────────────────
-
-    Error: browserType.launch: Executable doesn't exist at /Users/brentcurtis76/Library/Caches/ms-playwright/chromium-1194/chrome-mac/Chromium.app/Contents/MacOS/Chromium
-    ╔═════════════════════════════════════════════════════════════════════════╗
-    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
-    ║ Please run the following command to download new browsers:              ║
-    ║                                                                         ║
-    ║     npx playwright install                                              ║
-    ║                                                                         ║
-    ║ <3 Playwright Team                                                      ║
-    ╚═════════════════════════════════════════════════════════════════════════╝
-]]>
-</failure>
-</testcase>
-</testsuite>
-<testsuite name="debug-assessments-issue.spec.ts" timestamp="2025-10-30T19:39:22.709Z" hostname="firefox" tests="1" failures="1" skipped="0" time="0.002" errors="0">
-<testcase name="debug assessments not showing" classname="debug-assessments-issue.spec.ts" time="0.002">
-<failure message="debug-assessments-issue.spec.ts:4:5 debug assessments not showing" type="FAILURE">
-<![CDATA[  [firefox] › debug-assessments-issue.spec.ts:4:5 › debug assessments not showing ──────────────────
-
-    Error: browserType.launch: Executable doesn't exist at /Users/brentcurtis76/Library/Caches/ms-playwright/firefox-1495/firefox/Nightly.app/Contents/MacOS/firefox
-    ╔═════════════════════════════════════════════════════════════════════════╗
-    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
-    ║ Please run the following command to download new browsers:              ║
-    ║                                                                         ║
-    ║     npx playwright install                                              ║
-    ║                                                                         ║
-    ║ <3 Playwright Team                                                      ║
-    ╚═════════════════════════════════════════════════════════════════════════╝
-]]>
-</failure>
-</testcase>
-</testsuite>
-<testsuite name="debug-assessments-issue.spec.ts" timestamp="2025-10-30T19:39:22.709Z" hostname="webkit" tests="1" failures="1" skipped="0" time="0.002" errors="0">
-<testcase name="debug assessments not showing" classname="debug-assessments-issue.spec.ts" time="0.002">
-<failure message="debug-assessments-issue.spec.ts:4:5 debug assessments not showing" type="FAILURE">
-<![CDATA[  [webkit] › debug-assessments-issue.spec.ts:4:5 › debug assessments not showing ───────────────────
-
-    Error: browserType.launch: Executable doesn't exist at /Users/brentcurtis76/Library/Caches/ms-playwright/webkit-2215/pw_run.sh
-    ╔═════════════════════════════════════════════════════════════════════════╗
-    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
-    ║ Please run the following command to download new browsers:              ║
-    ║                                                                         ║
-    ║     npx playwright install                                              ║
-    ║                                                                         ║
-    ║ <3 Playwright Team                                                      ║
-    ╚═════════════════════════════════════════════════════════════════════════╝
-]]>
-</failure>
-</testcase>
-</testsuite>
-<testsuite name="debug-assessments-issue.spec.ts" timestamp="2025-10-30T19:39:22.709Z" hostname="mobile" tests="1" failures="1" skipped="0" time="0.002" errors="0">
-<testcase name="debug assessments not showing" classname="debug-assessments-issue.spec.ts" time="0.002">
-<failure message="debug-assessments-issue.spec.ts:4:5 debug assessments not showing" type="FAILURE">
-<![CDATA[  [mobile] › debug-assessments-issue.spec.ts:4:5 › debug assessments not showing ───────────────────
-
-    Error: browserType.launch: Executable doesn't exist at /Users/brentcurtis76/Library/Caches/ms-playwright/chromium-1194/chrome-mac/Chromium.app/Contents/MacOS/Chromium
-    ╔═════════════════════════════════════════════════════════════════════════╗
-    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
-    ║ Please run the following command to download new browsers:              ║
-    ║                                                                         ║
-    ║     npx playwright install                                              ║
-    ║                                                                         ║
-    ║ <3 Playwright Team                                                      ║
-    ╚═════════════════════════════════════════════════════════════════════════╝
-]]>
-</failure>
-</testcase>
-</testsuite>
-<testsuite name="debug-assessments-issue.spec.ts" timestamp="2025-10-30T19:39:22.709Z" hostname="Mobile Safari" tests="1" failures="1" skipped="0" time="0.002" errors="0">
-<testcase name="debug assessments not showing" classname="debug-assessments-issue.spec.ts" time="0.002">
-<failure message="debug-assessments-issue.spec.ts:4:5 debug assessments not showing" type="FAILURE">
-<![CDATA[  [Mobile Safari] › debug-assessments-issue.spec.ts:4:5 › debug assessments not showing ────────────
-
-    Error: browserType.launch: Executable doesn't exist at /Users/brentcurtis76/Library/Caches/ms-playwright/webkit-2215/pw_run.sh
-    ╔═════════════════════════════════════════════════════════════════════════╗
-    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
-    ║ Please run the following command to download new browsers:              ║
-    ║                                                                         ║
-    ║     npx playwright install                                              ║
-    ║                                                                         ║
-    ║ <3 Playwright Team                                                      ║
-    ╚═════════════════════════════════════════════════════════════════════════╝
-]]>
-</failure>
-</testcase>
-</testsuite>
-<testsuite name="debug-assessments-issue.spec.ts" timestamp="2025-10-30T19:39:22.709Z" hostname="Microsoft Edge" tests="1" failures="1" skipped="0" time="0.002" errors="0">
-<testcase name="debug assessments not showing" classname="debug-assessments-issue.spec.ts" time="0.002">
-<failure message="debug-assessments-issue.spec.ts:4:5 debug assessments not showing" type="FAILURE">
-<![CDATA[  [Microsoft Edge] › debug-assessments-issue.spec.ts:4:5 › debug assessments not showing ───────────
-
-    Error: browserType.launch: Chromium distribution 'msedge' is not found at /Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge
-    Run "npx playwright install msedge"
-]]>
-</failure>
-</testcase>
-</testsuite>
-<testsuite name="debug-assessments-issue.spec.ts" timestamp="2025-10-30T19:39:22.709Z" hostname="Google Chrome" tests="1" failures="1" skipped="0" time="9.12" errors="0">
-<testcase name="debug assessments not showing" classname="debug-assessments-issue.spec.ts" time="9.12">
-<failure message="debug-assessments-issue.spec.ts:4:5 debug assessments not showing" type="FAILURE">
-<![CDATA[  [Google Chrome] › debug-assessments-issue.spec.ts:4:5 › debug assessments not showing ────────────
-
-    TimeoutError: page.waitForSelector: Timeout 5000ms exceeded.
-    Call log:
-      - waiting for locator('text=Vías de Transformación') to be visible
-        6 × locator resolved to hidden <h2 class="text-2xl font-bold text-[#00365b] mb-4">Vías de Transformación</h2>
-
-
-      29 |
-      30 |   // Wait for transformation tab to be visible
-    > 31 |   await page.waitForSelector('text=Vías de Transformación', { timeout: 5000 });
-         |              ^
-      32 |
-      33 |   // Click transformation tab
-      34 |   await page.click('text=Vías de Transformación');
-        at /Users/brentcurtis76/Documents/fne-lms-working/e2e/debug-assessments-issue.spec.ts:31:14
-
-    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
-    ../test-results/debug-assessments-issue-debug-assessments-not-showing-Google-Chrome/test-failed-1.png
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
-    ../test-results/debug-assessments-issue-debug-assessments-not-showing-Google-Chrome/video.webm
-    ────────────────────────────────────────────────────────────────────────────────────────────────
-
-    Error Context: ../test-results/debug-assessments-issue-debug-assessments-not-showing-Google-Chrome/error-context.md
-]]>
-</failure>
+<testsuites id="" name="" tests="20" failures="0" skipped="0" errors="0" time="16.448291">
+<testsuite name="tests/security.spec.ts" timestamp="2025-12-19T16:08:57.403Z" hostname="chromium" tests="20" failures="0" skipped="0" time="30.807" errors="0">
+<testcase name="Security Headers @security › response should include security headers on public page" classname="tests/security.spec.ts" time="2.004">
 <system-out>
-<![CDATA[
-[[ATTACHMENT|debug-assessments-issue-debug-assessments-not-showing-Google-Chrome/test-failed-1.png]]
-
-[[ATTACHMENT|debug-assessments-issue-debug-assessments-not-showing-Google-Chrome/video.webm]]
-
-[[ATTACHMENT|debug-assessments-issue-debug-assessments-not-showing-Google-Chrome/error-context.md]]
+<![CDATA[Security Headers Found: {
+  [32m'x-content-type-options'[39m: [32m'nosniff'[39m,
+  [32m'x-frame-options'[39m: [32m'SAMEORIGIN'[39m,
+  [32m'x-xss-protection'[39m: [32m'1; mode=block'[39m,
+  [32m'referrer-policy'[39m: [32m'strict-origin-when-cross-origin'[39m
+}
+]]>
+</system-out>
+</testcase>
+<testcase name="Security Headers @security › API routes should include security headers" classname="tests/security.spec.ts" time="0.474">
+<system-out>
+<![CDATA[API Security Headers: { [32m'x-content-type-options'[39m: [32m'nosniff'[39m }
+]]>
+</system-out>
+</testcase>
+<testcase name="XSS Prevention - Client-side Validation @security @xss › DOMPurify sanitization removes script tags" classname="tests/security.spec.ts" time="2.054">
+</testcase>
+<testcase name="XSS Prevention - Client-side Validation @security @xss › Event handlers are stripped from HTML content" classname="tests/security.spec.ts" time="2.08">
+</testcase>
+<testcase name="XSS Prevention - Client-side Validation @security @xss › javascript: URLs are blocked" classname="tests/security.spec.ts" time="2.084">
+</testcase>
+<testcase name="Iframe URL Validation @security @iframe › YouTube embed URLs should be allowed" classname="tests/security.spec.ts" time="1.758">
+</testcase>
+<testcase name="Iframe URL Validation @security @iframe › YouTube-nocookie URLs should be allowed" classname="tests/security.spec.ts" time="1.371">
+</testcase>
+<testcase name="Iframe URL Validation @security @iframe › Vimeo player URLs should be allowed" classname="tests/security.spec.ts" time="1.305">
+</testcase>
+<testcase name="Iframe URL Validation @security @iframe › localhost URLs should be blocked for iframes" classname="tests/security.spec.ts" time="1.269">
+</testcase>
+<testcase name="Iframe URL Validation @security @iframe › private IP addresses should be blocked" classname="tests/security.spec.ts" time="1.361">
+</testcase>
+<testcase name="Iframe URL Validation @security @iframe › malicious look-alike domains should be blocked" classname="tests/security.spec.ts" time="1.287">
+</testcase>
+<testcase name="SSRF Prevention Validation @security @ssrf › internal hostnames should be detected as blocked" classname="tests/security.spec.ts" time="1.04">
+</testcase>
+<testcase name="SSRF Prevention Validation @security @ssrf › AWS/cloud metadata endpoints should be blocked" classname="tests/security.spec.ts" time="1.017">
+</testcase>
+<testcase name="Rate Limiting @security @ratelimit › rate limit response should include Spanish error message" classname="tests/security.spec.ts" time="0.534">
+<system-out>
+<![CDATA[Rate limit test results: [
+  { status: [33m401[39m, body: [1mnull[22m },
+  { status: [33m401[39m, body: [1mnull[22m },
+  { status: [33m401[39m, body: [1mnull[22m },
+  { status: [33m401[39m, body: [1mnull[22m },
+  { status: [33m401[39m, body: [1mnull[22m },
+  { status: [33m401[39m, body: [1mnull[22m },
+  { status: [33m401[39m, body: [1mnull[22m },
+  { status: [33m401[39m, body: [1mnull[22m },
+  { status: [33m401[39m, body: [1mnull[22m },
+  { status: [33m401[39m, body: [1mnull[22m },
+  {
+    status: [33m429[39m,
+    body: {
+      error: [32m'Demasiadas solicitudes. Por favor, intente de nuevo más tarde.'[39m,
+      retryAfter: [33m60[39m
+    }
+  }
+]
+]]>
+</system-out>
+</testcase>
+<testcase name="Rate Limiting @security @ratelimit › rate limit headers should be set on responses" classname="tests/security.spec.ts" time="0.322">
+<system-out>
+<![CDATA[Response headers: {
+  [32m'x-ratelimit-limit'[39m: [32m'10'[39m,
+  [32m'x-ratelimit-remaining'[39m: [32m'9'[39m,
+  [32m'x-ratelimit-reset'[39m: [32m'1766160603'[39m
+}
+]]>
+</system-out>
+</testcase>
+<testcase name="Login Page Security @security › login page should not have any XSS vulnerabilities" classname="tests/security.spec.ts" time="6.222">
+</testcase>
+<testcase name="Login Page Security @security › login form should use secure submission" classname="tests/security.spec.ts" time="1.406">
+</testcase>
+<testcase name="Login Page Security @security › password input should be of type password" classname="tests/security.spec.ts" time="1.29">
+</testcase>
+<testcase name="HTML Escape Validation @security › special characters should be properly escaped" classname="tests/security.spec.ts" time="0.732">
+</testcase>
+<testcase name="Cookie and Session Security @security › login page sets appropriate cookie policies" classname="tests/security.spec.ts" time="1.197">
+<system-out>
+<![CDATA[Cookies set on login page: []
 ]]>
 </system-out>
 </testcase>

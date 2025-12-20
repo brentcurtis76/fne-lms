@@ -376,7 +376,7 @@ export function sendValidationError(
   });
 }
 
-export default {
+const apiErrorHandler = {
   ErrorCodes,
   handleApiError,
   withErrorHandler,
@@ -386,3 +386,5 @@ export default {
   sanitizeErrorMessage,
   mapDatabaseError,
 };
+
+export default apiErrorHandler;

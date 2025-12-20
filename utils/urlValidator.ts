@@ -273,7 +273,7 @@ export function getSafeEmbedUrl(url: string): string | null {
   return null;
 }
 
-export default {
+const urlValidator = {
   isValidUrl,
   isSafeForIframe,
   isBlockedDomain,
@@ -283,3 +283,5 @@ export default {
   extractVimeoVideoId,
   getSafeEmbedUrl,
 };
+
+export default urlValidator;

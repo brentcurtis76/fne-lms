@@ -24,7 +24,7 @@ async function checkUserMetadata() {
         return;
     }
 
-    const user = users.find(u => u.email === targetEmail);
+    const user = (users as any[]).find(u => u.email === targetEmail);
 
     if (!user) {
         console.error('User not found');

@@ -229,9 +229,11 @@ export function withMethodRateLimit(
   };
 }
 
-export default {
+const rateLimitUtils = {
   rateLimit,
   withRateLimit,
   withMethodRateLimit,
   RATE_LIMITS,
 };
+
+export default rateLimitUtils;

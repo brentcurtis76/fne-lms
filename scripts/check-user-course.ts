@@ -29,7 +29,7 @@ async function checkUserCourseAssignment(userEmail: string, courseTitle: string)
       return;
     }
 
-    const authUser = authData.users.find(u =>
+    const authUser = (authData.users as any[]).find(u =>
       u.email?.toLowerCase() === userEmail.toLowerCase()
     );
 
@@ -59,7 +59,7 @@ async function checkUserCourseAssignment(userEmail: string, courseTitle: string)
     }
 
     const { data: authData } = await supabase.auth.admin.listUsers();
-    const similarAuth = authData?.users.filter(u =>
+    const similarAuth = (authData?.users as any[] | undefined)?.filter(u =>
       u.email?.toLowerCase().includes('caballero')
     );
     if (similarAuth && similarAuth.length > 0) {

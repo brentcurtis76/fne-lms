@@ -378,7 +378,7 @@ export function withValidation<T extends z.ZodSchema>(
   };
 }
 
-export default {
+const validationSchemas = {
   // Common
   uuidSchema,
   emailSchema,
@@ -414,3 +414,5 @@ export default {
   validateInput,
   withValidation,
 };
+
+export default validationSchemas;

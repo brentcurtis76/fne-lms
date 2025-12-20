@@ -332,7 +332,7 @@ export function withSecurityAudit(
   };
 }
 
-export default {
+const securityAuditLog = {
   logSecurityAuditEvent,
   logAuthEvent,
   logAuthzEvent,
@@ -340,3 +340,5 @@ export default {
   logDataAccessEvent,
   withSecurityAudit,
 };
+
+export default securityAuditLog;

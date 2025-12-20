@@ -257,7 +257,7 @@ export function escapeHtml(text: string): string {
   return text.replace(/[&<>"'/]/g, char => escapeMap[char]);
 }
 
-export default {
+const sanitize = {
   sanitizeHtml,
   sanitizeHtmlStrict,
   sanitizeRichContent,
@@ -265,3 +265,5 @@ export default {
   escapeHtml,
   isAllowedIframeSrc,
 };
+
+export default sanitize;

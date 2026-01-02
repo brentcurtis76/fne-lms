@@ -119,6 +119,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     ]
   },
   {
+    id: 'docente-assessments',
+    label: 'Mis Evaluaciones',
+    icon: ClipboardDocumentCheckIcon,
+    href: '/docente/assessments',
+    description: 'Evaluaciones de transformación asignadas',
+    restrictedRoles: ['docente', 'admin', 'consultor']
+  },
+  {
     id: 'quiz-reviews',
     label: 'Revisión de Quizzes',
     icon: ClipboardDocumentCheckIcon,
@@ -140,7 +148,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: ClipboardDocumentListIcon,
     href: '/admin/assessment-builder',
     description: 'Constructor de evaluaciones y rúbricas',
-    adminOnly: true
+    consultantOnly: true
   },
   {
     id: 'news',
@@ -309,6 +317,20 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         label: 'Mis Evaluaciones',
         href: '/vias-transformacion',
         description: 'Ver mis evaluaciones'
+      },
+      {
+        id: 'vias-contexto-transversal',
+        label: 'Contexto Transversal',
+        href: '/school/transversal-context',
+        description: 'Configuración de contexto escolar',
+        icon: OfficeBuildingIcon
+      },
+      {
+        id: 'vias-resultados-escuela',
+        label: 'Panel de Resultados',
+        href: '/directivo/assessments/dashboard',
+        description: 'Resultados de evaluaciones de la escuela',
+        icon: ChartBarIcon
       },
       {
         id: 'vias-admin-todas',

@@ -152,13 +152,29 @@ const MainLayout: React.FC<MainLayoutProps> = ({
       }
 
       try {
-        const { data, error } = await supabase
+        // 2) Check profiles.school column first
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('school')
           .eq('id', user.id)
           .single();
-        if (!error && data?.school) {
-          setSchoolName(data.school);
+        if (!profileError && profileData?.school) {
+          setSchoolName(profileData.school);
+          return;
+        }
+
+        // 3) If no school in profiles, check user_roles for school assignment
+        const { data: roleData, error: roleError } = await supabase
+          .from('user_roles')
+          .select('school_id, schools:school_id(name)')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .not('school_id', 'is', null)
+          .limit(1)
+          .single();
+
+        if (!roleError && roleData?.schools && (roleData.schools as any)?.name) {
+          setSchoolName((roleData.schools as any).name);
           return;
         }
       } catch (err) {

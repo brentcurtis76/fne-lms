@@ -15,6 +15,7 @@ export interface TestUser {
 // Use namespaced test users to avoid affecting production
 const TEST_NAMESPACE = process.env.TEST_NAMESPACE || `e2e_test_${Date.now()}`;
 
+// Standard E2E test users (generic)
 export const TEST_USERS = {
   admin: {
     email: process.env.TEST_ADMIN_EMAIL || `admin_${TEST_NAMESPACE}@test.local`,
@@ -41,6 +42,107 @@ export const TEST_USERS = {
     name: 'Test Director'
   }
 } as const;
+
+// TEST_QA_ prefixed users for Assessment Builder E2E tests
+// These users are created by scripts/qa-seed-users.js
+export const TEST_QA_USERS = {
+  admin: {
+    email: 'test_qa_admin@test.com',
+    password: 'TestQA2025!',
+    role: 'admin',
+    name: 'TEST_QA Admin User'
+  },
+  directivo: {
+    email: 'test_qa_directivo@test.com',
+    password: 'TestQA2025!',
+    role: 'equipo_directivo',  // Correct enum value
+    name: 'TEST_QA Directivo User'
+  },
+  docente: {
+    email: 'test_qa_docente@test.com',
+    password: 'TestQA2025!',
+    role: 'docente',
+    name: 'TEST_QA Docente User'
+  }
+} as const;
+
+/**
+ * Login as a TEST_QA_ user for Assessment Builder tests
+ * These users are created by scripts/qa-seed-users.js
+ */
+export async function loginAsQA(page: Page, userType: keyof typeof TEST_QA_USERS) {
+  const user = TEST_QA_USERS[userType];
+
+  console.log(`🔐 Logging in as ${user.name} (${user.role})`);
+
+  await page.goto('/login');
+  await page.waitForLoadState('networkidle');
+
+  // Wait for form elements to be visible
+  await page.waitForSelector('input[type="email"]', { state: 'visible', timeout: 10000 });
+  await page.waitForSelector('input[type="password"]', { state: 'visible', timeout: 10000 });
+
+  // Fill login form
+  await page.fill('input[type="email"]', user.email);
+  await page.fill('input[type="password"]', user.password);
+
+  // Submit form
+  await page.click('button:has-text("Iniciar Sesión")');
+
+  // Wait for redirect to dashboard or handle password change
+  try {
+    // Check if password change is required
+    await page.waitForSelector('h1:has-text("Cambiar Contraseña")', { timeout: 3000 });
+    console.log('Password change required, handling...');
+
+    // Fill password change form
+    await page.fill('input[placeholder*="nueva contraseña"]', 'newpassword123');
+    await page.fill('input[placeholder*="confirmar"]', 'newpassword123');
+    await page.click('button:has-text("Cambiar Contraseña")');
+
+    // Wait for profile completion or dashboard
+    await page.waitForLoadState('networkidle');
+
+  } catch {
+    // No password change required, should be at dashboard
+  }
+
+  // Wait for redirect away from login page
+  try {
+    await page.waitForURL(/(?!.*\/login).*/, { timeout: 15000 });
+  } catch (e) {
+    console.log('⚠️ Still on login page after submit, checking for errors...');
+    const errorMsg = await page.locator('.text-red-500, .error-message, [role="alert"]').textContent().catch(() => null);
+    if (errorMsg) {
+      console.log('Login error:', errorMsg);
+    }
+    throw new Error(`Login failed for ${user.email}`);
+  }
+
+  // Wait for the page to fully load
+  await page.waitForLoadState('networkidle');
+
+  // Verify we're not on login page
+  let currentUrl = page.url();
+  if (currentUrl.includes('/login')) {
+    throw new Error(`Still on login page after login attempt for ${user.email}`);
+  }
+
+  // Add session stabilization: reload to ensure auth state is consistent
+  await page.waitForTimeout(500);
+  await page.reload();
+  await page.waitForLoadState('networkidle');
+
+  // Re-verify we're still not on login page after reload
+  currentUrl = page.url();
+  if (currentUrl.includes('/login')) {
+    throw new Error(`Session lost after reload for ${user.email}`);
+  }
+
+  console.log(`✅ Successfully logged in as ${user.name} - redirected to ${currentUrl}`);
+
+  return user;
+}
 
 /**
  * Login as a specific user role

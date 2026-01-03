@@ -79,12 +79,16 @@ export async function loginAsQA(page: Page, userType: keyof typeof TEST_QA_USERS
   await page.waitForLoadState('networkidle');
 
   // Wait for form elements to be visible
-  await page.waitForSelector('input[type="email"]', { state: 'visible', timeout: 10000 });
-  await page.waitForSelector('input[type="password"]', { state: 'visible', timeout: 10000 });
+  // The login form uses custom input components, so we use placeholder-based selectors
+  const emailInput = page.getByPlaceholder('tu@email.com');
+  const passwordInput = page.getByPlaceholder('••••••••');
+
+  await emailInput.waitFor({ state: 'visible', timeout: 10000 });
+  await passwordInput.waitFor({ state: 'visible', timeout: 10000 });
 
   // Fill login form
-  await page.fill('input[type="email"]', user.email);
-  await page.fill('input[type="password"]', user.password);
+  await emailInput.fill(user.email);
+  await passwordInput.fill(user.password);
 
   // Submit form
   await page.click('button:has-text("Iniciar Sesión")');

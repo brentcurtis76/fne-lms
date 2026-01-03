@@ -1041,19 +1041,22 @@ export function calculateAssessmentGapAnalysis(
 
 /**
  * Fetch gap analysis for an assessment instance from the database
+ * Uses the instance's generation_type to select the correct expectation set (GT or GI)
+ *
  * NOTE: Uses supabaseAdmin to bypass RLS for reading results
  */
 export async function fetchInstanceGapAnalysis(
   supabase: SupabaseClient,
   instanceId: string
 ): Promise<AssessmentGapAnalysis | null> {
-  // Get instance with snapshot
+  // Get instance with snapshot and generation_type
   const { data: instance, error: instanceError } = await supabase
     .from('assessment_instances')
     .select(
       `
       id,
       transformation_year,
+      generation_type,
       template_snapshot_id,
       assessment_template_snapshots!inner (
         snapshot_data
@@ -1091,6 +1094,10 @@ export async function fetchInstanceGapAnalysis(
   const snapshotModules = snapshotData.modules || [];
   const transformationYear = instance.transformation_year as 1 | 2 | 3 | 4 | 5;
 
+  // Determine which expectation set to use based on generation_type
+  // Default to GT if not specified (backwards compatibility)
+  const generationType = (instance as any).generation_type || 'GT';
+
   // Build indicator score map from results
   const indicatorScores = new Map<string, number>();
   const moduleScores = result.module_scores as ModuleScore[];
@@ -1101,17 +1108,33 @@ export async function fetchInstanceGapAnalysis(
     }
   }
 
-  // Build modules with expectations
+  // Build modules with expectations (using correct GT or GI set)
   const modules = snapshotModules.map((m: any) => ({
     id: m.id,
     name: m.name,
-    indicators: (m.indicators || []).map((ind: any) => ({
-      id: ind.id,
-      name: ind.name,
-      code: ind.code,
-      category: ind.category as IndicatorCategory,
-      expectations: ind.expectations as YearExpectation | null,
-    })),
+    indicators: (m.indicators || []).map((ind: any) => {
+      // Select the correct expectation set based on generation_type
+      // New snapshots have expectations_gt and expectations_gi
+      // Old snapshots only have expectations (treated as GT)
+      let expectations: YearExpectation | null = null;
+
+      if (generationType === 'GI' && ind.expectations_gi) {
+        expectations = ind.expectations_gi as YearExpectation;
+      } else if (ind.expectations_gt) {
+        expectations = ind.expectations_gt as YearExpectation;
+      } else {
+        // Fallback to legacy expectations field (backwards compatibility)
+        expectations = ind.expectations as YearExpectation | null;
+      }
+
+      return {
+        id: ind.id,
+        name: ind.name,
+        code: ind.code,
+        category: ind.category as IndicatorCategory,
+        expectations,
+      };
+    }),
   }));
 
   return calculateAssessmentGapAnalysis(

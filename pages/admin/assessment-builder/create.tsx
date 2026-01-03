@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPageHeader';
 import { ClipboardList, ArrowLeft, Save } from 'lucide-react';
-import type { TransformationArea, CreateTemplateRequest } from '@/types/assessment-builder';
+import type { TransformationArea, CreateTemplateRequest, Grade } from '@/types/assessment-builder';
 import { AREA_LABELS, AREA_STATUS } from '@/types/assessment-builder';
 
 const CreateTemplate: React.FC = () => {
@@ -16,12 +16,15 @@ const CreateTemplate: React.FC = () => {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
+  const [grades, setGrades] = useState<Grade[]>([]);
+  const [loadingGrades, setLoadingGrades] = useState(true);
 
   // Form state
   const [formData, setFormData] = useState<CreateTemplateRequest>({
     area: 'personalizacion',
     name: '',
     description: '',
+    grade_id: undefined,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -60,6 +63,25 @@ const CreateTemplate: React.FC = () => {
     checkAuth();
   }, [supabase, router]);
 
+  // Fetch grades
+  useEffect(() => {
+    const fetchGrades = async () => {
+      try {
+        const response = await fetch('/api/admin/assessment-builder/grades');
+        if (response.ok) {
+          const data = await response.json();
+          setGrades(data.grades || []);
+        }
+      } catch (error) {
+        console.error('Error fetching grades:', error);
+      } finally {
+        setLoadingGrades(false);
+      }
+    };
+
+    fetchGrades();
+  }, []);
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -71,6 +93,10 @@ const CreateTemplate: React.FC = () => {
 
     if (!formData.area) {
       newErrors.area = 'El área de transformación es requerida';
+    }
+
+    if (!formData.grade_id) {
+      newErrors.grade_id = 'El nivel es requerido';
     }
 
     setErrors(newErrors);
@@ -91,6 +117,7 @@ const CreateTemplate: React.FC = () => {
           area: formData.area,
           name: formData.name.trim(),
           description: formData.description?.trim() || undefined,
+          grade_id: formData.grade_id,
         }),
       });
 
@@ -213,6 +240,33 @@ const CreateTemplate: React.FC = () => {
               {errors.area && <p className="mt-1 text-sm text-red-500">{errors.area}</p>}
               <p className="mt-1 text-xs text-gray-500">
                 Selecciona la vía de transformación para este template
+              </p>
+            </div>
+
+            {/* Nivel (Grade) */}
+            <div>
+              <label htmlFor="grade_id" className="block text-sm font-medium text-gray-700 mb-1">
+                Nivel <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="grade_id"
+                value={formData.grade_id || ''}
+                onChange={(e) => setFormData({ ...formData, grade_id: e.target.value ? Number(e.target.value) : undefined })}
+                disabled={loadingGrades}
+                className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue focus:border-brand_blue ${
+                  errors.grade_id ? 'border-red-500' : 'border-gray-300'
+                } ${loadingGrades ? 'bg-gray-100' : ''}`}
+              >
+                <option value="">Selecciona un nivel</option>
+                {grades.map((grade) => (
+                  <option key={grade.id} value={grade.id}>
+                    {grade.name} {grade.is_always_gt ? '(GT)' : ''}
+                  </option>
+                ))}
+              </select>
+              {errors.grade_id && <p className="mt-1 text-sm text-red-500">{errors.grade_id}</p>}
+              <p className="mt-1 text-xs text-gray-500">
+                Selecciona el nivel educativo para este template. (GT) indica niveles de Generación Tractor.
               </p>
             </div>
 

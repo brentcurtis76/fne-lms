@@ -88,7 +88,14 @@ async function handleGet(
         updated_at,
         is_archived,
         archived_at,
-        archived_by
+        archived_by,
+        grade_id,
+        grade:ab_grades (
+          id,
+          name,
+          sort_order,
+          is_always_gt
+        )
       `)
       .order('area', { ascending: true })
       .order('version', { ascending: false });
@@ -161,11 +168,15 @@ async function handlePost(
   userId: string
 ) {
   try {
-    const { area, name, description } = req.body as CreateTemplateRequest;
+    const { area, name, description, grade_id } = req.body as CreateTemplateRequest;
 
     // Validation
     if (!area || !name) {
       return res.status(400).json({ error: 'Área y nombre son requeridos' });
+    }
+
+    if (!grade_id) {
+      return res.status(400).json({ error: 'El nivel es requerido' });
     }
 
     // Validate area
@@ -188,6 +199,7 @@ async function handlePost(
         version,
         name,
         description: description || null,
+        grade_id,
         status: 'draft',
         created_by: userId,
         scoring_config: {
@@ -203,7 +215,15 @@ async function handlePost(
           }
         }
       })
-      .select()
+      .select(`
+        *,
+        grade:ab_grades (
+          id,
+          name,
+          sort_order,
+          is_always_gt
+        )
+      `)
       .single();
 
     if (error) {

@@ -16,10 +16,13 @@ async function hasAssessmentAdminPermission(supabaseClient: any, userId: string)
 /**
  * POST /api/admin/assessment-builder/templates/[templateId]/duplicate
  *
- * Creates a new draft version from a published template:
- * 1. Duplicates the template with 'draft' status
- * 2. Copies all modules and indicators
- * 3. Increments major version number
+ * Duplicates a template with all nested data:
+ * 1. Creates new template with 'draft' status and version '1.0.0'
+ * 2. Copies all modules (new IDs, same sort_order)
+ * 3. Copies all indicators under each module (new IDs)
+ * 4. Copies all expectations for each indicator (new IDs, linked to new indicator)
+ *
+ * Request body: { name: string, grade_id: number }
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -46,6 +49,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // Parse request body
+    const { name, grade_id } = req.body;
+
+    // Validate required fields
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ error: 'El nombre es requerido' });
+    }
+
+    if (!grade_id || typeof grade_id !== 'number') {
+      return res.status(400).json({ error: 'El nivel es requerido' });
+    }
+
     // Get source template
     const { data: sourceTemplate, error: templateError } = await supabaseClient
       .from('assessment_templates')
@@ -57,27 +72,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Template no encontrado' });
     }
 
-    // Calculate new version (increment major version)
-    const currentVersion = sourceTemplate.version || '1.0.0';
-    const versionParts = currentVersion.split('.').map(Number);
-    versionParts[0] = (versionParts[0] || 1) + 1; // Increment major
-    versionParts[1] = 0; // Reset minor
-    versionParts[2] = 0; // Reset patch
-    const newVersion = versionParts.join('.');
+    // New template always starts as draft v1.0.0
+    const newVersion = '1.0.0';
 
-    // Create new template as draft
+    // Create new template as draft with provided name and grade
     const { data: newTemplate, error: newTemplateError } = await supabaseClient
       .from('assessment_templates')
       .insert({
-        name: sourceTemplate.name,
+        name: name.trim(),
         description: sourceTemplate.description,
         area: sourceTemplate.area,
+        grade_id: grade_id,
         status: 'draft',
         version: newVersion,
         scoring_config: sourceTemplate.scoring_config,
         created_by: user.id,
       })
-      .select()
+      .select(`
+        *,
+        grade:ab_grades (
+          id,
+          name,
+          sort_order,
+          is_always_gt
+        )
+      `)
       .single();
 
     if (newTemplateError) {
@@ -127,7 +146,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       moduleIdMap[sourceModule.id] = newModule.id;
     }
 
-    // Get all indicators from source modules
+    // Get all indicators from source modules and track ID mapping
+    const indicatorIdMap: Record<string, string> = {};
+
     if (Object.keys(moduleIdMap).length > 0) {
       const sourceModuleIds = Object.keys(moduleIdMap);
       const { data: sourceIndicators, error: indicatorsError } = await supabaseClient
@@ -144,18 +165,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(500).json({ error: 'Error al cargar indicadores' });
       }
 
-      // Copy indicators
+      // Copy indicators and track ID mapping
       for (const sourceIndicator of sourceIndicators || []) {
         const newModuleId = moduleIdMap[sourceIndicator.module_id];
         if (!newModuleId) continue;
 
-        const { error: newIndicatorError } = await supabaseClient
+        const { data: newIndicator, error: newIndicatorError } = await supabaseClient
           .from('assessment_indicators')
           .insert({
             module_id: newModuleId,
             code: sourceIndicator.code,
             name: sourceIndicator.name,
-            question: sourceIndicator.question,
             description: sourceIndicator.description,
             category: sourceIndicator.category,
             frequency_config: sourceIndicator.frequency_config,
@@ -167,11 +187,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             level_4_descriptor: sourceIndicator.level_4_descriptor,
             display_order: sourceIndicator.display_order,
             weight: sourceIndicator.weight,
-          });
+          })
+          .select('id')
+          .single();
 
-        if (newIndicatorError) {
+        if (newIndicatorError || !newIndicator) {
           console.error('Error copying indicator:', newIndicatorError);
           // Continue - don't fail entire operation for one indicator
+        } else {
+          indicatorIdMap[sourceIndicator.id] = newIndicator.id;
+        }
+      }
+    }
+
+    // Copy expectations for all indicators
+    let expectationCount = 0;
+    if (Object.keys(indicatorIdMap).length > 0) {
+      const sourceIndicatorIds = Object.keys(indicatorIdMap);
+      const { data: sourceExpectations, error: expectationsError } = await supabaseClient
+        .from('assessment_year_expectations')
+        .select('*')
+        .in('indicator_id', sourceIndicatorIds);
+
+      if (expectationsError) {
+        console.error('Error fetching source expectations:', expectationsError);
+        // Don't fail - expectations are optional
+      } else if (sourceExpectations && sourceExpectations.length > 0) {
+        for (const sourceExpectation of sourceExpectations) {
+          const newIndicatorId = indicatorIdMap[sourceExpectation.indicator_id];
+          if (!newIndicatorId) continue;
+
+          const { error: newExpectationError } = await supabaseClient
+            .from('assessment_year_expectations')
+            .insert({
+              indicator_id: newIndicatorId,
+              year_number: sourceExpectation.year_number,
+              expected_coverage: sourceExpectation.expected_coverage,
+              expected_frequency_min: sourceExpectation.expected_frequency_min,
+              expected_frequency_max: sourceExpectation.expected_frequency_max,
+              expected_frequency_unit: sourceExpectation.expected_frequency_unit,
+              expected_profundity_level: sourceExpectation.expected_profundity_level,
+              notes: sourceExpectation.notes,
+            });
+
+          if (newExpectationError) {
+            console.error('Error copying expectation:', newExpectationError);
+            // Continue - don't fail entire operation for one expectation
+          } else {
+            expectationCount++;
+          }
         }
       }
     }
@@ -201,10 +265,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         area: newTemplate.area,
         status: newTemplate.status,
         version: newTemplate.version,
+        grade_id: newTemplate.grade_id,
+        grade: newTemplate.grade,
       },
       stats: {
         modules: moduleCount || 0,
         indicators: indicatorCount,
+        expectations: expectationCount,
       },
       sourceTemplateId: templateId,
     });

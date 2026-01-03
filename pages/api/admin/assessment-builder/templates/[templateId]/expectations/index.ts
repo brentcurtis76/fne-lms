@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import type { GenerationType } from '@/types/assessment-builder';
 
 // Check if user has admin/consultor permissions (queries user_roles table)
 async function hasAssessmentAdminPermission(supabaseClient: any, userId: string): Promise<boolean> {
@@ -16,9 +17,11 @@ async function hasAssessmentAdminPermission(supabaseClient: any, userId: string)
 /**
  * GET /api/admin/assessment-builder/templates/[templateId]/expectations
  * Returns all year expectations for indicators in a template, grouped by module
+ * Now includes generation_type (GT/GI) for dual expectations
  *
  * PUT /api/admin/assessment-builder/templates/[templateId]/expectations
  * Bulk update expectations for multiple indicators
+ * Supports generation_type for GT/GI dual expectations
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET' && req.method !== 'PUT') {
@@ -58,16 +61,25 @@ async function handleGet(
   templateId: string
 ) {
   try {
-    // Verify template exists
+    // Verify template exists and get grade info
     const { data: template, error: templateError } = await supabase
       .from('assessment_templates')
-      .select('id, name, area, status')
+      .select(`
+        id, name, area, status, grade_id,
+        grade:ab_grades (
+          id, name, sort_order, is_always_gt
+        )
+      `)
       .eq('id', templateId)
       .single();
 
     if (templateError || !template) {
       return res.status(404).json({ error: 'Template no encontrado' });
     }
+
+    // Determine if this template needs dual expectations
+    const isAlwaysGT = template.grade?.is_always_gt ?? true;
+    const requiresDualExpectations = !isAlwaysGT;
 
     // Get all modules with indicators for this template
     const { data: modules, error: modulesError } = await supabase
@@ -93,7 +105,7 @@ async function handleGet(
       return res.status(500).json({ error: 'Error al cargar módulos' });
     }
 
-    // Get all expectations for this template
+    // Get all expectations for this template (both GT and GI)
     const { data: expectations, error: expectationsError } = await supabase
       .from('assessment_year_expectations')
       .select('*')
@@ -104,14 +116,32 @@ async function handleGet(
       return res.status(500).json({ error: 'Error al cargar expectativas' });
     }
 
-    // Build expectations map by indicator ID
+    // Build expectations map by indicator ID and generation_type
+    // Key format: `${indicator_id}_${generation_type}`
     const expectationsMap = new Map<string, any>();
     (expectations || []).forEach((exp: any) => {
-      expectationsMap.set(exp.indicator_id, exp);
+      const key = `${exp.indicator_id}_${exp.generation_type || 'GT'}`;
+      expectationsMap.set(key, exp);
     });
 
+    // Helper to format expectation data
+    const formatExpectation = (exp: any) => exp ? {
+      id: exp.id,
+      generationType: exp.generation_type || 'GT',
+      year1: exp.year_1_expected,
+      year1Unit: exp.year_1_expected_unit,
+      year2: exp.year_2_expected,
+      year2Unit: exp.year_2_expected_unit,
+      year3: exp.year_3_expected,
+      year3Unit: exp.year_3_expected_unit,
+      year4: exp.year_4_expected,
+      year4Unit: exp.year_4_expected_unit,
+      year5: exp.year_5_expected,
+      year5Unit: exp.year_5_expected_unit,
+      tolerance: exp.tolerance,
+    } : null;
+
     // Format response with modules and their indicators with expectations
-    // Field names must match frontend expectations (indicatorId, indicatorName, etc.)
     const formattedModules = (modules || []).map((module: any) => ({
       moduleId: module.id,
       moduleName: module.name,
@@ -119,7 +149,11 @@ async function handleGet(
       indicators: (module.assessment_indicators || [])
         .sort((a: any, b: any) => a.display_order - b.display_order)
         .map((indicator: any) => {
-          const exp = expectationsMap.get(indicator.id);
+          const gtKey = `${indicator.id}_GT`;
+          const giKey = `${indicator.id}_GI`;
+          const gtExp = expectationsMap.get(gtKey);
+          const giExp = expectationsMap.get(giKey);
+
           return {
             indicatorId: indicator.id,
             indicatorCode: indicator.code,
@@ -127,22 +161,10 @@ async function handleGet(
             indicatorCategory: indicator.category,
             frequencyUnitOptions: indicator.frequency_unit_options,
             displayOrder: indicator.display_order,
-            expectations: exp
-              ? {
-                  id: exp.id,
-                  year1: exp.year_1_expected,
-                  year1Unit: exp.year_1_expected_unit,
-                  year2: exp.year_2_expected,
-                  year2Unit: exp.year_2_expected_unit,
-                  year3: exp.year_3_expected,
-                  year3Unit: exp.year_3_expected_unit,
-                  year4: exp.year_4_expected,
-                  year4Unit: exp.year_4_expected_unit,
-                  year5: exp.year_5_expected,
-                  year5Unit: exp.year_5_expected_unit,
-                  tolerance: exp.tolerance,
-                }
-              : null,
+            // For always_gt templates: only GT expectations
+            // For non-always_gt templates: both GT and GI expectations
+            expectationsGT: formatExpectation(gtExp),
+            expectationsGI: requiresDualExpectations ? formatExpectation(giExp) : null,
           };
         }),
     }));
@@ -152,8 +174,16 @@ async function handleGet(
       (sum: number, m: any) => sum + m.indicators.length,
       0
     );
-    const indicatorsWithExpectations = formattedModules.reduce(
-      (sum: number, m: any) => sum + m.indicators.filter((i: any) => i.expectations).length,
+
+    // For always_gt: count indicators with GT expectations
+    // For non-always_gt: count indicators with BOTH GT and GI expectations
+    const indicatorsWithCompleteExpectations = formattedModules.reduce(
+      (sum: number, m: any) => sum + m.indicators.filter((i: any) => {
+        if (requiresDualExpectations) {
+          return i.expectationsGT && i.expectationsGI;
+        }
+        return i.expectationsGT;
+      }).length,
       0
     );
 
@@ -164,12 +194,18 @@ async function handleGet(
         name: template.name,
         area: template.area,
         status: template.status,
+        gradeId: template.grade_id,
+        grade: template.grade,
+        isAlwaysGT,
+        requiresDualExpectations,
       },
       modules: formattedModules,
       stats: {
         totalIndicators,
-        indicatorsWithExpectations,
-        coverage: totalIndicators > 0 ? Math.round((indicatorsWithExpectations / totalIndicators) * 100) : 0,
+        indicatorsWithCompleteExpectations,
+        coverage: totalIndicators > 0
+          ? Math.round((indicatorsWithCompleteExpectations / totalIndicators) * 100)
+          : 0,
       },
     });
   } catch (err: any) {
@@ -189,6 +225,7 @@ async function handlePut(
     const { expectations } = req.body as {
       expectations: Array<{
         indicatorId: string;
+        generationType: GenerationType; // 'GT' or 'GI'
         year1?: number | null;
         year1Unit?: string | null;
         year2?: number | null;
@@ -207,10 +244,15 @@ async function handlePut(
       return res.status(400).json({ error: 'Se requiere un array de expectativas' });
     }
 
-    // Verify template exists and is not archived
+    // Verify template exists and is not archived, get grade info
     const { data: template, error: templateError } = await supabase
       .from('assessment_templates')
-      .select('id, status, is_archived')
+      .select(`
+        id, status, is_archived, grade_id,
+        grade:ab_grades (
+          id, name, is_always_gt
+        )
+      `)
       .eq('id', templateId)
       .single();
 
@@ -223,6 +265,8 @@ async function handlePut(
         error: 'Los templates archivados no pueden ser modificados',
       });
     }
+
+    const isAlwaysGT = template.grade?.is_always_gt ?? true;
 
     // Get all indicator IDs for this template to validate
     const { data: indicators, error: indicatorsError } = await supabase
@@ -252,6 +296,19 @@ async function handlePut(
 
       if (!validIndicatorIds.has(exp.indicatorId)) {
         errors.push(`Indicador ${exp.indicatorId} no pertenece a este template`);
+        continue;
+      }
+
+      // Validate generation_type
+      const generationType = exp.generationType || 'GT';
+      if (!['GT', 'GI'].includes(generationType)) {
+        errors.push(`Indicador ${exp.indicatorId}: generationType debe ser GT o GI`);
+        continue;
+      }
+
+      // For always_gt templates, only accept GT expectations
+      if (isAlwaysGT && generationType !== 'GT') {
+        errors.push(`Indicador ${exp.indicatorId}: Este template solo acepta expectativas GT (es un nivel siempre GT)`);
         continue;
       }
 
@@ -300,6 +357,7 @@ async function handlePut(
       upsertData.push({
         template_id: templateId,
         indicator_id: exp.indicatorId,
+        generation_type: generationType,
         year_1_expected: year1,
         year_1_expected_unit: year1Unit,
         year_2_expected: year2,
@@ -321,11 +379,11 @@ async function handlePut(
       });
     }
 
-    // Upsert expectations
+    // Upsert expectations (new unique constraint includes generation_type)
     const { data: savedExpectations, error: upsertError } = await supabase
       .from('assessment_year_expectations')
       .upsert(upsertData, {
-        onConflict: 'template_id,indicator_id',
+        onConflict: 'template_id,indicator_id,generation_type',
         ignoreDuplicates: false,
       })
       .select();

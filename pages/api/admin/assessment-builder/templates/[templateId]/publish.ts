@@ -48,16 +48,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Get template with current status
+    // Get template with current status and grade info
     const { data: template, error: templateError } = await supabaseClient
       .from('assessment_templates')
-      .select('*')
+      .select(`
+        *,
+        grade:ab_grades (
+          id, name, is_always_gt
+        )
+      `)
       .eq('id', templateId)
       .single();
 
     if (templateError || !template) {
       return res.status(404).json({ error: 'Template no encontrado' });
     }
+
+    // Determine if this template requires dual expectations
+    const isAlwaysGT = template.grade?.is_always_gt ?? true;
+    const requiresDualExpectations = !isAlwaysGT;
 
     // Only draft templates can be published
     if (template.status !== 'draft') {
@@ -103,7 +112,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Get all year expectations for this template
+    // Get all year expectations for this template (both GT and GI)
     const { data: expectations, error: expectationsError } = await supabaseClient
       .from('assessment_year_expectations')
       .select('*')
@@ -114,18 +123,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al cargar expectativas' });
     }
 
-    // Build expectations map by indicator ID
-    const expectationsMap = new Map<string, any>();
+    // Build expectations maps by indicator ID and generation_type
+    const expectationsMapGT = new Map<string, any>();
+    const expectationsMapGI = new Map<string, any>();
     (expectations || []).forEach((exp: any) => {
-      expectationsMap.set(exp.indicator_id, {
+      const expData = {
         year_1_expected: exp.year_1_expected,
+        year_1_expected_unit: exp.year_1_expected_unit,
         year_2_expected: exp.year_2_expected,
+        year_2_expected_unit: exp.year_2_expected_unit,
         year_3_expected: exp.year_3_expected,
+        year_3_expected_unit: exp.year_3_expected_unit,
         year_4_expected: exp.year_4_expected,
+        year_4_expected_unit: exp.year_4_expected_unit,
         year_5_expected: exp.year_5_expected,
+        year_5_expected_unit: exp.year_5_expected_unit,
         tolerance: exp.tolerance,
-      });
+      };
+      const genType = exp.generation_type || 'GT';
+      if (genType === 'GT') {
+        expectationsMapGT.set(exp.indicator_id, expData);
+      } else {
+        expectationsMapGI.set(exp.indicator_id, expData);
+      }
     });
+
+    // Validate expectations completeness
+    const indicatorsWithoutGT: string[] = [];
+    const indicatorsWithoutGI: string[] = [];
+    allIndicators.forEach((ind: any) => {
+      const hasGT = expectationsMapGT.has(ind.id);
+      const hasGI = expectationsMapGI.has(ind.id);
+
+      if (!hasGT) {
+        indicatorsWithoutGT.push(ind.code || ind.name);
+      }
+      if (requiresDualExpectations && !hasGI) {
+        indicatorsWithoutGI.push(ind.code || ind.name);
+      }
+    });
+
+    // Warning if not all indicators have expectations (but don't block publishing)
+    const expectationsWarnings: string[] = [];
+    if (indicatorsWithoutGT.length > 0) {
+      expectationsWarnings.push(
+        `${indicatorsWithoutGT.length} indicador(es) sin expectativas GT configuradas`
+      );
+    }
+    if (requiresDualExpectations && indicatorsWithoutGI.length > 0) {
+      expectationsWarnings.push(
+        `${indicatorsWithoutGI.length} indicador(es) sin expectativas GI configuradas`
+      );
+    }
 
     // Build the snapshot data structure
     const snapshotData = {
@@ -134,6 +183,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         name: template.name,
         description: template.description,
         area: template.area,
+        grade_id: template.grade_id,
+        grade_name: template.grade?.name,
+        is_always_gt: isAlwaysGT,
+        requires_dual_expectations: requiresDualExpectations,
         scoring_config: template.scoring_config,
         created_at: template.created_at,
       },
@@ -150,7 +203,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             id: indicator.id,
             code: indicator.code,
             name: indicator.name,
-            question: indicator.question,
             description: indicator.description,
             category: indicator.category,
             frequency_config: indicator.frequency_config,
@@ -163,7 +215,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             display_order: indicator.display_order,
             weight: indicator.weight,
             sub_questions: indicator.sub_questions,
-            expectations: expectationsMap.get(indicator.id) || null,
+            // Include both GT and GI expectations
+            expectations_gt: expectationsMapGT.get(indicator.id) || null,
+            expectations_gi: requiresDualExpectations ? (expectationsMapGI.get(indicator.id) || null) : null,
+            // Legacy field for backward compatibility
+            expectations: expectationsMapGT.get(indicator.id) || null,
           })),
       })),
       published_at: new Date().toISOString(),
@@ -234,6 +290,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         area: updatedTemplate.area,
         status: updatedTemplate.status,
         version: updatedTemplate.version,
+        isAlwaysGT,
+        requiresDualExpectations,
       },
       snapshot: {
         id: snapshot.id,
@@ -245,6 +303,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         instancesSkipped: upgradeResult.instancesSkipped,
         errors: upgradeResult.errors.length > 0 ? upgradeResult.errors : undefined,
       } : undefined,
+      warnings: expectationsWarnings.length > 0 ? expectationsWarnings : undefined,
     });
   } catch (err: any) {
     console.error('Unexpected error publishing template:', err);

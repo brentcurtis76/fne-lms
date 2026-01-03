@@ -72,7 +72,14 @@ async function handleGet(
         created_by,
         created_at,
         updated_at,
-        is_archived
+        is_archived,
+        grade_id,
+        grade:ab_grades (
+          id,
+          name,
+          sort_order,
+          is_always_gt
+        )
       `)
       .eq('id', templateId)
       .single();
@@ -228,7 +235,7 @@ async function handlePut(
   userId: string
 ) {
   try {
-    const { name, description, scoring_config } = req.body as UpdateTemplateRequest;
+    const { name, description, scoring_config, grade_id } = req.body as UpdateTemplateRequest;
 
     // Check if template exists
     const { data: existing, error: fetchError } = await supabaseClient
@@ -251,6 +258,7 @@ async function handlePut(
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (scoring_config !== undefined) updateData.scoring_config = scoring_config;
+    if (grade_id !== undefined) updateData.grade_id = grade_id;
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No hay campos para actualizar' });

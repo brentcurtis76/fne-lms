@@ -4,24 +4,34 @@
  * When a docente is assigned to a course, this service automatically creates
  * assessment instances for all published templates (one per vía de transformación).
  *
+ * Key features:
+ * - Matches templates to courses by grade (school_course_structure.grade_level -> ab_grades.name)
+ * - Determines GT/GI generation type from Migration Plan (ab_migration_plan)
+ * - Stores generation_type on assessment instances for proper expectation matching
+ *
  * NOTE: This service uses supabaseAdmin to bypass RLS restrictions.
  * RLS policies block inserts to assessment_instances and assessment_instance_assignees
  * from regular authenticated users.
  */
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import type { GenerationType } from '@/types/assessment-builder';
 
 export interface AutoAssignmentResult {
   success: boolean;
   instancesCreated: number;
   instancesSkipped: number;
   errors: string[];
+  warnings: string[];
   details: {
     templateId: string;
     templateName: string;
     area: string;
+    gradeId?: number;
+    gradeName?: string;
+    generationType?: GenerationType;
     instanceId?: string;
-    status: 'created' | 'already_exists' | 'error';
+    status: 'created' | 'already_exists' | 'error' | 'no_matching_grade';
     error?: string;
   }[];
 }
@@ -29,10 +39,13 @@ export interface AutoAssignmentResult {
 /**
  * Triggers auto-assignment of assessment instances when a docente is assigned to a course.
  *
- * For each published template:
- * 1. Check if an instance already exists for this course_structure_id
- * 2. If not, create a new assessment instance
- * 3. Create an assignee record linking the docente to the instance
+ * For each published template matching the course's grade:
+ * 1. Get the course's grade_level and match to ab_grades
+ * 2. Find templates matching that grade_id
+ * 3. Look up Migration Plan to determine GT/GI for current year
+ * 4. Check if an instance already exists for this course_structure_id
+ * 5. If not, create a new assessment instance with generation_type
+ * 6. Create an assignee record linking the docente to the instance
  *
  * NOTE: Uses supabaseAdmin internally to bypass RLS restrictions.
  * The supabase parameter is kept for backwards compatibility but ignored.
@@ -49,6 +62,7 @@ export async function triggerAutoAssignment(
     instancesCreated: 0,
     instancesSkipped: 0,
     errors: [],
+    warnings: [],
     details: [],
   };
 
@@ -58,6 +72,8 @@ export async function triggerAutoAssignment(
       .from('school_transversal_context')
       .select('implementation_year_2026')
       .eq('school_id', schoolId)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
 
     if (contextError || !schoolContext) {
@@ -68,13 +84,71 @@ export async function triggerAutoAssignment(
 
     const transformationYear = schoolContext.implementation_year_2026 as 1 | 2 | 3 | 4 | 5;
 
-    // Get all published templates with their latest snapshots
-    const { data: templates, error: templatesError } = await supabaseAdmin
+    // Get the course structure to find grade_level
+    const { data: courseStructure, error: courseError } = await supabaseAdmin
+      .from('school_course_structure')
+      .select('id, grade_level')
+      .eq('id', courseStructureId)
+      .single();
+
+    if (courseError || !courseStructure) {
+      result.errors.push('No se encontró la estructura del curso');
+      result.success = false;
+      return result;
+    }
+
+    const courseGradeLevel = courseStructure.grade_level;
+
+    // Match grade_level text to ab_grades table
+    const { data: gradeData, error: gradeError } = await supabaseAdmin
+      .from('ab_grades')
+      .select('id, name, is_always_gt')
+      .eq('name', courseGradeLevel)
+      .single();
+
+    if (gradeError || !gradeData) {
+      // Grade not found in ab_grades - log warning but continue with no grade filter
+      result.warnings.push(`No se encontró el nivel "${courseGradeLevel}" en ab_grades. Buscando templates sin filtro de nivel.`);
+    }
+
+    const courseGradeId = gradeData?.id || null;
+    const isAlwaysGT = gradeData?.is_always_gt ?? true;
+
+    // Determine generation_type from Migration Plan (only if grade is not always_gt)
+    let generationType: GenerationType = 'GT';
+
+    if (!isAlwaysGT && courseGradeId) {
+      const { data: migrationPlanEntry, error: mpError } = await supabaseAdmin
+        .from('ab_migration_plan')
+        .select('generation_type')
+        .eq('school_id', schoolId)
+        .eq('year_number', transformationYear)
+        .eq('grade_id', courseGradeId)
+        .single();
+
+      if (mpError || !migrationPlanEntry) {
+        // No migration plan entry - default to GT and warn
+        result.warnings.push(
+          `No se encontró plan de migración para nivel "${courseGradeLevel}" en año ${transformationYear}. Usando GT por defecto.`
+        );
+      } else {
+        generationType = migrationPlanEntry.generation_type as GenerationType;
+      }
+    }
+
+    // Get published templates matching the course's grade (or all if no grade match)
+    let templatesQuery = supabaseAdmin
       .from('assessment_templates')
       .select(`
         id,
         name,
         area,
+        grade_id,
+        grade:ab_grades (
+          id,
+          name,
+          is_always_gt
+        ),
         assessment_template_snapshots (
           id,
           version,
@@ -84,6 +158,13 @@ export async function triggerAutoAssignment(
       .eq('status', 'published')
       .order('area');
 
+    // Filter by grade_id if we have a valid course grade
+    if (courseGradeId) {
+      templatesQuery = templatesQuery.eq('grade_id', courseGradeId);
+    }
+
+    const { data: templates, error: templatesError } = await templatesQuery;
+
     if (templatesError) {
       result.errors.push(`Error fetching templates: ${templatesError.message}`);
       result.success = false;
@@ -91,16 +172,23 @@ export async function triggerAutoAssignment(
     }
 
     if (!templates || templates.length === 0) {
-      // No published templates - this is OK, just means no instances to create
+      // No published templates for this grade - this is OK
+      if (courseGradeId) {
+        result.warnings.push(`No hay templates publicados para el nivel "${courseGradeLevel}"`);
+      }
       return result;
     }
 
     // Process each template
     for (const template of templates) {
+      const templateGrade = (template as any).grade;
       const templateDetail: AutoAssignmentResult['details'][0] = {
         templateId: template.id,
         templateName: template.name,
         area: template.area,
+        gradeId: template.grade_id || undefined,
+        gradeName: templateGrade?.name,
+        generationType,
         status: 'created',
       };
 
@@ -157,7 +245,7 @@ export async function triggerAutoAssignment(
             result.instancesCreated++;
           }
         } else {
-          // Create new instance
+          // Create new instance with generation_type
           const { data: newInstance, error: instanceError } = await supabaseAdmin
             .from('assessment_instances')
             .insert({
@@ -165,6 +253,7 @@ export async function triggerAutoAssignment(
               school_id: schoolId,
               course_structure_id: courseStructureId,
               transformation_year: transformationYear,
+              generation_type: generationType,
               status: 'pending',
               assigned_by: assignedBy,
             })
@@ -231,6 +320,7 @@ export async function triggerAutoAssignment(
  * 1. Get all assignees of that instance
  * 2. Create a new instance with the LATEST snapshot (the one just published)
  * 3. Link all assignees to the new instance
+ * 4. Preserve the original generation_type from the old instance
  *
  * NOTE: Uses supabaseAdmin internally to bypass RLS restrictions.
  */
@@ -244,6 +334,7 @@ export async function upgradeExistingAssignments(
     instancesCreated: 0,
     instancesSkipped: 0,
     errors: [],
+    warnings: [],
     details: [],
   };
 
@@ -297,6 +388,7 @@ export async function upgradeExistingAssignments(
         school_id,
         course_structure_id,
         transformation_year,
+        generation_type,
         assessment_instance_assignees (
           user_id,
           can_edit,
@@ -354,7 +446,7 @@ export async function upgradeExistingAssignments(
           continue;
         }
 
-        // Create new instance
+        // Create new instance (preserve generation_type from old instance)
         const { data: newInstance, error: createError } = await supabaseAdmin
           .from('assessment_instances')
           .insert({
@@ -362,6 +454,7 @@ export async function upgradeExistingAssignments(
             school_id: oldInstance.school_id,
             course_structure_id: oldInstance.course_structure_id,
             transformation_year: oldInstance.transformation_year,
+            generation_type: oldInstance.generation_type || 'GT',
             status: 'pending',
             assigned_by: upgradedBy,
           })
@@ -418,6 +511,9 @@ export async function upgradeExistingAssignments(
  * Unlike triggerAutoAssignment, this creates instances at the school level,
  * not the course level (for directivo-only assessments).
  *
+ * For school-level instances, we default to GT since they are not tied to a
+ * specific course/grade. Scoring will use GT expectations.
+ *
  * NOTE: Uses supabaseAdmin internally to bypass RLS restrictions.
  */
 export async function createSchoolLevelInstances(
@@ -431,6 +527,7 @@ export async function createSchoolLevelInstances(
     instancesCreated: 0,
     instancesSkipped: 0,
     errors: [],
+    warnings: [],
     details: [],
   };
 
@@ -491,12 +588,14 @@ export async function createSchoolLevelInstances(
           templateDetail.instanceId = existingInstance.id;
           result.instancesSkipped++;
         } else {
+          // School-level instances default to GT
           const { data: newInstance, error: instanceError } = await supabaseAdmin
             .from('assessment_instances')
             .insert({
               template_snapshot_id: latestSnapshot.id,
               school_id: schoolId,
               transformation_year: transformationYear,
+              generation_type: 'GT',
               status: 'pending',
               assigned_by: createdBy,
             })
@@ -652,7 +751,6 @@ export async function updatePublishedTemplateSnapshot(
             id: indicator.id,
             code: indicator.code,
             name: indicator.name,
-            question: indicator.question,
             description: indicator.description,
             category: indicator.category,
             frequency_config: indicator.frequency_config,

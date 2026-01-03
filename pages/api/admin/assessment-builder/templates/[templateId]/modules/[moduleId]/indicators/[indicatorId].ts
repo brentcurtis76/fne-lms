@@ -112,7 +112,6 @@ function handleGet(res: NextApiResponse, indicator: any) {
       moduleId: indicator.module_id,
       code: indicator.code,
       name: indicator.name,
-      question: indicator.question,
       description: indicator.description,
       category: indicator.category,
       frequencyConfig: indicator.frequency_config,
@@ -143,7 +142,6 @@ async function handlePut(
     const {
       code,
       name,
-      question,
       description,
       category,
       frequencyConfig,
@@ -169,10 +167,6 @@ async function handlePut(
 
     if (code !== undefined) {
       updateData.code = code?.trim() || null;
-    }
-
-    if (question !== undefined) {
-      updateData.question = question?.trim() || null;
     }
 
     if (description !== undefined) {
@@ -254,7 +248,6 @@ async function handlePut(
         moduleId: updated.module_id,
         code: updated.code,
         name: updated.name,
-        question: updated.question,
         description: updated.description,
         category: updated.category,
         frequencyConfig: updated.frequency_config,

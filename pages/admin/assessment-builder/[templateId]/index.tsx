@@ -54,7 +54,6 @@ interface IndicatorData {
   moduleId: string;
   code?: string;
   name: string;
-  question?: string;
   description?: string;
   category: IndicatorCategory;
   frequencyConfig?: { unit?: string; min?: number; max?: number };
@@ -118,7 +117,6 @@ const TemplateEditor: React.FC = () => {
   const [indicatorForm, setIndicatorForm] = useState<{
     code: string;
     name: string;
-    question: string;
     description: string;
     category: IndicatorCategory;
     frequencyUnit: string;
@@ -132,7 +130,6 @@ const TemplateEditor: React.FC = () => {
   }>({
     code: '',
     name: '',
-    question: '',
     description: '',
     category: 'cobertura',
     frequencyUnit: 'veces',
@@ -396,7 +393,6 @@ const TemplateEditor: React.FC = () => {
       setIndicatorForm({
         code: indicator.code || '',
         name: indicator.name,
-        question: indicator.question || '',
         description: indicator.description || '',
         category: indicator.category,
         frequencyUnit: indicator.frequencyConfig?.unit || 'veces',
@@ -413,7 +409,6 @@ const TemplateEditor: React.FC = () => {
       setIndicatorForm({
         code: '',
         name: '',
-        question: '',
         description: '',
         category: 'cobertura',
         frequencyUnit: 'veces',
@@ -462,7 +457,6 @@ const TemplateEditor: React.FC = () => {
     try {
       const body: any = {
         name: indicatorForm.name.trim(),
-        question: indicatorForm.question.trim() || undefined,
         description: indicatorForm.description.trim() || undefined,
         category: indicatorForm.category,
         weight: indicatorForm.weight,
@@ -1513,22 +1507,6 @@ const TemplateEditor: React.FC = () => {
                     placeholder="Descripción del indicador..."
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
                   />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Pregunta para el docente
-                  </label>
-                  <textarea
-                    value={indicatorForm.question}
-                    onChange={(e) => setIndicatorForm({ ...indicatorForm, question: e.target.value })}
-                    rows={2}
-                    placeholder="Ej: ¿Realizas tutorías individuales con tus estudiantes?"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Pregunta amigable que verá el docente. Si está vacía, se mostrará el nombre del indicador.
-                  </p>
                 </div>
 
                 {/* Category and weight row */}

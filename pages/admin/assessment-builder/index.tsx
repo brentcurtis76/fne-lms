@@ -5,8 +5,8 @@ import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPageHeader';
-import { ClipboardList, Plus, Edit2, Trash2, Eye, Archive, RotateCcw } from 'lucide-react';
-import type { AssessmentTemplate, TransformationArea } from '@/types/assessment-builder';
+import { ClipboardList, Plus, Edit2, Trash2, Eye, Archive, RotateCcw, Copy } from 'lucide-react';
+import type { AssessmentTemplate, TransformationArea, Grade } from '@/types/assessment-builder';
 import { AREA_LABELS } from '@/types/assessment-builder';
 
 const STATUS_LABELS: Record<string, { label: string; bgColor: string; textColor: string }> = {
@@ -42,6 +42,13 @@ const AssessmentBuilderIndex: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation | null>(null);
 
+  // Duplicate modal state
+  const [duplicateModal, setDuplicateModal] = useState<{ template: AssessmentTemplate } | null>(null);
+  const [duplicateName, setDuplicateName] = useState('');
+  const [duplicateGradeId, setDuplicateGradeId] = useState<number | ''>('');
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const [grades, setGrades] = useState<Grade[]>([]);
+
   // Check auth and permissions
   useEffect(() => {
     const checkAuth = async () => {
@@ -76,6 +83,23 @@ const AssessmentBuilderIndex: React.FC = () => {
 
     checkAuth();
   }, [supabase, router]);
+
+  // Fetch grades for duplicate modal
+  useEffect(() => {
+    const fetchGrades = async () => {
+      try {
+        const response = await fetch('/api/admin/assessment-builder/grades');
+        if (response.ok) {
+          const data = await response.json();
+          setGrades(data.grades || []);
+        }
+      } catch (error) {
+        console.error('Error fetching grades:', error);
+      }
+    };
+
+    fetchGrades();
+  }, []);
 
   // Fetch templates
   const fetchTemplates = useCallback(async () => {
@@ -248,6 +272,57 @@ const AssessmentBuilderIndex: React.FC = () => {
       toast.error(error.message || 'Error al restaurar template');
     } finally {
       setIsArchiving(null);
+    }
+  };
+
+  // Open duplicate modal
+  const openDuplicateModal = (template: AssessmentTemplate) => {
+    setDuplicateModal({ template });
+    setDuplicateName(`${template.name} (copia)`);
+    setDuplicateGradeId(template.grade_id || '');
+  };
+
+  // Close duplicate modal
+  const closeDuplicateModal = () => {
+    setDuplicateModal(null);
+    setDuplicateName('');
+    setDuplicateGradeId('');
+  };
+
+  // Handle duplicate submission
+  const handleDuplicate = async () => {
+    if (!duplicateModal || !duplicateName.trim() || !duplicateGradeId) {
+      toast.error('Por favor completa todos los campos');
+      return;
+    }
+
+    setIsDuplicating(true);
+    try {
+      const response = await fetch(`/api/admin/assessment-builder/templates/${duplicateModal.template.id}/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: duplicateName.trim(),
+          grade_id: duplicateGradeId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al duplicar template');
+      }
+
+      toast.success(`Template duplicado exitosamente: ${data.stats.modules} módulos, ${data.stats.indicators} indicadores, ${data.stats.expectations} expectativas copiadas`);
+      closeDuplicateModal();
+
+      // Redirect to new template
+      router.push(`/admin/assessment-builder/${data.template.id}`);
+    } catch (error: any) {
+      console.error('Error duplicating template:', error);
+      toast.error(error.message || 'Error al duplicar template');
+    } finally {
+      setIsDuplicating(false);
     }
   };
 
@@ -459,7 +534,18 @@ const AssessmentBuilderIndex: React.FC = () => {
                   return (
                     <tr key={template.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{template.name}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-gray-900">{template.name}</div>
+                          {template.grade && (
+                            <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
+                              template.grade.is_always_gt
+                                ? 'bg-purple-100 text-purple-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {template.grade.name}
+                            </span>
+                          )}
+                        </div>
                         {template.description && (
                           <div className="text-sm text-gray-500 truncate max-w-xs">{template.description}</div>
                         )}
@@ -493,6 +579,17 @@ const AssessmentBuilderIndex: React.FC = () => {
                               )}
                             </a>
                           </Link>
+
+                          {/* Duplicate button - for non-archived templates */}
+                          {!template.is_archived && (
+                            <button
+                              onClick={() => openDuplicateModal(template)}
+                              className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="Duplicar"
+                            >
+                              <Copy className="w-4 h-4" />
+                            </button>
+                          )}
 
                           {/* Archive button - for published, non-archived templates */}
                           {template.status === 'published' && !template.is_archived && (
@@ -579,6 +676,77 @@ const AssessmentBuilderIndex: React.FC = () => {
                 className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50"
               >
                 {isDeleting === deleteConfirmation.template.id ? 'Eliminando...' : 'Eliminar Permanentemente'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duplicate Template Modal */}
+      {duplicateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Duplicar Template
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Se creará una copia del template <strong>&quot;{duplicateModal.template.name}&quot;</strong> con todos sus módulos, indicadores y expectativas.
+            </p>
+
+            <div className="space-y-4">
+              {/* Name input */}
+              <div>
+                <label htmlFor="duplicate-name" className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre del nuevo template <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  id="duplicate-name"
+                  value={duplicateName}
+                  onChange={(e) => setDuplicateName(e.target.value)}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue focus:border-brand_blue"
+                  placeholder="Nombre del template"
+                />
+              </div>
+
+              {/* Grade selector */}
+              <div>
+                <label htmlFor="duplicate-grade" className="block text-sm font-medium text-gray-700 mb-1">
+                  Nivel <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="duplicate-grade"
+                  value={duplicateGradeId}
+                  onChange={(e) => setDuplicateGradeId(e.target.value ? Number(e.target.value) : '')}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue focus:border-brand_blue"
+                >
+                  <option value="">Selecciona un nivel</option>
+                  {grades.map((grade) => (
+                    <option key={grade.id} value={grade.id}>
+                      {grade.name} {grade.is_always_gt ? '(GT)' : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-gray-500">
+                  Puede ser el mismo nivel que el original o diferente.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={closeDuplicateModal}
+                disabled={isDuplicating}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDuplicate}
+                disabled={isDuplicating || !duplicateName.trim() || !duplicateGradeId}
+                className="px-4 py-2 bg-brand_blue text-white hover:bg-brand_blue/90 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {isDuplicating ? 'Duplicando...' : 'Duplicar Template'}
               </button>
             </div>
           </div>

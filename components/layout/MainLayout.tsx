@@ -262,29 +262,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({
           {/* Top Header Bar - Minimal Design (h-20 to align with Sidebar) */}
           <div className="bg-[#0a0a0a] sticky top-0 z-20 h-20 flex items-center">
             <div className="px-4 sm:px-6 lg:px-8 w-full">
-              <div className="flex items-center justify-between">
-                {/* Left side - Brand text + School badge */}
+              <div className="flex items-center justify-end">
+                {/* Right side only - User info, avatar + Logout */}
                 <div className="flex items-center gap-4">
-                  <Link href="/" legacyBehavior>
-                    <a className="text-white font-light tracking-wide text-sm hover:text-white/80 transition-colors">
-                      Hub de Transformación
-                    </a>
-                  </Link>
-
-                  {/* School Badge */}
-                  <div className="hidden sm:flex items-center">
-                    <div className="px-3 py-1.5 bg-white/10 rounded-lg border border-white/20">
-                      <span className="text-white/90 text-sm truncate max-w-xs" title={schoolName || 'Sin colegio'}>
-                        {schoolName || 'Sin colegio'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Right side - User avatar + Logout */}
-                <div className="flex items-center gap-3">
                   {user && (
                     <>
+                      {/* School name - subtle text */}
+                      {schoolName && (
+                        <span className="hidden md:block text-white/50 text-sm">
+                          {schoolName}
+                        </span>
+                      )}
+
                       {/* User Avatar - clickable to profile */}
                       <Link href="/profile" legacyBehavior>
                         <a className="block">

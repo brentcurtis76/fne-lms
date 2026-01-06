@@ -911,7 +911,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
       {/* Sidebar */}
       <div className={`
-        fixed left-0 top-0 h-full bg-white border-r border-gray-200 shadow-xl transition-all duration-300
+        fixed left-0 top-0 h-full bg-white shadow-xl transition-all duration-300
         lg:fixed lg:z-30
         ${isCollapsed
           ? 'w-20 -translate-x-full lg:translate-x-0'
@@ -921,12 +921,12 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         ${className}
       `}>
         {/* Header */}
-        <div className="flex items-center justify-between h-20 px-4 border-b border-white/10 bg-[#0a0a0a]">
+        <div className="flex items-center justify-between h-20 px-4 bg-[#0a0a0a] relative z-10 -mr-[1px] pr-[calc(1rem+1px)]">
           {!isCollapsed ? (
             <div className="flex items-center space-x-3">
               {/* Genera Logo */}
               <img
-                src="/genera/icon-on-dark.svg"
+                src="/genera/icon-transparent.svg"
                 alt="Genera"
                 className="w-10 h-10"
               />
@@ -935,14 +935,14 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                   GENERA
                 </h2>
                 <p className="text-white/50 text-xs">
-                  Fundación Nueva Educación
+                  Hub de Transformación
                 </p>
               </div>
             </div>
           ) : (
             /* Genera Logo - Collapsed state */
             <img
-              src="/genera/icon-on-dark.svg"
+              src="/genera/icon-transparent.svg"
               alt="Genera"
               className="w-8 h-8 mx-auto"
             />
@@ -969,7 +969,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         </div>
 
         {/* Navigation Content */}
-        <div className="flex-1 overflow-y-auto py-4 px-2 space-y-1 max-h-[calc(100vh-8rem)]">
+        <div className="flex-1 overflow-y-auto py-4 px-2 space-y-1 max-h-[calc(100vh-8rem)] border-r border-gray-200">
           {filteredNavigationItems.map(item => (
             <SidebarItem key={item.id} item={item} />
           ))}

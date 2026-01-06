@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Performance Testing Script for FNE LMS Reporting System
+ * Performance Testing Script for Genera Reporting System
  * 
  * This script generates test data and validates performance with large datasets
  * Usage: node scripts/performance-test.js
@@ -390,7 +390,7 @@ function getMemoryUsage() {
 
 // Main execution
 async function main() {
-  console.log('🏁 FNE LMS Performance Test Suite');
+  console.log('🏁 Genera Performance Test Suite');
   console.log(`📊 Testing with ${CONFIG.TEST_USER_COUNT} users`);
   console.log(`💾 Initial memory usage: ${JSON.stringify(getMemoryUsage())} MB\n`);
 

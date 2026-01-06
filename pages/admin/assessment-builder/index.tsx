@@ -539,7 +539,7 @@ const AssessmentBuilderIndex: React.FC = () => {
                           {template.grade && (
                             <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                               template.grade.is_always_gt
-                                ? 'bg-purple-100 text-purple-800'
+                                ? 'bg-amber-100 text-amber-800'
                                 : 'bg-blue-100 text-blue-800'
                             }`}>
                               {template.grade.name}

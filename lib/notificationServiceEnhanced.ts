@@ -1,5 +1,5 @@
 /**
- * FNE LMS - Phase 4 Enhanced Notification Service
+ * Genera - Phase 4 Enhanced Notification Service
  * Includes user preferences, quiet hours, smart filtering, and email digest support
  */
 

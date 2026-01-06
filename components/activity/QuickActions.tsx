@@ -1,7 +1,7 @@
 /**
  * QuickActions Component
  * Context-aware action buttons for each activity type
- * Phase 5 of Collaborative Workspace System for FNE LMS
+ * Phase 5 of Collaborative Workspace System for Genera
  */
 
 import React, { useState, useCallback } from 'react';
@@ -83,10 +83,10 @@ const QuickActions: React.FC<QuickActionsProps> = ({
       case 'delete':
         return 'text-red-600 hover:text-red-700 hover:bg-red-50';
       case 'edit':
-        return 'text-[#fdb933] hover:text-[#fdb933]/80 hover:bg-[#fdb933]/10';
+        return 'text-[#fbbf24] hover:text-[#fbbf24]/80 hover:bg-[#fbbf24]/10';
       case 'view':
       case 'external':
-        return 'text-[#00365b] hover:text-[#00365b]/80 hover:bg-[#00365b]/10';
+        return 'text-[#0a0a0a] hover:text-[#0a0a0a]/80 hover:bg-[#0a0a0a]/10';
       case 'bookmark':
         return bookmarked 
           ? 'text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50'
@@ -352,7 +352,7 @@ const QuickActions: React.FC<QuickActionsProps> = ({
       {activity.entity_url && (
         <button
           onClick={(e) => handleActionClick('external', e)}
-          className="p-2 rounded-lg text-gray-400 hover:text-[#00365b] hover:bg-[#00365b]/10 transition-colors"
+          className="p-2 rounded-lg text-gray-400 hover:text-[#0a0a0a] hover:bg-[#0a0a0a]/10 transition-colors"
           title="Abrir en nueva pestaña"
         >
           <ExternalLink className="w-3 h-3" />

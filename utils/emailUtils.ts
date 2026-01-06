@@ -42,17 +42,17 @@ export const generateExpenseReportSubmissionEmail = (
         <meta charset="utf-8">
         <style>
           body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .header { background-color: #00365b; color: white; padding: 20px; text-align: center; }
+          .header { background-color: #0a0a0a; color: white; padding: 20px; text-align: center; }
           .content { padding: 20px; }
           .report-details { background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0; }
-          .amount { font-size: 18px; font-weight: bold; color: #00365b; }
-          .footer { background-color: #fdb933; padding: 15px; text-align: center; margin-top: 20px; }
-          .button { display: inline-block; padding: 12px 24px; background-color: #00365b; color: white; text-decoration: none; border-radius: 5px; margin: 10px 5px; }
+          .amount { font-size: 18px; font-weight: bold; color: #0a0a0a; }
+          .footer { background-color: #fbbf24; padding: 15px; text-align: center; margin-top: 20px; }
+          .button { display: inline-block; padding: 12px 24px; background-color: #0a0a0a; color: white; text-decoration: none; border-radius: 5px; margin: 10px 5px; }
         </style>
       </head>
       <body>
         <div class="header">
-          <h1>🏫 FNE LMS - Nuevo Reporte de Gastos</h1>
+          <h1>🏫 Genera - Nuevo Reporte de Gastos</h1>
         </div>
         
         <div class="content">
@@ -67,7 +67,7 @@ export const generateExpenseReportSubmissionEmail = (
             <p><strong>Total:</strong> <span class="amount">${formatCurrency(totalAmount)}</span></p>
           </div>
           
-          <p>Por favor, revisa y aprueba o rechaza este reporte en el sistema FNE LMS.</p>
+          <p>Por favor, revisa y aprueba o rechaza este reporte en el sistema Genera.</p>
           
           <div style="text-align: center; margin: 30px 0;">
             <a href="https://fne-lms.vercel.app/expense-reports" class="button">
@@ -77,7 +77,7 @@ export const generateExpenseReportSubmissionEmail = (
         </div>
         
         <div class="footer">
-          <p>📧 Este es un mensaje automático del sistema FNE LMS</p>
+          <p>📧 Este es un mensaje automático del sistema Genera</p>
           <p>Fundación Nueva Educación</p>
         </div>
       </body>
@@ -110,19 +110,19 @@ export const generateExpenseReportApprovalEmail = (
         <meta charset="utf-8">
         <style>
           body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-          .header { background-color: #00365b; color: white; padding: 20px; text-align: center; }
+          .header { background-color: #0a0a0a; color: white; padding: 20px; text-align: center; }
           .content { padding: 20px; }
           .status-box { background-color: ${statusBg}; color: ${statusColor}; padding: 15px; border-radius: 8px; text-align: center; margin: 15px 0; }
           .report-details { background-color: #f8f9fa; padding: 15px; border-radius: 8px; margin: 15px 0; }
-          .amount { font-size: 18px; font-weight: bold; color: #00365b; }
+          .amount { font-size: 18px; font-weight: bold; color: #0a0a0a; }
           .comments { background-color: #fff3cd; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #ffc107; }
-          .footer { background-color: #fdb933; padding: 15px; text-align: center; margin-top: 20px; }
-          .button { display: inline-block; padding: 12px 24px; background-color: #00365b; color: white; text-decoration: none; border-radius: 5px; margin: 10px 5px; }
+          .footer { background-color: #fbbf24; padding: 15px; text-align: center; margin-top: 20px; }
+          .button { display: inline-block; padding: 12px 24px; background-color: #0a0a0a; color: white; text-decoration: none; border-radius: 5px; margin: 10px 5px; }
         </style>
       </head>
       <body>
         <div class="header">
-          <h1>🏫 FNE LMS - Estado del Reporte de Gastos</h1>
+          <h1>🏫 Genera - Estado del Reporte de Gastos</h1>
         </div>
         
         <div class="content">
@@ -148,7 +148,7 @@ export const generateExpenseReportApprovalEmail = (
             </div>
           ` : ''}
           
-          <p>Puedes ver más detalles en el sistema FNE LMS.</p>
+          <p>Puedes ver más detalles en el sistema Genera.</p>
           
           <div style="text-align: center; margin: 30px 0;">
             <a href="https://fne-lms.vercel.app/expense-reports" class="button">
@@ -158,7 +158,7 @@ export const generateExpenseReportApprovalEmail = (
         </div>
         
         <div class="footer">
-          <p>📧 Este es un mensaje automático del sistema FNE LMS</p>
+          <p>📧 Este es un mensaje automático del sistema Genera</p>
           <p>Fundación Nueva Educación</p>
         </div>
       </body>

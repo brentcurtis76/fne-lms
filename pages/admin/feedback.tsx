@@ -332,7 +332,7 @@ export default function FeedbackDashboard() {
       >
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-center">
-            <RefreshCw className="w-12 h-12 text-[#00365b] animate-spin mx-auto mb-4" />
+            <RefreshCw className="w-12 h-12 text-[#0a0a0a] animate-spin mx-auto mb-4" />
             <p className="text-gray-600">Cargando feedback...</p>
           </div>
         </div>
@@ -419,7 +419,7 @@ export default function FeedbackDashboard() {
                     placeholder="Buscar por descripción o usuario..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   />
                 </div>
               </div>
@@ -428,7 +428,7 @@ export default function FeedbackDashboard() {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
               >
                 <option value="all">Todos los estados</option>
                 <option value="new">Nuevos</option>
@@ -442,7 +442,7 @@ export default function FeedbackDashboard() {
               <select
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
               >
                 <option value="all">Todos los tipos</option>
                 <option value="bug">Problemas</option>

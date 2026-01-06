@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Setup Notification System
+ * Genera - Setup Notification System
  * 
  * This script sets up the complete notification system:
  * 1. Creates user_notifications table and helper functions
@@ -20,7 +20,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 async function setupNotificationSystem() {
-  console.log('🔧 FNE LMS - Setting Up Notification System');
+  console.log('🔧 Genera - Setting Up Notification System');
   console.log('=' .repeat(50));
   console.log('');
 

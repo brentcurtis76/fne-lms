@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Notification System Migration Script
+ * Genera - Notification System Migration Script
  * 
  * This script applies the notification system database schema
  * to the Supabase database.

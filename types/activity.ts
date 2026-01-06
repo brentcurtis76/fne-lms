@@ -1,6 +1,6 @@
 /**
  * Activity Feed System Types
- * Phase 5 of Collaborative Workspace System for FNE LMS
+ * Phase 5 of Collaborative Workspace System for Genera
  * Following established patterns from messaging.ts and documents.ts
  */
 
@@ -369,7 +369,7 @@ export const ACTIVITY_TYPE_CONFIG: Partial<Record<ActivityType, ActivityTypeConf
     meeting_created: {
         label: 'Reunión creada',
         icon: '📅',
-        color: '#00365b',
+        color: '#0a0a0a',
         category: 'meeting',
         default_importance: 3,
         generates_notification: true,
@@ -387,7 +387,7 @@ export const ACTIVITY_TYPE_CONFIG: Partial<Record<ActivityType, ActivityTypeConf
     task_assigned: {
         label: 'Tarea asignada',
         icon: '📋',
-        color: '#fdb933',
+        color: '#fbbf24',
         category: 'meeting',
         default_importance: 3,
         generates_notification: true,
@@ -398,7 +398,7 @@ export const ACTIVITY_TYPE_CONFIG: Partial<Record<ActivityType, ActivityTypeConf
     document_uploaded: {
         label: 'Documento subido',
         icon: '📄',
-        color: '#00365b',
+        color: '#0a0a0a',
         category: 'document',
         default_importance: 2,
         generates_notification: true,
@@ -407,7 +407,7 @@ export const ACTIVITY_TYPE_CONFIG: Partial<Record<ActivityType, ActivityTypeConf
     folder_created: {
         label: 'Carpeta creada',
         icon: '📁',
-        color: '#fdb933',
+        color: '#fbbf24',
         category: 'document',
         default_importance: 1,
         generates_notification: false,
@@ -418,7 +418,7 @@ export const ACTIVITY_TYPE_CONFIG: Partial<Record<ActivityType, ActivityTypeConf
     message_sent: {
         label: 'Mensaje enviado',
         icon: '💬',
-        color: '#00365b',
+        color: '#0a0a0a',
         category: 'message',
         default_importance: 1,
         generates_notification: true,
@@ -427,7 +427,7 @@ export const ACTIVITY_TYPE_CONFIG: Partial<Record<ActivityType, ActivityTypeConf
     thread_created: {
         label: 'Hilo creado',
         icon: '🧵',
-        color: '#fdb933',
+        color: '#fbbf24',
         category: 'message',
         default_importance: 2,
         generates_notification: true,
@@ -449,7 +449,7 @@ export const ACTIVITY_TYPE_CONFIG: Partial<Record<ActivityType, ActivityTypeConf
     workspace_created: {
         label: 'Espacio creado',
         icon: '🏗️',
-        color: '#00365b',
+        color: '#0a0a0a',
         category: 'system',
         default_importance: 3,
         generates_notification: false,
@@ -470,7 +470,7 @@ export const IMPORTANCE_LEVELS: ActivityImportance[] = [
         score: 2,
         label: 'Media',
         description: 'Actividad importante',
-        color: '#fdb933',
+        color: '#fbbf24',
         notification_default: true
     },
     {

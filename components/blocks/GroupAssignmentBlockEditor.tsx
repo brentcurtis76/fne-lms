@@ -223,7 +223,7 @@ export default function GroupAssignmentBlockEditor({
             type="text"
             value={block.payload.title || ''}
             onChange={(e) => handleChange('title', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
             placeholder="Ingrese el título de la tarea grupal"
           />
         </div>
@@ -236,7 +236,7 @@ export default function GroupAssignmentBlockEditor({
           <textarea
             value={block.payload.description || ''}
             onChange={(e) => handleChange('description', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
             rows={3}
             placeholder="Describa brevemente la tarea grupal"
           />
@@ -250,7 +250,7 @@ export default function GroupAssignmentBlockEditor({
           <textarea
             value={block.payload.instructions || ''}
             onChange={(e) => handleChange('instructions', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
             rows={5}
             placeholder="Proporcione instrucciones detalladas para completar la tarea"
           />

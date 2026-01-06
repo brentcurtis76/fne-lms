@@ -1,5 +1,5 @@
 /**
- * FNE LMS 6-Role System Types
+ * Genera 6-Role System Types
  * Defines the new role hierarchy and organizational structure
  */
 

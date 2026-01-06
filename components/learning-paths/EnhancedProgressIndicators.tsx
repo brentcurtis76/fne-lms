@@ -77,7 +77,7 @@ export default function EnhancedProgressIndicators({ data, pathName }: Props) {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Pace Analysis */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4">
+          <div className="bg-gradient-to-br from-blue-50 to-slate-50 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <TrendingUp className={`w-5 h-5 ${insights.paceAnalysis.color}`} />
               <span className="font-medium text-gray-900">Ritmo de Aprendizaje</span>
@@ -123,14 +123,14 @@ export default function EnhancedProgressIndicators({ data, pathName }: Props) {
           </div>
 
           {/* Time Forecasting */}
-          <div className="bg-gradient-to-br from-purple-50 to-violet-50 rounded-lg p-4">
+          <div className="bg-gradient-to-br from-amber-50 to-amber-50 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
-              <Target className="w-5 h-5 text-purple-600" />
+              <Target className="w-5 h-5 text-amber-600" />
               <span className="font-medium text-gray-900">Predicción</span>
             </div>
             {insights.timeForecasting.estimatedDaysRemaining ? (
               <>
-                <p className="text-sm text-purple-600 font-medium">
+                <p className="text-sm text-amber-600 font-medium">
                   {insights.timeForecasting.estimatedDaysRemaining} días restantes
                 </p>
                 <p className="text-xs text-gray-600 mt-1">
@@ -176,7 +176,7 @@ export default function EnhancedProgressIndicators({ data, pathName }: Props) {
         </div>
 
         {insights.milestones.nextMilestone && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4">
+          <div className="bg-gradient-to-r from-blue-50 to-slate-50 rounded-lg p-4">
             <div className="flex items-center gap-2">
               <Target className="w-5 h-5 text-blue-600" />
               <span className="font-medium text-blue-900">
@@ -190,7 +190,7 @@ export default function EnhancedProgressIndicators({ data, pathName }: Props) {
               </div>
               <div className="w-full bg-blue-200 rounded-full h-3">
                 <div 
-                  className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-blue-500 to-slate-500 h-3 rounded-full transition-all duration-500"
                   style={{ width: `${(userProgress.overallProgress / insights.milestones.nextMilestone.threshold) * 100}%` }}
                 />
               </div>
@@ -204,7 +204,7 @@ export default function EnhancedProgressIndicators({ data, pathName }: Props) {
         {/* Study Pattern Analysis */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-navy-900 mb-4 flex items-center gap-2">
-            <Activity className="w-5 h-5 text-indigo-600" />
+            <Activity className="w-5 h-5 text-slate-600" />
             Patrón de Estudio
           </h3>
           
@@ -267,12 +267,12 @@ export default function EnhancedProgressIndicators({ data, pathName }: Props) {
               <p className="text-xs text-green-700">Libros equivalentes</p>
             </div>
 
-            <div className="text-center bg-gradient-to-br from-purple-50 to-violet-50 rounded-lg p-3">
-              <Coffee className="w-6 h-6 text-purple-600 mx-auto mb-1" />
-              <p className="text-lg font-bold text-purple-900">
+            <div className="text-center bg-gradient-to-br from-amber-50 to-amber-50 rounded-lg p-3">
+              <Coffee className="w-6 h-6 text-amber-600 mx-auto mb-1" />
+              <p className="text-lg font-bold text-amber-900">
                 {insights.motivationalMetrics.coffeeBreaksEquivalent}
               </p>
-              <p className="text-xs text-purple-700">Pausas de café</p>
+              <p className="text-xs text-amber-700">Pausas de café</p>
             </div>
 
             <div className="text-center bg-gradient-to-br from-orange-50 to-red-50 rounded-lg p-3">
@@ -304,16 +304,16 @@ export default function EnhancedProgressIndicators({ data, pathName }: Props) {
       {insights.peerComparison && pathBenchmarks && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-navy-900 mb-4 flex items-center gap-2">
-            <Users className="w-5 h-5 text-indigo-600" />
+            <Users className="w-5 h-5 text-slate-600" />
             Comparación con Otros Estudiantes
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center bg-gradient-to-br from-indigo-50 to-blue-50 rounded-lg p-4">
-              <p className="text-2xl font-bold text-indigo-900">
+            <div className="text-center bg-gradient-to-br from-slate-50 to-blue-50 rounded-lg p-4">
+              <p className="text-2xl font-bold text-slate-900">
                 {insights.peerComparison.totalPeers}
               </p>
-              <p className="text-sm text-indigo-700">Estudiantes totales</p>
+              <p className="text-sm text-slate-700">Estudiantes totales</p>
             </div>
 
             <div className="text-center bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4">

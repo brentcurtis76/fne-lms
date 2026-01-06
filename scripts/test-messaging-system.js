@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Messaging System Test Script
+ * Genera - Messaging System Test Script
  * Comprehensive testing of messaging functionality
  * Phase 4 of Collaborative Workspace System
  */
@@ -706,7 +706,7 @@ function printSummary() {
 
 // Main execution
 async function main() {
-  console.log('🧪 FNE LMS - Messaging System Test Suite');
+  console.log('🧪 Genera - Messaging System Test Suite');
   console.log('========================================\n');
 
   try {

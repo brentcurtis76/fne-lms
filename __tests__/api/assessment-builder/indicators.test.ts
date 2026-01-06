@@ -363,7 +363,7 @@ describe('Assessment Builder Indicators API', () => {
     it('should show category badge with correct colors', () => {
       const categoryColors = {
         cobertura: 'bg-blue-100 text-blue-700',
-        frecuencia: 'bg-purple-100 text-purple-700',
+        frecuencia: 'bg-amber-100 text-amber-700',
         profundidad: 'bg-green-100 text-green-700',
       };
 

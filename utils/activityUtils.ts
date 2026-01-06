@@ -1,6 +1,6 @@
 /**
  * Activity Feed System Utilities
- * Phase 5 of Collaborative Workspace System for FNE LMS
+ * Phase 5 of Collaborative Workspace System for Genera
  * Following established patterns from messagingUtils-simple.ts and documentUtils.ts
  */
 

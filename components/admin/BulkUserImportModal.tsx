@@ -355,8 +355,8 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center space-x-2">
-            <Users className="h-6 w-6 text-[#00365b]" />
-            <h3 className="text-xl font-semibold text-[#00365b]">
+            <Users className="h-6 w-6 text-[#0a0a0a]" />
+            <h3 className="text-xl font-semibold text-[#0a0a0a]">
               Importar Usuarios en Masa
             </h3>
           </div>
@@ -371,27 +371,27 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
         {/* Progress indicator */}
         <div className="flex items-center justify-center mb-6">
           <div className="flex items-center space-x-4">
-            <div className={`flex items-center ${step === 'input' ? 'text-[#00365b]' : 'text-gray-400'}`}>
+            <div className={`flex items-center ${step === 'input' ? 'text-[#0a0a0a]' : 'text-gray-400'}`}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                step === 'input' ? 'bg-[#00365b] text-white' : 'bg-gray-200'
+                step === 'input' ? 'bg-[#0a0a0a] text-white' : 'bg-gray-200'
               }`}>
                 1
               </div>
               <span className="ml-2 hidden sm:inline">Datos</span>
             </div>
             <div className="w-16 h-0.5 bg-gray-300"></div>
-            <div className={`flex items-center ${step === 'preview' ? 'text-[#00365b]' : 'text-gray-400'}`}>
+            <div className={`flex items-center ${step === 'preview' ? 'text-[#0a0a0a]' : 'text-gray-400'}`}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                step === 'preview' ? 'bg-[#00365b] text-white' : 'bg-gray-200'
+                step === 'preview' ? 'bg-[#0a0a0a] text-white' : 'bg-gray-200'
               }`}>
                 2
               </div>
               <span className="ml-2 hidden sm:inline">Vista Previa</span>
             </div>
             <div className="w-16 h-0.5 bg-gray-300"></div>
-            <div className={`flex items-center ${step === 'results' ? 'text-[#00365b]' : 'text-gray-400'}`}>
+            <div className={`flex items-center ${step === 'results' ? 'text-[#0a0a0a]' : 'text-gray-400'}`}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                step === 'results' ? 'bg-[#00365b] text-white' : 'bg-gray-200'
+                step === 'results' ? 'bg-[#0a0a0a] text-white' : 'bg-gray-200'
               }`}>
                 3
               </div>
@@ -407,7 +407,7 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
               {/* Organizational Assignment Section */}
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                  <Building className="h-4 w-4 mr-2 text-[#00365b]" />
+                  <Building className="h-4 w-4 mr-2 text-[#0a0a0a]" />
                   Asignación Organizacional
                 </h4>
                 <p className="text-xs text-gray-600 mb-4">
@@ -417,7 +417,7 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
 
                 {loadingOrgData ? (
                   <div className="flex items-center justify-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#00365b]"></div>
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#0a0a0a]"></div>
                     <span className="ml-2 text-sm text-gray-600">Cargando datos...</span>
                   </div>
                 ) : (
@@ -532,7 +532,7 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
               {/* Password Configuration */}
               <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
                 <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                  <Key className="h-4 w-4 mr-2 text-[#00365b]" />
+                  <Key className="h-4 w-4 mr-2 text-[#0a0a0a]" />
                   Contraseña Inicial
                 </h4>
                 <div className="space-y-3">
@@ -541,7 +541,7 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
                       type="checkbox"
                       checked={useGlobalPassword}
                       onChange={(e) => setUseGlobalPassword(e.target.checked)}
-                      className="rounded border-gray-300 text-[#00365b] focus:ring-[#00365b]"
+                      className="rounded border-gray-300 text-[#0a0a0a] focus:ring-[#0a0a0a]"
                     />
                     <span className="ml-2 text-sm text-gray-700">Usar misma contraseña para todos</span>
                   </label>
@@ -595,7 +595,7 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
 usuario1@ejemplo.cl,Juan,Pérez,docente
 usuario2@ejemplo.cl,María,González,lider_comunidad
 usuario3@ejemplo.cl,Pedro,Soto,consultor`}
-                className="w-full h-48 p-4 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                className="w-full h-48 p-4 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
               />
             </div>
           )}
@@ -608,7 +608,7 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
                 </h4>
                 <button
                   onClick={() => setStep('input')}
-                  className="text-sm text-[#00365b] hover:underline"
+                  className="text-sm text-[#0a0a0a] hover:underline"
                 >
                   ← Volver a editar
                 </button>
@@ -678,7 +678,7 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
                         <td className="px-3 py-3 text-sm">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             user.role === 'lider_comunidad'
-                              ? 'bg-purple-100 text-purple-800'
+                              ? 'bg-amber-100 text-amber-800'
                               : 'bg-blue-100 text-blue-800'
                           }`}>
                             {user.role}
@@ -852,7 +852,7 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
               <button
                 onClick={handleParse}
                 disabled={!globalSchoolId || loadingOrgData || (useGlobalPassword && globalPassword.length < 8)}
-                className="px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#002844] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#002844] transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Continuar
               </button>
@@ -870,7 +870,7 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
               <button
                 onClick={handleImport}
                 disabled={isImporting || parsedUsers.length === 0}
-                className="px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#002844] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#002844] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isImporting ? (
                   <>
@@ -897,7 +897,7 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
               </button>
               <button
                 onClick={handleClose}
-                className="px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#002844] transition"
+                className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#002844] transition"
               >
                 Cerrar
               </button>

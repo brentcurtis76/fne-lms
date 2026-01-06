@@ -73,7 +73,7 @@ const ApplyNetworkMigration: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-lg shadow-lg p-6">
           <div className="flex items-center mb-6">
-            <DatabaseIcon className="h-8 w-8 text-[#00365b] mr-3" />
+            <DatabaseIcon className="h-8 w-8 text-[#0a0a0a] mr-3" />
             <h1 className="text-2xl font-bold text-gray-900">
               Migración de Base de Datos - Supervisor de Red
             </h1>
@@ -95,7 +95,7 @@ const ApplyNetworkMigration: React.FC = () => {
             <button
               onClick={checkMigrationStatus}
               disabled={checking}
-              className="mt-4 px-4 py-2 bg-[#00365b] text-white rounded hover:bg-[#00365b]/90 disabled:opacity-50"
+              className="mt-4 px-4 py-2 bg-[#0a0a0a] text-white rounded hover:bg-[#0a0a0a]/90 disabled:opacity-50"
             >
               {checking ? 'Verificando...' : 'Verificar Estado de Migración'}
             </button>
@@ -109,7 +109,7 @@ const ApplyNetworkMigration: React.FC = () => {
             <div className="bg-gray-50 rounded-lg p-6">
               <ol className="space-y-4">
                 <li className="flex">
-                  <span className="flex-shrink-0 w-8 h-8 bg-[#fdb933] text-[#00365b] rounded-full flex items-center justify-center font-bold mr-3">
+                  <span className="flex-shrink-0 w-8 h-8 bg-[#fbbf24] text-[#0a0a0a] rounded-full flex items-center justify-center font-bold mr-3">
                     1
                   </span>
                   <div>
@@ -121,7 +121,7 @@ const ApplyNetworkMigration: React.FC = () => {
                 </li>
                 
                 <li className="flex">
-                  <span className="flex-shrink-0 w-8 h-8 bg-[#fdb933] text-[#00365b] rounded-full flex items-center justify-center font-bold mr-3">
+                  <span className="flex-shrink-0 w-8 h-8 bg-[#fbbf24] text-[#0a0a0a] rounded-full flex items-center justify-center font-bold mr-3">
                     2
                   </span>
                   <div>
@@ -138,7 +138,7 @@ const ApplyNetworkMigration: React.FC = () => {
                 </li>
                 
                 <li className="flex">
-                  <span className="flex-shrink-0 w-8 h-8 bg-[#fdb933] text-[#00365b] rounded-full flex items-center justify-center font-bold mr-3">
+                  <span className="flex-shrink-0 w-8 h-8 bg-[#fbbf24] text-[#0a0a0a] rounded-full flex items-center justify-center font-bold mr-3">
                     3
                   </span>
                   <div>
@@ -156,7 +156,7 @@ const ApplyNetworkMigration: React.FC = () => {
                 </li>
                 
                 <li className="flex">
-                  <span className="flex-shrink-0 w-8 h-8 bg-[#fdb933] text-[#00365b] rounded-full flex items-center justify-center font-bold mr-3">
+                  <span className="flex-shrink-0 w-8 h-8 bg-[#fbbf24] text-[#0a0a0a] rounded-full flex items-center justify-center font-bold mr-3">
                     4
                   </span>
                   <div>

@@ -1,5 +1,5 @@
 /**
- * Global Sidebar Component - Complete navigation system for FNE LMS
+ * Global Sidebar Component - Complete navigation system for Genera
  * Provides consistent navigation across all authenticated pages
  */
 
@@ -324,6 +324,13 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/school/transversal-context',
         description: 'Configuración de contexto escolar',
         icon: OfficeBuildingIcon
+      },
+      {
+        id: 'vias-plan-migracion',
+        label: 'Plan de Migración',
+        href: '/school/migration-plan',
+        description: 'Definir generaciones GT/GI por año',
+        icon: MapIcon
       },
       {
         id: 'vias-resultados-escuela',
@@ -734,21 +741,21 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
             group flex items-center w-full text-left transition-all duration-200 rounded-lg relative
             ${isCollapsed ? 'px-3 py-3 justify-center' : 'px-3 py-3'}
             ${isActive && !hasChildren
-              ? 'bg-[#00365b] text-white shadow-lg'
-              : 'text-gray-700 hover:bg-gray-100 hover:text-[#00365b]'
+              ? 'bg-[#0a0a0a] text-white shadow-lg'
+              : 'text-gray-700 hover:bg-gray-100 hover:text-[#0a0a0a]'
             }
-            ${isCollapsed && hasChildren && showCollapsedMenu ? 'bg-gray-100 text-[#00365b]' : ''}
+            ${isCollapsed && hasChildren && showCollapsedMenu ? 'bg-gray-100 text-[#0a0a0a]' : ''}
           `}
           title={isCollapsed ? item.label : undefined}
           style={{ cursor: 'pointer', pointerEvents: 'auto' }}
         >
           {/* Active indicator */}
           {isActive && !hasChildren && !isCollapsed && (
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#fdb933] rounded-r-lg"></div>
+            <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#fbbf24] rounded-r-lg"></div>
           )}
 
           <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} flex-1`}>
-            <item.icon className={`flex-shrink-0 ${isCollapsed ? 'h-6 w-6' : 'h-5 w-5'} ${isActive && !hasChildren ? 'text-white' : 'text-gray-500 group-hover:text-[#00365b]'
+            <item.icon className={`flex-shrink-0 ${isCollapsed ? 'h-6 w-6' : 'h-5 w-5'} ${isActive && !hasChildren ? 'text-white' : 'text-gray-500 group-hover:text-[#0a0a0a]'
               }`} />
 
             {!isCollapsed && (
@@ -775,12 +782,12 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
             {!isCollapsed && hasChildren && (
               <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''
-                } ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#00365b]'}`} />
+                } ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#0a0a0a]'}`} />
             )}
 
             {/* Badge count for collapsed state with children */}
             {isCollapsed && hasChildren && filteredChildren.length > 0 && (
-              <div className="absolute -top-1 -right-1 bg-[#fdb933] text-[#00365b] text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-sm pointer-events-none">
+              <div className="absolute -top-1 -right-1 bg-[#fbbf24] text-[#0a0a0a] text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-sm pointer-events-none">
                 {filteredChildren.length}
               </div>
             )}
@@ -808,18 +815,18 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                   className={`
                     group flex items-center px-3 py-2 text-sm transition-colors
                     ${isItemActive(child.href, router.asPath)
-                      ? 'bg-[#00365b] text-white'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-[#00365b]'
+                      ? 'bg-[#0a0a0a] text-white'
+                      : 'text-gray-700 hover:bg-gray-100 hover:text-[#0a0a0a]'
                     }
                   `}
                 >
                   {child.icon ? (
                     <child.icon className={`h-4 w-4 mr-3 ${isItemActive(child.href, router.asPath)
                       ? 'text-white'
-                      : 'text-gray-400 group-hover:text-[#00365b]'
+                      : 'text-gray-400 group-hover:text-[#0a0a0a]'
                       }`} />
                   ) : (
-                    <ChevronRightIcon className="h-4 w-4 mr-3 text-gray-400 group-hover:text-[#00365b]" />
+                    <ChevronRightIcon className="h-4 w-4 mr-3 text-gray-400 group-hover:text-[#0a0a0a]" />
                   )}
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
@@ -853,18 +860,18 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                 className={`
                   group flex items-center px-3 py-2 text-sm rounded-lg transition-all duration-200
                   ${isItemActive(child.href, router.asPath)
-                    ? 'bg-[#00365b]/10 text-[#00365b] font-medium'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-[#00365b]'
+                    ? 'bg-[#0a0a0a]/10 text-[#0a0a0a] font-medium'
+                    : 'text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a]'
                   }
                 `}
               >
                 {child.icon ? (
                   <child.icon className={`h-4 w-4 mr-2 ${isItemActive(child.href, router.asPath)
-                    ? 'text-[#00365b]'
-                    : 'text-gray-400 group-hover:text-[#00365b]'
+                    ? 'text-[#0a0a0a]'
+                    : 'text-gray-400 group-hover:text-[#0a0a0a]'
                     }`} />
                 ) : (
-                  <ChevronRightIcon className="h-4 w-4 mr-2 text-gray-400 group-hover:text-[#00365b]" />
+                  <ChevronRightIcon className="h-4 w-4 mr-2 text-gray-400 group-hover:text-[#0a0a0a]" />
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
@@ -914,35 +921,31 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         ${className}
       `}>
         {/* Header */}
-        <div className="flex items-center justify-between h-20 px-4 border-b border-gray-200 bg-gradient-to-r from-[#00365b] to-[#004a7a]">
+        <div className="flex items-center justify-between h-20 px-4 border-b border-white/10 bg-[#0a0a0a]">
           {!isCollapsed ? (
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-[#fdb933] rounded-lg flex items-center justify-center p-0.5">
-                {/* FNE Logo */}
-                <img
-                  src="/Logo plataforma.png"
-                  alt="FNE Logo"
-                  className="w-full h-full object-contain"
-                />
-              </div>
+              {/* Genera Logo */}
+              <img
+                src="/genera/icon-on-dark.svg"
+                alt="Genera"
+                className="w-10 h-10"
+              />
               <div>
-                <h2 className="text-white font-semibold text-sm">
-                  Fundación Nueva Educación
+                <h2 className="text-white font-light tracking-[0.1em] text-sm">
+                  GENERA
                 </h2>
-                <p className="text-blue-200 text-xs">
-                  Plataforma De Crecimiento
+                <p className="text-white/50 text-xs">
+                  Fundación Nueva Educación
                 </p>
               </div>
             </div>
           ) : (
-            <div className="w-8 h-8 bg-[#fdb933] rounded-lg flex items-center justify-center p-0.5 mx-auto">
-              {/* FNE Logo - Collapsed state */}
-              <img
-                src="/Logo plataforma.png"
-                alt="FNE Logo"
-                className="w-full h-full object-contain"
-              />
-            </div>
+            /* Genera Logo - Collapsed state */
+            <img
+              src="/genera/icon-on-dark.svg"
+              alt="Genera"
+              className="w-8 h-8 mx-auto"
+            />
           )}
 
           <div className="flex items-center space-x-2">

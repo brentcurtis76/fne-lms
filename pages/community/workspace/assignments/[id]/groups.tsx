@@ -130,7 +130,7 @@ export default function AssignmentGroupsPage() {
         avatarUrl={avatarUrl}
       >
         <div className="flex items-center justify-center min-h-[50vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b]"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a]"></div>
         </div>
       </MainLayout>
     );
@@ -143,7 +143,7 @@ export default function AssignmentGroupsPage() {
   return (
     <>
       <Head>
-        <title>Grupos - {assignment.title} - FNE LMS</title>
+        <title>Grupos - {assignment.title} - Genera</title>
       </Head>
 
       <MainLayout 
@@ -172,7 +172,7 @@ export default function AssignmentGroupsPage() {
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <div className="flex items-start justify-between">
               <div>
-                <h1 className="text-2xl font-bold text-[#00365b] mb-2">{assignment.title}</h1>
+                <h1 className="text-2xl font-bold text-[#0a0a0a] mb-2">{assignment.title}</h1>
                 <p className="text-gray-600">
                   {assignment.courses?.title} - {assignment.lessons?.title}
                 </p>
@@ -266,7 +266,7 @@ export default function AssignmentGroupsPage() {
                             <p className="text-sm font-medium text-gray-900">
                               {member.user?.name || 'Usuario'}
                               {member.role === 'leader' && (
-                                <span className="ml-2 text-xs text-[#fdb933]">Líder</span>
+                                <span className="ml-2 text-xs text-[#fbbf24]">Líder</span>
                               )}
                             </p>
                             <p className="text-xs text-gray-500">{member.user?.email}</p>
@@ -279,7 +279,7 @@ export default function AssignmentGroupsPage() {
                     {canJoin && (
                       <button
                         onClick={() => handleJoinGroup(group.id)}
-                        className="w-full px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition"
+                        className="w-full px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition"
                       >
                         Unirse a este grupo
                       </button>

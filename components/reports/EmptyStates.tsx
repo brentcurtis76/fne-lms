@@ -111,7 +111,7 @@ export default function EmptyState({
       {actionLabel && onAction && (
         <motion.button
           onClick={onAction}
-          className="mt-6 inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#00365b] hover:bg-[#00365b]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b] transition-colors"
+          className="mt-6 inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#0a0a0a] hover:bg-[#0a0a0a]/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] transition-colors"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, delay: 0.4 }}

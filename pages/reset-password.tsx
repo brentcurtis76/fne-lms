@@ -310,7 +310,7 @@ export default function ResetPasswordPage() {
     return (
       <>
         <Head>
-          <title>Restablecer Contraseña | FNE LMS</title>
+          <title>Restablecer Contraseña | Genera</title>
         </Head>
         <div className="min-h-screen flex items-center justify-center bg-brand_beige">
           <div className="text-center">
@@ -325,12 +325,12 @@ export default function ResetPasswordPage() {
   return (
     <>
       <Head>
-        <title>Restablecer Contraseña | FNE LMS</title>
+        <title>Restablecer Contraseña | Genera</title>
       </Head>
 
       <div className="min-h-screen flex relative overflow-hidden">
         {/* Left Side - Hero Section */}
-        <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-[#00365b] via-[#00365b] to-[#002844]">
+        <div className="hidden lg:flex lg:w-1/2 relative bg-gradient-to-br from-[#0a0a0a] via-[#0a0a0a] to-[#002844]">
           {/* Animated Background Pattern */}
           <div className="absolute inset-0 opacity-10">
             <div className="absolute inset-0" style={{
@@ -339,8 +339,8 @@ export default function ResetPasswordPage() {
           </div>
 
           {/* Glowing Orbs */}
-          <div className="absolute top-20 left-20 w-72 h-72 bg-[#fdb933] rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
-          <div className="absolute bottom-20 right-20 w-72 h-72 bg-[#fdb933] rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse animation-delay-2000"></div>
+          <div className="absolute top-20 left-20 w-72 h-72 bg-[#fbbf24] rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse"></div>
+          <div className="absolute bottom-20 right-20 w-72 h-72 bg-[#fbbf24] rounded-full mix-blend-multiply filter blur-3xl opacity-20 animate-pulse animation-delay-2000"></div>
 
           {/* Content */}
           <div className="relative z-10 flex flex-col justify-center items-center w-full px-12 text-white">
@@ -358,7 +358,7 @@ export default function ResetPasswordPage() {
             {/* Text Content */}
             <h1 className="text-5xl font-bold mb-4 text-center animate-fade-in-up">
               Plataforma de
-              <span className="block text-[#fdb933] mt-2">Crecimiento</span>
+              <span className="block text-[#fbbf24] mt-2">Crecimiento</span>
             </h1>
 
             <p className="text-xl text-gray-200 mb-8 text-center animate-fade-in-up animation-delay-200">
@@ -372,8 +372,8 @@ export default function ResetPasswordPage() {
             </div>
 
             {/* Decorative Elements */}
-            <div className="absolute top-10 right-10 w-8 h-8 bg-[#fdb933] rounded-full animate-bounce"></div>
-            <div className="absolute bottom-10 left-10 w-6 h-6 bg-[#fdb933] rounded-full animate-bounce animation-delay-1000"></div>
+            <div className="absolute top-10 right-10 w-8 h-8 bg-[#fbbf24] rounded-full animate-bounce"></div>
+            <div className="absolute bottom-10 left-10 w-6 h-6 bg-[#fbbf24] rounded-full animate-bounce animation-delay-1000"></div>
           </div>
         </div>
 
@@ -393,7 +393,7 @@ export default function ResetPasswordPage() {
           {/* Reset Password Card */}
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
-              <h2 className="text-3xl font-bold text-[#00365b] mb-2">
+              <h2 className="text-3xl font-bold text-[#0a0a0a] mb-2">
                 Restablecer Contraseña
               </h2>
               <p className="text-gray-600">
@@ -410,7 +410,7 @@ export default function ResetPasswordPage() {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Nueva Contraseña</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-[#00365b] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-[#0a0a0a] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
@@ -420,7 +420,7 @@ export default function ResetPasswordPage() {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     autoComplete="new-password"
-                    className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#fdb933] focus:border-transparent transition-all duration-200 hover:border-gray-400"
+                    className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent transition-all duration-200 hover:border-gray-400"
                   />
                 </div>
               </div>
@@ -430,7 +430,7 @@ export default function ResetPasswordPage() {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Confirmar Contraseña</label>
                 <div className="relative group">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-[#00365b] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 text-gray-400 group-focus-within:text-[#0a0a0a] transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
                   </div>
@@ -440,7 +440,7 @@ export default function ResetPasswordPage() {
                     value={confirmPassword}
                     onChange={e => setConfirmPassword(e.target.value)}
                     autoComplete="new-password"
-                    className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#fdb933] focus:border-transparent transition-all duration-200 hover:border-gray-400"
+                    className="w-full pl-12 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent transition-all duration-200 hover:border-gray-400"
                   />
                 </div>
               </div>
@@ -453,7 +453,7 @@ export default function ResetPasswordPage() {
                   className={`w-full font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform text-white shadow-lg
                     ${loading
                       ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-gradient-to-r from-[#00365b] to-[#002844] hover:from-[#002844] hover:to-[#00365b] hover:scale-[1.02] hover:shadow-xl'
+                      : 'bg-gradient-to-r from-[#0a0a0a] to-[#002844] hover:from-[#002844] hover:to-[#0a0a0a] hover:scale-[1.02] hover:shadow-xl'
                     }`}
                 >
                   {loading ? (
@@ -480,7 +480,7 @@ export default function ResetPasswordPage() {
                 <button
                   type="button"
                   onClick={() => router.push('/login')}
-                  className="text-sm font-medium text-[#00365b] hover:text-[#fdb933] transition-colors duration-200 flex items-center justify-center mx-auto"
+                  className="text-sm font-medium text-[#0a0a0a] hover:text-[#fbbf24] transition-colors duration-200 flex items-center justify-center mx-auto"
                 >
                   <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -494,7 +494,7 @@ export default function ResetPasswordPage() {
                 <div className={`mt-6 p-4 rounded-lg flex items-start space-x-3 animate-fade-in ${
                   message.includes('Error')
                     ? 'bg-red-50 border border-red-200'
-                    : 'bg-[#fdb933]/10 border border-[#fdb933]/30'
+                    : 'bg-[#fbbf24]/10 border border-[#fbbf24]/30'
                 }`}>
                   {message.includes('Error') ? (
                     <svg className="h-5 w-5 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -520,7 +520,7 @@ export default function ResetPasswordPage() {
             <div className="mt-8 text-center">
               <p className="text-sm text-gray-600">
                 ¿Necesitas ayuda?
-                <a href="mailto:soporte@nuevaeducacion.org" className="font-medium text-[#00365b] hover:text-[#fdb933] transition-colors duration-200 ml-1">
+                <a href="mailto:soporte@nuevaeducacion.org" className="font-medium text-[#0a0a0a] hover:text-[#fbbf24] transition-colors duration-200 ml-1">
                   Contacta soporte
                 </a>
               </p>

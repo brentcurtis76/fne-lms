@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Messaging System Migration Script
+ * Genera - Messaging System Migration Script
  * Applies the messaging system database schema to Supabase
  * Phase 4 of Collaborative Workspace System
  */
@@ -325,7 +325,7 @@ async function enableRealtime() {
 
 // Main execution
 async function main() {
-  console.log('🔧 FNE LMS - Messaging System Migration');
+  console.log('🔧 Genera - Messaging System Migration');
   console.log('=====================================\n');
 
   await runMigration();

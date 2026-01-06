@@ -62,7 +62,7 @@ const VideoBlockEditor: React.FC<VideoBlockEditorProps> = ({
           value={block.payload?.title || ""}
           onChange={(e) => onUpdate(block.id, 'title', e.target.value)}
           placeholder="Ingrese un título para identificar este bloque"
-          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
         />
       </div>
 
@@ -76,7 +76,7 @@ const VideoBlockEditor: React.FC<VideoBlockEditorProps> = ({
           value={block.payload.url}
           onChange={(e) => onUpdate(block.id, 'url', e.target.value)}
           placeholder="https://www.youtube.com/watch?v=..."
-          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
         />
       </div>
 
@@ -103,7 +103,7 @@ const VideoBlockEditor: React.FC<VideoBlockEditorProps> = ({
           value={block.payload.caption || ''}
           onChange={(e) => onUpdate(block.id, 'caption', e.target.value)}
           placeholder="Descripción breve del video"
-          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
         />
       </div>
     </BlockEditorWrapper>

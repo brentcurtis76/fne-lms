@@ -130,15 +130,15 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
           className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-100 rounded-xl transition-colors"
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#00365b] rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-[#0a0a0a] rounded-full flex items-center justify-center">
               <LockClosedIcon className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-[#00365b]">Seguridad</h3>
+              <h3 className="text-lg font-semibold text-[#0a0a0a]">Seguridad</h3>
               <p className="text-sm text-gray-500">Cambiar tu contraseña de acceso</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-[#00365b]">
+          <div className="flex items-center gap-2 text-[#0a0a0a]">
             <span className="text-sm font-medium">
               {isExpanded ? 'Contraer' : 'Expandir'}
             </span>
@@ -157,8 +157,8 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
           {/* Success Message */}
           {successMessage ? (
             <div className="text-center py-8">
-              <div className="w-16 h-16 bg-[#fdb933]/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircleIcon className="w-10 h-10 text-[#fdb933]" />
+              <div className="w-16 h-16 bg-[#fbbf24]/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircleIcon className="w-10 h-10 text-[#fbbf24]" />
               </div>
               <h4 className="text-xl font-semibold text-gray-900 mb-2">
                 ¡Contraseña actualizada!
@@ -172,7 +172,7 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
                   setSuccessMessage(false);
                   setIsExpanded(false);
                 }}
-                className="px-6 py-3 rounded-xl bg-[#00365b] text-white hover:bg-[#fdb933] hover:text-[#00365b] transition duration-300"
+                className="px-6 py-3 rounded-xl bg-[#0a0a0a] text-white hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition duration-300"
               >
                 Cerrar
               </button>
@@ -190,7 +190,7 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
                   type={showCurrentPassword ? 'text' : 'password'}
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                  className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                   placeholder="Ingresa tu contraseña actual"
                   autoComplete="current-password"
                   disabled={isSubmitting}
@@ -220,7 +220,7 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
                   type={showNewPassword ? 'text' : 'password'}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                  className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                   placeholder="Ingresa tu nueva contraseña"
                   autoComplete="new-password"
                   disabled={isSubmitting}
@@ -250,7 +250,7 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                  className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                   placeholder="Confirma tu nueva contraseña"
                   autoComplete="new-password"
                   disabled={isSubmitting}
@@ -278,7 +278,7 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
                 Requisitos de la contraseña:
               </p>
               <ul className="space-y-2">
-                <li className={`flex items-center gap-2 text-sm ${hasMinLength ? 'text-[#fdb933]' : 'text-gray-500'}`}>
+                <li className={`flex items-center gap-2 text-sm ${hasMinLength ? 'text-[#fbbf24]' : 'text-gray-500'}`}>
                   {hasMinLength ? (
                     <CheckCircleIcon className="w-5 h-5" />
                   ) : (
@@ -286,7 +286,7 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
                   )}
                   Al menos 8 caracteres
                 </li>
-                <li className={`flex items-center gap-2 text-sm ${hasUppercase ? 'text-[#fdb933]' : 'text-gray-500'}`}>
+                <li className={`flex items-center gap-2 text-sm ${hasUppercase ? 'text-[#fbbf24]' : 'text-gray-500'}`}>
                   {hasUppercase ? (
                     <CheckCircleIcon className="w-5 h-5" />
                   ) : (
@@ -294,7 +294,7 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
                   )}
                   Al menos una letra mayúscula
                 </li>
-                <li className={`flex items-center gap-2 text-sm ${hasLowercase ? 'text-[#fdb933]' : 'text-gray-500'}`}>
+                <li className={`flex items-center gap-2 text-sm ${hasLowercase ? 'text-[#fbbf24]' : 'text-gray-500'}`}>
                   {hasLowercase ? (
                     <CheckCircleIcon className="w-5 h-5" />
                   ) : (
@@ -302,7 +302,7 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
                   )}
                   Al menos una letra minúscula
                 </li>
-                <li className={`flex items-center gap-2 text-sm ${hasNumber ? 'text-[#fdb933]' : 'text-gray-500'}`}>
+                <li className={`flex items-center gap-2 text-sm ${hasNumber ? 'text-[#fbbf24]' : 'text-gray-500'}`}>
                   {hasNumber ? (
                     <CheckCircleIcon className="w-5 h-5" />
                   ) : (
@@ -327,7 +327,7 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
                 type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting || !allRequirementsMet || !currentPassword}
-                className="px-6 py-3 rounded-xl bg-[#00365b] text-white hover:bg-[#fdb933] hover:text-[#00365b] transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-3 rounded-xl bg-[#0a0a0a] text-white hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Actualizando...' : 'Actualizar Contraseña'}
               </button>

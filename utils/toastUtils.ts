@@ -1,5 +1,5 @@
 /**
- * Toast Utility Functions for FNE LMS
+ * Toast Utility Functions for Genera
  * Wrapper functions for consistent toast notifications
  */
 
@@ -221,7 +221,7 @@ export const toastConfirm = (
             toast.dismiss(t.id);
             onConfirm();
           },
-          className: 'px-3 py-1 text-sm bg-[#00365b] text-white rounded hover:bg-[#00365b]/90 transition-colors'
+          className: 'px-3 py-1 text-sm bg-[#0a0a0a] text-white rounded hover:bg-[#0a0a0a]/90 transition-colors'
         }, 'Confirmar')
       )
     ),

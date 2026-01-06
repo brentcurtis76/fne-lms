@@ -2,7 +2,7 @@
  * Sentry Client Configuration
  *
  * Configures error tracking and performance monitoring for the browser/client side
- * of the FNE LMS application.
+ * of the Genera application.
  *
  * @see https://docs.sentry.io/platforms/javascript/guides/nextjs/
  */
@@ -87,7 +87,7 @@ if (SENTRY_DSN) {
       event.contexts = {
         ...event.contexts,
         app: {
-          app_name: 'FNE LMS',
+          app_name: 'Genera',
           app_version: process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'
         }
       };

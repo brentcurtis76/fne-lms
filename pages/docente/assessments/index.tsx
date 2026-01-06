@@ -15,7 +15,7 @@ import {
   BarChart3,
   RefreshCw,
 } from 'lucide-react';
-import { AREA_LABELS, TransformationArea } from '@/types/assessment-builder';
+import { AREA_LABELS, TransformationArea, GenerationType } from '@/types/assessment-builder';
 
 interface AssessmentListItem {
   id: string;
@@ -25,6 +25,7 @@ interface AssessmentListItem {
   templateArea: TransformationArea;
   templateVersion: string;
   transformationYear: number;
+  generationType?: GenerationType; // GT or GI
   status: 'pending' | 'in_progress' | 'completed' | 'archived';
   courseName?: string;
   gradeLevel?: string;
@@ -271,8 +272,21 @@ const AssessmentCard: React.FC<AssessmentCardProps> = ({ assessment, allAssessme
               {statusConfig.icon}
               {statusConfig.label}
             </span>
+            {/* Generation Type Badge (GT/GI) */}
+            {assessment.generationType && (
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                  assessment.generationType === 'GT'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-blue-100 text-blue-700'
+                }`}
+                title={assessment.generationType === 'GT' ? 'Generación Tractor' : 'Generación Innova'}
+              >
+                {assessment.generationType}
+              </span>
+            )}
             {isNewerVersion && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
                 <RefreshCw className="w-3 h-3" />
                 Actualizado
               </span>
@@ -281,7 +295,7 @@ const AssessmentCard: React.FC<AssessmentCardProps> = ({ assessment, allAssessme
 
           {/* Note about version update */}
           {isNewerVersion && (
-            <p className="text-xs text-purple-600 mb-2 flex items-center gap-1">
+            <p className="text-xs text-amber-600 mb-2 flex items-center gap-1">
               <RefreshCw className="w-3 h-3" />
               Nueva versión - el instrumento fue actualizado desde tu última evaluación
             </p>

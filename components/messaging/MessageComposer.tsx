@@ -1,7 +1,7 @@
 /**
  * MessageComposer Component
  * Professional message composition interface with rich text editing, mentions, and attachments
- * Phase 4 of Collaborative Workspace System for FNE LMS
+ * Phase 4 of Collaborative Workspace System for Genera
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
@@ -390,7 +390,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
         <button
           onClick={handleSubmit}
           disabled={(!content.trim() && attachments.length === 0) || isSubmitting || disabled}
-          className="absolute bottom-3 right-3 w-8 h-8 bg-[#fdb933] text-white rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5b927] transition-colors"
+          className="absolute bottom-3 right-3 w-8 h-8 bg-[#fbbf24] text-white rounded-full flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5b927] transition-colors"
         >
           {isSubmitting ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -568,7 +568,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
           <button
             onClick={handleSubmit}
             disabled={(!content.trim() && attachments.length === 0) || isSubmitting || disabled}
-            className="bg-[#fdb933] text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5b927] transition-colors"
+            className="bg-[#fbbf24] text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#f5b927] transition-colors"
           >
             {isSubmitting ? (
               <div className="flex items-center space-x-2">

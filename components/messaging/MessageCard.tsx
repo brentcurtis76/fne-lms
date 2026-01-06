@@ -1,7 +1,7 @@
 /**
  * MessageCard Component
  * Individual message display with reactions, replies, and attachments
- * Phase 4 of Collaborative Workspace System for FNE LMS
+ * Phase 4 of Collaborative Workspace System for Genera
  */
 
 import React, { useState, useCallback } from 'react';
@@ -194,7 +194,7 @@ const MessageCard: React.FC<MessageCardProps> = ({
               className="w-8 h-8 rounded-full object-cover"
             />
           ) : (
-            <div className="w-8 h-8 rounded-full bg-[#00365b] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-[#0a0a0a] flex items-center justify-center">
               <User className="w-4 h-4 text-white" />
             </div>
           )}

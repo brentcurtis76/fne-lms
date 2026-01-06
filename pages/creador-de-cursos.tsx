@@ -82,7 +82,7 @@ export default function CreadorDeCursos() {
   return (
     <>
       <Head>
-        <title>Cursos - FNE LMS</title>
+        <title>Cursos - Genera</title>
       </Head>
       
       <div className="min-h-screen bg-brand_beige">

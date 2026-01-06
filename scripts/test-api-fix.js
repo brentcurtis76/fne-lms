@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Test API Fix
+ * Genera - Test API Fix
  * 
  * This script tests the notification types API fix by comparing
  * regular client vs service role client results.

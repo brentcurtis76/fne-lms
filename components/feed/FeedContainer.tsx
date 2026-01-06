@@ -201,7 +201,7 @@ export default function FeedContainer({ workspaceId, userName, userAvatar }: Fee
             </p>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="inline-flex items-center px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#0a0a0a]/90 transition-colors"
             >
               <PlusIcon className="h-5 w-5 mr-2" />
               Crear publicación
@@ -213,7 +213,7 @@ export default function FeedContainer({ workspaceId, userName, userAvatar }: Fee
       {/* Floating Action Button for mobile */}
       <button
         onClick={() => setShowCreateModal(true)}
-        className="fixed bottom-20 right-4 lg:hidden h-14 w-14 bg-[#fdb933] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#fdb933]/90 transition-colors"
+        className="fixed bottom-20 right-4 lg:hidden h-14 w-14 bg-[#fbbf24] text-white rounded-full shadow-lg flex items-center justify-center hover:bg-[#fbbf24]/90 transition-colors"
       >
         <PlusIcon className="h-6 w-6" />
       </button>

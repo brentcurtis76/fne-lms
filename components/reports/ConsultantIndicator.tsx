@@ -43,7 +43,7 @@ export default function ConsultantIndicator({
         return {
           icon: '🎯',
           label: 'Mentoría',
-          color: 'bg-purple-100 text-purple-800'
+          color: 'bg-amber-100 text-amber-800'
         };
       case 'evaluation':
         return {
@@ -61,7 +61,7 @@ export default function ConsultantIndicator({
         return {
           icon: '👨‍💼',
           label: 'Consultoría',
-          color: 'bg-indigo-100 text-indigo-800'
+          color: 'bg-slate-100 text-slate-800'
         };
     }
   };

@@ -1,7 +1,7 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../../lib/supabase';
 /**
- * Community Workspace Page - FNE LMS
+ * Community Workspace Page - Genera
  * Collaborative workspace for growth communities with role-based access
  */
 
@@ -510,7 +510,7 @@ const CommunityWorkspacePage: React.FC = () => {
           className="flex items-center justify-between w-full sm:w-auto space-x-3 px-4 py-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 transition-colors duration-200 min-w-0"
         >
           <div className="flex items-center space-x-2 min-w-0">
-            <OfficeBuildingIcon className="h-5 w-5 text-[#00365b] flex-shrink-0" />
+            <OfficeBuildingIcon className="h-5 w-5 text-[#0a0a0a] flex-shrink-0" />
             <div className="text-left min-w-0">
               <div className="text-sm font-medium text-gray-900 truncate">
                 {selectedCommunity?.display_name || selectedCommunity?.name || 'Seleccionar Comunidad'}
@@ -534,11 +534,11 @@ const CommunityWorkspacePage: React.FC = () => {
                 key={community.id}
                 onClick={() => handleCommunityChange(community.id)}
                 className={`w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 transition-colors duration-200 ${
-                  community.id === selectedCommunityId ? 'bg-[#fdb933]/10' : ''
+                  community.id === selectedCommunityId ? 'bg-[#fbbf24]/10' : ''
                 }`}
               >
                 <div className="flex items-center space-x-3">
-                  <AcademicCapIcon className="h-4 w-4 text-[#00365b] flex-shrink-0" />
+                  <AcademicCapIcon className="h-4 w-4 text-[#0a0a0a] flex-shrink-0" />
                   <div>
                     <div className="text-sm font-medium text-gray-900">
                       {community.display_name || community.name}
@@ -580,7 +580,7 @@ const CommunityWorkspacePage: React.FC = () => {
                   onClick={() => setShowMembers(!showMembers)}
                 >
                   <div className="flex items-center space-x-3">
-                    <h2 className="text-xl font-semibold text-[#00365b]">
+                    <h2 className="text-xl font-semibold text-[#0a0a0a]">
                       Miembros de la Comunidad
                     </h2>
                     <div className="text-sm text-gray-500">
@@ -588,7 +588,7 @@ const CommunityWorkspacePage: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <button className="text-gray-400 hover:text-[#00365b] transition-colors">
+                    <button className="text-gray-400 hover:text-[#0a0a0a] transition-colors">
                       <ChevronDownIcon className={`h-5 w-5 transform transition-transform duration-200 ${showMembers ? 'rotate-180' : ''}`} />
                     </button>
                   </div>
@@ -611,8 +611,8 @@ const CommunityWorkspacePage: React.FC = () => {
                                 className="w-10 h-10 rounded-full object-cover"
                               />
                             ) : (
-                              <div className="w-10 h-10 rounded-full bg-[#fdb933] flex items-center justify-center">
-                                <span className="text-[#00365b] font-bold text-sm">
+                              <div className="w-10 h-10 rounded-full bg-[#fbbf24] flex items-center justify-center">
+                                <span className="text-[#0a0a0a] font-bold text-sm">
                                   {member.first_name?.charAt(0) || 'U'}{member.last_name?.charAt(0) || ''}
                                 </span>
                               </div>
@@ -639,7 +639,7 @@ const CommunityWorkspacePage: React.FC = () => {
                               </p>
                             </div>
                             {member.id === user?.id && (
-                              <div className="w-3 h-3 rounded-full bg-[#fdb933]" title="Tú"></div>
+                              <div className="w-3 h-3 rounded-full bg-[#fbbf24]" title="Tú"></div>
                             )}
                           </Link>
                         ))}
@@ -666,14 +666,14 @@ const CommunityWorkspacePage: React.FC = () => {
         {/* Communities management section */}
         <div style={{ display: activeSection === 'communities' ? 'block' : 'none' }}>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-2xl font-bold text-[#00365b] mb-4">
+            <h2 className="text-2xl font-bold text-[#0a0a0a] mb-4">
               Gestión de Comunidades
             </h2>
             <p className="text-gray-600 mb-6">
               Administra las comunidades de crecimiento bajo tu supervisión.
             </p>
-            <div className="bg-[#00365b]/5 border border-[#00365b]/10 rounded-lg p-4">
-              <p className="text-sm text-[#00365b]">
+            <div className="bg-[#0a0a0a]/5 border border-[#0a0a0a]/10 rounded-lg p-4">
+              <p className="text-sm text-[#0a0a0a]">
                 🚧 Gestión de comunidades en desarrollo. Próximamente podrás administrar múltiples comunidades desde aquí.
               </p>
             </div>
@@ -760,7 +760,7 @@ const CommunityWorkspacePage: React.FC = () => {
             </p>
             <button
               onClick={() => router.push('/dashboard')}
-              className="inline-flex items-center px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors duration-200"
+              className="inline-flex items-center px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#0a0a0a]/90 transition-colors duration-200"
             >
               Volver al Panel Principal
             </button>
@@ -839,7 +839,7 @@ const CommunityWorkspacePage: React.FC = () => {
         {/* Prominent Community Header */}
         {currentWorkspace && (
           <div className="mb-6">
-            <div className="bg-gradient-to-r from-[#00365b] to-[#00486b] rounded-lg shadow-lg p-6">
+            <div className="bg-gradient-to-r from-[#0a0a0a] to-[#00486b] rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   {currentWorkspace.image_url ? (
@@ -901,8 +901,8 @@ const CommunityWorkspacePage: React.FC = () => {
                       className="w-10 h-10 rounded-lg object-cover"
                     />
                   ) : (
-                    <div className="w-10 h-10 bg-[#fdb933]/10 rounded-lg flex items-center justify-center">
-                      <UsersIcon className="w-5 h-5 text-[#fdb933]" />
+                    <div className="w-10 h-10 bg-[#fbbf24]/10 rounded-lg flex items-center justify-center">
+                      <UsersIcon className="w-5 h-5 text-[#fbbf24]" />
                     </div>
                   )}
                   <div>
@@ -1107,7 +1107,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-[#00365b]">
+          <h2 className="text-xl font-semibold text-[#0a0a0a]">
             Reuniones de {workspace.community?.name}
           </h2>
           <p className="text-sm text-gray-600 mt-1">
@@ -1118,7 +1118,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
         {canManage && (
           <button
             onClick={handleCreateMeeting}
-            className="inline-flex items-center px-4 py-2 bg-[#fdb933] text-[#00365b] font-medium rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200 shadow-sm"
+            className="inline-flex items-center px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] font-medium rounded-lg hover:bg-[#fbbf24]/90 transition-colors duration-200 shadow-sm"
           >
             <PlusIcon className="h-4 w-4 mr-2" />
             Nueva Reunión
@@ -1148,7 +1148,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
               onClick={() => handleSortChange(field)}
               className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
                 sort.field === field
-                  ? 'bg-[#fdb933] text-[#00365b]'
+                  ? 'bg-[#fbbf24] text-[#0a0a0a]'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -1205,7 +1205,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
           {canManage && (
             <button
               onClick={handleCreateMeeting}
-              className="inline-flex items-center px-4 py-2 bg-[#fdb933] text-[#00365b] font-medium rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200"
+              className="inline-flex items-center px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] font-medium rounded-lg hover:bg-[#fbbf24]/90 transition-colors duration-200"
             >
               <PlusIcon className="h-4 w-4 mr-2" />
               Crear Primera Reunión
@@ -1541,7 +1541,7 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
       {/* Header with Upload Button */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-[#00365b]">
+          <h2 className="text-xl font-semibold text-[#0a0a0a]">
             {currentFolder ? `Documentos en ${currentFolder.folder_name}` : 'Documentos'}
           </h2>
           <p className="text-sm text-gray-600 mt-1">
@@ -1552,7 +1552,7 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
         {permissions.can_view && (
           <button
             onClick={() => setShowUploadModal(true)}
-            className="inline-flex items-center px-4 py-2 bg-[#fdb933] text-[#00365b] font-medium rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200 shadow-sm"
+            className="inline-flex items-center px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] font-medium rounded-lg hover:bg-[#fbbf24]/90 transition-colors duration-200 shadow-sm"
           >
             <PlusIcon className="h-4 w-4 mr-2" />
             Subir Documento
@@ -2246,7 +2246,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-[#00365b]">
+          <h2 className="text-xl font-semibold text-[#0a0a0a]">
             Mensajería de {workspace.community?.name}
           </h2>
           <p className="text-sm text-gray-600 mt-1">
@@ -2257,7 +2257,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
         {permissions.can_create_threads && (
           <button
             onClick={() => setShowThreadCreationModal(true)}
-            className="inline-flex items-center px-4 py-2 bg-[#fdb933] text-[#00365b] font-medium rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200 shadow-sm"
+            className="inline-flex items-center px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] font-medium rounded-lg hover:bg-[#fbbf24]/90 transition-colors duration-200 shadow-sm"
           >
             <PlusIcon className="h-4 w-4 mr-2" />
             Nuevo Hilo
@@ -2309,7 +2309,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
                         thread.category_config.color === '#f59e0b' ? 'bg-yellow-100 text-yellow-800' :
                         thread.category_config.color === '#3b82f6' ? 'bg-blue-100 text-blue-800' :
                         thread.category_config.color === '#10b981' ? 'bg-green-100 text-green-800' :
-                        thread.category_config.color === '#8b5cf6' ? 'bg-purple-100 text-purple-800' :
+                        thread.category_config.color === '#8b5cf6' ? 'bg-amber-100 text-amber-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {thread.category_config.label}
@@ -2354,7 +2354,7 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
                 {permissions.can_create_threads && (
                   <button
                     onClick={() => setShowThreadCreationModal(true)}
-                    className="inline-flex items-center px-4 py-2 bg-[#fdb933] text-[#00365b] font-medium rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200"
+                    className="inline-flex items-center px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] font-medium rounded-lg hover:bg-[#fbbf24]/90 transition-colors duration-200"
                   >
                     <PlusIcon className="h-4 w-4 mr-2" />
                     Crear Primer Hilo

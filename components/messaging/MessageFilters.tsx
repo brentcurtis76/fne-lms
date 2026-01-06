@@ -1,5 +1,5 @@
 // =============================================================================
-// FNE LMS - Message Filters Component
+// Genera - Message Filters Component
 // =============================================================================
 // Advanced filtering interface for messaging system
 // Phase 4 of Collaborative Workspace System
@@ -171,7 +171,7 @@ export default function MessageFilters({
             onClick={() => onViewChange('messages')}
             className={`px-3 py-2 flex items-center space-x-2 text-sm ${
               activeView === 'messages'
-                ? 'bg-[#00365b] text-white'
+                ? 'bg-[#0a0a0a] text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-50'
             } transition-colors`}
           >
@@ -182,7 +182,7 @@ export default function MessageFilters({
             onClick={() => onViewChange('threads')}
             className={`px-3 py-2 flex items-center space-x-2 text-sm ${
               activeView === 'threads'
-                ? 'bg-[#00365b] text-white'
+                ? 'bg-[#0a0a0a] text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-50'
             } transition-colors`}
           >
@@ -196,14 +196,14 @@ export default function MessageFilters({
           onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
           className={`flex items-center space-x-2 px-3 py-2 border rounded-lg transition-colors ${
             showAdvancedFilters || activeFilterCount > 0
-              ? 'border-[#00365b] bg-[#00365b] text-white'
+              ? 'border-[#0a0a0a] bg-[#0a0a0a] text-white'
               : 'border-gray-300 text-gray-600 hover:bg-gray-50'
           }`}
         >
           <Filter className="w-4 h-4" />
           <span className="text-sm">Filtros</span>
           {activeFilterCount > 0 && (
-            <span className="bg-[#fdb933] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            <span className="bg-[#fbbf24] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
               {activeFilterCount}
             </span>
           )}
@@ -603,7 +603,7 @@ export default function MessageFilters({
           {activeView === 'messages' && (
             <>
               {messageFilters.mention_filter !== 'all' && (
-                <span className="inline-flex items-center px-2 py-1 rounded bg-purple-100 text-purple-800">
+                <span className="inline-flex items-center px-2 py-1 rounded bg-amber-100 text-amber-800">
                   Filtro de menciones
                 </span>
               )}
@@ -629,7 +629,7 @@ export default function MessageFilters({
           {activeView === 'threads' && (
             <>
               {threadFilters.status !== 'all' && (
-                <span className="inline-flex items-center px-2 py-1 rounded bg-indigo-100 text-indigo-800">
+                <span className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-slate-800">
                   Estado específico
                 </span>
               )}

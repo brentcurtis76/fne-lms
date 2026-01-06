@@ -91,9 +91,9 @@ const KPISummaryCard: React.FC<KPISummaryCardProps> = ({
     },
     avgCompletionRate: { 
       icon: BookOpen, 
-      bgColor: 'bg-purple-50', 
-      iconColor: 'text-purple-600',
-      borderColor: 'border-purple-200'
+      bgColor: 'bg-amber-50', 
+      iconColor: 'text-amber-600',
+      borderColor: 'border-amber-200'
     },
     totalTimeSpent: { 
       icon: Clock, 
@@ -103,9 +103,9 @@ const KPISummaryCard: React.FC<KPISummaryCardProps> = ({
     },
     coursesInProgress: { 
       icon: BookOpen, 
-      bgColor: 'bg-indigo-50', 
-      iconColor: 'text-indigo-600',
-      borderColor: 'border-indigo-200'
+      bgColor: 'bg-slate-50', 
+      iconColor: 'text-slate-600',
+      borderColor: 'border-slate-200'
     },
     atRiskUsers: { 
       icon: AlertTriangle, 

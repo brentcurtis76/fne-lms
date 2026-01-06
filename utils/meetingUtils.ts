@@ -1,5 +1,5 @@
 /**
- * Meeting System Utilities for FNE LMS
+ * Meeting System Utilities for Genera
  * Integrates with existing workspace access control and provides meeting management functions
  */
 

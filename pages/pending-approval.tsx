@@ -70,7 +70,7 @@ export default function PendingApprovalPage() {
   return (
     <>
       <Head>
-        <title>Estado de Cuenta | FNE LMS</title>
+        <title>Estado de Cuenta | Genera</title>
       </Head>
       <Header user={user} isAdmin={false} showNavigation={false} onLogout={handleSignOut} />
       

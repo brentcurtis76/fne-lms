@@ -143,7 +143,7 @@ export default function LearningPathAnalytics({ selectedPath, dateRange = 30 }: 
             title="Completados"
             value={data.summary.totalCompletedUsers}
             icon={<Target className="h-5 w-5" />}
-            color="text-purple-600"
+            color="text-amber-600"
           />
           <SummaryCard
             title="Tasa Promedio"

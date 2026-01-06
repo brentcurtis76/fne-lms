@@ -147,13 +147,13 @@ const LessonBreadcrumb: React.FC<LessonBreadcrumbProps> = ({
                 {item.href ? (
                   <Link 
                     href={item.href}
-                    className="flex items-center gap-2 text-gray-600 hover:text-[#00365b] transition-colors py-1"
+                    className="flex items-center gap-2 text-gray-600 hover:text-[#0a0a0a] transition-colors py-1"
                   >
                     {item.icon}
                     <span>{item.label}</span>
                   </Link>
                 ) : (
-                  <div className="flex items-center gap-2 text-[#00365b] font-medium py-1">
+                  <div className="flex items-center gap-2 text-[#0a0a0a] font-medium py-1">
                     {item.icon}
                     <span>{item.label}</span>
                   </div>
@@ -185,7 +185,7 @@ const LessonBreadcrumb: React.FC<LessonBreadcrumbProps> = ({
                 disabled={isLoading}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   hasUnsavedChanges
-                    ? 'bg-[#00365b] text-white hover:bg-[#fdb933] hover:text-[#00365b]'
+                    ? 'bg-[#0a0a0a] text-white hover:bg-[#fbbf24] hover:text-[#0a0a0a]'
                     : 'bg-gray-100 text-gray-500 cursor-not-allowed'
                 }`}
               >
@@ -207,10 +207,10 @@ const LessonBreadcrumb: React.FC<LessonBreadcrumbProps> = ({
           {/* Progress Section */}
           <div className="space-y-3 pt-2 border-t border-gray-200">
             <div className="text-center">
-              <div className="text-lg font-semibold text-[#00365b] mb-2">35%</div>
+              <div className="text-lg font-semibold text-[#0a0a0a] mb-2">35%</div>
               <div className="mx-auto w-3 h-24 bg-gray-200 rounded-full overflow-hidden">
                 <div 
-                  className="w-full bg-gradient-to-t from-[#00365b] to-[#fdb933] transition-all duration-300 rounded-full"
+                  className="w-full bg-gradient-to-t from-[#0a0a0a] to-[#fbbf24] transition-all duration-300 rounded-full"
                   style={{ height: '35%', marginTop: 'auto' }}
                 ></div>
               </div>
@@ -222,7 +222,7 @@ const LessonBreadcrumb: React.FC<LessonBreadcrumbProps> = ({
           <div className="space-y-2 pt-2 border-t border-gray-200">
             <Link
               href={`/admin/course-builder/${courseId}/${moduleId}`}
-              className="block text-sm text-gray-600 hover:text-[#00365b] transition-colors text-center py-2"
+              className="block text-sm text-gray-600 hover:text-[#0a0a0a] transition-colors text-center py-2"
             >
               ← Volver al Módulo
             </Link>

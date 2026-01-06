@@ -91,7 +91,7 @@ export default function LessonSidebar({
         onClick={onClose}
         className={`block px-3 py-2 rounded-md text-sm transition-colors ${
           isActive
-            ? 'bg-[#00365b] text-white'
+            ? 'bg-[#0a0a0a] text-white'
             : 'hover:bg-gray-100 text-gray-700'
         }`}
       >
@@ -137,11 +137,11 @@ export default function LessonSidebar({
       <div className="p-4 border-b border-gray-200">
         <Link
           href={`/student/course/${courseId}`}
-          className="text-sm text-gray-500 hover:text-[#00365b] flex items-center gap-1 mb-2"
+          className="text-sm text-gray-500 hover:text-[#0a0a0a] flex items-center gap-1 mb-2"
         >
           ← Volver al curso
         </Link>
-        <h2 className="font-semibold text-[#00365b] truncate" title={courseTitle}>
+        <h2 className="font-semibold text-[#0a0a0a] truncate" title={courseTitle}>
           {courseTitle}
         </h2>
       </div>

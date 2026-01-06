@@ -213,7 +213,7 @@ async function ensureWorkspaceIntegration() {
 
 // Main execution
 async function main() {
-  console.log('🎯 FNE LMS Meeting System Migration');
+  console.log('🎯 Genera Meeting System Migration');
   console.log('================================\n');
   
   // Check workspace integration first

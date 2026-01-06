@@ -1,5 +1,5 @@
 // =============================================================================
-// FNE LMS - Document Repository Utilities
+// Genera - Document Repository Utilities
 // =============================================================================
 // Utility functions for document management following established patterns
 

@@ -1,6 +1,6 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 /**
- * Role Assignment Modal for FNE LMS 6-Role System
+ * Role Assignment Modal for Genera 6-Role System
  * Allows admins to assign/remove roles from users
  */
 
@@ -407,7 +407,7 @@ export default function RoleAssignmentModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
-            <h2 className="text-2xl font-bold text-[#00365b]">Gestión de Roles</h2>
+            <h2 className="text-2xl font-bold text-[#0a0a0a]">Gestión de Roles</h2>
             <p className="text-gray-600">
               {userName} ({userEmail})
             </p>
@@ -423,14 +423,14 @@ export default function RoleAssignmentModal({
         <div className="p-6">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00365b]"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0a0a0a]"></div>
               <span className="ml-2 text-gray-600">Cargando...</span>
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Current Roles */}
               <div>
-                <h3 className="text-lg font-semibold text-[#00365b] mb-4 flex items-center">
+                <h3 className="text-lg font-semibold text-[#0a0a0a] mb-4 flex items-center">
                   <Users className="mr-2" size={20} />
                   Roles Actuales
                 </h3>
@@ -453,11 +453,11 @@ export default function RoleAssignmentModal({
                       >
                         <div className="flex items-center space-x-3">
                           <div className={`w-3 h-3 rounded-full ${
-                            selectedRoleForView?.id === role.id ? 'bg-blue-600' : 'bg-[#00365b]'
+                            selectedRoleForView?.id === role.id ? 'bg-blue-600' : 'bg-[#0a0a0a]'
                           }`}></div>
                           <div>
                             <div className={`font-medium ${
-                              selectedRoleForView?.id === role.id ? 'text-blue-700' : 'text-[#00365b]'
+                              selectedRoleForView?.id === role.id ? 'text-blue-700' : 'text-[#0a0a0a]'
                             }`}>
                               {ROLE_NAMES[role.role_type]}
                             </div>
@@ -473,7 +473,7 @@ export default function RoleAssignmentModal({
                               e.stopPropagation();
                               handleEditRole(role);
                             }}
-                            className="text-[#00365b] hover:text-blue-800 transition-colors p-1"
+                            className="text-[#0a0a0a] hover:text-blue-800 transition-colors p-1"
                             title="Editar rol"
                           >
                             <Edit size={16} />
@@ -504,7 +504,7 @@ export default function RoleAssignmentModal({
                     <p className="text-gray-600 mb-4">Este usuario no tiene roles asignados</p>
                     <button
                       onClick={handleStartNewRole}
-                      className="bg-[#fdb933] text-white px-4 py-2 rounded-lg hover:bg-[#e6a530] transition-colors"
+                      className="bg-[#fbbf24] text-white px-4 py-2 rounded-lg hover:bg-[#e6a530] transition-colors"
                     >
                       + Asignar Primer Rol
                     </button>
@@ -512,7 +512,7 @@ export default function RoleAssignmentModal({
                 ) : (
                   <>
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-[#00365b] flex items-center">
+                      <h3 className="text-lg font-semibold text-[#0a0a0a] flex items-center">
                         {isViewing ? (
                           <>
                             <Users className="mr-2" size={20} />
@@ -533,7 +533,7 @@ export default function RoleAssignmentModal({
                       {(isViewing || isEditing) && (
                         <button
                           onClick={handleStartNewRole}
-                          className="text-sm bg-[#fdb933] text-white px-3 py-1 rounded-lg hover:bg-[#e6a530] transition-colors"
+                          className="text-sm bg-[#fbbf24] text-white px-3 py-1 rounded-lg hover:bg-[#e6a530] transition-colors"
                         >
                           + Nuevo Rol
                         </button>
@@ -608,7 +608,7 @@ export default function RoleAssignmentModal({
                             <select
                               value={selectedRole}
                               onChange={(e) => setSelectedRole(e.target.value as UserRoleType)}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                             >
                               {availableRoles.map((roleType) => (
                                 <option key={roleType} value={roleType}>
@@ -637,7 +637,7 @@ export default function RoleAssignmentModal({
                                   console.log('School selection changed to:', newSchoolId);
                                   console.log('Available communities for filtering:', availableCommunities);
                                 }}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                               >
                                 <option value="">{selectedRole === 'admin' ? 'Sin colegio específico' : 'Seleccionar colegio'}</option>
                                 {schools.map((school) => (
@@ -688,7 +688,7 @@ export default function RoleAssignmentModal({
                                           <select
                                             value={selectedGeneration}
                                             onChange={(e) => setSelectedGeneration(e.target.value)}
-                                            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent ${
+                                            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent ${
                                               isRequired && !selectedGeneration 
                                                 ? 'border-red-300 bg-red-50' 
                                                 : 'border-gray-300'
@@ -739,7 +739,7 @@ export default function RoleAssignmentModal({
                                   <select
                                     value={selectedCommunity}
                                     onChange={(e) => setSelectedCommunity(e.target.value)}
-                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                                   >
                                     <option value="">Sin asignar a comunidad específica</option>
                                     {availableCommunities
@@ -776,7 +776,7 @@ export default function RoleAssignmentModal({
                               <button
                                 onClick={handleUpdateRole}
                                 disabled={loading}
-                                className="w-full bg-[#fdb933] text-white py-3 px-4 rounded-lg hover:bg-[#e6a530] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                                className="w-full bg-[#fbbf24] text-white py-3 px-4 rounded-lg hover:bg-[#e6a530] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                               >
                                 {loading ? 'Actualizando...' : 'Actualizar Rol'}
                               </button>
@@ -807,7 +807,7 @@ export default function RoleAssignmentModal({
                                   className={`w-full py-3 px-4 rounded-lg transition-colors font-medium ${
                                     isFormInvalid 
                                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
-                                      : 'bg-[#fdb933] text-white hover:bg-[#e6a530] disabled:opacity-50 disabled:cursor-not-allowed'
+                                      : 'bg-[#fbbf24] text-white hover:bg-[#e6a530] disabled:opacity-50 disabled:cursor-not-allowed'
                                   }`}
                                   title={isFormInvalid ? 'Complete todos los campos requeridos' : ''}
                                 >

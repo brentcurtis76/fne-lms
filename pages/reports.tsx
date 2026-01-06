@@ -306,7 +306,7 @@ const ReportsPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#e8e5e2] flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00365b]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0a0a0a]"></div>
       </div>
     );
   }
@@ -335,7 +335,7 @@ const ReportsPage: React.FC = () => {
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
-            className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent text-sm"
+            className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent text-sm"
           >
             <option value="7">Últimos 7 días</option>
             <option value="30">Últimos 30 días</option>
@@ -364,7 +364,7 @@ const ReportsPage: React.FC = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center py-4 px-1 border-b-2 font-medium text-sm ${
                     activeTab === tab.id
-                      ? 'border-[#fdb933] text-[#00365b]'
+                      ? 'border-[#fbbf24] text-[#0a0a0a]'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -392,11 +392,11 @@ const ReportsPage: React.FC = () => {
                   </div>
                   <div className="text-sm text-green-800">Usuarios Activos</div>
                 </div>
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600">
+                <div className="bg-amber-50 p-4 rounded-lg">
+                  <div className="text-2xl font-bold text-amber-600">
                     {overviewData.summary.total_courses}
                   </div>
-                  <div className="text-sm text-purple-800">Total Cursos</div>
+                  <div className="text-sm text-amber-800">Total Cursos</div>
                 </div>
                 <div className="bg-yellow-50 p-4 rounded-lg">
                   <div className="text-2xl font-bold text-yellow-600">
@@ -439,7 +439,7 @@ const ReportsPage: React.FC = () => {
                               e.stopPropagation();
                               handleUserClick(user.id);
                             }}
-                            className="font-medium text-[#00365b] hover:text-[#fdb933] cursor-pointer transition-colors text-left"
+                            className="font-medium text-[#0a0a0a] hover:text-[#fbbf24] cursor-pointer transition-colors text-left"
                           >
                             {user.first_name} {user.last_name}
                           </button>
@@ -530,7 +530,7 @@ const ReportsPage: React.FC = () => {
                       <select
                         value={dateRange}
                         onChange={(e) => setDateRange(e.target.value)}
-                        className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                        className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                       >
                         <option value="7">Últimos 7 días</option>
                         <option value="30">Últimos 30 días</option>
@@ -545,7 +545,7 @@ const ReportsPage: React.FC = () => {
                       <select
                         value={groupBy}
                         onChange={(e) => setGroupBy(e.target.value)}
-                        className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                        className="p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                       >
                         <option value="day">Día</option>
                         <option value="week">Semana</option>
@@ -661,7 +661,7 @@ const ReportsPage: React.FC = () => {
                         <div className="text-sm text-gray-600">Docentes Activos</div>
                       </div>
                       <div className="text-center">
-                        <div className="text-2xl font-bold text-purple-600">
+                        <div className="text-2xl font-bold text-amber-600">
                           {formatPercentage(school.avg_lesson_completion)}
                         </div>
                         <div className="text-sm text-gray-600">Lecciones Completadas</div>

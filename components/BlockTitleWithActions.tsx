@@ -29,7 +29,7 @@ const BlockTitleWithActions: React.FC<BlockTitleWithActionsProps> = ({
           value={title || ''}
           onChange={(e) => onTitleChange(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 text-sm text-gray-700 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+          className="flex-1 text-sm text-gray-700 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
         />
         <BlockActionButtons 
           blockId={blockId} 

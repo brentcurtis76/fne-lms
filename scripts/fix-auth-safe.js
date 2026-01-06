@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-console.log('🔧 FNE LMS - Safe Authentication Fix\n');
+console.log('🔧 Genera - Safe Authentication Fix\n');
 
 // Check for backup
 const backups = fs.readdirSync('backups').filter(d => d.startsWith('auth-fix-'));
@@ -111,7 +111,7 @@ try {
     
     // Create the refactored AuthContext
     const refactoredAuthContext = `/**
- * Global Authentication Context for FNE LMS
+ * Global Authentication Context for Genera
  * Refactored to use SessionContextProvider as single source of truth
  * No competing onAuthStateChange listeners
  */

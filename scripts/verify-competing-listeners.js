@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-console.log('🔍 FNE LMS - Competing Session Listeners Verification\n');
+console.log('🔍 Genera - Competing Session Listeners Verification\n');
 console.log('=' + '='.repeat(60) + '\n');
 
 // Color codes for terminal output

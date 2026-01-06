@@ -81,8 +81,8 @@ export default function DebugIds() {
     return (
       <div className="min-h-screen bg-[#e8e5e2] flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b] mx-auto"></div>
-          <p className="mt-4 text-[#00365b] font-medium">Cargando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a] mx-auto"></div>
+          <p className="mt-4 text-[#0a0a0a] font-medium">Cargando...</p>
         </div>
       </div>
     );
@@ -91,7 +91,7 @@ export default function DebugIds() {
   return (
     <>
       <Head>
-        <title>Debug: Course & Module IDs | FNE LMS</title>
+        <title>Debug: Course & Module IDs | Genera</title>
       </Head>
 
       {/* Simple Header */}
@@ -99,13 +99,13 @@ export default function DebugIds() {
         <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
           <div className="flex items-center">
             <Link href="/">
-              <span className="text-xl font-bold text-[#00365b]">FNE LMS</span>
+              <span className="text-xl font-bold text-[#0a0a0a]">Genera</span>
             </Link>
           </div>
           <div className="flex items-center space-x-4">
             <button 
               onClick={handleLogout}
-              className="bg-[#00365b] text-white font-semibold py-2 px-6 rounded-full hover:bg-[#fdb933] hover:text-[#00365b] transition"
+              className="bg-[#0a0a0a] text-white font-semibold py-2 px-6 rounded-full hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition"
             >
               Cerrar Sesión
             </button>
@@ -116,7 +116,7 @@ export default function DebugIds() {
       <div className="min-h-screen bg-[#e8e5e2] pt-32 pb-20">
         <div className="container mx-auto px-6">
           <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-[#00365b] mb-4">
+            <h1 className="text-2xl md:text-3xl font-bold text-[#0a0a0a] mb-4">
               Debug: Course & Module IDs
             </h1>
             <p className="text-gray-600">
@@ -134,19 +134,19 @@ export default function DebugIds() {
             <div className="bg-white rounded-xl shadow-md p-6 text-center">
               <p className="text-gray-600">No courses found in the database.</p>
               <Link href="/admin/course-builder">
-                <button className="mt-4 px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-blue-700 transition">
+                <button className="mt-4 px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-blue-700 transition">
                   Create a Course
                 </button>
               </Link>
             </div>
           ) : (
             <div className="bg-white rounded-xl shadow-md p-6">
-              <h2 className="text-xl font-bold text-[#00365b] mb-4">Available Courses & Modules</h2>
+              <h2 className="text-xl font-bold text-[#0a0a0a] mb-4">Available Courses & Modules</h2>
               
               <div className="space-y-6">
                 {courses.map((course) => (
                   <div key={course.id} className="border-b border-gray-200 pb-6 last:border-b-0 last:pb-0">
-                    <h3 className="text-lg font-semibold text-[#00365b] mb-2">
+                    <h3 className="text-lg font-semibold text-[#0a0a0a] mb-2">
                       {course.title}
                     </h3>
                     <p className="text-sm text-gray-500 mb-2">
@@ -167,7 +167,7 @@ export default function DebugIds() {
                               
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <Link href={`/admin/course-builder/${course.id}/${module.id}/lessons`}>
-                                  <button className="px-3 py-1 text-xs bg-[#00365b] text-white rounded hover:bg-blue-700 transition">
+                                  <button className="px-3 py-1 text-xs bg-[#0a0a0a] text-white rounded hover:bg-blue-700 transition">
                                     Go to Lessons Page
                                   </button>
                                 </Link>
@@ -189,7 +189,7 @@ export default function DebugIds() {
                         <div className="bg-gray-50 p-3 rounded-lg">
                           <p className="text-gray-500">No modules found for this course.</p>
                           <Link href={`/admin/course-builder/${course.id}/modules`}>
-                            <button className="mt-2 px-3 py-1 text-xs bg-[#00365b] text-white rounded hover:bg-blue-700 transition">
+                            <button className="mt-2 px-3 py-1 text-xs bg-[#0a0a0a] text-white rounded hover:bg-blue-700 transition">
                               Create Modules
                             </button>
                           </Link>

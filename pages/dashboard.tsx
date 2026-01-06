@@ -506,8 +506,8 @@ export default function Dashboard() {
       >
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b] mx-auto"></div>
-            <p className="mt-4 text-[#00365b] font-medium">Cargando...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a] mx-auto"></div>
+            <p className="mt-4 text-[#0a0a0a] font-medium">Cargando...</p>
           </div>
         </div>
       </MainLayout>
@@ -547,7 +547,7 @@ export default function Dashboard() {
                     user={user}
                     avatarUrl={avatarUrl}
                     size="lg"
-                    className="ring-4 ring-[#fdb933] shadow-lg"
+                    className="ring-4 ring-[#fbbf24] shadow-lg"
                   />
                   <div className="space-y-2">
                     <p className="text-white"><span className="font-semibold text-brand_yellow">Nombre:</span> {profileName || 'No disponible'}</p>
@@ -611,8 +611,8 @@ export default function Dashboard() {
                               className="w-16 h-16 rounded-lg object-cover"
                             />
                           ) : (
-                            <div className="w-16 h-16 bg-[#fdb933]/10 rounded-lg flex items-center justify-center">
-                              <Users className="w-8 h-8 text-[#fdb933]" />
+                            <div className="w-16 h-16 bg-[#fbbf24]/10 rounded-lg flex items-center justify-center">
+                              <Users className="w-8 h-8 text-[#fbbf24]" />
                             </div>
                           )}
                           <div>

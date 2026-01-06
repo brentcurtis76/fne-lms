@@ -1,5 +1,5 @@
 /**
- * FNE LMS Data Seeding - Activity Generator
+ * Genera Data Seeding - Activity Generator
  * 
  * Generates realistic collaborative workspace activity with temporal patterns,
  * community-specific behaviors, and authentic interaction patterns

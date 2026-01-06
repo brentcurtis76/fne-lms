@@ -22,7 +22,7 @@ const askQuestion = (question) => {
 };
 
 async function main() {
-  console.log('🔧 FNE LMS Authentication Cleanup Script\n');
+  console.log('🔧 Genera Authentication Cleanup Script\n');
   
   // 1. Create backup
   console.log('1. Creating backup...');

@@ -26,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (resend && process.env.RESEND_API_KEY) {
       try {
         const { data, error } = await resend.emails.send({
-          from: process.env.EMAIL_FROM_ADDRESS || 'FNE LMS <notificaciones@nuevaeducacion.org>',
+          from: process.env.EMAIL_FROM_ADDRESS || 'Genera <notificaciones@nuevaeducacion.org>',
           to: [to],
           subject: subject,
           html: html,

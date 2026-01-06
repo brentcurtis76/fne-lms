@@ -27,18 +27,18 @@ export function SourceBadge({ source, sourceLPNames = [], showTooltip = true }: 
         const truncatedName = lpName.length > 20 ? lpName.slice(0, 20) + '...' : lpName;
         return {
           label: `LP: ${truncatedName}`,
-          bgColor: 'bg-purple-100',
-          textColor: 'text-purple-700',
-          borderColor: 'border-purple-200',
+          bgColor: 'bg-amber-100',
+          textColor: 'text-amber-700',
+          borderColor: 'border-amber-200',
           tooltip: `Vía ruta de aprendizaje: ${lpName}`
         };
       case 'directa_y_ruta':
         const multiLPName = sourceLPNames[0] || 'Ruta';
         return {
           label: 'Directa + LP',
-          bgColor: 'bg-indigo-100',
-          textColor: 'text-indigo-700',
-          borderColor: 'border-indigo-200',
+          bgColor: 'bg-slate-100',
+          textColor: 'text-slate-700',
+          borderColor: 'border-slate-200',
           tooltip: `Asignación directa + ${multiLPName}`
         };
       case 'inscripcion_otro':

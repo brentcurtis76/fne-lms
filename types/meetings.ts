@@ -1,5 +1,5 @@
 /**
- * Meeting System Types for FNE LMS
+ * Meeting System Types for Genera
  * Complete type definitions for the meeting documentation system
  */
 

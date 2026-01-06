@@ -210,7 +210,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-[#00365b]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#0a0a0a]" />
         <span className="ml-2 text-gray-600">Cargando preferencias...</span>
       </div>
     );
@@ -240,7 +240,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
             disabled={!hasChanges || saving}
             className={`flex items-center space-x-2 px-4 py-2 rounded transition-colors ${
               hasChanges
-                ? 'bg-[#fdb933] text-gray-900 hover:bg-[#fdc655]'
+                ? 'bg-[#fbbf24] text-gray-900 hover:bg-[#fdc655]'
                 : 'bg-gray-200 text-gray-500 cursor-not-allowed'
             }`}
           >
@@ -266,7 +266,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
               type="checkbox"
               checked={globalSettings.do_not_disturb}
               onChange={(e) => handleGlobalSettingChange('do_not_disturb', e.target.checked)}
-              className="w-4 h-4 text-[#00365b] rounded focus:ring-[#00365b]"
+              className="w-4 h-4 text-[#0a0a0a] rounded focus:ring-[#0a0a0a]"
             />
             <div>
               <span className="text-sm font-medium text-gray-900">No Molestar</span>
@@ -279,7 +279,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
               type="checkbox"
               checked={globalSettings.mobile_optimization}
               onChange={(e) => handleGlobalSettingChange('mobile_optimization', e.target.checked)}
-              className="w-4 h-4 text-[#00365b] rounded focus:ring-[#00365b]"
+              className="w-4 h-4 text-[#0a0a0a] rounded focus:ring-[#0a0a0a]"
             />
             <div>
               <span className="text-sm font-medium text-gray-900">Optimización Móvil</span>
@@ -292,7 +292,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
               type="checkbox"
               checked={globalSettings.auto_group}
               onChange={(e) => handleGlobalSettingChange('auto_group', e.target.checked)}
-              className="w-4 h-4 text-[#00365b] rounded focus:ring-[#00365b]"
+              className="w-4 h-4 text-[#0a0a0a] rounded focus:ring-[#0a0a0a]"
             />
             <div>
               <span className="text-sm font-medium text-gray-900">Agrupación Inteligente</span>
@@ -304,7 +304,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
         <div className="mt-4 flex space-x-4">
           <button
             onClick={() => toggleAllNotifications(true)}
-            className="text-sm text-[#00365b] hover:text-[#004a7a] font-medium"
+            className="text-sm text-[#0a0a0a] hover:text-[#004a7a] font-medium"
           >
             Activar todas
           </button>
@@ -379,7 +379,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
                           <button
                             onClick={() => handlePreferenceChange(type.key, 'in_app_enabled', !pref.in_app_enabled)}
                             className={`w-12 h-6 rounded-full transition-colors ${
-                              pref.in_app_enabled ? 'bg-[#00365b]' : 'bg-gray-300'
+                              pref.in_app_enabled ? 'bg-[#0a0a0a]' : 'bg-gray-300'
                             }`}
                           >
                             <span
@@ -393,7 +393,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
                           <button
                             onClick={() => handlePreferenceChange(type.key, 'email_enabled', !pref.email_enabled)}
                             className={`w-12 h-6 rounded-full transition-colors ${
-                              pref.email_enabled ? 'bg-[#00365b]' : 'bg-gray-300'
+                              pref.email_enabled ? 'bg-[#0a0a0a]' : 'bg-gray-300'
                             }`}
                           >
                             <span
@@ -407,7 +407,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
                           <select
                             value={pref.frequency}
                             onChange={(e) => handlePreferenceChange(type.key, 'frequency', e.target.value)}
-                            className="text-sm border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-1 focus:ring-[#00365b]"
+                            className="text-sm border border-gray-300 rounded px-3 py-1 focus:outline-none focus:ring-1 focus:ring-[#0a0a0a]"
                           >
                             <option value="immediate">Inmediato</option>
                             <option value="daily">Diario</option>
@@ -445,14 +445,14 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
                 type="time"
                 value={globalSettings.quiet_hours_start}
                 onChange={(e) => handleGlobalSettingChange('quiet_hours_start', e.target.value)}
-                className="border border-gray-300 rounded px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#00365b]"
+                className="border border-gray-300 rounded px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#0a0a0a]"
               />
               <label className="text-sm font-medium text-gray-700">Hasta:</label>
               <input
                 type="time"
                 value={globalSettings.quiet_hours_end}
                 onChange={(e) => handleGlobalSettingChange('quiet_hours_end', e.target.value)}
-                className="border border-gray-300 rounded px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#00365b]"
+                className="border border-gray-300 rounded px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#0a0a0a]"
               />
             </div>
             <div className="space-y-2">
@@ -461,7 +461,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
                   type="checkbox"
                   checked={globalSettings.weekend_quiet}
                   onChange={(e) => handleGlobalSettingChange('weekend_quiet', e.target.checked)}
-                  className="w-4 h-4 text-[#00365b] rounded focus:ring-[#00365b]"
+                  className="w-4 h-4 text-[#0a0a0a] rounded focus:ring-[#0a0a0a]"
                 />
                 <span className="text-sm text-gray-700">Incluir fines de semana</span>
               </label>
@@ -470,7 +470,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
                   type="checkbox"
                   checked={globalSettings.priority_override}
                   onChange={(e) => handleGlobalSettingChange('priority_override', e.target.checked)}
-                  className="w-4 h-4 text-[#00365b] rounded focus:ring-[#00365b]"
+                  className="w-4 h-4 text-[#0a0a0a] rounded focus:ring-[#0a0a0a]"
                 />
                 <span className="text-sm text-gray-700">Permitir notificaciones prioritarias</span>
               </label>
@@ -490,7 +490,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
               <select
                 value={globalSettings.email_frequency}
                 onChange={(e) => handleGlobalSettingChange('email_frequency', e.target.value)}
-                className="mt-1 block w-full md:w-auto border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#00365b]"
+                className="mt-1 block w-full md:w-auto border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#0a0a0a]"
               >
                 <option value="immediate">Inmediato (al momento)</option>
                 <option value="daily">Resumen diario (9 AM)</option>
@@ -518,7 +518,7 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
                 max="50"
                 value={globalSettings.max_per_hour}
                 onChange={(e) => handleGlobalSettingChange('max_per_hour', parseInt(e.target.value))}
-                className="w-20 border border-gray-300 rounded px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#00365b]"
+                className="w-20 border border-gray-300 rounded px-3 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#0a0a0a]"
               />
             </div>
           </div>

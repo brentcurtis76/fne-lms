@@ -122,7 +122,7 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
               id="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
               required
             />
           </div>
@@ -137,7 +137,7 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
               id="first_name"
               value={formData.first_name}
               onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
             />
           </div>
 
@@ -151,7 +151,7 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
               id="last_name"
               value={formData.last_name}
               onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
             />
           </div>
 
@@ -165,7 +165,7 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
               id="school"
               value={formData.school}
               onChange={(e) => setFormData({ ...formData, school: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
               placeholder="Opcional"
             />
           </div>
@@ -174,7 +174,7 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-[#00365b] text-white px-4 py-2 rounded-md hover:bg-[#002a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+              className="flex-1 bg-[#0a0a0a] text-white px-4 py-2 rounded-md hover:bg-[#002a4a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             >
               {loading ? (
                 <>

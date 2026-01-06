@@ -11,13 +11,13 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 async function getSchemaViaAPI() {
   console.log('Fetching schema information via Supabase API...\n');
   
-  let schemaSQL = '-- FNE LMS Database Schema (Basic Structure)\n';
+  let schemaSQL = '-- Genera Database Schema (Basic Structure)\n';
   schemaSQL += '-- Generated on: ' + new Date().toISOString() + '\n';
   schemaSQL += '-- Note: This is a basic schema extraction. For complete DDL with all constraints,\n';
   schemaSQL += '-- indexes, and RLS policies, use pg_dump or Supabase dashboard export.\n\n';
   
   try {
-    // List of known tables in the FNE LMS system
+    // List of known tables in the Genera system
     const tables = [
       'profiles',
       'user_roles',
@@ -96,7 +96,7 @@ async function getSchemaViaAPI() {
     }
     
     // Add common structure patterns
-    schemaSQL += '\n-- Common Column Patterns in FNE LMS:\n';
+    schemaSQL += '\n-- Common Column Patterns in Genera:\n';
     schemaSQL += '-- Most tables include:\n';
     schemaSQL += '--   id UUID PRIMARY KEY DEFAULT uuid_generate_v4()\n';
     schemaSQL += '--   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone(\'utc\'::text, now())\n';

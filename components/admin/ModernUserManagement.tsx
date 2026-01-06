@@ -139,8 +139,8 @@ export default function ModernUserManagement({
       admin: 'bg-red-100 text-red-700 border-red-200',
       consultor: 'bg-emerald-100 text-emerald-700 border-emerald-200',
       docente: 'bg-blue-100 text-blue-700 border-blue-200',
-      lider_comunidad: 'bg-purple-100 text-purple-700 border-purple-200',
-      lider_generacion: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+      lider_comunidad: 'bg-amber-100 text-amber-700 border-amber-200',
+      lider_generacion: 'bg-slate-100 text-slate-700 border-slate-200',
       equipo_directivo: 'bg-orange-100 text-orange-700 border-orange-200'
     };
     return colors[role] || 'bg-gray-100 text-gray-700 border-gray-200';
@@ -179,13 +179,13 @@ export default function ModernUserManagement({
             </p>
           </div>
           <div className="mt-4 sm:mt-0 flex gap-3">
-            <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]">
+            <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]">
               <Download className="w-4 h-4 mr-2" />
               Exportar
             </button>
             <button 
               onClick={onAddUser}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-[#00365b] hover:bg-[#002844] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]">
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-[#0a0a0a] hover:bg-[#002844] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]">
               <UserPlus className="w-4 h-4 mr-2" />
               Nuevo Usuario
             </button>
@@ -263,7 +263,7 @@ export default function ModernUserManagement({
               onClick={() => setActiveTab('pending')}
               className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'pending'
-                  ? 'border-[#fdb933] text-[#00365b]'
+                  ? 'border-[#fbbf24] text-[#0a0a0a]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -278,7 +278,7 @@ export default function ModernUserManagement({
               onClick={() => setActiveTab('approved')}
               className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'approved'
-                  ? 'border-[#fdb933] text-[#00365b]'
+                  ? 'border-[#fbbf24] text-[#0a0a0a]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -291,7 +291,7 @@ export default function ModernUserManagement({
               onClick={() => setActiveTab('all')}
               className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'all'
-                  ? 'border-[#fdb933] text-[#00365b]'
+                  ? 'border-[#fbbf24] text-[#0a0a0a]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
@@ -313,7 +313,7 @@ export default function ModernUserManagement({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#00365b] focus:border-[#00365b] sm:text-sm"
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#0a0a0a] focus:border-[#0a0a0a] sm:text-sm"
               placeholder="Buscar por nombre, email o escuela..."
             />
           </div>
@@ -330,7 +330,7 @@ export default function ModernUserManagement({
               <span className="text-sm text-gray-500">
                 {selectedUsers.size} seleccionados
               </span>
-              <button className="text-sm text-[#00365b] hover:text-[#002844]">
+              <button className="text-sm text-[#0a0a0a] hover:text-[#002844]">
                 Acciones masivas
               </button>
             </div>
@@ -345,7 +345,7 @@ export default function ModernUserManagement({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Rol
                 </label>
-                <select className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#00365b] focus:border-[#00365b] sm:text-sm rounded-md">
+                <select className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#0a0a0a] focus:border-[#0a0a0a] sm:text-sm rounded-md">
                   <option>Todos los roles</option>
                   <option>Docente</option>
                   <option>Consultor</option>
@@ -356,7 +356,7 @@ export default function ModernUserManagement({
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Escuela
                 </label>
-                <select className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#00365b] focus:border-[#00365b] sm:text-sm rounded-md">
+                <select className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#0a0a0a] focus:border-[#0a0a0a] sm:text-sm rounded-md">
                   <option>Todas las escuelas</option>
                   <option>Los Pellines</option>
                   <option>Otra Escuela</option>
@@ -369,7 +369,7 @@ export default function ModernUserManagement({
                 <select 
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#00365b] focus:border-[#00365b] sm:text-sm rounded-md"
+                  className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-[#0a0a0a] focus:border-[#0a0a0a] sm:text-sm rounded-md"
                 >
                   <option value="date">Fecha de registro</option>
                   <option value="name">Nombre</option>
@@ -390,7 +390,7 @@ export default function ModernUserManagement({
                 <th scope="col" className="w-12 px-6 py-3">
                   <input
                     type="checkbox"
-                    className="h-4 w-4 text-[#00365b] focus:ring-[#00365b] border-gray-300 rounded"
+                    className="h-4 w-4 text-[#0a0a0a] focus:ring-[#0a0a0a] border-gray-300 rounded"
                     onChange={(e) => {
                       if (e.target.checked) {
                         setSelectedUsers(new Set(filteredUsers.map(u => u.id)));
@@ -439,7 +439,7 @@ export default function ModernUserManagement({
                         }
                         setSelectedUsers(newSelected);
                       }}
-                      className="h-4 w-4 text-[#00365b] focus:ring-[#00365b] border-gray-300 rounded"
+                      className="h-4 w-4 text-[#0a0a0a] focus:ring-[#0a0a0a] border-gray-300 rounded"
                     />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -522,14 +522,14 @@ export default function ModernUserManagement({
                         <>
                           <button
                             onClick={() => onRoleChange(user)}
-                            className="text-[#00365b] hover:text-[#002844] p-1 hover:bg-blue-50 rounded transition-colors"
+                            className="text-[#0a0a0a] hover:text-[#002844] p-1 hover:bg-blue-50 rounded transition-colors"
                             title="Gestionar roles"
                           >
                             <Shield className="w-5 h-5" />
                           </button>
                           <button
                             onClick={() => onPasswordReset(user)}
-                            className="text-[#00365b] hover:text-[#002844] p-1 hover:bg-blue-50 rounded transition-colors"
+                            className="text-[#0a0a0a] hover:text-[#002844] p-1 hover:bg-blue-50 rounded transition-colors"
                             title="Restablecer contraseña"
                           >
                             <Key className="w-5 h-5" />

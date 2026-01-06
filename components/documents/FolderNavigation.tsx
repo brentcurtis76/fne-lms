@@ -1,5 +1,5 @@
 // =============================================================================
-// FNE LMS - Folder Navigation Component
+// Genera - Folder Navigation Component
 // =============================================================================
 // Breadcrumb navigation with folder creation and management
 
@@ -146,7 +146,7 @@ export default function FolderNavigation({
           <button
             onClick={() => onFolderNavigate(null)}
             disabled={loading}
-            className="flex items-center space-x-1 text-gray-600 hover:text-[#00365b] transition-colors disabled:opacity-50"
+            className="flex items-center space-x-1 text-gray-600 hover:text-[#0a0a0a] transition-colors disabled:opacity-50"
           >
             <Home className="w-4 h-4" />
             <span className="text-sm">Inicio</span>
@@ -159,7 +159,7 @@ export default function FolderNavigation({
               <button
                 onClick={() => onFolderNavigate(item.id)}
                 disabled={loading}
-                className="text-sm text-gray-600 hover:text-[#00365b] transition-colors truncate disabled:opacity-50"
+                className="text-sm text-gray-600 hover:text-[#0a0a0a] transition-colors truncate disabled:opacity-50"
               >
                 {item.name}
               </button>
@@ -228,7 +228,7 @@ export default function FolderNavigation({
             <button
               onClick={() => setShowCreateFolder(!showCreateFolder)}
               disabled={loading}
-              className="flex items-center space-x-2 text-sm text-[#00365b] hover:text-[#004a7c] transition-colors disabled:opacity-50"
+              className="flex items-center space-x-2 text-sm text-[#0a0a0a] hover:text-[#004a7c] transition-colors disabled:opacity-50"
             >
               <FolderPlus className="w-4 h-4" />
               <span>Nueva Carpeta</span>
@@ -241,7 +241,7 @@ export default function FolderNavigation({
       {showCreateFolder && (
         <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
           <div className="flex items-center space-x-3">
-            <Folder className="w-5 h-5 text-[#fdb933]" />
+            <Folder className="w-5 h-5 text-[#fbbf24]" />
             <input
               type="text"
               value={newFolderName}
@@ -258,7 +258,7 @@ export default function FolderNavigation({
             <button
               onClick={handleCreateFolder}
               disabled={creatingFolder || !newFolderName.trim()}
-              className="bg-[#00365b] text-white px-4 py-2 text-sm rounded-lg hover:bg-[#004a7c] transition-colors disabled:opacity-50"
+              className="bg-[#0a0a0a] text-white px-4 py-2 text-sm rounded-lg hover:bg-[#004a7c] transition-colors disabled:opacity-50"
             >
               {creatingFolder ? 'Creando...' : 'Crear'}
             </button>

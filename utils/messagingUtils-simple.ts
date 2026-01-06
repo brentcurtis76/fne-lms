@@ -1,6 +1,6 @@
 /**
  * Simplified Messaging System Utilities
- * Phase 4 of Collaborative Workspace System for FNE LMS
+ * Phase 4 of Collaborative Workspace System for Genera
  * Minimal version to get messaging working without complex functions
  */
 

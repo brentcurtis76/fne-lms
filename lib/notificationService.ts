@@ -1,5 +1,5 @@
 /**
- * FNE LMS - Notification Triggers System
+ * Genera - Notification Triggers System
  * Centralized service for automated notification generation
  *
  * Architecture: Hybrid (Code Defaults + DB Override)

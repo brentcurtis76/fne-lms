@@ -1,6 +1,6 @@
 /**
  * Messaging System Type Definitions
- * Phase 4 of Collaborative Workspace System for FNE LMS
+ * Phase 4 of Collaborative Workspace System for Genera
  * Following established patterns from types/documents.ts
  */
 

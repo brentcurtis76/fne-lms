@@ -138,7 +138,7 @@ export default function FeedbackPermissionsManager() {
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00365b]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0a0a0a]"></div>
       </div>
     );
   }
@@ -164,14 +164,14 @@ export default function FeedbackPermissionsManager() {
               placeholder="Buscar por nombre o email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-3 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+              className="pl-10 pr-3 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
             />
           </div>
           
           <select
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
           >
             <option value="all">Todos los roles</option>
             <option value="admin">Administradores</option>
@@ -199,7 +199,7 @@ export default function FeedbackPermissionsManager() {
                   </div>
                   <span className={`
                     inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                    ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'}
+                    ${user.role === 'admin' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'}
                   `}>
                     {getRoleName(user.role)}
                   </span>

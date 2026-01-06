@@ -387,7 +387,7 @@ export default function BibliographyBlockEditor({
             type="text"
             value={block.payload.title || ''}
             onChange={(e) => handleChange('title', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
             placeholder="Ej: Bibliografía & Recursos"
           />
         </div>
@@ -400,7 +400,7 @@ export default function BibliographyBlockEditor({
           <textarea
             value={block.payload.description || ''}
             onChange={(e) => handleChange('description', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
             rows={2}
             placeholder="Descripción breve de los recursos disponibles"
           />
@@ -413,7 +413,7 @@ export default function BibliographyBlockEditor({
               type="checkbox"
               checked={block.payload.showCategories || false}
               onChange={(e) => handleChange('showCategories', e.target.checked)}
-              className="w-4 h-4 text-[#00365b] focus:ring-[#00365b] border-gray-300 rounded"
+              className="w-4 h-4 text-[#0a0a0a] focus:ring-[#0a0a0a] border-gray-300 rounded"
             />
             <span className="text-sm text-gray-700">Agrupar por categorías</span>
           </label>
@@ -534,7 +534,7 @@ export default function BibliographyBlockEditor({
                       onClick={() => toggleItemExpanded(item.id)}
                       className={`p-1 rounded flex items-center gap-1 ${
                         expandedItems.has(item.id) 
-                          ? 'bg-[#00365b] text-white hover:bg-[#00365b]/90' 
+                          ? 'bg-[#0a0a0a] text-white hover:bg-[#0a0a0a]/90' 
                           : 'hover:bg-gray-200 text-gray-700'
                       }`}
                       title={expandedItems.has(item.id) ? 'Cerrar edición' : 'Editar'}
@@ -566,7 +566,7 @@ export default function BibliographyBlockEditor({
                     {/* Edit Header */}
                     <div className="border-b pb-3 mb-4">
                       <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                        <Edit2 className="w-4 h-4 text-[#00365b]" />
+                        <Edit2 className="w-4 h-4 text-[#0a0a0a]" />
                         Editando {item.type === 'pdf' ? 'PDF' : item.type === 'image' ? 'Imagen' : 'Enlace'}
                       </h4>
                     </div>
@@ -580,7 +580,7 @@ export default function BibliographyBlockEditor({
                         type="text"
                         value={item.title}
                         onChange={(e) => updateItem(item.id, 'title', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                         placeholder={item.type === 'pdf' ? 'Título del documento' : item.type === 'image' ? 'Título de la imagen' : 'Título del enlace'}
                       />
                     </div>
@@ -679,7 +679,7 @@ export default function BibliographyBlockEditor({
                                 className={`flex-1 px-3 py-2 border-2 border-dashed rounded-md text-center cursor-pointer transition-all ${
                                   uploadingFile 
                                     ? 'border-amber-400 bg-amber-50 cursor-not-allowed' 
-                                    : 'border-gray-300 hover:border-[#00365b] hover:bg-blue-50'
+                                    : 'border-gray-300 hover:border-[#0a0a0a] hover:bg-blue-50'
                                 }`}
                               >
                                 {uploadingFile ? (
@@ -711,7 +711,7 @@ export default function BibliographyBlockEditor({
                           type="url"
                           value={item.url}
                           onChange={(e) => updateItem(item.id, 'url', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                           placeholder="https://ejemplo.com/recurso"
                         />
                       )}
@@ -728,7 +728,7 @@ export default function BibliographyBlockEditor({
                           type="text"
                           value={item.author || ''}
                           onChange={(e) => updateItem(item.id, 'author', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                           placeholder="Nombre del autor o autores"
                         />
                       </div>
@@ -742,7 +742,7 @@ export default function BibliographyBlockEditor({
                           type="text"
                           value={item.year || ''}
                           onChange={(e) => updateItem(item.id, 'year', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                           placeholder="2024"
                           maxLength={4}
                         />
@@ -758,7 +758,7 @@ export default function BibliographyBlockEditor({
                         type="text"
                         value={item.category || ''}
                         onChange={(e) => updateItem(item.id, 'category', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                         placeholder="Ej: Lecturas obligatorias, Material complementario"
                       />
                     </div>
@@ -771,7 +771,7 @@ export default function BibliographyBlockEditor({
                       <textarea
                         value={item.description || ''}
                         onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                         rows={2}
                         placeholder="Breve descripción del recurso"
                       />

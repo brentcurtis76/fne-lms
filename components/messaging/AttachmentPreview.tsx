@@ -1,5 +1,5 @@
 // =============================================================================
-// FNE LMS - Attachment Preview Modal Component
+// Genera - Attachment Preview Modal Component
 // =============================================================================
 // Professional attachment preview for messaging system
 // Phase 4 of Collaborative Workspace System
@@ -128,7 +128,7 @@ export default function AttachmentPreview({
             <div className="flex justify-center space-x-3">
               <button
                 onClick={handleDownload}
-                className="bg-[#00365b] text-white px-4 py-2 rounded-lg hover:bg-[#004a7c] transition-colors flex items-center space-x-2"
+                className="bg-[#0a0a0a] text-white px-4 py-2 rounded-lg hover:bg-[#004a7c] transition-colors flex items-center space-x-2"
               >
                 <Download className="w-4 h-4" />
                 <span>Descargar</span>
@@ -240,7 +240,7 @@ export default function AttachmentPreview({
       return (
         <div className="flex-1 flex items-center justify-center bg-gray-50">
           <div className="text-center">
-            <div className="w-24 h-24 mx-auto mb-4 rounded-lg bg-[#00365b] flex items-center justify-center">
+            <div className="w-24 h-24 mx-auto mb-4 rounded-lg bg-[#0a0a0a] flex items-center justify-center">
               <div className="text-white text-3xl">🎵</div>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-4">
@@ -292,7 +292,7 @@ export default function AttachmentPreview({
             {canReply && message && onReply && (
               <button
                 onClick={handleReply}
-                className="text-gray-600 hover:text-[#00365b] p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="text-gray-600 hover:text-[#0a0a0a] p-2 rounded-lg hover:bg-gray-100 transition-colors"
                 title="Responder mensaje"
               >
                 <Reply className="w-5 h-5" />
@@ -302,7 +302,7 @@ export default function AttachmentPreview({
             {onShare && (
               <button
                 onClick={() => onShare(attachment)}
-                className="text-gray-600 hover:text-[#00365b] p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="text-gray-600 hover:text-[#0a0a0a] p-2 rounded-lg hover:bg-gray-100 transition-colors"
                 title="Compartir archivo"
               >
                 <Share2 className="w-5 h-5" />
@@ -311,7 +311,7 @@ export default function AttachmentPreview({
 
             <button
               onClick={handleDownload}
-              className="bg-[#00365b] text-white px-4 py-2 rounded-lg hover:bg-[#004a7c] transition-colors flex items-center space-x-2"
+              className="bg-[#0a0a0a] text-white px-4 py-2 rounded-lg hover:bg-[#004a7c] transition-colors flex items-center space-x-2"
             >
               <Download className="w-4 h-4" />
               <span>Descargar</span>
@@ -333,7 +333,7 @@ export default function AttachmentPreview({
             {loading ? (
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00365b] mx-auto mb-4" />
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0a0a0a] mx-auto mb-4" />
                   <p className="text-gray-500">Cargando vista previa...</p>
                 </div>
               </div>
@@ -477,7 +477,7 @@ export default function AttachmentPreview({
                 <div className="flex flex-col space-y-2">
                   <button
                     onClick={handleDownload}
-                    className="w-full bg-[#00365b] text-white px-4 py-2 rounded-lg hover:bg-[#004a7c] transition-colors flex items-center justify-center space-x-2"
+                    className="w-full bg-[#0a0a0a] text-white px-4 py-2 rounded-lg hover:bg-[#004a7c] transition-colors flex items-center justify-center space-x-2"
                   >
                     <Download className="w-4 h-4" />
                     <span>Descargar Archivo</span>
@@ -486,7 +486,7 @@ export default function AttachmentPreview({
                   {canReply && message && onReply && (
                     <button
                       onClick={handleReply}
-                      className="w-full bg-[#fdb933] text-white px-4 py-2 rounded-lg hover:bg-[#e6a42d] transition-colors flex items-center justify-center space-x-2"
+                      className="w-full bg-[#fbbf24] text-white px-4 py-2 rounded-lg hover:bg-[#e6a42d] transition-colors flex items-center justify-center space-x-2"
                     >
                       <Reply className="w-4 h-4" />
                       <span>Responder Mensaje</span>

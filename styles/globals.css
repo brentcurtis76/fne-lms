@@ -26,10 +26,9 @@
 
 @import './tiptap.css';
 
-/* Optional: Apply FNE default styles to the whole app */
+/* Genera default styles */
 body {
-  @apply bg-brand_beige text-brand_blue;
-  /* font-family: 'Eames Century Modern', serif; */ /* This was overriding Tailwind's font-sans */
+  @apply bg-brand_light text-brand_primary;
 }
 
 /* Ensure proper rendering of Spanish characters in input fields */

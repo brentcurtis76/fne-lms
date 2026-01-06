@@ -147,7 +147,7 @@ export default function EditQuotePage() {
   return (
     <MainLayout>
       <Head>
-        <title>Editar Cotización - {quote.client_name} | FNE LMS</title>
+        <title>Editar Cotización - {quote.client_name} | Genera</title>
       </Head>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">

@@ -1,5 +1,5 @@
 /**
- * Workspace Access Utilities for FNE LMS Community Workspaces
+ * Workspace Access Utilities for Genera Community Workspaces
  * Handles access control and workspace management logic
  */
 

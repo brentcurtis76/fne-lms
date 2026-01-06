@@ -58,21 +58,21 @@ const STAGE_COLORS = {
     border: 'border-yellow-200',
     text: 'text-yellow-800',
     badge: 'bg-brand_yellow',
-    accent: '#fdb933'
+    accent: '#fbbf24'
   },
   3: {
     bg: 'bg-blue-50',
     border: 'border-blue-200',
     text: 'text-brand_blue',
     badge: 'bg-brand_blue',
-    accent: '#00365b'
+    accent: '#0a0a0a'
   },
   4: {
     bg: 'bg-blue-100',
     border: 'border-blue-300',
     text: 'text-brand_blue',
     badge: 'bg-brand_blue',
-    accent: '#00365b'
+    accent: '#0a0a0a'
   },
 };
 

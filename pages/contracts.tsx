@@ -655,7 +655,7 @@ export default function ContractsPage() {
           {/* Additional action buttons */}
           <button
             onClick={() => setShowPDFImporter(true)}
-            className="inline-flex items-center px-4 py-2 border border-purple-600 text-sm font-medium rounded-md text-purple-600 bg-white hover:bg-purple-50"
+            className="inline-flex items-center px-4 py-2 border border-amber-600 text-sm font-medium rounded-md text-amber-600 bg-white hover:bg-amber-50"
             title="Importar contrato desde PDF usando AI"
           >
             <FileUp size={16} className="mr-2" />
@@ -663,7 +663,7 @@ export default function ContractsPage() {
           </button>
           <button
             onClick={() => setActiveTab('nuevo-anexo')}
-            className="inline-flex items-center px-4 py-2 border border-[#00365b] text-sm font-medium rounded-md text-[#00365b] bg-white hover:bg-gray-50"
+            className="inline-flex items-center px-4 py-2 border border-[#0a0a0a] text-sm font-medium rounded-md text-[#0a0a0a] bg-white hover:bg-gray-50"
           >
             <Plus size={16} className="mr-2" />
             Nuevo Anexo
@@ -750,7 +750,7 @@ export default function ContractsPage() {
                               >
                                 {contrato.numero_contrato}
                                 {contrato.is_anexo && (
-                                  <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                                  <span className="ml-2 px-2 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium">
                                     ANEXO
                                   </span>
                                 )}

@@ -8,6 +8,7 @@ import {
   TransformationArea,
   GRADE_LEVEL_LABELS,
   GradeLevel,
+  GenerationType,
 } from '@/types/assessment-builder';
 
 /**
@@ -119,6 +120,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status,
         completed_at,
         course_structure_id,
+        generation_type,
         template_snapshot_id,
         assessment_template_snapshots!inner (
           snapshot_data
@@ -162,10 +164,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         let totalScore = 0;
         let totalLevel = 0;
         let completedCount = 0;
+        // Track generation type from first instance (all instances for a course should have same type)
+        let courseGenerationType: GenerationType | null = null;
 
         for (const instance of courseInstances) {
           const snapshotData = (instance as any).assessment_template_snapshots?.snapshot_data;
           const templateArea = snapshotData?.template?.area as TransformationArea;
+
+          // Capture generation type from first instance
+          if (!courseGenerationType && (instance as any).generation_type) {
+            courseGenerationType = (instance as any).generation_type as GenerationType;
+          }
 
           // Get or calculate results
           let summary = await getInstanceResults(supabaseClient, instance.id);
@@ -199,6 +208,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           gradeLevel: course.grade_level as GradeLevel,
           gradeLevelLabel: GRADE_LEVEL_LABELS[course.grade_level as GradeLevel],
           courseName: course.course_name,
+          generationType: courseGenerationType || 'GT', // Default to GT if not set
           summary: {
             completedAssessments: completedCount,
             avgScore,

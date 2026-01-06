@@ -455,7 +455,7 @@ export default function ContractPDFImporter({
                           <p className="text-gray-700 text-sm font-medium">Identificando datos del contrato...</p>
                         </div>
                       </div>
-                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-3 rounded-lg border border-blue-200">
+                      <div className="bg-gradient-to-r from-blue-50 to-slate-50 px-6 py-3 rounded-lg border border-blue-200">
                         <p className="text-blue-800 text-sm font-semibold">
                           Claude AI está analizando su documento
                         </p>

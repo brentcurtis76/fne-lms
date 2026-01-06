@@ -11,7 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 async function extractSchema() {
   console.log('Extracting database schema...\n');
   
-  let schemaSQL = '-- FNE LMS Database Schema\n';
+  let schemaSQL = '-- Genera Database Schema\n';
   schemaSQL += '-- Generated on: ' + new Date().toISOString() + '\n\n';
   
   try {

@@ -79,7 +79,7 @@ export function NotificationDropdownSkeleton() {
   return (
     <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-xl border border-gray-200 overflow-hidden">
       {/* Header skeleton */}
-      <div className="bg-gradient-to-r from-[#00365b] to-[#004d82] p-4 animate-pulse">
+      <div className="bg-gradient-to-r from-[#0a0a0a] to-[#004d82] p-4 animate-pulse">
         <div className="flex items-center justify-between">
           <div className="h-6 bg-white/20 rounded w-32"></div>
           <div className="flex space-x-2">
@@ -107,7 +107,7 @@ export function MobileNotificationSkeleton() {
   return (
     <div className="fixed inset-0 bg-white z-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#00365b] to-[#004d82] p-4 pt-safe animate-pulse">
+      <div className="bg-gradient-to-r from-[#0a0a0a] to-[#004d82] p-4 pt-safe animate-pulse">
         <div className="flex items-center justify-between">
           <div className="w-10 h-10 bg-white/20 rounded"></div>
           <div className="h-6 bg-white/20 rounded w-32"></div>

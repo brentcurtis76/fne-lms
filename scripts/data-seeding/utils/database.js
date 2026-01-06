@@ -1,5 +1,5 @@
 /**
- * FNE LMS Data Seeding - Database Utilities
+ * Genera Data Seeding - Database Utilities
  * 
  * Provides database connection, validation, logging, and reporting utilities
  * for the comprehensive data seeding system
@@ -14,7 +14,7 @@ require('dotenv').config({ path: path.join(process.cwd(), '.env.local') });
 
 // CRITICAL SECURITY CONFIGURATION
 const PRODUCTION_URL_BLACKLIST = [
-  'https://sxlogxqzmarhqsblxmtj.supabase.co', // FNE LMS Production Database
+  'https://sxlogxqzmarhqsblxmtj.supabase.co', // Genera Production Database
   'sxlogxqzmarhqsblxmtj.supabase.co'         // Alternative format
 ];
 

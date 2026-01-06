@@ -485,13 +485,13 @@ const CourseDetailPage = () => {
       >
         <button
           onClick={() => router.push('/admin/course-builder')}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]"
         >
           <ArrowLeft className="w-4 h-4 inline mr-1" />
           Volver a Cursos
         </button>
         <Link href={`/admin/course-builder/${courseId}/edit`} legacyBehavior>
-          <a className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]">
+          <a className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]">
             <Edit className="w-4 h-4 inline mr-1" />
             Editar Información
           </a>

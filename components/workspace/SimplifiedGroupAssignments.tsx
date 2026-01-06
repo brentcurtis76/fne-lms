@@ -183,7 +183,7 @@ const SimplifiedGroupAssignments: React.FC<SimplifiedGroupAssignmentsProps> = ({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-[#00365b] mb-2">
+        <h2 className="text-xl font-semibold text-[#0a0a0a] mb-2">
           Mis Tareas Grupales
         </h2>
         <p className="text-sm text-gray-600">

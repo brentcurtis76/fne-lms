@@ -664,7 +664,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div>
-              <h2 className="text-xl font-semibold text-[#00365b]">
+              <h2 className="text-xl font-semibold text-[#0a0a0a]">
                 {mode === 'edit' ? 'Editar Reunión' : 'Documentar Reunión'}
               </h2>
               <p className="text-sm text-gray-600 mt-1">
@@ -687,7 +687,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                 <div key={step.id} className="flex items-center">
                   <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium ${
                     currentStep >= step.id 
-                      ? 'bg-[#fdb933] text-[#00365b]' 
+                      ? 'bg-[#fbbf24] text-[#0a0a0a]' 
                       : 'bg-gray-200 text-gray-500'
                   }`}>
                     {currentStep > step.id ? (
@@ -697,13 +697,13 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     )}
                   </div>
                   <span className={`ml-2 text-sm font-medium ${
-                    currentStep >= step.id ? 'text-[#00365b]' : 'text-gray-500'
+                    currentStep >= step.id ? 'text-[#0a0a0a]' : 'text-gray-500'
                   }`}>
                     {step.title}
                   </span>
                   {index < STEPS.length - 1 && (
                     <div className={`mx-4 h-px w-12 ${
-                      currentStep > step.id ? 'bg-[#fdb933]' : 'bg-gray-300'
+                      currentStep > step.id ? 'bg-[#fbbf24]' : 'bg-gray-300'
                     }`} />
                   )}
                 </div>
@@ -715,7 +715,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           <div className="p-6 max-h-96 overflow-y-auto">
             {loadingMeeting ? (
               <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#fdb933]"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#fbbf24]"></div>
               </div>
             ) : (
               <>
@@ -732,7 +732,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     value={formData.meeting_info.title}
                     onChange={(e) => updateMeetingInfo('title', e.target.value)}
                     placeholder="Ej: Reunión de planificación semanal"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   />
                 </div>
 
@@ -745,7 +745,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                       type="datetime-local"
                       value={formData.meeting_info.meeting_date}
                       onChange={(e) => updateMeetingInfo('meeting_date', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                     />
                   </div>
 
@@ -759,7 +759,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                       max="480"
                       value={formData.meeting_info.duration_minutes}
                       onChange={(e) => updateMeetingInfo('duration_minutes', parseInt(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -773,7 +773,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     value={formData.meeting_info.location}
                     onChange={(e) => updateMeetingInfo('location', e.target.value)}
                     placeholder="Ej: Sala de reuniones, Zoom, etc."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   />
                 </div>
 
@@ -794,7 +794,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                               : formData.meeting_info.attendee_ids.filter(id => id !== user.id);
                             updateMeetingInfo('attendee_ids', attendeeIds);
                           }}
-                          className="h-4 w-4 text-[#fdb933] focus:ring-[#fdb933] border-gray-300 rounded"
+                          className="h-4 w-4 text-[#fbbf24] focus:ring-[#fbbf24] border-gray-300 rounded"
                         />
                         <span className="ml-2 text-sm text-gray-700">
                           {user.first_name} {user.last_name}
@@ -816,7 +816,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   <select
                     value={formData.summary_info.status}
                     onChange={(e) => updateSummaryInfo('status', e.target.value as MeetingStatus)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   >
                     {Object.entries(meetingStatusLabels).map(([status, label]) => (
                       <option key={status} value={status}>{label}</option>
@@ -833,7 +833,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     onChange={(e) => updateSummaryInfo('summary', e.target.value)}
                     placeholder="Describe los puntos principales tratados en la reunión..."
                     rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent resize-none"
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Puedes incluir enlaces en el resumen. Los enlaces se mostrarán como texto clickeable.
@@ -849,7 +849,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     onChange={(e) => updateSummaryInfo('notes', e.target.value)}
                     placeholder="Notas adicionales, observaciones, etc."
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent resize-none"
                   />
                 </div>
               </div>
@@ -870,7 +870,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     <div className="text-center">
                       <DocumentIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                       <div className="text-sm text-gray-600">
-                        <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-[#fdb933] hover:text-[#fdb933]/80 focus-within:outline-none">
+                        <label htmlFor="file-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-[#fbbf24] hover:text-[#fbbf24]/80 focus-within:outline-none">
                           <span>Seleccionar archivos</span>
                           <input
                             id="file-upload"
@@ -925,7 +925,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     </h3>
                     <button
                       onClick={addCommitment}
-                      className="inline-flex items-center px-3 py-2 bg-[#fdb933] text-[#00365b] text-sm rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200"
+                      className="inline-flex items-center px-3 py-2 bg-[#fbbf24] text-[#0a0a0a] text-sm rounded-lg hover:bg-[#fbbf24]/90 transition-colors duration-200"
                     >
                       <PlusIcon className="h-4 w-4 mr-1" />
                       Agregar Compromiso
@@ -943,7 +943,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                       {formData.commitments.map((commitment, index) => (
                         <div key={index} className="border border-gray-200 rounded-lg p-4">
                           <div className="flex items-start justify-between mb-3">
-                            <span className="inline-flex items-center justify-center w-6 h-6 bg-[#fdb933] text-[#00365b] text-sm font-bold rounded-full">
+                            <span className="inline-flex items-center justify-center w-6 h-6 bg-[#fbbf24] text-[#0a0a0a] text-sm font-bold rounded-full">
                               {index + 1}
                             </span>
                             <button
@@ -960,14 +960,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                               onChange={(e) => updateCommitment(index, 'commitment_text', e.target.value)}
                               placeholder="Describe el acuerdo o compromiso..."
                               rows={2}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent resize-none"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent resize-none"
                             />
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <select
                                 value={commitment.assigned_to}
                                 onChange={(e) => updateCommitment(index, 'assigned_to', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                               >
                                 <option value="">Asignar a...</option>
                                 {availableUsers.map(user => (
@@ -981,7 +981,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 type="date"
                                 value={commitment.due_date}
                                 onChange={(e) => updateCommitment(index, 'due_date', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                               />
                             </div>
                           </div>
@@ -999,7 +999,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                     </h3>
                     <button
                       onClick={addTask}
-                      className="inline-flex items-center px-3 py-2 bg-[#fdb933] text-[#00365b] text-sm rounded-lg hover:bg-[#fdb933]/90 transition-colors duration-200"
+                      className="inline-flex items-center px-3 py-2 bg-[#fbbf24] text-[#0a0a0a] text-sm rounded-lg hover:bg-[#fbbf24]/90 transition-colors duration-200"
                     >
                       <PlusIcon className="h-4 w-4 mr-1" />
                       Agregar Tarea
@@ -1032,7 +1032,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                               value={task.task_title}
                               onChange={(e) => updateTask(index, 'task_title', e.target.value)}
                               placeholder="Título de la tarea..."
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                             />
                             
                             <textarea
@@ -1040,14 +1040,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                               onChange={(e) => updateTask(index, 'task_description', e.target.value)}
                               placeholder="Descripción de la tarea..."
                               rows={2}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent resize-none"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent resize-none"
                             />
                             
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                               <select
                                 value={task.assigned_to}
                                 onChange={(e) => updateTask(index, 'assigned_to', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                               >
                                 <option value="">Asignar a...</option>
                                 {availableUsers.map(user => (
@@ -1061,13 +1061,13 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 type="date"
                                 value={task.due_date}
                                 onChange={(e) => updateTask(index, 'due_date', e.target.value)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                               />
                               
                               <select
                                 value={task.priority}
                                 onChange={(e) => updateTask(index, 'priority', e.target.value as TaskPriority)}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                               >
                                 {Object.entries(priorityLabels).map(([priority, label]) => (
                                   <option key={priority} value={priority}>{label}</option>
@@ -1081,7 +1081,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 value={task.category}
                                 onChange={(e) => updateTask(index, 'category', e.target.value)}
                                 placeholder="Categoría (opcional)"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                               />
                               
                               <input
@@ -1091,7 +1091,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 value={task.estimated_hours || ''}
                                 onChange={(e) => updateTask(index, 'estimated_hours', e.target.value ? parseFloat(e.target.value) : undefined)}
                                 placeholder="Horas estimadas"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                               />
                             </div>
                           </div>
@@ -1130,7 +1130,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                 <button
                   onClick={handleNext}
                   disabled={isSubmitting}
-                  className="inline-flex items-center px-4 py-2 bg-[#fdb933] text-[#00365b] text-sm rounded-lg hover:bg-[#fdb933]/90 disabled:opacity-50 transition-colors duration-200"
+                  className="inline-flex items-center px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] text-sm rounded-lg hover:bg-[#fbbf24]/90 disabled:opacity-50 transition-colors duration-200"
                 >
                   Siguiente
                   <ChevronRightIcon className="h-4 w-4 ml-1" />
@@ -1139,7 +1139,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                 <button
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="inline-flex items-center px-4 py-2 bg-[#00365b] text-white text-sm rounded-lg hover:bg-[#00365b]/90 disabled:opacity-50 transition-colors duration-200"
+                  className="inline-flex items-center px-4 py-2 bg-[#0a0a0a] text-white text-sm rounded-lg hover:bg-[#0a0a0a]/90 disabled:opacity-50 transition-colors duration-200"
                 >
                   {isSubmitting ? (
                     <>

@@ -178,7 +178,7 @@ export class ReportExporter {
       data,
       metadata: {
         ...metadata,
-        generatedBy: 'Sistema FNE LMS',
+        generatedBy: 'Sistema Genera',
         totalRecords: data.length,
       }
     };

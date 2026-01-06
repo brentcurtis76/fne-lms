@@ -1,5 +1,5 @@
 /**
- * Spanish Toast Messages for FNE LMS
+ * Spanish Toast Messages for Genera
  * Standardized messages for consistent user communication
  */
 

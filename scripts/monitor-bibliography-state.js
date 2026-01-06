@@ -12,7 +12,7 @@
  */
 
 (() => {
-  console.log('%c📊 Bibliography State Monitor Started', 'background: #00365b; color: #fdb933; font-size: 16px; padding: 10px;');
+  console.log('%c📊 Bibliography State Monitor Started', 'background: #0a0a0a; color: #fbbf24; font-size: 16px; padding: 10px;');
   
   let stateHistory = [];
   let changeCount = 0;
@@ -101,7 +101,7 @@
     }
   };
   
-  console.log('%cMonitoring commands:', 'font-weight: bold; color: #00365b;');
+  console.log('%cMonitoring commands:', 'font-weight: bold; color: #0a0a0a;');
   console.log('- bibliographyMonitor.showHistory() - Show all state changes');
   console.log('- bibliographyMonitor.showChange(n) - Show specific change details');
   console.log('- bibliographyMonitor.findDataLoss() - Find when data was lost');

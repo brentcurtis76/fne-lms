@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Verify Complete Fix
+ * Genera - Verify Complete Fix
  * 
  * This script verifies the complete notification system fix is working:
  * 1. Database contains 20 notification types
@@ -20,7 +20,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 async function verifyCompleteFix() {
-  console.log('🔍 FNE LMS - Complete Fix Verification');
+  console.log('🔍 Genera - Complete Fix Verification');
   console.log('='.repeat(50));
   console.log('');
 

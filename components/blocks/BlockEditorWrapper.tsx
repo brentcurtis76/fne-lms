@@ -36,7 +36,7 @@ const BlockEditorWrapper: React.FC<BlockEditorWrapperProps> = ({
         <div className="flex items-center gap-3">
           <GripVertical className="text-gray-400" size={20} />
           <div>
-            <h2 className="text-lg font-semibold text-[#00365b]">
+            <h2 className="text-lg font-semibold text-[#0a0a0a]">
               {title}
             </h2>
             {subtitle && (
@@ -71,7 +71,7 @@ const BlockEditorWrapper: React.FC<BlockEditorWrapperProps> = ({
             {showSaveButton && onSave && (
               <Button
                 onClick={onSave}
-                className="bg-[#00365b] hover:bg-[#fdb933] hover:text-[#00365b] text-white"
+                className="bg-[#0a0a0a] hover:bg-[#fbbf24] hover:text-[#0a0a0a] text-white"
               >
                 {saveButtonText}
               </Button>

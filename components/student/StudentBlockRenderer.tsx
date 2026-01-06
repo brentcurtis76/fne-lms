@@ -138,7 +138,7 @@ export default function StudentBlockRenderer({
     
     return (
       <div className="space-y-6">
-        <div className="prose prose-lg max-w-none prose-headings:text-[#00365b] prose-p:text-gray-700 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-ol:text-gray-700">
+        <div className="prose prose-lg max-w-none prose-headings:text-[#0a0a0a] prose-p:text-gray-700 prose-strong:text-gray-900 prose-ul:text-gray-700 prose-ol:text-gray-700">
           <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(content) }} />
         </div>
         
@@ -150,7 +150,7 @@ export default function StudentBlockRenderer({
                   type="checkbox"
                   checked={hasRead}
                   onChange={(e) => setHasRead(e.target.checked)}
-                  className="w-4 h-4 text-[#00365b] focus:ring-[#00365b] border-gray-300 rounded"
+                  className="w-4 h-4 text-[#0a0a0a] focus:ring-[#0a0a0a] border-gray-300 rounded"
                 />
                 <span className="text-sm text-gray-700">He leído este contenido</span>
               </label>
@@ -161,7 +161,7 @@ export default function StudentBlockRenderer({
               disabled={!isAdmin && !hasRead}
               className={`px-4 py-2 rounded-md transition ${
                 (isAdmin || hasRead)
-                  ? 'bg-[#00365b] text-white hover:bg-[#fdb933] hover:text-[#00365b]'
+                  ? 'bg-[#0a0a0a] text-white hover:bg-[#fbbf24] hover:text-[#0a0a0a]'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
@@ -304,7 +304,7 @@ export default function StudentBlockRenderer({
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
-                      className="bg-[#00365b] h-2 rounded-full transition-all"
+                      className="bg-[#0a0a0a] h-2 rounded-full transition-all"
                       style={{ width: `${videoProgress}%` }}
                     ></div>
                   </div>
@@ -325,7 +325,7 @@ export default function StudentBlockRenderer({
               watchedComplete: isAdmin || videoWatched, 
               timeSpent 
             })}
-            className="w-full px-4 py-3 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition flex items-center justify-center gap-2"
+            className="w-full px-4 py-3 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition flex items-center justify-center gap-2"
           >
             <CheckCircle className="w-5 h-5" />
             {isAdmin ? 'Continuar (Admin)' : 'Video Completado - Continuar'}
@@ -439,7 +439,7 @@ export default function StudentBlockRenderer({
                         onClick={() => goToImage(index)}
                         className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition ${
                           index === currentImageIndex 
-                            ? 'border-[#00365b] shadow-md' 
+                            ? 'border-[#0a0a0a] shadow-md' 
                             : 'border-gray-200 hover:border-gray-300'
                         }`}
                       >
@@ -488,7 +488,7 @@ export default function StudentBlockRenderer({
               totalImages: allImages.length,
               currentImage: currentImageIndex + 1
             })}
-            className="w-full px-4 py-3 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition flex items-center justify-center gap-2"
+            className="w-full px-4 py-3 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition flex items-center justify-center gap-2"
           >
             <CheckCircle className="w-5 h-5" />
             {isAdmin ? 'Continuar (Admin)' : allImages.length > 1 ? 'He revisado las imágenes - Continuar' : 'He revisado esta imagen - Continuar'}
@@ -612,7 +612,7 @@ export default function StudentBlockRenderer({
                   
                   {/* Link Content */}
                   <div className="p-4">
-                    <h4 className="font-medium text-[#00365b] mb-2">{link.title || 'Enlace'}</h4>
+                    <h4 className="font-medium text-[#0a0a0a] mb-2">{link.title || 'Enlace'}</h4>
                     {link.description && (
                       <p className="text-gray-600 text-sm mb-3">{link.description}</p>
                     )}
@@ -627,7 +627,7 @@ export default function StudentBlockRenderer({
                         target={link.openInNewTab !== false ? '_blank' : '_self'}
                         rel="noopener noreferrer"
                         onClick={() => setHasVisited(true)}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition"
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition"
                       >
                         <ExternalLink className="w-4 h-4" />
                         Visitar enlace
@@ -653,7 +653,7 @@ export default function StudentBlockRenderer({
         {!isCompleted && (hasVisited || isAdmin) && (
           <button
             onClick={() => onComplete({ hasVisited: true, timeSpent })}
-            className="w-full px-4 py-3 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition flex items-center justify-center gap-2"
+            className="w-full px-4 py-3 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition flex items-center justify-center gap-2"
           >
             <CheckCircle className="w-5 h-5" />
             {isAdmin ? 'Continuar (Admin)' : 'He visitado los enlaces - Continuar'}
@@ -717,7 +717,7 @@ export default function StudentBlockRenderer({
               {files.map((file: any, index: number) => (
                 <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border">
                   <div className="flex items-center gap-3">
-                    <Download className="w-5 h-5 text-[#00365b]" />
+                    <Download className="w-5 h-5 text-[#0a0a0a]" />
                     <div>
                       <p className="font-medium text-gray-900">{file.name || file.originalName || 'Archivo'}</p>
                       <p className="text-sm text-gray-500">
@@ -729,7 +729,7 @@ export default function StudentBlockRenderer({
                     href={file.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition flex items-center gap-2"
+                    className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition flex items-center gap-2"
                   >
                     <Download className="w-4 h-4" />
                     Descargar
@@ -751,7 +751,7 @@ export default function StudentBlockRenderer({
               filesAccessed: files.length > 0,
               timeSpent
             })}
-            className="w-full px-4 py-3 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition flex items-center justify-center gap-2"
+            className="w-full px-4 py-3 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition flex items-center justify-center gap-2"
           >
             <CheckCircle className="w-5 h-5" />
             {isAdmin ? 'Continuar (Admin)' : 'Marcar como Completado'}
@@ -783,7 +783,7 @@ export default function StudentBlockRenderer({
     return (
       <div className="space-y-6">
         <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-[#00365b] mb-3">
+          <h3 className="text-lg font-semibold text-[#0a0a0a] mb-3">
             {title ? `Tarea Grupal: ${title}` : 'Tarea Grupal'}
           </h3>
           
@@ -843,7 +843,7 @@ export default function StudentBlockRenderer({
         {!isCompleted && (
           <button
             onClick={() => onComplete({ acknowledged: true, timeSpent })}
-            className="w-full px-4 py-3 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition flex items-center justify-center gap-2"
+            className="w-full px-4 py-3 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition flex items-center justify-center gap-2"
           >
             <CheckCircle className="w-5 h-5" />
             Entendido - Continuar con la lección
@@ -905,7 +905,7 @@ export default function StudentBlockRenderer({
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-bold text-[#00365b] mb-2">{title}</h2>
+          <h2 className="text-2xl font-bold text-[#0a0a0a] mb-2">{title}</h2>
           {description && (
             <p className="text-gray-700 mb-4">{description}</p>
           )}
@@ -946,7 +946,7 @@ export default function StudentBlockRenderer({
                       )}
                       
                       <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 hover:text-[#00365b]">
+                        <h4 className="font-semibold text-gray-900 hover:text-[#0a0a0a]">
                           {item.title || 'Sin título'}
                         </h4>
                         
@@ -1055,7 +1055,7 @@ export default function StudentBlockRenderer({
         {!isCompleted && (
           <button
             onClick={() => onComplete({ timeSpent, resourcesViewed: items.length })}
-            className="w-full px-4 py-3 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition flex items-center justify-center gap-2"
+            className="w-full px-4 py-3 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition flex items-center justify-center gap-2"
           >
             <CheckCircle className="w-5 h-5" />
             He revisado los recursos - Continuar

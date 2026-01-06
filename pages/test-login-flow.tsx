@@ -104,7 +104,7 @@ export default function TestLoginFlow() {
   return (
     <>
       <Head>
-        <title>Test Login Flow | FNE LMS</title>
+        <title>Test Login Flow | Genera</title>
       </Head>
       
       <div className="min-h-screen bg-gray-100 p-8">

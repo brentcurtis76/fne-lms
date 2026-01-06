@@ -1,7 +1,7 @@
 /**
  * ActivityNotifications Component
  * Notification preferences modal for activity subscriptions
- * Phase 5 of Collaborative Workspace System for FNE LMS
+ * Phase 5 of Collaborative Workspace System for Genera
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -188,11 +188,11 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between pb-4 border-b border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-[#00365b] bg-opacity-10 rounded-lg">
-                <Bell className="w-6 h-6 text-[#00365b]" />
+              <div className="p-2 bg-[#0a0a0a] bg-opacity-10 rounded-lg">
+                <Bell className="w-6 h-6 text-[#0a0a0a]" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-[#00365b]">
+                <h3 className="text-lg font-semibold text-[#0a0a0a]">
                   Preferencias de Notificaciones
                 </h3>
                 <p className="text-sm text-gray-600">
@@ -215,7 +215,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <button
                 onClick={() => handlePreset('all')}
-                className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:border-[#fdb933] hover:bg-[#fdb933] hover:bg-opacity-5 transition-colors text-left"
+                className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:border-[#fbbf24] hover:bg-[#fbbf24] hover:bg-opacity-5 transition-colors text-left"
               >
                 <Volume2 className="w-4 h-4 text-blue-600" />
                 <div>
@@ -226,7 +226,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
               
               <button
                 onClick={() => handlePreset('important')}
-                className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:border-[#fdb933] hover:bg-[#fdb933] hover:bg-opacity-5 transition-colors text-left"
+                className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:border-[#fbbf24] hover:bg-[#fbbf24] hover:bg-opacity-5 transition-colors text-left"
               >
                 <Zap className="w-4 h-4 text-yellow-600" />
                 <div>
@@ -237,7 +237,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
               
               <button
                 onClick={() => handlePreset('minimal')}
-                className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:border-[#fdb933] hover:bg-[#fdb933] hover:bg-opacity-5 transition-colors text-left"
+                className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 hover:border-[#fbbf24] hover:bg-[#fbbf24] hover:bg-opacity-5 transition-colors text-left"
               >
                 <BellOff className="w-4 h-4 text-gray-600" />
                 <div>
@@ -263,7 +263,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
           <div className="py-4 border-b border-gray-200">
             <label className="flex items-center justify-between cursor-pointer">
               <div className="flex items-center gap-3">
-                <Settings className="w-5 h-5 text-[#00365b]" />
+                <Settings className="w-5 h-5 text-[#0a0a0a]" />
                 <div>
                   <div className="font-medium text-gray-900">Notificaciones Activadas</div>
                   <div className="text-sm text-gray-600">Activar o desactivar todas las notificaciones</div>
@@ -277,7 +277,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
                   className="sr-only"
                 />
                 <div className={`w-12 h-6 rounded-full transition-colors ${
-                  localSubscription.is_enabled ? 'bg-[#fdb933]' : 'bg-gray-200'
+                  localSubscription.is_enabled ? 'bg-[#fbbf24]' : 'bg-gray-200'
                 }`}>
                   <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${
                     localSubscription.is_enabled ? 'translate-x-6' : 'translate-x-0.5'
@@ -294,7 +294,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
                 onClick={() => setActiveTab('types')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'types'
-                    ? 'border-[#fdb933] text-[#00365b]'
+                    ? 'border-[#fbbf24] text-[#0a0a0a]'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -304,7 +304,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
                 onClick={() => setActiveTab('methods')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'methods'
-                    ? 'border-[#fdb933] text-[#00365b]'
+                    ? 'border-[#fbbf24] text-[#0a0a0a]'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -314,7 +314,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
                 onClick={() => setActiveTab('schedule')}
                 className={`py-2 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'schedule'
-                    ? 'border-[#fdb933] text-[#00365b]'
+                    ? 'border-[#fbbf24] text-[#0a0a0a]'
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
@@ -342,14 +342,14 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
                         return (
                           <label
                             key={type}
-                            className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-[#fdb933] cursor-pointer transition-colors"
+                            className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-[#fbbf24] cursor-pointer transition-colors"
                           >
                             <input
                               type="checkbox"
                               checked={localSubscription.activity_types?.includes(type) || false}
                               onChange={() => handleActivityTypeToggle(type)}
                               disabled={!localSubscription.is_enabled}
-                              className="rounded border-gray-300 text-[#fdb933] focus:ring-[#fdb933] disabled:opacity-50"
+                              className="rounded border-gray-300 text-[#fbbf24] focus:ring-[#fbbf24] disabled:opacity-50"
                             />
                             <div className="flex items-center gap-2 flex-1">
                               <span role="img" aria-label={config?.label || type}>
@@ -384,14 +384,14 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
                     {notificationMethodOptions.map((method) => (
                       <label
                         key={method.id}
-                        className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 hover:border-[#fdb933] cursor-pointer transition-colors"
+                        className="flex items-center gap-3 p-4 rounded-lg border border-gray-200 hover:border-[#fbbf24] cursor-pointer transition-colors"
                       >
                         <input
                           type="checkbox"
                           checked={localSubscription.notification_methods?.includes(method.id) || false}
                           onChange={() => handleNotificationMethodToggle(method.id)}
                           disabled={!localSubscription.is_enabled}
-                          className="rounded border-gray-300 text-[#fdb933] focus:ring-[#fdb933] disabled:opacity-50"
+                          className="rounded border-gray-300 text-[#fbbf24] focus:ring-[#fbbf24] disabled:opacity-50"
                         />
                         <div className="flex items-center gap-3 flex-1">
                           <div className="p-2 bg-gray-50 rounded-lg">
@@ -421,7 +421,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
                       value={localSubscription.importance_threshold || 1}
                       onChange={(e) => handleFieldUpdate('importance_threshold', parseInt(e.target.value))}
                       disabled={!localSubscription.is_enabled}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent disabled:opacity-50"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent disabled:opacity-50"
                     >
                       {IMPORTANCE_LEVELS.map((level) => (
                         <option key={level.score} value={level.score}>
@@ -446,7 +446,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
                         checked={localSubscription.daily_digest || false}
                         onChange={(e) => handleFieldUpdate('daily_digest', e.target.checked)}
                         disabled={!localSubscription.is_enabled}
-                        className="rounded border-gray-300 text-[#fdb933] focus:ring-[#fdb933] disabled:opacity-50"
+                        className="rounded border-gray-300 text-[#fbbf24] focus:ring-[#fbbf24] disabled:opacity-50"
                       />
                       <div>
                         <div className="text-sm font-medium text-gray-900">Resumen Diario</div>
@@ -460,7 +460,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
                         checked={localSubscription.weekly_digest || false}
                         onChange={(e) => handleFieldUpdate('weekly_digest', e.target.checked)}
                         disabled={!localSubscription.is_enabled}
-                        className="rounded border-gray-300 text-[#fdb933] focus:ring-[#fdb933] disabled:opacity-50"
+                        className="rounded border-gray-300 text-[#fbbf24] focus:ring-[#fbbf24] disabled:opacity-50"
                       />
                       <div>
                         <div className="text-sm font-medium text-gray-900">Resumen Semanal</div>
@@ -484,7 +484,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
                           value={localSubscription.quiet_hours_start || ''}
                           onChange={(e) => handleFieldUpdate('quiet_hours_start', e.target.value)}
                           disabled={!localSubscription.is_enabled}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent disabled:opacity-50"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent disabled:opacity-50"
                         />
                       </div>
                       <div>
@@ -494,7 +494,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
                           value={localSubscription.quiet_hours_end || ''}
                           onChange={(e) => handleFieldUpdate('quiet_hours_end', e.target.value)}
                           disabled={!localSubscription.is_enabled}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent disabled:opacity-50"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent disabled:opacity-50"
                         />
                       </div>
                     </div>
@@ -520,7 +520,7 @@ const ActivityNotifications: React.FC<ActivityNotificationsProps> = ({
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="flex items-center gap-2 px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors disabled:opacity-50"
+                className="flex items-center gap-2 px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#0a0a0a]/90 transition-colors disabled:opacity-50"
               >
                 <Save className="w-4 h-4" />
                 {saving ? 'Guardando...' : 'Guardar Preferencias'}

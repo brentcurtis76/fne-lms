@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Document Repository System Test Script
+ * Genera - Document Repository System Test Script
  * Comprehensive testing of document management functionality
  */
 
@@ -417,7 +417,7 @@ async function testSystemIntegration() {
 
 // Main test execution
 async function runAllTests() {
-  console.log('🧪 FNE LMS - Document Repository System Tests');
+  console.log('🧪 Genera - Document Repository System Tests');
   console.log('='.repeat(50));
   console.log(`⏰ Starting tests at ${new Date().toLocaleString()}`);
   console.log(`🔧 Testing against: ${supabaseUrl}`);

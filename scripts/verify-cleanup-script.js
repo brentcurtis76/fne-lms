@@ -25,7 +25,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 });
 
 async function main() {
-  console.log('🔍 FNE LMS Test Data Cleanup - Verification Script');
+  console.log('🔍 Genera Test Data Cleanup - Verification Script');
   console.log('===================================================');
   
   try {
@@ -144,7 +144,7 @@ async function main() {
         cwd: process.cwd()
       });
       
-      if (helpOutput.includes('FNE LMS Test Data Cleanup Script') && 
+      if (helpOutput.includes('Genera Test Data Cleanup Script') && 
           helpOutput.includes('Usage:') && 
           helpOutput.includes('Examples:')) {
         console.log('   ✅ Help message working correctly');

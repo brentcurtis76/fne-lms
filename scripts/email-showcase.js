@@ -1,4 +1,4 @@
-// Email Showcase Script - Send examples of all FNE LMS email types
+// Email Showcase Script - Send examples of all Genera email types
 const { Resend } = require('resend');
 
 const resend = new Resend('re_QqHY8LSE_Q56Na4bf3nhqLMnu1bVvrYLe');
@@ -8,25 +8,25 @@ const testEmail = 'info@nuevaeducacion.org'; // Using verified email for now
 const emailStyles = `
   body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f5f5f5; }
   .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
-  .header { background: linear-gradient(135deg, #00365b 0%, #004d82 100%); color: white; padding: 30px 20px; text-align: center; }
+  .header { background: linear-gradient(135deg, #0a0a0a 0%, #004d82 100%); color: white; padding: 30px 20px; text-align: center; }
   .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
   .header p { margin: 10px 0 0 0; opacity: 0.9; }
   .content { padding: 30px 20px; }
-  .notification { background: #f8fafc; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #fdb933; }
-  .notification h3 { margin: 0 0 10px 0; color: #00365b; font-size: 18px; }
+  .notification { background: #f8fafc; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #fbbf24; }
+  .notification h3 { margin: 0 0 10px 0; color: #0a0a0a; font-size: 18px; }
   .notification p { margin: 0 0 10px 0; color: #4a5568; line-height: 1.6; }
   .notification small { color: #718096; }
-  .cta { display: inline-block; background: #fdb933; color: #00365b; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+  .cta { display: inline-block; background: #fbbf24; color: #0a0a0a; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
   .cta:hover { background: #f9b61e; }
   .footer { background: #f7fafc; padding: 20px; text-align: center; font-size: 12px; color: #718096; }
-  .footer a { color: #00365b; text-decoration: none; }
+  .footer a { color: #0a0a0a; text-decoration: none; }
   .category { margin-bottom: 25px; }
-  .category h2 { color: #00365b; font-size: 18px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #fdb933; }
+  .category h2 { color: #0a0a0a; font-size: 18px; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #fbbf24; }
   .notification-item { background: #f8fafc; padding: 15px; margin-bottom: 10px; border-radius: 6px; border-left: 3px solid #e2e8f0; }
   .notification-item h4 { margin: 0 0 5px 0; color: #2d3748; font-size: 14px; font-weight: 600; }
   .notification-item p { margin: 0; color: #718096; font-size: 13px; line-height: 1.5; }
   .summary { background: #edf2f7; padding: 15px; border-radius: 8px; margin-bottom: 25px; }
-  .summary strong { color: #00365b; }
+  .summary strong { color: #0a0a0a; }
   .urgent { border-left-color: #ef4044 !important; }
   .success { border-left-color: #22c55e !important; }
   .info { border-left-color: #3b82f6 !important; }
@@ -64,11 +64,11 @@ const emailTemplates = [
               <a href="https://fne-lms.vercel.app/assignments/123" class="cta">Ver Tarea</a>
             </div>
             <p style="color: #718096; font-size: 14px; margin-top: 30px;">
-              <a href="https://fne-lms.vercel.app/profile/notifications" style="color: #00365b;">Cambiar preferencias de notificación</a>
+              <a href="https://fne-lms.vercel.app/profile/notifications" style="color: #0a0a0a;">Cambiar preferencias de notificación</a>
             </p>
           </div>
           <div class="footer">
-            <p><strong>Fundación Nueva Educación</strong><br>Plataforma de Crecimiento</p>
+            <p><strong>Fundación Nueva Educación</strong><br>Hub de Transformación</p>
           </div>
         </div>
       </body>
@@ -392,7 +392,7 @@ const emailTemplates = [
 
   // 9. Welcome Email
   {
-    subject: '🎉 ¡Bienvenido a FNE LMS!',
+    subject: '🎉 ¡Bienvenido a Genera!',
     type: 'Welcome Email',
     html: `
       <!DOCTYPE html>
@@ -407,14 +407,14 @@ const emailTemplates = [
             <p>¡Hola y bienvenido, Nuevo Usuario!</p>
             <div class="notification success">
               <h3>Tu cuenta ha sido creada exitosamente</h3>
-              <p>Ya puedes acceder a todos los recursos de la Plataforma de Crecimiento de Fundación Nueva Educación.</p>
+              <p>Ya puedes acceder a todos los recursos del Hub de Transformación de Fundación Nueva Educación.</p>
               <p><strong>Usuario:</strong> nuevo.usuario@ejemplo.cl</p>
               <p><strong>Rol:</strong> Docente</p>
               <small>📅 Cuenta creada el ${new Date().toLocaleDateString('es-ES')}</small>
             </div>
             
             <div style="margin: 25px 0;">
-              <h4 style="color: #00365b; margin-bottom: 15px;">🚀 Primeros pasos:</h4>
+              <h4 style="color: #0a0a0a; margin-bottom: 15px;">🚀 Primeros pasos:</h4>
               <ul style="color: #4a5568; line-height: 1.8;">
                 <li>✅ Completa tu perfil</li>
                 <li>📚 Explora los cursos disponibles</li>
@@ -450,7 +450,7 @@ const emailTemplates = [
             <h1>🔧 Mantenimiento Programado</h1>
           </div>
           <div class="content">
-            <p>Estimados usuarios de FNE LMS,</p>
+            <p>Estimados usuarios de Genera,</p>
             <div class="notification info">
               <h3>Mantenimiento de la plataforma</h3>
               <p>Realizaremos un mantenimiento programado para mejorar el rendimiento y agregar nuevas funcionalidades.</p>
@@ -484,7 +484,7 @@ const emailTemplates = [
 ];
 
 async function sendEmailShowcase() {
-  console.log('🎭 Starting FNE LMS Email Showcase...');
+  console.log('🎭 Starting Genera Email Showcase...');
   console.log(`📧 Sending ${emailTemplates.length} email examples to: ${testEmail}`);
   
   const results = [];
@@ -496,7 +496,7 @@ async function sendEmailShowcase() {
       console.log(`\n📬 Sending ${i + 1}/${emailTemplates.length}: ${template.type}`);
       
       const { data, error } = await resend.emails.send({
-        from: 'FNE LMS Showcase <onboarding@resend.dev>',
+        from: 'Genera Showcase <onboarding@resend.dev>',
         to: [testEmail],
         subject: `[${i + 1}/${emailTemplates.length}] ${template.subject}`,
         html: template.html

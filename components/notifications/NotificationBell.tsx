@@ -178,7 +178,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '' }) =
         className={`
           relative p-2 rounded-lg transition-all duration-200 transform hover:scale-105
           ${isOpen 
-            ? 'bg-white/20 text-[#fdb933]' 
+            ? 'bg-white/20 text-[#fbbf24]' 
             : 'text-white/80 hover:text-white hover:bg-white/10'
           }
           ${hasNewNotification ? 'animate-bounce' : ''}
@@ -208,7 +208,7 @@ const NotificationBell: React.FC<NotificationBellProps> = ({ className = '' }) =
 
         {/* Pulse effect for new notifications */}
         {hasNewNotification && (
-          <span className="absolute inset-0 rounded-lg bg-[#fdb933] opacity-20 animate-ping"></span>
+          <span className="absolute inset-0 rounded-lg bg-[#fbbf24] opacity-20 animate-ping"></span>
         )}
       </button>
 

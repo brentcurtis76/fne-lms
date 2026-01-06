@@ -344,7 +344,7 @@ export default function EventsManagement() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button
                         onClick={() => handleEdit(event)}
-                        className="text-indigo-600 hover:text-indigo-900 mr-4"
+                        className="text-slate-600 hover:text-slate-900 mr-4"
                       >
                         Editar
                       </button>
@@ -428,7 +428,7 @@ export default function EventsManagement() {
                         required
                         value={formData.title}
                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm"
                       />
                     </div>
 
@@ -443,7 +443,7 @@ export default function EventsManagement() {
                         value={formData.location}
                         onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                         placeholder="ej: Santiago, Chile o Virtual"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm"
                       />
                     </div>
 
@@ -458,7 +458,7 @@ export default function EventsManagement() {
                           required
                           value={formData.date_start}
                           onChange={(e) => setFormData({ ...formData, date_start: e.target.value })}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm"
                         />
                       </div>
                       <div>
@@ -469,7 +469,7 @@ export default function EventsManagement() {
                           type="date"
                           value={formData.date_end || ''}
                           onChange={(e) => setFormData({ ...formData, date_end: e.target.value })}
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm"
                         />
                       </div>
                     </div>
@@ -484,7 +484,7 @@ export default function EventsManagement() {
                         value={formData.time || ''}
                         onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                         placeholder="ej: 10:00 - 12:00"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm"
                       />
                     </div>
 
@@ -497,7 +497,7 @@ export default function EventsManagement() {
                         rows={3}
                         value={formData.description || ''}
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm"
                       />
                     </div>
 
@@ -519,7 +519,7 @@ export default function EventsManagement() {
                             setFormData({ ...formData, link_url: url });
                           }}
                           placeholder="ejemplo.com o https://ejemplo.com"
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm"
                         />
                       </div>
                       <div>
@@ -531,7 +531,7 @@ export default function EventsManagement() {
                           value={formData.link_display || ''}
                           onChange={(e) => setFormData({ ...formData, link_display: e.target.value })}
                           placeholder="ej: Inscríbete aquí"
-                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-slate-500 focus:ring-slate-500 sm:text-sm"
                         />
                       </div>
                     </div>
@@ -543,7 +543,7 @@ export default function EventsManagement() {
                           type="checkbox"
                           checked={formData.is_published}
                           onChange={(e) => setFormData({ ...formData, is_published: e.target.checked })}
-                          className="rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                          className="rounded border-gray-300 text-slate-600 shadow-sm focus:border-slate-500 focus:ring-slate-500"
                         />
                         <span className="ml-2 text-sm text-gray-700">Publicado</span>
                       </label>

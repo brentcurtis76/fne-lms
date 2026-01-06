@@ -1,7 +1,7 @@
 /**
  * ActivitySummary Component
  * Daily/weekly activity summary cards with statistics and trends
- * Phase 5 of Collaborative Workspace System for FNE LMS
+ * Phase 5 of Collaborative Workspace System for Genera
  */
 
 import React, { useState, useEffect } from 'react';
@@ -160,7 +160,7 @@ const ActivitySummary: React.FC<ActivitySummaryProps> = ({
     <div className={`activity-summary ${className}`}>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-[#00365b]">
+        <h3 className="text-lg font-semibold text-[#0a0a0a]">
           Resumen de Actividad - {getPeriodLabel()}
         </h3>
         
@@ -181,11 +181,11 @@ const ActivitySummary: React.FC<ActivitySummaryProps> = ({
       {/* Main metrics grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {/* Total activities */}
-        <div className="bg-white p-6 rounded-lg border border-gray-200 hover:border-[#fdb933] transition-colors">
+        <div className="bg-white p-6 rounded-lg border border-gray-200 hover:border-[#fbbf24] transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Actividades {getPeriodLabel()}</p>
-              <p className="text-2xl font-bold text-[#00365b] mt-1">
+              <p className="text-2xl font-bold text-[#0a0a0a] mt-1">
                 {getCurrentValue().toLocaleString()}
               </p>
               {comparison && showComparison && (
@@ -208,11 +208,11 @@ const ActivitySummary: React.FC<ActivitySummaryProps> = ({
         </div>
 
         {/* Total activities (global) */}
-        <div className="bg-white p-6 rounded-lg border border-gray-200 hover:border-[#fdb933] transition-colors">
+        <div className="bg-white p-6 rounded-lg border border-gray-200 hover:border-[#fbbf24] transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Total Actividades</p>
-              <p className="text-2xl font-bold text-[#00365b] mt-1">
+              <p className="text-2xl font-bold text-[#0a0a0a] mt-1">
                 {stats.total_activities.toLocaleString()}
               </p>
               <p className="text-xs text-gray-500 mt-2">
@@ -226,13 +226,13 @@ const ActivitySummary: React.FC<ActivitySummaryProps> = ({
         </div>
 
         {/* Most active user */}
-        <div className="bg-white p-6 rounded-lg border border-gray-200 hover:border-[#fdb933] transition-colors">
+        <div className="bg-white p-6 rounded-lg border border-gray-200 hover:border-[#fbbf24] transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Usuario Más Activo</p>
               {stats.most_active_user ? (
                 <>
-                  <p className="text-lg font-bold text-[#00365b] mt-1 truncate">
+                  <p className="text-lg font-bold text-[#0a0a0a] mt-1 truncate">
                     {stats.most_active_user.name}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
@@ -253,13 +253,13 @@ const ActivitySummary: React.FC<ActivitySummaryProps> = ({
         </div>
 
         {/* Most active type */}
-        <div className="bg-white p-6 rounded-lg border border-gray-200 hover:border-[#fdb933] transition-colors">
+        <div className="bg-white p-6 rounded-lg border border-gray-200 hover:border-[#fbbf24] transition-colors">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600">Tipo Más Activo</p>
               {mostActiveType ? (
                 <>
-                  <p className="text-lg font-bold text-[#00365b] mt-1">
+                  <p className="text-lg font-bold text-[#0a0a0a] mt-1">
                     {mostActiveType.label}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
@@ -273,13 +273,13 @@ const ActivitySummary: React.FC<ActivitySummaryProps> = ({
                 </>
               )}
             </div>
-            <div className="p-3 bg-[#fdb933] bg-opacity-10 rounded-lg">
+            <div className="p-3 bg-[#fbbf24] bg-opacity-10 rounded-lg">
               {mostActiveType ? (
                 <span className="text-2xl" role="img" aria-label="activity-type">
                   {mostActiveType.icon}
                 </span>
               ) : (
-                <PieChart className="w-6 h-6 text-[#fdb933]" />
+                <PieChart className="w-6 h-6 text-[#fbbf24]" />
               )}
             </div>
           </div>
@@ -290,8 +290,8 @@ const ActivitySummary: React.FC<ActivitySummaryProps> = ({
       {showTrends && stats.peak_hours.length > 0 && (
         <div className="bg-white p-6 rounded-lg border border-gray-200">
           <div className="flex items-center gap-2 mb-4">
-            <Clock className="w-5 h-5 text-[#00365b]" />
-            <h4 className="font-semibold text-[#00365b]">Horas de Mayor Actividad</h4>
+            <Clock className="w-5 h-5 text-[#0a0a0a]" />
+            <h4 className="font-semibold text-[#0a0a0a]">Horas de Mayor Actividad</h4>
           </div>
           
           <div className="grid grid-cols-6 md:grid-cols-12 gap-2">
@@ -304,7 +304,7 @@ const ActivitySummary: React.FC<ActivitySummaryProps> = ({
                   key={i}
                   className={`relative h-8 rounded flex items-center justify-center text-xs font-medium transition-colors ${
                     isPeak 
-                      ? 'bg-[#fdb933] text-white' 
+                      ? 'bg-[#fbbf24] text-white' 
                       : isWorkHour 
                         ? 'bg-gray-100 text-gray-700' 
                         : 'bg-gray-50 text-gray-500'
@@ -322,7 +322,7 @@ const ActivitySummary: React.FC<ActivitySummaryProps> = ({
           
           <div className="flex items-center gap-4 mt-4 text-xs text-gray-600">
             <div className="flex items-center gap-1">
-              <div className="w-3 h-3 bg-[#fdb933] rounded"></div>
+              <div className="w-3 h-3 bg-[#fbbf24] rounded"></div>
               <span>Hora pico</span>
             </div>
             <div className="flex items-center gap-1">

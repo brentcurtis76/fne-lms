@@ -1,4 +1,4 @@
-// Assignment types for FNE LMS
+// Assignment types for Genera
 
 export type AssignmentType = 'task' | 'quiz' | 'project' | 'essay' | 'presentation' | 'group';
 

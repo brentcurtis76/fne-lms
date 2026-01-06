@@ -216,8 +216,8 @@ const MiAprendizajePage: React.FC = () => {
       >
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b] mx-auto"></div>
-            <p className="mt-4 text-[#00365b] font-medium">Cargando...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a] mx-auto"></div>
+            <p className="mt-4 text-[#0a0a0a] font-medium">Cargando...</p>
           </div>
         </div>
       </MainLayout>
@@ -251,7 +251,7 @@ const MiAprendizajePage: React.FC = () => {
               <button
                 className={`py-4 px-6 font-medium text-sm focus:outline-none ${
                   activeTab === 'rutas'
-                    ? 'border-b-2 border-[#00365b] text-[#00365b]'
+                    ? 'border-b-2 border-[#0a0a0a] text-[#0a0a0a]'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
                 onClick={() => {
@@ -264,7 +264,7 @@ const MiAprendizajePage: React.FC = () => {
               <button
                 className={`py-4 px-6 font-medium text-sm focus:outline-none ${
                   activeTab === 'cursos'
-                    ? 'border-b-2 border-[#00365b] text-[#00365b]'
+                    ? 'border-b-2 border-[#0a0a0a] text-[#0a0a0a]'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
                 onClick={() => {
@@ -310,7 +310,7 @@ const MiAprendizajePage: React.FC = () => {
                   <div className="p-6">
                     {pathsLoading ? (
                       <div className="text-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#00365b] mx-auto"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#0a0a0a] mx-auto"></div>
                         <p className="mt-2 text-gray-500">Cargando rutas de aprendizaje...</p>
                       </div>
                     ) : learningPaths.length === 0 ? (
@@ -485,7 +485,7 @@ const MiAprendizajePage: React.FC = () => {
                 <div className="p-6">
                   {coursesLoading ? (
                     <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#00365b] mx-auto"></div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-[#0a0a0a] mx-auto"></div>
                       <p className="mt-2 text-gray-500">Cargando tus cursos...</p>
                     </div>
                   ) : coursesError ? (
@@ -592,7 +592,7 @@ const MiAprendizajePage: React.FC = () => {
                                   className={`block w-full text-center py-2 rounded-md transition-colors font-medium ${
                                     course.progress_percentage === 100
                                       ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                      : 'bg-[#00365b] text-white hover:bg-[#004a7a]'
+                                      : 'bg-[#0a0a0a] text-white hover:bg-[#004a7a]'
                                   }`}
                                 >
                                   {course.progress_percentage === 100 ? 'Repasar Curso' : (course.progress_percentage > 0 ? 'Continuar' : 'Comenzar')}

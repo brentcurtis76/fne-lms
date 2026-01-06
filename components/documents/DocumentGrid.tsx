@@ -1,5 +1,5 @@
 // =============================================================================
-// FNE LMS - Document Grid Component
+// Genera - Document Grid Component
 // =============================================================================
 // Professional document grid/list view with thumbnails, actions, and selection
 
@@ -203,11 +203,11 @@ export default function DocumentGrid({
       className="group cursor-pointer bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 p-4"
     >
       <div className="flex items-center space-x-3">
-        <div className="text-[#fdb933]">
+        <div className="text-[#fbbf24]">
           <Folder className="w-8 h-8" />
         </div>
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-medium text-gray-900 truncate group-hover:text-[#00365b]">
+          <h3 className="text-sm font-medium text-gray-900 truncate group-hover:text-[#0a0a0a]">
             {folder.folder_name}
           </h3>
           <div className="flex items-center space-x-4 text-xs text-gray-500 mt-1">
@@ -228,7 +228,7 @@ export default function DocumentGrid({
     return (
       <div
         className={`group relative bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 ${
-          isSelected ? 'ring-2 ring-[#00365b] border-[#00365b]' : ''
+          isSelected ? 'ring-2 ring-[#0a0a0a] border-[#0a0a0a]' : ''
         }`}
       >
         {/* Selection checkbox */}
@@ -237,7 +237,7 @@ export default function DocumentGrid({
             type="checkbox"
             checked={isSelected}
             onChange={(e) => handleDocumentSelect(document.id, e.target.checked)}
-            className="w-4 h-4 text-[#00365b] border-gray-300 rounded focus:ring-[#00365b]"
+            className="w-4 h-4 text-[#0a0a0a] border-gray-300 rounded focus:ring-[#0a0a0a]"
           />
         </div>
 
@@ -282,7 +282,7 @@ export default function DocumentGrid({
 
           {/* Document info */}
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-900 truncate group-hover:text-[#00365b]">
+            <h3 className="text-sm font-medium text-gray-900 truncate group-hover:text-[#0a0a0a]">
               {document.title}
             </h3>
             <p className="text-xs text-gray-500 line-clamp-2">
@@ -346,7 +346,7 @@ export default function DocumentGrid({
             type="checkbox"
             checked={isSelected}
             onChange={(e) => handleDocumentSelect(document.id, e.target.checked)}
-            className="w-4 h-4 text-[#00365b] border-gray-300 rounded focus:ring-[#00365b]"
+            className="w-4 h-4 text-[#0a0a0a] border-gray-300 rounded focus:ring-[#0a0a0a]"
           />
         </td>
 
@@ -360,7 +360,7 @@ export default function DocumentGrid({
               {getFileIcon(document.mime_type)}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-gray-900 truncate group-hover:text-[#00365b]">
+              <p className="text-sm font-medium text-gray-900 truncate group-hover:text-[#0a0a0a]">
                 {document.title}
               </p>
               <p className="text-sm text-gray-500 truncate">
@@ -609,7 +609,7 @@ export default function DocumentGrid({
                       type="checkbox"
                       checked={documents.length > 0 && selectedDocuments.length === documents.length}
                       onChange={(e) => handleSelectAll(e.target.checked)}
-                      className="w-4 h-4 text-[#00365b] border-gray-300 rounded focus:ring-[#00365b]"
+                      className="w-4 h-4 text-[#0a0a0a] border-gray-300 rounded focus:ring-[#0a0a0a]"
                     />
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">

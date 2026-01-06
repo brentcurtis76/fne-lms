@@ -52,8 +52,8 @@ interface AnalyticsData {
 }
 
 const FNE_COLORS = {
-  primary: '#00365b',
-  secondary: '#fdb933',
+  primary: '#0a0a0a',
+  secondary: '#fbbf24',
   success: '#10b981',
   warning: '#f59e0b',
   error: '#ef4444',
@@ -186,7 +186,7 @@ export default function AnalyticsVisualization({
               <select
                 value={comparisonMode ? 'comparison' : 'current'}
                 onChange={(e) => setComparisonMode(e.target.value === 'comparison')}
-                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#fdb933]"
+                className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#fbbf24]"
               >
                 <option value="current">Período Actual</option>
                 <option value="comparison">Comparación Períodos</option>

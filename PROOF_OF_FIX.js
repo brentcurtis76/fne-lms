@@ -20,7 +20,7 @@ function proveFixWorks() {
     console.log(`✅ Found ${sidebarButtons.length} sidebar buttons`);
     
     // Find items with orange badges (indicating submenus)
-    const badgeElements = document.querySelectorAll('[class*="bg-[#fdb933]"]');
+    const badgeElements = document.querySelectorAll('[class*="bg-[#fbbf24]"]');
     console.log(`✅ Found ${badgeElements.length} items with orange badges (submenus)`);
     
     if (badgeElements.length === 0) {

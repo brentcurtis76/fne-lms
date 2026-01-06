@@ -1,5 +1,5 @@
 /**
- * FNE LMS Data Seeding - Organizations Generator
+ * Genera Data Seeding - Organizations Generator
  * 
  * Generates realistic organizational structure (schools, generations, communities)
  * with proper hierarchical relationships and regional distribution

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Create Notification Tables
+ * Genera - Create Notification Tables
  * 
  * This script creates the notification system tables step by step.
  */

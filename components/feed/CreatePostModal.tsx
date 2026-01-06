@@ -267,7 +267,7 @@ export default function CreatePostModal({
                   className="h-full w-full rounded-full object-cover"
                 />
               ) : (
-                <div className="h-full w-full rounded-full bg-[#00365b] flex items-center justify-center text-white font-medium">
+                <div className="h-full w-full rounded-full bg-[#0a0a0a] flex items-center justify-center text-white font-medium">
                   {authorName.split(' ').map(n => n[0]).join('')}
                 </div>
               )}
@@ -306,7 +306,7 @@ export default function CreatePostModal({
                       </div>
                     ) : (
                       <div className="flex items-center p-3 bg-gray-50 rounded-lg">
-                        <DocumentIcon className="h-8 w-8 text-[#00365b] mr-3" />
+                        <DocumentIcon className="h-8 w-8 text-[#0a0a0a] mr-3" />
                         <div className="flex-1">
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {file.name}
@@ -336,7 +336,7 @@ export default function CreatePostModal({
                   value={linkUrl}
                   onChange={(e) => setLinkUrl(e.target.value)}
                   placeholder="Pega el enlace aquí"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                 />
               </div>
             )}
@@ -395,7 +395,7 @@ export default function CreatePostModal({
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                   (!editor?.getText().trim() && selectedFiles.length === 0 && !linkUrl) || isSubmitting
                     ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                    : 'bg-[#00365b] text-white hover:bg-[#00365b]/90'
+                    : 'bg-[#0a0a0a] text-white hover:bg-[#0a0a0a]/90'
                 }`}
               >
                 {isSubmitting ? 'Publicando...' : 'Publicar'}

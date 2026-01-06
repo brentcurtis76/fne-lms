@@ -104,7 +104,7 @@ export default function QuizReviewDetailPage() {
   return (
     <>
       <Head>
-        <title>Revisar Quiz - FNE LMS</title>
+        <title>Revisar Quiz - Genera</title>
       </Head>
 
       <MainLayout

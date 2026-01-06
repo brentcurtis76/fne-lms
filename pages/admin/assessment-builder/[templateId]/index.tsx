@@ -1083,7 +1083,7 @@ const TemplateEditor: React.FC = () => {
                     {isDeleting ? 'Eliminando...' : 'Eliminar'}
                   </button>
                   <Link href={`/admin/assessment-builder/${template.id}/expectations`} legacyBehavior>
-                    <a className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700 transition-colors text-sm font-medium">
+                    <a className="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg shadow hover:bg-amber-700 transition-colors text-sm font-medium">
                       <Target className="w-4 h-4 mr-2" />
                       Expectativas
                     </a>
@@ -1153,7 +1153,7 @@ const TemplateEditor: React.FC = () => {
                     {isArchiving ? 'Archivando...' : 'Archivar'}
                   </button>
                   <Link href={`/admin/assessment-builder/${template.id}/expectations`} legacyBehavior>
-                    <a className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg shadow hover:bg-purple-700 transition-colors text-sm font-medium">
+                    <a className="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg shadow hover:bg-amber-700 transition-colors text-sm font-medium">
                       <Target className="w-4 h-4 mr-2" />
                       Expectativas
                     </a>
@@ -1314,7 +1314,7 @@ const TemplateEditor: React.FC = () => {
                                         indicator.category === 'cobertura'
                                           ? 'bg-blue-100 text-blue-700'
                                           : indicator.category === 'frecuencia'
-                                          ? 'bg-purple-100 text-purple-700'
+                                          ? 'bg-amber-100 text-amber-700'
                                           : 'bg-green-100 text-green-700'
                                       }`}
                                     >

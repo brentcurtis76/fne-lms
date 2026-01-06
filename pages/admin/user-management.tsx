@@ -764,8 +764,8 @@ export default function UserManagement() {
       >
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b] mx-auto"></div>
-            <p className="mt-4 text-[#00365b] font-medium">Cargando usuarios...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a] mx-auto"></div>
+            <p className="mt-4 text-[#0a0a0a] font-medium">Cargando usuarios...</p>
           </div>
         </div>
       </MainLayout>
@@ -871,7 +871,7 @@ export default function UserManagement() {
           <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-semibold text-[#00365b]">Crear Nuevo Usuario</h3>
+                <h3 className="text-xl font-semibold text-[#0a0a0a]">Crear Nuevo Usuario</h3>
                 <button
                   onClick={() => setShowAddForm(false)}
                   className="text-gray-400 hover:text-gray-500"
@@ -889,7 +889,7 @@ export default function UserManagement() {
                       type="email"
                       value={newUserEmail}
                       onChange={(e) => setNewUserEmail(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                       placeholder="usuario@ejemplo.com"
                       required
                     />
@@ -902,7 +902,7 @@ export default function UserManagement() {
                       type="password"
                       value={newUserPassword}
                       onChange={(e) => setNewUserPassword(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                       placeholder="Mínimo 6 caracteres"
                       minLength={6}
                       autoComplete="new-password"
@@ -917,7 +917,7 @@ export default function UserManagement() {
                       type="text"
                       value={newUserFirstName}
                       onChange={(e) => setNewUserFirstName(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                       placeholder="Nombre"
                     />
                   </div>
@@ -929,7 +929,7 @@ export default function UserManagement() {
                       type="text"
                       value={newUserLastName}
                       onChange={(e) => setNewUserLastName(e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                       placeholder="Apellido"
                     />
                   </div>
@@ -945,7 +945,7 @@ export default function UserManagement() {
                   <button
                     type="submit"
                     disabled={isCreating}
-                    className="px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#002844] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#1f1f1f] transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {isCreating ? (
                       <>

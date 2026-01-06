@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Insert Default Notification Types
+ * Genera - Insert Default Notification Types
  * 
  * This script inserts the specific default notification types
  * and verifies they were added correctly.

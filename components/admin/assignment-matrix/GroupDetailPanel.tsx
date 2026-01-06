@@ -189,7 +189,7 @@ export function GroupDetailPanel({
             <div className="text-xs text-gray-500">Cursos</div>
           </div>
           <div className="p-3 bg-gray-50 rounded-lg">
-            <div className="text-2xl font-bold text-purple-600">{lpAssignments.length}</div>
+            <div className="text-2xl font-bold text-amber-600">{lpAssignments.length}</div>
             <div className="text-xs text-gray-500">Rutas</div>
           </div>
         </div>

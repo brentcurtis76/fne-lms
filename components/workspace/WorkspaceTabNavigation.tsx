@@ -47,7 +47,7 @@ const WorkspaceTabNavigation: React.FC<WorkspaceTabNavigationProps> = ({
               className={`
                 group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm
                 ${isActive
-                  ? 'border-[#fdb933] text-[#00365b]'
+                  ? 'border-[#fbbf24] text-[#0a0a0a]'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }
               `}
@@ -56,7 +56,7 @@ const WorkspaceTabNavigation: React.FC<WorkspaceTabNavigationProps> = ({
                 className={`
                   -ml-0.5 mr-2 h-5 w-5
                   ${isActive
-                    ? 'text-[#00365b]'
+                    ? 'text-[#0a0a0a]'
                     : 'text-gray-400 group-hover:text-gray-500'
                   }
                 `}

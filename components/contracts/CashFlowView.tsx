@@ -495,7 +495,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
               onClick={() => setCurrencyDisplay('BOTH')}
               className={`px-3 py-2 text-sm rounded-lg font-medium transition-colors ${
                 currencyDisplay === 'BOTH'
-                  ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
                   : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
               }`}
             >

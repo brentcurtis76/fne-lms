@@ -1,5 +1,5 @@
 /**
- * FNE LMS Data Seeding - Progress Generator
+ * Genera Data Seeding - Progress Generator
  * 
  * Generates realistic learning progress data including course completions,
  * time tracking, session data, and performance metrics

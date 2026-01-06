@@ -176,7 +176,7 @@ async function testEmailDelivery() {
   // Test immediate email
   try {
     const result = await resend.emails.send({
-      from: 'FNE LMS <test@fne-lms.com>',
+      from: 'Genera <test@fne-lms.com>',
       to: TEST_USER_EMAIL,
       subject: '🧪 Test Notification Email',
       html: '<h1>Test Email</h1><p>This is a test notification email.</p>'

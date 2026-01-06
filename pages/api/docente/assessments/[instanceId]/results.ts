@@ -56,6 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status,
         completed_at,
         transformation_year,
+        generation_type,
         school_id,
         course_structure_id,
         template_snapshot_id,
@@ -109,6 +110,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status: instance.status,
         completedAt: instance.completed_at,
         transformationYear: instance.transformation_year,
+        generationType: (instance as any).generation_type || 'GT',
         snapshotVersion: (instance as any).assessment_template_snapshots?.version,
       },
       template: {

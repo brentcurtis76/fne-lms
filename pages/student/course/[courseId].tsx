@@ -395,8 +395,8 @@ export default function StudentCourseViewer() {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b] mx-auto mb-4"></div>
-          <p className="text-[#00365b] font-medium">Cargando curso...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a] mx-auto mb-4"></div>
+          <p className="text-[#0a0a0a] font-medium">Cargando curso...</p>
         </div>
       </div>
     );
@@ -409,7 +409,7 @@ export default function StudentCourseViewer() {
           <p className="text-red-600 mb-4">No se pudo cargar el curso</p>
           <button
             onClick={() => router.back()}
-            className="px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition"
+            className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition"
           >
             Volver
           </button>
@@ -445,7 +445,7 @@ export default function StudentCourseViewer() {
       >
         <button
           onClick={() => router.back()}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]"
         >
           <ChevronLeft className="w-4 h-4 inline mr-1" />
           Volver
@@ -473,7 +473,7 @@ export default function StudentCourseViewer() {
         <div className="max-w-6xl mx-auto p-6">
           {/* Continue Learning Section */}
           {nextLesson && (
-            <div className="bg-gradient-to-r from-[#00365b] to-[#004080] text-white rounded-lg p-6 mb-8">
+            <div className="bg-gradient-to-r from-[#0a0a0a] to-[#004080] text-white rounded-lg p-6 mb-8">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold mb-2">Continuar Aprendiendo</h2>
@@ -491,7 +491,7 @@ export default function StudentCourseViewer() {
                     </div>
                     <div className="w-48 bg-blue-800 rounded-full h-2">
                       <div 
-                        className="bg-[#fdb933] h-2 rounded-full transition-all"
+                        className="bg-[#fbbf24] h-2 rounded-full transition-all"
                         style={{ width: `${getLessonProgressPercentage(nextLesson.lesson.id)}%` }}
                       ></div>
                     </div>
@@ -499,7 +499,7 @@ export default function StudentCourseViewer() {
                 </div>
                 <Link
                   href={`/student/lesson/${nextLesson.lesson.id}`}
-                  className="bg-[#fdb933] text-[#00365b] px-6 py-3 rounded-lg font-medium hover:bg-yellow-400 transition flex items-center gap-2"
+                  className="bg-[#fbbf24] text-[#0a0a0a] px-6 py-3 rounded-lg font-medium hover:bg-yellow-400 transition flex items-center gap-2"
                   onClick={() => {
                     console.log('DEBUG: Navigating to lesson ID:', nextLesson.lesson.id);
                     console.log('DEBUG: Full lesson object:', nextLesson.lesson);
@@ -520,7 +520,7 @@ export default function StudentCourseViewer() {
                 <div className="bg-gray-50 px-6 py-4 border-b">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-lg font-bold text-[#00365b]">
+                      <h3 className="text-lg font-bold text-[#0a0a0a]">
                         Lecciones del Curso
                       </h3>
                       <p className="text-gray-600 text-sm mt-1">
@@ -547,7 +547,7 @@ export default function StudentCourseViewer() {
                         <Link
                           key={lesson.id}
                           href={`/student/lesson/${lesson.id}`}
-                          className="block bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition border-2 border-transparent hover:border-[#00365b]"
+                          className="block bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition border-2 border-transparent hover:border-[#0a0a0a]"
                         >
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-2">
@@ -605,7 +605,7 @@ export default function StudentCourseViewer() {
                   <div className="bg-gray-50 px-6 py-4 border-b">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-lg font-bold text-[#00365b]">
+                        <h3 className="text-lg font-bold text-[#0a0a0a]">
                           Módulo {module.order_number}: {module.title}
                         </h3>
                         {module.description && (
@@ -632,7 +632,7 @@ export default function StudentCourseViewer() {
                           <Link
                             key={lesson.id}
                             href={`/student/lesson/${lesson.id}`}
-                            className="block bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition border-2 border-transparent hover:border-[#00365b]"
+                            className="block bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition border-2 border-transparent hover:border-[#0a0a0a]"
                           >
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-2">

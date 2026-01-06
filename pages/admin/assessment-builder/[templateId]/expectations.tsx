@@ -765,7 +765,7 @@ const ExpectationsEditor: React.FC = () => {
                                   indicator.indicatorCategory === 'cobertura'
                                     ? 'bg-blue-100 text-blue-700'
                                     : indicator.indicatorCategory === 'frecuencia'
-                                    ? 'bg-purple-100 text-purple-700'
+                                    ? 'bg-amber-100 text-amber-700'
                                     : 'bg-green-100 text-green-700'
                                 }`}>
                                   {indicator.indicatorCategory === 'cobertura' ? 'Cob' :
@@ -881,7 +881,7 @@ const ExpectationsEditor: React.FC = () => {
                 <span className="text-gray-600">Cobertura (Sí/No implementado)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs">Frec</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs">Frec</span>
                 <span className="text-gray-600">Frecuencia (mínimo esperado por período)</span>
               </div>
               <div className="flex items-center gap-2">

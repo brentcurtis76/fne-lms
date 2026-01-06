@@ -1,5 +1,5 @@
 /**
- * FNE LMS Data Seeding - Test Scenarios Configuration
+ * Genera Data Seeding - Test Scenarios Configuration
  * 
  * Defines realistic test scenarios, data volumes, and patterns for comprehensive
  * dashboard validation across all user personas and community health states

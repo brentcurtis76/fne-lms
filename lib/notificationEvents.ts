@@ -1,5 +1,5 @@
 /**
- * FNE LMS - Notification Events Registry
+ * Genera - Notification Events Registry
  *
  * Centralized configuration for all notification event types.
  * Provides type-safe defaults that can be overridden by database templates.

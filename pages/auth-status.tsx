@@ -91,7 +91,7 @@ export default function AuthStatus() {
   return (
     <>
       <Head>
-        <title>Authentication Status | FNE LMS</title>
+        <title>Authentication Status | Genera</title>
       </Head>
       
       <div className="min-h-screen bg-gray-100 p-8">

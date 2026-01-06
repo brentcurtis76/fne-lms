@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Run Specific Debug Queries
+ * Genera - Run Specific Debug Queries
  * 
  * This script runs the exact SQL queries requested for debugging.
  */

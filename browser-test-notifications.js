@@ -10,7 +10,7 @@
  */
 
 async function testNotificationTriggers() {
-  console.log('🧪 Testing FNE LMS Notification Triggers...\n');
+  console.log('🧪 Testing Genera Notification Triggers...\n');
 
   // Get auth token from localStorage
   const authData = localStorage.getItem('sb-sxlogxqzmarhqsblxmtj-auth-token');

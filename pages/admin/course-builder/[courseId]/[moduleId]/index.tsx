@@ -538,14 +538,14 @@ const ModuleDetailPage = () => {
       >
         <button
           onClick={() => router.push(`/admin/course-builder/${module.course_id}`)}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]"
         >
           <ChevronLeft className="w-4 h-4 inline mr-1" />
           Volver al Curso
         </button>
         <button
           onClick={() => router.push(`/admin/course-builder/${module.course_id}/${module.id}/edit`)}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]"
         >
           <EditIcon className="w-4 h-4 inline mr-1" />
           Editar Módulo

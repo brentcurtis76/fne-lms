@@ -485,7 +485,7 @@ export default function GroupSubmissionModalV2({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div>
-            <h2 className="text-xl font-semibold text-[#00365b]">
+            <h2 className="text-xl font-semibold text-[#0a0a0a]">
               {isSubmitted ? 'Ver Entrega Grupal' : 'Entregar Tarea Grupal'}
             </h2>
             <p className="text-sm text-gray-600 mt-1">{assignment.title}</p>
@@ -609,7 +609,7 @@ export default function GroupSubmissionModalV2({
                 {groupMembers.length > 0 && (
                   <div className="mt-4 pt-3 border-t border-gray-200">
                     <h4 className="font-medium text-gray-900 text-sm mb-2 flex items-center gap-2">
-                      <Users className="h-4 w-4 text-[#00365b]" />
+                      <Users className="h-4 w-4 text-[#0a0a0a]" />
                       Miembros del grupo
                     </h4>
                     <div className="space-y-2">
@@ -621,7 +621,7 @@ export default function GroupSubmissionModalV2({
                             className="flex items-center justify-between rounded border border-gray-200 px-3 py-2 bg-white"
                           >
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-[#00365b] text-white flex items-center justify-center text-sm font-semibold uppercase">
+                              <div className="w-8 h-8 rounded-full bg-[#0a0a0a] text-white flex items-center justify-center text-sm font-semibold uppercase">
                                 {member.user?.first_name?.[0] || member.user?.last_name?.[0] || 'U'}
                               </div>
                               <div>
@@ -675,7 +675,7 @@ export default function GroupSubmissionModalV2({
                       placeholder="Buscar compañeros de clase..."
                       value={classmateSearchQuery}
                       onChange={(e) => setClassmateSearchQuery(e.target.value)}
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                     />
                   </div>
 
@@ -704,7 +704,7 @@ export default function GroupSubmissionModalV2({
                               type="button"
                               onClick={() => handleToggleClassmate(classmate.id)}
                               className={`flex items-center gap-2 p-2 rounded border-2 transition-colors ${selectedClassmates.has(classmate.id)
-                                ? 'border-[#fdb933] bg-yellow-50'
+                                ? 'border-[#fbbf24] bg-yellow-50'
                                 : 'border-gray-200 hover:border-gray-300 bg-gray-50'
                                 }`}
                             >
@@ -712,7 +712,7 @@ export default function GroupSubmissionModalV2({
                                 type="checkbox"
                                 checked={selectedClassmates.has(classmate.id)}
                                 onChange={() => { }}
-                                className="w-4 h-4 text-[#00365b] rounded focus:ring-[#00365b]"
+                                className="w-4 h-4 text-[#0a0a0a] rounded focus:ring-[#0a0a0a]"
                               />
                               {classmate.avatar_url ? (
                                 <img
@@ -721,8 +721,8 @@ export default function GroupSubmissionModalV2({
                                   className="w-6 h-6 rounded-full"
                                 />
                               ) : (
-                                <div className="w-6 h-6 bg-[#fdb933] rounded-full flex items-center justify-center">
-                                  <span className="text-[#00365b] text-xs font-medium">
+                                <div className="w-6 h-6 bg-[#fbbf24] rounded-full flex items-center justify-center">
+                                  <span className="text-[#0a0a0a] text-xs font-medium">
                                     {classmate.full_name?.charAt(0).toUpperCase() || '?'}
                                   </span>
                                 </div>
@@ -750,7 +750,7 @@ export default function GroupSubmissionModalV2({
                             type="button"
                             onClick={handleAddClassmates}
                             disabled={selectedClassmates.size === 0 || loadingClassmates}
-                            className="px-4 py-2 bg-[#00365b] text-white text-sm rounded-lg hover:bg-[#004a7a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                            className="px-4 py-2 bg-[#0a0a0a] text-white text-sm rounded-lg hover:bg-[#004a7a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                           >
                             <UserPlus className="h-4 w-4" />
                             {loadingClassmates ? 'Procesando...' : (group?.id ? 'Agregar al Grupo' : 'Crear Grupo')}
@@ -836,7 +836,7 @@ export default function GroupSubmissionModalV2({
                     value={submissionText}
                     onChange={(e) => setSubmissionText(e.target.value)}
                     rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                     placeholder="Agrega comentarios adicionales sobre tu entrega (opcional)..."
                   />
                 </div>
@@ -853,7 +853,7 @@ export default function GroupSubmissionModalV2({
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                     {uploadingFile ? (
                       <div className="space-y-3">
-                        <div className="mx-auto h-12 w-12 border-4 border-[#00365b] border-t-transparent rounded-full animate-spin"></div>
+                        <div className="mx-auto h-12 w-12 border-4 border-[#0a0a0a] border-t-transparent rounded-full animate-spin"></div>
                         <div>
                           <p className="text-sm font-medium text-gray-900">Subiendo archivo...</p>
                           {uploadedFileName && (
@@ -929,7 +929,7 @@ export default function GroupSubmissionModalV2({
           <button
             onClick={handleSubmit}
             disabled={loading || uploadingFile}
-            className="px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#004a7a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#004a7a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {uploadingFile
               ? 'Subiendo archivo...'

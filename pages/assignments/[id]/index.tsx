@@ -153,7 +153,7 @@ export default function AssignmentDetailPage() {
   return (
     <>
       <Head>
-        <title>{assignment.title} - FNE LMS</title>
+        <title>{assignment.title} - Genera</title>
       </Head>
 
       <MainLayout 

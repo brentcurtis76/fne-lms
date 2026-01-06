@@ -2,7 +2,7 @@
  * Sentry Server Configuration
  *
  * Configures error tracking and performance monitoring for the Node.js server side
- * of the FNE LMS application, including API routes and SSR.
+ * of the Genera application, including API routes and SSR.
  *
  * @see https://docs.sentry.io/platforms/javascript/guides/nextjs/
  */
@@ -94,7 +94,7 @@ if (SENTRY_DSN) {
       event.contexts = {
         ...event.contexts,
         app: {
-          app_name: 'FNE LMS',
+          app_name: 'Genera',
           app_version: process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0'
         },
         runtime: {

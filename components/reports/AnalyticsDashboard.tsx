@@ -56,8 +56,8 @@ interface KPICardProps {
 }
 
 const FNE_COLORS = {
-  primary: '#00365b',
-  secondary: '#fdb933',
+  primary: '#0a0a0a',
+  secondary: '#fbbf24',
   success: '#10b981',
   warning: '#f59e0b',
   error: '#ef4444',

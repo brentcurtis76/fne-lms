@@ -141,13 +141,13 @@ export function UserGroupPanel({
   const getRoleBadge = (role: string): { label: string; color: string } => {
     const roleMap: Record<string, { label: string; color: string }> = {
       admin: { label: 'Admin', color: 'bg-red-100 text-red-700' },
-      consultor: { label: 'Consultor', color: 'bg-purple-100 text-purple-700' },
+      consultor: { label: 'Consultor', color: 'bg-amber-100 text-amber-700' },
       equipo_directivo: { label: 'Directivo', color: 'bg-blue-100 text-blue-700' },
       docente: { label: 'Docente', color: 'bg-green-100 text-green-700' },
       estudiante: { label: 'Estudiante', color: 'bg-yellow-100 text-yellow-700' },
       lider_comunidad: { label: 'Líder Com.', color: 'bg-orange-100 text-orange-700' },
       lider_generacion: { label: 'Líder Gen.', color: 'bg-teal-100 text-teal-700' },
-      supervisor_de_red: { label: 'Supervisor', color: 'bg-indigo-100 text-indigo-700' }
+      supervisor_de_red: { label: 'Supervisor', color: 'bg-slate-100 text-slate-700' }
     };
     return roleMap[role] || { label: role, color: 'bg-gray-100 text-gray-700' };
   };

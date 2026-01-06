@@ -1274,12 +1274,12 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     <div className="bg-white rounded-lg shadow-md">
       {/* Show notification if data was imported from PDF */}
       {extractedData && (
-        <div className="bg-purple-50 border-b border-purple-200 px-6 py-3">
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
           <div className="flex items-center">
-            <FileText className="text-purple-600 mr-3" size={20} />
+            <FileText className="text-amber-600 mr-3" size={20} />
             <div className="flex-1">
-              <p className="text-purple-900 font-medium">Datos importados desde PDF</p>
-              <p className="text-purple-700 text-sm">
+              <p className="text-amber-900 font-medium">Datos importados desde PDF</p>
+              <p className="text-amber-700 text-sm">
                 Los campos han sido pre-llenados con la información extraída. Por favor, revise y complete los campos faltantes.
               </p>
             </div>
@@ -1357,11 +1357,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               </div>
               
               {/* AI PDF Import Button */}
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="font-medium text-purple-900">¿Tiene un PDF de contrato?</p>
-                    <p className="text-sm text-purple-700 mt-1">
+                    <p className="font-medium text-amber-900">¿Tiene un PDF de contrato?</p>
+                    <p className="text-sm text-amber-700 mt-1">
                       Use AI para extraer automáticamente la información del contrato
                     </p>
                   </div>
@@ -1371,7 +1371,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       // Trigger PDF import modal from parent
                       window.dispatchEvent(new CustomEvent('openPDFImporterFromForm'));
                     }}
-                    className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-md hover:bg-purple-700 transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-md hover:bg-amber-700 transition-colors"
                   >
                     <Upload className="mr-2" size={16} />
                     Importar con AI

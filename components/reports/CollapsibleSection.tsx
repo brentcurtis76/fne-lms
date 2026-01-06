@@ -31,18 +31,18 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     >
       <motion.button
         onClick={onToggle}
-        className="w-full px-4 md:px-6 py-4 flex items-center justify-between text-left focus:outline-none focus:ring-2 focus:ring-[#fdb933] focus:ring-inset hover:bg-gray-50 transition-colors"
+        className="w-full px-4 md:px-6 py-4 flex items-center justify-between text-left focus:outline-none focus:ring-2 focus:ring-[#fbbf24] focus:ring-inset hover:bg-gray-50 transition-colors"
         whileTap={{ scale: 0.98 }}
       >
         <div className="flex items-center space-x-3">
           {icon && (
-            <div className="text-[#00365b]">
+            <div className="text-[#0a0a0a]">
               {icon}
             </div>
           )}
           <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
           {badge && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#fdb933] text-white">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#fbbf24] text-white">
               {badge}
             </span>
           )}

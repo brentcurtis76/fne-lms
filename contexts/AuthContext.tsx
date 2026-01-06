@@ -1,5 +1,5 @@
 /**
- * Global Authentication Context for FNE LMS
+ * Global Authentication Context for Genera
  * Refactored to use SessionContextProvider as single source of truth
  * No competing onAuthStateChange listeners
  */

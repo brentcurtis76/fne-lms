@@ -69,7 +69,7 @@ const RealtimeNotificationBell: React.FC<RealtimeNotificationBellProps> = ({ cla
           notification-bell-icon
           relative p-2 rounded-lg transition-all duration-200 transform hover:scale-105
           ${isOpen 
-            ? 'bg-white/20 text-[#fdb933]' 
+            ? 'bg-white/20 text-[#fbbf24]' 
             : 'text-white/80 hover:text-white hover:bg-white/10'
           }
           ${className}

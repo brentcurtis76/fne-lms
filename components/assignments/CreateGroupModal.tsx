@@ -171,7 +171,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           {/* Member Selection */}
           {loadingMembers ? (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00365b] mx-auto"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0a0a0a] mx-auto"></div>
               <p className="text-gray-500 mt-2">Cargando miembros...</p>
             </div>
           ) : availableMembers.length > 0 ? (
@@ -182,7 +182,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                   onClick={() => toggleMember(member.id)}
                   className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition ${
                     selectedMembers.includes(member.id)
-                      ? 'bg-[#fdb933]/20 border-2 border-[#fdb933]'
+                      ? 'bg-[#fbbf24]/20 border-2 border-[#fbbf24]'
                       : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
                   }`}
                 >
@@ -204,7 +204,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                     </div>
                   </div>
                   {selectedMembers.includes(member.id) && (
-                    <div className="text-[#fdb933]">
+                    <div className="text-[#fbbf24]">
                       <UserPlus className="w-5 h-5" />
                     </div>
                   )}
@@ -236,7 +236,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
             <button
               onClick={handleCreateGroup}
               disabled={loading || selectedMembers.length < assignment.min_group_size - 1}
-              className="px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creando...' : 'Crear Grupo'}
             </button>

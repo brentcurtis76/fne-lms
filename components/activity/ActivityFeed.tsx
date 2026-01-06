@@ -1,7 +1,7 @@
 /**
  * ActivityFeed Component
  * Main timeline component with infinite scroll and real-time subscriptions
- * Phase 5 of Collaborative Workspace System for FNE LMS
+ * Phase 5 of Collaborative Workspace System for Genera
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -265,7 +265,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
       {/* Header with stats and controls */}
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
         <div className="flex items-center gap-4">
-          <h2 className="text-xl font-bold text-[#00365b]">
+          <h2 className="text-xl font-bold text-[#0a0a0a]">
             Feed de Actividades
           </h2>
           
@@ -299,8 +299,8 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
               onClick={() => setShowFiltersPanel(!showFiltersPanel)}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors ${
                 showFiltersPanel 
-                  ? 'bg-[#00365b] text-white border-[#00365b]' 
-                  : 'bg-white text-gray-700 border-gray-300 hover:border-[#fdb933]'
+                  ? 'bg-[#0a0a0a] text-white border-[#0a0a0a]' 
+                  : 'bg-white text-gray-700 border-gray-300 hover:border-[#fbbf24]'
               }`}
             >
               <Filter className="w-4 h-4" />
@@ -311,7 +311,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:border-[#fdb933] transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:border-[#fbbf24] transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">Actualizar</span>
@@ -362,7 +362,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
           <div key={group.date} className="activity-group">
             {/* Date header */}
             <div className="flex items-center gap-4 mb-4">
-              <h3 className="text-lg font-semibold text-[#00365b]">
+              <h3 className="text-lg font-semibold text-[#0a0a0a]">
                 {group.date_formatted}
               </h3>
               <div className="flex-1 h-px bg-gray-200"></div>
@@ -370,7 +370,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({
                 <span>{group.total_count} actividades</span>
                 <span>{group.unique_users} usuarios</span>
                 {group.most_active_user && (
-                  <span className="text-[#fdb933] font-medium">
+                  <span className="text-[#fbbf24] font-medium">
                     Más activo: {group.most_active_user.name}
                   </span>
                 )}

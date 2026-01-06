@@ -1,5 +1,5 @@
 /**
- * FNE LMS Progress Tracking Diagnostic Script
+ * Genera Progress Tracking Diagnostic Script
  *
  * This script queries the production Supabase database to definitively identify
  * the root cause of missing progress data in reports.
@@ -27,7 +27,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   }
 });
 
-console.log('🔍 FNE LMS PROGRESS TRACKING DIAGNOSTIC REPORT');
+console.log('🔍 Genera PROGRESS TRACKING DIAGNOSTIC REPORT');
 console.log('='.repeat(80));
 console.log(`📅 Date: ${new Date().toISOString()}`);
 console.log(`🌐 Database: ${supabaseUrl}`);

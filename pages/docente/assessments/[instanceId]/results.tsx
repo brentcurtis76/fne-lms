@@ -23,6 +23,7 @@ import {
   CATEGORY_LABELS,
   TransformationArea,
   IndicatorCategory,
+  GenerationType,
 } from '@/types/assessment-builder';
 import {
   BarChart,
@@ -110,6 +111,7 @@ interface ResultsData {
     status: string;
     completedAt: string;
     transformationYear: number;
+    generationType: GenerationType;
     snapshotVersion: string;
   };
   template: {
@@ -315,7 +317,19 @@ const AssessmentResults: React.FC = () => {
           {/* Meets expectations */}
           <div className="bg-white shadow-md rounded-lg p-6">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-gray-500">Expectativa Año {results.instance.transformationYear}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-500">Expectativa Año {results.instance.transformationYear}</span>
+                <span
+                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                    results.instance.generationType === 'GT'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-blue-100 text-blue-700'
+                  }`}
+                  title={results.instance.generationType === 'GT' ? 'Generación Tractor' : 'Generación Innova'}
+                >
+                  {results.instance.generationType}
+                </span>
+              </div>
               <Target className="w-5 h-5 text-gray-500" />
             </div>
             <div className="flex items-center gap-3 mb-2">
@@ -376,6 +390,16 @@ const AssessmentResults: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <Target className="w-5 h-5 text-brand_blue" />
               Análisis de Brechas - Año {results.instance.transformationYear}
+              <span
+                className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                  results.instance.generationType === 'GT'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-blue-100 text-blue-700'
+                }`}
+                title={results.instance.generationType === 'GT' ? 'Generación Tractor' : 'Generación Innova'}
+              >
+                Expectativas {results.instance.generationType}
+              </span>
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
               <div className="text-center p-3 bg-green-50 rounded-lg">

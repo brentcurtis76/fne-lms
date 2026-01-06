@@ -1,4 +1,4 @@
-// Standard grade ranges used across the FNE LMS platform
+// Standard grade ranges used across the Genera platform
 export const GRADE_RANGES = [
   // Early childhood ranges
   { value: 'P1-P2', label: 'P1-P2' },

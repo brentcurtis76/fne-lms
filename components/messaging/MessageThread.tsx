@@ -1,7 +1,7 @@
 /**
  * MessageThread Component
  * Thread display with real-time updates and message grouping
- * Phase 4 of Collaborative Workspace System for FNE LMS
+ * Phase 4 of Collaborative Workspace System for Genera
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';

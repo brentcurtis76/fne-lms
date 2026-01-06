@@ -224,7 +224,7 @@ export default function LearningQuizTaker({
               value={answer?.text || ''}
               onChange={(e) => handleTextAnswer(question.id, e.target.value)}
               placeholder="Escribe tu respuesta aquí..."
-              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent resize-none"
+              className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent resize-none"
               rows={6}
               maxLength={question.characterLimit || 5000}
               disabled={false}

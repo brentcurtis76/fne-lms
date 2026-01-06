@@ -1,5 +1,5 @@
 /**
- * FNE LMS Data Seeding - Users Generator
+ * Genera Data Seeding - Users Generator
  * 
  * Generates realistic user personas with proper role distribution,
  * Spanish names, and authentic behavioral patterns
@@ -342,7 +342,7 @@ function generateBio(role, name) {
   
   const bioTemplates = {
     'admin': [
-      `${firstName} es administrador del sistema FNE LMS con experiencia en gestión educativa.`,
+      `${firstName} es administrador del sistema Genera con experiencia en gestión educativa.`,
       `Profesional dedicado a la mejora continua de los procesos educativos en línea.`,
       `${firstName} supervisa la implementación de tecnologías educativas innovadoras.`
     ],

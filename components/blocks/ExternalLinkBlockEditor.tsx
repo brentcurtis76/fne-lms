@@ -112,7 +112,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-3">
           <GripVertical className="text-gray-400" size={20} />
-          <h2 className="text-lg font-semibold text-[#00365b]">
+          <h2 className="text-lg font-semibold text-[#0a0a0a]">
             Enlaces Externos: {block.payload.title || 'Sin título'}
           </h2>
         </div>
@@ -138,7 +138,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
               value={block.payload.title || ''}
               onChange={(e) => onTitleChange(block.id, e.target.value)}
               placeholder="Ingrese el título para esta sección de enlaces"
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
             />
           </div>
 
@@ -150,7 +150,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
               value={block.payload.description || ''}
               onChange={(e) => onUpdate(block.id, 'description', e.target.value)}
               placeholder="Descripción opcional para la colección de enlaces"
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
               rows={2}
             />
           </div>
@@ -162,7 +162,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
                 type="checkbox"
                 checked={block.payload.groupByCategory}
                 onChange={(e) => onUpdate(block.id, 'groupByCategory', e.target.checked)}
-                className="form-checkbox text-[#00365b]"
+                className="form-checkbox text-[#0a0a0a]"
               />
               <span className="text-sm">Agrupar por categoría</span>
             </label>
@@ -171,7 +171,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
                 type="checkbox"
                 checked={block.payload.showThumbnails}
                 onChange={(e) => onUpdate(block.id, 'showThumbnails', e.target.checked)}
-                className="form-checkbox text-[#00365b]"
+                className="form-checkbox text-[#0a0a0a]"
               />
               <span className="text-sm">Mostrar miniaturas</span>
             </label>
@@ -180,7 +180,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
                 type="checkbox"
                 checked={block.payload.showDescriptions}
                 onChange={(e) => onUpdate(block.id, 'showDescriptions', e.target.checked)}
-                className="form-checkbox text-[#00365b]"
+                className="form-checkbox text-[#0a0a0a]"
               />
               <span className="text-sm">Mostrar descripciones</span>
             </label>
@@ -189,12 +189,12 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
           {/* Links */}
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-md font-semibold text-[#00365b]">
+              <h3 className="text-md font-semibold text-[#0a0a0a]">
                 Enlaces ({block.payload.links.length})
               </h3>
               <Button
                 onClick={addLink}
-                className="bg-[#00365b] hover:bg-[#fdb933] hover:text-[#00365b] text-white"
+                className="bg-[#0a0a0a] hover:bg-[#fbbf24] hover:text-[#0a0a0a] text-white"
                 size="sm"
               >
                 <Plus size={16} className="mr-1" />
@@ -207,12 +207,12 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
                 <div
                   key={link.id}
                   className={`border rounded-lg p-4 ${
-                    expandedLinkId === link.id ? 'border-[#00365b] bg-blue-50' : 'border-gray-200'
+                    expandedLinkId === link.id ? 'border-[#0a0a0a] bg-blue-50' : 'border-gray-200'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-2">
-                      <ExternalLinkIcon size={16} className="text-[#00365b]" />
+                      <ExternalLinkIcon size={16} className="text-[#0a0a0a]" />
                       <h4 className="font-medium text-gray-700">
                         {link.title || `Enlace ${linkIndex + 1}`}
                       </h4>
@@ -243,7 +243,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
                             expandedLinkId === link.id ? null : link.id
                           )
                         }
-                        className="text-[#00365b] hover:text-[#fdb933] text-sm"
+                        className="text-[#0a0a0a] hover:text-[#fbbf24] text-sm"
                       >
                         {expandedLinkId === link.id ? 'Colapsar' : 'Editar'}
                       </button>
@@ -286,7 +286,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
                             value={link.title}
                             onChange={(e) => updateLink(link.id, 'title', e.target.value)}
                             placeholder="Título descriptivo del enlace"
-                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                           />
                         </div>
                         <div>
@@ -299,7 +299,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
                             onChange={(e) => updateLink(link.id, 'category', e.target.value)}
                             placeholder="Categoría (opcional)"
                             list={`categories-${block.id}`}
-                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                           />
                           <datalist id={`categories-${block.id}`}>
                             {getUniqueCategories().map(category => (
@@ -318,7 +318,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
                           value={link.url}
                           onChange={(e) => updateLink(link.id, 'url', e.target.value)}
                           placeholder="https://ejemplo.com"
-                          className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent ${
+                          className={`w-full p-2 border rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent ${
                             link.url && !isValidUrl(link.url) 
                               ? 'border-[#ef4044] bg-red-50' 
                               : 'border-gray-300'
@@ -334,7 +334,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
                           value={link.description || ''}
                           onChange={(e) => updateLink(link.id, 'description', e.target.value)}
                           placeholder="Descripción del enlace (opcional)"
-                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                           rows={2}
                         />
                       </div>
@@ -348,7 +348,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
                           value={link.thumbnail || ''}
                           onChange={(e) => updateLink(link.id, 'thumbnail', e.target.value)}
                           placeholder="https://ejemplo.com/imagen.jpg"
-                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                         />
                       </div>
 
@@ -358,7 +358,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
                             type="checkbox"
                             checked={link.openInNewTab}
                             onChange={(e) => updateLink(link.id, 'openInNewTab', e.target.checked)}
-                            className="form-checkbox text-[#00365b]"
+                            className="form-checkbox text-[#0a0a0a]"
                           />
                           <span className="text-sm">Abrir en nueva pestaña</span>
                         </label>
@@ -414,7 +414,7 @@ const ExternalLinkBlockEditor: React.FC<ExternalLinkBlockEditorProps> = ({
             </Button>
             <Button
               onClick={() => onSave(block.id)}
-              className="bg-[#00365b] hover:bg-[#fdb933] hover:text-[#00365b] text-white"
+              className="bg-[#0a0a0a] hover:bg-[#fbbf24] hover:text-[#0a0a0a] text-white"
             >
               Guardar Enlaces
             </Button>

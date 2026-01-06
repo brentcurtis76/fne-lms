@@ -24,7 +24,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({ block, onChange }) => {
               },
             });
           }}
-          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
           rows={5}
           placeholder="Enter text content..."
         />
@@ -48,7 +48,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = ({ block, onChange }) => {
               },
             });
           }}
-          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
         />
       );
 

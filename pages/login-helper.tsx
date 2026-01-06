@@ -17,7 +17,7 @@ export default function LoginHelper() {
   return (
     <>
       <Head>
-        <title>Login Helper | FNE LMS</title>
+        <title>Login Helper | Genera</title>
       </Head>
       
       <div className="min-h-screen bg-brand_beige flex items-center justify-center p-8">

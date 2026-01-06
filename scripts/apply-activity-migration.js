@@ -2,7 +2,7 @@
 
 /**
  * Activity Feed System Migration Script
- * Phase 5 of Collaborative Workspace System for FNE LMS
+ * Phase 5 of Collaborative Workspace System for Genera
  * Following established patterns from apply-messaging-migration.js
  */
 

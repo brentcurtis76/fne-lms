@@ -1,4 +1,4 @@
-// FNE LMS Service Worker for Push Notifications
+// Genera Service Worker for Push Notifications
 // Version: 1.0.0
 
 // Listen for push notifications

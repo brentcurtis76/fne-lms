@@ -539,7 +539,7 @@ export function PreAssessmentQuestions({
 
       {/* SECCIÓN B */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-50 to-pink-50 px-6 py-4 border-b border-slate-200">
+        <div className="bg-gradient-to-r from-amber-50 to-pink-50 px-6 py-4 border-b border-slate-200">
           <h3 className="text-lg font-bold text-slate-900">
             SECCIÓN B: Estado Actual de Personalización
           </h3>

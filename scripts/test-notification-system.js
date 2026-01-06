@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Test Notification System
+ * Genera - Test Notification System
  * 
  * This script tests the complete notification system to verify
  * that the claimed "premium notification center" actually works.
  */
 
-console.log('🧪 FNE LMS - Notification System Testing');
+console.log('🧪 Genera - Notification System Testing');
 console.log('=' .repeat(50));
 console.log('');
 

@@ -358,7 +358,7 @@ export default function NotificationsPage() {
     return (
       <MainLayout user={session?.user} currentPage="notifications" pageTitle="Notificaciones" isAdmin={isAdmin} onLogout={() => supabase.auth.signOut()} avatarUrl={avatarUrl}>
         <div className="flex items-center justify-center min-h-screen">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00365b]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0a0a0a]"></div>
         </div>
       </MainLayout>
     );
@@ -401,13 +401,13 @@ export default function NotificationsPage() {
                   placeholder="Buscar notificaciones..."
                   value={filters.search}
                   onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                  className="pl-10 pr-3 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                  className="pl-10 pr-3 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                 />
               </div>
               <select
                 value={filters.category}
                 onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
               >
                 <option value="all">Todas las categorías</option>
                 <option value="admin">Administración</option>
@@ -422,7 +422,7 @@ export default function NotificationsPage() {
               <select
                 value={filters.status}
                 onChange={(e) => setFilters({ ...filters, status: e.target.value as 'all' | 'read' | 'unread' })}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
               >
                 <option value="all">Todas</option>
                 <option value="unread">No leídas</option>
@@ -431,7 +431,7 @@ export default function NotificationsPage() {
               <select
                 value={filters.dateRange}
                 onChange={(e) => setFilters({ ...filters, dateRange: e.target.value as 'all' | 'today' | 'week' | 'month' })}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
               >
                 <option value="all">Todo el tiempo</option>
                 <option value="today">Hoy</option>
@@ -498,7 +498,7 @@ export default function NotificationsPage() {
                     type="checkbox"
                     checked={paginatedNotifications.length > 0 && selectedNotifications.size === paginatedNotifications.length}
                     onChange={toggleSelectAll}
-                    className="h-4 w-4 text-[#00365b] focus:ring-[#00365b] border-gray-300 rounded"
+                    className="h-4 w-4 text-[#0a0a0a] focus:ring-[#0a0a0a] border-gray-300 rounded"
                   />
                   <span className="ml-2 text-sm text-gray-700">Seleccionar todas</span>
                 </label>
@@ -529,7 +529,7 @@ export default function NotificationsPage() {
                           checked={isSelected}
                           onChange={() => toggleSelectNotification(notification.id)}
                           onClick={(e) => e.stopPropagation()}
-                          className="mt-1 h-4 w-4 text-[#00365b] focus:ring-[#00365b] border-gray-300 rounded"
+                          className="mt-1 h-4 w-4 text-[#0a0a0a] focus:ring-[#0a0a0a] border-gray-300 rounded"
                         />
 
                         {/* Icon */}
@@ -537,7 +537,7 @@ export default function NotificationsPage() {
                           flex-shrink-0 p-2 rounded-full
                           ${notification.is_read 
                             ? 'bg-gray-100 text-gray-500' 
-                            : 'bg-[#00365b] text-white'
+                            : 'bg-[#0a0a0a] text-white'
                           }
                         `}>
                           <IconComponent className="h-5 w-5" />
@@ -552,7 +552,7 @@ export default function NotificationsPage() {
                             <div className="flex-1">
                               <p className={`
                                 text-sm font-medium
-                                ${notification.is_read ? 'text-gray-900' : 'text-[#00365b]'}
+                                ${notification.is_read ? 'text-gray-900' : 'text-[#0a0a0a]'}
                               `}>
                                 {notification.title}
                               </p>
@@ -578,7 +578,7 @@ export default function NotificationsPage() {
                                       inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
                                       ${notification.is_read 
                                         ? 'bg-gray-100 text-gray-600' 
-                                        : 'bg-[#fdb933]/20 text-[#00365b]'
+                                        : 'bg-[#fbbf24]/20 text-[#0a0a0a]'
                                       }
                                     `}>
                                       {getCategoryName(notification.notification_type?.category || '')}
@@ -595,7 +595,7 @@ export default function NotificationsPage() {
                             {/* Unread Indicator */}
                             {!notification.is_read && (
                               <div className="flex-shrink-0 ml-4">
-                                <div className="w-2 h-2 bg-[#fdb933] rounded-full"></div>
+                                <div className="w-2 h-2 bg-[#fbbf24] rounded-full"></div>
                               </div>
                             )}
                           </div>

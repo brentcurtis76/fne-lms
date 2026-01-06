@@ -1,5 +1,5 @@
 /**
- * FNE LMS - Email Templates for Notification System
+ * Genera - Email Templates for Notification System
  * Reusable templates for digest emails and immediate notifications
  */
 
@@ -9,13 +9,13 @@ export interface EmailTemplate {
   generateText?: (data: any) => string;
 }
 
-// Brand colors and styles
+// Brand colors and styles - Genera palette
 const styles = {
   colors: {
-    primary: '#00365b',
-    secondary: '#fdb933',
+    primary: '#0a0a0a',      // Genera Black
+    secondary: '#fbbf24',    // Genera Yellow
     success: '#0db14b',
-    warning: '#fdb933',
+    warning: '#fbbf24',
     danger: '#ef4044',
     gray: '#666666',
     lightGray: '#f5f5f5',
@@ -63,7 +63,7 @@ function emailLayout(content: string, preheader?: string): string {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>FNE LMS</title>
+      <title>Genera</title>
       <!--[if mso]>
       <noscript>
         <xml>
@@ -83,11 +83,11 @@ function emailLayout(content: string, preheader?: string): string {
               <!-- Header -->
               <tr>
                 <td style="background-color: ${styles.colors.primary}; padding: 30px 40px; text-align: center;">
-                  <h1 style="margin: 0; color: ${styles.colors.white}; font-size: 28px; font-weight: bold;">
-                    FNE LMS
+                  <h1 style="margin: 0; color: ${styles.colors.white}; font-size: 28px; font-weight: 300; letter-spacing: 0.2em;">
+                    GENERA
                   </h1>
-                  <p style="margin: 10px 0 0 0; color: ${styles.colors.white}; font-size: 14px;">
-                    Fundación Nueva Educación
+                  <p style="margin: 10px 0 0 0; color: ${styles.colors.secondary}; font-size: 12px; letter-spacing: 0.15em;">
+                    HUB DE TRANSFORMACIÓN
                   </p>
                 </td>
               </tr>
@@ -101,7 +101,7 @@ function emailLayout(content: string, preheader?: string): string {
               <tr>
                 <td style="background-color: ${styles.colors.lightGray}; padding: 30px 40px; text-align: center;">
                   <p style="margin: 0 0 10px 0; color: ${styles.colors.gray}; font-size: ${styles.fonts.sizes.small};">
-                    © ${new Date().getFullYear()} Fundación Nueva Educación. Todos los derechos reservados.
+                    © ${new Date().getFullYear()} Genera - Fundación Nueva Educación. Todos los derechos reservados.
                   </p>
                   <p style="margin: 0; color: ${styles.colors.gray}; font-size: ${styles.fonts.sizes.small};">
                     <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/configuration?tab=preferences" 
@@ -124,7 +124,7 @@ function emailLayout(content: string, preheader?: string): string {
  * Daily Digest Email Template
  */
 export const dailyDigestTemplate: EmailTemplate = {
-  subject: '📊 Resumen Diario - FNE LMS',
+  subject: '📊 Resumen Diario - Genera',
   
   generateHTML: (data: {
     userName: string;
@@ -217,7 +217,7 @@ export const dailyDigestTemplate: EmailTemplate = {
  * Weekly Digest Email Template
  */
 export const weeklyDigestTemplate: EmailTemplate = {
-  subject: '📈 Resumen Semanal - FNE LMS',
+  subject: '📈 Resumen Semanal - Genera',
   
   generateHTML: (data: {
     userName: string;
@@ -314,7 +314,7 @@ export const weeklyDigestTemplate: EmailTemplate = {
  * Immediate Notification Email Template
  */
 export const immediateNotificationTemplate: EmailTemplate = {
-  subject: (data: { title: string }) => `🔔 ${data.title} - FNE LMS`,
+  subject: (data: { title: string }) => `🔔 ${data.title} - Genera`,
   
   generateHTML: (data: {
     userName: string;
@@ -393,7 +393,7 @@ export const immediateNotificationTemplate: EmailTemplate = {
  * Test Email Template (for debugging)
  */
 export const testEmailTemplate: EmailTemplate = {
-  subject: '🧪 Prueba de Email - FNE LMS',
+  subject: '🧪 Prueba de Email - Genera',
   
   generateHTML: (data: { userName: string; testType: string }) => {
     const content = `
@@ -406,7 +406,7 @@ export const testEmailTemplate: EmailTemplate = {
       </p>
       
       <p style="color: ${styles.colors.gray}; font-size: ${styles.fonts.sizes.body}; margin: 0 0 20px 0;">
-        Este es un email de prueba del sistema de notificaciones de FNE LMS.
+        Este es un email de prueba del sistema de notificaciones de Genera.
       </p>
       
       <div style="background-color: ${styles.colors.lightGray}; padding: 20px; border-radius: 8px; margin: 20px 0;">

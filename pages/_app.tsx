@@ -10,6 +10,7 @@ import { Toaster } from 'react-hot-toast';
 import { toasterConfig } from '../constants/toastStyles';
 import { useEnvironmentValidation } from '../lib/utils/environmentMonitor';
 import { PermissionProvider } from '../contexts/PermissionContext';
+import DynamicFavicon from '../components/DynamicFavicon';
 
 // Create a singleton Supabase client
 const supabaseClient = createPagesBrowserClient();
@@ -22,23 +23,19 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     <SessionContextProvider supabaseClient={supabaseClient} initialSession={pageProps.initialSession}>
       <PermissionProvider>
         <Head>
-          <title>FNE LMS</title>
+          <title>Genera</title>
           <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-          {/* Favicon */}
-          <link rel="icon" href="/favicon.ico?v=2" />
-          <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2" />
-          <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png?v=2" />
-          <link rel="apple-touch-icon" sizes="180x180" href="/favicon.png?v=2" />
-          <meta name="theme-color" content="#00365b" />
+          <meta name="theme-color" content="#0a0a0a" />
 
           {/* App metadata */}
-          <meta name="description" content="Plataforma de aprendizaje de Fundación Nueva Educación" />
-          <meta name="application-name" content="FNE LMS" />
+          <meta name="description" content="Hub de Transformación Educativa - Genera" />
+          <meta name="application-name" content="Genera" />
 
           {/* PWA Support */}
           <link rel="manifest" href="/manifest.json" />
         </Head>
+        {/* Dynamic favicon based on route */}
+        <DynamicFavicon />
         <Component {...pageProps} />
         <Toaster
           position="bottom-right"

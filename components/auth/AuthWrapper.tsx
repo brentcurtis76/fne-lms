@@ -92,7 +92,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00365b] mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0a0a0a] mx-auto"></div>
           <p className="mt-4 text-gray-600">Cargando...</p>
         </div>
       </div>
@@ -125,7 +125,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
             <div className="mt-6 space-y-2">
               <button
                 onClick={() => auth.refreshAuth()}
-                className="w-full px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#00365b]/90 transition-colors"
+                className="w-full px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#0a0a0a]/90 transition-colors"
               >
                 Reintentar
               </button>
@@ -167,7 +167,7 @@ export const AuthWrapper: React.FC<AuthWrapperProps> = ({
             <p className="mt-2 text-sm text-gray-600">{authError}</p>
             <button
               onClick={() => router.back()}
-              className="mt-6 w-full px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#00365b]/90 transition-colors"
+              className="mt-6 w-full px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#0a0a0a]/90 transition-colors"
             >
               Volver
             </button>

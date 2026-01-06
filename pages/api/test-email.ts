@@ -22,13 +22,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         <style>
           body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background-color: #f5f5f5; }
           .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
-          .header { background: linear-gradient(135deg, #00365b 0%, #004d82 100%); color: white; padding: 30px 20px; text-align: center; }
+          .header { background: linear-gradient(135deg, #0a0a0a 0%, #004d82 100%); color: white; padding: 30px 20px; text-align: center; }
           .header h1 { margin: 0; font-size: 24px; font-weight: 600; }
           .content { padding: 30px 20px; }
-          .notification { background: #f8fafc; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #fdb933; }
-          .notification h3 { margin: 0 0 10px 0; color: #00365b; font-size: 18px; }
+          .notification { background: #f8fafc; padding: 20px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #fbbf24; }
+          .notification h3 { margin: 0 0 10px 0; color: #0a0a0a; font-size: 18px; }
           .notification p { margin: 0 0 10px 0; color: #4a5568; line-height: 1.6; }
-          .cta { display: inline-block; background: #fdb933; color: #00365b; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
+          .cta { display: inline-block; background: #fbbf24; color: #0a0a0a; padding: 12px 30px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 20px 0; }
           .footer { background: #f7fafc; padding: 20px; text-align: center; font-size: 12px; color: #718096; }
           .success { color: #22c55e; font-weight: 600; }
           .info { background: #eff6ff; border: 1px solid #dbeafe; padding: 15px; border-radius: 8px; margin: 20px 0; }
@@ -47,12 +47,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             
             <div class="notification">
               <h3>🚀 Email System Test Successful</h3>
-              <p>Este es un email de prueba para verificar que el sistema de notificaciones de FNE LMS está funcionando correctamente.</p>
+              <p>Este es un email de prueba para verificar que el sistema de notificaciones de Genera está funcionando correctamente.</p>
               <p><strong>Timestamp:</strong> ${new Date().toLocaleString('es-ES')}</p>
             </div>
             
             <div class="info">
-              <h4 style="margin: 0 0 10px 0; color: #00365b;">🎯 ¿Qué significa esto?</h4>
+              <h4 style="margin: 0 0 10px 0; color: #0a0a0a;">🎯 ¿Qué significa esto?</h4>
               <p style="margin: 0; color: #4a5568; font-size: 14px;">
                 Si recibiste este email, significa que:
               </p>
@@ -72,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           <div class="footer">
             <p style="margin: 0 0 10px 0;">
               <strong>Fundación Nueva Educación</strong><br>
-              Plataforma de Crecimiento
+              Hub de Transformación
             </p>
             <p style="margin: 0; color: #a0aec0; font-size: 11px;">
               Email de prueba enviado a ${email}<br>
@@ -92,7 +92,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
       body: JSON.stringify({
         to: email,
-        subject: '✅ FNE LMS - Sistema de Email Activado',
+        subject: '✅ Genera - Sistema de Email Activado',
         html: testEmailHtml
       })
     });

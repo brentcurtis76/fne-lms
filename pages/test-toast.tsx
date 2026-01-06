@@ -112,11 +112,11 @@ export default function TestToastPage() {
   return (
     <>
       <Head>
-        <title>Test Toast - FNE LMS</title>
+        <title>Test Toast - Genera</title>
       </Head>
       <div className="min-h-screen bg-gray-50 py-8">
           <div className="max-w-4xl mx-auto px-4">
-            <h1 className="text-3xl font-bold text-[#00365b] mb-8">
+            <h1 className="text-3xl font-bold text-[#0a0a0a] mb-8">
               Sistema de Notificaciones Toast
             </h1>
             
@@ -146,7 +146,7 @@ export default function TestToastPage() {
                   </button>
                   <button
                     onClick={testToasts.info}
-                    className="w-full px-4 py-2 bg-[#00365b] text-white rounded hover:bg-[#00365b]/90 transition-colors"
+                    className="w-full px-4 py-2 bg-[#0a0a0a] text-white rounded hover:bg-[#0a0a0a]/90 transition-colors"
                   >
                     Información
                   </button>
@@ -157,19 +157,19 @@ export default function TestToastPage() {
                   <h3 className="font-medium text-gray-700 mb-2">Operaciones CRUD</h3>
                   <button
                     onClick={testToasts.createCourse}
-                    className="w-full px-4 py-2 bg-[#fdb933] text-[#00365b] rounded hover:bg-[#fdb933]/90 transition-colors"
+                    className="w-full px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] rounded hover:bg-[#fbbf24]/90 transition-colors"
                   >
                     Crear Curso
                   </button>
                   <button
                     onClick={testToasts.createTask}
-                    className="w-full px-4 py-2 bg-[#fdb933] text-[#00365b] rounded hover:bg-[#fdb933]/90 transition-colors"
+                    className="w-full px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] rounded hover:bg-[#fbbf24]/90 transition-colors"
                   >
                     Crear Tarea
                   </button>
                   <button
                     onClick={testToasts.updateUser}
-                    className="w-full px-4 py-2 bg-[#fdb933] text-[#00365b] rounded hover:bg-[#fdb933]/90 transition-colors"
+                    className="w-full px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] rounded hover:bg-[#fbbf24]/90 transition-colors"
                   >
                     Actualizar Usuario
                   </button>
@@ -198,13 +198,13 @@ export default function TestToastPage() {
                   <h3 className="font-medium text-gray-700 mb-2">Basadas en Promesas</h3>
                   <button
                     onClick={testToasts.promiseSuccess}
-                    className="w-full px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors"
+                    className="w-full px-4 py-2 bg-amber-500 text-white rounded hover:bg-amber-600 transition-colors"
                   >
                     Promesa Exitosa
                   </button>
                   <button
                     onClick={testToasts.promiseError}
-                    className="w-full px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 transition-colors"
+                    className="w-full px-4 py-2 bg-amber-500 text-white rounded hover:bg-amber-600 transition-colors"
                   >
                     Promesa con Error
                   </button>
@@ -232,7 +232,7 @@ export default function TestToastPage() {
                   <h3 className="font-medium text-gray-700 mb-2">Múltiples</h3>
                   <button
                     onClick={testToasts.multiple}
-                    className="w-full px-4 py-2 bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors"
+                    className="w-full px-4 py-2 bg-slate-500 text-white rounded hover:bg-slate-600 transition-colors"
                   >
                     Múltiples Toasts
                   </button>
@@ -247,14 +247,14 @@ export default function TestToastPage() {
               </h2>
               <div className="grid grid-cols-3 gap-4">
                 <div className="text-center">
-                  <div className="w-full h-20 bg-[#00365b] rounded mb-2"></div>
+                  <div className="w-full h-20 bg-[#0a0a0a] rounded mb-2"></div>
                   <p className="text-sm text-gray-600">Navy Blue</p>
-                  <p className="text-xs text-gray-500">#00365b</p>
+                  <p className="text-xs text-gray-500">#0a0a0a</p>
                 </div>
                 <div className="text-center">
-                  <div className="w-full h-20 bg-[#fdb933] rounded mb-2"></div>
+                  <div className="w-full h-20 bg-[#fbbf24] rounded mb-2"></div>
                   <p className="text-sm text-gray-600">Golden Yellow</p>
-                  <p className="text-xs text-gray-500">#fdb933</p>
+                  <p className="text-xs text-gray-500">#fbbf24</p>
                 </div>
                 <div className="text-center">
                   <div className="w-full h-20 bg-[#ef4044] rounded mb-2"></div>

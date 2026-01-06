@@ -22,7 +22,7 @@ export default function FeedbackButton({ className = '' }: FeedbackButtonProps) 
         onClick={handleClick}
         className={`
           fixed bottom-6 right-6 z-40
-          bg-[#fdb933] hover:bg-[#fca311] text-[#00365b]
+          bg-[#fbbf24] hover:bg-[#fca311] text-[#0a0a0a]
           rounded-full p-4 shadow-lg hover:shadow-xl
           transition-all duration-300 transform hover:scale-110
           flex items-center justify-center

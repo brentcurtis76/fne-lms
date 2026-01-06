@@ -29,7 +29,6 @@ interface IndicatorData {
   id: string;
   code?: string;
   name: string;
-  question?: string;
   description?: string;
   category: IndicatorCategory;
   frequencyConfig?: {
@@ -514,12 +513,6 @@ const IndicatorInput: React.FC<IndicatorInputProps> = ({
     (indicator.category === 'frecuencia' && response.frequencyValue !== undefined && response.frequencyValue !== null) ||
     (indicator.category === 'profundidad' && response.profundityLevel !== undefined && response.profundityLevel !== null);
 
-  // Determine what to display:
-  // - If question exists, show it as main text and name as secondary (criteria reference)
-  // - If no question, show name as main text
-  const mainText = indicator.question || indicator.name;
-  const showCriteriaReference = indicator.question && indicator.name && indicator.question !== indicator.name;
-
   return (
     <div className={`p-4 ${hasResponse ? 'bg-green-50/50' : ''}`}>
       <div className="flex items-start gap-3 mb-3">
@@ -536,13 +529,8 @@ const IndicatorInput: React.FC<IndicatorInputProps> = ({
             <span className="text-xs text-gray-500">
               {CATEGORY_LABELS[indicator.category]}
             </span>
-            {showCriteriaReference && (
-              <span className="text-xs text-gray-400 italic">
-                ({indicator.name})
-              </span>
-            )}
           </div>
-          <h4 className="font-medium text-gray-900">{mainText}</h4>
+          <h4 className="font-medium text-gray-900">{indicator.name}</h4>
           {indicator.description && (
             <p className="text-sm text-gray-500 mt-1">{indicator.description}</p>
           )}

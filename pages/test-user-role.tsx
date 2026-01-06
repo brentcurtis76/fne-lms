@@ -42,7 +42,7 @@ export default function TestUserRole() {
   return (
     <>
       <Head>
-        <title>Test User Role - FNE LMS</title>
+        <title>Test User Role - Genera</title>
       </Head>
       
       <div className="min-h-screen bg-brand_beige">
@@ -52,12 +52,12 @@ export default function TestUserRole() {
         
         <main className="container mx-auto pt-32 pb-10 px-4">
           <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-8">
-            <h1 className="text-2xl font-bold mb-6 text-[#00365b]">Test User Role</h1>
+            <h1 className="text-2xl font-bold mb-6 text-[#0a0a0a]">Test User Role</h1>
             
             {loading ? (
               <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b] mx-auto"></div>
-                <p className="mt-4 text-[#00365b]">Cargando...</p>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a] mx-auto"></div>
+                <p className="mt-4 text-[#0a0a0a]">Cargando...</p>
               </div>
             ) : isAuthenticated ? (
               <div className="space-y-6">
@@ -74,7 +74,7 @@ export default function TestUserRole() {
                 <p className="text-lg mb-6">You need to be logged in to view your role information.</p>
                 <button 
                   onClick={handleLogin}
-                  className="px-6 py-3 bg-[#00365b] text-white rounded-lg hover:bg-[#fdb933] hover:text-[#00365b] transition"
+                  className="px-6 py-3 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition"
                 >
                   Log In
                 </button>

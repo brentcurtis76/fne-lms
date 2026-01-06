@@ -77,7 +77,7 @@ export default function QuizReviewsPage() {
   return (
     <>
       <Head>
-        <title>Revisión de Quizzes - FNE LMS</title>
+        <title>Revisión de Quizzes - Genera</title>
       </Head>
 
       <MainLayout 

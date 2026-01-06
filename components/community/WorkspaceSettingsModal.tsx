@@ -148,7 +148,7 @@ export default function WorkspaceSettingsModal({
               value={customName}
               onChange={(e) => setCustomName(e.target.value)}
               placeholder="Ingresa un nombre personalizado"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#00365b] focus:border-[#00365b]"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[#0a0a0a] focus:border-[#0a0a0a]"
               maxLength={100}
             />
             <p className="mt-1 text-xs text-gray-500">
@@ -224,7 +224,7 @@ export default function WorkspaceSettingsModal({
           <button
             onClick={handleSave}
             disabled={isLoading || (!customName.trim() && !imageFile && !imageUrl)}
-            className="px-4 py-2 text-sm font-medium text-white bg-[#00365b] rounded-md hover:bg-[#00293f] disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            className="px-4 py-2 text-sm font-medium text-white bg-[#0a0a0a] rounded-md hover:bg-[#00293f] disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
             {isLoading ? (
               <>

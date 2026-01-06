@@ -3,8 +3,8 @@
  * FNE Branded - Professional B&W-friendly PDF document
  *
  * Brand Colors:
- * - brand_blue: #00365b (dark navy)
- * - brand_yellow: #fdb933 (gold accent)
+ * - brand_blue: #0a0a0a (dark navy)
+ * - brand_yellow: #fbbf24 (gold accent)
  * - brand_beige: #e8e5e2 (warm background)
  */
 
@@ -71,8 +71,8 @@ interface ReportData {
 
 // FNE Brand Colors
 const BRAND = {
-  blue: '#00365b',
-  yellow: '#fdb933',
+  blue: '#0a0a0a',
+  yellow: '#fbbf24',
   beige: '#e8e5e2',
   blueDark: '#002642',
   blueLight: '#1a4a6e',

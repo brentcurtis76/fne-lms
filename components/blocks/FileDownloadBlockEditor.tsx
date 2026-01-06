@@ -142,7 +142,7 @@ const FileDownloadBlockEditor: React.FC<FileDownloadBlockEditorProps> = ({
           value={block.payload.title || ''}
           onChange={(e) => onTitleChange(block.id, e.target.value)}
           placeholder="Ingrese el título para esta sección de archivos"
-          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
         />
       </div>
 
@@ -154,7 +154,7 @@ const FileDownloadBlockEditor: React.FC<FileDownloadBlockEditorProps> = ({
           value={block.payload.description || ''}
           onChange={(e) => onUpdate(block.id, 'description', e.target.value)}
           placeholder="Descripción opcional para los archivos"
-          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
           rows={2}
         />
       </div>
@@ -166,7 +166,7 @@ const FileDownloadBlockEditor: React.FC<FileDownloadBlockEditorProps> = ({
             type="checkbox"
             checked={block.payload.allowBulkDownload}
             onChange={(e) => onUpdate(block.id, 'allowBulkDownload', e.target.checked)}
-            className="form-checkbox text-[#00365b]"
+            className="form-checkbox text-[#0a0a0a]"
           />
           <span className="text-sm">Permitir descarga masiva (ZIP)</span>
         </label>
@@ -175,7 +175,7 @@ const FileDownloadBlockEditor: React.FC<FileDownloadBlockEditorProps> = ({
             type="checkbox"
             checked={block.payload.requireAuth}
             onChange={(e) => onUpdate(block.id, 'requireAuth', e.target.checked)}
-            className="form-checkbox text-[#00365b]"
+            className="form-checkbox text-[#0a0a0a]"
           />
           <span className="text-sm">Requiere autenticación</span>
         </label>
@@ -202,7 +202,7 @@ const FileDownloadBlockEditor: React.FC<FileDownloadBlockEditorProps> = ({
         <Button
           onClick={triggerFileUpload}
           disabled={isUploading}
-          className="bg-[#00365b] hover:bg-[#fdb933] hover:text-[#00365b] text-white"
+          className="bg-[#0a0a0a] hover:bg-[#fbbf24] hover:text-[#0a0a0a] text-white"
         >
           {isUploading ? 'Subiendo...' : 'Seleccionar Archivos'}
         </Button>
@@ -211,7 +211,7 @@ const FileDownloadBlockEditor: React.FC<FileDownloadBlockEditorProps> = ({
       {/* Files List */}
       {block.payload.files.length > 0 && (
         <div>
-          <h3 className="text-md font-semibold text-[#00365b] mb-3">
+          <h3 className="text-md font-semibold text-[#0a0a0a] mb-3">
             Archivos ({block.payload.files.length})
           </h3>
           <div className="space-y-3">
@@ -258,7 +258,7 @@ const FileDownloadBlockEditor: React.FC<FileDownloadBlockEditorProps> = ({
                       value={file.description || ''}
                       onChange={(e) => updateFileDescription(file.id, e.target.value)}
                       placeholder="Descripción del archivo (opcional)"
-                      className="w-full text-xs p-2 border border-gray-200 rounded focus:ring-1 focus:ring-[#00365b] focus:border-transparent"
+                      className="w-full text-xs p-2 border border-gray-200 rounded focus:ring-1 focus:ring-[#0a0a0a] focus:border-transparent"
                     />
                   </div>
                 </div>

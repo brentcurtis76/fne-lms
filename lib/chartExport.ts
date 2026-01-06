@@ -79,7 +79,7 @@ export class ChartExporter {
         // Add metadata
         pdf.setFontSize(8);
         pdf.setFont('helvetica', 'normal');
-        pdf.text(`Generated: ${new Date().toLocaleDateString('es-ES')} | FNE LMS Analytics`, 20, pdfHeight - 10);
+        pdf.text(`Generated: ${new Date().toLocaleDateString('es-ES')} | Genera Analytics`, 20, pdfHeight - 10);
         
         pdf.save(`${filename}.pdf`);
         

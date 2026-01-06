@@ -1,5 +1,5 @@
 // =============================================================================
-// FNE LMS - Document Preview Modal Component
+// Genera - Document Preview Modal Component
 // =============================================================================
 // Professional document preview with support for images, PDFs, and file info
 
@@ -120,7 +120,7 @@ export default function DocumentPreview({
             <div className="flex justify-center space-x-3">
               <button
                 onClick={handleDownload}
-                className="bg-[#00365b] text-white px-4 py-2 rounded-lg hover:bg-[#004a7c] transition-colors flex items-center space-x-2"
+                className="bg-[#0a0a0a] text-white px-4 py-2 rounded-lg hover:bg-[#004a7c] transition-colors flex items-center space-x-2"
               >
                 <Download className="w-4 h-4" />
                 <span>Descargar</span>
@@ -257,7 +257,7 @@ export default function DocumentPreview({
             {canEdit && onEdit && (
               <button
                 onClick={() => onEdit(document)}
-                className="text-gray-600 hover:text-[#00365b] p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="text-gray-600 hover:text-[#0a0a0a] p-2 rounded-lg hover:bg-gray-100 transition-colors"
                 title="Editar documento"
               >
                 <Edit2 className="w-5 h-5" />
@@ -267,7 +267,7 @@ export default function DocumentPreview({
             {onShare && (
               <button
                 onClick={() => onShare(document)}
-                className="text-gray-600 hover:text-[#00365b] p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="text-gray-600 hover:text-[#0a0a0a] p-2 rounded-lg hover:bg-gray-100 transition-colors"
                 title="Compartir documento"
               >
                 <Share2 className="w-5 h-5" />
@@ -276,7 +276,7 @@ export default function DocumentPreview({
 
             <button
               onClick={handleDownload}
-              className="bg-[#00365b] text-white px-4 py-2 rounded-lg hover:bg-[#004a7c] transition-colors flex items-center space-x-2"
+              className="bg-[#0a0a0a] text-white px-4 py-2 rounded-lg hover:bg-[#004a7c] transition-colors flex items-center space-x-2"
             >
               <Download className="w-4 h-4" />
               <span>Descargar</span>
@@ -298,7 +298,7 @@ export default function DocumentPreview({
             {loading ? (
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00365b] mx-auto mb-4" />
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0a0a0a] mx-auto mb-4" />
                   <p className="text-gray-500">Cargando vista previa...</p>
                 </div>
               </div>
@@ -442,7 +442,7 @@ export default function DocumentPreview({
                     Ubicación
                   </h3>
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
-                    <div className="text-[#fdb933]">📁</div>
+                    <div className="text-[#fbbf24]">📁</div>
                     <span>{document.folder_name}</span>
                   </div>
                 </div>

@@ -195,7 +195,7 @@ export default function HomePage() {
               {/* Login Button */}
               <div className="hidden lg:flex items-center">
                 <Link href="/login" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
-                  PLATAFORMA DE CRECIMIENTO
+                  HUB DE TRANSFORMACIÓN
                 </Link>
               </div>
               
@@ -227,7 +227,7 @@ export default function HomePage() {
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
               <a href="#contacto" className="text-xl font-medium">CONTACTO</a>
               <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
-                PLATAFORMA DE CRECIMIENTO
+                HUB DE TRANSFORMACIÓN
               </Link>
             </nav>
           </div>

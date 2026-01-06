@@ -186,7 +186,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
             <button
               onClick={onRefresh}
               disabled={loading}
-              className="p-1 text-gray-500 hover:text-[#00365b] transition-colors duration-200"
+              className="p-1 text-gray-500 hover:text-[#0a0a0a] transition-colors duration-200"
               title="Actualizar"
             >
               <RefreshIcon className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -196,7 +196,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
             {unreadCount > 0 && (
               <button
                 onClick={onMarkAllAsRead}
-                className="text-xs font-medium text-[#00365b] hover:text-[#004a7a] transition-colors duration-200"
+                className="text-xs font-medium text-[#0a0a0a] hover:text-[#004a7a] transition-colors duration-200"
                 title="Marcar todas como leídas"
               >
                 Marcar todas como leídas
@@ -218,7 +218,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         {/* Loading State */}
         {loading && notifications.length === 0 && (
           <div className="flex items-center justify-center py-8">
-            <RefreshIcon className="h-6 w-6 animate-spin text-[#00365b]" />
+            <RefreshIcon className="h-6 w-6 animate-spin text-[#0a0a0a]" />
             <span className="ml-2 text-gray-600">Cargando notificaciones...</span>
           </div>
         )}
@@ -230,7 +230,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
             <p className="text-sm text-red-600 mb-3">{error}</p>
             <button
               onClick={onRefresh}
-              className="text-xs font-medium text-[#00365b] hover:text-[#004a7a] transition-colors duration-200"
+              className="text-xs font-medium text-[#0a0a0a] hover:text-[#004a7a] transition-colors duration-200"
             >
               Intentar de nuevo
             </button>
@@ -259,7 +259,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                     px-4 py-3 transition-all duration-200 cursor-pointer
                     ${notification.is_read 
                       ? 'hover:bg-gray-50' 
-                      : 'bg-blue-50 hover:bg-blue-100 border-l-4 border-l-[#fdb933]'
+                      : 'bg-blue-50 hover:bg-blue-100 border-l-4 border-l-[#fbbf24]'
                     }
                   `}
                 >
@@ -269,7 +269,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                       flex-shrink-0 p-2 rounded-full
                       ${notification.is_read 
                         ? 'bg-gray-100 text-gray-500' 
-                        : 'bg-[#00365b] text-white'
+                        : 'bg-[#0a0a0a] text-white'
                       }
                     `}>
                       <IconComponent className="h-4 w-4" />
@@ -281,7 +281,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                         <div className="flex-1">
                           <p className={`
                             text-sm font-medium
-                            ${notification.is_read ? 'text-gray-900' : 'text-[#00365b]'}
+                            ${notification.is_read ? 'text-gray-900' : 'text-[#0a0a0a]'}
                           `}>
                             {notification.title}
                           </p>
@@ -306,7 +306,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                                 inline-flex items-center px-2 py-1 rounded-full text-xs font-medium
                                 ${notification.is_read 
                                   ? 'bg-gray-100 text-gray-600' 
-                                  : 'bg-[#fdb933]/20 text-[#00365b]'
+                                  : 'bg-[#fbbf24]/20 text-[#0a0a0a]'
                                 }
                               `}>
                                 {notification.notification_type.category === 'admin' && 'Admin'}
@@ -325,7 +325,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                         {/* Unread Indicator */}
                         {!notification.is_read && (
                           <div className="flex-shrink-0 ml-2">
-                            <div className="w-2 h-2 bg-[#fdb933] rounded-full"></div>
+                            <div className="w-2 h-2 bg-[#fbbf24] rounded-full"></div>
                           </div>
                         )}
                       </div>
@@ -343,7 +343,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
         <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 rounded-b-lg">
           <button
             onClick={handleViewAll}
-            className="w-full text-sm font-medium text-[#00365b] hover:text-[#004a7a] transition-colors duration-200 flex items-center justify-center space-x-1"
+            className="w-full text-sm font-medium text-[#0a0a0a] hover:text-[#004a7a] transition-colors duration-200 flex items-center justify-center space-x-1"
           >
             <EyeIcon className="h-4 w-4" />
             <span>Ver todas las notificaciones</span>

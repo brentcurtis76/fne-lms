@@ -39,7 +39,7 @@ export default function TermsOfUseModal({ isOpen, onClose }: TermsOfUseModalProp
               
               <h3 className="text-lg font-semibold mb-3">1. Aceptación de los Términos</h3>
               <p className="mb-4">
-                Al acceder y utilizar el sitio web de Fundación Nueva Educación (FNE) y su Plataforma de Crecimiento, usted acepta y se compromete a cumplir con estos Términos de Uso. Si no está de acuerdo con estos términos, no debe utilizar nuestros servicios.
+                Al acceder y utilizar el sitio web de Fundación Nueva Educación (FNE) y su Hub de Transformación, usted acepta y se compromete a cumplir con estos Términos de Uso. Si no está de acuerdo con estos términos, no debe utilizar nuestros servicios.
               </p>
 
               <h3 className="text-lg font-semibold mb-3">2. Descripción del Servicio</h3>

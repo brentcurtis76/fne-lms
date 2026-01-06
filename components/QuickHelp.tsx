@@ -31,7 +31,7 @@ const QuickHelp: React.FC<QuickHelpProps> = ({ isOpen, onClose }) => {
     {
       title: 'Línea de Tiempo Visual',
       description: 'Ve todos los bloques de tu lección de un vistazo',
-      icon: <MousePointer className="text-[#00365b]" size={20} />
+      icon: <MousePointer className="text-[#0a0a0a]" size={20} />
     },
     {
       title: 'Guardado Automático',
@@ -41,7 +41,7 @@ const QuickHelp: React.FC<QuickHelpProps> = ({ isOpen, onClose }) => {
     {
       title: 'Drag & Drop',
       description: 'Arrastra bloques para reordenarlos fácilmente',
-      icon: <MousePointer className="text-purple-600" size={20} />
+      icon: <MousePointer className="text-amber-600" size={20} />
     },
     {
       title: 'Vista Previa en Tiempo Real',
@@ -55,11 +55,11 @@ const QuickHelp: React.FC<QuickHelpProps> = ({ isOpen, onClose }) => {
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#00365b] rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-[#0a0a0a] rounded-lg flex items-center justify-center">
               <Lightbulb className="text-white" size={20} />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-[#00365b]">Ayuda Rápida</h2>
+              <h2 className="text-xl font-bold text-[#0a0a0a]">Ayuda Rápida</h2>
               <p className="text-sm text-gray-600">Consejos y atajos para el editor</p>
             </div>
           </div>
@@ -72,7 +72,7 @@ const QuickHelp: React.FC<QuickHelpProps> = ({ isOpen, onClose }) => {
           {/* Keyboard Shortcuts */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <Keyboard size={18} className="text-[#00365b]" />
+              <Keyboard size={18} className="text-[#0a0a0a]" />
               Atajos de Teclado
             </h3>
             <div className="bg-gray-50 rounded-lg p-4">
@@ -92,12 +92,12 @@ const QuickHelp: React.FC<QuickHelpProps> = ({ isOpen, onClose }) => {
           {/* Features */}
           <div className="mb-8">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <Zap size={18} className="text-[#00365b]" />
+              <Zap size={18} className="text-[#0a0a0a]" />
               Características Principales
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {features.map((feature, index) => (
-                <div key={index} className="p-4 border border-gray-200 rounded-lg hover:border-[#00365b] transition-colors">
+                <div key={index} className="p-4 border border-gray-200 rounded-lg hover:border-[#0a0a0a] transition-colors">
                   <div className="flex items-start gap-3">
                     <div className="flex-shrink-0 mt-1">
                       {feature.icon}
@@ -115,7 +115,7 @@ const QuickHelp: React.FC<QuickHelpProps> = ({ isOpen, onClose }) => {
           {/* Tips */}
           <div>
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <Lightbulb size={18} className="text-[#00365b]" />
+              <Lightbulb size={18} className="text-[#0a0a0a]" />
               Consejos Útiles
             </h3>
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -137,7 +137,7 @@ const QuickHelp: React.FC<QuickHelpProps> = ({ isOpen, onClose }) => {
           </div>
           <Button
             onClick={onClose}
-            className="bg-[#00365b] hover:bg-[#fdb933] hover:text-[#00365b] text-white"
+            className="bg-[#0a0a0a] hover:bg-[#fbbf24] hover:text-[#0a0a0a] text-white"
           >
             Entendido
           </Button>

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Document Repository Migration Script
+ * Genera - Document Repository Migration Script
  * Applies the document management system database schema to Supabase
  */
 
@@ -223,7 +223,7 @@ async function setupStorageBucket() {
 
 // Main execution
 async function main() {
-  console.log('🔧 FNE LMS - Document Repository Migration');
+  console.log('🔧 Genera - Document Repository Migration');
   console.log('==========================================\n');
 
   await runMigration();

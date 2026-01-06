@@ -16,7 +16,7 @@ describe('FeedbackButton', () => {
     render(<FeedbackButton />);
     const button = screen.getByRole('button');
     expect(button).toHaveClass('fixed', 'bottom-6', 'right-6', 'z-40');
-    expect(button).toHaveClass('bg-[#fdb933]');
+    expect(button).toHaveClass('bg-[#fbbf24]');
   });
 
   it('contains the MessageCircle icon', async () => {

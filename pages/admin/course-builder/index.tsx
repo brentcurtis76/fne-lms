@@ -536,7 +536,7 @@ const CourseBuilder: React.FC = () => {
             className="w-full p-6 border-b border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors"
           >
             <div className="text-left">
-              <h2 className="text-xl font-semibold text-[#00365b]">Agregar Nuevo Curso</h2>
+              <h2 className="text-xl font-semibold text-[#0a0a0a]">Agregar Nuevo Curso</h2>
               <p className="text-gray-500 text-sm mt-1">
                 {isFormCollapsed ? 'Haz clic para expandir el formulario' : 'Completa el formulario para crear un nuevo curso'}
               </p>

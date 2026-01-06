@@ -1,5 +1,5 @@
 /**
- * MainLayout Component - Global layout system for FNE LMS
+ * MainLayout Component - Global layout system for Genera
  * Provides consistent sidebar navigation across all authenticated pages
  */
 
@@ -10,12 +10,12 @@ import Head from 'next/head';
 import { User } from '@supabase/supabase-js';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import Sidebar from './Sidebar';
+import Footer from '../Footer';
 import Avatar from '../common/Avatar';
 import { useAvatar } from '../../hooks/useAvatar';
 import { useAuth } from '../../hooks/useAuth';
 import { getHighestRole, extractRolesFromMetadata } from '../../utils/roleUtils';
 import { LogOut } from 'lucide-react';
-import { OfficeBuildingIcon } from '@heroicons/react/outline';
 import FeedbackButtonWithPermissions from '../feedback/FeedbackButtonWithPermissions';
 
 interface Breadcrumb {
@@ -229,15 +229,15 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   };
   
   // Generate page title
-  const fullTitle = pageTitle 
-    ? `${pageTitle} - FNE LMS` 
-    : 'FNE LMS - Fundación Nueva Educación';
-    
+  const fullTitle = pageTitle
+    ? `${pageTitle} - Genera`
+    : 'Genera - Hub de Transformación';
+
   return (
     <>
       <Head>
         <title>{fullTitle}</title>
-        <meta name="description" content="Sistema de Gestión de Aprendizaje - Fundación Nueva Educación" />
+        <meta name="description" content="Hub de Transformación Educativa - Genera" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -259,63 +259,54 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         <div className={`min-h-screen transition-all duration-300 ${
           sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-80'
         }`}>
-          {/* Top Header Bar with Logout */}
-          <div className="bg-white border-b border-gray-200 sticky top-0 z-20">
-            <div className="px-4 sm:px-6 lg:px-8 py-3">
+          {/* Top Header Bar - Minimal Design (h-20 to align with Sidebar) */}
+          <div className="bg-[#0a0a0a] sticky top-0 z-20 h-20 flex items-center">
+            <div className="px-4 sm:px-6 lg:px-8 w-full">
               <div className="flex items-center justify-between">
-                {/* Left side - School badge */}
-                <div className="flex-1">
-                  <div className="inline-flex items-center gap-2 text-[#00365b]">
-                    <OfficeBuildingIcon className="h-4 w-4 text-[#00365b]" />
-                    <div className="min-w-0">
-                      <div className="text-[11px] uppercase tracking-wide text-gray-500 leading-tight">Colegio</div>
-                      <div className="text-sm font-semibold leading-tight break-words" title={schoolName || 'Sin colegio'}>
+                {/* Left side - Brand text + School badge */}
+                <div className="flex items-center gap-4">
+                  <Link href="/" legacyBehavior>
+                    <a className="text-white font-light tracking-wide text-sm hover:text-white/80 transition-colors">
+                      Hub de Transformación
+                    </a>
+                  </Link>
+
+                  {/* School Badge */}
+                  <div className="hidden sm:flex items-center">
+                    <div className="px-3 py-1.5 bg-white/10 rounded-lg border border-white/20">
+                      <span className="text-white/90 text-sm truncate max-w-xs" title={schoolName || 'Sin colegio'}>
                         {schoolName || 'Sin colegio'}
-                      </div>
+                      </span>
                     </div>
                   </div>
                 </div>
-                
-                {/* Right side - User info and logout */}
-                <div className="flex items-center space-x-4">
-                  {/* User info with avatar - clickable */}
+
+                {/* Right side - User avatar + Logout */}
+                <div className="flex items-center gap-3">
                   {user && (
-                    <Link
-                      href="/profile"
-                      className="flex items-center space-x-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 cursor-pointer"
-                    >
-                      <Avatar 
-                        user={user}
-                        avatarUrl={avatarUrl || cachedAvatarUrl || fetchedAvatarUrl}
-                        size="sm"
-                      />
-                      <div className="hidden sm:block">
-                        <p className="text-sm font-medium text-gray-900">
-                          {effectiveProfileData?.first_name
-                            ? effectiveProfileData.first_name
-                            : user.user_metadata?.first_name
-                            ? user.user_metadata.first_name
-                            : user.email?.split('@')[0] || 'Usuario'
-                          }
-                        </p>
-                        {effectiveProfileData?.growth_community && (
-                          <p className="text-xs text-gray-500">
-                            {effectiveProfileData.growth_community}
-                          </p>
-                        )}
-                      </div>
-                    </Link>
+                    <>
+                      {/* User Avatar - clickable to profile */}
+                      <Link href="/profile" legacyBehavior>
+                        <a className="block">
+                          <Avatar
+                            user={user}
+                            avatarUrl={avatarUrl || cachedAvatarUrl || fetchedAvatarUrl}
+                            size="sm"
+                            className="ring-2 ring-white/20 hover:ring-[#fbbf24] transition-all"
+                          />
+                        </a>
+                      </Link>
+
+                      {/* Logout button */}
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm text-white/70 hover:text-white bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        <span className="hidden sm:inline">Salir</span>
+                      </button>
+                    </>
                   )}
-                  
-                  {/* Logout button */}
-                  <button
-                    onClick={handleLogout}
-                    className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 hover:text-[#ef4044] rounded-lg transition-all duration-200 group"
-                  >
-                    <LogOut className="h-4 w-4 group-hover:text-[#ef4044]" />
-                    <span className="hidden sm:inline">Cerrar Sesión</span>
-                    <span className="sm:hidden">Salir</span>
-                  </button>
                 </div>
               </div>
             </div>
@@ -341,7 +332,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                             {crumb.href ? (
                               <a
                                 href={crumb.href}
-                                className="ml-1 text-sm font-medium text-gray-700 hover:text-[#00365b] md:ml-2"
+                                className="ml-1 text-sm font-medium text-gray-700 hover:text-[#0a0a0a] md:ml-2"
                               >
                                 {crumb.label}
                               </a>
@@ -358,7 +349,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
                   
                   {/* Page Title */}
                   {pageTitle && (
-                    <h1 className="text-2xl sm:text-3xl font-bold text-[#00365b]">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-[#0a0a0a]">
                       {pageTitle}
                     </h1>
                   )}
@@ -370,10 +361,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({
             <main className="flex-1">
               {children}
             </main>
+
+            {/* Footer */}
+            <Footer />
           </div>
         </div>
       </div>
-      
+
       {/* Feedback Button - Only visible to users with permission */}
       <FeedbackButtonWithPermissions />
     </>

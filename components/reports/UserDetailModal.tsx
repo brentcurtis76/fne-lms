@@ -204,7 +204,7 @@ export default function UserDetailModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] flex flex-col">
         {/* Header */}
-        <div className="bg-[#00365b] text-white p-6 flex-shrink-0">
+        <div className="bg-[#0a0a0a] text-white p-6 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold">
@@ -248,7 +248,7 @@ export default function UserDetailModal({
               <div className="p-6 bg-gray-50 border-b">
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="bg-white p-4 rounded-lg shadow">
-                    <div className="text-2xl font-bold text-[#00365b]">
+                    <div className="text-2xl font-bold text-[#0a0a0a]">
                       {userDetails.summary.total_courses}
                     </div>
                     <div className="text-sm text-gray-600">Cursos Inscritos</div>
@@ -260,13 +260,13 @@ export default function UserDetailModal({
                     <div className="text-sm text-gray-600">Cursos Completados</div>
                   </div>
                   <div className="bg-white p-4 rounded-lg shadow">
-                    <div className="text-2xl font-bold text-[#fdb933]">
+                    <div className="text-2xl font-bold text-[#fbbf24]">
                       {formatPercentage(userDetails.summary.avg_completion_rate)}
                     </div>
                     <div className="text-sm text-gray-600">Tasa Promedio</div>
                   </div>
                   <div className="bg-white p-4 rounded-lg shadow">
-                    <div className="text-2xl font-bold text-purple-600">
+                    <div className="text-2xl font-bold text-amber-600">
                       {formatTime(userDetails.summary.total_time_minutes)}
                     </div>
                     <div className="text-sm text-gray-600">Tiempo Total</div>
@@ -288,7 +288,7 @@ export default function UserDetailModal({
                       onClick={() => setActiveTab(tab.id)}
                       className={`flex items-center py-4 px-6 border-b-2 font-medium text-sm ${
                         activeTab === tab.id
-                          ? 'border-[#fdb933] text-[#00365b]'
+                          ? 'border-[#fbbf24] text-[#0a0a0a]'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                     >
@@ -406,7 +406,7 @@ export default function UserDetailModal({
                                   <div className="flex items-center">
                                     <div className="w-full bg-gray-200 rounded-full h-2 mr-2">
                                       <div 
-                                        className="bg-[#fdb933] h-2 rounded-full" 
+                                        className="bg-[#fbbf24] h-2 rounded-full" 
                                         style={{ width: `${course.completion_rate}%` }}
                                       ></div>
                                     </div>
@@ -632,7 +632,7 @@ export default function UserDetailModal({
           <div className="flex justify-end">
             <button
               onClick={onClose}
-              className="px-6 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#004170] transition-colors"
+              className="px-6 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#004170] transition-colors"
             >
               Cerrar
             </button>

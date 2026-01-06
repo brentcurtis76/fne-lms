@@ -88,7 +88,7 @@ export default function Dashboard() {
   return (
     <>
       <Head>
-        <title>Dashboard - FNE LMS</title>
+        <title>Dashboard - Genera</title>
       </Head>
       
       <div className="min-h-screen bg-brand_beige">

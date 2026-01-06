@@ -32,7 +32,7 @@ export default function Document() {
         />
         
         {/* Resource hints for critical resources */}
-        <link rel="preload" as="image" href="/Logo BW.png?v=3" />
+        <link rel="preload" as="image" href="/genera/logo-compact-on-dark.svg" />
         
         {/* Meta tags for performance */}
         <meta httpEquiv="x-dns-prefetch-control" content="on" />

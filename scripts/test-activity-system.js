@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Activity Feed System Test Script
+ * Genera - Activity Feed System Test Script
  * Comprehensive testing of activity feed functionality
  * Phase 5 of Collaborative Workspace System
  */

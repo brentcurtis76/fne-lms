@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
+  
+  <!-- G circle with gap -->
+  <circle cx="60" cy="60" r="50" fill="none" stroke="#fbbf24" stroke-width="6" stroke-dasharray="280 40"/>
+  <!-- Center hub -->
+  <circle cx="60" cy="60" r="8" fill="#fbbf24"/>
+  <!-- Horizontal connector -->
+  <line x1="60" y1="60" x2="95" y2="60" stroke="#fbbf24" stroke-width="6" stroke-linecap="round"/>
+</svg>

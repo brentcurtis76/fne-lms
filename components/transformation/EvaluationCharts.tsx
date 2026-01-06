@@ -23,8 +23,8 @@ import {
 
 // FNE Brand Colors
 const COLORS = {
-  brand_blue: '#00365b',
-  brand_yellow: '#fdb933',
+  brand_blue: '#0a0a0a',
+  brand_yellow: '#fbbf24',
   brand_beige: '#e8e5e2',
   slate: '#94a3b8',
 };

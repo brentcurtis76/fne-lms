@@ -1,17 +1,17 @@
 /**
- * Toast Notification Styles for FNE LMS
- * Consistent styling following FNE brand guidelines
+ * Toast Notification Styles for Genera
+ * Consistent styling following Genera brand guidelines
  */
 
 import { ToastOptions } from 'react-hot-toast';
 
-// Brand Colors
+// Brand Colors - Genera palette
 const COLORS = {
-  navyBlue: '#00365b',
-  goldenYellow: '#fdb933',
+  primary: '#0a0a0a',        // Genera Black
+  accent: '#fbbf24',         // Genera Yellow
   errorRed: '#ef4044',
   white: '#ffffff',
-  darkGray: '#1a1a1a',
+  darkGray: '#1f1f1f',
   lightGray: '#f3f4f6',
   successGreen: '#10b981',
 };
@@ -36,7 +36,7 @@ export const toastStyles = {
   success: {
     style: {
       ...baseStyle,
-      borderLeft: `4px solid ${COLORS.goldenYellow}`,
+      borderLeft: `4px solid ${COLORS.accent}`,
     },
     iconTheme: {
       primary: COLORS.successGreen,
@@ -58,10 +58,10 @@ export const toastStyles = {
   info: {
     style: {
       ...baseStyle,
-      borderLeft: `4px solid ${COLORS.navyBlue}`,
+      borderLeft: `4px solid ${COLORS.primary}`,
     },
     iconTheme: {
-      primary: COLORS.navyBlue,
+      primary: COLORS.primary,
       secondary: COLORS.white,
     },
     duration: 3000,
@@ -69,10 +69,10 @@ export const toastStyles = {
   loading: {
     style: {
       ...baseStyle,
-      borderLeft: `4px solid ${COLORS.navyBlue}`,
+      borderLeft: `4px solid ${COLORS.primary}`,
     },
     iconTheme: {
-      primary: COLORS.navyBlue,
+      primary: COLORS.primary,
       secondary: COLORS.white,
     },
   },

@@ -1,5 +1,5 @@
 /**
- * FNE LMS Data Seeding - Security System Test
+ * Genera Data Seeding - Security System Test
  * 
  * This script tests the security validation system to ensure it properly
  * blocks production databases and requires proper sandbox configuration.

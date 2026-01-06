@@ -238,7 +238,7 @@ export default function ChangePasswordPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b]"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a]"></div>
       </div>
     );
   }
@@ -246,7 +246,7 @@ export default function ChangePasswordPage() {
   return (
     <>
       <Head>
-        <title>Cambiar Contraseña - FNE LMS</title>
+        <title>Cambiar Contraseña - Genera</title>
       </Head>
 
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -254,7 +254,7 @@ export default function ChangePasswordPage() {
         <div className="absolute top-4 right-4">
           <button
             onClick={handleLogout}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]"
           >
             <LogoutIcon className="w-4 h-4 mr-2" />
             Cerrar Sesión
@@ -263,7 +263,7 @@ export default function ChangePasswordPage() {
 
         <div className="sm:mx-auto sm:w-full sm:max-w-md">
           <div className="flex justify-center">
-            <div className="w-20 h-20 bg-[#00365b] rounded-full flex items-center justify-center">
+            <div className="w-20 h-20 bg-[#0a0a0a] rounded-full flex items-center justify-center">
               <LockClosedIcon className="w-10 h-10 text-white" />
             </div>
           </div>
@@ -299,7 +299,7 @@ export default function ChangePasswordPage() {
                     required
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#00365b] focus:border-[#00365b] sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#0a0a0a] focus:border-[#0a0a0a] sm:text-sm"
                   />
                 </div>
               </div>
@@ -317,7 +317,7 @@ export default function ChangePasswordPage() {
                     required
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#00365b] focus:border-[#00365b] sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-[#0a0a0a] focus:border-[#0a0a0a] sm:text-sm"
                   />
                 </div>
               </div>
@@ -329,7 +329,7 @@ export default function ChangePasswordPage() {
                   type="checkbox"
                   checked={showPasswords}
                   onChange={(e) => setShowPasswords(e.target.checked)}
-                  className="h-4 w-4 text-[#00365b] focus:ring-[#00365b] border-gray-300 rounded"
+                  className="h-4 w-4 text-[#0a0a0a] focus:ring-[#0a0a0a] border-gray-300 rounded"
                 />
                 <label htmlFor="show-password" className="ml-2 block text-sm text-gray-900">
                   Mostrar contraseñas
@@ -364,7 +364,7 @@ export default function ChangePasswordPage() {
                 <button
                   type="submit"
                   disabled={updating || !newPassword || !confirmPassword}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#00365b] hover:bg-[#fdb933] hover:text-[#00365b] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#0a0a0a] hover:bg-[#fbbf24] hover:text-[#0a0a0a] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {updating ? 'Actualizando...' : 'Cambiar Contraseña'}
                 </button>

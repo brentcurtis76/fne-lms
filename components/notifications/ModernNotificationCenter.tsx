@@ -228,11 +228,11 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
       case 'courses':
         return { Icon: BookOpenIcon, color: 'text-blue-500', bg: 'bg-blue-50' };
       case 'messaging':
-        return { Icon: ChatAlt2Icon, color: 'text-purple-500', bg: 'bg-purple-50' };
+        return { Icon: ChatAlt2Icon, color: 'text-amber-500', bg: 'bg-amber-50' };
       case 'system':
         return { Icon: CogIcon, color: 'text-gray-500', bg: 'bg-gray-50' };
       case 'workspace':
-        return { Icon: UserGroupIcon, color: 'text-indigo-500', bg: 'bg-indigo-50' };
+        return { Icon: UserGroupIcon, color: 'text-slate-500', bg: 'bg-slate-50' };
       case 'social':
         return { Icon: DocumentIcon, color: 'text-pink-500', bg: 'bg-pink-50' };
       default:

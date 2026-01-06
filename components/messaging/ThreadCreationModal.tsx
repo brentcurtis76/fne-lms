@@ -86,7 +86,7 @@ export default function ThreadCreationModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <MessageSquare className="h-6 w-6 text-[#00365b]" />
+            <MessageSquare className="h-6 w-6 text-[#0a0a0a]" />
             <h2 className="text-xl font-semibold text-gray-900">
               Crear Nuevo Hilo de Conversación
             </h2>
@@ -114,7 +114,7 @@ export default function ThreadCreationModal({
               onChange={(e) => setFormData({ ...formData, thread_title: e.target.value })}
               placeholder="Ej: Planificación del próximo semestre"
               disabled={submitting}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent disabled:opacity-50"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent disabled:opacity-50"
               maxLength={100}
             />
             <p className="mt-1 text-xs text-gray-500">
@@ -134,7 +134,7 @@ export default function ThreadCreationModal({
               placeholder="Describe brevemente el propósito de este hilo..."
               disabled={submitting}
               rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent resize-none disabled:opacity-50"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent resize-none disabled:opacity-50"
               maxLength={300}
             />
             <p className="mt-1 text-xs text-gray-500">
@@ -157,7 +157,7 @@ export default function ThreadCreationModal({
                   setShowCustomCategory(value === 'custom');
                 }}
                 disabled={submitting}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent appearance-none disabled:opacity-50"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent appearance-none disabled:opacity-50"
               >
                 {THREAD_CATEGORIES.map(category => (
                   <option key={category.type} value={category.type}>
@@ -183,7 +183,7 @@ export default function ThreadCreationModal({
                 onChange={(e) => setFormData({ ...formData, custom_category_name: e.target.value })}
                 placeholder="Ej: Actividades Especiales"
                 disabled={submitting}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent disabled:opacity-50"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent disabled:opacity-50"
                 maxLength={50}
               />
               <p className="mt-1 text-xs text-gray-500">
@@ -204,7 +204,7 @@ export default function ThreadCreationModal({
               placeholder="Escribe el primer mensaje para iniciar la conversación..."
               disabled={submitting}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00365b] focus:border-transparent resize-none disabled:opacity-50"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent resize-none disabled:opacity-50"
               maxLength={2000}
             />
             <p className="mt-1 text-xs text-gray-500">
@@ -225,11 +225,11 @@ export default function ThreadCreationModal({
             <button
               type="submit"
               disabled={submitting}
-              className="px-4 py-2 bg-[#fdb933] text-[#00365b] font-medium rounded-lg hover:bg-[#fdb933]/90 disabled:opacity-50 flex items-center space-x-2"
+              className="px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] font-medium rounded-lg hover:bg-[#fbbf24]/90 disabled:opacity-50 flex items-center space-x-2"
             >
               {submitting ? (
                 <>
-                  <svg className="animate-spin h-4 w-4 text-[#00365b]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <svg className="animate-spin h-4 w-4 text-[#0a0a0a]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>

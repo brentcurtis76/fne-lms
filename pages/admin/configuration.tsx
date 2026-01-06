@@ -172,7 +172,7 @@ export default function Configuration() {
       case 'assignments':
         return 'bg-green-100 text-green-800';
       case 'messaging':
-        return 'bg-purple-100 text-purple-800';
+        return 'bg-amber-100 text-amber-800';
       case 'social':
         return 'bg-pink-100 text-pink-800';
       case 'feedback':
@@ -182,7 +182,7 @@ export default function Configuration() {
       case 'admin':
         return 'bg-red-100 text-red-800';
       case 'workspace':
-        return 'bg-indigo-100 text-indigo-800';
+        return 'bg-slate-100 text-slate-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -279,7 +279,7 @@ export default function Configuration() {
                     fetchNotificationTypes();
                   }}
                   disabled={notificationsLoading}
-                  className="flex items-center space-x-2 px-3 py-2 bg-[#00365b] text-white rounded hover:bg-[#004a7a] disabled:opacity-50"
+                  className="flex items-center space-x-2 px-3 py-2 bg-[#0a0a0a] text-white rounded hover:bg-[#004a7a] disabled:opacity-50"
                 >
                   <RefreshCw className={`w-4 h-4 ${notificationsLoading ? 'animate-spin' : ''}`} />
                   <span>Actualizar</span>
@@ -298,7 +298,7 @@ export default function Configuration() {
 
             {notificationsLoading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-[#00365b]" />
+                <Loader2 className="h-8 w-8 animate-spin text-[#0a0a0a]" />
                 <span className="ml-2 text-gray-600">Cargando tipos de notificación...</span>
               </div>
             ) : (
@@ -471,7 +471,7 @@ export default function Configuration() {
         isAdmin={isAdmin}
       >
         <div className="flex items-center justify-center min-h-96">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00365b]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0a0a0a]"></div>
         </div>
       </MainLayout>
     );
@@ -506,7 +506,7 @@ export default function Configuration() {
                 className={`
                   flex items-center space-x-3 whitespace-nowrap py-6 px-2 border-b-2 font-medium text-base transition-colors
                   ${activeTab === tab.id
-                    ? 'border-[#fdb933] text-[#00365b]'
+                    ? 'border-[#fbbf24] text-[#0a0a0a]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }
                 `}

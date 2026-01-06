@@ -345,5 +345,5 @@ async function verifyMigration() {
 }
 
 // Ejecutar migración
-console.log('🔧 Aplicando Sistema de Roles en Español para FNE LMS\n');
+console.log('🔧 Aplicando Sistema de Roles en Español para Genera\n');
 applySpanishMigration().catch(console.error);

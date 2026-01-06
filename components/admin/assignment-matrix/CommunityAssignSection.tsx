@@ -50,7 +50,7 @@ export function CommunityAssignSection({
 
   return (
     <>
-      <div className="border-t border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-4 py-3">
+      <div className="border-t border-gray-200 bg-gradient-to-r from-blue-50 to-slate-50 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-blue-600" />

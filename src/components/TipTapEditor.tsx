@@ -32,9 +32,9 @@ const MenuBar: React.FC<MenuBarProps> = ({ editor, buttonConfigs }) => {
   }
 
   // Define button styles with very prominent styling to ensure they appear as buttons
-  const baseStyle = 'px-3 py-2 mx-3 mb-2 text-sm font-bold border-4 rounded-md shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-[#00365b] inline-block';
-  const inactiveStyle = `bg-white text-[#00365b] border-[#00365b] ${baseStyle}`;
-  const activeStyle = `bg-[#fdb933] text-[#00365b] border-[#fdb933] ${baseStyle}`;
+  const baseStyle = 'px-3 py-2 mx-3 mb-2 text-sm font-bold border-4 rounded-md shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-[#0a0a0a] inline-block';
+  const inactiveStyle = `bg-white text-[#0a0a0a] border-[#0a0a0a] ${baseStyle}`;
+  const activeStyle = `bg-[#fbbf24] text-[#0a0a0a] border-[#fbbf24] ${baseStyle}`;
 
   return (
     <div className="flex flex-wrap items-center gap-4 p-4 border-b-2 border-gray-400 mb-3 bg-gray-50">

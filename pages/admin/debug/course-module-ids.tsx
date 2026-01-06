@@ -12,14 +12,14 @@ const SimpleHeader = ({ user, isAdmin, onLogout }: { user: User | null, isAdmin:
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
         <div className="flex items-center">
           <Link href="/">
-            <img src="/images/logo.png" alt="FNE LMS Logo" className="h-20 w-auto cursor-pointer" />
+            <img src="/images/logo.png" alt="Genera Logo" className="h-20 w-auto cursor-pointer" />
           </Link>
         </div>
         <nav className="hidden md:flex space-x-6 font-medium">
-          <Link href="/" className="hover:text-[#fdb933] transition">Inicio</Link>
-          <Link href="/dashboard" className="hover:text-[#fdb933] transition">Mi Panel</Link>
+          <Link href="/" className="hover:text-[#fbbf24] transition">Inicio</Link>
+          <Link href="/dashboard" className="hover:text-[#fbbf24] transition">Mi Panel</Link>
           {isAdmin && (
-            <Link href="/admin/course-builder" className="hover:text-[#fdb933] transition font-semibold">
+            <Link href="/admin/course-builder" className="hover:text-[#fbbf24] transition font-semibold">
               Cursos
             </Link>
           )}
@@ -27,7 +27,7 @@ const SimpleHeader = ({ user, isAdmin, onLogout }: { user: User | null, isAdmin:
         <div className="flex items-center space-x-4">
           <button 
             onClick={onLogout}
-            className="hidden md:block bg-[#00365b] text-white font-semibold py-2 px-6 rounded-full hover:bg-[#fdb933] hover:text-[#00365b] transition"
+            className="hidden md:block bg-[#0a0a0a] text-white font-semibold py-2 px-6 rounded-full hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition"
           >
             Cerrar Sesión
           </button>
@@ -168,7 +168,7 @@ export default function DebugCoursesModules() {
   return (
     <>
       <Head>
-        <title>Debug: Course & Module IDs | FNE LMS</title>
+        <title>Debug: Course & Module IDs | Genera</title>
       </Head>
 
       <Header user={user} isAdmin={isAdmin} onLogout={handleLogout} />

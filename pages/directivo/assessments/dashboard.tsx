@@ -22,6 +22,7 @@ import {
   GRADE_LEVEL_LABELS,
   TransformationArea,
   GradeLevel,
+  GenerationType,
 } from '@/types/assessment-builder';
 import {
   BarChart,
@@ -56,6 +57,7 @@ interface CourseResult {
   gradeLevel: GradeLevel;
   gradeLevelLabel: string;
   courseName: string;
+  generationType: GenerationType;
   summary: {
     completedAssessments: number;
     avgScore: number;
@@ -543,10 +545,20 @@ const DirectivoDashboard: React.FC = () => {
                             key={course.courseId}
                             className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                           >
-                            <div>
+                            <div className="flex items-center gap-2">
                               <span className="font-medium">{course.courseName}</span>
-                              <span className="text-sm text-gray-500 ml-2">
+                              <span className="text-sm text-gray-500">
                                 ({course.gradeLevelLabel})
+                              </span>
+                              <span
+                                className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                  course.generationType === 'GT'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-blue-100 text-blue-700'
+                                }`}
+                                title={course.generationType === 'GT' ? 'Generación Tractor' : 'Generación Innova'}
+                              >
+                                {course.generationType}
                               </span>
                             </div>
                             <div className="flex items-center gap-3">
@@ -581,9 +593,21 @@ const DirectivoDashboard: React.FC = () => {
                       >
                         <div className="flex items-center justify-between mb-4">
                           <div>
-                            <h4 className="text-lg font-semibold text-gray-800">
-                              {course.courseName}
-                            </h4>
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-lg font-semibold text-gray-800">
+                                {course.courseName}
+                              </h4>
+                              <span
+                                className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
+                                  course.generationType === 'GT'
+                                    ? 'bg-green-100 text-green-700'
+                                    : 'bg-blue-100 text-blue-700'
+                                }`}
+                                title={course.generationType === 'GT' ? 'Generación Tractor' : 'Generación Innova'}
+                              >
+                                {course.generationType}
+                              </span>
+                            </div>
                             <p className="text-sm text-gray-500">{course.gradeLevelLabel}</p>
                           </div>
                           <div className="text-right">

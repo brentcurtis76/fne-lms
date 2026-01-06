@@ -15,7 +15,7 @@ async function dumpSchema() {
     await client.connect();
     console.log('Connected to database...\n');
 
-    let schemaSQL = '-- FNE LMS Database Schema\n';
+    let schemaSQL = '-- Genera Database Schema\n';
     schemaSQL += '-- Generated on: ' + new Date().toISOString() + '\n\n';
 
     // 1. Get all tables

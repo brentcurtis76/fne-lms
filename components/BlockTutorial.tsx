@@ -126,7 +126,7 @@ const tutorialData: BlockTutorialData[] = [
   {
     type: 'video',
     name: 'Bloque de Video',
-    icon: <Video className="text-purple-600" />,
+    icon: <Video className="text-amber-600" />,
     description: 'Integra videos de YouTube o Vimeo para crear contenido multimedia interactivo y engaging.',
     whenToUse: [
       'Demostrar procesos paso a paso',
@@ -414,7 +414,7 @@ const tutorialData: BlockTutorialData[] = [
   {
     type: 'download',
     name: 'Bloque de Archivos',
-    icon: <Download className="text-indigo-600" />,
+    icon: <Download className="text-slate-600" />,
     description: 'Permite a los estudiantes descargar recursos adicionales como PDFs, documentos, plantillas y materiales complementarios.',
     whenToUse: [
       'Proporcionar materiales de referencia',
@@ -662,7 +662,7 @@ const BlockTutorial: React.FC<BlockTutorialProps> = ({ isOpen, onClose, initialB
         {/* Sidebar */}
         <div className="w-1/3 bg-gray-50 border-r border-gray-200 overflow-y-auto">
           <div className="p-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-[#00365b] flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-[#0a0a0a] flex items-center gap-2">
               <BookOpen size={20} />
               Tutorial de Bloques
             </h2>
@@ -678,7 +678,7 @@ const BlockTutorial: React.FC<BlockTutorialProps> = ({ isOpen, onClose, initialB
                 onClick={() => selectBlock(block.type)}
                 className={`w-full text-left p-3 rounded-lg mb-2 transition-colors ${
                   selectedBlock === block.type
-                    ? 'bg-[#00365b] text-white'
+                    ? 'bg-[#0a0a0a] text-white'
                     : 'hover:bg-gray-100 text-gray-700'
                 }`}
               >
@@ -707,7 +707,7 @@ const BlockTutorial: React.FC<BlockTutorialProps> = ({ isOpen, onClose, initialB
             <div className="flex items-center gap-3">
               {currentTutorial.icon}
               <div>
-                <h1 className="text-xl font-bold text-[#00365b]">{currentTutorial.name}</h1>
+                <h1 className="text-xl font-bold text-[#0a0a0a]">{currentTutorial.name}</h1>
                 <p className="text-sm text-gray-600">{currentTutorial.description}</p>
               </div>
             </div>
@@ -721,13 +721,13 @@ const BlockTutorial: React.FC<BlockTutorialProps> = ({ isOpen, onClose, initialB
             {/* When to Use */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <Users size={18} className="text-[#00365b]" />
+                <Users size={18} className="text-[#0a0a0a]" />
                 ¿Cuándo usar este bloque?
               </h3>
               <ul className="space-y-1">
                 {currentTutorial.whenToUse.map((use, index) => (
                   <li key={index} className="flex items-start gap-2 text-gray-700">
-                    <span className="w-1.5 h-1.5 bg-[#fdb933] rounded-full mt-2 flex-shrink-0"></span>
+                    <span className="w-1.5 h-1.5 bg-[#fbbf24] rounded-full mt-2 flex-shrink-0"></span>
                     {use}
                   </li>
                 ))}
@@ -737,7 +737,7 @@ const BlockTutorial: React.FC<BlockTutorialProps> = ({ isOpen, onClose, initialB
             {/* Step-by-Step Guide */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <Play size={18} className="text-[#00365b]" />
+                <Play size={18} className="text-[#0a0a0a]" />
                 Guía Paso a Paso
               </h3>
               
@@ -768,7 +768,7 @@ const BlockTutorial: React.FC<BlockTutorialProps> = ({ isOpen, onClose, initialB
 
                 <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
                   <div
-                    className="bg-[#00365b] h-2 rounded-full transition-all duration-300"
+                    className="bg-[#0a0a0a] h-2 rounded-full transition-all duration-300"
                     style={{ width: `${((currentStep + 1) / currentTutorial.steps.length) * 100}%` }}
                   ></div>
                 </div>
@@ -799,7 +799,7 @@ const BlockTutorial: React.FC<BlockTutorialProps> = ({ isOpen, onClose, initialB
             {/* Best Practices */}
             <div className="mb-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <Settings size={18} className="text-[#00365b]" />
+                <Settings size={18} className="text-[#0a0a0a]" />
                 Mejores Prácticas
               </h3>
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
@@ -818,13 +818,13 @@ const BlockTutorial: React.FC<BlockTutorialProps> = ({ isOpen, onClose, initialB
             {currentTutorial.settings && (
               <div className="mb-8">
                 <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-                  <Settings size={18} className="text-[#00365b]" />
+                  <Settings size={18} className="text-[#0a0a0a]" />
                   Explicación de Configuraciones
                 </h3>
                 <div className="space-y-4">
                   {currentTutorial.settings.map((setting, index) => (
-                    <div key={index} className="border border-gray-200 rounded-lg p-4 hover:border-[#00365b] transition-colors">
-                      <h4 className="font-semibold text-[#00365b] mb-2">{setting.setting}</h4>
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 hover:border-[#0a0a0a] transition-colors">
+                      <h4 className="font-semibold text-[#0a0a0a] mb-2">{setting.setting}</h4>
                       <p className="text-gray-700 mb-3">{setting.explanation}</p>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -846,7 +846,7 @@ const BlockTutorial: React.FC<BlockTutorialProps> = ({ isOpen, onClose, initialB
             {/* Examples */}
             <div>
               <h3 className="text-lg font-semibold text-gray-800 mb-3 flex items-center gap-2">
-                <Eye size={18} className="text-[#00365b]" />
+                <Eye size={18} className="text-[#0a0a0a]" />
                 Ejemplos de Uso
               </h3>
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
@@ -865,7 +865,7 @@ const BlockTutorial: React.FC<BlockTutorialProps> = ({ isOpen, onClose, initialB
           {/* Footer */}
           <div className="p-6 border-t border-gray-200 flex items-center justify-between">
             <div className="text-sm text-gray-600">
-              Tutorial interactivo • FNE LMS
+              Tutorial interactivo • Genera
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -876,7 +876,7 @@ const BlockTutorial: React.FC<BlockTutorialProps> = ({ isOpen, onClose, initialB
               </Button>
               <Button
                 onClick={() => selectBlock(tutorialData[(tutorialData.findIndex(t => t.type === selectedBlock) + 1) % tutorialData.length].type)}
-                className="bg-[#00365b] hover:bg-[#fdb933] hover:text-[#00365b] text-white"
+                className="bg-[#0a0a0a] hover:bg-[#fbbf24] hover:text-[#0a0a0a] text-white"
               >
                 Siguiente Bloque
               </Button>

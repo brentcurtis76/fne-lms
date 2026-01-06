@@ -242,7 +242,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                 reset();
                 onClose();
               }}
-              className="mt-6 px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00243a] transition-colors"
+              className="mt-6 px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#00243a] transition-colors"
             >
               ✓ Cerrar
             </button>
@@ -270,7 +270,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="El botón no funciona cuando..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent resize-none"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent resize-none"
                   rows={4}
                   autoFocus
                 />
@@ -284,7 +284,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
                 <div
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
-                  className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#fdb933] transition-colors cursor-pointer"
+                  className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-[#fbbf24] transition-colors cursor-pointer"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   {screenshotPreview ? (
@@ -372,7 +372,7 @@ export default function FeedbackModal({ isOpen, onClose }: FeedbackModalProps) {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || !description.trim()}
-                className="flex-1 px-4 py-2 bg-[#fdb933] text-[#00365b] rounded-lg hover:bg-[#fca311] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                className="flex-1 px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] rounded-lg hover:bg-[#fca311] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
                 {isSubmitting ? 'Enviando...' : 'Enviar →'}
               </button>

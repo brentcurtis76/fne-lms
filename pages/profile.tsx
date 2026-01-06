@@ -461,8 +461,8 @@ export default function ProfilePage() {
       <div id="profile-page" className="min-h-[800px] py-6 relative overflow-hidden">
         {/* Success Alert */}
         {dataLoaded && (
-          <div id="success-alert" className="fixed top-24 left-1/2 transform -translate-x-1/2 bg-white shadow-lg border-l-4 border-[#00365b] text-[#00365b] px-6 py-3 rounded-lg flex items-center z-50 animate-fadeIn">
-            <i className="fa-solid fa-circle-check text-[#00365b] mr-3 text-xl"></i>
+          <div id="success-alert" className="fixed top-24 left-1/2 transform -translate-x-1/2 bg-white shadow-lg border-l-4 border-[#0a0a0a] text-[#0a0a0a] px-6 py-3 rounded-lg flex items-center z-50 animate-fadeIn">
+            <i className="fa-solid fa-circle-check text-[#0a0a0a] mr-3 text-xl"></i>
             <span className="font-medium">Perfil cargado exitosamente</span>
             <style jsx>{`
               @keyframes fadeIn {
@@ -507,7 +507,7 @@ export default function ProfilePage() {
                     </div>
                   )}
                   <div 
-                    className="absolute bottom-0 right-0 bg-[#00365b] rounded-full p-2 cursor-pointer"
+                    className="absolute bottom-0 right-0 bg-[#0a0a0a] rounded-full p-2 cursor-pointer"
                     onClick={() => document.getElementById('avatar-input')?.click()}
                   >
                     <i className="fa-solid fa-camera text-white"></i>
@@ -527,11 +527,11 @@ export default function ProfilePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* First Name */}
                   <div>
-                    <label htmlFor="firstName" className="block text-[#00365b] font-medium mb-2">Nombre</label>
+                    <label htmlFor="firstName" className="block text-[#0a0a0a] font-medium mb-2">Nombre</label>
                     <input
                       id="firstName"
                       type="text"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#00365b]"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       required
@@ -540,11 +540,11 @@ export default function ProfilePage() {
 
                   {/* Middle Name */}
                   <div>
-                    <label htmlFor="middleName" className="block text-[#00365b] font-medium mb-2">Segundo nombre (opcional)</label>
+                    <label htmlFor="middleName" className="block text-[#0a0a0a] font-medium mb-2">Segundo nombre (opcional)</label>
                     <input
                       id="middleName"
                       type="text"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#00365b]"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
                       value={middleName}
                       onChange={(e) => setMiddleName(e.target.value)}
                     />
@@ -552,11 +552,11 @@ export default function ProfilePage() {
 
                   {/* Last Name */}
                   <div>
-                    <label htmlFor="lastName" className="block text-[#00365b] font-medium mb-2">Apellidos</label>
+                    <label htmlFor="lastName" className="block text-[#0a0a0a] font-medium mb-2">Apellidos</label>
                     <input
                       id="lastName"
                       type="text"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#00365b]"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       required
@@ -565,7 +565,7 @@ export default function ProfilePage() {
 
                   {/* Email */}
                   <div>
-                    <label className="block text-[#00365b] font-medium mb-2">Correo electrónico</label>
+                    <label className="block text-[#0a0a0a] font-medium mb-2">Correo electrónico</label>
                     <input
                       type="email"
                       className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200"
@@ -576,10 +576,10 @@ export default function ProfilePage() {
 
                   {/* School */}
                   <div className="md:col-span-2">
-                    <label htmlFor="school" className="block text-[#00365b] font-medium mb-2">Escuela</label>
+                    <label htmlFor="school" className="block text-[#0a0a0a] font-medium mb-2">Escuela</label>
                     <select
                       id="school"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#00365b]"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
                       value={school}
                       onChange={(e) => setSchool(e.target.value)}
                     >
@@ -596,7 +596,7 @@ export default function ProfilePage() {
 
                   {/* Growth Communities */}
                   <div className="md:col-span-2">
-                    <label className="block text-[#00365b] font-medium mb-2">
+                    <label className="block text-[#0a0a0a] font-medium mb-2">
                       {growthCommunities.length > 1 ? 'Comunidades de crecimiento' : 'Comunidad de crecimiento'}
                     </label>
                     {growthCommunities.length > 0 ? (
@@ -604,7 +604,7 @@ export default function ProfilePage() {
                         {growthCommunities.map((community) => (
                           <span
                             key={community.id}
-                            className="inline-flex items-center px-4 py-2 rounded-xl bg-[#00365b]/10 text-[#00365b] border border-[#00365b]/20"
+                            className="inline-flex items-center px-4 py-2 rounded-xl bg-[#0a0a0a]/10 text-[#0a0a0a] border border-[#0a0a0a]/20"
                           >
                             {community.name}
                           </span>
@@ -622,10 +622,10 @@ export default function ProfilePage() {
 
                   {/* Description */}
                   <div className="md:col-span-2">
-                    <label htmlFor="description" className="block text-[#00365b] font-medium mb-2">Descripción</label>
+                    <label htmlFor="description" className="block text-[#0a0a0a] font-medium mb-2">Descripción</label>
                     <textarea
                       id="description"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#00365b] h-32"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] h-32"
                       placeholder="Cuéntanos sobre ti..."
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
@@ -640,14 +640,14 @@ export default function ProfilePage() {
                 <div className="flex flex-col md:flex-row justify-end space-y-4 md:space-y-0 md:space-x-4 pt-6">
                   <button 
                     type="button" 
-                    className="px-6 py-3 rounded-xl border-2 border-[#00365b] text-[#00365b] hover:bg-[#00365b] hover:text-white transition duration-300"
+                    className="px-6 py-3 rounded-xl border-2 border-[#0a0a0a] text-[#0a0a0a] hover:bg-[#0a0a0a] hover:text-white transition duration-300"
                     onClick={handleLogout}
                   >
                     Cerrar sesión
                   </button>
                   <button 
                     type="submit" 
-                    className="px-6 py-3 rounded-xl bg-[#00365b] text-white hover:bg-[#fdb933] hover:text-[#00365b] transition duration-300"
+                    className="px-6 py-3 rounded-xl bg-[#0a0a0a] text-white hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition duration-300"
                   >
                     Guardar perfil
                   </button>
@@ -659,10 +659,10 @@ export default function ProfilePage() {
             {showAvatarModal && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                 <div className="bg-white rounded-lg p-6 max-w-md w-full">
-                  <h3 className="text-xl font-bold mb-4 text-[#00365b]">Vista previa del avatar</h3>
+                  <h3 className="text-xl font-bold mb-4 text-[#0a0a0a]">Vista previa del avatar</h3>
                   
                   <div className="flex flex-col items-center mb-6">
-                    <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-[#00365b] mb-4">
+                    <div className="w-40 h-40 rounded-full overflow-hidden border-4 border-[#0a0a0a] mb-4">
                       <img 
                         src={previewUrl} 
                         alt="Avatar Preview" 
@@ -681,7 +681,7 @@ export default function ProfilePage() {
                     </button>
                     <button 
                       onClick={confirmAvatar}
-                      className="px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b]"
+                      className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a]"
                     >
                       Confirmar
                     </button>

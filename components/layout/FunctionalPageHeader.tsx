@@ -41,7 +41,7 @@ export default function FunctionalPageHeader({
           {/* Left: Icon + Title */}
           <div className="flex items-center space-x-3">
             {leftAddon}
-            <div className="text-[#00365b] text-2xl">
+            <div className="text-[#0a0a0a] text-2xl">
               {icon}
             </div>
             <h1 className="text-xl font-semibold text-gray-900">
@@ -61,7 +61,7 @@ export default function FunctionalPageHeader({
                   type="text"
                   value={searchValue || ''}
                   onChange={(e) => onSearchChange(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#00365b] focus:border-[#00365b] sm:text-sm"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#0a0a0a] focus:border-[#0a0a0a] sm:text-sm"
                   placeholder={searchPlaceholder}
                 />
               </div>
@@ -74,7 +74,7 @@ export default function FunctionalPageHeader({
             {primaryAction && (
               <button
                 onClick={primaryAction.onClick}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#fdb933] hover:bg-[#f5a623] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#fdb933] transition-colors"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#fbbf24] hover:bg-[#f5a623] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#fbbf24] transition-colors"
               >
                 {primaryAction.icon && (
                   <span className="mr-2">{primaryAction.icon}</span>
@@ -116,7 +116,7 @@ export function MobileFunctionalPageHeader({
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center space-x-2">
             {leftAddon}
-            <div className="text-[#00365b] text-xl">
+            <div className="text-[#0a0a0a] text-xl">
               {icon}
             </div>
             <h1 className="text-lg font-semibold text-gray-900">
@@ -127,7 +127,7 @@ export function MobileFunctionalPageHeader({
           {primaryAction && (
             <button
               onClick={primaryAction.onClick}
-              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-[#fdb933] hover:bg-[#f5a623] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#fdb933]"
+              className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-[#fbbf24] hover:bg-[#f5a623] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#fbbf24]"
             >
               {primaryAction.icon && (
                 <span className="mr-1">{primaryAction.icon}</span>
@@ -148,7 +148,7 @@ export function MobileFunctionalPageHeader({
               type="text"
               value={searchValue || ''}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#00365b] focus:border-[#00365b] sm:text-sm"
+              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#0a0a0a] focus:border-[#0a0a0a] sm:text-sm"
               placeholder={searchPlaceholder}
             />
           </div>

@@ -14,7 +14,7 @@ if (!supabaseUrl || !supabaseServiceKey) {
   process.exit(1);
 }
 
-console.log('\n🔍 QUICK DIAGNOSTIC - FNE LMS Progress Tracking\n');
+console.log('\n🔍 QUICK DIAGNOSTIC - Genera Progress Tracking\n');
 console.log(`Database: ${supabaseUrl}\n`);
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);

@@ -180,7 +180,7 @@ vi.mock('../../pages/community/workspace.tsx', async () => {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-[#00365b]">
+            <h2 className="text-xl font-semibold text-[#0a0a0a]">
               {isConsultantView ? 'Tareas Grupales de Mis Estudiantes' : 'Tareas Grupales'}
             </h2>
             <p className="text-sm text-gray-600 mt-1">
@@ -212,7 +212,7 @@ vi.mock('../../pages/community/workspace.tsx', async () => {
                   className={`bg-white rounded-lg shadow-sm border border-gray-200 p-6 ${!isConsultantView ? 'hover:shadow-md cursor-pointer' : ''} transition-shadow`}
                   onClick={() => handleAssignmentClick(assignment)}
                 >
-                  <h3 className="text-lg font-semibold text-[#00365b] mb-2">
+                  <h3 className="text-lg font-semibold text-[#0a0a0a] mb-2">
                     {assignment.title}
                   </h3>
                   <p className="text-sm text-gray-600 mb-3">

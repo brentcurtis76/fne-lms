@@ -359,7 +359,7 @@ export default function NosotrosPage() {
               {/* Login Button */}
               <div className="hidden lg:flex items-center">
                 <Link href="/login" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
-                  PLATAFORMA DE CRECIMIENTO
+                  HUB DE TRANSFORMACIÓN
                 </Link>
               </div>
               
@@ -391,7 +391,7 @@ export default function NosotrosPage() {
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
               <Link href="/#contacto" className="text-xl font-medium">CONTACTO</Link>
               <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
-                PLATAFORMA DE CRECIMIENTO
+                HUB DE TRANSFORMACIÓN
               </Link>
             </nav>
           </div>
@@ -416,7 +416,7 @@ export default function NosotrosPage() {
             <div className="grid md:grid-cols-3 gap-8 mb-20">
               <div className="bg-white rounded-3xl shadow-lg p-8 hover:shadow-xl transition-shadow border-2 border-gray-100">
                 <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center mb-6">
-                  <svg className="w-8 h-8 text-[#fdb933]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-8 h-8 text-[#fbbf24]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
                 </div>
@@ -430,7 +430,7 @@ export default function NosotrosPage() {
               </div>
 
               <div className="bg-white rounded-3xl shadow-lg p-8 hover:shadow-xl transition-shadow border-2 border-gray-100">
-                <div className="w-16 h-16 bg-[#fdb933] rounded-2xl flex items-center justify-center mb-6">
+                <div className="w-16 h-16 bg-[#fbbf24] rounded-2xl flex items-center justify-center mb-6">
                   <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
@@ -447,7 +447,7 @@ export default function NosotrosPage() {
 
               <div className="bg-white rounded-3xl shadow-lg p-8 hover:shadow-xl transition-shadow border-2 border-gray-100">
                 <div className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center mb-6">
-                  <svg className="w-8 h-8 text-[#fdb933]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-8 h-8 text-[#fbbf24]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
                 </div>
@@ -465,7 +465,7 @@ export default function NosotrosPage() {
             {/* Impact Numbers */}
             <div className="bg-gradient-to-br from-gray-900 via-black to-gray-800 rounded-3xl p-12 md:p-16 relative overflow-hidden">
               <div className="absolute inset-0 opacity-20">
-                <div className="absolute -right-20 -top-20 w-80 h-80 bg-[#fdb933] rounded-full blur-3xl"></div>
+                <div className="absolute -right-20 -top-20 w-80 h-80 bg-[#fbbf24] rounded-full blur-3xl"></div>
                 <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-white rounded-full blur-3xl"></div>
               </div>
               
@@ -475,7 +475,7 @@ export default function NosotrosPage() {
                 <div className="grid md:grid-cols-3 gap-8 md:gap-12">
                   <div className="text-center group">
                     <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-10 border border-white/20 hover:bg-white/15 transform hover:-translate-y-2 transition-all duration-300">
-                      <div className="text-7xl font-black text-[#fdb933] mb-6">12</div>
+                      <div className="text-7xl font-black text-[#fbbf24] mb-6">12</div>
                       <div className="text-white font-bold text-xl leading-relaxed">
                         Escuelas de vanguardia colaboradoras en Barcelona
                       </div>
@@ -484,7 +484,7 @@ export default function NosotrosPage() {
                   
                   <div className="text-center group">
                     <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-10 border border-white/20 hover:bg-white/15 transform hover:-translate-y-2 transition-all duration-300">
-                      <div className="text-7xl font-black text-[#fdb933] mb-6">33</div>
+                      <div className="text-7xl font-black text-[#fbbf24] mb-6">33</div>
                       <div className="text-white font-bold text-xl leading-relaxed">
                         Colegios han pasado por nuestros programas de transformación
                       </div>
@@ -493,7 +493,7 @@ export default function NosotrosPage() {
                   
                   <div className="text-center group">
                     <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-10 border border-white/20 hover:bg-white/15 transform hover:-translate-y-2 transition-all duration-300">
-                      <div className="text-7xl font-black text-[#fdb933] mb-6">400+</div>
+                      <div className="text-7xl font-black text-[#fbbf24] mb-6">400+</div>
                       <div className="text-white font-bold text-xl leading-relaxed">
                         Pasantes internacionales a Barcelona
                       </div>
@@ -502,9 +502,9 @@ export default function NosotrosPage() {
                 </div>
                 
                 <div className="mt-16 text-center">
-                  <div className="bg-[#fdb933]/20 backdrop-blur-sm rounded-2xl p-8 border border-[#fdb933]/30">
+                  <div className="bg-[#fbbf24]/20 backdrop-blur-sm rounded-2xl p-8 border border-[#fbbf24]/30">
                     <p className="text-xl md:text-2xl text-white font-medium">
-                      Más de <span className="font-black text-[#fdb933] text-3xl">40</span> colegios han confiado en nuestros programas de pasantías internacionales
+                      Más de <span className="font-black text-[#fbbf24] text-3xl">40</span> colegios han confiado en nuestros programas de pasantías internacionales
                     </p>
                   </div>
                 </div>
@@ -555,9 +555,9 @@ export default function NosotrosPage() {
                           <button
                             onClick={() => handleShowMore(memberKey)}
                             className="text-white px-6 py-3 rounded-full transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
-                            style={{ backgroundColor: '#00365b' }}
+                            style={{ backgroundColor: '#0a0a0a' }}
                             onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#002845'}
-                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#00365b'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#0a0a0a'}
                           >
                             Ver más
                           </button>
@@ -578,7 +578,7 @@ export default function NosotrosPage() {
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col w-full md:w-[calc(33.333%-1.333rem)]">
                       <div className="relative flex-1 flex flex-col">
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#fdb933]/10 to-[#fdb933]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#fbbf24]/10 to-[#fbbf24]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         <div className="p-8 text-center flex flex-col h-full">
                           <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden flex-shrink-0">
                             <TeamMemberImage
@@ -593,7 +593,7 @@ export default function NosotrosPage() {
                           <p className="text-gray-600 line-clamp-3 mb-6 flex-grow">{member.description}</p>
                           <button
                             onClick={() => handleShowMore(memberKey)}
-                            className="bg-[#fdb933] text-black px-6 py-3 rounded-full hover:bg-[#fdb933]/90 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+                            className="bg-[#fbbf24] text-black px-6 py-3 rounded-full hover:bg-[#fbbf24]/90 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
                           >
                             Ver más
                           </button>
@@ -654,7 +654,7 @@ export default function NosotrosPage() {
                     <h3 className="text-3xl font-bold text-gray-900 mb-2">
                       {teamMembers[selectedMember].name}
                     </h3>
-                    <p className="text-[#fdb933] font-semibold text-lg">
+                    <p className="text-[#fbbf24] font-semibold text-lg">
                       {teamMembers[selectedMember].role}
                     </p>
                   </div>

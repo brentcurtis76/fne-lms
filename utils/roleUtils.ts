@@ -1,5 +1,5 @@
 /**
- * Role Management Utilities for FNE LMS 6-Role System
+ * Role Management Utilities for Genera 6-Role System
  * Provides functions for checking permissions and managing roles
  */
 

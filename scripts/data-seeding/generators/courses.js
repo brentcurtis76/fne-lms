@@ -1,5 +1,5 @@
 /**
- * FNE LMS Data Seeding - Courses Generator
+ * Genera Data Seeding - Courses Generator
  * 
  * Generates realistic course content with varied difficulty levels,
  * assignments, and enrollment patterns matching educational contexts

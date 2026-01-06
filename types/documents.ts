@@ -1,5 +1,5 @@
 // =============================================================================
-// FNE LMS - Document Repository Types
+// Genera - Document Repository Types
 // =============================================================================
 // TypeScript definitions for the document repository system
 

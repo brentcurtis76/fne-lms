@@ -113,10 +113,7 @@ export default function Footer({ className = '' }: FooterProps) {
               
               <div className="mt-6">
                 <Link href="/login" className="inline-flex items-center bg-white text-black rounded-full px-6 py-3 font-medium hover:bg-gray-100 transition-colors">
-                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                  </svg>
-                  Plataforma de Crecimiento
+                  Hub de Transformación
                 </Link>
               </div>
             </div>

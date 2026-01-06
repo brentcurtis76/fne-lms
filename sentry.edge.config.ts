@@ -1,7 +1,7 @@
 /**
  * Sentry Edge Configuration
  *
- * Configures error tracking for Edge Runtime functions in the FNE LMS application.
+ * Configures error tracking for Edge Runtime functions in the Genera application.
  * Edge runtime has limited Node.js APIs, so this config is minimal.
  *
  * @see https://docs.sentry.io/platforms/javascript/guides/nextjs/

@@ -269,7 +269,7 @@ export default function GroupDiscussionPage() {
         avatarUrl={avatarUrl}
       >
         <div className="flex items-center justify-center min-h-[50vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b]"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a]"></div>
         </div>
       </MainLayout>
     );
@@ -282,7 +282,7 @@ export default function GroupDiscussionPage() {
   return (
     <>
       <Head>
-        <title>Discusión - {assignment.title} - FNE LMS</title>
+        <title>Discusión - {assignment.title} - Genera</title>
       </Head>
 
       <MainLayout 
@@ -311,7 +311,7 @@ export default function GroupDiscussionPage() {
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <div className="flex items-start justify-between">
               <div>
-                <h1 className="text-xl font-bold text-[#00365b] mb-2">
+                <h1 className="text-xl font-bold text-[#0a0a0a] mb-2">
                   Discusión: {assignment.title}
                 </h1>
                 <p className="text-gray-600">
@@ -345,7 +345,7 @@ export default function GroupDiscussionPage() {
                   <span className="text-gray-700">
                     {member.user?.name || member.user?.email}
                     {member.role === 'leader' && (
-                      <span className="ml-1 text-xs text-[#fdb933]">(Líder)</span>
+                      <span className="ml-1 text-xs text-[#fbbf24]">(Líder)</span>
                     )}
                   </span>
                 </div>

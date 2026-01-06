@@ -88,9 +88,9 @@ const ConsultantAssignmentsPage: React.FC = () => {
   const assignmentTypeColors = {
     monitoring: 'bg-blue-100 text-blue-800',
     mentoring: 'bg-green-100 text-green-800',
-    evaluation: 'bg-purple-100 text-purple-800',
+    evaluation: 'bg-amber-100 text-amber-800',
     support: 'bg-orange-100 text-orange-800',
-    comprehensive: 'bg-indigo-100 text-indigo-800'
+    comprehensive: 'bg-slate-100 text-slate-800'
   };
 
   useEffect(() => {
@@ -377,7 +377,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#e8e5e2] flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00365b]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0a0a0a]"></div>
       </div>
     );
   }
@@ -386,7 +386,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-[#e8e5e2] flex justify-center items-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-[#00365b] mb-4">Acceso Denegado</h1>
+          <h1 className="text-2xl font-bold text-[#0a0a0a] mb-4">Acceso Denegado</h1>
           <p className="text-gray-600">No tiene permisos para acceder a esta página.</p>
         </div>
       </div>
@@ -426,7 +426,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+              className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
             >
               <option value="all">Todos los tipos</option>
               <option value="comprehensive">Completa</option>
@@ -438,7 +438,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+              className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
             >
               <option value="all">Todas las asignaciones</option>
               <option value="active">Solo activas</option>
@@ -460,11 +460,11 @@ const ConsultantAssignmentsPage: React.FC = () => {
               </div>
               <div className="text-sm text-green-800">Completas</div>
             </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">
+            <div className="bg-amber-50 p-4 rounded-lg">
+              <div className="text-2xl font-bold text-amber-600">
                 {new Set(assignments.map(a => a.consultant_id)).size}
               </div>
-              <div className="text-sm text-purple-800">Consultores Únicos</div>
+              <div className="text-sm text-amber-800">Consultores Únicos</div>
             </div>
             <div className="bg-orange-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-orange-600">
@@ -523,7 +523,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
                           ) : (
                             <>
                               <div className="font-medium text-gray-900 flex items-center gap-2">
-                                <svg className="w-4 h-4 text-[#fdb933]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <svg className="w-4 h-4 text-[#fbbf24]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                                 </svg>
                                 {assignment.community ? `Comunidad: ${assignment.community.name}` :

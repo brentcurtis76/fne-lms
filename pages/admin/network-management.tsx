@@ -615,7 +615,7 @@ const NetworkManagementPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#e8e5e2] flex justify-center items-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00365b]"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0a0a0a]"></div>
       </div>
     );
   }
@@ -642,7 +642,7 @@ const NetworkManagementPage: React.FC = () => {
           <select
             value={filterBy}
             onChange={(e) => setFilterBy(e.target.value as any)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent text-sm"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent text-sm"
           >
             <option value="all">Todas las redes</option>
             <option value="with_supervisors">Con supervisores</option>
@@ -651,7 +651,7 @@ const NetworkManagementPage: React.FC = () => {
           
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors"
+            className="flex items-center px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#0a0a0a]/90 transition-colors"
           >
             <Plus size={20} className="mr-2" />
             Nueva Red
@@ -724,8 +724,8 @@ const NetworkManagementPage: React.FC = () => {
           
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Users className="h-6 w-6 text-purple-600" />
+              <div className="p-2 bg-amber-100 rounded-lg">
+                <Users className="h-6 w-6 text-amber-600" />
               </div>
               <div className="ml-4">
                 <div className="text-2xl font-bold text-gray-900">
@@ -767,7 +767,7 @@ const NetworkManagementPage: React.FC = () => {
                   <div className="flex space-x-1">
                     <button
                       onClick={() => openEditModal(network)}
-                      className="p-2 text-gray-400 hover:text-[#00365b] transition-colors"
+                      className="p-2 text-gray-400 hover:text-[#0a0a0a] transition-colors"
                       title="Editar red"
                     >
                       <Edit3 size={16} />
@@ -785,11 +785,11 @@ const NetworkManagementPage: React.FC = () => {
                 {/* Statistics */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <div className="text-xl font-bold text-[#00365b]">{network.school_count}</div>
+                    <div className="text-xl font-bold text-[#0a0a0a]">{network.school_count}</div>
                     <div className="text-xs text-gray-600">Escuelas</div>
                   </div>
                   <div className="text-center p-3 bg-gray-50 rounded-lg">
-                    <div className="text-xl font-bold text-[#fdb933]">{network.supervisor_count}</div>
+                    <div className="text-xl font-bold text-[#fbbf24]">{network.supervisor_count}</div>
                     <div className="text-xs text-gray-600">Supervisores</div>
                   </div>
                 </div>
@@ -847,14 +847,14 @@ const NetworkManagementPage: React.FC = () => {
                 <div className="flex space-x-2">
                   <button
                     onClick={() => openSchoolModal(network)}
-                    className="flex-1 flex items-center justify-center px-3 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors text-sm"
+                    className="flex-1 flex items-center justify-center px-3 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#0a0a0a]/90 transition-colors text-sm"
                   >
                     <Building size={16} className="mr-1" />
                     Escuelas
                   </button>
                   <button
                     onClick={() => openSupervisorModal(network)}
-                    className="flex-1 flex items-center justify-center px-3 py-2 bg-[#fdb933] text-white rounded-lg hover:bg-[#fdb933]/90 transition-colors text-sm"
+                    className="flex-1 flex items-center justify-center px-3 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#fbbf24]/90 transition-colors text-sm"
                   >
                     <UserPlus size={16} className="mr-1" />
                     Supervisores
@@ -876,7 +876,7 @@ const NetworkManagementPage: React.FC = () => {
               <div className="mt-6">
                 <button
                   onClick={() => setShowCreateModal(true)}
-                  className="inline-flex items-center px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors"
+                  className="inline-flex items-center px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#0a0a0a]/90 transition-colors"
                 >
                   <Plus size={20} className="mr-2" />
                   Nueva Red
@@ -902,7 +902,7 @@ const NetworkManagementPage: React.FC = () => {
                   type="text"
                   value={networkForm.name}
                   onChange={(e) => setNetworkForm({ ...networkForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Ej: Red Norte, Red Metropolitana"
                 />
               </div>
@@ -915,7 +915,7 @@ const NetworkManagementPage: React.FC = () => {
                   value={networkForm.description}
                   onChange={(e) => setNetworkForm({ ...networkForm, description: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Descripción opcional de la red"
                 />
               </div>
@@ -933,7 +933,7 @@ const NetworkManagementPage: React.FC = () => {
               </button>
               <button
                 onClick={handleCreateNetwork}
-                className="flex-1 px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors"
+                className="flex-1 px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#0a0a0a]/90 transition-colors"
               >
                 Crear Red
               </button>
@@ -957,7 +957,7 @@ const NetworkManagementPage: React.FC = () => {
                   type="text"
                   value={networkForm.name}
                   onChange={(e) => setNetworkForm({ ...networkForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                 />
               </div>
               
@@ -969,7 +969,7 @@ const NetworkManagementPage: React.FC = () => {
                   value={networkForm.description}
                   onChange={(e) => setNetworkForm({ ...networkForm, description: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                 />
               </div>
             </div>
@@ -987,7 +987,7 @@ const NetworkManagementPage: React.FC = () => {
               </button>
               <button
                 onClick={handleUpdateNetwork}
-                className="flex-1 px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors"
+                className="flex-1 px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#0a0a0a]/90 transition-colors"
               >
                 Actualizar
               </button>
@@ -1087,7 +1087,7 @@ const NetworkManagementPage: React.FC = () => {
               <button
                 onClick={handleAssignSchools}
                 disabled={selectedSchools.length === 0}
-                className="flex-1 px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#0a0a0a]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Guardar Cambios ({selectedSchools.length})
               </button>
@@ -1113,7 +1113,7 @@ const NetworkManagementPage: React.FC = () => {
                   <select
                     value={selectedUser}
                     onChange={(e) => setSelectedUser(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   >
                     <option value="">Selecciona un usuario...</option>
                     {availableUsers.map((user) => (
@@ -1148,7 +1148,7 @@ const NetworkManagementPage: React.FC = () => {
               <button
                 onClick={handleAssignSupervisor}
                 disabled={!selectedUser}
-                className="flex-1 px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#0a0a0a]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Asignar Supervisor
               </button>

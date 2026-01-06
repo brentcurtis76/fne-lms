@@ -1,5 +1,5 @@
 /**
- * FNE LMS Database Migration: Schools Table UUID Conversion
+ * Genera Database Migration: Schools Table UUID Conversion
  * 
  * Migration: 001-migrate-schools-to-uuid
  * Purpose: Convert schools.id from INTEGER to UUID with proper dependency handling
@@ -96,7 +96,7 @@ async function clearExistingData() {
 function generateMigrationSQL() {
   return `
 -- =====================================================
--- FNE LMS Sandbox: Schools Table UUID Migration
+-- Genera Sandbox: Schools Table UUID Migration
 -- COMPREHENSIVE DEPENDENCY RESOLUTION VERSION
 -- =====================================================
 -- Execute these commands in Supabase SQL Editor
@@ -528,7 +528,7 @@ async function testUUIDGeneration() {
  */
 async function main() {
   try {
-    console.log('🏗️  FNE LMS Database Migration Tool');
+    console.log('🏗️  Genera Database Migration Tool');
     console.log('Migration: 001-migrate-schools-to-uuid');
     
     // Run migration preparation

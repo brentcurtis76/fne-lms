@@ -80,7 +80,7 @@ export default function AssignmentMatrixPage() {
   return (
     <>
       <Head>
-        <title>Matriz de Asignaciones | FNE LMS</title>
+        <title>Matriz de Asignaciones | Genera</title>
       </Head>
 
       <MainLayout

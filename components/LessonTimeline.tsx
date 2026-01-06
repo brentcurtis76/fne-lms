@@ -44,13 +44,13 @@ const TimelineBlock: React.FC<TimelineBlockProps> = ({
       case 'text':
         return <FileText size={16} className="text-blue-600" />;
       case 'video':
-        return <Video size={16} className="text-purple-600" />;
+        return <Video size={16} className="text-amber-600" />;
       case 'image':
         return <Image size={16} className="text-green-600" />;
       case 'quiz':
         return <HelpCircle size={16} className="text-orange-600" />;
       case 'download':
-        return <Download size={16} className="text-indigo-600" />;
+        return <Download size={16} className="text-slate-600" />;
       case 'external-links':
         return <ExternalLink size={16} className="text-red-600" />;
       default:
@@ -98,7 +98,7 @@ const TimelineBlock: React.FC<TimelineBlockProps> = ({
       style={style}
       className={`relative border rounded-lg p-3 mb-2 cursor-pointer transition-all ${
         isActive 
-          ? 'border-[#00365b] bg-blue-50 shadow-md' 
+          ? 'border-[#0a0a0a] bg-blue-50 shadow-md' 
           : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
       }`}
       onClick={onClick}
@@ -144,13 +144,13 @@ const TimelineBlock: React.FC<TimelineBlockProps> = ({
           {isCollapsed ? (
             <EyeOff size={14} className="text-gray-400" />
           ) : (
-            <Eye size={14} className="text-[#00365b]" />
+            <Eye size={14} className="text-[#0a0a0a]" />
           )}
         </button>
       </div>
       
       {/* Progress indicator */}
-      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#00365b] to-[#fdb933] rounded-l-lg opacity-30"></div>
+      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-[#0a0a0a] to-[#fbbf24] rounded-l-lg opacity-30"></div>
     </div>
   );
 };
@@ -181,11 +181,11 @@ const LessonTimeline: React.FC<LessonTimelineProps> = ({
   return (
     <div className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-100 rounded-xl shadow-lg p-6">
       <div className="flex flex-col items-center gap-3 mb-6">
-        <div className="w-4 h-4 bg-gradient-to-r from-[#00365b] to-[#fdb933] rounded-full shadow-sm"></div>
-        <h3 className="text-xl font-bold text-[#00365b] text-center">
+        <div className="w-4 h-4 bg-gradient-to-r from-[#0a0a0a] to-[#fbbf24] rounded-full shadow-sm"></div>
+        <h3 className="text-xl font-bold text-[#0a0a0a] text-center">
           Estructura de la Lección
         </h3>
-        <div className="bg-gradient-to-r from-[#00365b] to-[#fdb933] text-white px-4 py-2 rounded-full text-sm font-medium shadow-md">
+        <div className="bg-gradient-to-r from-[#0a0a0a] to-[#fbbf24] text-white px-4 py-2 rounded-full text-sm font-medium shadow-md">
           {blocks.length} bloque{blocks.length !== 1 ? 's' : ''}
         </div>
       </div>

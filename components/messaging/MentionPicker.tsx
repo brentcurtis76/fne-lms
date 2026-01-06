@@ -1,7 +1,7 @@
 /**
  * MentionPicker Component
  * @username autocomplete with community member suggestions
- * Phase 4 of Collaborative Workspace System for FNE LMS
+ * Phase 4 of Collaborative Workspace System for Genera
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';

@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-console.log('🔍 FNE LMS Authentication Dependency Verification\n');
+console.log('🔍 Genera Authentication Dependency Verification\n');
 
 // 1. Check which _app.tsx is being used
 console.log('1. Checking active _app.tsx file:');

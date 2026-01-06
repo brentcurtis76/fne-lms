@@ -1,5 +1,5 @@
 /**
- * Toast Icon Components for FNE LMS
+ * Toast Icon Components for Genera
  * Custom SVG icons following FNE brand colors
  */
 
@@ -7,8 +7,8 @@ import React from 'react';
 
 // Brand Colors
 const COLORS = {
-  navyBlue: '#00365b',
-  goldenYellow: '#fdb933',
+  navyBlue: '#0a0a0a',
+  goldenYellow: '#fbbf24',
   errorRed: '#ef4044',
   white: '#ffffff',
   darkGray: '#1a1a1a',

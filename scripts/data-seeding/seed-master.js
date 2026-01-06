@@ -1,5 +1,5 @@
 /**
- * FNE LMS Dashboard - Master Data Seeding Script
+ * Genera Dashboard - Master Data Seeding Script
  * 
  * Orchestrates comprehensive test data generation for unified dashboard validation
  * Supports multiple scenarios, realistic patterns, and data integrity validation
@@ -45,7 +45,7 @@ class DataSeedingMaster {
       throw new Error('Cannot proceed - security requirements not met');
     }
 
-    console.log('🚀 FNE LMS Data Seeding Master Initialized');
+    console.log('🚀 Genera Data Seeding Master Initialized');
     console.log(`📊 Target Scenarios: ${Object.keys(scenarios.SCENARIOS).length}`);
     console.log(`👥 Target Users: ${scenarios.DATA_VOLUMES.users}`);
     console.log(`📚 Target Courses: ${scenarios.DATA_VOLUMES.courses}`);

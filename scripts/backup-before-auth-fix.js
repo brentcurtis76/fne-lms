@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
-console.log('🔒 FNE LMS - Authentication Fix Backup\n');
+console.log('🔒 Genera - Authentication Fix Backup\n');
 
 // Create timestamp for backup
 const timestamp = new Date().toISOString().replace(/:/g, '-').split('.')[0];

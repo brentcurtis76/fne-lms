@@ -772,9 +772,9 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
         style={style}
         className={`border rounded-lg p-3 transition-all ${
           isDragging
-            ? 'shadow-2xl bg-white border-[#00365b] z-50 rotate-2 scale-105'
+            ? 'shadow-2xl bg-white border-[#0a0a0a] z-50 rotate-2 scale-105'
             : activeBlockId === block.id 
-              ? 'border-[#00365b] bg-blue-50 shadow-md' 
+              ? 'border-[#0a0a0a] bg-blue-50 shadow-md' 
               : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
         } cursor-pointer`}
         onClick={() => {
@@ -827,7 +827,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
               </svg>
             ) : (
-              <svg className="w-4 h-4 text-[#00365b]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-[#0a0a0a]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
@@ -860,7 +860,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
       >
         <button
           onClick={() => router.push(`/admin/course-builder/${courseId}/${moduleId}`)}
-          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]"
         >
           <ChevronLeft className="w-4 h-4 inline mr-1" />
           Volver al Módulo
@@ -876,7 +876,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
               window.open(`/student/lesson/${lessonIdString}`, '_blank');
             }
           }}
-          className="px-4 py-2 text-sm font-medium text-white bg-[#fdb933] rounded-md hover:bg-[#e5a52e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#fdb933]"
+          className="px-4 py-2 text-sm font-medium text-white bg-[#fbbf24] rounded-md hover:bg-[#e5a52e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#fbbf24]"
         >
           <Eye className="w-4 h-4 inline mr-1" />
           Vista Previa
@@ -889,11 +889,11 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
           <div className="lg:col-span-1">
             <div className="bg-white border-2 border-gray-100 rounded-xl shadow-lg p-6 sticky top-40">
               <div className="flex flex-col items-center gap-3 mb-6">
-                <div className="w-4 h-4 bg-gradient-to-r from-[#00365b] to-[#fdb933] rounded-full shadow-sm"></div>
-                <h3 className="text-xl font-bold text-[#00365b] text-center">
+                <div className="w-4 h-4 bg-gradient-to-r from-[#0a0a0a] to-[#fbbf24] rounded-full shadow-sm"></div>
+                <h3 className="text-xl font-bold text-[#0a0a0a] text-center">
                   Estructura de la Lección
                 </h3>
-                <div className="bg-gradient-to-r from-[#00365b] to-[#fdb933] text-white px-4 py-2 rounded-full text-sm font-medium shadow-md">
+                <div className="bg-gradient-to-r from-[#0a0a0a] to-[#fbbf24] text-white px-4 py-2 rounded-full text-sm font-medium shadow-md">
                   {blocks.length} bloque{blocks.length !== 1 ? 's' : ''}
                 </div>
               </div>
@@ -988,13 +988,13 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                   setHasUnsavedChanges(true);
                 }}
                 placeholder="Enter lesson title"
-                className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-[#00365b] focus:border-[#00365b]"
+                className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-[#0a0a0a] focus:border-[#0a0a0a]"
               />
             </div>
 
             {/* Lesson Blocks */}
             <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-3 text-[#00365b]">Bloques de la Lección</h2>
+              <h2 className="text-xl font-semibold mb-3 text-[#0a0a0a]">Bloques de la Lección</h2>
               
               {blocks.length === 0 ? (
                 <div className="text-center py-12 px-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-200">
@@ -1014,7 +1014,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                       id={`block-${block.id}`}
                       className={`relative border rounded-lg shadow-sm transition-all ${
                         activeBlockId === block.id 
-                          ? 'border-[#00365b] bg-blue-50' 
+                          ? 'border-[#0a0a0a] bg-blue-50' 
                           : 'border-gray-200 bg-white'
                       }`}
                       onClick={() => setActiveBlockId(block.id)}
@@ -1027,7 +1027,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                             moveBlockUp(index);
                           }}
                           disabled={index === 0}
-                          className="p-1 bg-white border border-gray-200 rounded text-gray-400 hover:text-[#00365b] disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-1 bg-white border border-gray-200 rounded text-gray-400 hover:text-[#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Mover arriba"
                         >
                           ↑
@@ -1038,7 +1038,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                             moveBlockDown(index);
                           }}
                           disabled={index === blocks.length - 1}
-                          className="p-1 bg-white border border-gray-200 rounded text-gray-400 hover:text-[#00365b] disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-1 bg-white border border-gray-200 rounded text-gray-400 hover:text-[#0a0a0a] disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Mover abajo"
                         >
                           ↓
@@ -1197,7 +1197,7 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
 
             {/* Add Block Buttons */}
             <div className="mb-8">
-              <h3 className="text-lg font-semibold text-[#00365b] mb-4">Agregar Nuevo Bloque</h3>
+              <h3 className="text-lg font-semibold text-[#0a0a0a] mb-4">Agregar Nuevo Bloque</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {Object.values(BLOCK_TYPES).map((blockConfig) => {
                   // Clean up the button labels
@@ -1211,10 +1211,10 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                     <button
                       key={blockConfig.type}
                       onClick={() => handleAddBlock(blockConfig.type as any)}
-                      className="group relative bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-[#00365b] hover:shadow-lg transition-all duration-200 text-left min-h-[120px] flex flex-col justify-between"
+                      className="group relative bg-white border-2 border-gray-200 rounded-xl p-6 hover:border-[#0a0a0a] hover:shadow-lg transition-all duration-200 text-left min-h-[120px] flex flex-col justify-between"
                     >
                       <div>
-                        <h4 className="font-semibold text-[#00365b] group-hover:text-[#00365b] mb-2 text-lg">
+                        <h4 className="font-semibold text-[#0a0a0a] group-hover:text-[#0a0a0a] mb-2 text-lg">
                           {cleanLabel}
                         </h4>
                         <p className="text-sm text-gray-600 group-hover:text-gray-700 leading-relaxed">
@@ -1224,13 +1224,13 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                       
                       {/* Add indicator */}
                       <div className="flex items-center justify-between mt-4">
-                        <span className="text-xs font-medium text-gray-400 group-hover:text-[#00365b] uppercase tracking-wide">
+                        <span className="text-xs font-medium text-gray-400 group-hover:text-[#0a0a0a] uppercase tracking-wide">
                           {blockConfig.category === 'content' && 'Contenido'}
                           {blockConfig.category === 'media' && 'Multimedia'}
                           {blockConfig.category === 'interactive' && 'Interactivo'}
                           {blockConfig.category === 'resources' && 'Recursos'}
                         </span>
-                        <div className="w-6 h-6 rounded-full bg-gray-100 group-hover:bg-[#00365b] flex items-center justify-center transition-colors">
+                        <div className="w-6 h-6 rounded-full bg-gray-100 group-hover:bg-[#0a0a0a] flex items-center justify-center transition-colors">
                           <svg className="w-3 h-3 text-gray-400 group-hover:text-white transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                           </svg>

@@ -160,7 +160,7 @@ async function upsertAdminUser(supabaseAdmin: any) {
       last_name: adminLastName,
       middle_name: '',  // Add middle_name field
       school: schoolName,  // Add school field
-      description: 'Administrador del sistema FNE LMS',  // Add description
+      description: 'Administrador del sistema Genera',  // Add description
       approval_status: 'approved',
       timezone: 'UTC',
       must_change_password: false,

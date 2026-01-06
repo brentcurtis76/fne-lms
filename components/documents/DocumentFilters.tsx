@@ -1,5 +1,5 @@
 // =============================================================================
-// FNE LMS - Document Filters Component
+// Genera - Document Filters Component
 // =============================================================================
 // Advanced filtering interface for document repository
 
@@ -145,7 +145,7 @@ export default function DocumentFilters({
             onClick={() => onViewModeChange('grid')}
             className={`p-2 flex items-center space-x-1 ${
               viewMode === 'grid'
-                ? 'bg-[#00365b] text-white'
+                ? 'bg-[#0a0a0a] text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-50'
             } transition-colors`}
           >
@@ -156,7 +156,7 @@ export default function DocumentFilters({
             onClick={() => onViewModeChange('list')}
             className={`p-2 flex items-center space-x-1 ${
               viewMode === 'list'
-                ? 'bg-[#00365b] text-white'
+                ? 'bg-[#0a0a0a] text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-50'
             } transition-colors`}
           >
@@ -170,14 +170,14 @@ export default function DocumentFilters({
           onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
           className={`flex items-center space-x-2 px-3 py-2 border rounded-lg transition-colors ${
             showAdvancedFilters || activeFilterCount > 0
-              ? 'border-[#00365b] bg-[#00365b] text-white'
+              ? 'border-[#0a0a0a] bg-[#0a0a0a] text-white'
               : 'border-gray-300 text-gray-600 hover:bg-gray-50'
           }`}
         >
           <Filter className="w-4 h-4" />
           <span className="text-sm">Filtros</span>
           {activeFilterCount > 0 && (
-            <span className="bg-[#fdb933] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            <span className="bg-[#fbbf24] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
               {activeFilterCount}
             </span>
           )}
@@ -408,7 +408,7 @@ export default function DocumentFilters({
             </span>
           )}
           {filters.mime_types && filters.mime_types.length > 0 && (
-            <span className="inline-flex items-center px-2 py-1 rounded bg-purple-100 text-purple-800">
+            <span className="inline-flex items-center px-2 py-1 rounded bg-amber-100 text-amber-800">
               {filters.mime_types.length} tipo(s) de archivo
             </span>
           )}

@@ -199,7 +199,7 @@ ${feedback.screenshot_url ? '[Screenshot attached in feedback system]' : '[No sc
 ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}` : ''}
 
 ---
-*Copied from FNE LMS Feedback System*`;
+*Copied from Genera Feedback System*`;
 
       // Copy to clipboard
       await navigator.clipboard.writeText(errorDetails);
@@ -430,13 +430,13 @@ ${feedback.resolution_notes ? `\nResolution Notes: ${feedback.resolution_notes}`
                         onChange={(e) => setNewComment(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && addComment()}
                         placeholder="Agregar comentario..."
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent text-sm"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent text-sm"
                         disabled={isSubmitting}
                       />
                       <button
                         onClick={addComment}
                         disabled={isSubmitting || !newComment.trim()}
-                        className="px-3 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00243a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#00243a] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         data-testid="send-comment-button"
                         aria-label="Send comment"
                       >

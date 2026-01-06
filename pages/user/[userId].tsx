@@ -178,8 +178,8 @@ export default function UserProfileView() {
       >
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b] mx-auto"></div>
-            <p className="mt-4 text-[#00365b] font-medium">Cargando...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a] mx-auto"></div>
+            <p className="mt-4 text-[#0a0a0a] font-medium">Cargando...</p>
           </div>
         </div>
       </MainLayout>
@@ -225,7 +225,7 @@ export default function UserProfileView() {
       avatarUrl={avatarUrl}
     >
       <Head>
-        <title>{profileData.first_name} {profileData.last_name} - FNE LMS</title>
+        <title>{profileData.first_name} {profileData.last_name} - Genera</title>
       </Head>
       
       <ResponsiveFunctionalPageHeader

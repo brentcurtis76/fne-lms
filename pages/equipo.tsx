@@ -288,7 +288,7 @@ export default function EquipoPage() {
               {/* Login Button */}
               <div className="hidden lg:flex items-center">
                 <Link href="/login" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
-                  PLATAFORMA DE CRECIMIENTO
+                  HUB DE TRANSFORMACIÓN
                 </Link>
               </div>
               
@@ -320,7 +320,7 @@ export default function EquipoPage() {
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
               <Link href="/#contacto" className="text-xl font-medium">CONTACTO</Link>
               <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
-                PLATAFORMA DE CRECIMIENTO
+                HUB DE TRANSFORMACIÓN
               </Link>
             </nav>
           </div>
@@ -354,7 +354,7 @@ export default function EquipoPage() {
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
                       <div className="relative flex-1 flex flex-col">
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#00365b]/10 to-[#00365b]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0a]/10 to-[#0a0a0a]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         <div className="p-8 text-center flex flex-col h-full">
                           <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden flex-shrink-0">
                             <img
@@ -364,11 +364,11 @@ export default function EquipoPage() {
                             />
                           </div>
                           <h3 className="text-2xl font-bold text-gray-900 mb-2">{member.name}</h3>
-                          <p className="text-[#00365b] font-semibold mb-4">{member.role}</p>
+                          <p className="text-[#0a0a0a] font-semibold mb-4">{member.role}</p>
                           <p className="text-gray-600 line-clamp-3 mb-6 flex-grow">{member.description}</p>
                           <button
                             onClick={() => handleShowMore(memberKey)}
-                            className="bg-gradient-to-r from-[#00365b] to-[#00365b]/80 text-white px-6 py-3 rounded-full hover:from-[#00365b]/90 hover:to-[#00365b] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+                            className="bg-gradient-to-r from-[#0a0a0a] to-[#0a0a0a]/80 text-white px-6 py-3 rounded-full hover:from-[#0a0a0a]/90 hover:to-[#0a0a0a] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
                           >
                             Ver más
                           </button>
@@ -389,7 +389,7 @@ export default function EquipoPage() {
                   return (
                     <div key={memberKey} className="group relative overflow-hidden bg-white rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 flex flex-col h-full">
                       <div className="relative flex-1 flex flex-col">
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#fdb933]/10 to-[#fdb933]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#fbbf24]/10 to-[#fbbf24]/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         <div className="p-8 text-center flex flex-col h-full">
                           <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden flex-shrink-0">
                             <img
@@ -399,11 +399,11 @@ export default function EquipoPage() {
                             />
                           </div>
                           <h3 className="text-2xl font-bold text-gray-900 mb-2">{member.name}</h3>
-                          <p className="text-[#fdb933] font-semibold mb-4">{member.role}</p>
+                          <p className="text-[#fbbf24] font-semibold mb-4">{member.role}</p>
                           <p className="text-gray-600 line-clamp-3 mb-6 flex-grow">{member.description}</p>
                           <button
                             onClick={() => handleShowMore(memberKey)}
-                            className="bg-gradient-to-r from-[#fdb933] to-[#fdb933]/80 text-white px-6 py-3 rounded-full hover:from-[#fdb933]/90 hover:to-[#fdb933] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+                            className="bg-gradient-to-r from-[#fbbf24] to-[#fbbf24]/80 text-white px-6 py-3 rounded-full hover:from-[#fbbf24]/90 hover:to-[#fbbf24] transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
                           >
                             Ver más
                           </button>

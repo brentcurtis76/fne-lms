@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Test Notification Configuration UI
+ * Genera - Test Notification Configuration UI
  * 
  * This script tests the notification configuration interface
  * by checking if the page loads and the API endpoint is accessible.

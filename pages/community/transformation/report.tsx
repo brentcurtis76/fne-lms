@@ -24,17 +24,17 @@ import {
 
 // FNE Institutional Colors
 const COLORS = {
-  brand_blue: '#00365b',
-  brand_yellow: '#fdb933',
+  brand_blue: '#0a0a0a',
+  brand_yellow: '#fbbf24',
   brand_beige: '#e8e5e2',
 };
 
 // Use only FNE institutional colors with varying intensity
 const STAGE_COLORS = {
   1: { bg: 'bg-slate-50', border: 'border-slate-300', badge: 'bg-slate-400', text: 'text-slate-900', hex: '#94a3b8' },
-  2: { bg: 'bg-yellow-50', border: 'border-yellow-200', badge: 'bg-[#fdb933]', text: 'text-yellow-900', hex: '#fdb933' },
-  3: { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-[#00365b]', text: 'text-blue-900', hex: '#00365b' },
-  4: { bg: 'bg-blue-100', border: 'border-blue-300', badge: 'bg-[#00365b]', text: 'text-blue-900', hex: '#0066b3' },
+  2: { bg: 'bg-yellow-50', border: 'border-yellow-200', badge: 'bg-[#fbbf24]', text: 'text-yellow-900', hex: '#fbbf24' },
+  3: { bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-[#0a0a0a]', text: 'text-blue-900', hex: '#0a0a0a' },
+  4: { bg: 'bg-blue-100', border: 'border-blue-300', badge: 'bg-[#0a0a0a]', text: 'text-blue-900', hex: '#0066b3' },
 };
 
 interface ReportPageProps {
@@ -225,8 +225,8 @@ export default function TransformationReportPage({ assessment, evaluation, dimen
               <p className="font-semibold mb-1">Código de colores:</p>
               <div className="flex gap-3 flex-wrap">
                 <span className="flex items-center gap-1"><span className="w-3 h-3 bg-slate-400 rounded"></span> Nivel 1</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-[#fdb933] rounded"></span> Nivel 2-2.9</span>
-                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-[#00365b] rounded"></span> Nivel 3+</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-[#fbbf24] rounded"></span> Nivel 2-2.9</span>
+                <span className="flex items-center gap-1"><span className="w-3 h-3 bg-[#0a0a0a] rounded"></span> Nivel 3+</span>
               </div>
             </div>
           </div>
@@ -236,14 +236,14 @@ export default function TransformationReportPage({ assessment, evaluation, dimen
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Strengths */}
           <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6 shadow-sm">
-            <h3 className="text-xl font-bold text-[#00365b] mb-4 flex items-center gap-2">
+            <h3 className="text-xl font-bold text-[#0a0a0a] mb-4 flex items-center gap-2">
               <span className="text-2xl">💪</span>
               Fortalezas Identificadas
             </h3>
             <ul className="space-y-3">
               {evaluation.strengths.map((strength: string, idx: number) => (
                 <li key={idx} className="flex items-start gap-3">
-                  <span className="text-[#00365b] font-bold text-lg">✓</span>
+                  <span className="text-[#0a0a0a] font-bold text-lg">✓</span>
                   <span className="text-slate-800 leading-relaxed">{strength}</span>
                 </li>
               ))}
@@ -259,7 +259,7 @@ export default function TransformationReportPage({ assessment, evaluation, dimen
             <ul className="space-y-3">
               {evaluation.growth_areas.map((area: string, idx: number) => (
                 <li key={idx} className="flex items-start gap-3">
-                  <span className="text-[#fdb933] font-bold text-lg">→</span>
+                  <span className="text-[#fbbf24] font-bold text-lg">→</span>
                   <span className="text-slate-800 leading-relaxed">{area}</span>
                 </li>
               ))}

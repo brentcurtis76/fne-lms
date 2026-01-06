@@ -153,7 +153,7 @@ function QuotesManagementPageContent() {
   return (
     <MainLayout>
       <Head>
-        <title>Cotizaciones - Pasantías Barcelona | FNE LMS</title>
+        <title>Cotizaciones - Pasantías Barcelona | Genera</title>
       </Head>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">

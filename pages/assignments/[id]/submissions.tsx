@@ -311,7 +311,7 @@ export default function SubmissionsPage() {
   return (
     <>
       <Head>
-        <title>Entregas - {assignment.title} - FNE LMS</title>
+        <title>Entregas - {assignment.title} - Genera</title>
       </Head>
 
       <MainLayout 

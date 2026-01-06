@@ -126,7 +126,7 @@ const programs: Program[] = [
       'Plataforma de formación asincrónica, individual y en equipos',
       'Formación de líderes de base',
       'Formación de Comunidades de Crecimiento',
-      'Implementación de Plataforma de Crecimiento'
+      'Implementación de Hub de Transformación'
     ],
     results: [
       'Migración completa de pre-kinder a 4 medio en nivel de profundidad diverso',
@@ -261,7 +261,7 @@ export default function ProgramasPage() {
               {/* Login Button */}
               <div className="hidden lg:flex items-center">
                 <Link href="/login" className="text-sm font-medium text-gray-800 hover:text-gray-600 transition-colors border border-gray-300 rounded-full px-4 py-2">
-                  PLATAFORMA DE CRECIMIENTO
+                  HUB DE TRANSFORMACIÓN
                 </Link>
               </div>
               
@@ -293,7 +293,7 @@ export default function ProgramasPage() {
               <Link href="/nosotros" className="text-xl font-medium">NOSOTROS</Link>
               <a href="/#contacto" className="text-xl font-medium">CONTACTO</a>
               <Link href="/login" className="border border-gray-300 rounded-full px-8 py-4 text-sm font-medium w-full text-center hover:bg-gray-100 transition-all duration-300">
-                PLATAFORMA DE CRECIMIENTO
+                HUB DE TRANSFORMACIÓN
               </Link>
             </nav>
           </div>
@@ -573,7 +573,7 @@ export default function ProgramasPage() {
             
             <div className="relative">
               {/* Timeline line */}
-              <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-blue-500 via-purple-500 to-orange-500"></div>
+              <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gradient-to-b from-blue-500 via-amber-500 to-orange-500"></div>
               
               {/* Timeline items - reordered array */}
               <div className="space-y-12">

@@ -146,7 +146,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
             {post.content.text && post.content.text.length > 150 && (
               <button
                 onClick={() => setShowFullText(!showFullText)}
-                className="text-[#00365b] text-sm mt-1 hover:underline"
+                className="text-[#0a0a0a] text-sm mt-1 hover:underline"
               >
                 {showFullText ? 'Ver menos' : 'Ver más'}
               </button>
@@ -204,7 +204,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
                     rel="noopener noreferrer"
                     className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    <DocumentIcon className="h-10 w-10 text-[#00365b] mr-3" />
+                    <DocumentIcon className="h-10 w-10 text-[#0a0a0a] mr-3" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">
                         {media.metadata?.name || 'Documento'}
@@ -227,7 +227,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
                 rel="noopener noreferrer"
                 className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                <DocumentIcon className="h-10 w-10 text-[#00365b] mr-3" />
+                <DocumentIcon className="h-10 w-10 text-[#0a0a0a] mr-3" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-900">
                     {post.content.document.name}
@@ -300,7 +300,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
                 className="h-full w-full rounded-full object-cover"
               />
             ) : (
-              <div className="h-full w-full rounded-full bg-[#00365b] flex items-center justify-center text-white font-medium">
+              <div className="h-full w-full rounded-full bg-[#0a0a0a] flex items-center justify-center text-white font-medium">
                 {post.author?.first_name?.[0]}{post.author?.last_name?.[0]}
               </div>
             )}
@@ -357,7 +357,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
           {post.hashtags.map((tag, index) => (
             <span
               key={index}
-              className="text-sm text-[#00365b] hover:underline cursor-pointer"
+              className="text-sm text-[#0a0a0a] hover:underline cursor-pointer"
             >
               #{tag}
             </span>
@@ -415,7 +415,7 @@ export default function PostCard({ post, onUpdate, onDelete, onComment }: PostCa
           onClick={handleSave}
           className={`p-2 rounded-lg transition-colors ${
             isSaved 
-              ? 'text-[#fdb933]' 
+              ? 'text-[#fbbf24]' 
               : 'text-gray-600 hover:bg-gray-50'
           }`}
         >

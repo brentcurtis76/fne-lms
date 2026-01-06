@@ -14,7 +14,7 @@ const supabase = createClient(
 );
 
 async function monitorAuthHealth() {
-  console.log('🔍 FNE LMS Authentication Health Monitor\n');
+  console.log('🔍 Genera Authentication Health Monitor\n');
   console.log(`Started at: ${new Date().toISOString()}\n`);
 
   const metrics = {

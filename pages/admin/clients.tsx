@@ -438,7 +438,7 @@ export default function ClientsManagement() {
         userRole="admin"
       >
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00365b]"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0a0a0a]"></div>
         </div>
       </MainLayout>
     );
@@ -455,12 +455,12 @@ export default function ClientsManagement() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-[#00365b]">Gestión de Clientes</h1>
+            <h1 className="text-3xl font-bold text-[#0a0a0a]">Gestión de Clientes</h1>
             <p className="text-gray-600 mt-2">Administra todos los clientes y sus datos</p>
           </div>
           <button
             onClick={handleAddCliente}
-            className="flex items-center px-4 py-2 bg-[#fdb933] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+            className="flex items-center px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
           >
             <Plus size={20} className="mr-2" />
             Nuevo Cliente
@@ -476,14 +476,14 @@ export default function ClientsManagement() {
               placeholder="Buscar por nombre, RUT o escuela..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
             />
           </div>
         </div>
 
         {loading ? (
           <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00365b]"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0a0a0a]"></div>
           </div>
         ) : filteredClientes.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-12 text-center">
@@ -546,7 +546,7 @@ export default function ClientsManagement() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => handleEditCliente(cliente.id)}
-                        className="text-[#fdb933] hover:text-[#e6a42e] mr-3 inline-flex items-center"
+                        className="text-[#fbbf24] hover:text-[#e6a42e] mr-3 inline-flex items-center"
                         title="Editar"
                       >
                         <Edit2 size={18} className="mr-1" />
@@ -573,7 +573,7 @@ export default function ClientsManagement() {
       {showClientModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-[#00365b] mb-4">
+            <h2 className="text-xl font-bold text-[#0a0a0a] mb-4">
               {editingCliente ? `Editar Cliente: ${editingCliente.nombre_fantasia}` : 'Nuevo Cliente'}
             </h2>
 
@@ -591,7 +591,7 @@ export default function ClientsManagement() {
                   type="text"
                   value={clienteForm.nombre_legal}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_legal: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre legal de la organización"
                 />
               </div>
@@ -604,7 +604,7 @@ export default function ClientsManagement() {
                   type="text"
                   value={clienteForm.nombre_fantasia}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_fantasia: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre comercial"
                 />
               </div>
@@ -617,7 +617,7 @@ export default function ClientsManagement() {
                   type="text"
                   value={clienteForm.rut}
                   onChange={(e) => setClienteForm({ ...clienteForm, rut: formatRut(e.target.value) })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="XX.XXX.XXX-X"
                 />
               </div>
@@ -630,7 +630,7 @@ export default function ClientsManagement() {
                   type="text"
                   value={clienteForm.direccion}
                   onChange={(e) => setClienteForm({ ...clienteForm, direccion: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Dirección completa"
                 />
               </div>
@@ -643,7 +643,7 @@ export default function ClientsManagement() {
                   type="text"
                   value={clienteForm.comuna}
                   onChange={(e) => setClienteForm({ ...clienteForm, comuna: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Comuna"
                 />
               </div>
@@ -656,7 +656,7 @@ export default function ClientsManagement() {
                   type="text"
                   value={clienteForm.ciudad}
                   onChange={(e) => setClienteForm({ ...clienteForm, ciudad: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Ciudad"
                 />
               </div>
@@ -674,7 +674,7 @@ export default function ClientsManagement() {
                   type="text"
                   value={clienteForm.nombre_representante}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_representante: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre completo"
                 />
               </div>
@@ -687,7 +687,7 @@ export default function ClientsManagement() {
                   type="text"
                   value={clienteForm.rut_representante}
                   onChange={(e) => setClienteForm({ ...clienteForm, rut_representante: formatRut(e.target.value) })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="XX.XXX.XXX-X"
                 />
               </div>
@@ -700,7 +700,7 @@ export default function ClientsManagement() {
                   type="date"
                   value={clienteForm.fecha_escritura}
                   onChange={(e) => setClienteForm({ ...clienteForm, fecha_escritura: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                 />
               </div>
 
@@ -712,7 +712,7 @@ export default function ClientsManagement() {
                   type="text"
                   value={clienteForm.nombre_notario}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_notario: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre del notario"
                 />
               </div>
@@ -725,7 +725,7 @@ export default function ClientsManagement() {
                   type="text"
                   value={clienteForm.comuna_notaria}
                   onChange={(e) => setClienteForm({ ...clienteForm, comuna_notaria: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Comuna de la notaría"
                 />
               </div>
@@ -743,7 +743,7 @@ export default function ClientsManagement() {
                   type="text"
                   value={clienteForm.nombre_encargado_proyecto}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_encargado_proyecto: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre completo"
                 />
               </div>
@@ -756,7 +756,7 @@ export default function ClientsManagement() {
                   type="tel"
                   value={clienteForm.telefono_encargado_proyecto}
                   onChange={(e) => setClienteForm({ ...clienteForm, telefono_encargado_proyecto: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="+56 9 XXXX XXXX"
                 />
               </div>
@@ -769,7 +769,7 @@ export default function ClientsManagement() {
                   type="email"
                   value={clienteForm.email_encargado_proyecto}
                   onChange={(e) => setClienteForm({ ...clienteForm, email_encargado_proyecto: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="email@ejemplo.com"
                 />
               </div>
@@ -787,7 +787,7 @@ export default function ClientsManagement() {
                   type="text"
                   value={clienteForm.nombre_contacto_administrativo}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_contacto_administrativo: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre completo"
                 />
               </div>
@@ -800,7 +800,7 @@ export default function ClientsManagement() {
                   type="tel"
                   value={clienteForm.telefono_contacto_administrativo}
                   onChange={(e) => setClienteForm({ ...clienteForm, telefono_contacto_administrativo: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="+56 9 XXXX XXXX"
                 />
               </div>
@@ -813,7 +813,7 @@ export default function ClientsManagement() {
                   type="email"
                   value={clienteForm.email_contacto_administrativo}
                   onChange={(e) => setClienteForm({ ...clienteForm, email_contacto_administrativo: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="email@ejemplo.com"
                 />
               </div>
@@ -831,7 +831,7 @@ export default function ClientsManagement() {
               </button>
               <button
                 onClick={handleSaveCliente}
-                className="px-4 py-2 bg-[#fdb933] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
               >
                 {editingCliente ? 'Guardar Cambios' : 'Crear Cliente'}
               </button>

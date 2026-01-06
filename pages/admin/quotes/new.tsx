@@ -82,7 +82,7 @@ export default function NewQuotePage() {
   return (
     <MainLayout>
       <Head>
-        <title>Nueva Cotización - Pasantías Barcelona | FNE LMS</title>
+        <title>Nueva Cotización - Pasantías Barcelona | Genera</title>
       </Head>
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">

@@ -110,7 +110,7 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
             placeholder="Buscar reuniones..."
             value={filters.search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent text-sm"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent text-sm"
           />
         </div>
       </div>
@@ -119,12 +119,12 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-[#00365b]"
+          className="flex items-center space-x-2 text-sm font-medium text-gray-700 hover:text-[#0a0a0a]"
         >
           <FilterIcon className="h-4 w-4" />
           <span>Filtros</span>
           {hasActiveFilters() && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#fdb933] text-[#00365b]">
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#fbbf24] text-[#0a0a0a]">
               Activos
             </span>
           )}
@@ -157,7 +157,7 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
                   type="date"
                   value={filters.dateRange.start || ''}
                   onChange={(e) => handleDateRangeChange('start', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent text-sm"
                 />
               </div>
               <div>
@@ -166,7 +166,7 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
                   type="date"
                   value={filters.dateRange.end || ''}
                   onChange={(e) => handleDateRangeChange('end', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent text-sm"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent text-sm"
                 />
               </div>
             </div>
@@ -239,7 +239,7 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
                   type="checkbox"
                   checked={filters.assignedToMe}
                   onChange={toggleAssignedToMe}
-                  className="h-4 w-4 text-[#fdb933] focus:ring-[#fdb933] border-gray-300 rounded"
+                  className="h-4 w-4 text-[#fbbf24] focus:ring-[#fbbf24] border-gray-300 rounded"
                 />
                 <UserIcon className="h-4 w-4 text-gray-400 ml-2 mr-1" />
                 <span className="text-sm text-gray-700">Tareas asignadas a mí</span>
@@ -250,7 +250,7 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
                   type="checkbox"
                   checked={filters.createdByMe}
                   onChange={toggleCreatedByMe}
-                  className="h-4 w-4 text-[#fdb933] focus:ring-[#fdb933] border-gray-300 rounded"
+                  className="h-4 w-4 text-[#fbbf24] focus:ring-[#fbbf24] border-gray-300 rounded"
                 />
                 <UserIcon className="h-4 w-4 text-gray-400 ml-2 mr-1" />
                 <span className="text-sm text-gray-700">Reuniones creadas por mí</span>
@@ -261,7 +261,7 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
                   type="checkbox"
                   checked={filters.overdueTasks}
                   onChange={toggleOverdueTasks}
-                  className="h-4 w-4 text-[#fdb933] focus:ring-[#fdb933] border-gray-300 rounded"
+                  className="h-4 w-4 text-[#fbbf24] focus:ring-[#fbbf24] border-gray-300 rounded"
                 />
                 <ClockIcon className="h-4 w-4 text-red-400 ml-2 mr-1" />
                 <span className="text-sm text-gray-700">Con tareas vencidas</span>

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Test Notification Tables
+ * Genera - Test Notification Tables
  * 
  * This script tests if the notification tables exist and can be accessed.
  */

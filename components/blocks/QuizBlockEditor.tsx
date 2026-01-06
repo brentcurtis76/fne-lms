@@ -158,7 +158,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-3">
           <GripVertical className="text-gray-400" size={20} />
-          <h2 className="text-lg font-semibold text-[#00365b]">
+          <h2 className="text-lg font-semibold text-[#0a0a0a]">
             Quiz: {block.payload.title || 'Sin título'}
           </h2>
         </div>
@@ -185,7 +185,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                 value={block.payload.title || ''}
                 onChange={(e) => onTitleChange(block.id, e.target.value)}
                 placeholder="Ingrese el título del quiz"
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
               />
             </div>
             <div>
@@ -209,7 +209,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
               value={block.payload.description || ''}
               onChange={(e) => onUpdate(block.id, 'description', e.target.value)}
               placeholder="Descripción del quiz (opcional)"
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
               rows={2}
             />
           </div>
@@ -222,7 +222,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
               value={block.payload.instructions || ''}
               onChange={(e) => onUpdate(block.id, 'instructions', e.target.value)}
               placeholder="Instrucciones para los estudiantes (opcional)"
-              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
               rows={2}
             />
           </div>
@@ -234,7 +234,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                 type="checkbox"
                 checked={block.payload.allowRetries}
                 onChange={(e) => onUpdate(block.id, 'allowRetries', e.target.checked)}
-                className="form-checkbox text-[#00365b]"
+                className="form-checkbox text-[#0a0a0a]"
               />
               <span className="text-sm">Permitir reintentos</span>
             </label>
@@ -243,7 +243,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                 type="checkbox"
                 checked={block.payload.showResults}
                 onChange={(e) => onUpdate(block.id, 'showResults', e.target.checked)}
-                className="form-checkbox text-[#00365b]"
+                className="form-checkbox text-[#0a0a0a]"
               />
               <span className="text-sm">Mostrar resultados</span>
             </label>
@@ -252,7 +252,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                 type="checkbox"
                 checked={block.payload.randomizeQuestions}
                 onChange={(e) => onUpdate(block.id, 'randomizeQuestions', e.target.checked)}
-                className="form-checkbox text-[#00365b]"
+                className="form-checkbox text-[#0a0a0a]"
               />
               <span className="text-sm">Preguntas aleatorias</span>
             </label>
@@ -261,7 +261,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                 type="checkbox"
                 checked={block.payload.randomizeAnswers}
                 onChange={(e) => onUpdate(block.id, 'randomizeAnswers', e.target.checked)}
-                className="form-checkbox text-[#00365b]"
+                className="form-checkbox text-[#0a0a0a]"
               />
               <span className="text-sm">Respuestas aleatorias</span>
             </label>
@@ -270,12 +270,12 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
           {/* Questions */}
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-md font-semibold text-[#00365b]">
+              <h3 className="text-md font-semibold text-[#0a0a0a]">
                 Preguntas ({block.payload.questions.length})
               </h3>
               <Button
                 onClick={addQuestion}
-                className="bg-[#00365b] hover:bg-[#fdb933] hover:text-[#00365b] text-white"
+                className="bg-[#0a0a0a] hover:bg-[#fbbf24] hover:text-[#0a0a0a] text-white"
                 size="sm"
               >
                 <Plus size={16} className="mr-1" />
@@ -288,7 +288,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                 <div
                   key={question.id}
                   className={`border rounded-lg p-4 ${
-                    activeQuestionId === question.id ? 'border-[#00365b] bg-blue-50' : 'border-gray-200'
+                    activeQuestionId === question.id ? 'border-[#0a0a0a] bg-blue-50' : 'border-gray-200'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
@@ -302,7 +302,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                             activeQuestionId === question.id ? null : question.id
                           )
                         }
-                        className="text-[#00365b] hover:text-[#fdb933] text-sm"
+                        className="text-[#0a0a0a] hover:text-[#fbbf24] text-sm"
                       >
                         {activeQuestionId === question.id ? 'Colapsar' : 'Expandir'}
                       </button>
@@ -326,7 +326,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                           value={question.question}
                           onChange={(e) => updateQuestion(question.id, 'question', e.target.value)}
                           placeholder="Escriba la pregunta aquí..."
-                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                           rows={2}
                         />
                       </div>
@@ -339,7 +339,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                           <select
                             value={question.type}
                             onChange={(e) => updateQuestion(question.id, 'type', e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                            className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                           >
                             <option value="multiple-choice">Opción múltiple</option>
                             <option value="true-false">Verdadero/Falso</option>
@@ -357,7 +357,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                             value={question.points}
                             onChange={(e) => updateQuestion(question.id, 'points', parseInt(e.target.value) || 1)}
                             onFocus={(e) => e.target.select()}
-                            className="w-full p-3 text-center border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent font-medium"
+                            className="w-full p-3 text-center border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent font-medium"
                           />
                         </div>
                       </div>
@@ -391,14 +391,14 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                                   value={option.text}
                                   onChange={(e) => updateOption(question.id, option.id, 'text', e.target.value)}
                                   placeholder={`Opción ${String.fromCharCode(65 + optionIndex)}`}
-                                  className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                                  className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                                 />
                                 <input
                                   type="radio"
                                   name={`correct-${question.id}`}
                                   checked={option.isCorrect}
                                   onChange={() => setCorrectAnswer(question.id, option.id)}
-                                  className="form-radio text-[#00365b]"
+                                  className="form-radio text-[#0a0a0a]"
                                 />
                                 <label className="text-xs text-gray-500">Correcta</label>
                                 {question.options.length > 2 && (
@@ -430,7 +430,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                               value={question.characterLimit || ''}
                               onChange={(e) => updateQuestion(question.id, 'characterLimit', e.target.value ? parseInt(e.target.value) : undefined)}
                               placeholder="Sin límite"
-                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                             />
                           </div>
                           
@@ -442,7 +442,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                               value={question.expectedAnswer || ''}
                               onChange={(e) => updateQuestion(question.id, 'expectedAnswer', e.target.value)}
                               placeholder="Escriba aquí la respuesta modelo o puntos clave esperados..."
-                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                               rows={3}
                             />
                           </div>
@@ -455,7 +455,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                               value={question.gradingGuidelines || ''}
                               onChange={(e) => updateQuestion(question.id, 'gradingGuidelines', e.target.value)}
                               placeholder="Ej: Asignar puntos completos si menciona X, Y y Z. Deducir 50% si falta algún elemento clave..."
-                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                              className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                               rows={2}
                             />
                           </div>
@@ -470,7 +470,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
                           value={question.explanation || ''}
                           onChange={(e) => updateQuestion(question.id, 'explanation', e.target.value)}
                           placeholder="Explique por qué esta es la respuesta correcta..."
-                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                           rows={2}
                         />
                       </div>
@@ -491,7 +491,7 @@ const QuizBlockEditor: React.FC<QuizBlockEditorProps> = ({
             </Button>
             <Button
               onClick={() => onSave(block.id)}
-              className="bg-[#00365b] hover:bg-[#fdb933] hover:text-[#00365b] text-white"
+              className="bg-[#0a0a0a] hover:bg-[#fbbf24] hover:text-[#0a0a0a] text-white"
             >
               Guardar Quiz
             </Button>

@@ -76,8 +76,8 @@ export default function PasswordResetModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center space-x-3">
-            <div className="bg-[#fdb933] p-2 rounded-lg">
-              <Key className="h-6 w-6 text-[#00365b]" />
+            <div className="bg-[#fbbf24] p-2 rounded-lg">
+              <Key className="h-6 w-6 text-[#0a0a0a]" />
             </div>
             <h2 className="text-xl font-semibold text-gray-900">
               Restablecer Contraseña
@@ -126,7 +126,7 @@ export default function PasswordResetModal({
                   id="temporaryPassword"
                   value={temporaryPassword}
                   onChange={(e) => setTemporaryPassword(e.target.value)}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00365b] focus:ring-[#00365b] sm:text-sm"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0a0a0a] focus:ring-[#0a0a0a] sm:text-sm"
                   placeholder="Ingresa una contraseña temporal"
                   required
                   minLength={6}
@@ -142,7 +142,7 @@ export default function PasswordResetModal({
               <button
                 type="button"
                 onClick={generateRandomPassword}
-                className="mt-2 text-sm text-[#00365b] hover:text-[#002844] font-medium"
+                className="mt-2 text-sm text-[#0a0a0a] hover:text-[#002844] font-medium"
               >
                 Generar contraseña aleatoria
               </button>
@@ -157,7 +157,7 @@ export default function PasswordResetModal({
                 id="confirmPassword"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#00365b] focus:ring-[#00365b] sm:text-sm"
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#0a0a0a] focus:ring-[#0a0a0a] sm:text-sm"
                 placeholder="Confirma la contraseña"
                 required
                 minLength={6}
@@ -171,14 +171,14 @@ export default function PasswordResetModal({
               type="button"
               onClick={onClose}
               disabled={isResetting}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b] disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={isResetting}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#00365b] border border-transparent rounded-md hover:bg-[#002844] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b] disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-white bg-[#0a0a0a] border border-transparent rounded-md hover:bg-[#002844] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] disabled:opacity-50"
             >
               {isResetting ? 'Restableciendo...' : 'Restablecer Contraseña'}
             </button>

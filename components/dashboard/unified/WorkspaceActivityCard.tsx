@@ -73,8 +73,8 @@ const WorkspaceActivityCard: React.FC<WorkspaceActivityCardProps> = ({
     meeting_scheduled: { 
       icon: Calendar, 
       label: 'Reuniones', 
-      color: 'text-purple-600', 
-      bgColor: 'bg-purple-50' 
+      color: 'text-amber-600', 
+      bgColor: 'bg-amber-50' 
     },
     user_mentioned: { 
       icon: Users, 
@@ -85,8 +85,8 @@ const WorkspaceActivityCard: React.FC<WorkspaceActivityCardProps> = ({
     collaboration_started: { 
       icon: Activity, 
       label: 'Colaboraciones', 
-      color: 'text-indigo-600', 
-      bgColor: 'bg-indigo-50' 
+      color: 'text-slate-600', 
+      bgColor: 'bg-slate-50' 
     }
   };
 
@@ -272,7 +272,7 @@ const WorkspaceActivityCard: React.FC<WorkspaceActivityCardProps> = ({
           label="Promedio Participantes"
           value={data.engagementMetrics.averageParticipantsPerActivity}
           format="number"
-          color="text-purple-600"
+          color="text-amber-600"
         />
         <EngagementMetric
           icon={MessageCircle}
@@ -351,7 +351,7 @@ const WorkspaceActivityCard: React.FC<WorkspaceActivityCardProps> = ({
               label="Asistencia a Reuniones"
               value={data.engagementMetrics.meetingAttendance}
               format="percentage"
-              color="text-purple-600"
+              color="text-amber-600"
             />
           </div>
         </div>

@@ -1,5 +1,5 @@
 /**
- * Enhanced Authentication Hook for FNE LMS 6-Role System
+ * Enhanced Authentication Hook for Genera 6-Role System
  * Provides backward-compatible authentication with new role system
  */
 

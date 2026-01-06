@@ -1,7 +1,7 @@
 /**
  * ActivityCard Component
  * Individual activity display with icons, actions, and contextual information
- * Phase 5 of Collaborative Workspace System for FNE LMS
+ * Phase 5 of Collaborative Workspace System for Genera
  */
 
 import React, { useState, useCallback } from 'react';
@@ -51,7 +51,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
   const categoryColors = {
     meeting: 'text-blue-600 bg-blue-50',
     document: 'text-green-600 bg-green-50',
-    message: 'text-purple-600 bg-purple-50',
+    message: 'text-amber-600 bg-amber-50',
     user: 'text-orange-600 bg-orange-50',
     system: 'text-gray-600 bg-gray-50'
   };
@@ -169,7 +169,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
 
   return (
     <div
-      className={`activity-card group relative bg-white rounded-lg border border-gray-200 hover:border-[#fdb933] hover:shadow-md transition-all duration-200 cursor-pointer ${
+      className={`activity-card group relative bg-white rounded-lg border border-gray-200 hover:border-[#fbbf24] hover:shadow-md transition-all duration-200 cursor-pointer ${
         compact ? 'p-3' : 'p-4'
       } ${activity.is_recent ? 'ring-2 ring-blue-200 ring-opacity-50' : ''}`}
       onClick={handleCardClick}
@@ -205,7 +205,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                 <div className="flex items-center gap-2 mt-1">
                   <button
                     onClick={handleUserClick}
-                    className="flex items-center gap-1 text-xs text-gray-600 hover:text-[#00365b] transition-colors"
+                    className="flex items-center gap-1 text-xs text-gray-600 hover:text-[#0a0a0a] transition-colors"
                   >
                     <User className="w-3 h-3" />
                     <span className="font-medium">{activity.user_name}</span>
@@ -283,7 +283,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
               {activity.tags.slice(0, 3).map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center px-2 py-1 rounded-full bg-[#fdb933] bg-opacity-10 text-xs text-[#00365b] font-medium"
+                  className="inline-flex items-center px-2 py-1 rounded-full bg-[#fbbf24] bg-opacity-10 text-xs text-[#0a0a0a] font-medium"
                 >
                   #{tag}
                 </span>
@@ -321,7 +321,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                     key={i}
                     className={`w-3 h-3 ${
                       i < activity.importance_score 
-                        ? 'text-[#fdb933] fill-current' 
+                        ? 'text-[#fbbf24] fill-current' 
                         : 'text-gray-300'
                     }`}
                   />

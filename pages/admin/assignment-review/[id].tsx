@@ -315,7 +315,7 @@ export default function AssignmentReviewPage() {
     return (
       <MainLayout user={user} currentPage="assignment-review">
         <div className="flex items-center justify-center min-h-[50vh]">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00365b]"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a]"></div>
         </div>
       </MainLayout>
     );
@@ -339,7 +339,7 @@ export default function AssignmentReviewPage() {
           </button>
 
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h1 className="text-2xl font-bold text-[#00365b] mb-2">{assignment.title}</h1>
+            <h1 className="text-2xl font-bold text-[#0a0a0a] mb-2">{assignment.title}</h1>
             <p className="text-gray-600 mb-4">
               {assignment.course_title} - {assignment.lesson_title}
             </p>
@@ -356,7 +356,7 @@ export default function AssignmentReviewPage() {
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-3xl font-bold text-[#00365b]">{assignment.total_groups}</p>
+                <p className="text-3xl font-bold text-[#0a0a0a]">{assignment.total_groups}</p>
                 <p className="text-sm text-gray-600">Grupos totales</p>
               </div>
               <div className="text-center p-4 bg-blue-50 rounded-lg">
@@ -383,7 +383,7 @@ export default function AssignmentReviewPage() {
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="w-full md:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+            className="w-full md:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
           >
             <option value="all">Todos los grupos</option>
             <option value="pending">Pendientes</option>
@@ -420,7 +420,7 @@ export default function AssignmentReviewPage() {
                     <div className="flex items-center space-x-4">
                       <Users className="h-6 w-6 text-gray-400" />
                       <div>
-                        <h3 className="text-lg font-semibold text-[#00365b]">
+                        <h3 className="text-lg font-semibold text-[#0a0a0a]">
                           {submission.group_name}
                         </h3>
                         <p className="text-sm text-gray-600">
@@ -455,7 +455,7 @@ export default function AssignmentReviewPage() {
                             <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                             <span className="text-gray-700">{member.name}</span>
                             {member.role === 'leader' && (
-                              <span className="text-xs text-[#fdb933] font-medium">(Líder)</span>
+                              <span className="text-xs text-[#fbbf24] font-medium">(Líder)</span>
                             )}
                           </div>
                         ))}
@@ -485,7 +485,7 @@ export default function AssignmentReviewPage() {
                                   href={url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center text-[#00365b] hover:text-[#00365b]/80"
+                                  className="inline-flex items-center text-[#0a0a0a] hover:text-[#0a0a0a]/80"
                                 >
                                   <Download className="w-4 h-4 mr-2" />
                                   Archivo {index + 1}
@@ -565,7 +565,7 @@ const GradeForm: React.FC<GradeFormProps> = ({ groupId, onSubmit }) => {
           min="0"
           max="100"
           required
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
         />
       </div>
       
@@ -577,14 +577,14 @@ const GradeForm: React.FC<GradeFormProps> = ({ groupId, onSubmit }) => {
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
           rows={4}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
           placeholder="Escribe comentarios para el grupo..."
         />
       </div>
       
       <button
         type="submit"
-        className="w-full px-4 py-2 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors"
+        className="w-full px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#0a0a0a]/90 transition-colors"
       >
         Guardar calificación
       </button>

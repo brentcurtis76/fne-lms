@@ -14,7 +14,7 @@ if (!supabaseUrl || !supabaseServiceRoleKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
 async function findAdminUsers() {
-  console.log('=== FINDING ADMIN USERS IN FNE LMS ===\n');
+  console.log('=== FINDING ADMIN USERS IN Genera ===\n');
   
   // First, let's find all users with admin role
   const { data: adminRoles, error: rolesError } = await supabase

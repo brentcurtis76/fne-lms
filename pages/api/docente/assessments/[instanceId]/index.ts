@@ -171,7 +171,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id: indicator.id,
           code: indicator.code,
           name: indicator.name,
-          question: indicator.question,
           description: indicator.description,
           category: indicator.category,
           frequencyConfig: indicator.frequency_config,

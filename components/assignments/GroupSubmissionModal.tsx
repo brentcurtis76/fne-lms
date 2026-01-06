@@ -109,7 +109,7 @@ export const GroupSubmissionModal: React.FC<GroupSubmissionModalProps> = ({
                 value={submissionContent}
                 onChange={(e) => setSubmissionContent(e.target.value)}
                 rows={8}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                 placeholder="Describe el trabajo realizado por el grupo..."
               />
             </div>
@@ -126,7 +126,7 @@ export const GroupSubmissionModal: React.FC<GroupSubmissionModalProps> = ({
                   value={newFileUrl}
                   onChange={(e) => setNewFileUrl(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddFileUrl())}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="https://drive.google.com/file/..."
                 />
                 <button
@@ -191,7 +191,7 @@ export const GroupSubmissionModal: React.FC<GroupSubmissionModalProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-2 bg-[#00365b] text-white rounded-md hover:bg-[#fdb933] hover:text-[#00365b] transition disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Enviando...' : 'Enviar Trabajo'}
               </button>

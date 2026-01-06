@@ -188,11 +188,11 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
         <div className={`px-3 py-3 ${isCollapsed ? 'text-center' : ''}`}>
           {!isCollapsed && (
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-[#fdb933]/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <item.icon className="h-5 w-5 text-[#fdb933]" />
+              <div className="w-8 h-8 bg-[#fbbf24]/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <item.icon className="h-5 w-5 text-[#fbbf24]" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-[#00365b] truncate">
+                <div className="text-sm font-semibold text-[#0a0a0a] truncate">
                   {item.label}
                 </div>
                 {item.description && (
@@ -204,8 +204,8 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
             </div>
           )}
           {isCollapsed && (
-            <div className="w-8 h-8 bg-[#fdb933]/20 rounded-lg flex items-center justify-center mx-auto">
-              <item.icon className="h-5 w-5 text-[#fdb933]" />
+            <div className="w-8 h-8 bg-[#fbbf24]/20 rounded-lg flex items-center justify-center mx-auto">
+              <item.icon className="h-5 w-5 text-[#fbbf24]" />
             </div>
           )}
         </div>
@@ -220,8 +220,8 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
     `;
 
     const stateClasses = isActive
-      ? 'bg-[#00365b] text-white shadow-lg'
-      : 'text-gray-700 hover:bg-gray-100 hover:text-[#00365b]';
+      ? 'bg-[#0a0a0a] text-white shadow-lg'
+      : 'text-gray-700 hover:bg-gray-100 hover:text-[#0a0a0a]';
 
     return (
       <button
@@ -231,12 +231,12 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
       >
         {/* Active indicator */}
         {isActive && !isCollapsed && (
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#fdb933] rounded-r-lg"></div>
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#fbbf24] rounded-r-lg"></div>
         )}
         
         <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} flex-1`}>
           <item.icon className={`flex-shrink-0 ${isCollapsed ? 'h-6 w-6' : 'h-5 w-5'} ${
-            isActive ? 'text-white' : 'text-gray-500 group-hover:text-[#00365b]'
+            isActive ? 'text-white' : 'text-gray-500 group-hover:text-[#0a0a0a]'
           }`} />
           
           {!isCollapsed && (
@@ -258,7 +258,7 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
               isActive 
                 ? 'bg-white/20 text-white' 
-                : 'bg-gray-100 text-gray-600 group-hover:bg-[#00365b]/10 group-hover:text-[#00365b]'
+                : 'bg-gray-100 text-gray-600 group-hover:bg-[#0a0a0a]/10 group-hover:text-[#0a0a0a]'
             }`}>
               {item.badge}
             </span>
@@ -266,7 +266,7 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
           
           {!isCollapsed && item.onClick && !item.badge && (
             <ChevronRightIcon className={`h-4 w-4 flex-shrink-0 transition-colors ${
-              isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#00365b]'
+              isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#0a0a0a]'
             }`} />
           )}
         </div>
@@ -294,11 +294,11 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
         }
       `}>
         {/* Header */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 bg-gradient-to-r from-[#00365b] to-[#004a7a]">
+        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200 bg-gradient-to-r from-[#0a0a0a] to-[#004a7a]">
           {!isCollapsed && (
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-[#fdb933] rounded-lg flex items-center justify-center">
-                <UsersIcon className="h-5 w-5 text-[#00365b]" />
+              <div className="w-8 h-8 bg-[#fbbf24] rounded-lg flex items-center justify-center">
+                <UsersIcon className="h-5 w-5 text-[#0a0a0a]" />
               </div>
               <div>
                 <h2 className="text-white font-semibold text-sm">
@@ -340,11 +340,11 @@ const WorkspaceSidebar: React.FC<WorkspaceSidebarProps> = ({
             className={`
               group flex items-center w-full text-left transition-all duration-200 rounded-lg
               ${isCollapsed ? 'px-3 py-3 justify-center' : 'px-3 py-3'}
-              text-gray-600 hover:bg-gray-100 hover:text-[#00365b]
+              text-gray-600 hover:bg-gray-100 hover:text-[#0a0a0a]
             `}
             title={isCollapsed ? 'Volver al Panel Principal' : undefined}
           >
-            <ArrowLeftIcon className={`flex-shrink-0 ${isCollapsed ? 'h-6 w-6' : 'h-5 w-5'} text-gray-500 group-hover:text-[#00365b]`} />
+            <ArrowLeftIcon className={`flex-shrink-0 ${isCollapsed ? 'h-6 w-6' : 'h-5 w-5'} text-gray-500 group-hover:text-[#0a0a0a]`} />
             {!isCollapsed && (
               <span className="text-sm font-medium ml-3">
                 Volver al Panel Principal

@@ -111,3 +111,5 @@ run-*.mjs
 /backups/
 .vercel
 node_modules/canvas
+*.xlsx
+*.csv

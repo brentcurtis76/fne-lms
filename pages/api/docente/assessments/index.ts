@@ -41,6 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           school_id,
           course_structure_id,
           transformation_year,
+          generation_type,
           status,
           started_at,
           completed_at,
@@ -84,6 +85,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           templateArea: templateInfo.area || 'personalizacion',
           templateVersion: snapshot?.version || '1.0.0',
           transformationYear: instance.transformation_year,
+          generationType: instance.generation_type || 'GT', // Default to GT for backwards compatibility
           status: instance.status,
           courseName: instance.school_course_structure?.course_name,
           gradeLevel: instance.school_course_structure?.grade_level,

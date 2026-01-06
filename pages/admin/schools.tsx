@@ -827,7 +827,7 @@ export default function SchoolsManagement() {
         userRole="admin"
       >
         <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00365b]"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0a0a0a]"></div>
         </div>
       </MainLayout>
     );
@@ -844,12 +844,12 @@ export default function SchoolsManagement() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex justify-between items-center mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-[#00365b]">Gestión de Escuelas</h1>
+            <h1 className="text-3xl font-bold text-[#0a0a0a]">Gestión de Escuelas</h1>
             <p className="text-gray-600 mt-2">Administra las escuelas y sus generaciones</p>
           </div>
           <button
             onClick={handleAddSchool}
-            className="flex items-center px-4 py-2 bg-[#fdb933] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+            className="flex items-center px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
           >
             <Plus size={20} className="mr-2" />
             Nueva Escuela
@@ -858,7 +858,7 @@ export default function SchoolsManagement() {
 
         {loading ? (
           <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#00365b]"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0a0a0a]"></div>
           </div>
         ) : schools.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-12 text-center">
@@ -883,7 +883,7 @@ export default function SchoolsManagement() {
                         }
                       </button>
                       <div>
-                        <h3 className="text-lg font-semibold text-[#00365b]">{school.name}</h3>
+                        <h3 className="text-lg font-semibold text-[#0a0a0a]">{school.name}</h3>
                         <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                           <span className="flex items-center">
                             <Users size={14} className="mr-1" />
@@ -927,7 +927,7 @@ export default function SchoolsManagement() {
                       )}
                       <button
                         onClick={() => handleEditSchool(school)}
-                        className="p-2 text-gray-600 hover:text-[#fdb933] transition-colors"
+                        className="p-2 text-gray-600 hover:text-[#fbbf24] transition-colors"
                       >
                         <Edit2 size={18} />
                       </button>
@@ -981,7 +981,7 @@ export default function SchoolsManagement() {
                             <div className="flex items-center space-x-2">
                               <button
                                 onClick={() => handleEditGeneration(generation, school)}
-                                className="p-1 text-gray-600 hover:text-[#fdb933] transition-colors"
+                                className="p-1 text-gray-600 hover:text-[#fbbf24] transition-colors"
                               >
                                 <Edit2 size={16} />
                               </button>
@@ -1008,7 +1008,7 @@ export default function SchoolsManagement() {
       {showSchoolModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-[#00365b] mb-4">
+            <h2 className="text-xl font-bold text-[#0a0a0a] mb-4">
               {editingSchool ? 'Editar Escuela' : 'Nueva Escuela'}
             </h2>
             
@@ -1021,7 +1021,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={schoolForm.name}
                   onChange={(e) => setSchoolForm({ ...schoolForm, name: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre de la escuela"
                 />
               </div>
@@ -1032,7 +1032,7 @@ export default function SchoolsManagement() {
                     type="checkbox"
                     checked={schoolForm.has_generations}
                     onChange={(e) => setSchoolForm({ ...schoolForm, has_generations: e.target.checked })}
-                    className="mr-2 h-4 w-4 text-[#fdb933] focus:ring-[#fdb933] border-gray-300 rounded"
+                    className="mr-2 h-4 w-4 text-[#fbbf24] focus:ring-[#fbbf24] border-gray-300 rounded"
                   />
                   <span className="text-sm text-gray-700">Habilitar generaciones para esta escuela</span>
                 </label>
@@ -1051,7 +1051,7 @@ export default function SchoolsManagement() {
               </button>
               <button
                 onClick={handleSaveSchool}
-                className="px-4 py-2 bg-[#fdb933] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
               >
                 {editingSchool ? 'Actualizar' : 'Crear'} Escuela
               </button>
@@ -1064,7 +1064,7 @@ export default function SchoolsManagement() {
       {showGenerationModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-[#00365b] mb-4">
+            <h2 className="text-xl font-bold text-[#0a0a0a] mb-4">
               {editingGeneration ? 'Editar Generación' : 'Nueva Generación'}
             </h2>
             {selectedSchool && (
@@ -1080,7 +1080,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={generationForm.name}
                   onChange={(e) => setGenerationForm({ ...generationForm, name: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Ej: Tractor, Innova"
                 />
               </div>
@@ -1092,7 +1092,7 @@ export default function SchoolsManagement() {
                 <select
                   value={generationForm.grade_range}
                   onChange={(e) => setGenerationForm({ ...generationForm, grade_range: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                 >
                   <option value="">Seleccione un rango...</option>
                   <optgroup label="Educación Parvularia">
@@ -1173,7 +1173,7 @@ export default function SchoolsManagement() {
                 <textarea
                   value={generationForm.description}
                   onChange={(e) => setGenerationForm({ ...generationForm, description: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Descripción opcional"
                   rows={3}
                 />
@@ -1189,7 +1189,7 @@ export default function SchoolsManagement() {
               </button>
               <button
                 onClick={handleSaveGeneration}
-                className="px-4 py-2 bg-[#fdb933] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
               >
                 {editingGeneration ? 'Actualizar' : 'Crear'} Generación
               </button>
@@ -1202,7 +1202,7 @@ export default function SchoolsManagement() {
       {confirmationModal.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-[#00365b] mb-4">
+            <h2 className="text-xl font-bold text-[#0a0a0a] mb-4">
               {confirmationModal.title}
             </h2>
             
@@ -1231,7 +1231,7 @@ export default function SchoolsManagement() {
               </button>
               <button
                 onClick={() => confirmationModal.onConfirm()}
-                className="px-4 py-2 bg-[#fdb933] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
               >
                 OK
               </button>
@@ -1244,7 +1244,7 @@ export default function SchoolsManagement() {
       {showClientModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
-            <h2 className="text-xl font-bold text-[#00365b] mb-4">
+            <h2 className="text-xl font-bold text-[#0a0a0a] mb-4">
               Vincular Cliente a {linkingSchool?.name}
             </h2>
 
@@ -1253,7 +1253,7 @@ export default function SchoolsManagement() {
                 Seleccionar Cliente
               </label>
               <select
-                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                 onChange={(e) => e.target.value && handleSaveLinkClient(e.target.value)}
               >
                 <option value="">Seleccione un cliente...</option>
@@ -1284,7 +1284,7 @@ export default function SchoolsManagement() {
       {showClientEditModal && editingCliente && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-[#00365b] mb-4">
+            <h2 className="text-xl font-bold text-[#0a0a0a] mb-4">
               Editar Cliente: {editingCliente.nombre_fantasia}
             </h2>
 
@@ -1302,7 +1302,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={clienteForm.nombre_legal}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_legal: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre legal de la organización"
                 />
               </div>
@@ -1315,7 +1315,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={clienteForm.nombre_fantasia}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_fantasia: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre comercial"
                 />
               </div>
@@ -1328,7 +1328,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={clienteForm.rut}
                   onChange={(e) => setClienteForm({ ...clienteForm, rut: formatRut(e.target.value) })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="XX.XXX.XXX-X"
                 />
               </div>
@@ -1341,7 +1341,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={clienteForm.direccion}
                   onChange={(e) => setClienteForm({ ...clienteForm, direccion: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Dirección completa"
                 />
               </div>
@@ -1354,7 +1354,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={clienteForm.comuna}
                   onChange={(e) => setClienteForm({ ...clienteForm, comuna: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Comuna"
                 />
               </div>
@@ -1367,7 +1367,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={clienteForm.ciudad}
                   onChange={(e) => setClienteForm({ ...clienteForm, ciudad: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Ciudad"
                 />
               </div>
@@ -1385,7 +1385,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={clienteForm.nombre_representante}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_representante: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre completo"
                 />
               </div>
@@ -1398,7 +1398,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={clienteForm.rut_representante}
                   onChange={(e) => setClienteForm({ ...clienteForm, rut_representante: formatRut(e.target.value) })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="XX.XXX.XXX-X"
                 />
               </div>
@@ -1411,7 +1411,7 @@ export default function SchoolsManagement() {
                   type="date"
                   value={clienteForm.fecha_escritura}
                   onChange={(e) => setClienteForm({ ...clienteForm, fecha_escritura: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                 />
               </div>
 
@@ -1423,7 +1423,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={clienteForm.nombre_notario}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_notario: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre del notario"
                 />
               </div>
@@ -1436,7 +1436,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={clienteForm.comuna_notaria}
                   onChange={(e) => setClienteForm({ ...clienteForm, comuna_notaria: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Comuna de la notaría"
                 />
               </div>
@@ -1454,7 +1454,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={clienteForm.nombre_encargado_proyecto}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_encargado_proyecto: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre completo"
                 />
               </div>
@@ -1467,7 +1467,7 @@ export default function SchoolsManagement() {
                   type="tel"
                   value={clienteForm.telefono_encargado_proyecto}
                   onChange={(e) => setClienteForm({ ...clienteForm, telefono_encargado_proyecto: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="+56 9 XXXX XXXX"
                 />
               </div>
@@ -1480,7 +1480,7 @@ export default function SchoolsManagement() {
                   type="email"
                   value={clienteForm.email_encargado_proyecto}
                   onChange={(e) => setClienteForm({ ...clienteForm, email_encargado_proyecto: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="email@ejemplo.com"
                 />
               </div>
@@ -1498,7 +1498,7 @@ export default function SchoolsManagement() {
                   type="text"
                   value={clienteForm.nombre_contacto_administrativo}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_contacto_administrativo: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="Nombre completo"
                 />
               </div>
@@ -1511,7 +1511,7 @@ export default function SchoolsManagement() {
                   type="tel"
                   value={clienteForm.telefono_contacto_administrativo}
                   onChange={(e) => setClienteForm({ ...clienteForm, telefono_contacto_administrativo: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="+56 9 XXXX XXXX"
                 />
               </div>
@@ -1524,7 +1524,7 @@ export default function SchoolsManagement() {
                   type="email"
                   value={clienteForm.email_contacto_administrativo}
                   onChange={(e) => setClienteForm({ ...clienteForm, email_contacto_administrativo: e.target.value })}
-                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   placeholder="email@ejemplo.com"
                 />
               </div>
@@ -1542,7 +1542,7 @@ export default function SchoolsManagement() {
               </button>
               <button
                 onClick={handleSaveCliente}
-                className="px-4 py-2 bg-[#fdb933] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
+                className="px-4 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors"
               >
                 Guardar Cambios
               </button>

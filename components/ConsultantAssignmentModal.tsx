@@ -508,7 +508,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                       toast.dismiss(t.id);
                       resolve(true);
                     }}
-                    className="px-4 py-2 text-sm font-medium text-white bg-[#00365b] rounded-md hover:bg-[#002a47]"
+                    className="px-4 py-2 text-sm font-medium text-white bg-[#0a0a0a] rounded-md hover:bg-[#002a47]"
                   >
                     Confirmar
                   </button>
@@ -672,7 +672,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
       <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-[#00365b]">
+            <h2 className="text-2xl font-bold text-[#0a0a0a]">
               {editingAssignment ? 'Editar Asignación de Consultor' : 'Nueva Asignación de Consultor'}
             </h2>
             <button
@@ -687,7 +687,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
 
           {dataLoading ? (
             <div className="flex justify-center items-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00365b]"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0a0a0a]"></div>
               <span className="ml-2">Cargando datos...</span>
             </div>
           ) : (
@@ -700,7 +700,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                 <select
                   value={formData.consultant_id}
                   onChange={(e) => handleInputChange('consultant_id', e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                   required
                 >
                   <option value="">Seleccionar consultor...</option>
@@ -789,7 +789,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                   <select
                     value={formData.student_id}
                     onChange={(e) => handleInputChange('student_id', e.target.value)}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                     required
                   >
                     <option value="">Seleccionar usuario...</option>
@@ -815,7 +815,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                       <select
                         value={formData.student_id}
                         onChange={(e) => handleInputChange('student_id', e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                       >
                         <option value="">Seleccionar usuario...</option>
                         {students.map(student => (
@@ -841,7 +841,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                       <select
                         value={formData.school_id || ''}
                         onChange={(e) => handleInputChange('school_id', e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                         required
                       >
                         <option value="">Seleccionar escuela...</option>
@@ -868,7 +868,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                       <select
                         value={formData.generation_id || ''}
                         onChange={(e) => handleInputChange('generation_id', e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                         required
                         disabled={!formData.school_id}
                       >
@@ -901,7 +901,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                         <select
                           value={formData.community_id || ''}
                           onChange={(e) => handleInputChange('community_id', e.target.value)}
-                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                           required
                           disabled={!formData.school_id || (shouldShowGenerationField() && !formData.generation_id)}
                         >
@@ -951,7 +951,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                     type="checkbox"
                     checked={formData.can_assign_courses}
                     onChange={(e) => handleInputChange('can_assign_courses', e.target.checked)}
-                    className="mr-3 h-4 w-4 text-[#fdb933] focus:ring-[#fdb933] border-gray-300 rounded"
+                    className="mr-3 h-4 w-4 text-[#fbbf24] focus:ring-[#fbbf24] border-gray-300 rounded"
                   />
                   <span className="text-sm">Puede asignar cursos</span>
                 </label>
@@ -967,7 +967,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                     type="checkbox"
                     checked={formData.has_end_date}
                     onChange={(e) => handleInputChange('has_end_date', e.target.checked)}
-                    className="mr-3 h-4 w-4 text-[#fdb933] focus:ring-[#fdb933] border-gray-300 rounded"
+                    className="mr-3 h-4 w-4 text-[#fbbf24] focus:ring-[#fbbf24] border-gray-300 rounded"
                   />
                   <span className="text-sm">Establecer fecha de finalización</span>
                 </label>
@@ -979,7 +979,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                       value={formData.ends_at}
                       onChange={(e) => handleInputChange('ends_at', e.target.value)}
                       min={new Date().toISOString().slice(0, 16)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                       required
                     />
                   </div>
@@ -1003,7 +1003,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-[#fdb933] text-white rounded-lg hover:bg-[#e6a42e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-2 bg-[#fbbf24] text-white rounded-lg hover:bg-[#e6a42e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Guardando...' : editingAssignment ? 'Actualizar Asignación' : 'Crear Asignación'}
                 </button>

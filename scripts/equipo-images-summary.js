@@ -10,7 +10,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function getEquipoImages() {
   try {
-    console.log('🎯 FNE LMS EQUIPO PROFILE PICTURES\n');
+    console.log('🎯 Genera EQUIPO PROFILE PICTURES\n');
     console.log('='.repeat(50));
     
     // Get all files from the Equipo folder

@@ -79,11 +79,11 @@ export function AssignmentCard({ assignment, onUnassign, disabled = false }: Ass
         <div className="flex items-start justify-between gap-3">
           {/* Icon and title */}
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            <div className={`flex-shrink-0 p-2 rounded-lg ${isCourse ? 'bg-blue-50' : 'bg-purple-50'}`}>
+            <div className={`flex-shrink-0 p-2 rounded-lg ${isCourse ? 'bg-blue-50' : 'bg-amber-50'}`}>
               {isCourse ? (
-                <BookOpen className={`h-5 w-5 ${isCourse ? 'text-blue-600' : 'text-purple-600'}`} />
+                <BookOpen className={`h-5 w-5 ${isCourse ? 'text-blue-600' : 'text-amber-600'}`} />
               ) : (
-                <Route className="h-5 w-5 text-purple-600" />
+                <Route className="h-5 w-5 text-amber-600" />
               )}
             </div>
             <div className="flex-1 min-w-0">

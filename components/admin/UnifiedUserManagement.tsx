@@ -175,8 +175,8 @@ export default function UnifiedUserManagement({
       admin: 'bg-red-50 text-red-700 border-red-200',
       consultor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
       docente: 'bg-blue-50 text-blue-700 border-blue-200',
-      lider_comunidad: 'bg-purple-50 text-purple-700 border-purple-200',
-      lider_generacion: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      lider_comunidad: 'bg-amber-50 text-amber-700 border-amber-200',
+      lider_generacion: 'bg-slate-50 text-slate-700 border-slate-200',
       equipo_directivo: 'bg-orange-50 text-orange-700 border-orange-200',
       supervisor_de_red: 'bg-teal-50 text-teal-700 border-teal-200'
     };
@@ -233,14 +233,14 @@ export default function UnifiedUserManagement({
           <div className="mt-4 sm:mt-0 flex gap-3">
             <button 
               onClick={onBulkImport}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b] transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] transition-colors"
             >
               <Upload className="w-4 h-4 mr-2" />
               Importar Usuarios
             </button>
             <button 
               onClick={onAddUser}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-[#00365b] hover:bg-[#002844] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b] transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium text-white bg-[#0a0a0a] hover:bg-[#002844] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a] transition-colors"
             >
               <UserPlus className="w-4 h-4 mr-2" />
               Nuevo Usuario
@@ -326,14 +326,14 @@ export default function UnifiedUserManagement({
               type="text"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-[#00365b] focus:border-[#00365b] text-sm"
+              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-[#0a0a0a] focus:border-[#0a0a0a] text-sm"
               placeholder="Buscar por nombre, email o escuela..."
             />
           </div>
           <div className="flex items-center gap-2">
             <button
               type="submit"
-              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#00365b] text-white text-sm font-medium hover:bg-[#002844] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#0a0a0a] text-white text-sm font-medium hover:bg-[#002844] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -368,7 +368,7 @@ export default function UnifiedUserManagement({
                 id="school-filter"
                 value={selectedSchoolId || ''}
                 onChange={(e) => onSchoolChange(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-[#00365b]"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-[#0a0a0a]"
               >
                 <option value="">Todos los colegios</option>
                 {schools.map(school => (
@@ -390,7 +390,7 @@ export default function UnifiedUserManagement({
                 id="community-filter"
                 value={selectedCommunityId || ''}
                 onChange={(e) => onCommunityChange(e.target.value)}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#00365b] focus:border-[#00365b]"
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-[#0a0a0a]"
               >
                 <option value="">Todas las comunidades</option>
                 {uniqueCommunities.map(community => (
@@ -590,7 +590,7 @@ export default function UnifiedUserManagement({
                                 e.stopPropagation();
                                 onEditUser(user);
                               }}
-                              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+                              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]"
                             >
                               <Edit className="w-4 h-4 mr-2" />
                               Editar Usuario
@@ -601,7 +601,7 @@ export default function UnifiedUserManagement({
                                 e.stopPropagation();
                                 onRoleChange(user);
                               }}
-                              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+                              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]"
                             >
                               <Shield className="w-4 h-4 mr-2" />
                               Gestionar Roles
@@ -613,7 +613,7 @@ export default function UnifiedUserManagement({
                                   e.stopPropagation();
                                   onAssign(user);
                                 }}
-                                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+                                className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]"
                               >
                                 <Users className="w-4 h-4 mr-2" />
                                 Asignar Estudiantes
@@ -625,7 +625,7 @@ export default function UnifiedUserManagement({
                                 e.stopPropagation();
                                 onPasswordReset(user);
                               }}
-                              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#00365b]"
+                              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0a0a0a]"
                             >
                               <Key className="w-4 h-4 mr-2" />
                               Restablecer Contraseña

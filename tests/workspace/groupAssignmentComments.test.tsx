@@ -136,7 +136,7 @@ const GroupAssignmentsContent = ({ workspace, workspaceAccess, user, searchQuery
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-[#00365b]">
+        <h2 className="text-xl font-semibold text-[#0a0a0a]">
           {isConsultantView ? 'Tareas Grupales de Mis Estudiantes' : 'Tareas Grupales'}
         </h2>
       </div>
@@ -148,7 +148,7 @@ const GroupAssignmentsContent = ({ workspace, workspaceAccess, user, searchQuery
           
           return (
             <div key={assignment.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-[#00365b] mb-2">
+              <h3 className="text-lg font-semibold text-[#0a0a0a] mb-2">
                 {assignment.title}
               </h3>
               
@@ -164,7 +164,7 @@ const GroupAssignmentsContent = ({ workspace, workspaceAccess, user, searchQuery
                     <span>Discusión del grupo</span>
                     <span className={`text-sm font-medium px-2 py-0.5 rounded-full ${
                       commentCount > 0 
-                        ? 'bg-[#fdb933]/20 text-[#00365b]' 
+                        ? 'bg-[#fbbf24]/20 text-[#0a0a0a]' 
                         : 'bg-gray-100 text-gray-500'
                     }`}>
                       {commentCount} comentario{commentCount !== 1 ? 's' : ''}
@@ -418,7 +418,7 @@ describe('GroupAssignmentsContent - Comment Count Feature', () => {
         const commentBadges = screen.getAllByText('5 comentarios');
         expect(commentBadges).toHaveLength(2); // 2 assignments
         expect(commentBadges[0]).toBeInTheDocument();
-        expect(commentBadges[0]).toHaveClass('bg-[#fdb933]/20', 'text-[#00365b]');
+        expect(commentBadges[0]).toHaveClass('bg-[#fbbf24]/20', 'text-[#0a0a0a]');
       });
     });
 

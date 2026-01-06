@@ -3,7 +3,7 @@
 /**
  * Bug Tracker MCP Server
  *
- * Model Context Protocol server for tracking and managing bugs in the FNE LMS system.
+ * Model Context Protocol server for tracking and managing bugs in the Genera system.
  * Provides tools for logging bugs, searching historical issues, finding similar bugs,
  * updating bug status, and recording debugging sessions.
  *

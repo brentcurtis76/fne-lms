@@ -35,7 +35,7 @@ export const BLOCK_TYPES: Record<string, BlockTypeConfig> = {
     subtitle: 'Video multimedia',
     description: 'Videos de YouTube, Vimeo o archivos locales',
     icon: Video,
-    iconColor: 'text-purple-600',
+    iconColor: 'text-amber-600',
     category: 'media'
   },
   'image': {
@@ -62,7 +62,7 @@ export const BLOCK_TYPES: Record<string, BlockTypeConfig> = {
     subtitle: 'Recursos descargables',
     description: 'Documentos, PDFs y archivos para descargar',
     icon: FolderDown,
-    iconColor: 'text-indigo-600',
+    iconColor: 'text-slate-600',
     category: 'resources'
   },
   'external-links': {
@@ -89,7 +89,7 @@ export const BLOCK_TYPES: Record<string, BlockTypeConfig> = {
     subtitle: 'Referencias y recursos',
     description: 'Colección de PDFs y enlaces externos organizados',
     icon: BookOpen,
-    iconColor: 'text-purple-600',
+    iconColor: 'text-amber-600',
     category: 'resources'
   }
 } as const;

@@ -1,7 +1,7 @@
 /**
  * ActivityFilters Component
  * Advanced filtering by activity types, users, date ranges, entity types
- * Phase 5 of Collaborative Workspace System for FNE LMS
+ * Phase 5 of Collaborative Workspace System for Genera
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -168,10 +168,10 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <Filter className="w-5 h-5 text-[#00365b]" />
-          <h3 className="font-semibold text-[#00365b]">Filtros de Actividad</h3>
+          <Filter className="w-5 h-5 text-[#0a0a0a]" />
+          <h3 className="font-semibold text-[#0a0a0a]">Filtros de Actividad</h3>
           {activeFilterCount > 0 && (
-            <span className="inline-flex items-center px-2 py-1 rounded-full bg-[#fdb933] text-xs font-medium text-white">
+            <span className="inline-flex items-center px-2 py-1 rounded-full bg-[#fbbf24] text-xs font-medium text-white">
               {activeFilterCount}
             </span>
           )}
@@ -181,7 +181,7 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
           {activeFilterCount > 0 && (
             <button
               onClick={handleReset}
-              className="flex items-center gap-1 px-2 py-1 text-sm text-gray-600 hover:text-[#00365b] transition-colors"
+              className="flex items-center gap-1 px-2 py-1 text-sm text-gray-600 hover:text-[#0a0a0a] transition-colors"
             >
               <RotateCcw className="w-4 h-4" />
               Limpiar
@@ -190,7 +190,7 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
           
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="flex items-center gap-1 px-2 py-1 text-sm text-gray-600 hover:text-[#00365b] transition-colors"
+            className="flex items-center gap-1 px-2 py-1 text-sm text-gray-600 hover:text-[#0a0a0a] transition-colors"
           >
             {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             {isExpanded ? 'Menos' : 'Más'}
@@ -209,7 +209,7 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
               placeholder="Buscar actividades..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
             />
           </div>
 
@@ -219,7 +219,7 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
               onClick={() => handleViewModeChange('all')}
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 filters.view_mode === 'all'
-                  ? 'bg-[#00365b] text-white'
+                  ? 'bg-[#0a0a0a] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -229,7 +229,7 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
               onClick={() => handleViewModeChange('personal')}
               className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 filters.view_mode === 'personal'
-                  ? 'bg-[#00365b] text-white'
+                  ? 'bg-[#0a0a0a] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -243,7 +243,7 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
               type="checkbox"
               checked={filters.include_system}
               onChange={handleSystemToggle}
-              className="rounded border-gray-300 text-[#fdb933] focus:ring-[#fdb933]"
+              className="rounded border-gray-300 text-[#fbbf24] focus:ring-[#fbbf24]"
             />
             <span className="text-sm text-gray-700">Incluir actividades del sistema</span>
           </label>
@@ -266,7 +266,7 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
                     value={dateRange.start}
                     onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
                     onBlur={handleDateRangeChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent text-sm"
                   />
                 </div>
                 <div>
@@ -276,7 +276,7 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
                     value={dateRange.end}
                     onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
                     onBlur={handleDateRangeChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent text-sm"
                   />
                 </div>
               </div>
@@ -333,7 +333,7 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
                           onClick={() => handleActivityTypeToggle(type as ActivityType)}
                           className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                             filters.activity_types.includes(type as ActivityType)
-                              ? 'bg-[#00365b] text-white'
+                              ? 'bg-[#0a0a0a] text-white'
                               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           }`}
                         >
@@ -363,7 +363,7 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
                     onClick={() => handleEntityTypeToggle(entityType)}
                     className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                       filters.entity_types.includes(entityType)
-                        ? 'bg-[#fdb933] text-white'
+                        ? 'bg-[#fbbf24] text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -396,7 +396,7 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
                         type="checkbox"
                         checked={filters.users.includes(user.id)}
                         onChange={() => handleUserToggle(user.id)}
-                        className="rounded border-gray-300 text-[#fdb933] focus:ring-[#fdb933]"
+                        className="rounded border-gray-300 text-[#fbbf24] focus:ring-[#fbbf24]"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-gray-900">{user.name}</div>
@@ -418,13 +418,13 @@ const ActivityFilters: React.FC<ActivityFiltersProps> = ({
           <div className="pt-4 border-t border-gray-200">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-center">
               <div className="space-y-1">
-                <div className="text-lg font-semibold text-[#00365b]">
+                <div className="text-lg font-semibold text-[#0a0a0a]">
                   {stats.total_activities}
                 </div>
                 <div className="text-xs text-gray-600">Total</div>
               </div>
               <div className="space-y-1">
-                <div className="text-lg font-semibold text-[#fdb933]">
+                <div className="text-lg font-semibold text-[#fbbf24]">
                   {stats.activities_today}
                 </div>
                 <div className="text-xs text-gray-600">Hoy</div>

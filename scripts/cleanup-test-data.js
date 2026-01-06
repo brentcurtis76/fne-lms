@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FNE LMS - Test Data Cleanup Script
+ * Genera - Test Data Cleanup Script
  * 
  * This script removes all test data created during development and testing.
  * Features:
@@ -369,7 +369,7 @@ async function verifyCleanup(originalCounts) {
  */
 async function main() {
   try {
-    console.log('🧹 FNE LMS Test Data Cleanup Script');
+    console.log('🧹 Genera Test Data Cleanup Script');
     console.log('=====================================');
     
     if (DRY_RUN) {
@@ -465,7 +465,7 @@ async function main() {
 // Show usage if help requested
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
   console.log(`
-FNE LMS Test Data Cleanup Script
+Genera Test Data Cleanup Script
 
 Usage:
   node scripts/cleanup-test-data.js [options]

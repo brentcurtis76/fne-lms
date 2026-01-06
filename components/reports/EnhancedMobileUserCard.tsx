@@ -36,7 +36,7 @@ export default function EnhancedMobileUserCard({
 
   const getProgressColor = (percentage: number) => {
     if (percentage >= 80) return 'bg-green-500';
-    if (percentage >= 60) return 'bg-[#fdb933]';
+    if (percentage >= 60) return 'bg-[#fbbf24]';
     if (percentage >= 40) return 'bg-orange-500';
     return 'bg-red-500';
   };
@@ -198,7 +198,7 @@ export default function EnhancedMobileUserCard({
               <div className="pt-2">
                 <button
                   onClick={() => onUserClick(user.user_id)}
-                  className="w-full bg-[#00365b] text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-[#00365b]/90 transition-colors active:scale-95"
+                  className="w-full bg-[#0a0a0a] text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-[#0a0a0a]/90 transition-colors active:scale-95"
                 >
                   Ver Detalles Completos
                 </button>

@@ -59,7 +59,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
             className="h-8 w-8 rounded-full object-cover"
           />
         ) : (
-          <div className="h-8 w-8 rounded-full bg-[#00365b] flex items-center justify-center text-white text-sm font-medium">
+          <div className="h-8 w-8 rounded-full bg-[#0a0a0a] flex items-center justify-center text-white text-sm font-medium">
             {comment.author?.first_name?.[0]}{comment.author?.last_name?.[0]}
           </div>
         )}
@@ -112,7 +112,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         {!isReply && (
           <button
             onClick={() => onReply(comment)}
-            className="mt-1 text-xs text-[#00365b] hover:underline flex items-center space-x-1"
+            className="mt-1 text-xs text-[#0a0a0a] hover:underline flex items-center space-x-1"
           >
             <ReplyIcon className="h-3 w-3" />
             <span>Responder</span>
@@ -322,7 +322,7 @@ export default function CommentThread({ postId, onClose }: CommentThreadProps) {
               <button
                 onClick={handleLoadMore}
                 disabled={loading}
-                className="w-full py-2 text-sm text-[#00365b] hover:text-[#00365b]/80 font-medium"
+                className="w-full py-2 text-sm text-[#0a0a0a] hover:text-[#0a0a0a]/80 font-medium"
               >
                 {loading ? 'Cargando...' : 'Cargar más comentarios'}
               </button>
@@ -361,13 +361,13 @@ export default function CommentThread({ postId, onClose }: CommentThreadProps) {
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
             placeholder={replyingTo ? 'Escribe tu respuesta...' : 'Escribe un comentario...'}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#fdb933] focus:border-transparent"
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
             disabled={posting}
           />
           <button
             type="submit"
             disabled={!newComment.trim() || posting}
-            className="px-4 py-2 bg-[#00365b] text-white rounded-full hover:bg-[#00365b]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-[#0a0a0a] text-white rounded-full hover:bg-[#0a0a0a]/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {posting ? 'Enviando...' : 'Enviar'}
           </button>

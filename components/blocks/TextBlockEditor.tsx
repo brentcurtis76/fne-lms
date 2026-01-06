@@ -45,7 +45,7 @@ const TextBlockEditor: React.FC<Props> = ({
           value={block.payload?.title || ""}
           onChange={(e) => onTitleChange(e.target.value)}
           placeholder="Ingrese un título para identificar este bloque"
-          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#00365b] focus:border-transparent"
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
         />
       </div>
 

@@ -22,7 +22,7 @@ const MockAssignmentCard = ({
       className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md cursor-pointer transition-shadow"
       data-testid="assignment-card"
     >
-      <h3 className="text-lg font-semibold text-[#00365b] mb-2">
+      <h3 className="text-lg font-semibold text-[#0a0a0a] mb-2">
         {assignment.title}
       </h3>
       
@@ -33,17 +33,17 @@ const MockAssignmentCard = ({
           data-testid="discussion-link"
         >
           <div className="flex items-center gap-2">
-            <span className="h-4 w-4 text-gray-500 group-hover:text-[#00365b]" data-testid="chat-icon">
+            <span className="h-4 w-4 text-gray-500 group-hover:text-[#0a0a0a]" data-testid="chat-icon">
               💬
             </span>
-            <span className="text-sm text-gray-600 group-hover:text-[#00365b]">
+            <span className="text-sm text-gray-600 group-hover:text-[#0a0a0a]">
               Discusión del grupo
             </span>
           </div>
           <span 
             className={`text-sm font-medium px-2 py-0.5 rounded-full ${
               discussionCount > 0 
-                ? 'bg-[#fdb933]/20 text-[#00365b]' 
+                ? 'bg-[#fbbf24]/20 text-[#0a0a0a]' 
                 : 'bg-gray-100 text-gray-500'
             }`}
             data-testid="comment-count"
@@ -75,7 +75,7 @@ describe('Discussion Link UI Tests', () => {
 
       const commentBadge = screen.getByTestId('comment-count');
       expect(commentBadge).toHaveTextContent('5 comentarios');
-      expect(commentBadge).toHaveClass('bg-[#fdb933]/20', 'text-[#00365b]');
+      expect(commentBadge).toHaveClass('bg-[#fbbf24]/20', 'text-[#0a0a0a]');
     });
 
     it('should display zero comments with gray styling', () => {
@@ -273,7 +273,7 @@ describe('Discussion Link UI Tests', () => {
       );
 
       expect(screen.getByTestId('comment-count')).toHaveTextContent('7 comentarios');
-      expect(screen.getByTestId('comment-count')).toHaveClass('bg-[#fdb933]/20');
+      expect(screen.getByTestId('comment-count')).toHaveClass('bg-[#fbbf24]/20');
     });
   });
 

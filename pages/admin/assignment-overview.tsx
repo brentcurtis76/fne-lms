@@ -293,7 +293,7 @@ export default function AssignmentOverview() {
   if (!user || !profileData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-[#00365b]" />
+        <Loader2 className="h-8 w-8 animate-spin text-[#0a0a0a]" />
       </div>
     );
   }
@@ -329,7 +329,7 @@ export default function AssignmentOverview() {
                     : 'Monitorea las tareas grupales de tus estudiantes asignados'}
                 </p>
               </div>
-              <ClipboardList className="h-12 w-12 text-[#fdb933]" />
+              <ClipboardList className="h-12 w-12 text-[#fbbf24]" />
             </div>
           </div>
         </div>
@@ -341,9 +341,9 @@ export default function AssignmentOverview() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Total Tareas</p>
-                  <p className="text-2xl font-bold text-[#00365b]">{totalAssignments}</p>
+                  <p className="text-2xl font-bold text-[#0a0a0a]">{totalAssignments}</p>
                 </div>
-                <ClipboardList className="h-8 w-8 text-[#fdb933]" />
+                <ClipboardList className="h-8 w-8 text-[#fbbf24]" />
               </div>
             </div>
             
@@ -351,9 +351,9 @@ export default function AssignmentOverview() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Grupos Formados</p>
-                  <p className="text-2xl font-bold text-[#00365b]">{totalGroups}</p>
+                  <p className="text-2xl font-bold text-[#0a0a0a]">{totalGroups}</p>
                 </div>
-                <Users className="h-8 w-8 text-[#fdb933]" />
+                <Users className="h-8 w-8 text-[#fbbf24]" />
               </div>
             </div>
             
@@ -361,9 +361,9 @@ export default function AssignmentOverview() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Estudiantes</p>
-                  <p className="text-2xl font-bold text-[#00365b]">{totalStudents}</p>
+                  <p className="text-2xl font-bold text-[#0a0a0a]">{totalStudents}</p>
                 </div>
-                <School className="h-8 w-8 text-[#fdb933]" />
+                <School className="h-8 w-8 text-[#fbbf24]" />
               </div>
             </div>
             
@@ -371,9 +371,9 @@ export default function AssignmentOverview() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Tasa de Entrega</p>
-                  <p className="text-2xl font-bold text-[#00365b]">{overallSubmissionRate}%</p>
+                  <p className="text-2xl font-bold text-[#0a0a0a]">{overallSubmissionRate}%</p>
                 </div>
-                <Calendar className="h-8 w-8 text-[#fdb933]" />
+                <Calendar className="h-8 w-8 text-[#fbbf24]" />
               </div>
             </div>
           </div>
@@ -381,7 +381,7 @@ export default function AssignmentOverview() {
           {/* Filters */}
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-[#00365b]">Filtros</h2>
+              <h2 className="text-lg font-semibold text-[#0a0a0a]">Filtros</h2>
               {activeFilterCount > 0 && (
                 <button
                   onClick={handleClearFilters}
@@ -402,7 +402,7 @@ export default function AssignmentOverview() {
                 <select
                   value={filters.school_id || ''}
                   onChange={(e) => handleFilterChange('school_id', e.target.value || null)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent appearance-none pr-10"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent appearance-none pr-10"
                 >
                   <option value="">Todas las escuelas</option>
                   {schools.map(school => (
@@ -422,7 +422,7 @@ export default function AssignmentOverview() {
                 <select
                   value={filters.community_id || ''}
                   onChange={(e) => handleFilterChange('community_id', e.target.value || null)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent appearance-none pr-10"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent appearance-none pr-10"
                   disabled={loadingCommunities}
                 >
                   <option value="">Todas las comunidades</option>
@@ -447,7 +447,7 @@ export default function AssignmentOverview() {
                 <select
                   value={filters.generation_id || ''}
                   onChange={(e) => handleFilterChange('generation_id', e.target.value || null)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fdb933] focus:border-transparent appearance-none pr-10"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent appearance-none pr-10"
                   disabled={!filters.school_id || loadingGenerations || generations.length === 0}
                 >
                   <option value="">
@@ -475,7 +475,7 @@ export default function AssignmentOverview() {
           {/* Assignments Grid */}
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-[#00365b]" />
+              <Loader2 className="h-8 w-8 animate-spin text-[#0a0a0a]" />
             </div>
           ) : assignments.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-12 text-center">
@@ -497,7 +497,7 @@ export default function AssignmentOverview() {
                   >
                     {/* Assignment Header */}
                     <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-[#00365b] mb-1">
+                      <h3 className="text-lg font-semibold text-[#0a0a0a] mb-1">
                         {assignment.title}
                       </h3>
                       <p className="text-sm text-gray-600">
@@ -533,15 +533,15 @@ export default function AssignmentOverview() {
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-4 mb-4">
                       <div className="text-center">
-                        <p className="text-2xl font-bold text-[#00365b]">{assignment.groups_count}</p>
+                        <p className="text-2xl font-bold text-[#0a0a0a]">{assignment.groups_count}</p>
                         <p className="text-xs text-gray-600">Grupos</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-2xl font-bold text-[#00365b]">{assignment.students_count}</p>
+                        <p className="text-2xl font-bold text-[#0a0a0a]">{assignment.students_count}</p>
                         <p className="text-xs text-gray-600">Estudiantes</p>
                       </div>
                       <div className="text-center">
-                        <p className="text-2xl font-bold text-[#00365b]">{assignment.submission_rate}%</p>
+                        <p className="text-2xl font-bold text-[#0a0a0a]">{assignment.submission_rate}%</p>
                         <p className="text-xs text-gray-600">Entregado</p>
                       </div>
                     </div>
@@ -554,7 +554,7 @@ export default function AssignmentOverview() {
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
                         <div
-                          className="bg-[#fdb933] h-2 rounded-full transition-all duration-300"
+                          className="bg-[#fbbf24] h-2 rounded-full transition-all duration-300"
                           style={{ width: `${assignment.submission_rate}%` }}
                         />
                       </div>
@@ -565,7 +565,7 @@ export default function AssignmentOverview() {
                       <span>Creada {formatDate(assignment.created_at)}</span>
                       <button
                         onClick={() => handleViewDetails(assignment.id)}
-                        className="text-[#00365b] hover:text-[#00365b]/80 font-medium"
+                        className="text-[#0a0a0a] hover:text-[#0a0a0a]/80 font-medium"
                       >
                         Ver detalles →
                       </button>
@@ -580,7 +580,7 @@ export default function AssignmentOverview() {
                   <button
                     onClick={handleLoadMore}
                     disabled={loadingMore}
-                    className="px-6 py-3 bg-[#00365b] text-white rounded-lg hover:bg-[#00365b]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-6 py-3 bg-[#0a0a0a] text-white rounded-lg hover:bg-[#0a0a0a]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {loadingMore ? (
                       <>

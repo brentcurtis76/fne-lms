@@ -38,7 +38,7 @@ const colors = {
 };
 
 async function main() {
-  console.log('🔧 FNE LMS - Fix Competing Authentication Listeners\n');
+  console.log('🔧 Genera - Fix Competing Authentication Listeners\n');
   console.log('This script will fix the authentication issues by removing competing listeners.\n');
 
   // Check if backup exists
@@ -157,7 +157,7 @@ async function main() {
     
     // Write the new AuthContext
     const newAuthContext = `/**
- * Global Authentication Context for FNE LMS
+ * Global Authentication Context for Genera
  * Refactored to use SessionContextProvider as single source of truth
  * No competing onAuthStateChange listeners
  */

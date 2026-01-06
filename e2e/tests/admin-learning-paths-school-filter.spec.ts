@@ -1,23 +1,21 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, TEST_USERS } from '../utils/auth-helpers';
+import { loginAsRole, setupTestData, cleanupTestData } from '../helpers/test-utils';
 
-// Skip this test suite - requires test data setup that doesn't exist
-test.describe.skip('Learning Path School Filtering', () => {
-  // These values would need to be set up by a proper test fixture
-  const testPathId = 'placeholder-path-id';
-  const testSchoolId = 'placeholder-school-id';
+test.describe('Learning Path School Filtering', () => {
+  let testPathId: string;
+  let testSchoolId: string;
+  
+  test.beforeAll(async ({ request }) => {
+    // Setup test data: create a learning path and school with users
+    const setupData = await setupTestData(request);
+    testPathId = setupData.pathId;
+    testSchoolId = setupData.schoolId;
+  });
 
-  // Helper to login as a specific role using existing auth helpers
-  async function loginAsRole(page: any, role: string) {
-    const roleMap: Record<string, keyof typeof TEST_USERS> = {
-      'admin': 'admin',
-      'equipo_directivo': 'director',
-      'consultor': 'consultant',
-      'estudiante': 'student'
-    };
-    const mappedRole = roleMap[role] || 'admin';
-    await loginAs(page, mappedRole);
-  }
+  test.afterAll(async ({ request }) => {
+    // Cleanup test data
+    await cleanupTestData(request, { pathId: testPathId, schoolId: testSchoolId });
+  });
 
   test.describe('Admin Role', () => {
     test('should filter users by school correctly', async ({ page }) => {

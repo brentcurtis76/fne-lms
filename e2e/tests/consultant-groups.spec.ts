@@ -4,7 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { loginAs, logout } from '../utils/auth-helpers';
+import { loginAsQA as loginAs, logout } from '../utils/auth-helpers';
 import {
   navigateToGroupAssignments,
   openGroupManagementModal,

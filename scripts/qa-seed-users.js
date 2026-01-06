@@ -49,6 +49,12 @@ const TEST_USERS = [
     role: 'docente',
     full_name: 'TEST_QA Docente User',
   },
+  {
+    email: 'test_qa_consultant@test.com',
+    password: 'TestQA2025!',
+    role: 'consultor',
+    full_name: 'TEST_QA Consultant User',
+  },
 ];
 
 async function getSchoolId() {
@@ -137,6 +143,7 @@ async function createUser(user, schoolId) {
       first_name: nameParts[0] || '',
       last_name: nameParts.slice(1).join(' ') || '',
       school_id: (user.role === 'equipo_directivo' || user.role === 'docente') ? schoolId : null,
+      approval_status: 'approved',  // Set to approved so login redirects work
       created_at: new Date().toISOString(),
     });
 

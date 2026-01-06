@@ -1,5 +1,6 @@
 import { test, expect, Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
+import { loginAsQA, TEST_QA_USERS } from '../utils/auth-helpers';
 
 // Supabase client for test data manipulation
 const supabase = createClient(
@@ -8,30 +9,48 @@ const supabase = createClient(
   { auth: { persistSession: false } }
 );
 
-// Test users
-const SUPERADMIN = {
-  email: 'brent@perrotuertocm.cl',
-  password: process.env.SUPERADMIN_PASSWORD || 'temp-password'
+// Map role names to TEST_QA user types
+const ROLE_TO_QA_USER: Record<string, keyof typeof TEST_QA_USERS | null> = {
+  admin: 'admin',
+  consultor: 'consultant',
+  docente: 'docente',
+  directivo: 'directivo',
+  equipo_directivo: 'directivo',
+  community_manager: null, // No TEST_QA user for this role
+  supervisor: null, // No TEST_QA user for this role
+  lider_comunidad: null,
+  lider_generacion: null
 };
 
-const TEST_USERS = {
-  admin: { email: 'test.admin@fne-test.com', password: 'TestAdmin123!' },
-  consultor: { email: 'test.consultor@fne-test.com', password: 'TestConsultor123!' },
-  docente: { email: 'test.docente@fne-test.com', password: 'TestDocente123!' },
-  directivo: { email: 'test.directivo@fne-test.com', password: 'TestDirectivo123!' },
-  community_manager: { email: 'test.community.manager@fne-test.com', password: 'TestCommunityManager123!' },
-  supervisor: { email: 'test.supervisor@fne-test.com', password: 'TestSupervisor123!' },
-  lider_comunidad: { email: 'test.lider.comunidad@fne-test.com', password: 'TestLiderComunidad123!' },
-  lider_generacion: { email: 'test.lider.generacion@fne-test.com', password: 'TestLiderGeneracion123!' }
-};
-
-// Helper: Login function
+// Helper: Login function using TEST_QA users
 async function login(page: Page, email: string, password: string) {
-  await page.goto('http://localhost:3000/login');
-  await page.fill('input[type="email"]', email);
-  await page.fill('input[type="password"]', password);
-  await page.click('button[type="submit"]');
-  await page.waitForURL('**/dashboard', { timeout: 10000 });
+  // Try to find matching TEST_QA user by email pattern
+  if (email.includes('test_qa_admin')) {
+    await loginAsQA(page, 'admin');
+  } else if (email.includes('test_qa_directivo') || email.includes('directivo')) {
+    await loginAsQA(page, 'directivo');
+  } else if (email.includes('test_qa_docente') || email.includes('docente')) {
+    await loginAsQA(page, 'docente');
+  } else if (email.includes('test_qa_consultant') || email.includes('consultor')) {
+    await loginAsQA(page, 'consultant');
+  } else {
+    // Fallback to direct login for non-TEST_QA users
+    await page.goto('http://localhost:3000/login');
+    await page.fill('input[type="email"]', email);
+    await page.fill('input[type="password"]', password);
+    await page.click('button[type="submit"]');
+    await page.waitForURL('**/dashboard', { timeout: 15000 });
+  }
+}
+
+// Helper: Login by role type
+async function loginAsRole(page: Page, roleType: string) {
+  const qaUserType = ROLE_TO_QA_USER[roleType];
+  if (qaUserType) {
+    await loginAsQA(page, qaUserType);
+  } else {
+    throw new Error(`No TEST_QA user available for role: ${roleType}`);
+  }
 }
 
 // Helper: Get permission from database
@@ -81,7 +100,7 @@ test.describe('RBAC Production Readiness Tests', () => {
 
       // Navigate to RBAC page
       await page.goto('http://localhost:3000/admin/role-management');
-      await expect(page.locator('h1')).toContainText('Gestión de Roles y Permisos');
+      await expect(page.locator('h1').first()).toContainText('Gestión de Roles y Permisos');
 
       // Find docente row and create_news_all permission
       const initialValue = await getPermission('docente', 'create_news_all');

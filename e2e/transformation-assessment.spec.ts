@@ -10,26 +10,15 @@
  */
 
 import { test, expect } from '@playwright/test';
-
-// Test user credentials (use QA test users)
-const TEST_USER = {
-  email: process.env.TEST_USER_EMAIL || 'docente.test1@fne-lms.test',
-  password: process.env.TEST_USER_PASSWORD || 'Prueba2025!',
-};
+import { loginAsQA } from './utils/auth-helpers';
 
 // Base URL
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 test.describe('Transformation Assessment Flow', () => {
   test.beforeEach(async ({ page }) => {
-    // Login
-    await page.goto(`${BASE_URL}/login`);
-    await page.fill('input[type="email"]', TEST_USER.email);
-    await page.fill('input[type="password"]', TEST_USER.password);
-    await page.click('button[type="submit"]');
-
-    // Wait for redirect after login
-    await page.waitForURL(/\/(dashboard|community)/);
+    // Login as docente using TEST_QA user
+    await loginAsQA(page, 'docente');
   });
 
   test.describe('Evaluación Area (2 objectives)', () => {

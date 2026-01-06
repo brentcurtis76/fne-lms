@@ -11,7 +11,7 @@
  */
 
 import { test, expect, Page } from '@playwright/test';
-import { loginAs, loginAsQA, logout, TEST_USERS, TEST_QA_USERS } from '../utils/auth-helpers';
+import { loginAsQA, logout, TEST_QA_USERS } from '../utils/auth-helpers';
 
 // Use single worker to avoid auth session conflicts
 test.describe.configure({ mode: 'serial' });

@@ -1,16 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { loginAsQA } from '../utils/auth-helpers';
 
 test.describe('Learning Path Analytics Dashboard - Basic Tests', () => {
   test('should successfully load analytics tab and display basic components', async ({ page }) => {
-    // 1. Login as the existing admin user
-    await page.goto('/login');
-    
-    await page.fill('input[type="email"]', 'brent@perrotuertocm.cl');
-    await page.fill('input[type="password"]', 'NuevaEdu2025!');
-    await page.click('button[type="submit"]');
-    
-    // Wait for login to complete
-    await expect(page).toHaveURL(/\/dashboard/);
+    // 1. Login as admin using TEST_QA user
+    await loginAsQA(page, 'admin');
     
     // 2. Navigate to reports page
     await page.goto('/reports');
@@ -58,13 +52,9 @@ test.describe('Learning Path Analytics Dashboard - Basic Tests', () => {
   });
 
   test('should handle date range filter interactions', async ({ page }) => {
-    // Login as admin
-    await page.goto('/login');
-    await page.fill('input[type="email"]', 'brent@perrotuertocm.cl');
-    await page.fill('input[type="password"]', 'NuevaEdu2025!');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/dashboard/);
-    
+    // Login as admin using TEST_QA user
+    await loginAsQA(page, 'admin');
+
     // Navigate to reports and learning paths tab
     await page.goto('/reports');
     await page.click('nav.-mb-px.flex.space-x-8 button:has-text("Rutas de Aprendizaje")');
@@ -107,13 +97,9 @@ test.describe('Learning Path Analytics Dashboard - Basic Tests', () => {
   });
 
   test('should maintain tab state when switching between tabs', async ({ page }) => {
-    // Login as admin
-    await page.goto('/login');
-    await page.fill('input[type="email"]', 'brent@perrotuertocm.cl');
-    await page.fill('input[type="password"]', 'NuevaEdu2025!');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/dashboard/);
-    
+    // Login as admin using TEST_QA user
+    await loginAsQA(page, 'admin');
+
     // Navigate to reports
     await page.goto('/reports');
     
@@ -135,13 +121,9 @@ test.describe('Learning Path Analytics Dashboard - Basic Tests', () => {
   });
 
   test('should display proper error handling when API fails', async ({ page }) => {
-    // Login as admin
-    await page.goto('/login');
-    await page.fill('input[type="email"]', 'brent@perrotuertocm.cl');
-    await page.fill('input[type="password"]', 'NuevaEdu2025!');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/dashboard/);
-    
+    // Login as admin using TEST_QA user
+    await loginAsQA(page, 'admin');
+
     // Mock API failure by intercepting and failing the analytics request
     await page.route('**/api/learning-paths/analytics**', route => {
       route.fulfill({
@@ -168,14 +150,10 @@ test.describe('Learning Path Analytics Dashboard - Basic Tests', () => {
   test('should have proper responsive layout on different screen sizes', async ({ page }) => {
     // Test desktop size first
     await page.setViewportSize({ width: 1200, height: 800 });
-    
-    // Login as admin
-    await page.goto('/login');
-    await page.fill('input[type="email"]', 'brent@perrotuertocm.cl');
-    await page.fill('input[type="password"]', 'NuevaEdu2025!');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/dashboard/);
-    
+
+    // Login as admin using TEST_QA user
+    await loginAsQA(page, 'admin');
+
     // Navigate to analytics
     await page.goto('/reports');
     await page.click('nav.-mb-px.flex.space-x-8 button:has-text("Rutas de Aprendizaje")');

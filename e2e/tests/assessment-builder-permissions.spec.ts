@@ -11,7 +11,7 @@
  */
 
 import { test, expect, Page } from '@playwright/test';
-import { loginAs, logout, TEST_USERS } from '../utils/auth-helpers';
+import { loginAsQA as loginAs, logout, TEST_QA_USERS as TEST_USERS } from '../utils/auth-helpers';
 
 // Skip if running against production
 test.beforeAll(async () => {

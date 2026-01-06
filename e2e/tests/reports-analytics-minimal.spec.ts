@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { loginAsQA } from '../utils/auth-helpers';
 
 /**
  * Minimal E2E test for Learning Path Analytics Dashboard
@@ -6,15 +7,8 @@ import { test, expect } from '@playwright/test';
  */
 test.describe('Learning Path Analytics Dashboard - Critical Path', () => {
   test('should load analytics dashboard and display components without errors', async ({ page }) => {
-    // Step 1: Login as admin user
-    await page.goto('/login');
-    
-    await page.fill('input[type="email"]', 'brent@perrotuertocm.cl');
-    await page.fill('input[type="password"]', 'NuevaEdu2025!');
-    await page.click('button[type="submit"]');
-    
-    // Wait for successful login
-    await expect(page).toHaveURL(/\/dashboard/);
+    // Step 1: Login as admin using TEST_QA user
+    await loginAsQA(page, 'admin');
     console.log('✅ Admin login successful');
     
     // Step 2: Navigate to reports page
@@ -69,13 +63,9 @@ test.describe('Learning Path Analytics Dashboard - Critical Path', () => {
   });
 
   test('should handle API errors gracefully', async ({ page }) => {
-    // Login as admin
-    await page.goto('/login');
-    await page.fill('input[type="email"]', 'brent@perrotuertocm.cl');
-    await page.fill('input[type="password"]', 'NuevaEdu2025!');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/dashboard/);
-    
+    // Login as admin using TEST_QA user
+    await loginAsQA(page, 'admin');
+
     // Intercept API call and force error
     await page.route('**/api/learning-paths/analytics**', route => {
       route.fulfill({
@@ -98,13 +88,9 @@ test.describe('Learning Path Analytics Dashboard - Critical Path', () => {
   });
 
   test('should maintain analytics tab functionality after navigation', async ({ page }) => {
-    // Login and navigate to analytics
-    await page.goto('/login');
-    await page.fill('input[type="email"]', 'brent@perrotuertocm.cl');
-    await page.fill('input[type="password"]', 'NuevaEdu2025!');
-    await page.click('button[type="submit"]');
-    await expect(page).toHaveURL(/\/dashboard/);
-    
+    // Login as admin using TEST_QA user
+    await loginAsQA(page, 'admin');
+
     await page.goto('/reports');
     
     // Go to analytics tab

@@ -10,7 +10,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { loginAs } from './utils/auth-helpers';
+import { loginAsQA as loginAs } from './utils/auth-helpers';
 import {
   createCompleteTestCourse,
   createCourseViaUI,

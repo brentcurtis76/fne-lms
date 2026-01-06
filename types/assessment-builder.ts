@@ -34,6 +34,8 @@ export type InstanceStatus = 'pending' | 'in_progress' | 'completed' | 'archived
 
 export type PeriodSystem = 'semestral' | 'trimestral';
 
+export type GenerationType = 'GT' | 'GI';
+
 export type GradeLevel =
   | 'medio_menor'
   | 'medio_mayor'
@@ -281,6 +283,48 @@ export interface SchoolCourseDocenteAssignment {
 }
 
 // ============================================================
+// GRADES
+// ============================================================
+
+export interface Grade {
+  id: number;
+  name: string;
+  sort_order: number;
+  is_always_gt: boolean;
+}
+
+// ============================================================
+// MIGRATION PLAN
+// ============================================================
+
+export interface MigrationPlanEntry {
+  id: number;
+  school_id: number;
+  year_number: 1 | 2 | 3 | 4 | 5;
+  grade_id: number;
+  generation_type: GenerationType;
+  created_at?: string;
+  updated_at?: string;
+  // Relation (when loaded)
+  grade?: Grade;
+}
+
+export interface SaveMigrationPlanRequest {
+  entries: Array<{
+    year_number: 1 | 2 | 3 | 4 | 5;
+    grade_id: number;
+    generation_type: GenerationType;
+  }>;
+}
+
+export interface MigrationPlanResponse {
+  success: boolean;
+  entries: MigrationPlanEntry[];
+  transformation_year?: number;
+  warning?: string;
+}
+
+// ============================================================
 // ASSESSMENT TEMPLATES
 // ============================================================
 
@@ -297,6 +341,9 @@ export interface AssessmentTemplate {
   created_by?: string;
   created_at: string;
   updated_at: string;
+  // Grade field
+  grade_id?: number;
+  grade?: Grade;
   // Archive fields
   is_archived?: boolean;
   archived_at?: string;
@@ -341,7 +388,6 @@ export interface AssessmentIndicator {
   module_id: string;
   code?: string;
   name: string;
-  question?: string; // User-friendly question displayed to docentes (falls back to name if empty)
   description?: string;
   category: IndicatorCategory;
   frequency_config?: FrequencyConfig;
@@ -383,6 +429,7 @@ export interface AssessmentYearExpectation {
   id: string;
   template_id: string;
   indicator_id: string;
+  generation_type: GenerationType; // GT or GI
   year_1_expected?: number;
   year_1_expected_unit?: FrequencyUnit;
   year_2_expected?: number;
@@ -537,12 +584,14 @@ export interface CreateTemplateRequest {
   area: TransformationArea;
   name: string;
   description?: string;
+  grade_id?: number;
 }
 
 export interface UpdateTemplateRequest {
   name?: string;
   description?: string;
   scoring_config?: Partial<ScoringConfig>;
+  grade_id?: number;
 }
 
 // Module CRUD
@@ -570,7 +619,6 @@ export interface CreateIndicatorRequest {
   module_id: string;
   code?: string;
   name: string;
-  question?: string;
   description?: string;
   category: IndicatorCategory;
   frequency_config?: FrequencyConfig;
@@ -586,7 +634,6 @@ export interface CreateIndicatorRequest {
 export interface UpdateIndicatorRequest {
   code?: string;
   name?: string;
-  question?: string;
   description?: string;
   category?: IndicatorCategory;
   frequency_config?: FrequencyConfig;

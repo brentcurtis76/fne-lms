@@ -472,7 +472,7 @@ export default function Dashboard() {
                   ¡Hola, {profileName?.split(' ')[0] || 'Usuario'}!
                 </h1>
                 <p className="text-gray-600 mt-1">
-                  Bienvenido de vuelta a tu espacio de aprendizaje
+                  Bienvenido de vuelta al hub de transformación de tu colegio
                 </p>
               </div>
             </div>

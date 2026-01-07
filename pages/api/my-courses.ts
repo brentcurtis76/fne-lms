@@ -17,7 +17,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userId = session.user.id;
 
-    // Fetch enrollments with course details
+    // Fetch enrollments with course details and instructor
+    // After applying migration, photo_url will be available
     const { data: enrollments, error } = await supabase
       .from('course_enrollments')
       .select(`
@@ -28,7 +29,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           id,
           title,
           description,
-          thumbnail_url
+          thumbnail_url,
+          estimated_duration_hours,
+          difficulty_level,
+          learning_objectives,
+          instructors (
+            id,
+            full_name,
+            photo_url
+          )
         )
       `)
       .eq('user_id', userId)
@@ -60,6 +69,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           title: enrollment.courses.title,
           description: enrollment.courses.description,
           thumbnail_url: enrollment.courses.thumbnail_url,
+          estimated_duration_hours: enrollment.courses.estimated_duration_hours || null,
+          difficulty_level: enrollment.courses.difficulty_level || null,
+          learning_objectives: enrollment.courses.learning_objectives || null,
+          instructor: enrollment.courses.instructors || null,
           progress_percentage: 0,
           lessons_completed: 0,
           total_lessons: 0,
@@ -108,6 +121,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         title: enrollment.courses.title,
         description: enrollment.courses.description,
         thumbnail_url: enrollment.courses.thumbnail_url,
+        estimated_duration_hours: enrollment.courses.estimated_duration_hours || null,
+        difficulty_level: enrollment.courses.difficulty_level || null,
+        learning_objectives: enrollment.courses.learning_objectives || null,
+        instructor: enrollment.courses.instructors || null,
         progress_percentage: progressPercentage,
         lessons_completed: completedLessons,
         total_lessons: totalLessons,

@@ -85,7 +85,7 @@ const NewReportingPreview: React.FC = () => {
             </p>
             <button
               onClick={() => router.push('/dashboard')}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-brand_primary text-white rounded-md hover:bg-gray-800 transition-colors"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Volver al Dashboard
@@ -100,24 +100,24 @@ const NewReportingPreview: React.FC = () => {
     <MainLayout>
       <div className="space-y-6">
         {/* Preview Header */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="bg-brand_beige border border-brand_accent rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-lg font-semibold text-blue-900">
-                🚀 Vista Previa: Nuevo Dashboard de Reportes
+              <h1 className="text-lg font-semibold text-brand_primary">
+                Vista Previa: Nuevo Dashboard de Reportes
               </h1>
-              <p className="text-sm text-blue-700 mt-1">
-                Esta es una vista previa del sistema de reportes rediseñado. 
+              <p className="text-sm text-gray-700 mt-1">
+                Esta es una vista previa del sistema de reportes rediseñado.
                 Incluye analytics colaborativos y diseño basado en tarjetas modulares.
               </p>
             </div>
             <div className="flex items-center space-x-2">
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-brand_accent/20 text-amber-700">
                 Rol: {userRole}
               </span>
               <button
                 onClick={() => router.push('/reports')}
-                className="text-sm text-blue-600 hover:text-blue-800 underline"
+                className="text-sm text-brand_primary hover:text-gray-800 underline"
               >
                 Ver reportes actuales
               </button>

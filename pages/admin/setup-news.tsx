@@ -68,15 +68,15 @@ export default function SetupNews() {
       <div className="space-y-4">
         <button
           onClick={testConnection}
-          className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          className="w-full px-4 py-2 bg-brand_primary text-white rounded hover:bg-gray-800"
         >
           Test News Table
         </button>
-        
+
         <button
           onClick={createNewsTable}
           disabled={creating}
-          className="w-full px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+          className="w-full px-4 py-2 bg-brand_accent text-brand_primary rounded hover:bg-amber-400 disabled:opacity-50"
         >
           {creating ? 'Setting up...' : 'Setup News System'}
         </button>

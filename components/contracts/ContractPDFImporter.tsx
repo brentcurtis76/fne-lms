@@ -221,14 +221,14 @@ export default function ContractPDFImporter({
 
   // Get confidence color
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'text-green-600 bg-green-50';
+    if (confidence >= 0.8) return 'text-brand_accent bg-amber-50';
     if (confidence >= 0.6) return 'text-yellow-600 bg-yellow-50';
     return 'text-red-600 bg-red-50';
   };
 
   // Get confidence icon
   const getConfidenceIcon = (confidence: number) => {
-    if (confidence >= 0.8) return <CheckCircle size={16} className="text-green-600" />;
+    if (confidence >= 0.8) return <CheckCircle size={16} className="text-brand_accent" />;
     if (confidence >= 0.6) return <AlertCircle size={16} className="text-yellow-600" />;
     return <XCircle size={16} className="text-red-600" />;
   };
@@ -309,7 +309,7 @@ export default function ContractPDFImporter({
             onChange={(e) => handleFieldEdit(path, e.target.value)}
             onBlur={() => setEditingField(null)}
             onKeyPress={(e) => e.key === 'Enter' && setEditingField(null)}
-            className="w-full px-2 py-1 border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-2 py-1 border border-brand_accent rounded focus:outline-none focus:ring-2 focus:ring-brand_accent"
             autoFocus
           />
         ) : (
@@ -344,7 +344,7 @@ export default function ContractPDFImporter({
               <div
                 onDrop={handleDrop}
                 onDragOver={(e) => e.preventDefault()}
-                className="h-full flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 transition-colors"
+                className="h-full flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg hover:border-brand_accent transition-colors"
               >
                 <Upload size={48} className="text-gray-400 mb-4" />
                 <p className="text-lg font-medium text-gray-700 mb-2">
@@ -360,7 +360,7 @@ export default function ContractPDFImporter({
                     onChange={handleFileSelect}
                     className="hidden"
                   />
-                  <span className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                  <span className="px-4 py-2 bg-brand_primary text-white rounded-lg hover:bg-gray-800 transition-colors">
                     Seleccionar archivo
                   </span>
                 </label>
@@ -369,7 +369,7 @@ export default function ContractPDFImporter({
               <div className="h-full flex flex-col relative">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center">
-                    <FileText size={24} className="text-blue-600 mr-2" />
+                    <FileText size={24} className="text-brand_primary mr-2" />
                     <span className="font-medium">{pdfFile.name}</span>
                   </div>
                   <button
@@ -435,28 +435,28 @@ export default function ContractPDFImporter({
                   {extracting ? (
                     <div className="flex flex-col items-center justify-center max-w-md">
                       <div className="relative mb-6">
-                        <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-200 border-t-blue-600"></div>
+                        <div className="animate-spin rounded-full h-20 w-20 border-4 border-amber-200 border-t-brand_accent"></div>
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <FileText className="text-blue-600 animate-pulse" size={32} />
+                          <FileText className="text-brand_primary animate-pulse" size={32} />
                         </div>
                       </div>
                       <p className="text-gray-900 font-bold text-xl mb-4">Extrayendo información...</p>
                       <div className="space-y-3 text-center mb-6">
                         <div className="flex items-center justify-center space-x-2">
-                          <span className="text-green-500 text-lg">✓</span>
+                          <span className="text-brand_accent text-lg">✓</span>
                           <p className="text-gray-700 text-sm">PDF cargado correctamente</p>
                         </div>
                         <div className="flex items-center justify-center space-x-2">
-                          <span className="text-green-500 text-lg">✓</span>
+                          <span className="text-brand_accent text-lg">✓</span>
                           <p className="text-gray-700 text-sm">Procesando texto del documento</p>
                         </div>
                         <div className="flex items-center justify-center space-x-2 animate-pulse">
-                          <Loader className="text-blue-600 animate-spin" size={16} />
+                          <Loader className="text-brand_primary animate-spin" size={16} />
                           <p className="text-gray-700 text-sm font-medium">Identificando datos del contrato...</p>
                         </div>
                       </div>
-                      <div className="bg-gradient-to-r from-blue-50 to-slate-50 px-6 py-3 rounded-lg border border-blue-200">
-                        <p className="text-blue-800 text-sm font-semibold">
+                      <div className="bg-gradient-to-r from-amber-50 to-slate-50 px-6 py-3 rounded-lg border border-brand_accent">
+                        <p className="text-brand_primary text-sm font-semibold">
                           Claude AI está analizando su documento
                         </p>
                       </div>
@@ -488,12 +488,12 @@ export default function ContractPDFImporter({
 
                 {/* Existing client alert */}
                 {existingClient && (
-                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="p-4 bg-brand_beige border border-brand_accent rounded-lg">
                     <div className="flex items-start">
-                      <AlertCircle className="text-blue-600 mr-2 flex-shrink-0" size={20} />
+                      <AlertCircle className="text-brand_primary mr-2 flex-shrink-0" size={20} />
                       <div>
-                        <p className="font-medium text-blue-900">Cliente existente encontrado</p>
-                        <p className="text-blue-700 text-sm mt-1">
+                        <p className="font-medium text-brand_primary">Cliente existente encontrado</p>
+                        <p className="text-gray-700 text-sm mt-1">
                           Se encontró el cliente "{existingClient.nombre_legal}" con el mismo RUT.
                           Los datos del cliente se usarán automáticamente.
                         </p>
@@ -624,7 +624,7 @@ export default function ContractPDFImporter({
             <button
               onClick={handleConfirm}
               disabled={!extractedData || extracting}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-brand_primary text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               Confirmar e Importar
             </button>

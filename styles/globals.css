@@ -74,3 +74,13 @@ select {
 .tiptap-editor p {
   @apply my-2;
 }
+
+/* Hide scrollbar utility for Netflix-style horizontal scroll */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}

@@ -60,7 +60,7 @@ export default function FormUsage() {
     return (
       <MainLayout>
         <div className="flex justify-center items-center min-h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand_primary"></div>
         </div>
       </MainLayout>
     );
@@ -74,14 +74,14 @@ export default function FormUsage() {
     if (percentage >= 90) return 'bg-red-600';
     if (percentage >= 80) return 'bg-orange-500';
     if (percentage >= 70) return 'bg-yellow-500';
-    return 'bg-green-500';
+    return 'bg-brand_accent';
   };
 
   const getUsageTextColor = (percentage: number) => {
     if (percentage >= 90) return 'text-red-600';
     if (percentage >= 80) return 'text-orange-600';
     if (percentage >= 70) return 'text-yellow-600';
-    return 'text-green-600';
+    return 'text-brand_accent';
   };
 
   return (
@@ -196,25 +196,25 @@ export default function FormUsage() {
             </div>
 
             {/* Upgrade Info */}
-            <div className="mt-8 bg-blue-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-blue-900 mb-2">
+            <div className="mt-8 bg-brand_beige rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-brand_primary mb-2">
                 Información del Plan
               </h3>
-              <p className="text-blue-700">
+              <p className="text-gray-700">
                 Actualmente estás usando el plan gratuito de Formspree (50 emails/mes).
               </p>
-              <p className="text-blue-700 mt-2">
+              <p className="text-gray-700 mt-2">
                 Si necesitas más envíos, considera actualizar a:
               </p>
-              <ul className="mt-2 space-y-1 text-blue-700">
+              <ul className="mt-2 space-y-1 text-gray-700">
                 <li>• <strong>Gold ($8/mes):</strong> 1,000 envíos mensuales</li>
                 <li>• <strong>Platinum ($40/mes):</strong> 5,000 envíos mensuales</li>
               </ul>
-              <a 
-                href="https://formspree.io/forms/mblkwada/settings/billing" 
-                target="_blank" 
+              <a
+                href="https://formspree.io/forms/mblkwada/settings/billing"
+                target="_blank"
                 rel="noopener noreferrer"
-                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-brand_primary hover:bg-gray-800"
               >
                 Actualizar Plan en Formspree →
               </a>

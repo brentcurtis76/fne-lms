@@ -106,19 +106,19 @@ export default function QuizReviewsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Tiempo promedio</p>
-                  <p className="text-2xl font-bold text-blue-600">~15 min</p>
+                  <p className="text-2xl font-bold text-brand_primary">~15 min</p>
                 </div>
-                <ClipboardCheckIcon className="w-8 h-8 text-blue-600 opacity-50" />
+                <ClipboardCheckIcon className="w-8 h-8 text-brand_primary opacity-50" />
               </div>
             </div>
-            
+
             <div className="bg-white rounded-lg shadow-md p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Revisados hoy</p>
-                  <p className="text-2xl font-bold text-green-600">0</p>
+                  <p className="text-2xl font-bold text-brand_accent">0</p>
                 </div>
-                <UserGroupIcon className="w-8 h-8 text-green-600 opacity-50" />
+                <UserGroupIcon className="w-8 h-8 text-brand_accent opacity-50" />
               </div>
             </div>
           </div>
@@ -128,8 +128,8 @@ export default function QuizReviewsPage() {
             <button
               onClick={() => setFilter('my_courses')}
               className={`px-4 py-2 rounded-md transition ${
-                filter === 'my_courses' 
-                  ? 'bg-brand_blue text-white' 
+                filter === 'my_courses'
+                  ? 'bg-brand_primary text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -139,8 +139,8 @@ export default function QuizReviewsPage() {
               <button
                 onClick={() => setFilter('all')}
                 className={`px-4 py-2 rounded-md transition ${
-                  filter === 'all' 
-                    ? 'bg-brand_blue text-white' 
+                  filter === 'all'
+                    ? 'bg-brand_primary text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -199,7 +199,7 @@ export default function QuizReviewsPage() {
                       
                       <Link
                         href={`/quiz-reviews/${review.id}`}
-                        className="ml-4 px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700 transition text-sm"
+                        className="ml-4 px-4 py-2 bg-brand_primary text-white rounded-md hover:bg-gray-800 transition text-sm"
                       >
                         Revisar
                       </Link>

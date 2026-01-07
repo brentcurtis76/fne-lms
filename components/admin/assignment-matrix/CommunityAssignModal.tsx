@@ -151,9 +151,9 @@ export function CommunityAssignModal({
 
           {/* Last result indicator */}
           {lastResult && (
-            <div className="mx-6 mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-              <div className="text-sm text-green-800">
+            <div className="mx-6 mt-4 p-3 bg-brand_beige border border-brand_accent rounded-lg flex items-center gap-3">
+              <CheckCircle className="h-5 w-5 text-brand_accent flex-shrink-0" />
+              <div className="text-sm text-gray-800">
                 <span className="font-medium">{lastResult.type === 'course' ? 'Curso' : 'Ruta'} "{lastResult.title}":</span>
                 {lastResult.assigned > 0
                   ? ` ${lastResult.assigned} asignado(s)${lastResult.skipped > 0 ? `, ${lastResult.skipped} ya tenían asignación` : ''}`
@@ -174,10 +174,10 @@ export function CommunityAssignModal({
                 onChange={(e) => onSearchChange(e.target.value)}
                 disabled={disabled}
                 autoFocus
-                className="w-full pl-10 pr-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                className="w-full pl-10 pr-4 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-brand_accent disabled:opacity-50"
               />
               {isSearching && (
-                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-blue-500 animate-spin" />
+                <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-brand_primary animate-spin" />
               )}
             </div>
           </div>
@@ -226,7 +226,7 @@ export function CommunityAssignModal({
                         <button
                           onClick={() => handleAssignCourse(course)}
                           disabled={disabled || isAssigning}
-                          className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-brand_primary text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           {isAssigning ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -267,14 +267,14 @@ export function CommunityAssignModal({
                               {lp.description}
                             </p>
                           )}
-                          <p className="text-xs text-blue-600 mt-2">
+                          <p className="text-xs text-brand_primary mt-2">
                             {lp.courseCount} cursos incluidos
                           </p>
                         </div>
                         <button
                           onClick={() => handleAssignLP(lp)}
                           disabled={disabled || isAssigning}
-                          className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-brand_primary text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           {isAssigning ? (
                             <Loader2 className="h-4 w-4 animate-spin" />

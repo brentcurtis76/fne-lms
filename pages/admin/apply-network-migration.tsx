@@ -84,8 +84,8 @@ const ApplyNetworkMigration: React.FC = () => {
             
             {migrationStatus && (
               <div className={`p-4 rounded-lg ${
-                migrationStatus.tablesExist 
-                  ? 'bg-green-50 text-green-800' 
+                migrationStatus.tablesExist
+                  ? 'bg-amber-50 text-amber-800'
                   : 'bg-yellow-50 text-yellow-800'
               }`}>
                 <p className="font-medium">{migrationStatus.message}</p>

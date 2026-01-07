@@ -621,8 +621,8 @@ export default function ContractsPage() {
     return (
       <div className="min-h-screen bg-brand_beige flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand_blue mx-auto"></div>
-          <p className="mt-4 text-brand_blue font-medium">Cargando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand_primary mx-auto"></div>
+          <p className="mt-4 text-brand_primary font-medium">Cargando...</p>
         </div>
       </div>
     );
@@ -671,9 +671,9 @@ export default function ContractsPage() {
           <button
             onClick={() => setActiveTab('flujo')}
             className={`inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md transition-colors ${
-              activeTab === 'flujo' 
-                ? 'bg-green-600 text-white border-green-600' 
-                : 'border-green-600 text-green-600 bg-white hover:bg-green-50'
+              activeTab === 'flujo'
+                ? 'bg-brand_accent text-brand_primary border-brand_accent'
+                : 'border-brand_accent text-brand_accent bg-white hover:bg-amber-50'
             }`}
           >
             <TrendingUp size={16} className="mr-2" />
@@ -691,13 +691,13 @@ export default function ContractsPage() {
                 <div className="flex items-center space-x-4 mb-6">
                   <button
                     onClick={() => setActiveTab('lista')}
-                    className="inline-flex items-center text-brand_blue hover:text-brand_yellow transition-colors"
+                    className="inline-flex items-center text-brand_primary hover:text-brand_accent transition-colors"
                   >
                     <ArrowLeft className="mr-2" size={20} />
                     Volver a Contratos
                   </button>
                   <div className="h-6 w-px bg-gray-300"></div>
-                  <h1 className="text-3xl font-bold text-brand_blue flex items-center">
+                  <h1 className="text-3xl font-bold text-brand_primary flex items-center">
                     <FileText className="mr-3" size={32} />
                     {activeTab === 'nuevo' ? 'Crear Nuevo Contrato' : 
                      activeTab === 'nuevo-anexo' ? 'Crear Nuevo Anexo' : 
@@ -711,7 +711,7 @@ export default function ContractsPage() {
             {activeTab === 'lista' && (
               <div className="bg-white rounded-lg shadow-md overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
-                  <h2 className="text-xl font-semibold text-brand_blue">
+                  <h2 className="text-xl font-semibold text-brand_primary">
                     Contratos Registrados ({contratos.length})
                   </h2>
                 </div>
@@ -721,12 +721,12 @@ export default function ContractsPage() {
                     <table className="w-full border-collapse bg-white">
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-200">
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">N° Contrato</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Cliente</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Fecha</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Valor Total</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue">Estado</th>
-                          <th className="text-left py-4 px-4 font-semibold text-brand_blue"></th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_primary">N° Contrato</th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_primary">Cliente</th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_primary">Fecha</th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_primary">Valor Total</th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_primary">Estado</th>
+                          <th className="text-left py-4 px-4 font-semibold text-brand_primary"></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -742,11 +742,11 @@ export default function ContractsPage() {
                             );
                           })
                           .map((contrato) => (
-                          <tr key={contrato.id} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
+                          <tr key={contrato.id} className="border-b border-gray-100 hover:bg-brand_beige transition-colors">
                             <td className="py-4 px-4">
-                              <button 
+                              <button
                                 onClick={() => setSelectedContrato(contrato)}
-                                className="font-medium text-brand_blue hover:text-blue-600 hover:underline cursor-pointer"
+                                className="font-medium text-brand_primary hover:text-brand_accent hover:underline cursor-pointer"
                               >
                                 {contrato.numero_contrato}
                                 {contrato.is_anexo && (
@@ -784,15 +784,15 @@ export default function ContractsPage() {
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              <div className="font-semibold text-brand_blue">
+                              <div className="font-semibold text-brand_primary">
                                 {formatCurrency(contrato.precio_total_uf)}
                               </div>
                             </td>
                             <td className="py-4 px-4">
                               <div className="flex items-center space-x-2">
                                 <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                  contrato.estado === 'activo' 
-                                    ? 'bg-green-100 text-green-800' 
+                                  contrato.estado === 'activo'
+                                    ? 'bg-amber-100 text-amber-800'
                                     : contrato.estado === 'borrador'
                                     ? 'bg-yellow-100 text-yellow-800'
                                     : 'bg-gray-100 text-gray-600'
@@ -800,7 +800,7 @@ export default function ContractsPage() {
                                   {contrato.estado === 'activo' ? 'Activo' : contrato.estado === 'borrador' ? 'Borrador' : 'Pendiente'}
                                 </span>
                                 {contrato.incluir_en_flujo && (
-                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                  <span className="px-2 py-1 bg-brand_beige text-brand_primary rounded-full text-xs font-medium">
                                     En Flujo
                                   </span>
                                 )}
@@ -810,7 +810,7 @@ export default function ContractsPage() {
                               <div className="flex items-center space-x-2">
                                 <button
                                   onClick={() => setSelectedContrato(contrato)}
-                                  className="p-2 text-brand_blue hover:bg-blue-50 rounded-lg transition-colors"
+                                  className="p-2 text-brand_primary hover:bg-brand_beige rounded-lg transition-colors"
                                   title="Ver detalles"
                                 >
                                   <Eye size={16} />
@@ -829,7 +829,7 @@ export default function ContractsPage() {
                     <p className="text-gray-500 mb-6">Comienza creando tu primer contrato</p>
                     <button
                       onClick={() => setActiveTab('nuevo')}
-                      className="bg-brand_yellow text-brand_blue px-6 py-3 rounded-lg font-medium hover:bg-brand_yellow/90 transition-colors flex items-center mx-auto"
+                      className="bg-brand_accent text-brand_primary px-6 py-3 rounded-lg font-medium hover:bg-amber-400 transition-colors flex items-center mx-auto"
                     >
                       <Plus className="mr-2" size={20} />
                       Crear Primer Contrato
@@ -925,7 +925,7 @@ export default function ContractsPage() {
                     <div className="mb-6">
                       <p className="text-gray-700">
                         ¿Estás seguro de que deseas eliminar el contrato{' '}
-                        <span className="font-semibold text-brand_blue">{deleteModalContrato.numero_contrato}</span>?
+                        <span className="font-semibold text-brand_primary">{deleteModalContrato.numero_contrato}</span>?
                       </p>
                       <p className="text-sm text-gray-600 mt-2">
                         Se eliminarán también todas las cuotas asociadas a este contrato.

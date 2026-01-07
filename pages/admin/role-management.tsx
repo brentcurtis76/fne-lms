@@ -378,7 +378,7 @@ export default function RoleManagement() {
       >
         <div className="min-h-screen bg-gray-100 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand_primary mx-auto"></div>
             <p className="mt-4 text-gray-600">Cargando...</p>
           </div>
         </div>
@@ -428,7 +428,7 @@ export default function RoleManagement() {
                 <button
                   onClick={handleSaveChanges}
                   disabled={saving}
-                  className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                  className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-brand_primary hover:bg-gray-800 disabled:opacity-50"
                 >
                   {saving ? 'Guardando...' : 'Guardar Cambios'}
                 </button>
@@ -456,15 +456,15 @@ export default function RoleManagement() {
 
           {/* Test mode indicator */}
           {testMode && (
-            <div className="bg-blue-50 border-l-4 border-blue-400 p-4 mx-6 mt-4">
+            <div className="bg-brand_beige border-l-4 border-brand_accent p-4 mx-6 mt-4">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="h-5 w-5 text-brand_accent" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm text-blue-700">
+                  <p className="text-sm text-brand_primary">
                     <strong>Modo de Prueba Activo</strong> - Los cambios son temporales
                   </p>
                 </div>
@@ -484,7 +484,7 @@ export default function RoleManagement() {
                 onChange={(e) => {
                   // Scroll to role section or similar
                 }}
-                className="block w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-brand_accent focus:border-brand_accent"
               >
                 {roles.map(role => (
                   <option key={role} value={role}>
@@ -500,11 +500,11 @@ export default function RoleManagement() {
                   {/* Role Header */}
                   <button
                     onClick={() => toggleCategory(role)}
-                    className="w-full px-6 py-4 bg-blue-50 hover:bg-blue-100 flex justify-between items-center transition-colors"
+                    className="w-full px-6 py-4 bg-brand_beige hover:bg-amber-100 flex justify-between items-center transition-colors"
                   >
                     <div className="flex items-center gap-3">
                       <svg
-                        className={`h-5 w-5 text-blue-600 transition-transform ${expandedCategories[role] ? 'transform rotate-90' : ''}`}
+                        className={`h-5 w-5 text-brand_primary transition-transform ${expandedCategories[role] ? 'transform rotate-90' : ''}`}
                         fill="none"
                         viewBox="0 0 24 24"
                         stroke="currentColor"
@@ -541,7 +541,7 @@ export default function RoleManagement() {
                                       onClick={() => togglePermission(role, permissionKey)}
                                       className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
                                         hasPermission
-                                          ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                          ? 'bg-brand_primary text-white hover:bg-gray-800'
                                           : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                                       }`}
                                       title={`${hasPermission ? 'Desactivar' : 'Activar'} ${SCOPE_LABELS[scope]}`}
@@ -568,7 +568,7 @@ export default function RoleManagement() {
                                       onClick={() => togglePermission(role, permission)}
                                       className={`px-4 py-1 text-xs font-medium rounded transition-colors ${
                                         hasPermission
-                                          ? 'bg-green-600 text-white hover:bg-green-700'
+                                          ? 'bg-brand_accent text-white hover:bg-amber-400'
                                           : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                                       }`}
                                     >
@@ -598,7 +598,7 @@ export default function RoleManagement() {
                   }), {});
                   setExpandedCategories(newState);
                 }}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                className="text-sm text-brand_primary hover:text-gray-700 font-medium"
               >
                 {Object.values(expandedCategories).some(v => v) ? 'Colapsar Todos' : 'Expandir Todos'}
               </button>

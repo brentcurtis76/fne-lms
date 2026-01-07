@@ -134,11 +134,11 @@ export function UnassignConfirmModal({
 
           {/* Progress preservation notice */}
           {hasProgress && (
-            <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
-              <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-blue-800">
+            <div className="flex items-start gap-2 p-3 bg-brand_beige rounded-lg">
+              <Info className="h-4 w-4 text-brand_primary mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-gray-800">
                 <p className="font-medium">El progreso se conservara</p>
-                <p className="text-blue-700 mt-0.5">
+                <p className="text-gray-700 mt-0.5">
                   {progressPercent > 0
                     ? `Progreso actual: ${progressPercent}%`
                     : 'El usuario podra continuar donde lo dejo si se reasigna.'}

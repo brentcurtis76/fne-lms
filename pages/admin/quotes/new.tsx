@@ -37,7 +37,7 @@ export default function NewQuotePage() {
           toast((t) => (
             <div className="flex items-center justify-between w-full">
               <div className="flex-1">
-                <p className="font-semibold text-green-700">✅ Página web generada exitosamente</p>
+                <p className="font-semibold text-brand_accent">✅ Página web generada exitosamente</p>
                 <p className="text-sm text-gray-600 mt-1">La propuesta se abrió en una nueva pestaña</p>
                 <p className="text-xs text-gray-500 mt-2 break-all">{fullUrl}</p>
               </div>

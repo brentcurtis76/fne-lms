@@ -293,7 +293,7 @@ export default function NewsAdmin() {
                 resetForm();
                 setShowModal(true);
               }}
-              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand_primary hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_accent"
             >
               <PlusIcon className="h-5 w-5 mr-2" />
               Nueva Noticia
@@ -305,7 +305,7 @@ export default function NewsAdmin() {
         <div className="bg-white shadow rounded-lg overflow-hidden">
           {loading ? (
             <div className="p-8 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand_primary"></div>
               <p className="mt-2 text-gray-600">Cargando noticias...</p>
             </div>
           ) : articles.length === 0 ? (
@@ -376,8 +376,8 @@ export default function NewsAdmin() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          article.is_published 
-                            ? 'bg-green-100 text-green-800' 
+                          article.is_published
+                            ? 'bg-amber-100 text-amber-800'
                             : 'bg-gray-100 text-gray-800'
                         }`}>
                           {article.is_published ? 'Publicado' : 'Borrador'}
@@ -397,12 +397,12 @@ export default function NewsAdmin() {
                                   handleQuickDateCancel();
                                 }
                               }}
-                              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-brand_accent"
                               autoFocus
                             />
                             <button
                               onClick={() => handleQuickDateSave(article.id)}
-                              className="text-green-600 hover:text-green-800"
+                              className="text-brand_accent hover:text-amber-600"
                               title="Guardar"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -447,7 +447,7 @@ export default function NewsAdmin() {
                           </button>
                           <button
                             onClick={() => openEditModal(article)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-brand_primary hover:text-gray-700"
                             title="Editar"
                           >
                             <PencilIcon className="h-5 w-5" />
@@ -495,7 +495,7 @@ export default function NewsAdmin() {
                         type="text"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-brand_accent focus:border-brand_accent sm:text-sm"
                         placeholder="Título de la noticia"
                       />
                     </div>
@@ -511,10 +511,10 @@ export default function NewsAdmin() {
                           accept="image/*"
                           onChange={handleImageUpload}
                           disabled={uploading}
-                          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-brand_beige file:text-brand_primary hover:file:bg-amber-100"
                         />
                         {uploading && (
-                          <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          <div className="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-brand_primary"></div>
                         )}
                       </div>
                       {featuredImage && (
@@ -537,7 +537,7 @@ export default function NewsAdmin() {
                         type="date"
                         value={displayDate}
                         onChange={(e) => setDisplayDate(e.target.value)}
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-brand_accent focus:border-brand_accent sm:text-sm"
                         title="Selecciona la fecha que aparecerá en el artículo"
                       />
                       <p className="mt-1 text-xs text-gray-500">
@@ -566,7 +566,7 @@ export default function NewsAdmin() {
                         id="is_published"
                         checked={isPublished}
                         onChange={(e) => setIsPublished(e.target.checked)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-brand_primary focus:ring-brand_accent border-gray-300 rounded"
                       />
                       <label htmlFor="is_published" className="ml-2 block text-sm text-gray-900">
                         Publicar ahora
@@ -580,7 +580,7 @@ export default function NewsAdmin() {
                     type="button"
                     onClick={handleSave}
                     disabled={saving}
-                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                    className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-brand_primary text-base font-medium text-white hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_accent sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
                   >
                     {saving ? 'Guardando...' : (editingArticle ? 'Actualizar' : 'Crear')}
                   </button>
@@ -590,7 +590,7 @@ export default function NewsAdmin() {
                       setShowModal(false);
                       resetForm();
                     }}
-                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                    className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_accent sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                   >
                     Cancelar
                   </button>

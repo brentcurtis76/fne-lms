@@ -134,7 +134,7 @@ export default function DebugIds() {
             <div className="bg-white rounded-xl shadow-md p-6 text-center">
               <p className="text-gray-600">No courses found in the database.</p>
               <Link href="/admin/course-builder">
-                <button className="mt-4 px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-blue-700 transition">
+                <button className="mt-4 px-4 py-2 bg-[#0a0a0a] text-white rounded-lg hover:bg-gray-800 transition">
                   Create a Course
                 </button>
               </Link>
@@ -167,7 +167,7 @@ export default function DebugIds() {
                               
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <Link href={`/admin/course-builder/${course.id}/${module.id}/lessons`}>
-                                  <button className="px-3 py-1 text-xs bg-[#0a0a0a] text-white rounded hover:bg-blue-700 transition">
+                                  <button className="px-3 py-1 text-xs bg-[#0a0a0a] text-white rounded hover:bg-gray-800 transition">
                                     Go to Lessons Page
                                   </button>
                                 </Link>
@@ -189,7 +189,7 @@ export default function DebugIds() {
                         <div className="bg-gray-50 p-3 rounded-lg">
                           <p className="text-gray-500">No modules found for this course.</p>
                           <Link href={`/admin/course-builder/${course.id}/modules`}>
-                            <button className="mt-2 px-3 py-1 text-xs bg-[#0a0a0a] text-white rounded hover:bg-blue-700 transition">
+                            <button className="mt-2 px-3 py-1 text-xs bg-[#0a0a0a] text-white rounded hover:bg-gray-800 transition">
                               Create Modules
                             </button>
                           </Link>

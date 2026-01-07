@@ -50,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           structure_type,
           created_at,
           instructor_id,
-          instructor:instructors(full_name)
+          instructor:instructors(full_name, photo_url)
         `,
         { count: 'exact' }
       )
@@ -71,14 +71,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener cursos' });
     }
 
-    // Format courses with instructor_name
+    // Format courses with instructor data
     let formattedCourses = (allData || []).map((course: any) => {
       const instructorData = course.instructor;
       const instructorName = instructorData?.full_name || 'Sin instructor';
       return {
         ...course,
         instructor_name: instructorName,
-        instructor: undefined // Remove the nested object
+        instructor: instructorData ? {
+          full_name: instructorData.full_name,
+          photo_url: instructorData.photo_url || null
+        } : null
       };
     });
 

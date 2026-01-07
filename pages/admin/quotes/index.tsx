@@ -113,9 +113,9 @@ function QuotesManagementPageContent() {
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       draft: { label: 'Borrador', color: 'bg-gray-100 text-gray-700', icon: Clock },
-      sent: { label: 'Enviada', color: 'bg-blue-100 text-blue-700', icon: Send },
+      sent: { label: 'Enviada', color: 'bg-brand_beige text-brand_primary', icon: Send },
       viewed: { label: 'Vista', color: 'bg-yellow-100 text-yellow-700', icon: Eye },
-      accepted: { label: 'Aceptada', color: 'bg-green-100 text-green-700', icon: CheckCircle },
+      accepted: { label: 'Aceptada', color: 'bg-amber-100 text-amber-700', icon: CheckCircle },
       rejected: { label: 'Rechazada', color: 'bg-red-100 text-red-700', icon: Clock },
       expired: { label: 'Expirada', color: 'bg-gray-100 text-gray-500', icon: Clock },
     };
@@ -202,7 +202,7 @@ function QuotesManagementPageContent() {
                   {quotes.filter(q => ['sent', 'viewed'].includes(q.status)).length}
                 </p>
               </div>
-              <Send className="text-blue-400" size={32} />
+              <Send className="text-brand_primary" size={32} />
             </div>
           </div>
           
@@ -214,7 +214,7 @@ function QuotesManagementPageContent() {
                   {quotes.filter(q => q.status === 'accepted').length}
                 </p>
               </div>
-              <CheckCircle className="text-green-400" size={32} />
+              <CheckCircle className="text-brand_accent" size={32} />
             </div>
           </div>
           

@@ -86,8 +86,8 @@ const ConsultantAssignmentsPage: React.FC = () => {
 
   // Assignment type colors
   const assignmentTypeColors = {
-    monitoring: 'bg-blue-100 text-blue-800',
-    mentoring: 'bg-green-100 text-green-800',
+    monitoring: 'bg-brand_beige text-brand_primary',
+    mentoring: 'bg-amber-100 text-amber-800',
     evaluation: 'bg-amber-100 text-amber-800',
     support: 'bg-orange-100 text-orange-800',
     comprehensive: 'bg-slate-100 text-slate-800'
@@ -448,17 +448,17 @@ const ConsultantAssignmentsPage: React.FC = () => {
 
           {/* Stats */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">
+            <div className="bg-brand_beige p-4 rounded-lg">
+              <div className="text-2xl font-bold text-brand_primary">
                 {assignments.filter(a => a.is_active).length}
               </div>
-              <div className="text-sm text-blue-800">Asignaciones Activas</div>
+              <div className="text-sm text-brand_primary">Asignaciones Activas</div>
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">
+            <div className="bg-brand_beige p-4 rounded-lg">
+              <div className="text-2xl font-bold text-brand_accent">
                 {assignments.filter(a => a.assignment_type === 'comprehensive').length}
               </div>
-              <div className="text-sm text-green-800">Completas</div>
+              <div className="text-sm text-amber-800">Completas</div>
             </div>
             <div className="bg-amber-50 p-4 rounded-lg">
               <div className="text-2xl font-bold text-amber-600">
@@ -566,7 +566,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
                       <td className="p-4">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           isAssignmentActive(assignment)
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-brand_beige text-brand_accent'
                             : 'bg-gray-100 text-gray-800'
                         }`}>
                           {isAssignmentActive(assignment) ? 'Activa' : 'Inactiva'}
@@ -576,7 +576,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleEditAssignment(assignment)}
-                            className="text-blue-600 hover:text-blue-800 text-sm"
+                            className="text-brand_primary hover:text-gray-700 text-sm"
                           >
                             Editar
                           </button>

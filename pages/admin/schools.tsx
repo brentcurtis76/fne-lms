@@ -900,13 +900,13 @@ export default function SchoolsManagement() {
                         )}
                         {school.cliente_id && (
                           <span className="inline-flex items-center mt-2 ml-2">
-                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
+                            <span className="px-2 py-1 bg-brand_beige text-brand_accent text-xs rounded">
                               <FileText size={12} className="inline mr-1" />
                               Cliente vinculado
                             </span>
                             <button
                               onClick={() => handleEditCliente(school.cliente_id!)}
-                              className="ml-1 p-1 text-green-600 hover:text-green-800 transition-colors"
+                              className="ml-1 p-1 text-brand_accent hover:text-amber-600 transition-colors"
                               title="Editar cliente"
                             >
                               <Edit2 size={12} />
@@ -919,7 +919,7 @@ export default function SchoolsManagement() {
                       {school.has_generations === true && (
                         <button
                           onClick={() => handleAddGeneration(school)}
-                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 transition-colors"
+                          className="px-3 py-1 bg-brand_beige text-brand_primary rounded text-sm hover:bg-gray-200 transition-colors"
                         >
                           <Plus size={16} className="inline mr-1" />
                           Generación
@@ -940,7 +940,7 @@ export default function SchoolsManagement() {
                       {school.cliente_id ? (
                         <button
                           onClick={() => handleCreateContract(school)}
-                          className="p-2 text-green-600 hover:text-green-700 transition-colors"
+                          className="p-2 text-brand_accent hover:text-amber-600 transition-colors"
                           title="Crear contrato"
                         >
                           <FileText size={18} />
@@ -948,7 +948,7 @@ export default function SchoolsManagement() {
                       ) : (
                         <button
                           onClick={() => handleLinkClient(school)}
-                          className="p-2 text-blue-600 hover:text-blue-700 transition-colors"
+                          className="p-2 text-brand_primary hover:text-gray-700 transition-colors"
                           title="Vincular cliente"
                         >
                           <Plus size={18} />

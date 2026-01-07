@@ -7,7 +7,7 @@ import AnalyticsDashboard from '../components/reports/AnalyticsDashboard';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import MobileUserCard from '../components/reports/MobileUserCard';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
-import { FileText } from 'lucide-react';
+import { FileText, Users, Activity, TrendingUp, Clock, Target, Building2, BookOpen, Trophy, AlertTriangle, Check } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
@@ -355,18 +355,18 @@ export default function DetailedReports() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Smart Default Indicator */}
           {pagination?.is_smart_default && userRole === 'admin' && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                  <svg className="h-5 w-5 text-brand_accent" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-green-800">
-                    📊 Vista Inteligente: Top 10 Usuarios Más Activos
+                  <h3 className="text-sm font-medium text-amber-800">
+                    Vista Inteligente: Top 10 Usuarios Más Activos
                   </h3>
-                  <div className="mt-2 text-sm text-green-700">
+                  <div className="mt-2 text-sm text-amber-700">
                     <p>Mostrando los usuarios con mayor actividad basado en lecciones completadas, tiempo dedicado y participación reciente.</p>
                   </div>
                 </div>
@@ -378,7 +378,7 @@ export default function DetailedReports() {
                       setCurrentPage(1);
                       setPageSize(20);
                     }}
-                    className="text-xs text-green-600 hover:text-green-800 underline"
+                    className="text-xs text-amber-600 hover:text-amber-800 underline"
                   >
                     Ver todos los usuarios
                   </button>
@@ -389,18 +389,18 @@ export default function DetailedReports() {
 
           {/* Role-based Access Notice */}
           {userRole && userRole !== 'admin' && (
-            <div className="bg-brand_beige border border-brand_blue/20 rounded-lg p-4 mb-6">
+            <div className="bg-brand_beige border border-brand_primary/20 rounded-lg p-4 mb-6">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-brand_blue/60" viewBox="0 0 20 20" fill="currentColor">
+                  <svg className="h-5 w-5 text-brand_primary/60" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h3 className="text-sm font-medium text-brand_blue">
+                  <h3 className="text-sm font-medium text-brand_primary">
                     Datos Filtrados por Rol
                   </h3>
-                  <div className="mt-2 text-sm text-brand_blue/80">
+                  <div className="mt-2 text-sm text-brand_primary/80">
                     <p>Como <strong>{userRole === 'consultor' ? 'Consultor' :
                                     userRole === 'equipo_directivo' ? 'Equipo Directivo' :
                                     userRole === 'lider_generacion' ? 'Líder de Generación' :
@@ -421,7 +421,7 @@ export default function DetailedReports() {
                   onClick={() => setActiveTab('overview')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'overview'
-                      ? 'border-brand_blue text-brand_blue'
+                      ? 'border-brand_primary text-brand_primary'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -431,7 +431,7 @@ export default function DetailedReports() {
                   onClick={() => setActiveTab('detailed')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'detailed'
-                      ? 'border-brand_blue text-brand_blue'
+                      ? 'border-brand_primary text-brand_primary'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -442,7 +442,7 @@ export default function DetailedReports() {
                   onClick={() => setActiveTab('analytics')}
                   className={`py-2 px-1 border-b-2 font-medium text-sm ${
                     activeTab === 'analytics'
-                      ? 'border-brand_blue text-brand_blue'
+                      ? 'border-brand_primary text-brand_primary'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -469,52 +469,52 @@ export default function DetailedReports() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               {/* Total Users Card */}
-              <div className="bg-gradient-to-br from-brand_blue/5 to-brand_blue/10 p-6 rounded-xl shadow-sm border border-brand_blue/20 hover:shadow-md transition-shadow">
+              <div className="bg-gradient-to-br from-brand_primary/5 to-brand_primary/10 p-6 rounded-xl shadow-sm border border-brand_primary/20 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-brand_blue">{summary.total_users}</div>
-                    <div className="text-sm font-medium text-brand_blue/80 mt-1">Total Usuarios</div>
+                    <div className="text-3xl font-bold text-brand_primary">{summary.total_users}</div>
+                    <div className="text-sm font-medium text-brand_primary/80 mt-1">Total Usuarios</div>
                   </div>
-                  <div className="w-12 h-12 bg-brand_blue/20 rounded-full flex items-center justify-center">
-                    <span className="text-2xl">👥</span>
+                  <div className="w-12 h-12 bg-brand_primary/20 rounded-full flex items-center justify-center">
+                    <Users className="h-6 w-6 text-brand_primary" />
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-brand_blue/60">
+                <div className="mt-3 text-xs text-brand_primary/60">
                   Usuarios en el sistema
                 </div>
               </div>
 
               {/* Active Users Card */}
-              <div className="bg-gradient-to-br from-brand_yellow/10 to-brand_yellow/20 p-6 rounded-xl shadow-sm border border-brand_yellow/30 hover:shadow-md transition-shadow">
+              <div className="bg-gradient-to-br from-brand_accent/10 to-brand_accent/20 p-6 rounded-xl shadow-sm border border-brand_accent/30 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-yellow-800">{summary.active_users}</div>
-                    <div className="text-sm font-medium text-yellow-700 mt-1">Usuarios Activos</div>
+                    <div className="text-3xl font-bold text-amber-800">{summary.active_users}</div>
+                    <div className="text-sm font-medium text-amber-700 mt-1">Usuarios Activos</div>
                   </div>
-                  <div className="w-12 h-12 bg-brand_yellow/30 rounded-full flex items-center justify-center">
-                    <span className="text-2xl">🟢</span>
+                  <div className="w-12 h-12 bg-brand_accent/30 rounded-full flex items-center justify-center">
+                    <Activity className="h-6 w-6 text-amber-700" />
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-yellow-700">
+                <div className="mt-3 text-xs text-amber-700">
                   Activos últimos 30 días
                 </div>
               </div>
 
               {/* Average Progress Card */}
-              <div className="bg-gradient-to-br from-brand_yellow/10 to-brand_yellow/20 p-6 rounded-xl shadow-sm border border-brand_yellow/30 hover:shadow-md transition-shadow">
+              <div className="bg-gradient-to-br from-brand_accent/10 to-brand_accent/20 p-6 rounded-xl shadow-sm border border-brand_accent/30 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-yellow-800">{summary.average_completion}%</div>
-                    <div className="text-sm font-medium text-yellow-700 mt-1">Progreso Promedio</div>
+                    <div className="text-3xl font-bold text-amber-800">{summary.average_completion}%</div>
+                    <div className="text-sm font-medium text-amber-700 mt-1">Progreso Promedio</div>
                   </div>
-                  <div className="w-12 h-12 bg-brand_yellow/30 rounded-full flex items-center justify-center">
-                    <span className="text-2xl">📈</span>
+                  <div className="w-12 h-12 bg-brand_accent/30 rounded-full flex items-center justify-center">
+                    <TrendingUp className="h-6 w-6 text-amber-700" />
                   </div>
                 </div>
                 <div className="mt-3">
-                  <div className="w-full bg-brand_yellow/30 rounded-full h-2">
+                  <div className="w-full bg-brand_accent/30 rounded-full h-2">
                     <div
-                      className="bg-brand_yellow h-2 rounded-full transition-all duration-300"
+                      className="bg-brand_accent h-2 rounded-full transition-all duration-300"
                       style={{ width: `${Math.min(100, summary.average_completion)}%` }}
                     ></div>
                   </div>
@@ -522,37 +522,37 @@ export default function DetailedReports() {
               </div>
 
               {/* Total Time Card */}
-              <div className="bg-gradient-to-br from-brand_yellow/15 to-brand_yellow/25 p-6 rounded-xl shadow-sm border border-brand_yellow/40 hover:shadow-md transition-shadow">
+              <div className="bg-gradient-to-br from-brand_accent/15 to-brand_accent/25 p-6 rounded-xl shadow-sm border border-brand_accent/40 hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-yellow-800">{formatTime(summary.total_time_spent)}</div>
-                    <div className="text-sm font-medium text-yellow-700 mt-1">Tiempo Total</div>
+                    <div className="text-3xl font-bold text-amber-800">{formatTime(summary.total_time_spent)}</div>
+                    <div className="text-sm font-medium text-amber-700 mt-1">Tiempo Total</div>
                   </div>
-                  <div className="w-12 h-12 bg-brand_yellow/40 rounded-full flex items-center justify-center">
-                    <span className="text-2xl">⏰</span>
+                  <div className="w-12 h-12 bg-brand_accent/40 rounded-full flex items-center justify-center">
+                    <Clock className="h-6 w-6 text-amber-700" />
                   </div>
                 </div>
-                <div className="mt-3 text-xs text-yellow-700">
+                <div className="mt-3 text-xs text-amber-700">
                   Tiempo de estudio acumulado
                 </div>
               </div>
 
               {/* Quiz Score Card - Only show if data exists */}
               {summary.average_quiz_score && (
-                <div className="bg-gradient-to-br from-brand_blue/5 to-brand_blue/10 p-6 rounded-xl shadow-sm border border-brand_blue/20 hover:shadow-md transition-shadow">
+                <div className="bg-gradient-to-br from-brand_primary/5 to-brand_primary/10 p-6 rounded-xl shadow-sm border border-brand_primary/20 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="text-3xl font-bold text-brand_blue">{summary.average_quiz_score}%</div>
-                      <div className="text-sm font-medium text-brand_blue/80 mt-1">Quiz Promedio</div>
+                      <div className="text-3xl font-bold text-brand_primary">{summary.average_quiz_score}%</div>
+                      <div className="text-sm font-medium text-brand_primary/80 mt-1">Quiz Promedio</div>
                     </div>
-                    <div className="w-12 h-12 bg-brand_blue/20 rounded-full flex items-center justify-center">
-                      <span className="text-2xl">🎯</span>
+                    <div className="w-12 h-12 bg-brand_primary/20 rounded-full flex items-center justify-center">
+                      <Target className="h-6 w-6 text-brand_primary" />
                     </div>
                   </div>
                   <div className="mt-3">
-                    <div className="w-full bg-brand_blue/20 rounded-full h-2">
+                    <div className="w-full bg-brand_primary/20 rounded-full h-2">
                       <div
-                        className="bg-brand_blue h-2 rounded-full transition-all duration-300"
+                        className="bg-brand_primary h-2 rounded-full transition-all duration-300"
                         style={{ width: `${Math.min(100, summary.average_quiz_score)}%` }}
                       ></div>
                     </div>
@@ -566,7 +566,7 @@ export default function DetailedReports() {
               <div className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-200">
                   <h3 className="text-lg font-semibold text-gray-900">
-                    {pagination?.is_smart_default ? '🏆 Top 10 Usuarios Más Activos' : 'Usuarios'}
+                    {pagination?.is_smart_default ? 'Top 10 Usuarios Más Activos' : 'Usuarios'}
                   </h3>
                 </div>
                 <div className="overflow-x-auto">
@@ -595,7 +595,7 @@ export default function DetailedReports() {
                             <div className="flex items-center">
                               <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                                 <div
-                                  className="bg-brand_blue h-2 rounded-full"
+                                  className="bg-brand_primary h-2 rounded-full"
                                   style={{ width: `${Math.min(100, userData.completion_percentage)}%` }}
                                 ></div>
                               </div>
@@ -620,7 +620,7 @@ export default function DetailedReports() {
                   <div className="px-6 py-3 bg-gray-50 text-center">
                     <button
                       onClick={() => setActiveTab('detailed')}
-                      className="text-sm text-brand_blue hover:text-brand_yellow font-medium transition-colors"
+                      className="text-sm text-brand_primary hover:text-brand_accent font-medium transition-colors"
                     >
                       Ver todos los usuarios →
                     </button>
@@ -719,15 +719,24 @@ export default function DetailedReports() {
                               </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
+                              <div className="text-sm text-gray-900 space-y-1">
                                 {userData.school_name && (
-                                  <div>🏫 {userData.school_name}</div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Building2 className="h-3.5 w-3.5 text-gray-400" />
+                                    <span>{userData.school_name}</span>
+                                  </div>
                                 )}
                                 {userData.generation_name && (
-                                  <div>📚 {userData.generation_name}</div>
+                                  <div className="flex items-center gap-1.5">
+                                    <BookOpen className="h-3.5 w-3.5 text-gray-400" />
+                                    <span>{userData.generation_name}</span>
+                                  </div>
                                 )}
                                 {userData.community_name && (
-                                  <div>👥 {userData.community_name}</div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Users className="h-3.5 w-3.5 text-gray-400" />
+                                    <span>{userData.community_name}</span>
+                                  </div>
                                 )}
                               </div>
                             </td>
@@ -735,7 +744,7 @@ export default function DetailedReports() {
                               <div className="flex items-center">
                                 <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                                   <div
-                                    className="bg-brand_blue h-2 rounded-full"
+                                    className="bg-brand_primary h-2 rounded-full"
                                     style={{ width: `${Math.min(100, userData.completion_percentage)}%` }}
                                   ></div>
                                 </div>
@@ -753,15 +762,17 @@ export default function DetailedReports() {
                                 {/* Quality indicator */}
                                 {userData.engagement_quality === 'passive' && (
                                   <span
-                                    className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800"
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800"
                                     title="Alto tiempo registrado sin lecciones completadas"
                                   >
-                                    ⚠️ Revisar
+                                    <AlertTriangle className="h-3 w-3" />
+                                    Revisar
                                   </span>
                                 )}
                                 {userData.engagement_quality === 'high' && (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                    ✓ Activo
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                                    <Check className="h-3 w-3" />
+                                    Activo
                                   </span>
                                 )}
                               </div>
@@ -789,7 +800,7 @@ export default function DetailedReports() {
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                               <button
                                 onClick={() => handleUserClick(userData.user_id)}
-                                className="text-brand_blue hover:text-brand_yellow transition-colors"
+                                className="text-brand_primary hover:text-brand_accent transition-colors"
                               >
                                 Ver Detalles
                               </button>

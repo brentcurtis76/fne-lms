@@ -256,7 +256,7 @@ export default function AdminLearningPaths() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className={`text-sm ${path.created_by_name === 'Sistema' ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+                        <div className={`text-sm ${path.created_by_name === 'Sistema' ? 'text-brand_primary font-medium' : 'text-gray-500'}`}>
                           {path.created_by_name || 'Desconocido'}
                         </div>
                       </td>
@@ -268,7 +268,7 @@ export default function AdminLearningPaths() {
                             </a>
                           </Link>
                           <Link href={`/admin/learning-paths/${path.id}/assign`} legacyBehavior>
-                            <a className="text-green-600 hover:text-green-700 p-2 rounded-md hover:bg-gray-100 transition-colors">
+                            <a className="text-brand_accent hover:text-amber-400 p-2 rounded-md hover:bg-gray-100 transition-colors">
                               <UserGroupIcon className="h-4 w-4" />
                             </a>
                           </Link>

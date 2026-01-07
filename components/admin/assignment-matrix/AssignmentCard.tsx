@@ -79,9 +79,9 @@ export function AssignmentCard({ assignment, onUnassign, disabled = false }: Ass
         <div className="flex items-start justify-between gap-3">
           {/* Icon and title */}
           <div className="flex items-start gap-3 flex-1 min-w-0">
-            <div className={`flex-shrink-0 p-2 rounded-lg ${isCourse ? 'bg-blue-50' : 'bg-amber-50'}`}>
+            <div className={`flex-shrink-0 p-2 rounded-lg ${isCourse ? 'bg-brand_beige' : 'bg-amber-50'}`}>
               {isCourse ? (
-                <BookOpen className={`h-5 w-5 ${isCourse ? 'text-blue-600' : 'text-amber-600'}`} />
+                <BookOpen className={`h-5 w-5 ${isCourse ? 'text-brand_primary' : 'text-amber-600'}`} />
               ) : (
                 <Route className="h-5 w-5 text-amber-600" />
               )}
@@ -170,7 +170,7 @@ export function AssignmentCard({ assignment, onUnassign, disabled = false }: Ass
           <div className="mt-3">
             <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
               <div
-                className="h-full bg-blue-500 rounded-full transition-all"
+                className="h-full bg-brand_primary rounded-full transition-all"
                 style={{ width: `${assignment.progress}%` }}
               />
             </div>

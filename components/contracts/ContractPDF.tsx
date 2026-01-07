@@ -55,13 +55,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 10,
     fontWeight: 'bold',
-    color: '#1a365d', // brand_blue equivalent
+    color: '#0a0a0a', // brand_primary
   },
   subtitle: {
     fontSize: 14,
     marginBottom: 5,
     fontWeight: 'bold',
-    color: '#1a365d',
+    color: '#0a0a0a', // brand_primary
   },
   body: {
     fontSize: 11,
@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     marginBottom: 10,
-    color: '#1a365d',
+    color: '#0a0a0a', // brand_primary
   },
   table: {
     display: 'flex',

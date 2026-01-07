@@ -580,10 +580,10 @@ export default function AssignLearningPath() {
                             <label
                               key={user.id}
                               className={`block p-3 border rounded-lg transition-colors ${
-                                user.isAlreadyAssigned 
-                                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed' 
-                                  : isSelected 
-                                    ? 'border-brand_blue bg-blue-50 cursor-pointer' 
+                                user.isAlreadyAssigned
+                                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                                  : isSelected
+                                    ? 'border-brand_accent bg-brand_beige cursor-pointer'
                                     : 'border-gray-200 hover:border-gray-300 cursor-pointer'
                               }`}
                             >
@@ -697,10 +697,10 @@ export default function AssignLearningPath() {
                             <label
                               key={group.id}
                               className={`block p-3 border rounded-lg transition-colors ${
-                                group.isAlreadyAssigned 
-                                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed' 
-                                  : isSelected 
-                                    ? 'border-brand_blue bg-blue-50 cursor-pointer' 
+                                group.isAlreadyAssigned
+                                  ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                                  : isSelected
+                                    ? 'border-brand_accent bg-brand_beige cursor-pointer'
                                     : 'border-gray-200 hover:border-gray-300 cursor-pointer'
                               }`}
                             >

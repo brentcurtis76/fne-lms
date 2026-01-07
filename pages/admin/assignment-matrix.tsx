@@ -71,7 +71,7 @@ export default function AssignmentMatrixPage() {
         pageTitle="Cargando..."
       >
         <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand_primary" />
         </div>
       </MainLayout>
     );
@@ -93,8 +93,8 @@ export default function AssignmentMatrixPage() {
           {/* Page header */}
           <div className="mb-8">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <Grid3X3 className="h-7 w-7 text-blue-600" />
+              <div className="p-3 bg-brand_beige rounded-xl">
+                <Grid3X3 className="h-7 w-7 text-brand_primary" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">

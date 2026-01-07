@@ -209,7 +209,7 @@ export default function FeedbackPermissionsManager() {
               <div className="flex items-center space-x-2">
                 {user.role === 'admin' ? (
                   <span className="flex items-center text-sm text-gray-500">
-                    <CheckIcon className="h-4 w-4 mr-1 text-green-500" />
+                    <CheckIcon className="h-4 w-4 mr-1 text-brand_accent" />
                     Siempre activo
                   </span>
                 ) : user.has_permission ? (
@@ -223,7 +223,7 @@ export default function FeedbackPermissionsManager() {
                 ) : (
                   <button
                     onClick={() => grantPermission(user.id)}
-                    className="flex items-center px-3 py-1 text-sm bg-green-50 text-green-700 hover:bg-green-100 rounded-md transition-colors"
+                    className="flex items-center px-3 py-1 text-sm bg-brand_beige text-brand_accent hover:bg-amber-100 rounded-md transition-colors"
                   >
                     <UserAddIcon className="h-4 w-4 mr-1" />
                     Otorgar permiso

@@ -65,7 +65,7 @@ export default function EditQuotePage() {
           toast((t) => (
             <div className="flex items-center justify-between w-full">
               <div className="flex-1">
-                <p className="font-semibold text-green-700">✅ Página web generada exitosamente</p>
+                <p className="font-semibold text-brand_accent">✅ Página web generada exitosamente</p>
                 <p className="text-sm text-gray-600 mt-1">La propuesta se abrió en una nueva pestaña</p>
                 <p className="text-xs text-gray-500 mt-2 break-all">{fullUrl}</p>
               </div>
@@ -133,7 +133,7 @@ export default function EditQuotePage() {
             </p>
             <Link
               href="/admin/quotes"
-              className="inline-flex items-center text-blue-600 hover:text-blue-700"
+              className="inline-flex items-center text-brand_primary hover:text-gray-800"
             >
               <ArrowLeft className="mr-2" size={20} />
               Volver a cotizaciones

@@ -203,8 +203,8 @@ export default function ExpenseReportsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'submitted': return 'bg-blue-100 text-blue-800';
-      case 'approved': return 'bg-green-100 text-green-800';
+      case 'submitted': return 'bg-brand_beige text-brand_primary';
+      case 'approved': return 'bg-amber-100 text-amber-800';
       case 'rejected': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -414,8 +414,8 @@ export default function ExpenseReportsPage() {
     return (
       <div className="min-h-screen bg-brand_beige flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand_blue mx-auto"></div>
-          <p className="mt-4 text-brand_blue font-medium">Cargando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand_primary mx-auto"></div>
+          <p className="mt-4 text-brand_primary font-medium">Cargando...</p>
         </div>
       </div>
     );
@@ -494,13 +494,13 @@ export default function ExpenseReportsPage() {
                 <div className="flex items-center space-x-4 mb-6">
                   <button
                     onClick={() => setActiveTab('lista')}
-                    className="inline-flex items-center text-brand_blue hover:text-brand_yellow transition-colors"
+                    className="inline-flex items-center text-brand_primary hover:text-brand_accent transition-colors"
                   >
                     <ArrowLeft className="mr-2" size={20} />
                     Volver a Reportes
                   </button>
                   <div className="h-6 w-px bg-gray-300"></div>
-                  <h1 className="text-3xl font-bold text-brand_blue flex items-center">
+                  <h1 className="text-3xl font-bold text-brand_primary flex items-center">
                     <Receipt className="mr-3" size={32} />
                     {activeTab === 'nuevo' ? 'Crear Nuevo Reporte' : 'Editar Reporte'}
                   </h1>
@@ -576,7 +576,7 @@ export default function ExpenseReportsPage() {
                               <div className="flex items-center justify-center space-x-2">
                                 <button
                                   onClick={() => setSelectedReport(report)}
-                                  className="p-1.5 text-brand_blue hover:bg-blue-50 rounded transition-colors"
+                                  className="p-1.5 text-brand_primary hover:bg-brand_beige rounded transition-colors"
                                   title="Ver detalles"
                                 >
                                   <Eye size={16} />
@@ -596,7 +596,7 @@ export default function ExpenseReportsPage() {
                                     </button>
                                     <button
                                       onClick={() => handleSubmitReport(report.id)}
-                                      className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                                      className="p-1.5 text-brand_accent hover:bg-amber-50 rounded transition-colors"
                                       title="Enviar para revisión"
                                     >
                                       <Send size={16} />
@@ -608,7 +608,7 @@ export default function ExpenseReportsPage() {
                                   <>
                                     <button
                                       onClick={() => handleApproveReport(report.id)}
-                                      className="p-1.5 text-green-600 hover:bg-green-50 rounded transition-colors"
+                                      className="p-1.5 text-brand_accent hover:bg-amber-50 rounded transition-colors"
                                       title="Aprobar reporte"
                                     >
                                       <Check size={16} />
@@ -646,7 +646,7 @@ export default function ExpenseReportsPage() {
                     <p className="text-gray-500 mb-6">Comienza creando tu primer reporte de gastos</p>
                     <button
                       onClick={() => setActiveTab('nuevo')}
-                      className="bg-brand_yellow text-brand_blue px-6 py-3 rounded-lg font-medium hover:bg-brand_yellow/90 transition-colors flex items-center mx-auto"
+                      className="bg-brand_accent text-brand_primary px-6 py-3 rounded-lg font-medium hover:bg-amber-400 transition-colors flex items-center mx-auto"
                     >
                       <Plus className="mr-2" size={20} />
                       Crear Primer Reporte
@@ -701,7 +701,7 @@ export default function ExpenseReportsPage() {
                     <div className="mb-6">
                       <p className="text-gray-700">
                         ¿Estás seguro de que deseas eliminar el reporte{' '}
-                        <span className="font-semibold text-brand_blue">{deleteModalReport.report_name}</span>?
+                        <span className="font-semibold text-brand_primary">{deleteModalReport.report_name}</span>?
                       </p>
                       <p className="text-sm text-gray-600 mt-2">
                         Se eliminarán también todos los gastos asociados a este reporte.

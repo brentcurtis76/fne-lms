@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import { supabase } from '../lib/supabase';
@@ -10,16 +10,88 @@ import Avatar from '../components/common/Avatar';
 import { getUserRoles, getCommunityMembers, getEffectiveRoleAndStatus, metadataHasRole } from '../utils/roleUtils';
 import { UserRole, UserProfile } from '../types/roles';
 import { updateAvatarCache } from '../hooks/useAvatar';
-import { Home, Settings, Users } from 'lucide-react';
+import {
+  Settings, Users, ChevronDown, ChevronUp, Newspaper, Play,
+  BookOpen, TrendingUp, ArrowRight, Clock,
+  GraduationCap, ExternalLink, MapPin
+} from 'lucide-react';
+import { LearningPathCard } from '../components/learning-paths';
+import { NetflixCourseRow } from '../components/courses';
 import WorkspaceSettingsModal from '../components/community/WorkspaceSettingsModal';
-import { communityWorkspaceService } from '../lib/services/communityWorkspace';
 import { getOrCreateWorkspace } from '../utils/workspaceUtils';
-import { OfficeBuildingIcon } from '@heroicons/react/outline';
+import { CourseWithEnrollment } from '../types/courses';
+
+// Types
+interface NewsArticle {
+  id: string;
+  title: string;
+  slug: string;
+  content_html: string;
+  featured_image?: string;
+  display_date?: string;
+  created_at: string;
+}
+
+interface YouTubeVideo {
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  publishedAt: string;
+}
+
+interface DashboardStats {
+  totalUsers: number;
+  mostCompletedCourse: {
+    id: string;
+    title: string;
+    completionCount: number;
+    thumbnail_url?: string;
+    instructor_name?: string;
+    description?: string;
+  } | null;
+  topLearner: {
+    id: string;
+    name: string;
+    email: string;
+    avatar_url?: string;
+    completedCourses: number;
+    school_name?: string;
+    role?: string;
+  } | null;
+}
+
+// Helper functions
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear()}`;
+};
+
+const getExcerpt = (html: string, length = 100) => {
+  let text = html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+  return text.length > length ? text.substring(0, length) + '...' : text;
+};
+
+const formatTimeAgo = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return 'Hoy';
+  if (diffDays === 1) return 'Ayer';
+  if (diffDays < 7) return `Hace ${diffDays} días`;
+  if (diffDays < 30) return `Hace ${Math.floor(diffDays / 7)} semanas`;
+  return formatDate(dateString);
+};
 
 export default function Dashboard() {
   const router = useRouter();
   const supabase = useSupabaseClient();
   const session = useSession();
+
+  // Core state
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<any>(null);
   const [profileName, setProfileName] = useState('');
@@ -27,426 +99,309 @@ export default function Dashboard() {
   const [profileData, setProfileData] = useState<any>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [userRole, setUserRole] = useState<string>('');
+
+  // Course state
   const [allCourses, setAllCourses] = useState<any[]>([]);
-  const [myCourses, setMyCourses] = useState<any[]>([]);
   const [learningPaths, setLearningPaths] = useState<any[]>([]);
+
+  // Community state
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [communityMembers, setCommunityMembers] = useState<Record<string, UserProfile[]>>({});
-  const [searchQuery, setSearchQuery] = useState('');
   const [communityWorkspaces, setCommunityWorkspaces] = useState<Record<string, any>>({});
+  const [communityExpanded, setCommunityExpanded] = useState(false);
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
-  
-  // Check for password change success notification (user may have been redirected here)
+
+  // New dashboard sections state
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
+  const [youtubeVideos, setYoutubeVideos] = useState<YouTubeVideo[]>([]);
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [loadingNews, setLoadingNews] = useState(true);
+  const [loadingVideos, setLoadingVideos] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Transform courses to Netflix format
+  const transformToNetflixFormat = (courses: any[]): CourseWithEnrollment[] => {
+    return courses.map(course => ({
+      id: course.id,
+      title: course.title,
+      description: course.description || null,
+      thumbnail_url: course.thumbnail_url || null,
+      estimated_duration_hours: course.estimated_duration_hours || null,
+      difficulty_level: course.difficulty_level || null,
+      learning_objectives: course.learning_objectives || null,
+      instructor: course.instructor_name ? {
+        id: course.instructor_id || '',
+        full_name: course.instructor_name,
+        photo_url: course.instructors?.photo_url || null,
+      } : undefined,
+      enrollment: {
+        progress_percentage: course.progress_percentage || 0,
+        lessons_completed: course.lessons_completed || 0,
+        total_lessons: course.total_lessons || 0,
+        is_completed: course.is_completed || false,
+        last_activity: course.last_activity || null,
+      },
+    }));
+  };
+
+  // Computed values - courses in progress
+  const inProgressCourses = useMemo(() => {
+    const filtered = allCourses.filter(
+      course => !course.is_completed && (course.enrolled_at || course.progress_percentage > 0)
+    ).sort((a, b) => {
+      const aProgress = a.progress_percentage || 0;
+      const bProgress = b.progress_percentage || 0;
+      return bProgress - aProgress;
+    });
+    return transformToNetflixFormat(filtered);
+  }, [allCourses]);
+
+  // Open courses (assigned but not started yet)
+  const openCourses = useMemo(() => {
+    const filtered = allCourses.filter(
+      course => !course.is_completed && !course.enrolled_at && (course.progress_percentage === 0 || !course.progress_percentage)
+    );
+    return transformToNetflixFormat(filtered);
+  }, [allCourses]);
+
+  // Password change notification
   useEffect(() => {
     try {
       const passwordChangeSuccess = sessionStorage.getItem('fne-password-change-success');
-      console.log('[Dashboard] Checking password change success flag:', passwordChangeSuccess);
       if (passwordChangeSuccess === 'true') {
-        console.log('[Dashboard] Password change success detected, showing toast');
         sessionStorage.removeItem('fne-password-change-success');
-        // Small delay to ensure toast system is ready
-        setTimeout(() => {
-          toastSuccess('Contraseña actualizada exitosamente');
-        }, 100);
+        setTimeout(() => toastSuccess('Contraseña actualizada exitosamente'), 100);
       }
     } catch (e) {
-      console.error('[Dashboard] Error checking password change success:', e);
+      console.error('[Dashboard] Error checking password change:', e);
     }
   }, []);
 
-  // Try to load avatar from cache immediately on component mount
+  // Fetch news articles
   useEffect(() => {
-    const loadCachedAvatar = async () => {
+    const fetchNews = async () => {
       try {
-        if (session?.user) {
-          // First check in-memory cache from useAvatar hook
-          const cachedData = sessionStorage.getItem('fne-avatar-cache');
-          if (cachedData) {
-            const cache = JSON.parse(cachedData);
-            const userCache = cache[session.user.id];
-            if (userCache && userCache.url && Date.now() - userCache.timestamp < 1000 * 60 * 30) {
-              setAvatarUrl(userCache.url);
-              // Also update the in-memory cache
-              updateAvatarCache(session.user.id, userCache.url);
-            }
-          }
+        const response = await fetch('/api/news?limit=3');
+        if (response.ok) {
+          const data = await response.json();
+          setNewsArticles(data.articles || []);
         }
-      } catch (e) {
-        // Ignore cache errors
+      } catch (error) {
+        console.error('Error fetching news:', error);
+      } finally {
+        setLoadingNews(false);
       }
     };
+    fetchNews();
+  }, []);
 
-    loadCachedAvatar();
-  }, [session]);
-  
+  // Fetch YouTube videos
+  useEffect(() => {
+    const fetchVideos = async () => {
+      try {
+        const response = await fetch('/api/youtube/latest?limit=2');
+        if (response.ok) {
+          const data = await response.json();
+          setYoutubeVideos(data.videos || []);
+        }
+      } catch (error) {
+        console.error('Error fetching videos:', error);
+      } finally {
+        setLoadingVideos(false);
+      }
+    };
+    fetchVideos();
+  }, []);
+
+  // Fetch dashboard stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch('/api/dashboard/stats');
+        if (response.ok) {
+          const data = await response.json();
+          setDashboardStats(data);
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  // Main session and data loading
   useEffect(() => {
     const checkSession = async () => {
       try {
-        // Check if user is authenticated
         if (!session?.user) {
           router.push('/login');
           return;
         }
-        
+
         setUser(session.user);
-        
-        // Get user metadata and check for admin role
+
         const { data: userData, error: userError } = await supabase.auth.getUser();
-        
-        if (userError) {
-          console.error('Error fetching user data:', userError);
-        } else {
-          // Check if user has admin role
-          const adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin');
+
+        if (!userError && userData?.user) {
+          const adminRole = metadataHasRole(userData.user.user_metadata, 'admin');
           setIsAdmin(adminRole);
-          
-          // Always fetch profile data for all users (admin and non-admin)
-          if (userData?.user) {
-            // First, try to get avatar from session storage cache
-            try {
-              const cachedData = sessionStorage.getItem('fne-avatar-cache');
-              if (cachedData) {
-                const cache = JSON.parse(cachedData);
-                const userCache = cache[userData.user.id];
-                if (userCache && userCache.url && Date.now() - userCache.timestamp < 1000 * 60 * 30) {
-                  setAvatarUrl(userCache.url);
-                }
-              }
-            } catch (e) {
-              // Ignore cache errors
-            }
-            
-            let { data: profileData, error: profileError } = await supabase
-              .from('profiles')
-              .select('first_name, last_name, avatar_url, school, description, must_change_password')
-              .eq('id', userData.user.id)
-              .single();
-              
-            // Handle profile fetch error
-            if (profileError) {
-              console.error('Error fetching profile:', profileError);
-              
-              // If it's an auth session error, try to refresh the session
-              if (profileError.message?.includes('Auth session missing')) {
-                console.log('Auth session missing, attempting to refresh...');
-                const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-                
-                if (!refreshError && refreshData?.session) {
-                  // Retry the profile fetch after refresh
-                  const { data: retryData, error: retryError } = await supabase
-                    .from('profiles')
-                    .select('first_name, last_name, avatar_url, school, description, must_change_password')
-                    .eq('id', userData.user.id)
-                    .single();
-                  
-                  if (!retryError && retryData) {
-                    profileData = retryData;
-                  } else {
-                    console.error('Profile fetch failed after session refresh:', retryError);
-                    // Don't redirect immediately - let the user see an error state
-                    setLoading(false);
-                    return;
-                  }
-                } else {
-                  console.error('Session refresh failed:', refreshError);
-                  // Only redirect to login if we're certain the session is invalid
-                  if (refreshError?.message?.includes('Invalid Refresh Token')) {
-                    router.push('/login');
-                  }
-                  return;
-                }
-              } else {
-                // For other errors, don't block the user
-                console.warn('Non-critical profile error, continuing...');
+
+          // Load cached avatar
+          try {
+            const cachedData = sessionStorage.getItem('fne-avatar-cache');
+            if (cachedData) {
+              const cache = JSON.parse(cachedData);
+              const userCache = cache[userData.user.id];
+              if (userCache?.url && Date.now() - userCache.timestamp < 1000 * 60 * 30) {
+                setAvatarUrl(userCache.url);
               }
             }
-              
-            // Critical null check to prevent TypeError and infinite loops
-            if (!profileData) {
-              console.error('Failed to fetch profile data after all attempts');
-              // Redirect to profile page to complete setup
-              router.push('/profile?from=dashboard&error=profile-fetch-failed');
-              return;
+          } catch (e) {}
+
+          // Fetch profile
+          let { data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, avatar_url, school, description, must_change_password')
+            .eq('id', userData.user.id)
+            .single();
+
+          if (profileError?.message?.includes('Auth session missing')) {
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            if (!refreshError && refreshData?.session) {
+              const { data: retryData } = await supabase
+                .from('profiles')
+                .select('first_name, last_name, avatar_url, school, description, must_change_password')
+                .eq('id', userData.user.id)
+                .single();
+              profileData = retryData;
             }
-            
-            if (profileData) {
-              // Check if user must change password (explicit true check to avoid undefined)
-              if (profileData.must_change_password === true) {
-                router.push('/change-password');
-                return;
-              }
-              
-              setProfileData(profileData);
-              
-              // Get effective role and admin status (handles dev impersonation)
-              const { effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, userData.user.id);
-              setUserRole(effectiveRole);
-              setIsAdmin(isAdminUser);
-              
-              if (profileData.first_name && profileData.last_name) {
-                setProfileName(`${profileData.first_name} ${profileData.last_name}`);
-              }
-              
-              if (profileData.avatar_url) {
-                setAvatarUrl(profileData.avatar_url);
-                // Update the avatar cache
-                updateAvatarCache(userData.user.id, profileData.avatar_url);
-                
-                // Also update session storage cache
-                try {
-                  const cacheData = sessionStorage.getItem('fne-avatar-cache') || '{}';
-                  const cache = JSON.parse(cacheData);
-                  cache[userData.user.id] = {
-                    url: profileData.avatar_url,
-                    timestamp: Date.now()
-                  };
-                  sessionStorage.setItem('fne-avatar-cache', JSON.stringify(cache));
-                } catch (e) {
-                  // Ignore cache errors
+          }
+
+          if (!profileData) {
+            router.push('/profile?from=dashboard&error=profile-fetch-failed');
+            return;
+          }
+
+          if (profileData.must_change_password === true) {
+            router.push('/change-password');
+            return;
+          }
+
+          setProfileData(profileData);
+
+          const { effectiveRole, isAdmin: isAdminUser } = await getEffectiveRoleAndStatus(supabase, userData.user.id);
+          setUserRole(effectiveRole);
+          setIsAdmin(isAdminUser);
+
+          if (profileData.first_name && profileData.last_name) {
+            setProfileName(`${profileData.first_name} ${profileData.last_name}`);
+          }
+
+          if (profileData.avatar_url) {
+            setAvatarUrl(profileData.avatar_url);
+            updateAvatarCache(userData.user.id, profileData.avatar_url);
+          }
+
+          // Fetch user roles and community data
+          const roles = await getUserRoles(supabase, userData.user.id);
+          setUserRoles(roles);
+
+          const communityMembersData: Record<string, UserProfile[]> = {};
+          const communityWorkspacesData: Record<string, any> = {};
+
+          for (const role of roles) {
+            if (role.community_id) {
+              try {
+                const members = await getCommunityMembers(supabase, role.community_id);
+                communityMembersData[role.community_id] = members;
+                const workspace = await getOrCreateWorkspace(role.community_id);
+                if (workspace) {
+                  communityWorkspacesData[role.community_id] = workspace;
                 }
+              } catch (error) {
+                console.error('Error fetching community data:', error);
               }
+            }
+          }
+          setCommunityMembers(communityMembersData);
+          setCommunityWorkspaces(communityWorkspacesData);
 
-              // Fetch user roles and community information
-              const roles = await getUserRoles(supabase, userData.user.id);
-              setUserRoles(roles);
+          // Fetch courses
+          if (isAdminUser) {
+            const { data: allCoursesData } = await supabase
+              .from('courses')
+              .select('*, instructors(full_name, photo_url)')
+              .order('created_at', { ascending: false });
 
-              // Get community members and workspaces for each community the user belongs to
-              const communityMembersData: Record<string, UserProfile[]> = {};
-              const communityWorkspacesData: Record<string, any> = {};
-              for (const role of roles) {
-                if (role.community_id) {
-                  try {
-                    const members = await getCommunityMembers(supabase, role.community_id);
-                    communityMembersData[role.community_id] = members;
-                    
-                    // Get or create workspace for this community
-                    const workspace = await getOrCreateWorkspace(role.community_id);
-                    if (workspace) {
-                      communityWorkspacesData[role.community_id] = workspace;
-                    }
-                  } catch (error) {
-                    console.error('Error fetching community data:', error);
-                  }
-                }
-              }
-              setCommunityMembers(communityMembersData);
-              setCommunityWorkspaces(communityWorkspacesData);
+            if (allCoursesData) {
+              setAllCourses(allCoursesData.map(course => ({
+                ...course,
+                instructor_name: course.instructors?.full_name || 'Sin instructor',
+                thumbnail_url: course.thumbnail_url !== 'default-thumbnail.png' ? course.thumbnail_url : null
+              })));
+            }
+          } else {
+            const { data: assignedCoursesData } = await supabase
+              .from('course_assignments')
+              .select(`
+                course_id,
+                courses (
+                  id, title, description, thumbnail_url, structure_type,
+                  instructor_id, created_at, instructors(full_name)
+                )
+              `)
+              .eq('teacher_id', userData.user.id);
 
-              // Fetch courses based on user role
-              if (isAdminUser) {
-                // Admins see all courses and can create courses
-                const { data: allCoursesData, error: allCoursesError } = await supabase
-                  .from('courses')
-                  .select(`
-                    *,
-                    instructors(full_name)
-                  `)
-                  .order('created_at', { ascending: false });
-                
-                if (allCoursesData) {
-                  // Format courses with instructor names
-                  const formattedCourses = allCoursesData.map(course => ({
+            if (assignedCoursesData) {
+              const baseCourses = assignedCoursesData
+                .map(a => a.courses)
+                .filter((c): c is NonNullable<typeof c> => c !== null)
+                .map((course: any) => ({
+                  ...course,
+                  instructor_name: course.instructors?.full_name || 'Sin instructor',
+                  thumbnail_url: course.thumbnail_url !== 'default-thumbnail.png' ? course.thumbnail_url : null
+                }));
+
+              const courseIds = baseCourses.map((c: any) => c.id);
+
+              if (courseIds.length > 0) {
+                const { data: enrollments } = await supabase
+                  .from('course_enrollments')
+                  .select('course_id, progress_percentage, is_completed, enrolled_at')
+                  .eq('user_id', userData.user.id)
+                  .in('course_id', courseIds);
+
+                const enrollmentMap = new Map(enrollments?.map(e => [e.course_id, e]) || []);
+
+                setAllCourses(baseCourses.map((course: any) => {
+                  const enrollment = enrollmentMap.get(course.id);
+                  return {
                     ...course,
-                    // @ts-ignore
-                    instructor_name: course.instructors?.full_name || 'Sin instructor',
-                    // Ensure thumbnail_url is a string or null, and specifically handle 'default-thumbnail.png'
-                    thumbnail_url: (course.thumbnail_url && course.thumbnail_url !== 'default-thumbnail.png') ? course.thumbnail_url : null 
-                  }));
-                  
-                  setAllCourses(formattedCourses);
-                  
-                  // Filter courses created by current user
-                  if (userData?.user?.id) {
-                    const userCreatedCourses = formattedCourses.filter(course => course.created_by === userData.user.id);
-                    setMyCourses(userCreatedCourses);
-                  }
-                }
+                    progress_percentage: enrollment?.progress_percentage || 0,
+                    is_completed: enrollment?.is_completed || false,
+                    enrolled_at: enrollment?.enrolled_at || null
+                  };
+                }));
               } else {
-                // Teachers only see courses assigned to them
-                const { data: assignedCoursesData, error: assignedCoursesError } = await supabase
-                  .from('course_assignments')
-                  .select(`
-                    course_id,
-                    courses (
-                      id,
-                      title,
-                      description,
-                      thumbnail_url,
-                      structure_type,
-                      instructor_id,
-                      created_at,
-                      created_by,
-                      instructors(full_name)
-                    )
-                  `)
-                  .eq('teacher_id', userData.user.id);
-
-                if (assignedCoursesData && !assignedCoursesError) {
-                  // Extract course data from the join and format with instructor names
-                  const baseCourses = assignedCoursesData
-                    .map(assignment => assignment.courses)
-                    .filter((course): course is NonNullable<typeof course> => course !== null) // Filter out null courses
-                    .map((course: any) => ({
-                      ...course,
-                      // @ts-ignore
-                      instructor_name: course?.instructors?.full_name || 'Sin instructor',
-                      // @ts-ignore - Ensure thumbnail_url is a string or null, and specifically handle 'default-thumbnail.png'
-                      thumbnail_url: (course?.thumbnail_url && course?.thumbnail_url !== 'default-thumbnail.png') ? course?.thumbnail_url : null
-                    }));
-
-                  const courseIds = baseCourses.map((course: any) => course.id);
-                  let teacherCourses = baseCourses;
-
-                  if (courseIds.length > 0) {
-                    const { data: enrollments } = await supabase
-                      .from('course_enrollments')
-                      .select('course_id, progress_percentage, is_completed, enrolled_at, completed_at')
-                      .eq('user_id', userData.user.id)
-                      .in('course_id', courseIds);
-
-                    const enrollmentMap = new Map();
-                    enrollments?.forEach(enrollment => {
-                      enrollmentMap.set(enrollment.course_id, enrollment);
-                    });
-
-                    teacherCourses = baseCourses.map((course: any) => {
-                      const enrollment = enrollmentMap.get(course.id);
-                      return {
-                        ...course,
-                        progress_percentage: enrollment?.progress_percentage || 0,
-                        is_completed: enrollment?.is_completed || false,
-                        enrolled_at: enrollment?.enrolled_at || null,
-                        completed_at: enrollment?.completed_at || null
-                      };
-                    });
-                  }
-
-                  setAllCourses(teacherCourses);
-                  setMyCourses([]); // Teachers don't have "my courses" - only assigned courses
-                } else {
-                  console.error('Error fetching assigned courses:', assignedCoursesError);
-                  setAllCourses([]);
-                  setMyCourses([]);
-                }
-              }
-
-              // Fetch learning paths for all users (admin and non-admin)
-              if (userData?.user?.id) {
-                try {
-                  const response = await fetch('/api/learning-paths/my-paths', {
-                    headers: {
-                      'Content-Type': 'application/json',
-                    },
-                  });
-
-                  if (response.ok) {
-                    const pathsData = await response.json();
-                    // API returns array directly, not wrapped in {paths: []}
-                    const paths = Array.isArray(pathsData) ? pathsData : [];
-                    setLearningPaths(paths);
-                    console.log('Learning paths loaded:', paths.length);
-
-                    // Fetch courses from learning paths and add to allCourses
-                    if (paths.length > 0 && !isAdminUser) {
-                      const pathCourseIds = new Set<string>();
-
-                      // Get all course IDs from learning paths
-                      for (const path of paths) {
-                        const { data: pathCoursesData } = await supabase
-                          .from('learning_path_courses')
-                          .select('course_id')
-                          .eq('learning_path_id', path.id);
-
-                        if (pathCoursesData) {
-                          pathCoursesData.forEach(pc => pathCourseIds.add(pc.course_id));
-                        }
-                      }
-
-                      if (pathCourseIds.size > 0) {
-                        // Fetch course details for all courses in learning paths
-                        const { data: learningPathCourses } = await supabase
-                          .from('courses')
-                          .select(`
-                            *,
-                            instructors(full_name)
-                          `)
-                          .in('id', Array.from(pathCourseIds));
-
-                        if (learningPathCourses) {
-                          // Fetch enrollment data for these courses
-                          const { data: enrollments } = await supabase
-                            .from('course_enrollments')
-                            .select('course_id, progress_percentage, is_completed, enrolled_at')
-                            .eq('user_id', userData.user.id)
-                            .in('course_id', Array.from(pathCourseIds));
-
-                          // Create enrollment map for quick lookup
-                          const enrollmentMap = new Map();
-                          if (enrollments) {
-                            enrollments.forEach(e => {
-                              enrollmentMap.set(e.course_id, e);
-                            });
-                          }
-
-                          const formattedLPCourses = learningPathCourses.map(course => {
-                            const enrollment = enrollmentMap.get(course.id);
-                            return {
-                              ...course,
-                              // @ts-ignore
-                              instructor_name: course.instructors?.full_name || 'Sin instructor',
-                              // @ts-ignore
-                              thumbnail_url: (course.thumbnail_url && course.thumbnail_url !== 'default-thumbnail.png') ? course.thumbnail_url : null,
-                              from_learning_path: true, // Flag to identify source
-                              // Add enrollment data for filtering
-                              progress_percentage: enrollment?.progress_percentage || 0,
-                              is_completed: enrollment?.is_completed || false,
-                              enrolled_at: enrollment?.enrolled_at || null,
-                              completed_at: enrollment?.completed_at || null
-                            };
-                          });
-
-                          // Merge with existing courses, avoiding duplicates
-                          setAllCourses(prevCourses => {
-                            const courseMap = new Map();
-
-                            // Add existing courses first
-                            prevCourses.forEach(course => courseMap.set(course.id, course));
-
-                            // Merge in learning path courses, enriching progress data when available
-                            formattedLPCourses.forEach(course => {
-                              if (!courseMap.has(course.id)) {
-                                courseMap.set(course.id, course);
-                              } else {
-                                const existingCourse = courseMap.get(course.id) || {};
-                                courseMap.set(course.id, {
-                                  ...existingCourse,
-                                  ...course,
-                                  progress_percentage: course.progress_percentage ?? existingCourse.progress_percentage ?? 0,
-                                  is_completed: course.is_completed ?? existingCourse.is_completed ?? false,
-                                  enrolled_at: course.enrolled_at || existingCourse.enrolled_at || null,
-                                  completed_at: course.completed_at || existingCourse.completed_at || null
-                                });
-                              }
-                            });
-
-                            return Array.from(courseMap.values());
-                          });
-
-                          console.log('Learning path courses added:', formattedLPCourses.length);
-                        }
-                      }
-                    }
-                  } else {
-                    console.error('Failed to fetch learning paths:', response.status);
-                    setLearningPaths([]);
-                  }
-                } catch (error) {
-                  console.error('Error fetching learning paths:', error);
-                  setLearningPaths([]);
-                }
+                setAllCourses(baseCourses);
               }
             }
+          }
+
+          // Fetch learning paths
+          try {
+            const response = await fetch('/api/learning-paths/my-paths');
+            if (response.ok) {
+              const pathsData = await response.json();
+              setLearningPaths(Array.isArray(pathsData) ? pathsData : []);
+            }
+          } catch (error) {
+            console.error('Error fetching learning paths:', error);
           }
         }
 
@@ -457,45 +412,21 @@ export default function Dashboard() {
         router.push('/login');
       }
     };
-    
+
     checkSession();
   }, [router, session, supabase]);
-  
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    // Clear remember me preferences on logout
     localStorage.removeItem('rememberMe');
     sessionStorage.removeItem('sessionOnly');
     router.push('/login');
   };
-  
-  const filterCoursesBySearch = (courses: any[]): any[] => {
-    if (!searchQuery.trim()) return courses;
-    
-    const query = searchQuery.toLowerCase();
-    return courses.filter(course => {
-      return (
-        course.title.toLowerCase().includes(query) ||
-        course.description.toLowerCase().includes(query) ||
-        course.instructor_name.toLowerCase().includes(query)
-      );
-    });
-  };
-  
-  const filterQuickActionsBySearch = (action: { title: string; description: string }): boolean => {
-    if (!searchQuery.trim()) return true;
-    
-    const query = searchQuery.toLowerCase();
-    return (
-      action.title.toLowerCase().includes(query) ||
-      action.description.toLowerCase().includes(query)
-    );
-  };
-  
+
   if (loading) {
     return (
-      <MainLayout 
-        user={user} 
+      <MainLayout
+        user={user}
         currentPage="dashboard"
         pageTitle=""
         breadcrumbs={[]}
@@ -506,17 +437,17 @@ export default function Dashboard() {
       >
         <div className="flex items-center justify-center min-h-[50vh]">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#0a0a0a] mx-auto"></div>
-            <p className="mt-4 text-[#0a0a0a] font-medium">Cargando...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand_primary mx-auto"></div>
+            <p className="mt-4 text-brand_primary font-medium">Cargando...</p>
           </div>
         </div>
       </MainLayout>
     );
   }
-  
+
   return (
-    <MainLayout 
-      user={user} 
+    <MainLayout
+      user={user}
       currentPage="dashboard"
       pageTitle=""
       breadcrumbs={[]}
@@ -525,844 +456,471 @@ export default function Dashboard() {
       onLogout={handleLogout}
       avatarUrl={avatarUrl}
     >
-      <ResponsiveFunctionalPageHeader
-        icon={<Home />}
-        title="Mi Panel"
-        subtitle="Bienvenido a tu panel de control"
-        searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
-        searchPlaceholder="Buscar cursos, acciones..."
-      />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-lg shadow-md p-8">
-            
-            {/* User Info Section */}
-            <div className="mb-8 p-6 bg-brand_blue rounded-lg shadow">
-              <h2 className="text-xl font-semibold mb-4 text-white">Información de Usuario</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Profile Picture and Basic Info */}
-                <div className="flex items-start space-x-4">
-                  <Avatar 
-                    user={user}
-                    avatarUrl={avatarUrl}
-                    size="lg"
-                    className="ring-4 ring-[#fbbf24] shadow-lg"
-                  />
-                  <div className="space-y-2">
-                    <p className="text-white"><span className="font-semibold text-brand_yellow">Nombre:</span> {profileName || 'No disponible'}</p>
-                    <p className="text-white"><span className="font-semibold text-brand_yellow">Email:</span> {user?.email || 'No disponible'}</p>
-                    <div className="text-white">
-                      <span className="font-semibold text-brand_yellow">Roles:</span>
-                      {userRoles.length > 0 ? (
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          {userRoles.map(role => (
-                            <span key={role.id} className="inline-block bg-brand_yellow text-brand_blue px-2 py-1 rounded-full text-xs font-medium">
-                              {role.role_type === 'admin' && 'Administrador Global'}
-                              {role.role_type === 'consultor' && 'Consultor FNE'}
-                              {role.role_type === 'community_manager' && 'Community Manager'}
-                              {role.role_type === 'equipo_directivo' && 'Equipo Directivo'}
-                              {role.role_type === 'lider_generacion' && 'Líder de Generación'}
-                              {role.role_type === 'lider_comunidad' && 'Líder de Comunidad'}
-                              {role.role_type === 'docente' && 'Docente'}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span> {isAdmin ? 'Administrador' : 'Docente'}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Additional Profile Info */}
-                <div className="space-y-2">
-                  <p className="text-white"><span className="font-semibold text-brand_yellow">Institución:</span> {profileData?.school || 'No especificado'}</p>
-                  <p className="text-white"><span className="font-semibold text-brand_yellow">Descripción:</span> {profileData?.description || 'No especificado'}</p>
-                  <Link
-                    href="/profile"
-                    className="inline-block mt-2 text-brand_yellow hover:text-white font-medium transition-colors"
-                  >
-                    Editar perfil →
-                  </Link>
-                </div>
+      {/* Welcome Header */}
+      <div className="bg-brand_beige border-b border-brand_accent/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Avatar
+                user={user}
+                avatarUrl={avatarUrl}
+                size="lg"
+                className="ring-4 ring-brand_accent shadow-lg"
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-brand_primary">
+                  ¡Hola, {profileName?.split(' ')[0] || 'Usuario'}!
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  Bienvenido de vuelta a tu espacio de aprendizaje
+                </p>
               </div>
             </div>
+            <Link
+              href="/profile"
+              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-brand_primary text-white hover:bg-brand_primary/90 rounded-lg transition-colors shadow-sm"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Mi Perfil</span>
+            </Link>
+          </div>
+        </div>
+      </div>
 
-            {/* Growth Community Section */}
-            {userRoles.some(role => role.community_id) && (
-              <div className="mb-8">
-                <h2 className="text-xl font-semibold mb-4 text-brand_blue">Mi Comunidad de Crecimiento</h2>
-                {userRoles.map(role => {
-                  if (!role.community_id || !role.community) return null;
-                  
-                  const members = communityMembers[role.community_id] || [];
-                  
-                  const workspace = communityWorkspaces[role.community_id];
-                  
-                  return (
-                    <div key={role.id} className="bg-white rounded-lg shadow-md p-6 mb-4">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center space-x-4">
-                          {workspace?.image_url ? (
-                            <img 
-                              src={workspace.image_url} 
-                              alt={workspace.custom_name || role.community.name}
-                              className="w-16 h-16 rounded-lg object-cover"
-                            />
-                          ) : (
-                            <div className="w-16 h-16 bg-[#fbbf24]/10 rounded-lg flex items-center justify-center">
-                              <Users className="w-8 h-8 text-[#fbbf24]" />
-                            </div>
-                          )}
-                          <div>
-                            <h3 className="text-lg font-semibold text-brand_blue">
-                              {workspace?.custom_name || role.community.name}
-                            </h3>
-                            <p className="text-sm text-gray-600">
-                              {role.school?.name} • {role.generation?.name}
-                            </p>
-                          </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        {/* Growth Community Section - Collapsible */}
+        {userRoles.some(role => role.community_id) && (
+          <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            {userRoles.map(role => {
+              if (!role.community_id || !role.community) return null;
+
+              const members = communityMembers[role.community_id] || [];
+              const workspace = communityWorkspaces[role.community_id];
+
+              return (
+                <div key={role.id}>
+                  {/* Header - Always Visible */}
+                  <button
+                    onClick={() => setCommunityExpanded(!communityExpanded)}
+                    className="w-full px-6 py-5 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      {workspace?.image_url ? (
+                        <img
+                          src={workspace.image_url}
+                          alt={workspace.custom_name || role.community.name}
+                          className="w-14 h-14 rounded-xl object-cover"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 bg-gradient-to-br from-brand_accent/20 to-brand_accent/10 rounded-xl flex items-center justify-center">
+                          <Users className="w-7 h-7 text-brand_accent" />
                         </div>
-                        <div className="flex items-center space-x-2">
+                      )}
+                      <div className="text-left">
+                        <h2 className="text-lg font-semibold text-brand_primary">
+                          {workspace?.custom_name || role.community.name}
+                        </h2>
+                        <p className="text-sm text-gray-500">
+                          {role.school?.name} • {members.length} miembros
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="flex -space-x-2">
+                        {members.slice(0, 4).map((member, idx) => (
+                          <div key={member.id} className="relative" style={{ zIndex: 4 - idx }}>
+                            {member.avatar_url ? (
+                              <img
+                                src={member.avatar_url}
+                                alt=""
+                                className="w-8 h-8 rounded-full border-2 border-white object-cover"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full border-2 border-white bg-brand_accent flex items-center justify-center">
+                                <span className="text-xs font-bold text-brand_primary">
+                                  {member.first_name?.charAt(0) || 'U'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {members.length > 4 && (
+                          <div className="w-8 h-8 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center">
+                            <span className="text-xs font-medium text-gray-600">+{members.length - 4}</span>
+                          </div>
+                        )}
+                      </div>
+                      {communityExpanded ? (
+                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Expanded Content */}
+                  {communityExpanded && (
+                    <div className="px-6 pb-6 border-t border-gray-100">
+                      <div className="pt-4 flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+                          Miembros de la Comunidad
+                        </h3>
+                        <div className="flex gap-2">
                           <button
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setSelectedWorkspace(workspace);
                               setShowWorkspaceSettings(true);
                             }}
-                            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                            title="Configuración de la comunidad"
+                            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Configuración"
                           >
-                            <Settings className="w-5 h-5" />
+                            <Settings className="w-4 h-4" />
                           </button>
-                          <div className="text-sm text-gray-500">
-                            {members.length} {members.length === 1 ? 'miembro' : 'miembros'}
-                          </div>
+                          <Link
+                            href="/community/workspace"
+                            className="px-3 py-1.5 text-sm font-medium text-brand_primary hover:bg-brand_accent/10 rounded-lg transition-colors"
+                          >
+                            Ver Espacio Completo →
+                          </Link>
                         </div>
                       </div>
-                      
-                      {members.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {members.map(member => (
-                            <Link
-                              key={member.id}
-                              href={`/user/${member.id}`}
-                              className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 hover:shadow-md transition-all cursor-pointer"
-                            >
-                              {member.avatar_url ? (
-                                <img 
-                                  src={member.avatar_url} 
-                                  alt={`${member.first_name} ${member.last_name}`}
-                                  className="w-10 h-10 rounded-full object-cover"
-                                />
-                              ) : (
-                                <div className="w-10 h-10 rounded-full bg-brand_yellow flex items-center justify-center">
-                                  <span className="text-brand_blue font-bold text-sm">
-                                    {member.first_name?.charAt(0) || 'U'}{member.last_name?.charAt(0) || ''}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">
-                                  {member.first_name && member.last_name 
-                                    ? `${member.first_name} ${member.last_name}`
-                                    : member.email || 'Usuario sin nombre'
-                                  }
-                                </p>
-                                <p className="text-xs text-gray-500 truncate">
-                                  {member.user_roles?.[0]?.role_type === 'admin' && 'Administrador'}
-                                  {member.user_roles?.[0]?.role_type === 'consultor' && 'Consultor'}
-                                  {member.user_roles?.[0]?.role_type === 'equipo_directivo' && 'Equipo Directivo'}
-                                  {member.user_roles?.[0]?.role_type === 'lider_generacion' && 'Líder de Generación'}
-                                  {member.user_roles?.[0]?.role_type === 'lider_comunidad' && 'Líder de Comunidad'}
-                                  {member.user_roles?.[0]?.role_type === 'docente' && 'Docente'}
-                                </p>
-                              </div>
-                              {member.id === user?.id && (
-                                <div className="w-3 h-3 rounded-full bg-brand_yellow" title="Tú"></div>
-                              )}
-                            </Link>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-center py-8 text-gray-500">
-                          <p>No hay otros miembros en esta comunidad aún.</p>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
 
-            {/* Quick Actions */}
-            <div className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 text-brand_blue">Acciones Rápidas</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Admin-only actions */}
-                {isAdmin && (
-                  <>
-                    {filterQuickActionsBySearch({ title: 'Crear Curso', description: 'Crea nuevos cursos' }) && (
-                      <Link
-                        href="/admin/course-builder/new"
-                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
-                      >
-                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Crear Curso</h3>
-                        <p className="text-sm text-gray-600">Crea nuevos cursos</p>
-                      </Link>
-                    )}
-                    
-                    {filterQuickActionsBySearch({ title: 'Editor de Lecciones', description: 'Edita lecciones interactivas' }) && (
-                      myCourses.length > 0 ? (
-                        <Link
-                          href={`/admin/course-builder/${myCourses[0].id}`}
-                          className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
-                        >
-                          <h3 className="text-lg font-semibold mb-2 text-brand_blue">Editor de Lecciones</h3>
-                          <p className="text-sm text-gray-600">Edita lecciones interactivas</p>
-                        </Link>
-                      ) : (
-                        <div className="p-6 bg-white rounded-lg shadow-md border border-gray-200 opacity-60">
-                          <h3 className="text-lg font-semibold mb-2 text-gray-500">Editor de Lecciones</h3>
-                          <p className="text-sm text-gray-400">Crea un curso primero</p>
-                        </div>
-                      )
-                    )}
-
-                    {filterQuickActionsBySearch({ title: 'Asigna Cursos', description: 'Asignar cursos a docentes' }) && (
-                      <Link
-                        href="/admin/course-builder"
-                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
-                      >
-                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Asigna Cursos</h3>
-                        <p className="text-sm text-gray-600">Asignar cursos a docentes</p>
-                      </Link>
-                    )}
-
-                    {filterQuickActionsBySearch({ title: 'Contratos', description: 'Generar y gestionar contratos' }) && (
-                      <Link
-                        href="/contracts"
-                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
-                      >
-                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Contratos</h3>
-                        <p className="text-sm text-gray-600">Generar y gestionar contratos</p>
-                      </Link>
-                    )}
-
-                    {filterQuickActionsBySearch({ title: 'Rendición de Gastos', description: 'Crear y gestionar reportes de gastos' }) && (
-                      <Link
-                        href="/expense-reports"
-                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
-                      >
-                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Rendición de Gastos</h3>
-                        <p className="text-sm text-gray-600">Crear y gestionar reportes de gastos</p>
-                      </Link>
-                    )}
-
-                    {filterQuickActionsBySearch({ title: 'Soporte Técnico', description: 'Gestión de feedback y errores' }) && (
-                      <Link
-                        href="/admin/feedback"
-                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-red-200/30 transition-all duration-200 relative"
-                      >
-                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Soporte Técnico</h3>
-                        <p className="text-sm text-gray-600">Gestión de feedback y errores</p>
-                        {/* Add a small badge if there are new feedback items */}
-                        <div className="absolute top-4 right-4">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                      </Link>
-                    )}
-
-                    {filterQuickActionsBySearch({ title: 'Reportes', description: 'Dashboard de progress y analytics' }) && (
-                      <Link
-                        href="/reports"
-                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
-                      >
-                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Reportes</h3>
-                        <p className="text-sm text-gray-600">Dashboard de progress y analytics</p>
-                      </Link>
-                    )}
-
-                    {filterQuickActionsBySearch({ title: 'Todos los Cursos', description: 'Ver todos los cursos' }) && (
-                      <Link
-                        href="#todos-cursos"
-                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          document.getElementById('todos-cursos')?.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                      >
-                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Todos los Cursos</h3>
-                        <p className="text-sm text-gray-600">Ver todos los cursos ({allCourses.length})</p>
-                      </Link>
-                    )}
-                  </>
-                )}
-
-                {/* Leadership and Consultant reporting access */}
-                {!isAdmin && userRoles.some(role => 
-                  ['consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'].includes(role.role_type)
-                ) && filterQuickActionsBySearch({ title: 'Reportes', description: 'Dashboard de progreso y analytics' }) && (
-                  <Link
-                    href="/reports"
-                    className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
-                  >
-                    <h3 className="text-lg font-semibold mb-2 text-brand_blue">Reportes</h3>
-                    <p className="text-sm text-gray-600">Dashboard de progreso y analytics</p>
-                  </Link>
-                )}
-
-                {/* Teacher-specific actions */}
-                {!isAdmin && (
-                  <>
-                    {learningPaths.length > 0 && filterQuickActionsBySearch({ title: 'Mis Rutas de Aprendizaje', description: 'Rutas estructuradas' }) && (
-                      <Link
-                        href="#mis-rutas"
-                        className="block p-6 bg-white rounded-lg shadow-md border-l-4 border-brand_yellow hover:shadow-lg hover:border-l-brand_yellow transition-all duration-200"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          document.getElementById('mis-rutas')?.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                      >
-                        <div className="flex items-center gap-3 mb-2">
-                          <svg className="w-6 h-6 text-brand_yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
-                          </svg>
-                          <h3 className="text-lg font-semibold text-brand_blue">Mis Rutas de Aprendizaje</h3>
-                        </div>
-                        <p className="text-sm text-gray-600">{learningPaths.length} {learningPaths.length === 1 ? 'ruta asignada' : 'rutas asignadas'}</p>
-                      </Link>
-                    )}
-
-                    {filterQuickActionsBySearch({ title: 'Todos mis cursos', description: 'Ver todos los cursos' }) && (
-                      <Link
-                        href="#todos-mis-cursos"
-                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_blue/20 transition-all duration-200"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          document.getElementById('todos-mis-cursos')?.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                      >
-                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Todos mis cursos</h3>
-                        <p className="text-sm text-gray-600">Ver todos los cursos ({allCourses.length})</p>
-                      </Link>
-                    )}
-
-                    {filterQuickActionsBySearch({ title: 'Cursos Abiertos', description: 'Cursos en progreso' }) && (
-                      <Link
-                        href="#cursos-abiertos"
-                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-brand_yellow/30 transition-all duration-200"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          document.getElementById('cursos-abiertos')?.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                      >
-                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Cursos Abiertos</h3>
-                        <p className="text-sm text-gray-600">Cursos en progreso ({allCourses.filter(c => !c.is_completed && (c.enrolled_at || c.progress_percentage > 0)).length})</p>
-                      </Link>
-                    )}
-
-                    {filterQuickActionsBySearch({ title: 'Cursos Finalizados', description: 'Cursos completados' }) && (
-                      <Link
-                        href="#cursos-finalizados"
-                        className="block p-6 bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg hover:border-gray-300 transition-all duration-200"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          document.getElementById('cursos-finalizados')?.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                      >
-                        <h3 className="text-lg font-semibold mb-2 text-brand_blue">Cursos Finalizados</h3>
-                        <p className="text-sm text-gray-600">Cursos completados ({allCourses.filter(c => c.is_completed === true).length})</p>
-                      </Link>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Learning Paths Section - All Users */}
-            {learningPaths.length > 0 && (
-              <div id="mis-rutas" className="mb-8">
-                <h2 className="text-xl font-semibold mb-4 text-brand_blue">Mis Rutas de Aprendizaje ({learningPaths.length})</h2>
-                <p className="text-gray-600 mb-4">Rutas de aprendizaje estructuradas asignadas a ti</p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                  {learningPaths.map((path) => (
-                    <div key={path.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl border-l-4 border-brand_yellow">
-                      <Link href={`/mi-aprendizaje/ruta/${path.id}`} legacyBehavior>
-                        <a className="block group p-6">
-                          {/* Header */}
-                          <div className="flex items-start justify-between mb-4">
-                            <div className="flex-1">
-                              <h3 className="text-lg font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150">
-                                {path.name}
-                              </h3>
-                              <p className="text-sm text-gray-600 mt-2 line-clamp-2">
-                                {path.description || 'Ruta de aprendizaje'}
-                              </p>
-                            </div>
-                            <svg className="w-8 h-8 text-brand_yellow flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
-                            </svg>
-                          </div>
-
-                          {/* Progress */}
-                          {path.progress && (
-                            <div className="mb-4">
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="text-sm font-medium text-gray-700">Progreso</span>
-                                <span className="text-sm text-gray-500">
-                                  {path.progress.completed_courses || 0} de {path.progress.total_courses || 0} cursos
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                        {members.map(member => (
+                          <Link
+                            key={member.id}
+                            href={`/user/${member.id}`}
+                            className="flex flex-col items-center p-3 bg-gray-50 rounded-xl hover:bg-brand_accent/10 hover:shadow-sm transition-all group"
+                          >
+                            {member.avatar_url ? (
+                              <img
+                                src={member.avatar_url}
+                                alt=""
+                                className="w-12 h-12 rounded-full object-cover mb-2 group-hover:ring-2 ring-brand_accent transition-all"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-full bg-brand_accent flex items-center justify-center mb-2 group-hover:ring-2 ring-brand_accent/50 transition-all">
+                                <span className="text-lg font-bold text-brand_primary">
+                                  {member.first_name?.charAt(0) || 'U'}
                                 </span>
                               </div>
-                              <div className="w-full bg-gray-200 rounded-full h-2">
-                                <div
-                                  className="bg-brand_yellow h-2 rounded-full transition-all duration-300"
-                                  style={{ width: `${path.progress.progress_percentage || 0}%` }}
-                                />
-                              </div>
-                              <span className="text-xs text-gray-500 mt-1 block">
-                                {path.progress.progress_percentage || 0}% completado
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Course Count Badge */}
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
-                            </svg>
-                            <span>{path.progress?.total_courses || 0} {(path.progress?.total_courses || 0) === 1 ? 'curso' : 'cursos'}</span>
-                          </div>
-                        </a>
-                      </Link>
-
-                      {/* Action Button */}
-                      <div className="p-4 bg-gray-50 border-t border-gray-200 mt-auto">
-                        <Link
-                          href={`/mi-aprendizaje/ruta/${path.id}`}
-                          className="block text-center px-4 py-2 bg-brand_yellow text-brand_blue rounded hover:bg-brand_blue hover:text-white transition-colors text-sm font-medium"
-                        >
-                          Continuar Ruta
-                        </Link>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* My Courses Section - Admin Only */}
-            {isAdmin && (
-              <div id="mis-cursos" className="mb-8">
-                <h2 className="text-xl font-semibold mb-4 text-brand_blue">Mis Cursos ({myCourses.length})</h2>
-                <p className="text-gray-600 mb-4">Cursos que has creado como administrador</p>
-              
-              {myCourses.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                  {filterCoursesBySearch(myCourses).map((course) => (
-                    <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
-                      <Link href={`/admin/course-builder/${course.id}`} legacyBehavior>
-                        <a className="block group">
-                          {/* Thumbnail Section */}
-                          <div className="aspect-[16/9] w-full bg-brand_blue/5 flex items-center justify-center">
-                            {course.thumbnail_url ? (
-                              <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                            ) : (
-                              <svg className="w-16 h-16 text-brand_blue/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                              </svg>
                             )}
-                          </div>
-                          {/* Content Section */}
-                          <div className="p-5 md:p-6 flex-grow">
-                            <div className="flex items-center justify-between mb-2">
-                              <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
-                                {course.title}
-                              </h2>
-                              <span className="px-2 py-1 bg-blue-200 text-blue-700 text-xs rounded-full font-medium">
-                                Mío
-                              </span>
-                            </div>
-                            <p className="mt-2 text-sm text-gray-600 line-clamp-3 h-[3.75em]">
-                              {course.description || 'Sin descripción'}
+                            <p className="text-sm font-medium text-gray-900 text-center truncate w-full">
+                              {member.first_name || 'Usuario'}
                             </p>
-                            <p className="mt-3 text-xs text-gray-500">
-                              Instructor: {course.instructor_name || 'Sin instructor'}
-                            </p>
-                          </div>
-                        </a>
-                      </Link>
-                      {/* Action Buttons */}
-                      <div className="p-4 md:p-5 bg-gray-50 border-t border-gray-200 mt-auto">
-                        <div className="flex space-x-2">
-                          <Link
-                            href={`/admin/course-builder/${course.id}`}
-                            className="flex-1 text-center px-3 py-2 bg-brand_blue text-white rounded hover:bg-brand_yellow hover:text-brand_blue transition-colors text-sm font-medium"
-                          >
-                            Editar
+                            {member.id === user?.id && (
+                              <span className="text-xs text-brand_accent font-medium">Tú</span>
+                            )}
                           </Link>
-                          <Link
-                            href={`/student/course/${course.id}`}
-                            className="flex-1 text-center px-3 py-2 border border-blue-300 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 transition-colors text-sm font-medium"
-                          >
-                            Vista Estudiante
-                          </Link>
-                        </div>
+                        ))}
                       </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-8 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-blue-700 mb-2">No has creado ningún curso aún.</p>
-                  <Link 
-                    href="/admin/course-builder"
-                    className="inline-block px-4 py-2 bg-blue-200 text-blue-800 rounded hover:bg-blue-300 transition-colors"
-                  >
-                    Crear mi primer curso
-                  </Link>
-                </div>
-              )}
-              </div>
-            )}
-
-            {/* Teacher Courses Sections */}
-            {!isAdmin && (
-              <>
-                {/* Todos mis cursos - Teacher */}
-                <div id="todos-mis-cursos" className="mb-8">
-                  <h2 className="text-xl font-semibold mb-4 text-brand_blue">Todos mis cursos ({allCourses.length})</h2>
-                  <p className="text-gray-600 mb-4">Todos los cursos asignados a tu cuenta</p>
-                  
-                  {allCourses.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                      {filterCoursesBySearch(allCourses).map((course) => (
-                        <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
-                          <Link href={`/student/course/${course.id}`} legacyBehavior>
-                            <a className="block group">
-                              {/* Thumbnail Section */}
-                              <div className="aspect-[16/9] w-full bg-brand_blue/5 flex items-center justify-center">
-                                {course.thumbnail_url ? (
-                                  <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                                ) : (
-                                  <svg className="w-16 h-16 text-brand_blue/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                                  </svg>
-                                )}
-                              </div>
-                              {/* Content Section */}
-                              <div className="p-5 md:p-6 flex-grow">
-                                <div className="flex items-center justify-between mb-2">
-                                  <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
-                                    {course.title}
-                                  </h2>
-                                  <div className="flex items-center gap-2">
-                                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                      course.structure_type === 'simple' 
-                                        ? 'bg-green-100 text-green-800' 
-                                        : 'bg-blue-100 text-blue-800'
-                                    }`}>
-                                      {course.structure_type === 'simple' ? 'Simple' : 'Modular'}
-                                    </span>
-                                    <span className="px-2 py-1 bg-brand_blue text-white text-xs rounded-full font-medium">
-                                      Asignado
-                                    </span>
-                                  </div>
-                                </div>
-                                <p className="mt-2 text-sm text-gray-600 line-clamp-3 h-[3.75em]">
-                                  {course.description || 'Sin descripción'}
-                                </p>
-                                <p className="mt-3 text-xs text-gray-500">
-                                  Instructor: {course.instructor_name || 'Sin instructor'}
-                                </p>
-                              </div>
-                            </a>
-                          </Link>
-                          {/* Action Buttons */}
-                          <div className="p-4 md:p-5 bg-gray-50 border-t border-gray-200 mt-auto">
-                            <div className="flex space-x-2">
-                              <Link
-                                href={`/student/course/${course.id}`}
-                                className="w-full text-center px-3 py-2 bg-brand_blue text-white rounded hover:bg-brand_yellow hover:text-brand_blue transition-colors text-sm font-medium"
-                              >
-                                Ver Curso
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 bg-brand_beige rounded-lg">
-                      <p className="text-brand_blue mb-2">No tienes cursos asignados aún.</p>
-                      <p className="text-gray-600 text-sm">Los cursos serán asignados por el administrador según tu institución.</p>
                     </div>
                   )}
                 </div>
+              );
+            })}
+          </section>
+        )}
 
-                {/* Cursos Abiertos - Teacher */}
-                <div id="cursos-abiertos" className="mb-8">
-                  {(() => {
-                    const openCourses = allCourses.filter(c => !c.is_completed && (c.enrolled_at || c.progress_percentage > 0));
-                    return (
-                      <>
-                        <h2 className="text-xl font-semibold mb-4 text-brand_blue">Cursos Abiertos ({openCourses.length})</h2>
-                        <p className="text-gray-600 mb-4">Cursos que estás cursando actualmente</p>
+        {/* Latest News Section */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-brand_accent/10 rounded-lg">
+                <Newspaper className="w-5 h-5 text-brand_accent" />
+              </div>
+              <h2 className="text-xl font-bold text-brand_primary">Últimas Noticias</h2>
+            </div>
+            <Link
+              href="/noticias"
+              className="text-sm font-medium text-brand_primary hover:text-brand_accent transition-colors flex items-center gap-1"
+            >
+              Ver todas <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
 
-                        {openCourses.length > 0 ? (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                            {filterCoursesBySearch(openCourses).map((course) => (
-                        <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl border-l-4 border-brand_yellow">
-                          <Link href={`/student/course/${course.id}`} legacyBehavior>
-                            <a className="block group">
-                              {/* Thumbnail Section */}
-                              <div className="aspect-[16/9] w-full bg-brand_blue/5 flex items-center justify-center">
-                                {course.thumbnail_url ? (
-                                  <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                                ) : (
-                                  <svg className="w-16 h-16 text-brand_blue/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                                  </svg>
-                                )}
-                              </div>
-                              {/* Content Section */}
-                              <div className="p-5 md:p-6 flex-grow">
-                                <div className="flex items-center justify-between mb-2">
-                                  <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
-                                    {course.title}
-                                  </h2>
-                                  <div className="flex items-center gap-2">
-                                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                      course.structure_type === 'simple' 
-                                        ? 'bg-green-100 text-green-800' 
-                                        : 'bg-blue-100 text-blue-800'
-                                    }`}>
-                                      {course.structure_type === 'simple' ? 'Simple' : 'Modular'}
-                                    </span>
-                                    <span className="px-2 py-1 bg-brand_yellow text-brand_blue text-xs rounded-full font-medium">
-                                      En Progreso
-                                    </span>
-                                  </div>
-                                </div>
-                                <p className="mt-2 text-sm text-gray-600 line-clamp-3 h-[3.75em]">
-                                  {course.description || 'Sin descripción'}
-                                </p>
-                                <p className="mt-3 text-xs text-gray-500">
-                                  Instructor: {course.instructor_name || 'Sin instructor'}
-                                </p>
-                              </div>
-                            </a>
-                          </Link>
-                          {/* Action Buttons */}
-                          <div className="p-4 md:p-5 bg-gray-50 border-t border-gray-200 mt-auto">
-                            <div className="flex space-x-2">
-                              <Link
-                                href={`/student/course/${course.id}`}
-                                className="w-full text-center px-3 py-2 bg-brand_yellow text-brand_blue rounded hover:bg-brand_blue hover:text-white transition-colors text-sm font-medium"
-                              >
-                                Continuar Curso
-                              </Link>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+          {loadingNews ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="bg-white rounded-xl p-4 animate-pulse">
+                  <div className="h-32 bg-gray-200 rounded-lg mb-3"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          ) : newsArticles.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {newsArticles.map((article, index) => (
+                <Link
+                  key={article.id}
+                  href={`/noticias/${article.slug}`}
+                  className={`group bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all ${
+                    index === 0 ? 'md:col-span-1' : ''
+                  }`}
+                >
+                  {article.featured_image && (
+                    <div className="aspect-video overflow-hidden">
+                      <img
+                        src={article.featured_image}
+                        alt={article.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
                     </div>
-                          ) : (
-                            <div className="text-center py-8 bg-brand_beige border border-brand_blue/20 rounded-lg">
-                              <p className="text-brand_blue mb-2">No tienes cursos en progreso.</p>
-                              <p className="text-gray-600 text-sm">Los cursos aparecerán aquí cuando comiences a estudiar.</p>
-                            </div>
-                          )}
-                      </>
-                    );
-                  })()}
+                  )}
+                  <div className="p-4">
+                    <p className="text-xs text-gray-500 mb-2">
+                      {formatTimeAgo(article.display_date || article.created_at)}
+                    </p>
+                    <h3 className="font-semibold text-brand_primary group-hover:text-brand_accent transition-colors line-clamp-2">
+                      {article.title}
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-2 line-clamp-2">
+                      {getExcerpt(article.content_html)}
+                    </p>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl p-8 text-center text-gray-500">
+              No hay noticias disponibles
+            </div>
+          )}
+        </section>
+
+        {/* YouTube Videos Section */}
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <Play className="w-5 h-5 text-red-600" />
+              </div>
+              <h2 className="text-xl font-bold text-brand_primary">Videos Recientes</h2>
+            </div>
+            <a
+              href="https://www.youtube.com/@NuevaEducacionFundacion"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-brand_primary hover:text-brand_accent transition-colors flex items-center gap-1"
+            >
+              Ver canal <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+
+          {loadingVideos ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[1, 2].map(i => (
+                <div key={i} className="bg-white rounded-xl p-4 animate-pulse">
+                  <div className="aspect-video bg-gray-200 rounded-lg mb-3"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
                 </div>
-
-                {/* Cursos Finalizados - Teacher */}
-                <div id="cursos-finalizados" className="mb-8">
-                  {(() => {
-                    const finishedCourses = allCourses.filter(c => c.is_completed === true);
-                    return (
-                      <>
-                        <h2 className="text-xl font-semibold mb-4 text-brand_blue">Cursos Finalizados ({finishedCourses.length})</h2>
-                        <p className="text-gray-600 mb-4">Cursos que has completado exitosamente</p>
-
-                        {finishedCourses.length > 0 ? (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                            {filterCoursesBySearch(finishedCourses).map((course) => (
-                              <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl border-l-4 border-green-500">
-                                <Link href={`/student/course/${course.id}`} legacyBehavior>
-                                  <a className="block group">
-                                    {/* Thumbnail Section */}
-                                    <div className="aspect-[16/9] w-full bg-brand_blue/5 flex items-center justify-center">
-                                      {course.thumbnail_url ? (
-                                        <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                                      ) : (
-                                        <svg className="w-16 h-16 text-brand_blue/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                                        </svg>
-                                      )}
-                                    </div>
-                                    {/* Content Section */}
-                                    <div className="p-5 md:p-6 flex-grow">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
-                                          {course.title}
-                                        </h2>
-                                        <div className="flex items-center gap-2">
-                                          <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                                            course.structure_type === 'simple'
-                                              ? 'bg-green-100 text-green-800'
-                                              : 'bg-blue-100 text-blue-800'
-                                          }`}>
-                                            {course.structure_type === 'simple' ? 'Simple' : 'Modular'}
-                                          </span>
-                                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full font-medium flex items-center gap-1">
-                                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                            </svg>
-                                            Completado
-                                          </span>
-                                        </div>
-                                      </div>
-                                      <p className="mt-2 text-sm text-gray-600 line-clamp-3 h-[3.75em]">
-                                        {course.description || 'Sin descripción'}
-                                      </p>
-                                      <p className="mt-3 text-xs text-gray-500">
-                                        Instructor: {course.instructor_name || 'Sin instructor'}
-                                      </p>
-                                      <div className="mt-3">
-                                        <div className="w-full bg-gray-200 rounded-full h-2">
-                                          <div className="bg-green-500 h-2 rounded-full" style={{ width: '100%' }} />
-                                        </div>
-                                        <p className="text-xs text-green-600 font-medium mt-1">100% completado</p>
-                                      </div>
-                                    </div>
-                                  </a>
-                                </Link>
-                                {/* Action Buttons */}
-                                <div className="p-4 md:p-5 bg-gray-50 border-t border-gray-200 mt-auto">
-                                  <div className="flex space-x-2">
-                                    <Link
-                                      href={`/student/course/${course.id}`}
-                                      className="w-full text-center px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-sm font-medium"
-                                    >
-                                      Ver Curso
-                                    </Link>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 bg-brand_beige border border-brand_blue/20 rounded-lg">
-                            <p className="text-brand_blue mb-2">No has completado ningún curso aún.</p>
-                            <p className="text-gray-600 text-sm">Los cursos completados aparecerán aquí con tu certificado de finalización.</p>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              </>
-            )}
-
-            {/* All Courses Section - Admin Only */}
-            {isAdmin && (
-            <div id="todos-cursos" className="mb-8">
-              <h2 className="text-xl font-semibold mb-4 text-brand_blue">
-                {isAdmin ? `Todos los Cursos (${allCourses.length})` : `Mis Cursos (${allCourses.length})`}
-              </h2>
-              <p className="text-gray-600 mb-4">
-                {isAdmin ? 'Todos los cursos disponibles en la plataforma' : 'Cursos asignados a tu cuenta'}
-              </p>
-              
-              {allCourses.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                  {allCourses.map((course) => (
-                    <div key={course.id} className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
-                      <Link href={isAdmin && course.created_by === user?.id ? `/admin/course-builder/${course.id}` : `/student/course/${course.id}`} legacyBehavior>
-                        <a className="block group">
-                          {/* Thumbnail Section */}
-                          <div className="aspect-[16/9] w-full bg-brand_blue/5 flex items-center justify-center">
-                            {course.thumbnail_url ? (
-                              <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                            ) : (
-                              <svg className="w-16 h-16 text-brand_blue/30" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                              </svg>
-                            )}
-                          </div>
-                          {/* Content Section */}
-                          <div className="p-5 md:p-6 flex-grow">
-                            <div className="flex items-center justify-between mb-2">
-                              <h2 className="text-lg md:text-xl font-bold text-brand_blue group-hover:text-brand_yellow transition-colors duration-150 truncate">
-                                {course.title}
-                              </h2>
-                              {course.created_by === user?.id && (
-                                <span className="px-2 py-1 bg-blue-200 text-blue-700 text-xs rounded-full font-medium">
-                                  Mío
-                                </span>
-                              )}
-                            </div>
-                            <p className="mt-2 text-sm text-gray-600 line-clamp-3 h-[3.75em]">
-                              {course.description || 'Sin descripción'}
-                            </p>
-                            <p className="mt-3 text-xs text-gray-500">
-                              Instructor: {course.instructor_name || 'Sin instructor'}
-                            </p>
-                          </div>
-                        </a>
-                      </Link>
-                      {/* Action Buttons */}
-                      <div className="p-4 md:p-5 bg-gray-50 border-t border-gray-200 mt-auto">
-                        <div className="flex space-x-2">
-                          {isAdmin && course.created_by === user?.id ? (
-                            <>
-                              <Link
-                                href={`/admin/course-builder/${course.id}`}
-                                className="flex-1 text-center px-3 py-2 bg-brand_blue text-white rounded hover:bg-brand_yellow hover:text-brand_blue transition-colors text-sm font-medium"
-                              >
-                                Editar
-                              </Link>
-                              <Link
-                                href={`/student/course/${course.id}`}
-                                className="flex-1 text-center px-3 py-2 border border-blue-300 text-blue-700 rounded hover:bg-blue-200 hover:text-blue-800 transition-colors text-sm font-medium"
-                              >
-                                Vista Estudiante
-                              </Link>
-                            </>
-                          ) : (
-                            <Link
-                              href={`/student/course/${course.id}`}
-                              className="w-full text-center px-3 py-2 bg-yellow-200 text-yellow-800 rounded hover:bg-yellow-300 transition-colors text-sm font-medium"
-                            >
-                              Ver Curso
-                            </Link>
-                          )}
-                        </div>
+              ))}
+            </div>
+          ) : youtubeVideos.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {youtubeVideos.map(video => (
+                <a
+                  key={video.id}
+                  href={`https://www.youtube.com/watch?v=${video.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all"
+                >
+                  <div className="aspect-video relative overflow-hidden bg-gray-900">
+                    <img
+                      src={video.thumbnail}
+                      alt={video.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center group-hover:bg-black/40 transition-colors">
+                      <div className="w-16 h-16 rounded-full bg-red-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                        <Play className="w-8 h-8 text-white fill-white ml-1" />
                       </div>
                     </div>
-                  ))}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-brand_primary group-hover:text-brand_accent transition-colors line-clamp-2">
+                      {video.title}
+                    </h3>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {formatTimeAgo(video.publishedAt)}
+                    </p>
+                  </div>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl p-8 text-center text-gray-500">
+              No hay videos disponibles
+            </div>
+          )}
+        </section>
+
+        {/* Statistics Section - Netflix-inspired minimal design */}
+        <section>
+          <h2 className="text-xl font-bold text-brand_primary mb-6">Estadísticas de la Plataforma</h2>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Total Users - Large emphasis card */}
+            <div className="bg-brand_primary rounded-xl p-6">
+              <p className="text-gray-400 text-sm font-medium uppercase tracking-wider">Educadores Activos</p>
+              <p className="text-5xl font-bold text-white mt-2">
+                {loadingStats ? (
+                  <span className="inline-block w-24 h-12 bg-gray-700 rounded animate-pulse"></span>
+                ) : (
+                  (dashboardStats?.totalUsers || 0).toLocaleString()
+                )}
+              </p>
+              <p className="text-gray-500 text-sm mt-3">en toda la plataforma</p>
+            </div>
+
+            {/* Most Completed Course */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <p className="text-gray-500 text-sm font-medium uppercase tracking-wider">Curso Más Completado</p>
+              {loadingStats ? (
+                <div className="mt-4 space-y-3">
+                  <div className="h-5 bg-gray-100 rounded w-full animate-pulse"></div>
+                  <div className="h-4 bg-gray-100 rounded w-1/3 animate-pulse"></div>
                 </div>
-              ) : (
-                <div className="text-center py-8 bg-brand_beige rounded-lg">
-                  <p className="text-brand_blue mb-2">
-                    {isAdmin ? 'No hay cursos disponibles.' : 'No tienes cursos asignados aún.'}
-                  </p>
-                  {!isAdmin && (
-                    <p className="text-gray-600 text-sm">
-                      Los cursos serán asignados por el administrador según tu institución.
+              ) : dashboardStats?.mostCompletedCourse ? (
+                <div className="mt-4">
+                  <h3 className="text-lg font-semibold text-brand_primary leading-tight">
+                    {dashboardStats.mostCompletedCourse.title}
+                  </h3>
+                  {dashboardStats.mostCompletedCourse.instructor_name && (
+                    <p className="text-sm text-gray-600 mt-1">
+                      Relator: {dashboardStats.mostCompletedCourse.instructor_name}
                     </p>
                   )}
+                  <div className="flex items-baseline gap-2 mt-3">
+                    <span className="text-3xl font-bold text-brand_accent">
+                      {dashboardStats.mostCompletedCourse.completionCount}
+                    </span>
+                    <span className="text-gray-500 text-sm">completaciones</span>
+                  </div>
                 </div>
+              ) : (
+                <p className="text-gray-400 mt-4">Sin datos disponibles</p>
               )}
             </div>
-            )}
-        </div>
+
+            {/* Top Learner - Enhanced with more details */}
+            <div className="bg-white rounded-xl p-6 border border-gray-200">
+              <p className="text-gray-500 text-sm font-medium uppercase tracking-wider">Usuario Destacado</p>
+              {loadingStats ? (
+                <div className="mt-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full animate-pulse"></div>
+                    <div className="space-y-2 flex-1">
+                      <div className="h-4 bg-gray-100 rounded w-3/4 animate-pulse"></div>
+                      <div className="h-3 bg-gray-100 rounded w-1/2 animate-pulse"></div>
+                    </div>
+                  </div>
+                </div>
+              ) : dashboardStats?.topLearner ? (
+                <div className="mt-4">
+                  <div className="flex items-start gap-4">
+                    {dashboardStats.topLearner.avatar_url ? (
+                      <img
+                        src={dashboardStats.topLearner.avatar_url}
+                        alt=""
+                        className="w-14 h-14 rounded-full object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 rounded-full bg-brand_accent flex items-center justify-center flex-shrink-0">
+                        <span className="text-xl font-bold text-brand_primary">
+                          {dashboardStats.topLearner.name.charAt(0)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold text-brand_primary text-lg leading-tight truncate">
+                        {dashboardStats.topLearner.name}
+                      </h3>
+                      {dashboardStats.topLearner.role && (
+                        <p className="text-sm text-gray-600 mt-0.5">
+                          {dashboardStats.topLearner.role}
+                        </p>
+                      )}
+                      {dashboardStats.topLearner.school_name && (
+                        <p className="text-sm text-gray-500 truncate mt-0.5">
+                          {dashboardStats.topLearner.school_name}
+                        </p>
+                      )}
+                      <div className="flex items-baseline gap-1 mt-2">
+                        <span className="text-2xl font-bold text-brand_accent">
+                          {dashboardStats.topLearner.completedCourses}
+                        </span>
+                        <span className="text-gray-500 text-sm">cursos completados</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-400 mt-4">Sin datos disponibles</p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* Continue Learning Section - Netflix Style */}
+        {inProgressCourses.length > 0 && (
+          <NetflixCourseRow
+            title="Continuar Aprendiendo"
+            courses={inProgressCourses}
+            emptyMessage="No tienes cursos en progreso"
+            onCourseSelect={(courseId) => router.push(`/student/course/${courseId}`)}
+          />
+        )}
+
+        {/* Learning Paths Section */}
+        {learningPaths.length > 0 && (
+          <section>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-brand_primary">Mis Rutas de Aprendizaje</h2>
+              <Link
+                href="/mi-aprendizaje"
+                className="text-sm font-medium text-brand_primary hover:text-brand_accent transition-colors flex items-center gap-1"
+              >
+                Ver todas <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {learningPaths.slice(0, 3).map(path => (
+                <LearningPathCard
+                  key={path.id}
+                  id={path.id}
+                  name={path.name}
+                  description={path.description}
+                  assigned_at={path.assigned_at || new Date().toISOString()}
+                  progress={path.progress ? {
+                    path_id: path.id,
+                    total_courses: path.progress.total_courses || 0,
+                    completed_courses: path.progress.completed_courses || 0,
+                    progress_percentage: path.progress.progress_percentage || 0,
+                    last_accessed: path.progress.last_accessed || new Date().toISOString()
+                  } : undefined}
+                  onClick={() => router.push(`/mi-aprendizaje/ruta/${path.id}`)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Open Courses Section - Netflix Style */}
+        {openCourses.length > 0 && (
+          <NetflixCourseRow
+            title="Mis Cursos Abiertos"
+            courses={openCourses}
+            emptyMessage="No tienes cursos asignados"
+            onCourseSelect={(courseId) => router.push(`/student/course/${courseId}`)}
+          />
+        )}
+
       </div>
 
       {/* Workspace Settings Modal */}
@@ -1377,7 +935,6 @@ export default function Dashboard() {
           currentName={selectedWorkspace.custom_name || selectedWorkspace.name}
           currentImageUrl={selectedWorkspace.image_url}
           onUpdate={async (updates) => {
-            // Update local state
             const updatedWorkspaces = { ...communityWorkspaces };
             updatedWorkspaces[selectedWorkspace.community_id] = {
               ...selectedWorkspace,

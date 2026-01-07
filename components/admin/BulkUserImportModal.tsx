@@ -513,16 +513,16 @@ export default function BulkUserImportModal({ isOpen, onClose, onImportComplete 
               </div>
 
               {/* Data Format Info */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="bg-brand_beige border border-brand_accent rounded-lg p-4">
                 <div className="flex">
-                  <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                  <AlertCircle className="h-5 w-5 text-brand_primary mt-0.5" />
                   <div className="ml-3">
-                    <h4 className="text-sm font-medium text-blue-900">Formato de Datos</h4>
-                    <p className="text-sm text-blue-700 mt-1">
+                    <h4 className="text-sm font-medium text-brand_primary">Formato de Datos</h4>
+                    <p className="text-sm text-gray-700 mt-1">
                       Pegue los datos en formato CSV o copie desde Excel.
                       Columnas: <strong>email, nombre, apellido, rol</strong>
                     </p>
-                    <p className="text-xs text-blue-600 mt-1">
+                    <p className="text-xs text-gray-600 mt-1">
                       Roles válidos: admin, consultor, equipo_directivo, lider_generacion, lider_comunidad, community_manager, docente
                     </p>
                   </div>
@@ -615,8 +615,8 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
               </div>
 
               {/* Show organizational assignment summary */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-sm text-blue-800">
+              <div className="bg-brand_beige border border-brand_accent rounded-lg p-3">
+                <p className="text-sm text-brand_primary">
                   <strong>Asignación:</strong> {selectedSchoolName}
                   {globalGenerationId && ` > ${generations.find(g => g.id === globalGenerationId)?.name || ''}`}
                   {globalCommunityId && ` > ${communities.find(c => c.id === globalCommunityId)?.name || ''}`}
@@ -679,7 +679,7 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             user.role === 'lider_comunidad'
                               ? 'bg-amber-100 text-amber-800'
-                              : 'bg-blue-100 text-blue-800'
+                              : 'bg-brand_beige text-brand_primary'
                           }`}>
                             {user.role}
                             {user.role === 'lider_comunidad' && ' (auto-comunidad)'}
@@ -713,7 +713,7 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
                   {sessionId && (
                     <button
                       onClick={retrievePasswords}
-                      className="inline-flex items-center px-3 py-1.5 border border-green-600 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100"
+                      className="inline-flex items-center px-3 py-1.5 border border-brand_accent text-sm font-medium rounded-md text-brand_accent bg-brand_beige hover:bg-amber-100"
                     >
                       <Key className="h-4 w-4 mr-1" />
                       Recuperar Contraseñas
@@ -764,12 +764,12 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
 
               {/* Summary */}
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="bg-brand_beige border border-brand_accent rounded-lg p-4">
                   <div className="flex items-center">
-                    <CheckCircle className="h-8 w-8 text-green-600" />
+                    <CheckCircle className="h-8 w-8 text-brand_accent" />
                     <div className="ml-3">
-                      <p className="text-sm font-medium text-green-900">Exitosos</p>
-                      <p className="text-2xl font-bold text-green-600">
+                      <p className="text-sm font-medium text-brand_primary">Exitosos</p>
+                      <p className="text-2xl font-bold text-brand_accent">
                         {importResults.filter(r => r.success).length}
                       </p>
                     </div>
@@ -812,7 +812,7 @@ usuario3@ejemplo.cl,Pedro,Soto,consultor`}
                       <tr key={idx} className={result.success ? '' : 'bg-red-50'}>
                         <td className="px-4 py-3">
                           {result.success ? (
-                            <CheckCircle className="h-5 w-5 text-green-600" />
+                            <CheckCircle className="h-5 w-5 text-brand_accent" />
                           ) : (
                             <AlertCircle className="h-5 w-5 text-red-600" />
                           )}

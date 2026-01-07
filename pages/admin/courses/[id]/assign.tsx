@@ -784,7 +784,7 @@ export default function AssignCourse() {
                             user.isAlreadyAssigned
                               ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
                               : isSelected
-                                ? 'border-brand_blue bg-blue-50 cursor-pointer'
+                                ? 'border-brand_blue bg-brand_beige cursor-pointer'
                                 : 'border-gray-200 hover:border-gray-300 cursor-pointer'
                           }`}
                         >
@@ -815,7 +815,7 @@ export default function AssignCourse() {
                                 </div>
                                 {user.isAlreadyAssigned && (
                                   <div className="flex items-center space-x-2">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand_accent/20 text-amber-700">
                                       Asignado
                                     </span>
                                     <button

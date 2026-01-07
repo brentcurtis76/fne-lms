@@ -505,7 +505,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
     <div className="bg-white rounded-lg shadow-md">
       {/* Header with steps */}
       <div className="border-b border-gray-200 px-6 py-4">
-        <h2 className="text-xl font-semibold text-brand_blue mb-4">
+        <h2 className="text-xl font-semibold text-brand_primary mb-4">
           {editingAnnex ? 'Editar Anexo' : 'Crear Nuevo Anexo'}
         </h2>
         
@@ -527,16 +527,16 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
             return (
             <div key={key} className="flex items-center">
               <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 ${
-                isActive ? 'bg-brand_blue text-white border-brand_blue' :
-                isCompleted ? 'bg-green-500 text-white border-green-500' :
+                isActive ? 'bg-brand_primary text-white border-brand_accent' :
+                isCompleted ? 'bg-brand_accent text-brand_primary border-brand_accent' :
                 isDisabled ? 'bg-gray-400 text-white border-gray-400' :
                 'bg-gray-200 text-gray-500 border-gray-300'
               }`}>
                 <Icon size={16} />
               </div>
               <span className={`ml-2 text-sm font-medium ${
-                isActive ? 'text-brand_blue' : 
-                isCompleted ? 'text-green-600' :
+                isActive ? 'text-brand_primary' : 
+                isCompleted ? 'text-brand_accent' :
                 isDisabled ? 'text-gray-400' :
                 'text-gray-500'
               }`}>
@@ -554,8 +554,8 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
         {editingAnnex && loadingParent && (
           <div className="flex items-center justify-center py-16">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand_blue mx-auto"></div>
-              <p className="mt-4 text-brand_blue font-medium">Cargando datos del anexo...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand_accent mx-auto"></div>
+              <p className="mt-4 text-brand_primary font-medium">Cargando datos del anexo...</p>
             </div>
           </div>
         )}
@@ -563,7 +563,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
         {/* Step 1: Client Selection */}
         {step === 'cliente' && !loadingParent && (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-brand_blue">Seleccionar Cliente</h3>
+            <h3 className="text-lg font-semibold text-brand_primary">Seleccionar Cliente</h3>
             <div className="grid grid-cols-1 gap-4 max-h-96 overflow-y-auto">
               {clientes.map(cliente => (
                 <div
@@ -571,11 +571,11 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                   onClick={() => handleClienteSelect(cliente.id)}
                   className={`p-4 border rounded-lg cursor-pointer transition-colors ${
                     selectedClienteId === cliente.id 
-                      ? 'border-brand_blue bg-blue-50' 
-                      : 'border-gray-200 hover:border-brand_blue hover:bg-blue-50'
+                      ? 'border-brand_accent bg-brand_beige' 
+                      : 'border-gray-200 hover:border-brand_accent hover:bg-brand_beige'
                   }`}
                 >
-                  <div className="font-semibold text-brand_blue">{cliente.nombre_legal}</div>
+                  <div className="font-semibold text-brand_primary">{cliente.nombre_legal}</div>
                   <div className="text-sm text-gray-600">{cliente.nombre_fantasia}</div>
                   <div className="text-sm text-gray-500">RUT: {cliente.rut}</div>
                 </div>
@@ -587,7 +587,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
         {/* Step 2: Contract Selection */}
         {step === 'contrato' && !loadingParent && (
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-brand_blue">
+            <h3 className="text-lg font-semibold text-brand_primary">
               Seleccionar Contrato de {clientes.find(c => c.id === selectedClienteId)?.nombre_legal}
             </h3>
             <div className="grid grid-cols-1 gap-4 max-h-96 overflow-y-auto">
@@ -597,11 +597,11 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                   onClick={() => handleContratoSelect(contrato.id)}
                   className={`p-4 border rounded-lg cursor-pointer transition-colors ${
                     selectedContratoId === contrato.id 
-                      ? 'border-brand_blue bg-blue-50' 
-                      : 'border-gray-200 hover:border-brand_blue hover:bg-blue-50'
+                      ? 'border-brand_accent bg-brand_beige' 
+                      : 'border-gray-200 hover:border-brand_accent hover:bg-brand_beige'
                   }`}
                 >
-                  <div className="font-semibold text-brand_blue">{contrato.numero_contrato}</div>
+                  <div className="font-semibold text-brand_primary">{contrato.numero_contrato}</div>
                   <div className="text-sm text-gray-600">{contrato.programas.nombre}</div>
                   <div className="text-sm text-gray-500">
                     Fecha: {(() => {
@@ -627,7 +627,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
         {/* Step 3: Annex Details */}
         {step === 'anexo' && selectedContrato && !loadingParent && (
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold text-brand_blue">
+            <h3 className="text-lg font-semibold text-brand_primary">
               Detalles del Anexo para {selectedContrato.numero_contrato}
             </h3>
             
@@ -640,7 +640,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                   type="date"
                   value={annexForm.anexo_fecha}
                   onChange={(e) => setAnnexForm({ ...annexForm, anexo_fecha: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                 />
               </div>
 
@@ -653,7 +653,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                   min="1"
                   value={annexForm.numero_participantes}
                   onChange={(e) => setAnnexForm({ ...annexForm, numero_participantes: parseInt(e.target.value) || 1 })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                 />
               </div>
 
@@ -664,7 +664,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                 <select
                   value={annexForm.nombre_ciclo}
                   onChange={(e) => setAnnexForm({ ...annexForm, nombre_ciclo: e.target.value as typeof annexForm.nombre_ciclo })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                 >
                   {cycleOptions.map(cycle => (
                     <option key={cycle} value={cycle}>{cycle}</option>
@@ -679,7 +679,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                 <select
                   value={annexForm.tipo_moneda}
                   onChange={(e) => setAnnexForm({ ...annexForm, tipo_moneda: e.target.value as 'UF' | 'CLP' })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                 >
                   <option value="UF">UF (Unidad de Fomento)</option>
                   <option value="CLP">CLP (Pesos Chilenos)</option>
@@ -696,7 +696,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                   min="0"
                   value={annexForm.precio_total_uf}
                   onChange={(e) => setAnnexForm({ ...annexForm, precio_total_uf: parseFloat(e.target.value) || 0 })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                 />
               </div>
             </div>
@@ -707,11 +707,11 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
         {step === 'cuotas' && !loadingParent && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-brand_blue">Configurar Cuotas</h3>
+              <h3 className="text-lg font-semibold text-brand_primary">Configurar Cuotas</h3>
               <button
                 type="button"
                 onClick={addCuota}
-                className="flex items-center px-4 py-2 bg-brand_blue text-white rounded-lg hover:bg-brand_blue/90 transition-colors"
+                className="flex items-center px-4 py-2 bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 transition-colors"
               >
                 <Plus size={16} className="mr-1" />
                 Agregar Cuota
@@ -722,7 +722,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
               {cuotas.map((cuota, index) => (
                 <div key={index} className="p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold text-brand_blue">Cuota {cuota.numero_cuota}</h4>
+                    <h4 className="font-semibold text-brand_primary">Cuota {cuota.numero_cuota}</h4>
                     {cuotas.length > 1 && (
                       <button
                         type="button"
@@ -744,7 +744,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                         type="date"
                         value={cuota.fecha_vencimiento}
                         onChange={(e) => updateCuota(index, 'fecha_vencimiento', e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                       />
                     </div>
                     
@@ -758,7 +758,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                         min="0"
                         value={cuota.monto}
                         onChange={(e) => updateCuota(index, 'monto', parseFloat(e.target.value) || 0)}
-                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                        className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -766,7 +766,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
               ))}
             </div>
 
-            <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="bg-brand_beige p-4 rounded-lg">
               <div className="text-sm text-gray-600">
                 <strong>Total del Anexo:</strong> {annexForm.tipo_moneda} {annexForm.precio_total_uf.toLocaleString('es-CL', { minimumFractionDigits: 2 })}
               </div>
@@ -804,7 +804,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
               <button
                 type="button"
                 onClick={generatePreviewPDF}
-                className="flex items-center px-6 py-2 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_yellow/90 transition-colors"
+                className="flex items-center px-6 py-2 bg-brand_yellow text-brand_primary rounded-lg hover:bg-brand_yellow/90 transition-colors"
               >
                 <Download size={16} className="mr-2" />
                 Vista Previa
@@ -816,7 +816,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
                 type="button"
                 onClick={handleSaveAnnex}
                 disabled={loading}
-                className="flex items-center px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center px-6 py-2 bg-brand_accent text-brand_primary rounded-lg hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
                   <>
@@ -834,7 +834,7 @@ export default function AnnexForm({ clientes, editingAnnex, onSuccess, onCancel 
               <button
                 type="button"
                 onClick={nextStep}
-                className="px-6 py-2 bg-brand_blue text-white rounded-lg hover:bg-brand_blue/90 transition-colors"
+                className="px-6 py-2 bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 transition-colors"
               >
                 Siguiente
               </button>

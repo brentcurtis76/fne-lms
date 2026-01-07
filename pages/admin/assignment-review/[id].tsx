@@ -275,9 +275,9 @@ export default function AssignmentReviewPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'submitted':
-        return 'text-blue-600 bg-blue-50';
+        return 'text-brand_primary bg-brand_beige';
       case 'reviewed':
-        return 'text-green-600 bg-green-50';
+        return 'text-brand_accent bg-amber-50';
       case 'returned':
         return 'text-orange-600 bg-orange-50';
       default:
@@ -359,16 +359,16 @@ export default function AssignmentReviewPage() {
                 <p className="text-3xl font-bold text-[#0a0a0a]">{assignment.total_groups}</p>
                 <p className="text-sm text-gray-600">Grupos totales</p>
               </div>
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <p className="text-3xl font-bold text-blue-600">{assignment.submitted_groups}</p>
+              <div className="text-center p-4 bg-brand_beige rounded-lg">
+                <p className="text-3xl font-bold text-brand_primary">{assignment.submitted_groups}</p>
                 <p className="text-sm text-gray-600">Entregados</p>
               </div>
               <div className="text-center p-4 bg-yellow-50 rounded-lg">
                 <p className="text-3xl font-bold text-yellow-600">{assignment.pending_groups}</p>
                 <p className="text-sm text-gray-600">Pendientes</p>
               </div>
-              <div className="text-center p-4 bg-green-50 rounded-lg">
-                <p className="text-3xl font-bold text-green-600">{assignment.reviewed_groups}</p>
+              <div className="text-center p-4 bg-amber-50 rounded-lg">
+                <p className="text-3xl font-bold text-brand_accent">{assignment.reviewed_groups}</p>
                 <p className="text-sm text-gray-600">Revisados</p>
               </div>
             </div>
@@ -500,11 +500,11 @@ export default function AssignmentReviewPage() {
                           <h4 className="text-sm font-medium text-gray-700 mb-3">Calificación y retroalimentación:</h4>
                           
                           {submission.status === 'reviewed' ? (
-                            <div className="bg-green-50 rounded-lg p-4">
+                            <div className="bg-amber-50 rounded-lg p-4">
                               <p className="text-sm text-gray-600 mb-2">
                                 Calificado por: {submission.reviewed_by} el {new Date(submission.reviewed_at!).toLocaleDateString('es-ES')}
                               </p>
-                              <p className="text-lg font-semibold text-green-700 mb-2">
+                              <p className="text-lg font-semibold text-brand_accent mb-2">
                                 Nota: {submission.grade}/100
                               </p>
                               {submission.feedback && (

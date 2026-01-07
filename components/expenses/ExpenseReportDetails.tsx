@@ -89,8 +89,8 @@ export default function ExpenseReportDetails({
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'submitted': return 'bg-blue-100 text-blue-800';
-      case 'approved': return 'bg-green-100 text-green-800';
+      case 'submitted': return 'bg-brand_beige text-brand_primary';
+      case 'approved': return 'bg-amber-100 text-amber-800';
       case 'rejected': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -178,10 +178,10 @@ export default function ExpenseReportDetails({
         <div className="flex items-center justify-center space-x-2">
           <button
             onClick={() => handleReceiptClick(item)}
-            className="flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+            className="flex items-center justify-center w-7 h-7 bg-brand_beige hover:bg-amber-100 rounded-lg transition-colors"
             title={`Ver boleta: ${item.receipt_filename || 'archivo'}`}
           >
-            <Eye className="text-blue-600" size={14} />
+            <Eye className="text-brand_primary" size={14} />
           </button>
           <button
             onClick={async () => {
@@ -222,12 +222,12 @@ export default function ExpenseReportDetails({
                 console.error('Error downloading receipt:', error);
               }
             }}
-            className="flex items-center justify-center w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+            className="flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
             title="Descargar boleta"
           >
-            <Download className="text-green-600" size={14} />
+            <Download className="text-brand_accent" size={14} />
           </button>
-          <span className="text-xs text-green-600 font-medium ml-2" title={item.receipt_filename || 'Boleta disponible'}>
+          <span className="text-xs text-brand_accent font-medium ml-2" title={item.receipt_filename || 'Boleta disponible'}>
             ✅
           </span>
         </div>
@@ -241,15 +241,15 @@ export default function ExpenseReportDetails({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="bg-brand_blue text-white p-6 rounded-t-lg">
+        <div className="bg-brand_primary text-white p-6 rounded-t-lg">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold">{report.report_name}</h2>
-              <p className="text-blue-100">Detalles del Reporte de Gastos</p>
+              <p className="text-gray-300">Detalles del Reporte de Gastos</p>
             </div>
-            <button 
+            <button
               onClick={onClose}
-              className="text-white hover:text-blue-200 transition-colors"
+              className="text-white hover:text-brand_accent transition-colors"
             >
               <X size={24} />
             </button>
@@ -287,7 +287,7 @@ export default function ExpenseReportDetails({
                     console.error('PDF export error:', error);
                   }
                 }}
-                className="flex items-center px-3 py-1 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium"
+                className="flex items-center px-3 py-1 bg-brand_beige text-brand_primary rounded-lg hover:bg-amber-100 transition-colors text-sm font-medium"
                 title="Descargar como PDF"
               >
                 <FileText size={14} className="mr-1" />
@@ -303,7 +303,7 @@ export default function ExpenseReportDetails({
                     console.error('Excel export error:', error);
                   }
                 }}
-                className="flex items-center px-3 py-1 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium"
+                className="flex items-center px-3 py-1 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition-colors text-sm font-medium"
                 title="Descargar como Excel"
               >
                 <FileSpreadsheet size={14} className="mr-1" />
@@ -313,7 +313,7 @@ export default function ExpenseReportDetails({
               {(isAdmin || (currentUser && report.submitted_by === currentUser.id) || report.status === 'draft') && (
                 <button
                   onClick={() => onEdit(report)}
-                  className="flex items-center px-3 py-1 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_yellow/90 transition-colors text-sm font-medium"
+                  className="flex items-center px-3 py-1 bg-brand_accent text-brand_primary rounded-lg hover:bg-amber-400 transition-colors text-sm font-medium"
                   title={report.status !== 'draft' ? 'Editar como autor del reporte' : 'Editar reporte'}
                 >
                   <Edit size={14} className="mr-1" />
@@ -333,13 +333,13 @@ export default function ExpenseReportDetails({
           {/* Report Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">Información General</h3>
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Información General</h3>
               
               <div className="space-y-3">
                 <div>
                   <div className="text-sm font-medium text-gray-500">Período</div>
                   <div className="flex items-center text-gray-900">
-                    <Calendar size={16} className="mr-2 text-brand_blue" />
+                    <Calendar size={16} className="mr-2 text-brand_primary" />
                     {formatDate(report.start_date)} - {formatDate(report.end_date)}
                   </div>
                 </div>
@@ -362,7 +362,7 @@ export default function ExpenseReportDetails({
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">Estado y Fechas</h3>
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Estado y Fechas</h3>
               
               <div className="space-y-3">
                 <div>
@@ -399,7 +399,7 @@ export default function ExpenseReportDetails({
           {/* Expense Items */}
           {report.expense_items && report.expense_items.length > 0 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">
                 Gastos Detallados ({report.expense_items.length})
               </h3>
               
@@ -407,13 +407,13 @@ export default function ExpenseReportDetails({
                 <table className="w-full border border-gray-200 rounded-lg">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-brand_blue">Fecha</th>
-                      <th className="text-left py-3 px-4 font-semibold text-brand_blue">Categoría</th>
-                      <th className="text-left py-3 px-4 font-semibold text-brand_blue">Descripción</th>
-                      <th className="text-left py-3 px-4 font-semibold text-brand_blue">Proveedor</th>
-                      <th className="text-left py-3 px-4 font-semibold text-brand_blue">N° Factura/Boleta</th>
-                      <th className="text-right py-3 px-4 font-semibold text-brand_blue">Monto</th>
-                      <th className="text-center py-3 px-4 font-semibold text-brand_blue">Boleta</th>
+                      <th className="text-left py-3 px-4 font-semibold text-brand_primary">Fecha</th>
+                      <th className="text-left py-3 px-4 font-semibold text-brand_primary">Categoría</th>
+                      <th className="text-left py-3 px-4 font-semibold text-brand_primary">Descripción</th>
+                      <th className="text-left py-3 px-4 font-semibold text-brand_primary">Proveedor</th>
+                      <th className="text-left py-3 px-4 font-semibold text-brand_primary">N° Factura/Boleta</th>
+                      <th className="text-right py-3 px-4 font-semibold text-brand_primary">Monto</th>
+                      <th className="text-center py-3 px-4 font-semibold text-brand_primary">Boleta</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -469,10 +469,10 @@ export default function ExpenseReportDetails({
                   </tbody>
                   <tfoot>
                     <tr className="bg-gray-50 border-t border-gray-200">
-                      <td colSpan={5} className="py-3 px-4 text-right font-semibold text-brand_blue">
+                      <td colSpan={5} className="py-3 px-4 text-right font-semibold text-brand_primary">
                         Total:
                       </td>
-                      <td className="py-3 px-4 text-right font-bold text-brand_blue">
+                      <td className="py-3 px-4 text-right font-bold text-brand_primary">
                         {formatCurrency(report.total_amount)}
                       </td>
                       <td></td>
@@ -486,7 +486,7 @@ export default function ExpenseReportDetails({
           {/* Summary by Category */}
           {report.expense_items && report.expense_items.length > 0 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">
                 Resumen por Categoría
               </h3>
               
@@ -515,7 +515,7 @@ export default function ExpenseReportDetails({
                     <div className="text-sm text-gray-600">
                       {data.count} gasto{data.count !== 1 ? 's' : ''}
                     </div>
-                    <div className="text-lg font-bold text-brand_blue">
+                    <div className="text-lg font-bold text-brand_primary">
                       {formatCurrency(data.total)}
                     </div>
                   </div>

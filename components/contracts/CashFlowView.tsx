@@ -429,21 +429,21 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
   return (
     <div className="space-y-6">
       {/* UF Value Indicator */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-brand_beige border border-brand_accent rounded-lg p-4">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="font-semibold text-blue-900">Valor UF Actual</h4>
-            <p className="text-sm text-blue-700">Utilizado para proyecciones y conversiones</p>
+            <h4 className="font-semibold text-brand_primary">Valor UF Actual</h4>
+            <p className="text-sm text-gray-700">Utilizado para proyecciones y conversiones</p>
           </div>
           <div className="text-right">
             {loading ? (
-              <div className="animate-pulse bg-blue-200 h-6 w-24 rounded"></div>
+              <div className="animate-pulse bg-amber-200 h-6 w-24 rounded"></div>
             ) : (
-              <p className="text-xl font-bold text-blue-900">
+              <p className="text-xl font-bold text-brand_primary">
                 {UFService.formatCurrency(currentUFValue, 'CLP')}
               </p>
             )}
-            <p className="text-xs text-blue-600">Actualizado automáticamente</p>
+            <p className="text-xs text-brand_accent">Actualizado automáticamente</p>
           </div>
         </div>
       </div>
@@ -458,8 +458,8 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                 onClick={() => setSelectedPeriod(period)}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                   selectedPeriod === period
-                    ? 'bg-brand_blue text-white'
-                    : 'bg-white text-brand_blue border border-brand_blue hover:bg-brand_blue hover:text-white'
+                    ? 'bg-brand_primary text-white'
+                    : 'bg-white text-brand_primary border border-brand_accent hover:bg-gray-800 hover:text-white'
                 }`}
               >
                 {period === '3m' && '3 Meses'}
@@ -475,7 +475,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
               onClick={() => setCurrencyDisplay('UF')}
               className={`px-3 py-2 text-sm rounded-lg font-medium transition-colors ${
                 currencyDisplay === 'UF'
-                  ? 'bg-blue-100 text-blue-800 border border-blue-300'
+                  ? 'bg-brand_beige text-brand_primary border border-brand_accent'
                   : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -485,7 +485,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
               onClick={() => setCurrencyDisplay('CLP')}
               className={`px-3 py-2 text-sm rounded-lg font-medium transition-colors ${
                 currencyDisplay === 'CLP'
-                  ? 'bg-green-100 text-green-800 border border-green-300'
+                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
                   : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -509,7 +509,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
               onClick={() => setViewType('monthly')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 viewType === 'monthly'
-                  ? 'bg-brand_yellow text-brand_blue'
+                  ? 'bg-brand_yellow text-brand_primary'
                   : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -519,7 +519,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
               onClick={() => setViewType('detailed')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
                 viewType === 'detailed'
-                  ? 'bg-brand_yellow text-brand_blue'
+                  ? 'bg-brand_yellow text-brand_primary'
                   : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
               }`}
             >
@@ -541,7 +541,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                   onClick={() => setPaymentFilter('all')}
                   className={`px-3 py-1 text-sm rounded-lg font-medium transition-colors ${
                     paymentFilter === 'all'
-                      ? 'bg-brand_blue text-white'
+                      ? 'bg-brand_primary text-white'
                       : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -561,7 +561,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                   onClick={() => setPaymentFilter('due_paid')}
                   className={`px-3 py-1 text-sm rounded-lg font-medium transition-colors ${
                     paymentFilter === 'due_paid'
-                      ? 'bg-green-100 text-green-800 border border-green-300'
+                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
                       : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
                   }`}
                 >
@@ -580,28 +580,28 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
           <span className="text-sm text-gray-500">({getAllContractsTotals().contractCount} contratos incluidos en flujo)</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-brand_beige border border-brand_accent rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-600">Total de Contratos</p>
-                <p className="text-2xl font-bold text-blue-900">{formatCurrency(getAllContractsTotals().total.uf, 'UF', getAllContractsTotals().total.clp)}</p>
-                <p className="text-xs text-blue-600 mt-1">Valor total de todos los contratos</p>
+                <p className="text-sm font-medium text-brand_primary">Total de Contratos</p>
+                <p className="text-2xl font-bold text-brand_primary">{formatCurrency(getAllContractsTotals().total.uf, 'UF', getAllContractsTotals().total.clp)}</p>
+                <p className="text-xs text-brand_accent mt-1">Valor total de todos los contratos</p>
               </div>
-              <TrendingUp className="text-blue-600" size={24} />
+              <TrendingUp className="text-brand_accent" size={24} />
             </div>
           </div>
-          
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-600">Total Pagado</p>
-                <p className="text-2xl font-bold text-green-900">{formatCurrency(getAllContractsTotals().paid.uf, 'UF', getAllContractsTotals().paid.clp)}</p>
-                <p className="text-xs text-green-600 mt-1">Cuotas ya pagadas</p>
+                <p className="text-sm font-medium text-amber-600">Total Pagado</p>
+                <p className="text-2xl font-bold text-amber-900">{formatCurrency(getAllContractsTotals().paid.uf, 'UF', getAllContractsTotals().paid.clp)}</p>
+                <p className="text-xs text-amber-600 mt-1">Cuotas ya pagadas</p>
               </div>
-              <CheckCircle className="text-green-600" size={24} />
+              <CheckCircle className="text-brand_accent" size={24} />
             </div>
           </div>
-          
+
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -622,28 +622,28 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
           <span className="text-sm text-gray-500">Solo cuotas vencen en el período seleccionado</span>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="bg-brand_beige border border-brand_accent rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-600">Proyectado ({selectedPeriod === '3m' ? '3' : selectedPeriod === '6m' ? '6' : '12'} meses)</p>
-                <p className="text-2xl font-bold text-blue-900">{formatCurrency(getTotalProjected().uf, 'UF', getTotalProjected().clp)}</p>
-                <p className="text-xs text-blue-600 mt-1">Cuotas que vencen en período</p>
+                <p className="text-sm font-medium text-brand_primary">Proyectado ({selectedPeriod === '3m' ? '3' : selectedPeriod === '6m' ? '6' : '12'} meses)</p>
+                <p className="text-2xl font-bold text-brand_primary">{formatCurrency(getTotalProjected().uf, 'UF', getTotalProjected().clp)}</p>
+                <p className="text-xs text-brand_accent mt-1">Cuotas que vencen en período</p>
               </div>
-              <TrendingUp className="text-blue-600" size={24} />
+              <TrendingUp className="text-brand_accent" size={24} />
             </div>
           </div>
-          
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-600">Pagado (período)</p>
-                <p className="text-2xl font-bold text-green-900">{formatCurrency(getTotalPaid().uf, 'UF', getTotalPaid().clp)}</p>
-                <p className="text-xs text-green-600 mt-1">Cuotas pagadas en período</p>
+                <p className="text-sm font-medium text-amber-600">Pagado (período)</p>
+                <p className="text-2xl font-bold text-amber-900">{formatCurrency(getTotalPaid().uf, 'UF', getTotalPaid().clp)}</p>
+                <p className="text-xs text-amber-600 mt-1">Cuotas pagadas en período</p>
               </div>
-              <CheckCircle className="text-green-600" size={24} />
+              <CheckCircle className="text-brand_accent" size={24} />
             </div>
           </div>
-          
+
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -728,7 +728,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
       {/* Cash Flow Table/Timeline */}
       <div className="bg-white rounded-lg shadow-md">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-brand_blue">
+          <h3 className="text-lg font-semibold text-brand_primary">
             Proyección de Flujo de Caja - {viewType === 'monthly' ? 'Mensual' : 'Detallada'}
           </h3>
         </div>
@@ -740,7 +740,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
               {cashFlow.map((item, index) => (
                 <div key={item.fecha} className="border border-gray-200 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-lg font-semibold text-brand_blue">
+                    <h4 className="text-lg font-semibold text-brand_primary">
                       {formatMonth(item.fecha)}
                     </h4>
                     <div className="text-right">
@@ -755,8 +755,8 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center">
-                      <p className="text-sm font-medium text-green-600">Pagado</p>
-                      <p className="text-lg font-semibold text-green-900">
+                      <p className="text-sm font-medium text-amber-600">Pagado</p>
+                      <p className="text-lg font-semibold text-amber-900">
                         {formatCurrency(item.total_pagado, 'UF', item.total_pagado_clp)}
                       </p>
                     </div>
@@ -782,14 +782,14 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
               <table className="w-full border-collapse min-w-full">
                 <thead>
                   <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_blue whitespace-nowrap">Fecha</th>
-                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_blue">Cliente</th>
-                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_blue whitespace-nowrap">Contrato</th>
-                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_blue whitespace-nowrap">Cuota</th>
-                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_blue">Monto</th>
-                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_blue">Estado</th>
-                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_blue">Factura</th>
-                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_blue">Pagado</th>
+                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_primary whitespace-nowrap">Fecha</th>
+                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_primary">Cliente</th>
+                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_primary whitespace-nowrap">Contrato</th>
+                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_primary whitespace-nowrap">Cuota</th>
+                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_primary">Monto</th>
+                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_primary">Estado</th>
+                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_primary">Factura</th>
+                    <th className="text-left py-3 px-2 md:px-4 font-semibold text-brand_primary">Pagado</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -810,8 +810,8 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                           <td className="py-3 px-2 md:px-4 font-medium text-sm">{formatCurrency(cuota.monto_uf, contrato.tipo_moneda, monto_clp)}</td>
                           <td className="py-3 px-2 md:px-4">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
-                              cuota.pagada 
-                                ? 'bg-green-100 text-green-800' 
+                              cuota.pagada
+                                ? 'bg-amber-100 text-amber-800'
                                 : new Date(cuota.fecha_vencimiento) < new Date()
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-yellow-100 text-yellow-800'
@@ -827,11 +827,11 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                           <td className="py-3 px-2 md:px-4">
                             <div className="flex items-center justify-center">
                               {cuota.factura_url ? (
-                                <a 
-                                  href={cuota.factura_url} 
-                                  target="_blank" 
+                                <a
+                                  href={cuota.factura_url}
+                                  target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 underline text-xs"
+                                  className="text-brand_primary hover:text-gray-700 underline text-xs"
                                 >
                                   Ver
                                 </a>
@@ -848,11 +848,11 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                                     }}
                                     className="hidden"
                                   />
-                                  <div className="flex items-center justify-center w-8 h-8 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors">
+                                  <div className="flex items-center justify-center w-8 h-8 bg-brand_beige hover:bg-amber-50 rounded-lg transition-colors">
                                     {uploadingInvoice === cuota.id ? (
-                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand_primary"></div>
                                     ) : (
-                                      <Upload className="text-blue-600" size={16} />
+                                      <Upload className="text-brand_primary" size={16} />
                                     )}
                                   </div>
                                 </label>
@@ -865,7 +865,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                                 onClick={() => handlePaymentStatusToggle(cuota.id, cuota.factura_pagada || false)}
                                 className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
                                   cuota.factura_pagada
-                                    ? 'bg-green-100 hover:bg-green-200 text-green-600'
+                                    ? 'bg-amber-100 hover:bg-amber-200 text-brand_accent'
                                     : 'bg-gray-100 hover:bg-gray-200 text-gray-400'
                                 }`}
                               >

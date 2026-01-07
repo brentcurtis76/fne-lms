@@ -322,8 +322,8 @@ export default function EditLearningPath() {
                     <div
                       key={course.id}
                       className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                        isSelected 
-                          ? 'border-green-500 bg-green-50' 
+                        isSelected
+                          ? 'border-brand_accent bg-brand_beige'
                           : 'border-gray-200 hover:border-brand_blue hover:bg-gray-50'
                       }`}
                       onClick={() => !isSelected && handleAddCourse(course)}
@@ -335,7 +335,7 @@ export default function EditLearningPath() {
                         {course.description}
                       </p>
                       {isSelected && (
-                        <p className="text-xs text-green-600 mt-2">
+                        <p className="text-xs text-brand_accent mt-2">
                           ✓ Agregado a la ruta
                         </p>
                       )}

@@ -435,7 +435,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
   return (
     <div className="bg-white rounded-lg shadow-md">
       <div className="border-b border-gray-200 px-6 py-4">
-        <h2 className="text-xl font-semibold text-brand_blue">
+        <h2 className="text-xl font-semibold text-brand_primary">
           {editingReport ? 'Editar Reporte de Gastos' : 'Nuevo Reporte de Gastos'}
         </h2>
       </div>
@@ -443,7 +443,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
       <div className="p-6 space-y-6">
         {/* Report Information */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">Información del Reporte</h3>
+          <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Información del Reporte</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -454,7 +454,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                 type="text"
                 value={reportForm.report_name}
                 onChange={(e) => setReportForm({ ...reportForm, report_name: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                 placeholder="Ej: Gastos Marzo 2025"
               />
             </div>
@@ -467,7 +467,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                 type="text"
                 value={reportForm.description}
                 onChange={(e) => setReportForm({ ...reportForm, description: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                 placeholder="Descripción opcional del reporte"
               />
             </div>
@@ -480,7 +480,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                 type="date"
                 value={reportForm.start_date}
                 onChange={(e) => setReportForm({ ...reportForm, start_date: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
               />
             </div>
             
@@ -492,7 +492,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                 type="date"
                 value={reportForm.end_date}
                 onChange={(e) => setReportForm({ ...reportForm, end_date: e.target.value })}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                 min={reportForm.start_date}
               />
             </div>
@@ -502,11 +502,11 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
         {/* Expense Items */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">Gastos</h3>
+            <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Gastos</h3>
             <button
               type="button"
               onClick={addExpenseItem}
-              className="flex items-center px-4 py-2 bg-brand_blue text-white rounded-lg hover:bg-brand_blue/90 transition-colors text-sm font-medium"
+              className="flex items-center px-4 py-2 bg-brand_primary text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium"
             >
               <Plus size={16} className="mr-1" />
               Agregar Gasto
@@ -523,7 +523,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
             {expenseItems.map((item, index) => (
               <div key={index} className="p-4 bg-white border border-gray-200 rounded-lg space-y-4">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-brand_blue">Gasto {index + 1}</h4>
+                  <h4 className="font-semibold text-brand_primary">Gasto {index + 1}</h4>
                   {expenseItems.length > 1 && (
                     <button
                       type="button"
@@ -544,7 +544,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                     <select
                       value={item.category_id}
                       onChange={(e) => updateExpenseItem(index, 'category_id', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:border-transparent text-sm"
                     >
                       <option value="">Seleccionar categoría</option>
                       {categories.map(category => (
@@ -563,19 +563,19 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                       type="text"
                       value={item.description}
                       onChange={(e) => updateExpenseItem(index, 'description', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:border-transparent text-sm"
                       placeholder="Descripción del gasto"
                     />
                   </div>
 
-                  <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
-                    <label className="block text-sm font-medium text-brand_blue mb-2">
+                  <div className="p-2 bg-brand_beige rounded-lg border border-brand_accent">
+                    <label className="block text-sm font-medium text-brand_primary mb-2">
                       💰 Moneda *
                     </label>
                     <select
                       value={item.currency}
                       onChange={(e) => updateExpenseItem(index, 'currency', e.target.value as 'CLP' | 'USD' | 'EUR')}
-                      className="w-full p-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-brand_blue text-sm font-medium bg-white"
+                      className="w-full p-3 border-2 border-brand_accent rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-brand_accent text-sm font-medium bg-white"
                     >
                       {getAvailableCurrencies().map(currency => (
                         <option key={currency.code} value={currency.code}>
@@ -585,8 +585,8 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                     </select>
                   </div>
 
-                  <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
-                    <label className="block text-sm font-medium text-brand_blue mb-2">
+                  <div className="p-2 bg-brand_beige rounded-lg border border-brand_accent">
+                    <label className="block text-sm font-medium text-brand_primary mb-2">
                       💵 Monto ({item.currency}) *
                     </label>
                     <div className="space-y-2">
@@ -603,13 +603,13 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                             updateExpenseItem(index, 'amount', value);
                           }
                         }}
-                        className="w-full p-3 border-2 border-blue-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-brand_blue text-sm font-medium bg-white"
+                        className="w-full p-3 border-2 border-brand_accent rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-brand_accent text-sm font-medium bg-white"
                         placeholder="0.00"
                       />
                       {item.currency !== 'CLP' && item.conversion_rate && item.original_amount && (
-                        <div className="text-sm text-blue-700 font-medium bg-blue-100 p-2 rounded">
+                        <div className="text-sm text-amber-700 font-medium bg-amber-100 p-2 rounded">
                           ≈ ${Math.round((item.original_amount || 0) * (item.conversion_rate || 1)).toLocaleString('es-CL')} CLP
-                          <span className="text-xs text-blue-600 block">Tasa: {item.conversion_rate?.toFixed(2)}</span>
+                          <span className="text-xs text-amber-600 block">Tasa: {item.conversion_rate?.toFixed(2)}</span>
                         </div>
                       )}
                     </div>
@@ -623,7 +623,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                       type="date"
                       value={item.expense_date}
                       onChange={(e) => updateExpenseItem(index, 'expense_date', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:border-transparent text-sm"
                     />
                   </div>
 
@@ -635,7 +635,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                       type="text"
                       value={item.vendor}
                       onChange={(e) => updateExpenseItem(index, 'vendor', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:border-transparent text-sm"
                       placeholder="Nombre del proveedor"
                     />
                   </div>
@@ -648,7 +648,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                       type="text"
                       value={item.expense_number}
                       onChange={(e) => updateExpenseItem(index, 'expense_number', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:border-transparent text-sm"
                       placeholder="Ej: 12345, B-001, F-4567"
                     />
                   </div>
@@ -661,15 +661,15 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                       📄 Boleta/Recibo
                     </label>
                     {(item.receipt_url || item.receipt_filename) ? (
-                      <div className="space-y-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="space-y-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                         {/* Receipt uploaded indicator */}
                         <div className="flex items-center">
-                          <FileText size={20} className="text-green-600 mr-3" />
+                          <FileText size={20} className="text-brand_accent mr-3" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-green-800 truncate" title={item.receipt_filename}>
+                            <p className="text-sm font-medium text-amber-800 truncate" title={item.receipt_filename}>
                               ✅ {item.receipt_filename || 'Archivo subido'}
                             </p>
-                            <p className="text-xs text-green-600">Boleta subida correctamente</p>
+                            <p className="text-xs text-amber-600">Boleta subida correctamente</p>
                           </div>
                         </div>
                         
@@ -715,7 +715,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                                 toast.error('Error al abrir la boleta');
                               }
                             }}
-                            className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white border border-blue-600 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                            className="flex items-center px-3 py-2 text-sm bg-brand_primary text-white border border-brand_primary rounded-lg hover:bg-gray-800 transition-colors font-medium"
                             title="Ver boleta"
                           >
                             <Eye size={14} className="mr-2" />
@@ -743,17 +743,17 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                           }}
                           className="hidden"
                         />
-                        <div className="flex items-center justify-center w-full p-4 border-2 border-dashed border-gray-400 rounded-lg hover:border-brand_blue hover:bg-blue-50 transition-all duration-200">
+                        <div className="flex items-center justify-center w-full p-4 border-2 border-dashed border-gray-400 rounded-lg hover:border-brand_accent hover:bg-brand_beige transition-all duration-200">
                           {uploadingReceipts.has(index) ? (
-                            <div className="flex items-center text-brand_blue">
-                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand_blue mr-3"></div>
+                            <div className="flex items-center text-brand_primary">
+                              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand_primary mr-3"></div>
                               <span className="font-medium">Subiendo archivo...</span>
                             </div>
                           ) : (
                             <div className="text-center">
                               <Upload size={24} className="mx-auto text-gray-500 mb-2" />
                               <p className="text-sm text-gray-700 font-medium">
-                                <span className="text-brand_blue">Hacer clic para subir boleta</span>
+                                <span className="text-brand_primary">Hacer clic para subir boleta</span>
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
                                 PDF, JPG, PNG (máx. 50MB)
@@ -772,7 +772,7 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
                     <textarea
                       value={item.notes}
                       onChange={(e) => updateExpenseItem(index, 'notes', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:border-transparent text-sm"
                       rows={6}
                       placeholder="Notas adicionales sobre este gasto"
                     />
@@ -797,11 +797,11 @@ export default function ExpenseReportForm({ categories, editingReport, onSuccess
             type="button"
             onClick={handleSaveReport}
             disabled={loading}
-            className="flex items-center px-6 py-2 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_yellow/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            className="flex items-center px-6 py-2 bg-brand_accent text-brand_primary rounded-lg hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             {loading ? (
               <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand_blue mr-2"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand_primary mr-2"></div>
                 Guardando...
               </>
             ) : (

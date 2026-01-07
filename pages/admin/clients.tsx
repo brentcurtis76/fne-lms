@@ -535,7 +535,7 @@ export default function ClientsManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {cliente.schools ? (
-                        <span className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
+                        <span className="inline-flex items-center px-2 py-1 bg-brand_beige text-brand_accent text-xs rounded">
                           <Building size={12} className="mr-1" />
                           {cliente.schools.name}
                         </span>

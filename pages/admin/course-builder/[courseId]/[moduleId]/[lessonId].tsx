@@ -773,8 +773,8 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
         className={`border rounded-lg p-3 transition-all ${
           isDragging
             ? 'shadow-2xl bg-white border-[#0a0a0a] z-50 rotate-2 scale-105'
-            : activeBlockId === block.id 
-              ? 'border-[#0a0a0a] bg-blue-50 shadow-md' 
+            : activeBlockId === block.id
+              ? 'border-[#0a0a0a] bg-brand_beige shadow-md'
               : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
         } cursor-pointer`}
         onClick={() => {
@@ -1013,8 +1013,8 @@ const LessonEditorPage: NextPage<LessonEditorProps> = ({ initialLessonData, cour
                       key={block.id} 
                       id={`block-${block.id}`}
                       className={`relative border rounded-lg shadow-sm transition-all ${
-                        activeBlockId === block.id 
-                          ? 'border-[#0a0a0a] bg-blue-50' 
+                        activeBlockId === block.id
+                          ? 'border-[#0a0a0a] bg-brand_beige'
                           : 'border-gray-200 bg-white'
                       }`}
                       onClick={() => setActiveBlockId(block.id)}

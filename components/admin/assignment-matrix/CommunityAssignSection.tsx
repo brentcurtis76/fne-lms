@@ -50,15 +50,15 @@ export function CommunityAssignSection({
 
   return (
     <>
-      <div className="border-t border-gray-200 bg-gradient-to-r from-blue-50 to-slate-50 px-4 py-3">
+      <div className="border-t border-gray-200 bg-gradient-to-r from-brand_beige to-slate-50 px-4 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Users className="h-4 w-4 text-blue-600" />
+            <Users className="h-4 w-4 text-brand_primary" />
             <div>
-              <span className="text-sm font-medium text-blue-900">
+              <span className="text-sm font-medium text-brand_primary">
                 {communityName}
               </span>
-              <span className="text-xs text-blue-600 ml-2">
+              <span className="text-xs text-brand_primary ml-2">
                 {userCount} usuario{userCount !== 1 ? 's' : ''}
               </span>
             </div>
@@ -66,7 +66,7 @@ export function CommunityAssignSection({
           <button
             onClick={() => setIsModalOpen(true)}
             disabled={disabled}
-            className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-1.5 bg-brand_primary text-white text-sm font-medium rounded-lg hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <Plus className="h-4 w-4" />
             Asignar a Todos

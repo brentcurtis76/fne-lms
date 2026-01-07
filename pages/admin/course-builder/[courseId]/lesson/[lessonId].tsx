@@ -302,7 +302,7 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
         style={style}
         {...attributes}
         className={`mb-4 border rounded-lg ${
-          activeBlockId === block.id ? 'ring-2 ring-blue-500' : ''
+          activeBlockId === block.id ? 'ring-2 ring-brand_accent' : ''
         }`}
       >
         <div className="flex items-center justify-between p-3 bg-gray-50 border-b">
@@ -459,7 +459,7 @@ const SimpleLessonEditorPage: NextPage<SimpleLessonEditorProps> = ({ initialLess
               setLessonTitle(e.target.value);
               setHasUnsavedChanges(true);
             }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-brand_accent focus:border-brand_accent"
           />
         </div>
 

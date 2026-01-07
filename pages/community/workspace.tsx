@@ -839,7 +839,7 @@ const CommunityWorkspacePage: React.FC = () => {
         {/* Prominent Community Header */}
         {currentWorkspace && (
           <div className="mb-6">
-            <div className="bg-gradient-to-r from-[#0a0a0a] to-[#00486b] rounded-lg shadow-lg p-6">
+            <div className="bg-gradient-to-r from-brand_primary to-brand_primary/80 rounded-lg shadow-lg p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   {currentWorkspace.image_url ? (

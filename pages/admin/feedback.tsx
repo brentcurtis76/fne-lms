@@ -265,7 +265,7 @@ export default function FeedbackDashboard() {
       case 'bug':
         return <AlertCircle className="w-4 h-4 text-red-500" />;
       case 'idea':
-        return <Lightbulb className="w-4 h-4 text-blue-500" />;
+        return <Lightbulb className="w-4 h-4 text-brand_primary" />;
       default:
         return <MessageSquare className="w-4 h-4 text-gray-500" />;
     }
@@ -275,8 +275,8 @@ export default function FeedbackDashboard() {
     const styles = {
       new: 'bg-red-100 text-red-800',
       seen: 'bg-yellow-100 text-yellow-800',
-      in_progress: 'bg-blue-100 text-blue-800',
-      resolved: 'bg-green-100 text-green-800',
+      in_progress: 'bg-brand_beige text-brand_primary',
+      resolved: 'bg-brand_accent/20 text-amber-700',
       closed: 'bg-gray-100 text-gray-800'
     };
 
@@ -374,10 +374,10 @@ export default function FeedbackDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">En Progreso</p>
-                  <p className="text-2xl font-semibold text-blue-600">{stats.in_progress_count}</p>
+                  <p className="text-2xl font-semibold text-brand_primary">{stats.in_progress_count}</p>
                 </div>
-                <div className="p-3 bg-blue-100 rounded-full">
-                  <RefreshCw className="w-6 h-6 text-blue-600" />
+                <div className="p-3 bg-brand_beige rounded-full">
+                  <RefreshCw className="w-6 h-6 text-brand_primary" />
                 </div>
               </div>
             </div>
@@ -386,10 +386,10 @@ export default function FeedbackDashboard() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-gray-600">Resueltos</p>
-                  <p className="text-2xl font-semibold text-green-600">{stats.resolved_count}</p>
+                  <p className="text-2xl font-semibold text-brand_accent">{stats.resolved_count}</p>
                 </div>
-                <div className="p-3 bg-green-100 rounded-full">
-                  <CheckCircle className="w-6 h-6 text-green-600" />
+                <div className="p-3 bg-brand_accent/20 rounded-full">
+                  <CheckCircle className="w-6 h-6 text-brand_accent" />
                 </div>
               </div>
             </div>

@@ -17,6 +17,9 @@ interface Course {
 interface Instructor {
   id: string;
   full_name: string;
+  photo_url?: string | null;
+  bio?: string | null;
+  specialty?: string | null;
 }
 
 interface CourseWithInstructor extends Course {

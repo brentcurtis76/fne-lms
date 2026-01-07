@@ -698,8 +698,8 @@ const NetworkManagementPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Network className="h-6 w-6 text-blue-600" />
+              <div className="p-2 bg-brand_beige rounded-lg">
+                <Network className="h-6 w-6 text-brand_primary" />
               </div>
               <div className="ml-4">
                 <div className="text-2xl font-bold text-gray-900">{networks.length}</div>
@@ -707,11 +707,11 @@ const NetworkManagementPage: React.FC = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <Building className="h-6 w-6 text-green-600" />
+              <div className="p-2 bg-brand_beige rounded-lg">
+                <Building className="h-6 w-6 text-brand_accent" />
               </div>
               <div className="ml-4">
                 <div className="text-2xl font-bold text-gray-900">
@@ -1004,9 +1004,9 @@ const NetworkManagementPage: React.FC = () => {
               Asignar Escuelas a "{selectedNetwork.name}"
             </h3>
             
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-              <p className="text-sm text-blue-800">
-                <span className="font-medium">Nota:</span> Las escuelas que ya pertenecen a otra red aparecen deshabilitadas 
+            <div className="bg-brand_beige border border-brand_accent rounded-lg p-3 mb-4">
+              <p className="text-sm text-brand_primary">
+                <span className="font-medium">Nota:</span> Las escuelas que ya pertenecen a otra red aparecen deshabilitadas
                 y muestran a qué red están asignadas. Solo puedes seleccionar escuelas disponibles o las que ya están en esta red.
               </p>
             </div>
@@ -1048,7 +1048,7 @@ const NetworkManagementPage: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <span className="font-medium">{school.name}</span>
                           {isInThisNetwork && (
-                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                            <span className="text-xs bg-brand_beige text-brand_primary px-2 py-1 rounded">
                               En esta red
                             </span>
                           )}

@@ -120,7 +120,7 @@ export default function BucketTest() {
             </div>
           ) : (
             <div className="space-y-6">
-              <div className="p-4 bg-blue-50 rounded-lg">
+              <div className="p-4 bg-brand_beige rounded-lg">
                 <h2 className="text-lg font-semibold mb-2">Variables de Entorno</h2>
                 <pre className="bg-gray-800 text-white p-3 rounded overflow-x-auto">
                   {JSON.stringify(results?.environment, null, 2)}
@@ -136,13 +136,13 @@ export default function BucketTest() {
                     const exists = bucketInfo?.exists;
                     
                     return (
-                      <div 
+                      <div
                         key={bucket}
-                        className={`p-4 rounded-lg ${exists ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}
+                        className={`p-4 rounded-lg ${exists ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-200'}`}
                       >
                         <h3 className="font-medium flex justify-between">
                           <span>Bucket: {bucket}</span>
-                          <span className={exists ? 'text-green-600' : 'text-red-600'}>
+                          <span className={exists ? 'text-brand_accent' : 'text-red-600'}>
                             {exists ? 'Accesible' : 'No Accesible'}
                           </span>
                         </h3>
@@ -157,7 +157,7 @@ export default function BucketTest() {
                             
                             <button
                               onClick={() => handleCreateBucket(bucket)}
-                              className="mt-2 px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+                              className="mt-2 px-3 py-1 bg-brand_primary text-white text-sm rounded hover:bg-gray-800"
                             >
                               Intentar Crear Bucket
                             </button>
@@ -169,7 +169,7 @@ export default function BucketTest() {
                 </div>
                 
                 {createBucketResult && (
-                  <div className={`p-4 rounded-lg mt-4 ${createBucketResult.success ? 'bg-green-100' : 'bg-red-100'}`}>
+                  <div className={`p-4 rounded-lg mt-4 ${createBucketResult.success ? 'bg-amber-100' : 'bg-red-100'}`}>
                     <h3 className="font-medium">Resultado de Crear Bucket: {createBucketResult.bucket}</h3>
                     <pre className="bg-gray-800 text-white p-2 rounded mt-2 text-sm overflow-x-auto">
                       {JSON.stringify(createBucketResult, null, 2)}

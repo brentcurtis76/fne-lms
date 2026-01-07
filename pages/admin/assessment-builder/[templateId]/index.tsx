@@ -45,7 +45,7 @@ import {
 
 const STATUS_LABELS: Record<string, { label: string; bgColor: string; textColor: string }> = {
   draft: { label: 'Borrador', bgColor: 'bg-yellow-100', textColor: 'text-yellow-800' },
-  published: { label: 'Publicado', bgColor: 'bg-green-100', textColor: 'text-green-800' },
+  published: { label: 'Publicado', bgColor: 'bg-amber-100', textColor: 'text-amber-800' },
   archived: { label: 'Archivado', bgColor: 'bg-gray-100', textColor: 'text-gray-800' },
 };
 
@@ -1091,7 +1091,7 @@ const TemplateEditor: React.FC = () => {
                   <button
                     onClick={handlePublish}
                     disabled={isPublishing || modules.length === 0}
-                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-4 py-2 bg-brand_accent text-white rounded-lg shadow hover:bg-amber-400 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     title={modules.length === 0 ? 'Agrega módulos e indicadores antes de publicar' : 'Publicar template'}
                   >
                     <Upload className="w-4 h-4 mr-2" />
@@ -1118,7 +1118,7 @@ const TemplateEditor: React.FC = () => {
                   <button
                     onClick={handleRestore}
                     disabled={isArchiving}
-                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg shadow hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
+                    className="inline-flex items-center px-4 py-2 bg-brand_accent text-white rounded-lg shadow hover:bg-amber-400 transition-colors text-sm font-medium disabled:opacity-50"
                   >
                     <RotateCcw className="w-4 h-4 mr-2" />
                     {isArchiving ? 'Restaurando...' : 'Restaurar'}
@@ -1135,7 +1135,7 @@ const TemplateEditor: React.FC = () => {
               </>
             ) : (
               <>
-                <div className="flex items-center gap-2 text-sm text-green-700">
+                <div className="flex items-center gap-2 text-sm text-brand_accent">
                   <Edit2 className="w-4 h-4" />
                   <span>Template publicado v{template.version} - Puedes editar</span>
                   {usageStats?.hasResponses && (
@@ -1312,10 +1312,10 @@ const TemplateEditor: React.FC = () => {
                                     <span
                                       className={`text-xs px-2 py-0.5 rounded-full ${
                                         indicator.category === 'cobertura'
-                                          ? 'bg-blue-100 text-blue-700'
+                                          ? 'bg-brand_beige text-brand_primary'
                                           : indicator.category === 'frecuencia'
                                           ? 'bg-amber-100 text-amber-700'
-                                          : 'bg-green-100 text-green-700'
+                                          : 'bg-amber-100 text-amber-700'
                                       }`}
                                     >
                                       {CATEGORY_LABELS[indicator.category]}

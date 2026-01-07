@@ -281,7 +281,7 @@ export default function EventsManagement() {
                 resetForm();
                 setShowModal(true);
               }}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-brand_primary text-white px-6 py-2 rounded-lg hover:bg-gray-800 transition-colors"
             >
               + Nuevo Evento
             </button>
@@ -334,8 +334,8 @@ export default function EventsManagement() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        event.is_published 
-                          ? 'bg-green-100 text-green-800' 
+                        event.is_published
+                          ? 'bg-amber-100 text-amber-800'
                           : 'bg-gray-100 text-gray-800'
                       }`}>
                         {event.is_published ? 'Publicado' : 'Borrador'}
@@ -564,7 +564,7 @@ export default function EventsManagement() {
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                      className="px-4 py-2 bg-brand_primary text-white rounded-md hover:bg-gray-800 transition-colors"
                     >
                       {editingEvent ? 'Actualizar' : 'Crear'} Evento
                     </button>

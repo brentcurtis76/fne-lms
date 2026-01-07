@@ -17,9 +17,9 @@ export function SourceBadge({ source, sourceLPNames = [], showTooltip = true }: 
       case 'asignacion_directa':
         return {
           label: 'Directa',
-          bgColor: 'bg-blue-100',
-          textColor: 'text-blue-700',
-          borderColor: 'border-blue-200',
+          bgColor: 'bg-brand_beige',
+          textColor: 'text-brand_primary',
+          borderColor: 'border-brand_accent',
           tooltip: 'Asignación directa'
         };
       case 'ruta':

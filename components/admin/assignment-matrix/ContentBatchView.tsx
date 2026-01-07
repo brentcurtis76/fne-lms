@@ -130,7 +130,7 @@ export function ContentBatchView({ onOpenBatchAssign, refreshTrigger }: ContentB
               placeholder="Buscar por título..."
               value={filters.searchQuery}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-brand_accent"
             />
           </div>
 
@@ -139,7 +139,7 @@ export function ContentBatchView({ onOpenBatchAssign, refreshTrigger }: ContentB
             <select
               value={filters.contentType}
               onChange={(e) => handleContentTypeChange(e.target.value as ContentBatchFilters['contentType'])}
-              className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="appearance-none pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-brand_accent bg-white"
             >
               <option value="all">Todo el contenido</option>
               <option value="courses">Solo cursos</option>
@@ -154,7 +154,7 @@ export function ContentBatchView({ onOpenBatchAssign, refreshTrigger }: ContentB
       <div className="flex-1 overflow-y-auto p-6">
         {loading && (
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+            <Loader2 className="h-8 w-8 text-brand_primary animate-spin" />
           </div>
         )}
 
@@ -319,7 +319,7 @@ function CourseCard({ course, onAssign }: CourseCardProps) {
         </div>
         <button
           onClick={onAssign}
-          className="flex-shrink-0 p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+          className="flex-shrink-0 p-1.5 text-brand_primary hover:bg-brand_beige rounded-md transition-colors"
           title="Asignar a usuarios"
         >
           <Plus className="h-5 w-5" />
@@ -387,7 +387,7 @@ function LearningPathCard({ learningPath, onAssign }: LearningPathCardProps) {
         </div>
         <button
           onClick={onAssign}
-          className="flex-shrink-0 p-1.5 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+          className="flex-shrink-0 p-1.5 text-brand_primary hover:bg-brand_beige rounded-md transition-colors"
           title="Asignar a usuarios"
         >
           <Plus className="h-5 w-5" />

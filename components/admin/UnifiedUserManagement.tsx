@@ -162,7 +162,7 @@ export default function UnifiedUserManagement({
       case 'pending':
         return <Clock className="w-5 h-5 text-amber-500" />;
       case 'approved':
-        return <CheckCircle className="w-5 h-5 text-green-500" />;
+        return <CheckCircle className="w-5 h-5 text-brand_accent" />;
       case 'rejected':
         return <XCircle className="w-5 h-5 text-red-500" />;
       default:
@@ -174,7 +174,7 @@ export default function UnifiedUserManagement({
     const colors: Record<string, string> = {
       admin: 'bg-red-50 text-red-700 border-red-200',
       consultor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      docente: 'bg-blue-50 text-blue-700 border-blue-200',
+      docente: 'bg-brand_beige text-brand_primary border-brand_accent',
       lider_comunidad: 'bg-amber-50 text-amber-700 border-amber-200',
       lider_generacion: 'bg-slate-50 text-slate-700 border-slate-200',
       equipo_directivo: 'bg-orange-50 text-orange-700 border-orange-200',
@@ -272,14 +272,14 @@ export default function UnifiedUserManagement({
           <button
             onClick={() => onStatusChange('approved')}
             className={`p-4 rounded-lg border-2 transition-all ${
-              selectedStatus === 'approved' 
-                ? 'border-green-500 bg-green-50' 
+              selectedStatus === 'approved'
+                ? 'border-brand_accent bg-brand_beige'
                 : 'border-gray-200 bg-white hover:border-gray-300'
             }`}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <CheckCircle className="h-8 w-8 text-green-500" />
+                <CheckCircle className="h-8 w-8 text-brand_accent" />
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-900">Aprobados</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.approved}</p>
@@ -291,14 +291,14 @@ export default function UnifiedUserManagement({
           <button
             onClick={() => onStatusChange('all')}
             className={`p-4 rounded-lg border-2 transition-all ${
-              selectedStatus === 'all' 
-                ? 'border-blue-500 bg-blue-50' 
+              selectedStatus === 'all'
+                ? 'border-brand_accent bg-brand_beige'
                 : 'border-gray-200 bg-white hover:border-gray-300'
             }`}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <Users className="h-8 w-8 text-blue-500" />
+                <Users className="h-8 w-8 text-brand_primary" />
                 <div className="ml-3">
                   <p className="text-sm font-medium text-gray-900">Total</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
@@ -481,7 +481,7 @@ export default function UnifiedUserManagement({
                     {getStatusIcon(user.approval_status)}
                     <span className={`ml-2 text-sm font-medium ${
                       user.approval_status === 'pending' ? 'text-amber-600' :
-                      user.approval_status === 'approved' ? 'text-green-600' :
+                      user.approval_status === 'approved' ? 'text-brand_accent' :
                       'text-red-600'
                     }`}>
                       {user.approval_status === 'pending' ? 'Pendiente' :
@@ -536,7 +536,7 @@ export default function UnifiedUserManagement({
                                 e.stopPropagation();
                                 onApprove(user.id);
                               }}
-                              className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                              className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand_accent hover:bg-amber-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_accent"
                             >
                               <CheckCircle className="w-4 h-4 mr-2" />
                               Aprobar Usuario
@@ -559,7 +559,7 @@ export default function UnifiedUserManagement({
                             <div className="border border-gray-200 rounded-md p-3">
                               <div className="text-xs font-medium text-gray-600 mb-2">Reportes de gastos</div>
                               {isAdminRole ? (
-                                <span className="text-sm text-green-700">Admin - acceso total</span>
+                                <span className="text-sm text-brand_accent">Admin - acceso total</span>
                               ) : (
                                 <div className="flex items-center justify-between gap-3">
                                   <span className="text-sm text-gray-700">
@@ -573,7 +573,7 @@ export default function UnifiedUserManagement({
                                     disabled={isUpdatingExpense}
                                     className={`flex items-center px-3 py-1.5 rounded-full text-xs font-medium transition ${
                                       expenseEnabled
-                                        ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                        ? 'bg-brand_beige text-brand_accent hover:bg-amber-100'
                                         : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                     } ${isUpdatingExpense ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
                                   >

@@ -168,9 +168,9 @@ export default function Configuration() {
   const getCategoryColor = (category: string): string => {
     switch (category) {
       case 'courses':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-brand_beige text-brand_primary';
       case 'assignments':
-        return 'bg-green-100 text-green-800';
+        return 'bg-amber-100 text-amber-800';
       case 'messaging':
         return 'bg-amber-100 text-amber-800';
       case 'social':
@@ -367,8 +367,8 @@ export default function Configuration() {
                               <div className="flex items-center">
                                 {type.default_enabled ? (
                                   <>
-                                    <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
-                                    <span className="text-sm text-green-700">Activo</span>
+                                    <CheckCircle className="h-4 w-4 text-brand_accent mr-1" />
+                                    <span className="text-sm text-amber-700">Activo</span>
                                   </>
                                 ) : (
                                   <>
@@ -387,15 +387,15 @@ export default function Configuration() {
               </div>
             )}
             
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-brand_beige border border-brand_accent rounded-lg p-4">
               <div className="flex items-start">
-                <Bell className="h-5 w-5 text-blue-500 mr-2 mt-0.5" />
+                <Bell className="h-5 w-5 text-brand_accent mr-2 mt-0.5" />
                 <div>
-                  <h4 className="text-sm font-medium text-blue-900 mb-1">
+                  <h4 className="text-sm font-medium text-brand_primary mb-1">
                     Configuración Avanzada
                   </h4>
-                  <p className="text-sm text-blue-700">
-                    La gestión de preferencias de usuario individuales estará disponible en una futura actualización. 
+                  <p className="text-sm text-gray-700">
+                    La gestión de preferencias de usuario individuales estará disponible en una futura actualización.
                     Por ahora, puedes visualizar todos los tipos de notificación disponibles en el sistema.
                   </p>
                 </div>

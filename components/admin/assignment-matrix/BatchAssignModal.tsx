@@ -279,8 +279,8 @@ export function BatchAssignModal({
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <ContentIcon className="h-5 w-5 text-blue-600" />
+              <div className="p-2 bg-brand_beige rounded-lg">
+                <ContentIcon className="h-5 w-5 text-brand_primary" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">
@@ -310,7 +310,7 @@ export function BatchAssignModal({
                   value={schoolId}
                   onChange={(e) => setSchoolId(e.target.value)}
                   disabled={loadingSchools}
-                  className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[180px]"
+                  className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand_accent focus:border-brand_accent min-w-[180px]"
                 >
                   <option value="">Todas las escuelas</option>
                   {schools.map(school => (
@@ -328,7 +328,7 @@ export function BatchAssignModal({
                   value={communityId}
                   onChange={(e) => setCommunityId(e.target.value)}
                   disabled={loadingCommunities}
-                  className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[180px]"
+                  className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-brand_accent focus:border-brand_accent min-w-[180px]"
                 >
                   <option value="">Todas las comunidades</option>
                   {communities.map(community => (
@@ -347,7 +347,7 @@ export function BatchAssignModal({
                   placeholder="Buscar por nombre o email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-brand_accent"
                 />
               </div>
             </div>
@@ -362,13 +362,13 @@ export function BatchAssignModal({
                   {selectedUsers.map((user) => (
                     <span
                       key={user.id}
-                      className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs"
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-brand_beige text-brand_primary rounded-full text-xs"
                     >
                       <Users className="h-3 w-3" />
                       {user.name}
                       <button
                         onClick={() => removeSelected(user.id)}
-                        className="ml-1 hover:text-blue-900"
+                        className="ml-1 hover:text-gray-800"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -387,7 +387,7 @@ export function BatchAssignModal({
               >
                 <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
                   allSelectableSelected && selectableUsers.length > 0
-                    ? 'bg-blue-600 border-blue-600'
+                    ? 'bg-brand_primary border-brand_primary'
                     : 'border-gray-300'
                 }`}>
                   {allSelectableSelected && selectableUsers.length > 0 && (
@@ -407,7 +407,7 @@ export function BatchAssignModal({
             <div className="flex-1 overflow-y-auto border border-gray-200 rounded-lg">
               {loading ? (
                 <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 text-blue-500 animate-spin" />
+                  <Loader2 className="h-6 w-6 text-brand_primary animate-spin" />
                   <span className="ml-2 text-sm text-gray-500">Cargando usuarios...</span>
                 </div>
               ) : users.length === 0 ? (
@@ -431,7 +431,7 @@ export function BatchAssignModal({
                             isDisabled
                               ? 'bg-gray-50 cursor-not-allowed'
                               : isSelected
-                              ? 'bg-blue-50'
+                              ? 'bg-brand_beige'
                               : 'hover:bg-gray-50'
                           }`}
                         >
@@ -443,7 +443,7 @@ export function BatchAssignModal({
                                 {user.name}
                               </p>
                               {user.isAlreadyAssigned && (
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-brand_beige text-brand_accent rounded-full text-xs whitespace-nowrap">
                                   <Check className="h-3 w-3" />
                                   Ya asignado
                                 </span>
@@ -463,7 +463,7 @@ export function BatchAssignModal({
                           {!isDisabled && (
                             <div className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center ${
                               isSelected
-                                ? 'bg-blue-600 border-blue-600'
+                                ? 'bg-brand_primary border-brand_primary'
                                 : 'border-gray-300'
                             }`}>
                               {isSelected && <Check className="h-3 w-3 text-white" />}
@@ -484,7 +484,7 @@ export function BatchAssignModal({
                   setPage(p => p + 1);
                   fetchUsers(false);
                 }}
-                className="mt-3 text-sm text-blue-600 hover:text-blue-700 text-center"
+                className="mt-3 text-sm text-brand_primary hover:text-gray-800 text-center"
               >
                 Cargar más usuarios...
               </button>
@@ -500,14 +500,14 @@ export function BatchAssignModal({
               <button
                 onClick={onClose}
                 disabled={assigning}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_accent transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleAssign}
                 disabled={selectedCount === 0 || assigning}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand_primary rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {assigning && <Loader2 className="h-4 w-4 animate-spin" />}
                 Asignar a {selectedCount} usuario(s)

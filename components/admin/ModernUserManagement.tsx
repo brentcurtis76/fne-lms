@@ -119,7 +119,7 @@ export default function ModernUserManagement({
       case 'pending':
         return <Clock className="w-4 h-4 text-amber-500" />;
       case 'approved':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
+        return <CheckCircle className="w-4 h-4 text-brand_accent" />;
       case 'rejected':
         return <XCircle className="w-4 h-4 text-red-500" />;
       default:
@@ -138,7 +138,7 @@ export default function ModernUserManagement({
     const colors: Record<string, string> = {
       admin: 'bg-red-100 text-red-700 border-red-200',
       consultor: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-      docente: 'bg-blue-100 text-blue-700 border-blue-200',
+      docente: 'bg-brand_beige text-brand_primary border-brand_accent',
       lider_comunidad: 'bg-amber-100 text-amber-700 border-amber-200',
       lider_generacion: 'bg-slate-100 text-slate-700 border-slate-200',
       equipo_directivo: 'bg-orange-100 text-orange-700 border-orange-200'
@@ -217,7 +217,7 @@ export default function ModernUserManagement({
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <CheckCircle className="h-6 w-6 text-green-500" />
+                  <CheckCircle className="h-6 w-6 text-brand_accent" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
@@ -236,7 +236,7 @@ export default function ModernUserManagement({
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <Users className="h-6 w-6 text-blue-500" />
+                  <Users className="h-6 w-6 text-brand_primary" />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
@@ -283,7 +283,7 @@ export default function ModernUserManagement({
               }`}
             >
               Usuarios Aprobados
-              <span className="ml-2 bg-green-100 text-green-600 py-0.5 px-2 rounded-full text-xs">
+              <span className="ml-2 bg-brand_beige text-brand_accent py-0.5 px-2 rounded-full text-xs">
                 {stats.approved}
               </span>
             </button>
@@ -473,7 +473,7 @@ export default function ModernUserManagement({
                       {getStatusIcon(user.approval_status)}
                       <span className={`ml-2 text-sm capitalize ${
                         user.approval_status === 'pending' ? 'text-amber-600' :
-                        user.approval_status === 'approved' ? 'text-green-600' :
+                        user.approval_status === 'approved' ? 'text-brand_accent' :
                         'text-red-600'
                       }`}>
                         {user.approval_status === 'pending' ? 'Pendiente' :
@@ -504,7 +504,7 @@ export default function ModernUserManagement({
                         <>
                           <button
                             onClick={() => onApprove(user.id)}
-                            className="text-green-600 hover:text-green-900 p-1 hover:bg-green-50 rounded transition-colors"
+                            className="text-brand_accent hover:text-amber-600 p-1 hover:bg-brand_beige rounded transition-colors"
                             title="Aprobar usuario"
                           >
                             <CheckCircle className="w-5 h-5" />
@@ -522,14 +522,14 @@ export default function ModernUserManagement({
                         <>
                           <button
                             onClick={() => onRoleChange(user)}
-                            className="text-[#0a0a0a] hover:text-[#002844] p-1 hover:bg-blue-50 rounded transition-colors"
+                            className="text-[#0a0a0a] hover:text-[#002844] p-1 hover:bg-brand_beige rounded transition-colors"
                             title="Gestionar roles"
                           >
                             <Shield className="w-5 h-5" />
                           </button>
                           <button
                             onClick={() => onPasswordReset(user)}
-                            className="text-[#0a0a0a] hover:text-[#002844] p-1 hover:bg-blue-50 rounded transition-colors"
+                            className="text-[#0a0a0a] hover:text-[#002844] p-1 hover:bg-brand_beige rounded transition-colors"
                             title="Restablecer contraseña"
                           >
                             <Key className="w-5 h-5" />

@@ -49,16 +49,20 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
   }
 
   try {
+    console.log('[detailed-api] Step 1: Starting handler');
     const sessionClient = createPagesServerClient({ req, res });
     const { data: { session } } = await sessionClient.auth.getSession();
 
     if (!session) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
+    console.log('[detailed-api] Step 2: Session obtained, user:', session.user.id);
 
     // Get user roles using the modern role system
     const userRoles = await getUserRoles(supabase, session.user.id);
+    console.log('[detailed-api] Step 3: Got user roles:', userRoles.length);
     const highestRole = getHighestRole(userRoles);
+    console.log('[detailed-api] Step 4: Highest role:', highestRole);
     
     // Check if user has access to reports
     const allowedRoles = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red'];
@@ -71,12 +75,18 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
       .from('profiles')
       .select('id, first_name, last_name, school_id, generation_id, community_id')
       .eq('id', session.user.id)
-      .single();
+      .maybeSingle();
 
-    if (userProfileError || !userProfile) {
+    if (userProfileError) {
+        console.error('Error fetching user profile:', userProfileError);
         return res.status(404).json({ error: 'User profile not found.' });
     }
-    
+
+    if (!userProfile) {
+        return res.status(404).json({ error: 'User profile not found.' });
+    }
+    console.log('[detailed-api] Step 5: Got user profile');
+
     const { filters, sort, pagination, useSmartDefaults = true } = req.body;
     const { page = 1, limit = 20 } = pagination || {};
 
@@ -93,8 +103,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     const { field = defaultSort.field, order = defaultSort.order } = sort || {};
     const effectiveLimit = sort ? limit : defaultLimit; // Only use smart limit if no custom sort
 
+    console.log('[detailed-api] Step 6: About to get reportable users');
     // Get reportable users based on role and assignments
     const reportableUsers = await getReportableUsers(session.user.id, highestRole);
+    console.log('[detailed-api] Step 7: Got reportable users:', reportableUsers.length);
     
     if (reportableUsers.length === 0) {
         return res.status(200).json({
@@ -175,52 +187,69 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     }
 
     // Get user profile data for display
-    let profileQuery = supabase
-      .from('profiles')
-      .select(`
-        id,
-        first_name,
-        last_name,
-        email,
-        school_id,
-        generation_id,
-        community_id
-      `)
-      .in('id', userIds);
+    // Chunk the query to avoid Supabase URL length limits (max ~300 UUIDs per request)
+    const CHUNK_SIZE = 200;
+    console.log('[detailed-api] Step 8: About to query profiles for', userIds.length, 'users in chunks of', CHUNK_SIZE);
 
-    // Apply search filter on profiles (names/email)
-    if (filters?.search && filters.search.trim()) {
-      const searchTerm = `%${filters.search.trim()}%`;
-      profileQuery = profileQuery.or(`first_name.ilike.${searchTerm},last_name.ilike.${searchTerm},email.ilike.${searchTerm}`);
+    let userProfiles: any[] = [];
+    const searchTerm = filters?.search?.trim() ? `%${filters.search.trim()}%` : null;
+
+    for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+      const chunk = userIds.slice(i, i + CHUNK_SIZE);
+      let profileQuery = supabase
+        .from('profiles')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          email,
+          school_id,
+          generation_id,
+          community_id
+        `)
+        .in('id', chunk);
+
+      // Apply search filter on profiles (names/email)
+      if (searchTerm) {
+        profileQuery = profileQuery.or(`first_name.ilike.${searchTerm},last_name.ilike.${searchTerm},email.ilike.${searchTerm}`);
+      }
+
+      const { data: chunkProfiles, error: profilesError } = await profileQuery;
+
+      if (profilesError) {
+        console.error('[detailed-api] Profiles query error for chunk:', profilesError);
+        throw profilesError;
+      }
+
+      if (chunkProfiles) {
+        userProfiles = userProfiles.concat(chunkProfiles);
+      }
     }
-
-    const { data: userProfiles, error: profilesError } = await profileQuery;
-
-    if (profilesError) {
-      throw profilesError;
-    }
+    console.log('[detailed-api] Step 9: Got profiles:', userProfiles?.length);
 
     // Get organizational data separately to avoid relationship issues
     const schoolIds = [...new Set(userProfiles?.map(p => p.school_id).filter(Boolean) || [])];
     const generationIds = [...new Set(userProfiles?.map(p => p.generation_id).filter(Boolean) || [])];
     const communityIds = [...new Set(userProfiles?.map(p => p.community_id).filter(Boolean) || [])];
 
+    console.log('[detailed-api] Step 10: Fetching org data - schools:', schoolIds.length, 'generations:', generationIds.length, 'communities:', communityIds.length);
     const [schoolsData, generationsData, communitiesData] = await Promise.all([
       schoolIds.length > 0 ? supabase
         .from('schools')
         .select('id, name')
         .in('id', schoolIds) : Promise.resolve({ data: [] }),
-      
+
       generationIds.length > 0 ? supabase
         .from('generations')
         .select('id, name')
         .in('id', generationIds) : Promise.resolve({ data: [] }),
-      
+
       communityIds.length > 0 ? supabase
         .from('growth_communities')
         .select('id, name')
         .in('id', communityIds) : Promise.resolve({ data: [] })
     ]);
+    console.log('[detailed-api] Step 11: Got org data');
 
     // Create lookup maps
     const schoolsMap = new Map(schoolsData.data?.map(s => [s.id, s] as [string, any]) || []);
@@ -228,47 +257,73 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     const communitiesMap = new Map(communitiesData.data?.map(c => [c.id, c] as [string, any]) || []);
 
     // Get course assignment data (actual table used in the system)
-    const { data: courseData, error: courseError } = await supabase
-      .from('course_assignments')
-      .select(`
-        teacher_id,
-        course_id,
-        progress_percentage,
-        assigned_at,
-        status
-      `)
-      .in('teacher_id', userIds);
+    // Use chunked queries to avoid URL length limits
+    console.log('[detailed-api] Step 12: Fetching course assignments for', userIds.length, 'users');
+    let courseData: any[] = [];
+    for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+      const chunk = userIds.slice(i, i + CHUNK_SIZE);
+      const { data: chunkCourseData, error: courseError } = await supabase
+        .from('course_assignments')
+        .select(`
+          teacher_id,
+          course_id,
+          progress_percentage,
+          assigned_at,
+          status
+        `)
+        .in('teacher_id', chunk);
 
-    if (courseError) {
-      console.error('Course data error:', courseError.message);
+      if (courseError) {
+        console.error('Course data error:', courseError.message);
+      }
+      if (chunkCourseData) {
+        courseData = courseData.concat(chunkCourseData);
+      }
     }
 
     // Get lesson progress data (actual lesson completions)
-    const { data: lessonProgressData, error: lessonProgressError } = await supabase
-      .from('lesson_progress')
-      .select(`
-        user_id,
-        lesson_id,
-        completed_at,
-        time_spent,
-        completion_data
-      `)
-      .in('user_id', userIds);
+    console.log('[detailed-api] Step 13: Fetching lesson progress for', userIds.length, 'users');
+    let lessonProgressData: any[] = [];
+    for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+      const chunk = userIds.slice(i, i + CHUNK_SIZE);
+      const { data: chunkLessonData, error: lessonProgressError } = await supabase
+        .from('lesson_progress')
+        .select(`
+          user_id,
+          lesson_id,
+          completed_at,
+          time_spent,
+          completion_data
+        `)
+        .in('user_id', chunk);
 
-    if (lessonProgressError) {
-      console.error('Lesson progress data error:', lessonProgressError.message);
+      if (lessonProgressError) {
+        console.error('Lesson progress data error:', lessonProgressError.message);
+      }
+      if (chunkLessonData) {
+        lessonProgressData = lessonProgressData.concat(chunkLessonData);
+      }
     }
 
     // Get user roles for the reportable users (including organizational assignments)
-    const { data: reportableUserRoles, error: rolesError } = await supabase
-      .from('user_roles')
-      .select('user_id, role_type, school_id, generation_id, community_id')
-      .in('user_id', userIds)
-      .eq('is_active', true);
+    console.log('[detailed-api] Step 14: Fetching user roles for', userIds.length, 'users');
+    let reportableUserRoles: any[] = [];
+    for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+      const chunk = userIds.slice(i, i + CHUNK_SIZE);
+      const { data: chunkRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role_type, school_id, generation_id, community_id')
+        .in('user_id', chunk)
+        .eq('is_active', true);
 
-    if (rolesError) {
-      console.error('Roles fetch error:', rolesError.message);
+      if (rolesError) {
+        console.error('Roles fetch error:', rolesError.message);
+      }
+      if (chunkRoles) {
+        reportableUserRoles = reportableUserRoles.concat(chunkRoles);
+      }
     }
+    console.log('[detailed-api] Step 15: All data fetched, building response');
 
     // Create role and organizational mapping for quick lookup (use user_roles as source of truth)
     const roleMap = new Map();
@@ -494,7 +549,13 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     });
 
   } catch (error: any) {
-    console.error('Error in detailed report API:', error);
+    console.error('Error in detailed report API:', {
+      message: error?.message,
+      code: error?.code,
+      details: error?.details,
+      hint: error?.hint,
+      stack: error?.stack
+    });
     res.status(500).json({ error: 'Internal Server Error' });
   }
 };
@@ -527,7 +588,7 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
         .eq('is_active', true)
         .not('school_id', 'is', null)
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (requesterRoles?.school_id) {
         const { data: schoolUserRoles } = await supabase
@@ -549,7 +610,7 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
         .eq('is_active', true)
         .not('generation_id', 'is', null)
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (requesterRoles?.generation_id) {
         const { data: generationUserRoles } = await supabase
@@ -571,7 +632,7 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
         .eq('is_active', true)
         .not('community_id', 'is', null)
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (requesterRoles?.community_id) {
         const { data: communityUserRoles } = await supabase

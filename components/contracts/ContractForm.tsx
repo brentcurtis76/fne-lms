@@ -1286,7 +1286,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             {extractedData.overall_confidence && (
               <div className="ml-4">
                 <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  extractedData.overall_confidence >= 0.8 ? 'bg-green-100 text-green-800' :
+                  extractedData.overall_confidence >= 0.8 ? 'bg-amber-100 text-amber-800' :
                   extractedData.overall_confidence >= 0.6 ? 'bg-yellow-100 text-yellow-800' :
                   'bg-red-100 text-red-800'
                 }`}>
@@ -1308,13 +1308,13 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             return (
               <div key={stepName} className="flex items-center">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                  isActive ? 'bg-brand_blue text-white' :
-                  isCompleted ? 'bg-brand_yellow text-brand_blue' : 'bg-gray-200 text-gray-500'
+                  isActive ? 'bg-brand_primary text-white' :
+                  isCompleted ? 'bg-brand_yellow text-brand_primary' : 'bg-gray-200 text-gray-500'
                 }`}>
                   {index + 1}
                 </div>
                 <span className={`ml-2 text-sm font-medium ${
-                  isActive ? 'text-brand_blue' :
+                  isActive ? 'text-brand_primary' :
                   isCompleted ? 'text-brand_yellow' : 'text-gray-500'
                 }`}>
                   {stepName === 'cliente' && 'Cliente'}
@@ -1333,8 +1333,8 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         {step === 'cliente' && (
           <div className="space-y-6">
             <div className="flex items-center space-x-2 mb-4">
-              <FileText className="text-brand_blue" size={20} />
-              <h3 className="text-lg font-semibold text-brand_blue">Información del Cliente</h3>
+              <FileText className="text-brand_primary" size={20} />
+              <h3 className="text-lg font-semibold text-brand_primary">Información del Cliente</h3>
             </div>
 
             {/* Manual Contract Toggle and PDF Import Options */}
@@ -1345,7 +1345,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="checkbox"
                     checked={esManual}
                     onChange={(e) => setEsManual(e.target.checked)}
-                    className="mr-3 h-4 w-4 text-brand_blue focus:ring-brand_blue border-gray-300 rounded"
+                    className="mr-3 h-4 w-4 text-brand_primary focus:ring-brand_accent border-gray-300 rounded"
                   />
                   <div>
                     <span className="font-medium text-gray-900">Contrato Manual (Subir PDF existente)</span>
@@ -1381,14 +1381,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             </div>
 
             {/* Existing Client Selection */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <label className="block text-sm font-medium text-brand_blue mb-2">
+            <div className="bg-brand_beige border border-brand_accent rounded-lg p-4">
+              <label className="block text-sm font-medium text-brand_primary mb-2">
                 Seleccionar Cliente Existente (Opcional)
               </label>
               <select
                 value={selectedClienteId}
                 onChange={(e) => handleClienteSelection(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
               >
                 <option value="">-- Crear nuevo cliente --</option>
                 {clientes.map(cliente => (
@@ -1409,7 +1409,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                 <button
                   type="button"
                   onClick={() => setShowNewSchoolForm(!showNewSchoolForm)}
-                  className="text-sm text-brand_blue hover:text-brand_blue/80 font-medium"
+                  className="text-sm text-brand_primary hover:text-brand_primary/80 font-medium"
                 >
                   {showNewSchoolForm ? 'Cancelar' : '+ Nueva Escuela'}
                 </button>
@@ -1435,7 +1435,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       }
                     }
                   }}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                 >
                   <option value="">-- Sin escuela asociada --</option>
                   {schools.filter(school => !school.cliente_id || school.cliente_id === selectedClienteId).map(school => (
@@ -1452,7 +1452,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       type="text"
                       value={newSchoolForm.name}
                       onChange={(e) => setNewSchoolForm({ ...newSchoolForm, name: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                       placeholder="Nombre de la escuela *"
                     />
                   </div>
@@ -1461,14 +1461,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       type="text"
                       value={newSchoolForm.code}
                       onChange={(e) => setNewSchoolForm({ ...newSchoolForm, code: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                       placeholder="Código"
                     />
                     <input
                       type="text"
                       value={newSchoolForm.region}
                       onChange={(e) => setNewSchoolForm({ ...newSchoolForm, region: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                       placeholder="Región"
                     />
                   </div>
@@ -1477,7 +1477,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       type="text"
                       value={newSchoolForm.address}
                       onChange={(e) => setNewSchoolForm({ ...newSchoolForm, address: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                       placeholder="Dirección"
                     />
                   </div>
@@ -1487,7 +1487,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       id="has_generations"
                       checked={newSchoolForm.has_generations}
                       onChange={(e) => setNewSchoolForm({ ...newSchoolForm, has_generations: e.target.checked })}
-                      className="mr-2 h-4 w-4 text-brand_blue focus:ring-brand_blue border-gray-300 rounded"
+                      className="mr-2 h-4 w-4 text-brand_primary focus:ring-brand_accent border-gray-300 rounded"
                     />
                     <label htmlFor="has_generations" className="text-sm text-gray-700">
                       Esta escuela maneja generaciones
@@ -1497,7 +1497,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="button"
                     onClick={handleCreateSchool}
                     disabled={loading || !newSchoolForm.name.trim()}
-                    className="w-full px-4 py-2 bg-brand_blue text-white rounded-lg hover:bg-brand_blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-2 bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? 'Creando...' : 'Crear Escuela'}
                   </button>
@@ -1521,7 +1521,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="text"
                   value={clienteForm.nombre_legal}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_legal: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   placeholder="Nombre legal de la empresa"
                 />
               </div>
@@ -1534,7 +1534,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="text"
                   value={clienteForm.nombre_fantasia}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_fantasia: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   placeholder="Nombre comercial"
                 />
               </div>
@@ -1547,7 +1547,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="text"
                   value={clienteForm.rut}
                   onChange={(e) => setClienteForm({ ...clienteForm, rut: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   placeholder="12.345.678-9"
                 />
               </div>
@@ -1560,7 +1560,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="text"
                   value={clienteForm.direccion}
                   onChange={(e) => setClienteForm({ ...clienteForm, direccion: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   placeholder="Calle y número"
                 />
               </div>
@@ -1573,7 +1573,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="text"
                   value={clienteForm.comuna}
                   onChange={(e) => setClienteForm({ ...clienteForm, comuna: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   placeholder="Comuna"
                 />
               </div>
@@ -1586,7 +1586,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="text"
                   value={clienteForm.ciudad}
                   onChange={(e) => setClienteForm({ ...clienteForm, ciudad: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   placeholder="Ciudad"
                 />
               </div>
@@ -1599,7 +1599,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="text"
                   value={clienteForm.nombre_representante}
                   onChange={(e) => setClienteForm({ ...clienteForm, nombre_representante: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   placeholder="Nombre del representante"
                 />
               </div>
@@ -1612,7 +1612,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="text"
                   value={clienteForm.rut_representante}
                   onChange={(e) => setClienteForm({ ...clienteForm, rut_representante: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   placeholder="12.345.678-9"
                 />
               </div>
@@ -1621,7 +1621,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             {/* Additional Legal Information - Hide for manual contracts */}
             {!esManual && (
             <div className="border-t pt-6">
-              <h4 className="text-md font-semibold text-brand_blue mb-4">Información Legal Adicional</h4>
+              <h4 className="text-md font-semibold text-brand_primary mb-4">Información Legal Adicional</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1631,7 +1631,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="date"
                     value={clienteForm.fecha_escritura}
                     onChange={(e) => setClienteForm({ ...clienteForm, fecha_escritura: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   />
                 </div>
                 
@@ -1643,7 +1643,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="text"
                     value={clienteForm.nombre_notario}
                     onChange={(e) => setClienteForm({ ...clienteForm, nombre_notario: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                     placeholder="Nombre del notario"
                   />
                 </div>
@@ -1656,7 +1656,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="text"
                     value={clienteForm.comuna_notaria}
                     onChange={(e) => setClienteForm({ ...clienteForm, comuna_notaria: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                     placeholder="Santiago, Providencia, etc."
                   />
                 </div>
@@ -1667,7 +1667,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             {/* Project Manager Information - Hide for manual contracts */}
             {!esManual && (
             <div className="border-t pt-6">
-              <h4 className="text-md font-semibold text-brand_blue mb-4">Encargado del Proyecto</h4>
+              <h4 className="text-md font-semibold text-brand_primary mb-4">Encargado del Proyecto</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1677,7 +1677,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="text"
                     value={clienteForm.nombre_encargado_proyecto}
                     onChange={(e) => setClienteForm({ ...clienteForm, nombre_encargado_proyecto: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                     placeholder="Nombre completo"
                   />
                 </div>
@@ -1690,7 +1690,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="tel"
                     value={clienteForm.telefono_encargado_proyecto}
                     onChange={(e) => setClienteForm({ ...clienteForm, telefono_encargado_proyecto: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                     placeholder="+56 9 1234 5678"
                   />
                 </div>
@@ -1703,7 +1703,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="email"
                     value={clienteForm.email_encargado_proyecto}
                     onChange={(e) => setClienteForm({ ...clienteForm, email_encargado_proyecto: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                     placeholder="encargado@colegio.cl"
                   />
                 </div>
@@ -1718,7 +1718,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
 
             {/* Administrative Contact Information - ALWAYS SHOW for invoicing */}
             <div className="border-t pt-6">
-              <h4 className="text-md font-semibold text-brand_blue mb-4">Contacto Administrativo {esManual && '(Requerido para facturación)'}</h4>
+              <h4 className="text-md font-semibold text-brand_primary mb-4">Contacto Administrativo {esManual && '(Requerido para facturación)'}</h4>
               <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
@@ -1740,7 +1740,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="text"
                     value={clienteForm.nombre_contacto_administrativo}
                     onChange={(e) => setClienteForm({ ...clienteForm, nombre_contacto_administrativo: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                     placeholder="Nombre completo"
                   />
                 </div>
@@ -1753,7 +1753,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="tel"
                     value={clienteForm.telefono_contacto_administrativo}
                     onChange={(e) => setClienteForm({ ...clienteForm, telefono_contacto_administrativo: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                     placeholder="+56 2 2345 6789"
                   />
                 </div>
@@ -1766,7 +1766,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                     type="email"
                     value={clienteForm.email_contacto_administrativo}
                     onChange={(e) => setClienteForm({ ...clienteForm, email_contacto_administrativo: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                     placeholder="administracion@colegio.cl"
                   />
                 </div>
@@ -1784,14 +1784,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
         {step === 'contrato' && (
           <div className="space-y-6">
             <div className="flex items-center space-x-2 mb-4">
-              <Calendar className="text-brand_blue" size={20} />
-              <h3 className="text-lg font-semibold text-brand_blue">Información del Contrato</h3>
+              <Calendar className="text-brand_primary" size={20} />
+              <h3 className="text-lg font-semibold text-brand_primary">Información del Contrato</h3>
             </div>
 
             {/* Show notice for manual contracts */}
             {esManual && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-800">
+              <div className="bg-brand_beige border border-brand_accent rounded-lg p-4">
+                <p className="text-brand_primary">
                   📄 <strong>Contrato Manual</strong> - Solo ingrese información necesaria para gestión operativa y pagos.
                 </p>
               </div>
@@ -1806,7 +1806,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="text"
                   value={contractForm.numero_contrato}
                   onChange={(e) => setContractForm({ ...contractForm, numero_contrato: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   placeholder="FNE-2025-01-001"
                 />
               </div>
@@ -1819,7 +1819,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="date"
                   value={contractForm.fecha_contrato}
                   onChange={(e) => setContractForm({ ...contractForm, fecha_contrato: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                 />
               </div>
               
@@ -1831,7 +1831,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="date"
                   value={contractForm.fecha_fin}
                   onChange={(e) => setContractForm({ ...contractForm, fecha_fin: e.target.value })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   min={contractForm.fecha_contrato}
                 />
               </div>
@@ -1845,7 +1845,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <textarea
                     value={contractForm.descripcion_manual}
                     onChange={(e) => setContractForm({ ...contractForm, descripcion_manual: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                     placeholder="Ej: Asesoría personalizada Q1 2025, Programa piloto región sur, Capacitación especial..."
                     rows={3}
                   />
@@ -1861,7 +1861,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   <select
                     value={contractForm.programa_id}
                     onChange={(e) => setContractForm({ ...contractForm, programa_id: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   >
                     <option value="">-- Seleccionar programa --</option>
                     {programas.map(programa => (
@@ -1913,7 +1913,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   min="0"
                   value={contractForm.precio_total_uf}
                   onChange={(e) => setContractForm({ ...contractForm, precio_total_uf: parseFloat(e.target.value) || 0 })}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_blue focus:border-transparent"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
                   placeholder="0.00"
                 />
               </div>
@@ -1935,14 +1935,14 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
-                <DollarSign className="text-brand_blue" size={20} />
-                <h3 className="text-lg font-semibold text-brand_blue">Plan de Pagos</h3>
+                <DollarSign className="text-brand_primary" size={20} />
+                <h3 className="text-lg font-semibold text-brand_primary">Plan de Pagos</h3>
               </div>
               <div className="flex space-x-2">
                 <button
                   type="button"
                   onClick={calculateCuotas}
-                  className="px-4 py-2 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_yellow/90 transition-colors text-sm font-medium"
+                  className="px-4 py-2 bg-brand_yellow text-brand_primary rounded-lg hover:bg-brand_yellow/90 transition-colors text-sm font-medium"
                 >
                   Calcular Automático
                 </button>
@@ -1950,7 +1950,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="button"
                   onClick={addCuota}
                   disabled={cuotas.length >= 12}
-                  className="flex items-center px-4 py-2 bg-brand_blue text-white rounded-lg hover:bg-brand_blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                  className="flex items-center px-4 py-2 bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
                 >
                   <Plus size={16} className="mr-1" />
                   Agregar Cuota
@@ -1971,7 +1971,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
               {cuotas.map((cuota, index) => (
                 <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center p-4 bg-white border border-gray-200 rounded-lg">
                   <div className="flex items-center space-x-2">
-                    <span className="font-semibold text-brand_blue">Cuota {cuota.numero_cuota}</span>
+                    <span className="font-semibold text-brand_primary">Cuota {cuota.numero_cuota}</span>
                   </div>
                   
                   <div>
@@ -1982,7 +1982,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       type="date"
                       value={cuota.fecha_vencimiento}
                       onChange={(e) => updateCuota(index, 'fecha_vencimiento', e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:border-transparent text-sm"
                     />
                   </div>
                   
@@ -1996,7 +1996,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       min="0"
                       value={cuota.monto}
                       onChange={(e) => updateCuota(index, 'monto', parseFloat(e.target.value) || 0)}
-                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_blue focus:border-transparent text-sm"
+                      className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:border-transparent text-sm"
                     />
                   </div>
                   
@@ -2044,7 +2044,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   if (step === 'contrato') setStep('cliente');
                   if (step === 'cuotas') setStep('contrato');
                 }}
-                className="px-6 py-2 border border-brand_blue text-brand_blue rounded-lg hover:bg-brand_blue hover:text-white transition-colors"
+                className="px-6 py-2 border border-brand_accent text-brand_primary rounded-lg hover:bg-brand_primary hover:text-white transition-colors"
               >
                 Anterior
               </button>
@@ -2060,7 +2060,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   if (step === 'contrato') setStep('cuotas');
                 }}
                 disabled={!isStepValid()}
-                className="px-6 py-2 bg-brand_blue text-white rounded-lg hover:bg-brand_blue/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-6 py-2 bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Siguiente
               </button>
@@ -2095,7 +2095,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       pdf.save(`Contrato_${contractForm.numero_contrato}_${clienteForm.nombre_fantasia.replace(/\s+/g, '_')}.pdf`);
                     }}
                     disabled={!isStepValid()}
-                    className="flex items-center px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    className="flex items-center px-6 py-2 bg-brand_accent text-brand_primary rounded-lg hover:bg-amber-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
                     <Download size={16} className="mr-2" />
                     Generar PDF
@@ -2105,11 +2105,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   type="button"
                   onClick={handleSaveContract}
                   disabled={!isStepValid() || loading}
-                  className="flex items-center px-6 py-2 bg-brand_yellow text-brand_blue rounded-lg hover:bg-brand_yellow/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  className="flex items-center px-6 py-2 bg-brand_yellow text-brand_primary rounded-lg hover:bg-brand_yellow/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   {loading ? (
                     <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand_blue mr-2"></div>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand_accent mr-2"></div>
                       Guardando...
                     </>
                   ) : (

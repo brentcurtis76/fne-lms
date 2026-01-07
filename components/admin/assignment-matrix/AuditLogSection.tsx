@@ -173,7 +173,7 @@ export function AuditLogSection({
                     {/* Icon */}
                     <div className={`mt-0.5 p-1 rounded ${
                       log.action === 'assigned'
-                        ? 'bg-blue-100 text-blue-600'
+                        ? 'bg-brand_beige text-brand_primary'
                         : 'bg-gray-200 text-gray-600'
                     }`}>
                       {log.content_type === 'course' ? (

@@ -158,8 +158,8 @@ export default function DebugCoursesModules() {
     return (
       <div className="min-h-screen bg-brand_beige flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand_blue mx-auto"></div>
-          <p className="mt-4 text-brand_blue font-medium">Cargando...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand_primary mx-auto"></div>
+          <p className="mt-4 text-brand_primary font-medium">Cargando...</p>
         </div>
       </div>
     );
@@ -176,7 +176,7 @@ export default function DebugCoursesModules() {
       <div className="min-h-screen bg-brand_beige pt-32 pb-20 relative overflow-hidden">
         <div className="container mx-auto px-6">
           <div className="bg-white rounded-xl shadow-md p-6 mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-brand_blue mb-4">
+            <h1 className="text-2xl md:text-3xl font-bold text-brand_primary mb-4">
               Debug: Course & Module IDs
             </h1>
             <p className="text-gray-600">
@@ -194,19 +194,19 @@ export default function DebugCoursesModules() {
             <div className="bg-white rounded-xl shadow-md p-6 text-center">
               <p className="text-gray-600">No courses found in the database.</p>
               <Link href="/admin/course-builder">
-                <button className="mt-4 px-4 py-2 bg-brand_blue text-white rounded-lg hover:bg-blue-700 transition">
+                <button className="mt-4 px-4 py-2 bg-brand_primary text-white rounded-lg hover:bg-gray-800 transition">
                   Create a Course
                 </button>
               </Link>
             </div>
           ) : (
             <div className="bg-white rounded-xl shadow-md p-6">
-              <h2 className="text-xl font-bold text-brand_blue mb-4">Available Courses & Modules</h2>
+              <h2 className="text-xl font-bold text-brand_primary mb-4">Available Courses & Modules</h2>
               
               <div className="space-y-6">
                 {courses.map((course) => (
                   <div key={course.id} className="border-b border-gray-200 pb-6 last:border-b-0 last:pb-0">
-                    <h3 className="text-lg font-semibold text-brand_blue mb-2">
+                    <h3 className="text-lg font-semibold text-brand_primary mb-2">
                       {course.title}
                     </h3>
                     <p className="text-sm text-gray-500 mb-2">
@@ -227,7 +227,7 @@ export default function DebugCoursesModules() {
                               
                               <div className="mt-2 flex flex-wrap gap-2">
                                 <Link href={`/admin/course-builder/${course.id}/${module.id}/lessons`}>
-                                  <button className="px-3 py-1 text-xs bg-brand_blue text-white rounded hover:bg-blue-700 transition">
+                                  <button className="px-3 py-1 text-xs bg-brand_primary text-white rounded hover:bg-gray-800 transition">
                                     Go to Lessons Page
                                   </button>
                                 </Link>
@@ -249,7 +249,7 @@ export default function DebugCoursesModules() {
                         <div className="bg-gray-50 p-3 rounded-lg">
                           <p className="text-gray-500">No modules found for this course.</p>
                           <Link href={`/admin/course-builder/${course.id}/modules`}>
-                            <button className="mt-2 px-3 py-1 text-xs bg-brand_blue text-white rounded hover:bg-blue-700 transition">
+                            <button className="mt-2 px-3 py-1 text-xs bg-brand_primary text-white rounded hover:bg-gray-800 transition">
                               Create Modules
                             </button>
                           </Link>

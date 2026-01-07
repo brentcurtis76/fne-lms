@@ -11,7 +11,7 @@ import { AREA_LABELS } from '@/types/assessment-builder';
 
 const STATUS_LABELS: Record<string, { label: string; bgColor: string; textColor: string }> = {
   draft: { label: 'Borrador', bgColor: 'bg-yellow-100', textColor: 'text-yellow-800' },
-  published: { label: 'Publicado', bgColor: 'bg-green-100', textColor: 'text-green-800' },
+  published: { label: 'Publicado', bgColor: 'bg-amber-100', textColor: 'text-amber-800' },
   archived: { label: 'Archivado', bgColor: 'bg-gray-100', textColor: 'text-gray-800' },
 };
 
@@ -540,7 +540,7 @@ const AssessmentBuilderIndex: React.FC = () => {
                             <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${
                               template.grade.is_always_gt
                                 ? 'bg-amber-100 text-amber-800'
-                                : 'bg-blue-100 text-blue-800'
+                                : 'bg-brand_beige text-brand_primary'
                             }`}>
                               {template.grade.name}
                             </span>
@@ -608,7 +608,7 @@ const AssessmentBuilderIndex: React.FC = () => {
                             <button
                               onClick={() => handleRestore(template)}
                               disabled={isArchiving === template.id}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                              className="p-2 text-brand_accent hover:bg-amber-50 rounded-lg transition-colors disabled:opacity-50"
                               title="Restaurar"
                             >
                               <RotateCcw className="w-4 h-4" />

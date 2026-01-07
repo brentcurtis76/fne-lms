@@ -267,15 +267,15 @@ export default function ContractDetailsModal({
     >
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="bg-brand_blue text-white p-6 rounded-t-lg">
+        <div className="bg-brand_primary text-white p-6 rounded-t-lg">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold">{contrato.numero_contrato}</h2>
-              <p className="text-blue-100">Detalles del Contrato</p>
+              <p className="text-gray-300">Detalles del Contrato</p>
             </div>
-            <button 
+            <button
               onClick={onClose}
-              className="text-white hover:text-blue-200 transition-colors"
+              className="text-white hover:text-brand_accent transition-colors"
             >
               <X size={24} />
             </button>
@@ -287,8 +287,8 @@ export default function ContractDetailsModal({
           <div className="flex items-center justify-between bg-gray-50 p-4 rounded-lg">
             <div className="flex items-center space-x-4">
               <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                contrato.estado === 'activo' 
-                  ? 'bg-green-100 text-green-800' 
+                contrato.estado === 'activo'
+                  ? 'bg-amber-100 text-amber-800'
                   : 'bg-yellow-100 text-yellow-800'
               }`}>
                 {contrato.estado === 'activo' ? 'Activo' : 'Pendiente'}
@@ -297,8 +297,8 @@ export default function ContractDetailsModal({
               <button
                 onClick={() => onToggleCashFlow(contrato)}
                 className={`flex items-center space-x-2 text-sm px-3 py-1 rounded-full transition-colors ${
-                  contrato.incluir_en_flujo 
-                    ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                  contrato.incluir_en_flujo
+                    ? 'bg-amber-100 text-amber-800 hover:bg-amber-200'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -310,7 +310,7 @@ export default function ContractDetailsModal({
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => onEdit(contrato)}
-                className="flex items-center space-x-2 px-4 py-2 bg-brand_yellow text-brand_blue rounded-lg hover:bg-yellow-400 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-brand_yellow text-brand_primary rounded-lg hover:bg-yellow-400 transition-colors"
               >
                 <Edit size={16} />
                 <span>Editar</span>
@@ -318,7 +318,7 @@ export default function ContractDetailsModal({
               
               <button
                 onClick={() => onGeneratePDF(contrato)}
-                className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex items-center space-x-2 px-4 py-2 bg-brand_primary text-white rounded-lg hover:bg-gray-800 transition-colors"
               >
                 <Download size={16} />
                 <span>PDF</span>
@@ -338,11 +338,11 @@ export default function ContractDetailsModal({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Basic Contract Info */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">Información del Contrato</h3>
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Información del Contrato</h3>
               
               <div className="space-y-3">
                 <div className="flex items-center space-x-3">
-                  <FileText className="text-brand_blue" size={20} />
+                  <FileText className="text-brand_primary" size={20} />
                   <div>
                     <p className="text-sm text-gray-600">Número de Contrato</p>
                     <p className="font-medium">{contrato.numero_contrato}</p>
@@ -350,7 +350,7 @@ export default function ContractDetailsModal({
                 </div>
 
                 <div className="flex items-center space-x-3">
-                  <Calendar className="text-brand_blue" size={20} />
+                  <Calendar className="text-brand_primary" size={20} />
                   <div>
                     <p className="text-sm text-gray-600">Fecha de Contrato</p>
                     <p className="font-medium">{formatDate(contrato.fecha_contrato)}</p>
@@ -359,7 +359,7 @@ export default function ContractDetailsModal({
 
                 {contrato.fecha_fin && (
                   <div className="flex items-center space-x-3">
-                    <Calendar className="text-brand_blue" size={20} />
+                    <Calendar className="text-brand_primary" size={20} />
                     <div>
                       <p className="text-sm text-gray-600">Fecha de Fin</p>
                       <p className="font-medium">{formatDate(contrato.fecha_fin)}</p>
@@ -368,7 +368,7 @@ export default function ContractDetailsModal({
                 )}
 
                 <div className="flex items-center space-x-3">
-                  <DollarSign className="text-brand_blue" size={20} />
+                  <DollarSign className="text-brand_primary" size={20} />
                   <div>
                     <p className="text-sm text-gray-600">Valor Total</p>
                     <p className="font-medium text-lg">{formatCurrency(contrato.precio_total_uf)}</p>
@@ -379,11 +379,11 @@ export default function ContractDetailsModal({
 
             {/* Client Information */}
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">Información del Cliente</h3>
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Información del Cliente</h3>
               
               <div className="space-y-3">
                 <div className="flex items-center space-x-3">
-                  <Building className="text-brand_blue" size={20} />
+                  <Building className="text-brand_primary" size={20} />
                   <div>
                     <p className="text-sm text-gray-600">Nombre Legal</p>
                     <p className="font-medium">{contrato.clientes.nombre_legal}</p>
@@ -391,7 +391,7 @@ export default function ContractDetailsModal({
                 </div>
 
                 <div className="flex items-center space-x-3">
-                  <Building className="text-brand_blue" size={20} />
+                  <Building className="text-brand_primary" size={20} />
                   <div>
                     <p className="text-sm text-gray-600">Nombre Fantasía</p>
                     <p className="font-medium">{contrato.clientes.nombre_fantasia}</p>
@@ -399,7 +399,7 @@ export default function ContractDetailsModal({
                 </div>
 
                 <div className="flex items-center space-x-3">
-                  <CreditCard className="text-brand_blue" size={20} />
+                  <CreditCard className="text-brand_primary" size={20} />
                   <div>
                     <p className="text-sm text-gray-600">RUT</p>
                     <p className="font-medium">{contrato.clientes.rut}</p>
@@ -407,7 +407,7 @@ export default function ContractDetailsModal({
                 </div>
 
                 <div className="flex items-center space-x-3">
-                  <MapPin className="text-brand_blue" size={20} />
+                  <MapPin className="text-brand_primary" size={20} />
                   <div>
                     <p className="text-sm text-gray-600">Dirección</p>
                     <p className="font-medium">{contrato.clientes.direccion}</p>
@@ -416,7 +416,7 @@ export default function ContractDetailsModal({
                 </div>
 
                 <div className="flex items-center space-x-3">
-                  <User className="text-brand_blue" size={20} />
+                  <User className="text-brand_primary" size={20} />
                   <div>
                     <p className="text-sm text-gray-600">Representante</p>
                     <p className="font-medium">{contrato.clientes.nombre_representante}</p>
@@ -431,11 +431,11 @@ export default function ContractDetailsModal({
                   contrato.clientes.telefono_encargado_proyecto || 
                   contrato.clientes.email_encargado_proyecto) && (
                   <div className="border-t pt-3 mt-3">
-                    <h4 className="text-sm font-semibold text-brand_blue mb-2">Encargado del Proyecto</h4>
+                    <h4 className="text-sm font-semibold text-brand_primary mb-2">Encargado del Proyecto</h4>
                     
                     {contrato.clientes.nombre_encargado_proyecto && (
                       <div className="flex items-center space-x-3 mb-2">
-                        <User className="text-brand_blue" size={18} />
+                        <User className="text-brand_primary" size={18} />
                         <div>
                           <p className="text-xs text-gray-600">Nombre</p>
                           <p className="font-medium text-sm">{contrato.clientes.nombre_encargado_proyecto}</p>
@@ -447,7 +447,7 @@ export default function ContractDetailsModal({
                       {contrato.clientes.telefono_encargado_proyecto && (
                         <div className="flex items-center space-x-3">
                           <div className="w-4 h-4 flex items-center justify-center">
-                            <span className="text-brand_blue text-xs">📞</span>
+                            <span className="text-brand_primary text-xs">📞</span>
                           </div>
                           <div>
                             <p className="text-xs text-gray-600">Teléfono</p>
@@ -459,7 +459,7 @@ export default function ContractDetailsModal({
                       {contrato.clientes.email_encargado_proyecto && (
                         <div className="flex items-center space-x-3">
                           <div className="w-4 h-4 flex items-center justify-center">
-                            <span className="text-brand_blue text-xs">📧</span>
+                            <span className="text-brand_primary text-xs">📧</span>
                           </div>
                           <div>
                             <p className="text-xs text-gray-600">Email</p>
@@ -476,7 +476,7 @@ export default function ContractDetailsModal({
                   contrato.clientes.telefono_contacto_administrativo || 
                   contrato.clientes.email_contacto_administrativo) && (
                   <div className="border-t pt-3 mt-3">
-                    <h4 className="text-sm font-semibold text-brand_blue mb-2">Contacto Administrativo</h4>
+                    <h4 className="text-sm font-semibold text-brand_primary mb-2">Contacto Administrativo</h4>
                     <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-3">
                       <p className="text-xs text-yellow-800">
                         📧 <strong>Contacto para facturación:</strong> A esta persona se enviarán las facturas y documentos administrativos
@@ -485,7 +485,7 @@ export default function ContractDetailsModal({
                     
                     {contrato.clientes.nombre_contacto_administrativo && (
                       <div className="flex items-center space-x-3 mb-2">
-                        <User className="text-brand_blue" size={18} />
+                        <User className="text-brand_primary" size={18} />
                         <div>
                           <p className="text-xs text-gray-600">Nombre</p>
                           <p className="font-medium text-sm">{contrato.clientes.nombre_contacto_administrativo}</p>
@@ -497,7 +497,7 @@ export default function ContractDetailsModal({
                       {contrato.clientes.telefono_contacto_administrativo && (
                         <div className="flex items-center space-x-3">
                           <div className="w-4 h-4 flex items-center justify-center">
-                            <span className="text-brand_blue text-xs">📞</span>
+                            <span className="text-brand_primary text-xs">📞</span>
                           </div>
                           <div>
                             <p className="text-xs text-gray-600">Teléfono</p>
@@ -509,7 +509,7 @@ export default function ContractDetailsModal({
                       {contrato.clientes.email_contacto_administrativo && (
                         <div className="flex items-center space-x-3">
                           <div className="w-4 h-4 flex items-center justify-center">
-                            <span className="text-brand_blue text-xs">📧</span>
+                            <span className="text-brand_primary text-xs">📧</span>
                           </div>
                           <div>
                             <p className="text-xs text-gray-600">Email de Facturación</p>
@@ -527,7 +527,7 @@ export default function ContractDetailsModal({
           {/* Program Information */}
           {contrato.es_manual ? (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">Información del Contrato</h3>
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Información del Contrato</h3>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div>
                   <p className="text-sm text-gray-600">Tipo de Contrato</p>
@@ -543,7 +543,7 @@ export default function ContractDetailsModal({
             </div>
           ) : contrato.programas ? (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">Información del Programa</h3>
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Información del Programa</h3>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -576,19 +576,19 @@ export default function ContractDetailsModal({
           {/* Payment Schedule */}
           {contrato.cuotas && contrato.cuotas.length > 0 && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">
                 Cronograma de Pagos ({contrato.cuotas.length} cuotas)
               </h3>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse border border-gray-200">
                   <thead>
                     <tr className="bg-gray-50">
-                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-brand_blue">Cuota</th>
-                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-brand_blue">Fecha Vencimiento</th>
-                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-brand_blue">Monto</th>
-                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-brand_blue">Estado</th>
-                      <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-brand_blue">Factura</th>
-                      <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-brand_blue">Pagado</th>
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-brand_primary">Cuota</th>
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-brand_primary">Fecha Vencimiento</th>
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-brand_primary">Monto</th>
+                      <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-brand_primary">Estado</th>
+                      <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-brand_primary">Factura</th>
+                      <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-brand_primary">Pagado</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -596,11 +596,11 @@ export default function ContractDetailsModal({
                       <tr key={cuota.id} className="hover:bg-gray-50">
                         <td className="border border-gray-200 px-4 py-3 font-medium">Cuota {cuota.numero_cuota}</td>
                         <td className="border border-gray-200 px-4 py-3">{formatDate(cuota.fecha_vencimiento)}</td>
-                        <td className="border border-gray-200 px-4 py-3 font-semibold text-brand_blue">{formatCurrency(cuota.monto_uf)}</td>
+                        <td className="border border-gray-200 px-4 py-3 font-semibold text-brand_primary">{formatCurrency(cuota.monto_uf)}</td>
                         <td className="border border-gray-200 px-4 py-3">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            cuota.pagada 
-                              ? 'bg-green-100 text-green-800' 
+                            cuota.pagada
+                              ? 'bg-amber-100 text-amber-800'
                               : new Date(cuota.fecha_vencimiento) < new Date()
                               ? 'bg-red-100 text-red-800'
                               : 'bg-yellow-100 text-yellow-800'
@@ -636,23 +636,23 @@ export default function ContractDetailsModal({
                                   </div>
                                 </div>
                                 {/* View button */}
-                                <a 
-                                  href={cuota.factura_url} 
-                                  target="_blank" 
+                                <a
+                                  href={cuota.factura_url}
+                                  target="_blank"
                                   rel="noopener noreferrer"
-                                  className="flex items-center justify-center w-7 h-7 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                  className="flex items-center justify-center w-7 h-7 bg-brand_beige hover:bg-amber-50 rounded-lg transition-colors"
                                   title="Ver factura"
                                 >
-                                  <Eye className="text-blue-600" size={14} />
+                                  <Eye className="text-brand_primary" size={14} />
                                 </a>
                                 {/* Download button */}
-                                <a 
-                                  href={cuota.factura_url} 
+                                <a
+                                  href={cuota.factura_url}
                                   download
-                                  className="flex items-center justify-center w-7 h-7 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                                  className="flex items-center justify-center w-7 h-7 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors"
                                   title="Descargar factura"
                                 >
-                                  <Download className="text-green-600" size={14} />
+                                  <Download className="text-brand_accent" size={14} />
                                 </a>
                                 {/* Delete button */}
                                 <button
@@ -680,12 +680,12 @@ export default function ContractDetailsModal({
                                   onChange={(e) => handleInvoiceUpload(cuota.id, e)}
                                   className="hidden"
                                 />
-                                <div className="flex items-center justify-center w-8 h-8 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                                <div className="flex items-center justify-center w-8 h-8 bg-brand_beige hover:bg-amber-50 rounded-lg transition-colors"
                                      title="Subir factura">
                                   {uploadingInvoice === cuota.id ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand_primary"></div>
                                   ) : (
-                                    <Upload className="text-blue-600" size={16} />
+                                    <Upload className="text-brand_primary" size={16} />
                                   )}
                                 </div>
                               </label>
@@ -697,7 +697,7 @@ export default function ContractDetailsModal({
                             onClick={() => handlePaymentToggle(cuota.id, cuota.pagada || false)}
                             className={`flex items-center justify-center w-8 h-8 rounded-lg transition-colors ${
                               cuota.pagada
-                                ? 'bg-green-100 hover:bg-green-200 text-green-600'
+                                ? 'bg-amber-100 hover:bg-amber-200 text-brand_accent'
                                 : 'bg-gray-100 hover:bg-gray-200 text-gray-400'
                             }`}
                             title={cuota.pagada ? 'Marcar como no pagado' : 'Marcar como pagado'}
@@ -716,7 +716,7 @@ export default function ContractDetailsModal({
           {/* Contract Upload Section */}
           {contrato.estado !== 'activo' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-brand_blue border-b pb-2">Subir Contrato Firmado</h3>
+              <h3 className="text-lg font-semibold text-brand_primary border-b pb-2">Subir Contrato Firmado</h3>
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                 <p className="text-sm text-yellow-800 mb-4">
                   El contrato está pendiente. Sube el documento firmado para activar el contrato.

@@ -619,12 +619,12 @@ const ExpectationsEditor: React.FC = () => {
         </div>
 
         {/* Info panel */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="bg-brand_beige border border-brand_accent rounded-lg p-4 mb-6">
           <div className="flex items-start gap-3">
-            <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-            <div className="text-sm text-blue-800">
+            <Info className="w-5 h-5 text-brand_accent flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-gray-800">
               <p className="font-medium mb-1">Cómo configurar expectativas:</p>
-              <ul className="list-disc list-inside space-y-1 text-blue-700">
+              <ul className="list-disc list-inside space-y-1 text-gray-700">
                 <li><strong>Profundidad (0-4):</strong> Selecciona el nivel de madurez esperado para cada año de transformación</li>
                 <li><strong>Cobertura:</strong> Marca si se espera que el indicador esté implementado en ese año</li>
                 <li><strong>Frecuencia:</strong> Ingresa el valor mínimo esperado (ej: 4 veces por semestre)</li>
@@ -645,7 +645,7 @@ const ExpectationsEditor: React.FC = () => {
                 {template.gradeName && <span>Nivel: {template.gradeName}</span>}
                 <span>Versión: {template.version}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs ${
-                  isDraft ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
+                  isDraft ? 'bg-yellow-100 text-yellow-800' : 'bg-amber-100 text-amber-800'
                 }`}>
                   {isDraft ? 'Borrador' : 'Publicado'}
                 </span>
@@ -656,15 +656,15 @@ const ExpectationsEditor: React.FC = () => {
           {template.requiresDualExpectations && (
             <div className="mt-3 pt-3 border-t border-gray-200">
               <div className="flex items-center gap-2 text-sm">
-                <Info className="w-4 h-4 text-blue-600" />
+                <Info className="w-4 h-4 text-brand_accent" />
                 <span className="text-gray-700">
                   Este nivel requiere <strong>expectativas duales</strong>: configure tanto
                   <span className="inline-flex items-center mx-1">
-                    <span className="px-1.5 py-0.5 rounded bg-green-100 text-green-700 text-xs font-medium">GT</span>
+                    <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-xs font-medium">GT</span>
                   </span>
                   como
                   <span className="inline-flex items-center mx-1">
-                    <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 text-xs font-medium">GI</span>
+                    <span className="px-1.5 py-0.5 rounded bg-brand_beige text-brand_primary text-xs font-medium">GI</span>
                   </span>
                   para cada indicador.
                 </span>
@@ -707,19 +707,19 @@ const ExpectationsEditor: React.FC = () => {
                         <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16 border-r border-gray-200">
                           Tipo
                         </th>
-                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_blue uppercase tracking-wider border-r border-gray-200 bg-blue-50">
+                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_beige">
                           Año 1
                         </th>
-                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_blue uppercase tracking-wider border-r border-gray-200 bg-blue-50">
+                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_beige">
                           Año 2
                         </th>
-                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_blue uppercase tracking-wider border-r border-gray-200 bg-blue-50">
+                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_beige">
                           Año 3
                         </th>
-                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_blue uppercase tracking-wider border-r border-gray-200 bg-blue-50">
+                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_beige">
                           Año 4
                         </th>
-                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_blue uppercase tracking-wider border-r border-gray-200 bg-blue-50">
+                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_beige">
                           Año 5
                         </th>
                         <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
@@ -757,16 +757,16 @@ const ExpectationsEditor: React.FC = () => {
                             </td>
                             <td className="px-2 py-2 text-center border-r border-gray-200">
                               {requiresDual ? (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
                                   GT
                                 </span>
                               ) : (
                                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                                   indicator.indicatorCategory === 'cobertura'
-                                    ? 'bg-blue-100 text-blue-700'
+                                    ? 'bg-brand_beige text-brand_primary'
                                     : indicator.indicatorCategory === 'frecuencia'
                                     ? 'bg-amber-100 text-amber-700'
-                                    : 'bg-green-100 text-green-700'
+                                    : 'bg-amber-100 text-amber-700'
                                 }`}>
                                   {indicator.indicatorCategory === 'cobertura' ? 'Cob' :
                                    indicator.indicatorCategory === 'frecuencia' ? 'Frec' : 'Prof'}
@@ -803,11 +803,11 @@ const ExpectationsEditor: React.FC = () => {
                         const giRow = requiresDual && indicator.expectationsGI ? (
                           <tr
                             key={`${indicator.indicatorId}-GI`}
-                            className={`hover:bg-gray-50 ${indicator.isDirtyGI ? 'bg-blue-50' : 'bg-gray-50/50'}`}
+                            className={`hover:bg-gray-50 ${indicator.isDirtyGI ? 'bg-brand_beige' : 'bg-gray-50/50'}`}
                           >
                             {/* No indicator name cell - rowSpan from GT row */}
                             <td className="px-2 py-2 text-center border-r border-gray-200">
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-brand_beige text-brand_primary font-medium">
                                 GI
                               </span>
                             </td>
@@ -863,11 +863,11 @@ const ExpectationsEditor: React.FC = () => {
                 <p className="text-xs text-gray-500 uppercase font-medium mb-2">Tipos de generación:</p>
                 <div className="flex flex-wrap gap-4 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs font-medium">GT</span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">GT</span>
                     <span className="text-gray-600">Generación Tractor (expectativas más altas)</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs font-medium">GI</span>
+                    <span className="px-2 py-0.5 rounded-full bg-brand_beige text-brand_primary text-xs font-medium">GI</span>
                     <span className="text-gray-600">Generación Innova (expectativas adaptadas)</span>
                   </div>
                 </div>
@@ -877,7 +877,7 @@ const ExpectationsEditor: React.FC = () => {
             <p className="text-xs text-gray-500 uppercase font-medium mb-2">Tipos de indicador:</p>
             <div className="flex flex-wrap gap-4 text-sm">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs">Cob</span>
+                <span className="px-2 py-0.5 rounded-full bg-brand_beige text-brand_primary text-xs">Cob</span>
                 <span className="text-gray-600">Cobertura (Sí/No implementado)</span>
               </div>
               <div className="flex items-center gap-2">
@@ -885,7 +885,7 @@ const ExpectationsEditor: React.FC = () => {
                 <span className="text-gray-600">Frecuencia (mínimo esperado por período)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">Prof</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs">Prof</span>
                 <span className="text-gray-600">Profundidad (niveles 0-4)</span>
               </div>
             </div>

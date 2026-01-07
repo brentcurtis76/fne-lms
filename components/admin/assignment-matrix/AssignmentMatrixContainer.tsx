@@ -162,7 +162,7 @@ export function AssignmentMatrixContainer() {
             </button>
             <button
               onClick={() => setViewMode('content')}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-50 text-blue-700 border border-blue-200"
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-brand_beige text-brand_primary border border-brand_accent"
             >
               <BookOpen className="h-4 w-4" />
               Por Contenido
@@ -201,7 +201,7 @@ export function AssignmentMatrixContainer() {
         <div className="flex items-center gap-4">
           <button
             onClick={() => setViewMode('users')}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-blue-50 text-blue-700 border border-blue-200"
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg bg-brand_beige text-brand_primary border border-brand_accent"
           >
             <Users className="h-4 w-4" />
             Por Usuario

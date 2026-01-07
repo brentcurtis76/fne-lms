@@ -77,7 +77,7 @@ export function GroupDetailPanel({
           </p>
           <button
             onClick={onRefresh}
-            className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-brand_primary rounded-md hover:bg-gray-800"
           >
             <RefreshCw className="h-4 w-4" />
             Reintentar
@@ -106,8 +106,8 @@ export function GroupDetailPanel({
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <GroupIcon className="h-5 w-5 text-blue-600" />
-              <span className="text-xs font-medium text-blue-600 uppercase tracking-wide">
+              <GroupIcon className="h-5 w-5 text-brand_primary" />
+              <span className="text-xs font-medium text-brand_primary uppercase tracking-wide">
                 {groupTypeLabel}
               </span>
             </div>
@@ -185,7 +185,7 @@ export function GroupDetailPanel({
             <div className="text-xs text-gray-500">Miembros</div>
           </div>
           <div className="p-3 bg-gray-50 rounded-lg">
-            <div className="text-2xl font-bold text-blue-600">{courseAssignments.length}</div>
+            <div className="text-2xl font-bold text-brand_primary">{courseAssignments.length}</div>
             <div className="text-xs text-gray-500">Cursos</div>
           </div>
           <div className="p-3 bg-gray-50 rounded-lg">
@@ -236,7 +236,7 @@ function GroupAssignmentCard({
             <div>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-blue-500" />
+                  <Users className="h-3.5 w-3.5 text-brand_primary" />
                   <span className="text-xs text-gray-600">Cobertura</span>
                 </div>
                 <span className="text-xs font-medium text-gray-700">
@@ -245,7 +245,7 @@ function GroupAssignmentCard({
               </div>
               <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-blue-500 rounded-full transition-all duration-300"
+                  className="h-full bg-brand_primary rounded-full transition-all duration-300"
                   style={{ width: `${coverage}%` }}
                 />
               </div>
@@ -262,7 +262,7 @@ function GroupAssignmentCard({
                 </div>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-green-500 rounded-full transition-all duration-300"
+                    className="h-full bg-brand_accent rounded-full transition-all duration-300"
                     style={{ width: `${assignment.averageProgress}%` }}
                   />
                 </div>
@@ -272,7 +272,7 @@ function GroupAssignmentCard({
 
           {/* Completion info */}
           {assignment.completedCount > 0 && (
-            <div className="text-xs text-green-600 mt-2">
+            <div className="text-xs text-brand_accent mt-2">
               ✓ {assignment.completedCount} completaron ({completionRate}%)
             </div>
           )}

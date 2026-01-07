@@ -220,16 +220,16 @@ export default function TransformationAccessManagement() {
           </div>
 
           {/* Info Card */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          <div className="bg-brand_beige border border-brand_accent rounded-lg p-4 mb-6">
             <div className="flex">
               <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-5 w-5 text-brand_accent" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="ml-3 flex-1">
-                <h3 className="text-sm font-medium text-blue-800">Importante</h3>
-                <div className="mt-2 text-sm text-blue-700">
+                <h3 className="text-sm font-medium text-brand_primary">Importante</h3>
+                <div className="mt-2 text-sm text-gray-700">
                   <ul className="list-disc pl-5 space-y-1">
                     <li>Al revocar acceso, los assessments activos se archivarán automáticamente</li>
                     <li>Los assessments archivados NO se reactivarán si vuelves a asignar acceso</li>
@@ -284,7 +284,7 @@ export default function TransformationAccessManagement() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {community.assessment_count > 0 ? (
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand_beige text-brand_primary">
                                 {community.assessment_count} activo{community.assessment_count !== 1 ? 's' : ''}
                               </span>
                             ) : (
@@ -298,8 +298,8 @@ export default function TransformationAccessManagement() {
                             disabled={togglingId === community.id}
                             className={`
                               relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent
-                              transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-                              ${community.has_access ? 'bg-blue-600' : 'bg-gray-200'}
+                              transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2
+                              ${community.has_access ? 'bg-brand_primary' : 'bg-gray-200'}
                               ${togglingId === community.id ? 'opacity-50 cursor-not-allowed' : ''}
                             `}
                           >
@@ -347,7 +347,7 @@ export default function TransformationAccessManagement() {
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-6 w-6 text-brand_accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
@@ -367,7 +367,7 @@ export default function TransformationAccessManagement() {
               <div className="p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-6 w-6 text-brand_primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                   </div>
@@ -395,10 +395,10 @@ export default function TransformationAccessManagement() {
             <div className="inline-block align-bottom bg-white rounded-lg px-4 pt-5 pb-4 text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full sm:p-6">
               <div>
                 <div className={`mx-auto flex items-center justify-center h-12 w-12 rounded-full ${
-                  pendingAction.action === 'assign' ? 'bg-green-100' : 'bg-yellow-100'
+                  pendingAction.action === 'assign' ? 'bg-brand_accent/20' : 'bg-yellow-100'
                 }`}>
                   {pendingAction.action === 'assign' ? (
-                    <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-6 w-6 text-brand_accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   ) : (
@@ -435,7 +435,7 @@ export default function TransformationAccessManagement() {
                   onClick={confirmAction}
                   className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 sm:col-start-2 sm:text-sm ${
                     pendingAction.action === 'assign'
-                      ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                      ? 'bg-brand_accent hover:bg-amber-400 focus:ring-brand_accent'
                       : 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
                   }`}
                 >
@@ -447,7 +447,7 @@ export default function TransformationAccessManagement() {
                     setShowConfirmModal(false);
                     setPendingAction(null);
                   }}
-                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:col-start-1 sm:text-sm"
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand_accent sm:mt-0 sm:col-start-1 sm:text-sm"
                 >
                   Cancelar
                 </button>

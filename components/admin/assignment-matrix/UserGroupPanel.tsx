@@ -142,8 +142,8 @@ export function UserGroupPanel({
     const roleMap: Record<string, { label: string; color: string }> = {
       admin: { label: 'Admin', color: 'bg-red-100 text-red-700' },
       consultor: { label: 'Consultor', color: 'bg-amber-100 text-amber-700' },
-      equipo_directivo: { label: 'Directivo', color: 'bg-blue-100 text-blue-700' },
-      docente: { label: 'Docente', color: 'bg-green-100 text-green-700' },
+      equipo_directivo: { label: 'Directivo', color: 'bg-brand_beige text-brand_primary' },
+      docente: { label: 'Docente', color: 'bg-brand_accent/20 text-amber-700' },
       estudiante: { label: 'Estudiante', color: 'bg-yellow-100 text-yellow-700' },
       lider_comunidad: { label: 'Líder Com.', color: 'bg-orange-100 text-orange-700' },
       lider_generacion: { label: 'Líder Gen.', color: 'bg-teal-100 text-teal-700' },
@@ -178,7 +178,7 @@ export function UserGroupPanel({
           onClick={() => setActiveTab('users')}
           className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
             activeTab === 'users'
-              ? 'text-blue-600 bg-blue-50'
+              ? 'text-brand_primary bg-brand_beige'
               : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
@@ -189,7 +189,7 @@ export function UserGroupPanel({
           onClick={() => setActiveTab('groups')}
           className={`flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
             activeTab === 'groups'
-              ? 'text-blue-600 bg-blue-50'
+              ? 'text-brand_primary bg-brand_beige'
               : 'text-gray-600 hover:bg-gray-100'
           }`}
         >
@@ -211,7 +211,7 @@ export function UserGroupPanel({
                 placeholder="Buscar usuarios..."
                 value={filters.searchQuery}
                 onChange={handleSearchChange}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-brand_accent focus:border-brand_accent"
               />
             </div>
 
@@ -222,7 +222,7 @@ export function UserGroupPanel({
                 <select
                   value={filters.schoolId || ''}
                   onChange={handleSchoolChange}
-                  className="w-full pl-3 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                  className="w-full pl-3 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-brand_accent focus:border-brand_accent appearance-none bg-white"
                 >
                   <option value="">Todas las escuelas</option>
                   {schools.map((school) => (
@@ -239,7 +239,7 @@ export function UserGroupPanel({
                 <select
                   value={filters.communityId || ''}
                   onChange={handleCommunityChange}
-                  className="w-full pl-3 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white"
+                  className="w-full pl-3 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-brand_accent focus:border-brand_accent appearance-none bg-white"
                 >
                   <option value="">Todas las comunidades</option>
                   {communities.map((comm) => (
@@ -310,13 +310,13 @@ export function UserGroupPanel({
                         onClick={() => onSelectUser(user.id)}
                         className={`w-full h-full px-4 py-3 text-left transition-colors ${
                           isSelected
-                            ? 'bg-blue-50 border-l-4 border-blue-500'
+                            ? 'bg-brand_beige border-l-4 border-brand_accent'
                             : 'hover:bg-gray-50 border-l-4 border-transparent'
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="min-w-0 flex-1">
-                            <p className={`text-sm font-medium truncate ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                            <p className={`text-sm font-medium truncate ${isSelected ? 'text-brand_primary' : 'text-gray-900'}`}>
                               {user.fullName}
                             </p>
                             <p className="text-xs text-gray-500 truncate">
@@ -346,7 +346,7 @@ export function UserGroupPanel({
             {/* Load more trigger */}
             <div ref={loadMoreRef} className="h-10 flex items-center justify-center">
               {usersLoading && (
-                <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+                <Loader2 className="h-5 w-5 text-brand_accent animate-spin" />
               )}
             </div>
           </div>
@@ -390,7 +390,7 @@ export function UserGroupPanel({
                 onClick={() => setGroupFilterType('school')}
                 className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   groupFilterType === 'school'
-                    ? 'bg-white text-blue-600 shadow-sm'
+                    ? 'bg-white text-brand_primary shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -401,7 +401,7 @@ export function UserGroupPanel({
                 onClick={() => setGroupFilterType('community')}
                 className={`flex-1 flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   groupFilterType === 'community'
-                    ? 'bg-white text-blue-600 shadow-sm'
+                    ? 'bg-white text-brand_primary shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -418,7 +418,7 @@ export function UserGroupPanel({
                 placeholder={groupFilterType === 'school' ? 'Buscar escuelas...' : 'Buscar comunidades...'}
                 value={groupSearchQuery}
                 onChange={(e) => setGroupSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-brand_accent focus:border-brand_accent"
               />
             </div>
           </div>
@@ -451,7 +451,7 @@ export function UserGroupPanel({
                       onClick={() => handleGroupClick(group.id)}
                       className={`w-full px-4 py-3 text-left transition-colors ${
                         isSelected
-                          ? 'bg-blue-50 border-l-4 border-blue-500'
+                          ? 'bg-brand_beige border-l-4 border-brand_accent'
                           : 'hover:bg-gray-50 border-l-4 border-transparent'
                       }`}
                     >
@@ -459,17 +459,17 @@ export function UserGroupPanel({
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
                             {groupFilterType === 'school' ? (
-                              <GraduationCap className={`h-4 w-4 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                              <GraduationCap className={`h-4 w-4 ${isSelected ? 'text-brand_primary' : 'text-gray-400'}`} />
                             ) : (
-                              <UsersRound className={`h-4 w-4 ${isSelected ? 'text-blue-600' : 'text-gray-400'}`} />
+                              <UsersRound className={`h-4 w-4 ${isSelected ? 'text-brand_primary' : 'text-gray-400'}`} />
                             )}
-                            <p className={`text-sm font-medium truncate ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                            <p className={`text-sm font-medium truncate ${isSelected ? 'text-brand_primary' : 'text-gray-900'}`}>
                               {group.name}
                             </p>
                           </div>
                         </div>
                         {isSelected && groupMemberCount > 0 && (
-                          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                          <span className="text-xs text-brand_primary bg-brand_beige px-2 py-0.5 rounded-full">
                             {groupMemberCount} miembro{groupMemberCount !== 1 ? 's' : ''}
                           </span>
                         )}
@@ -489,7 +489,7 @@ export function UserGroupPanel({
               </h4>
               {groupAssignmentsLoading ? (
                 <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 text-blue-500 animate-spin" />
+                  <Loader2 className="h-5 w-5 text-brand_accent animate-spin" />
                 </div>
               ) : groupAssignments.length === 0 ? (
                 <p className="text-sm text-gray-500">Sin asignaciones comunes</p>

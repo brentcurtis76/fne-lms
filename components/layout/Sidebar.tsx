@@ -32,7 +32,10 @@ import {
   GlobeIcon as NetworkIcon,
   NewspaperIcon,
   LightningBoltIcon,
-  ViewGridIcon
+  ViewGridIcon,
+  PencilAltIcon,
+  AcademicCapIcon,
+  BriefcaseIcon
 } from '@heroicons/react/outline';
 import { CalendarIcon } from '@heroicons/react/solid';
 import ModernNotificationCenter from '../notifications/ModernNotificationCenter';
@@ -121,7 +124,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   {
     id: 'docente-assessments',
     label: 'Mis Evaluaciones',
-    icon: ClipboardDocumentCheckIcon,
+    icon: AcademicCapIcon,
     href: '/docente/assessments',
     description: 'Evaluaciones de transformación asignadas',
     restrictedRoles: ['docente', 'admin', 'consultor']
@@ -129,7 +132,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   {
     id: 'quiz-reviews',
     label: 'Revisión de Quizzes',
-    icon: ClipboardDocumentCheckIcon,
+    icon: PencilAltIcon,
     href: '/quiz-reviews',
     description: 'Calificar preguntas abiertas',
     consultantOnly: true
@@ -232,7 +235,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   {
     id: 'gestion',
     label: 'Gestión',
-    icon: ClipboardDocumentListIcon,
+    icon: BriefcaseIcon,
     description: 'Gestión empresarial',
     permission: [
       'view_contracts_all',
@@ -663,9 +666,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     });
   }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone]);
 
-  const SidebarItem: React.FC<{ item: NavigationItem }> = React.memo(({ item }) => {
+  const SidebarItem: React.FC<{ item: NavigationItem; isCollapsed: boolean }> = React.memo(({ item, isCollapsed }) => {
     const [showCollapsedMenu, setShowCollapsedMenu] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const isExpanded = expandedItems.has(item.id);
 
     // Close floating menu when clicking outside
@@ -681,6 +686,15 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         return () => document.removeEventListener('mousedown', handleClickOutside);
       }
     }, [showCollapsedMenu]);
+
+    // Cleanup hover timeout on unmount
+    useEffect(() => {
+      return () => {
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current);
+        }
+      };
+    }, []);
 
     // Filter children based on admin status and permissions
     const filteredChildren = item.children?.filter(child => {
@@ -734,7 +748,26 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     }
 
     return (
-      <div className="relative">
+      <div
+        className="relative"
+        onMouseEnter={() => {
+          if (isCollapsed) {
+            hoverTimeoutRef.current = setTimeout(() => {
+              setIsHovered(true);
+              if (hasChildren) setShowCollapsedMenu(true);
+            }, 150);
+          }
+        }}
+        onMouseLeave={() => {
+          if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current);
+          }
+          setIsHovered(false);
+          if (hasChildren) {
+            setShowCollapsedMenu(false);
+          }
+        }}
+      >
         <button
           onClick={handleClick}
           className={`
@@ -794,12 +827,26 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
           </div>
         </button>
 
+        {/* Tooltip for collapsed items WITHOUT children */}
+        {isCollapsed && !hasChildren && isHovered && (
+          <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 pointer-events-none">
+            <div className="bg-[#0a0a0a] text-white text-sm rounded-lg px-3 py-2 whitespace-nowrap shadow-lg relative">
+              {item.label}
+              {/* Arrow pointing to icon */}
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full">
+                <div className="border-8 border-transparent border-r-[#0a0a0a]"></div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Collapsed state floating menu */}
         {isCollapsed && hasChildren && showCollapsedMenu && (
-          <div
-            ref={menuRef}
-            className="absolute left-full top-0 ml-2 bg-white rounded-lg shadow-xl border border-gray-200 z-50 min-w-48 overflow-hidden"
-          >
+            <div
+              ref={menuRef}
+              className="absolute left-full top-0 pl-2 z-50"
+            >
+              <div className="bg-white rounded-lg shadow-xl border border-gray-200 min-w-48 overflow-hidden">
             <div className="p-2 bg-gray-50 border-b border-gray-200">
               <h3 className="text-sm font-medium text-gray-900">{item.label}</h3>
               {item.description && (
@@ -847,7 +894,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                 </Link>
               ))}
             </div>
-          </div>
+              </div>
+            </div>
         )}
 
         {/* Children */}
@@ -937,6 +985,9 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
                 <p className="text-white/50 text-xs">
                   Hub de Transformación
                 </p>
+                <p className="text-white/30 text-[10px] italic">
+                  by FNE
+                </p>
               </div>
             </div>
           ) : (
@@ -971,7 +1022,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         {/* Navigation Content */}
         <div className="flex-1 overflow-y-auto py-4 px-2 space-y-1 max-h-[calc(100vh-8rem)] border-r border-gray-200">
           {filteredNavigationItems.map(item => (
-            <SidebarItem key={item.id} item={item} />
+            <SidebarItem key={item.id} item={item} isCollapsed={isCollapsed} />
           ))}
         </div>
 

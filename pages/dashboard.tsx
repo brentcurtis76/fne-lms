@@ -20,6 +20,7 @@ import { NetflixCourseRow } from '../components/courses';
 import WorkspaceSettingsModal from '../components/community/WorkspaceSettingsModal';
 import { getOrCreateWorkspace } from '../utils/workspaceUtils';
 import { CourseWithEnrollment } from '../types/courses';
+import { UpcomingCourse, UpcomingCourseCard } from '../components/courses/UpcomingCourseCard';
 
 // Types
 interface NewsArticle {
@@ -111,6 +112,7 @@ export default function Dashboard() {
   const [communityExpanded, setCommunityExpanded] = useState(false);
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
+  const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(null);
 
   // New dashboard sections state
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
@@ -119,6 +121,8 @@ export default function Dashboard() {
   const [loadingNews, setLoadingNews] = useState(true);
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [upcomingCourses, setUpcomingCourses] = useState<UpcomingCourse[]>([]);
+  const [loadingUpcoming, setLoadingUpcoming] = useState(true);
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -232,6 +236,24 @@ export default function Dashboard() {
       }
     };
     fetchStats();
+  }, []);
+
+  // Fetch upcoming courses
+  useEffect(() => {
+    const fetchUpcoming = async () => {
+      try {
+        const response = await fetch('/api/upcoming-courses');
+        if (response.ok) {
+          const data = await response.json();
+          setUpcomingCourses(data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching upcoming courses:', error);
+      } finally {
+        setLoadingUpcoming(false);
+      }
+    };
+    fetchUpcoming();
   }, []);
 
   // Main session and data loading
@@ -490,16 +512,24 @@ export default function Dashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
 
         {/* Growth Community Section - Collapsible */}
-        {userRoles.some(role => role.community_id) && (
+        {userRoles.some(role => role.community_id) && (() => {
+          // Get all communities user belongs to
+          const userCommunities = userRoles.filter(role => role.community_id && role.community);
+
+          // Initialize selectedCommunityId if not set
+          const effectiveCommunityId = selectedCommunityId || userCommunities[0]?.community_id;
+
+          // Find the selected community role
+          const selectedRole = userCommunities.find(r => r.community_id === effectiveCommunityId) || userCommunities[0];
+
+          if (!selectedRole || !selectedRole.community) return null;
+
+          const members = communityMembers[selectedRole.community_id!] || [];
+          const workspace = communityWorkspaces[selectedRole.community_id!];
+
+          return (
           <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            {userRoles.map(role => {
-              if (!role.community_id || !role.community) return null;
-
-              const members = communityMembers[role.community_id] || [];
-              const workspace = communityWorkspaces[role.community_id];
-
-              return (
-                <div key={role.id}>
+                <div key={selectedRole.id}>
                   {/* Header - Always Visible */}
                   <button
                     onClick={() => setCommunityExpanded(!communityExpanded)}
@@ -509,7 +539,7 @@ export default function Dashboard() {
                       {workspace?.image_url ? (
                         <img
                           src={workspace.image_url}
-                          alt={workspace.custom_name || role.community.name}
+                          alt={workspace.custom_name || selectedRole.community!.name}
                           className="w-14 h-14 rounded-xl object-cover"
                         />
                       ) : (
@@ -519,10 +549,10 @@ export default function Dashboard() {
                       )}
                       <div className="text-left">
                         <h2 className="text-lg font-semibold text-brand_primary">
-                          {workspace?.custom_name || role.community.name}
+                          Mi Comunidad de Crecimiento
                         </h2>
                         <p className="text-sm text-gray-500">
-                          {role.school?.name} • {members.length} miembros
+                          {selectedRole.school?.name || selectedRole.community!.name} • {members.length} miembros
                         </p>
                       </div>
                     </div>
@@ -562,9 +592,34 @@ export default function Dashboard() {
                   {/* Expanded Content */}
                   {communityExpanded && (
                     <div className="px-6 pb-6 border-t border-gray-100">
+                      {/* Community Selector - Only show if user has multiple communities */}
+                      {userCommunities.length > 1 && (
+                        <div className="pt-4 pb-3 border-b border-gray-100 mb-4">
+                          <p className="text-xs text-gray-500 mb-2">Seleccionar comunidad:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {userCommunities.map(comm => (
+                              <button
+                                key={comm.community_id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedCommunityId(comm.community_id!);
+                                }}
+                                className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                                  comm.community_id === effectiveCommunityId
+                                    ? 'bg-brand_accent text-brand_primary'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                }`}
+                              >
+                                {comm.school?.name || comm.community?.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="pt-4 flex items-center justify-between mb-4">
                         <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-                          Miembros de la Comunidad
+                          {selectedRole.school?.name || selectedRole.community!.name}
                         </h3>
                         <div className="flex gap-2">
                           <button
@@ -619,10 +674,9 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-              );
-            })}
           </section>
-        )}
+          );
+        })()}
 
         {/* Latest News Section */}
         <section>
@@ -654,9 +708,11 @@ export default function Dashboard() {
           ) : newsArticles.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {newsArticles.map((article, index) => (
-                <Link
+                <a
                   key={article.id}
                   href={`/noticias/${article.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className={`group bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-all ${
                     index === 0 ? 'md:col-span-1' : ''
                   }`}
@@ -681,7 +737,7 @@ export default function Dashboard() {
                       {getExcerpt(article.content_html)}
                     </p>
                   </div>
-                </Link>
+                </a>
               ))}
             </div>
           ) : (
@@ -865,6 +921,35 @@ export default function Dashboard() {
             </div>
           </div>
         </section>
+
+        {/* Upcoming Courses Section */}
+        {!loadingUpcoming && upcomingCourses.length > 0 && (
+          <section>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 bg-brand_accent/10 rounded-lg">
+                <Clock className="w-5 h-5 text-brand_accent" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-brand_primary">Próximos Cursos</h2>
+                <p className="text-sm text-gray-500">Cursos que podrás tomar próximamente</p>
+              </div>
+            </div>
+
+            <div className="relative">
+              {/* Horizontal scroll container */}
+              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+                {upcomingCourses.map((course) => (
+                  <div
+                    key={course.id}
+                    className="flex-none w-[260px] sm:w-[280px] snap-start"
+                  >
+                    <UpcomingCourseCard course={course} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Continue Learning Section - Netflix Style */}
         {inProgressCourses.length > 0 && (

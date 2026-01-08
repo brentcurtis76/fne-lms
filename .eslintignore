@@ -1,9 +1,0 @@
-node_modules
-.next
-out
-build
-coverage
-*.config.js
-scripts/**/*.js
-test-column-mismatch.js
-mcp-servers/**

@@ -103,7 +103,6 @@
     "@types/react-window": "^1.8.8",
     "@types/uuid": "^10.0.0",
     "browserslist": "^4.24.5",
-    "canvas": "^2.11.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -169,5 +168,8 @@
     "typescript": "^5.8.3",
     "vite": "^4.5.5",
     "vitest": "^0.34.6"
+  },
+  "optionalDependencies": {
+    "canvas": "^2.11.2"
   }
 }

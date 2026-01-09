@@ -1,0 +1,83 @@
+/* TipTap Editor Styles */
+
+/* Editor container */
+.ProseMirror {
+  padding: 0.75rem;
+  min-height: 100px;
+  max-height: 300px;
+  overflow-y: auto;
+  outline: none;
+}
+
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* Placeholder */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: "¿Qué quieres compartir?";
+  float: left;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Mention styles */
+.mention {
+  background-color: #e0f2fe;
+  color: #0369a1;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.mention:hover {
+  background-color: #bae6fd;
+}
+
+/* Mention suggestions dropdown */
+.tippy-box {
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.tippy-content {
+  padding: 0;
+}
+
+/* Basic text styles */
+.ProseMirror p {
+  margin: 0.5rem 0;
+}
+
+.ProseMirror strong {
+  font-weight: 700;
+}
+
+.ProseMirror em {
+  font-style: italic;
+}
+
+.ProseMirror ul,
+.ProseMirror ol {
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror li {
+  margin: 0.25rem 0;
+}
+
+.ProseMirror h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 1rem 0 0.5rem;
+}
+
+.ProseMirror h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.5rem;
+}

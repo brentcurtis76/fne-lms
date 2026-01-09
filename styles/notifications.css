@@ -1,0 +1,332 @@
+/* Notification System Animations & Micro-interactions */
+
+/* Bell shake animation when new notification arrives */
+@keyframes bellShake {
+  0%, 100% { transform: rotate(0deg); }
+  10%, 30% { transform: rotate(-10deg); }
+  20%, 40% { transform: rotate(10deg); }
+  50% { transform: rotate(-5deg); }
+  60% { transform: rotate(5deg); }
+}
+
+/* Badge pulse animation */
+@keyframes badgePulse {
+  0%, 100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% { 
+    transform: scale(1.1); 
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+}
+
+/* Slide in from top animation */
+@keyframes slideInFromTop {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Fade in with scale */
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Shimmer effect for loading */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+/* Classes for animations */
+.bell-new-notification {
+  animation: bellShake 0.5s ease-in-out;
+}
+
+.badge-updated {
+  animation: badgePulse 0.6s ease-in-out;
+}
+
+.notification-new {
+  animation: slideInFromTop 0.3s ease-out;
+}
+
+.notification-dropdown-enter {
+  animation: fadeInScale 0.2s ease-out;
+}
+
+/* Notification card hover effect */
+.notification-card {
+  transition: all 0.2s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.notification-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(253, 185, 51, 0.1), transparent);
+  transition: left 0.5s ease-out;
+}
+
+.notification-card:hover::before {
+  left: 100%;
+}
+
+.notification-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 54, 91, 0.15);
+}
+
+/* Bell icon hover effect */
+.notification-bell-icon {
+  transition: all 0.2s ease-out;
+}
+
+.notification-bell-icon:hover {
+  transform: scale(1.05);
+}
+
+.notification-bell-icon:active {
+  transform: scale(0.95);
+}
+
+/* Badge animation when count changes */
+.notification-badge {
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.notification-badge.count-increased {
+  animation: badgePulse 0.6s ease-in-out;
+}
+
+/* Loading skeleton animation */
+.notification-skeleton {
+  position: relative;
+  overflow: hidden;
+}
+
+.notification-skeleton::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+/* Dropdown open/close animation */
+.notification-dropdown {
+  transform-origin: top right;
+  transition: all 0.2s ease-out;
+}
+
+.notification-dropdown.opening {
+  animation: dropdownOpen 0.3s ease-out;
+}
+
+@keyframes dropdownOpen {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Mark as read animation */
+.notification-marking-read {
+  animation: markAsRead 0.4s ease-out;
+}
+
+@keyframes markAsRead {
+  0% { opacity: 1; }
+  50% { opacity: 0.5; transform: scale(0.98); }
+  100% { opacity: 0.7; transform: scale(1); }
+}
+
+/* Swipe to dismiss animation */
+.notification-swipe-dismiss {
+  animation: swipeDismiss 0.3s ease-out forwards;
+}
+
+@keyframes swipeDismiss {
+  to {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+/* Error state shake */
+@keyframes errorShake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.notification-error {
+  animation: errorShake 0.5s ease-in-out;
+}
+
+/* Success checkmark animation */
+@keyframes checkmark {
+  0% {
+    stroke-dashoffset: 100;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.success-checkmark {
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: checkmark 0.5s ease-out forwards;
+}
+
+/* Notification type indicator pulse */
+.notification-type-indicator {
+  position: relative;
+}
+
+.notification-type-indicator::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: currentColor;
+  opacity: 0.2;
+  animation: indicatorPulse 2s infinite;
+}
+
+@keyframes indicatorPulse {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Smooth scrolling for notification list */
+.notification-list {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 54, 91, 0.3) transparent;
+}
+
+.notification-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.notification-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 54, 91, 0.3);
+  border-radius: 3px;
+}
+
+.notification-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 54, 91, 0.5);
+}
+
+/* Interactive button states */
+.notification-action-btn {
+  transition: all 0.2s ease-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.notification-action-btn::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s, height 0.4s;
+}
+
+.notification-action-btn:active::after {
+  width: 200px;
+  height: 200px;
+}
+
+/* Priority-based animations */
+.notification-priority-high {
+  border-left-color: #ef4444;
+  animation: highPriorityPulse 2s infinite;
+}
+
+@keyframes highPriorityPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+}
+
+/* Mobile-specific animations */
+@media (max-width: 768px) {
+  .notification-dropdown {
+    animation: slideUpMobile 0.3s ease-out;
+  }
+  
+  @keyframes slideUpMobile {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

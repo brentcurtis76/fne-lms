@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Loader2,
   TrendingUp,
+  Building2,
 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import type { Grade, MigrationPlanEntry, GenerationType } from '@/types/assessment-builder';
@@ -557,6 +558,19 @@ const MigrationPlanPage: React.FC = () => {
             </div>
           </div>
         )}
+
+        {/* Link to Transversal Context */}
+        <div className="mb-6">
+          <Link
+            href={`/school/transversal-context${schoolId ? `?school_id=${schoolId}` : ''}`}
+            legacyBehavior
+          >
+            <a className="inline-flex items-center px-4 py-2 bg-brand_primary text-white rounded-lg text-sm font-medium hover:bg-brand_primary/90 transition-colors">
+              <Building2 className="w-4 h-4 mr-2" />
+              Ver Contexto Transversal
+            </a>
+          </Link>
+        </div>
 
         {/* Info Card */}
         <div className="bg-brand_accent/10 border border-brand_accent rounded-lg p-4 mb-6">

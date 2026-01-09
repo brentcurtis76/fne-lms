@@ -16,6 +16,8 @@ import {
   UserPlus,
   X,
   Loader2,
+  ArrowLeft,
+  MapIcon,
 } from 'lucide-react';
 import type { SchoolTransversalContext, GradeLevel } from '@/types/assessment-builder';
 import { GRADE_LEVEL_LABELS } from '@/types/assessment-builder';
@@ -32,6 +34,9 @@ const TransversalContextDashboard: React.FC = () => {
 
   const [context, setContext] = useState<SchoolTransversalContext | null>(null);
   const [courseStructure, setCourseStructure] = useState<any[]>([]);
+
+  // Track if user is admin/consultor (read-only mode)
+  const [isAdminOrConsultor, setIsAdminOrConsultor] = useState(false);
 
   // School selector for admins
   const [schools, setSchools] = useState<any[]>([]);
@@ -88,6 +93,7 @@ const TransversalContextDashboard: React.FC = () => {
       }
 
       setHasPermission(true);
+      setIsAdminOrConsultor(isAdmin && !directivoRole); // Admin/consultor without directivo role = read-only
 
       // Get school_id
       let effectiveSchoolId: number | null = null;
@@ -431,6 +437,16 @@ const TransversalContextDashboard: React.FC = () => {
       />
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Back button for admins/consultores */}
+        {isAdminOrConsultor && (
+          <Link href="/school/transversal-context" legacyBehavior>
+            <a className="inline-flex items-center text-sm text-brand_primary/70 hover:text-brand_accent mb-6 transition-colors">
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Volver a Selección de Escuelas
+            </a>
+          </Link>
+        )}
+
         {/* Status Banner */}
         <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
           hasCompleteContext
@@ -453,21 +469,41 @@ const TransversalContextDashboard: React.FC = () => {
               <div>
                 <p className="font-medium text-yellow-800">Cuestionario pendiente</p>
                 <p className="text-sm text-yellow-600">
-                  Complete el cuestionario transversal para configurar su escuela
+                  {isAdminOrConsultor
+                    ? 'El equipo directivo debe completar el cuestionario transversal'
+                    : 'Complete el cuestionario transversal para configurar su escuela'}
                 </p>
               </div>
             </>
           )}
-          <Link
-            href={`/school/transversal-context/edit${schoolId ? `?school_id=${schoolId}` : ''}`}
-            legacyBehavior
-          >
-            <a className="ml-auto inline-flex items-center px-4 py-2 bg-brand_blue text-white rounded-lg text-sm font-medium hover:bg-brand_blue/90">
-              <Edit2 className="w-4 h-4 mr-2" />
-              {hasCompleteContext ? 'Editar' : 'Completar'}
-            </a>
-          </Link>
+          {/* Edit button - only for directivos, not admins/consultores */}
+          {!isAdminOrConsultor && (
+            <Link
+              href={`/school/transversal-context/edit${schoolId ? `?school_id=${schoolId}` : ''}`}
+              legacyBehavior
+            >
+              <a className="ml-auto inline-flex items-center px-4 py-2 bg-brand_blue text-white rounded-lg text-sm font-medium hover:bg-brand_blue/90">
+                <Edit2 className="w-4 h-4 mr-2" />
+                {hasCompleteContext ? 'Editar' : 'Completar'}
+              </a>
+            </Link>
+          )}
         </div>
+
+        {/* Link to Migration Plan */}
+        {context && (
+          <div className="mb-6">
+            <Link
+              href={`/school/migration-plan${schoolId ? `?school_id=${schoolId}` : ''}`}
+              legacyBehavior
+            >
+              <a className="inline-flex items-center px-4 py-2 bg-brand_accent text-brand_primary rounded-lg text-sm font-medium hover:bg-brand_accent/80 transition-colors">
+                <MapIcon className="w-4 h-4 mr-2" />
+                Ver Plan de Migración
+              </a>
+            </Link>
+          </div>
+        )}
 
         {/* Context Summary */}
         {context && (
@@ -551,13 +587,16 @@ const TransversalContextDashboard: React.FC = () => {
                               <span className="font-medium text-gray-900">{course.course_name}</span>
                               {hasDocente && <CheckCircle className="w-4 h-4 text-green-600" />}
                             </div>
-                            <button
-                              onClick={() => openAssignModal(course)}
-                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-brand_blue hover:bg-brand_blue/10 rounded transition-colors"
-                            >
-                              <UserPlus className="w-3.5 h-3.5 mr-1" />
-                              Asignar
-                            </button>
+                            {/* Assign button - only for directivos */}
+                            {!isAdminOrConsultor && (
+                              <button
+                                onClick={() => openAssignModal(course)}
+                                className="inline-flex items-center px-2 py-1 text-xs font-medium text-brand_blue hover:bg-brand_blue/10 rounded transition-colors"
+                              >
+                                <UserPlus className="w-3.5 h-3.5 mr-1" />
+                                Asignar
+                              </button>
+                            )}
                           </div>
 
                           {/* Show assigned docentes */}
@@ -571,17 +610,20 @@ const TransversalContextDashboard: React.FC = () => {
                                   <span className="text-gray-700">
                                     {assignment.profiles?.full_name || assignment.docente_id}
                                   </span>
-                                  <button
-                                    onClick={() => handleUnassignDocente(
-                                      course.id,
-                                      assignment.docente_id,
-                                      assignment.profiles?.full_name || 'docente'
-                                    )}
-                                    className="text-red-500 hover:text-red-700 p-1"
-                                    title="Desasignar"
-                                  >
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
+                                  {/* Unassign button - only for directivos */}
+                                  {!isAdminOrConsultor && (
+                                    <button
+                                      onClick={() => handleUnassignDocente(
+                                        course.id,
+                                        assignment.docente_id,
+                                        assignment.profiles?.full_name || 'docente'
+                                      )}
+                                      className="text-red-500 hover:text-red-700 p-1"
+                                      title="Desasignar"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -601,21 +643,24 @@ const TransversalContextDashboard: React.FC = () => {
           <div className="bg-white shadow-md rounded-lg p-12 text-center">
             <Building2 className="mx-auto h-16 w-16 text-gray-300 mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              Configure su escuela
+              {isAdminOrConsultor ? 'Escuela sin configurar' : 'Configure su escuela'}
             </h3>
             <p className="text-gray-500 mb-6 max-w-md mx-auto">
-              Complete el cuestionario transversal para configurar los datos de su escuela
-              y habilitar las evaluaciones de transformación.
+              {isAdminOrConsultor
+                ? 'El equipo directivo de esta escuela aún no ha completado el cuestionario transversal.'
+                : 'Complete el cuestionario transversal para configurar los datos de su escuela y habilitar las evaluaciones de transformación.'}
             </p>
-            <Link
-              href={`/school/transversal-context/edit${schoolId ? `?school_id=${schoolId}` : ''}`}
-              legacyBehavior
-            >
-              <a className="inline-flex items-center px-6 py-3 bg-brand_blue text-white rounded-lg font-medium hover:bg-brand_blue/90">
-                <Edit2 className="w-5 h-5 mr-2" />
-                Completar Cuestionario
-              </a>
-            </Link>
+            {!isAdminOrConsultor && (
+              <Link
+                href={`/school/transversal-context/edit${schoolId ? `?school_id=${schoolId}` : ''}`}
+                legacyBehavior
+              >
+                <a className="inline-flex items-center px-6 py-3 bg-brand_blue text-white rounded-lg font-medium hover:bg-brand_blue/90">
+                  <Edit2 className="w-5 h-5 mr-2" />
+                  Completar Cuestionario
+                </a>
+              </Link>
+            )}
           </div>
         )}
       </div>

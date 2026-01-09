@@ -560,7 +560,7 @@ const TransversalContextDashboard: React.FC = () => {
                       {sortedGradeLevels.map(level => {
                         const count = context.courses_per_level?.[level as GradeLevel] || 1;
                         return (
-                          <div key={level} className="flex items-center justify-between p-2 bg-brand_beige rounded-lg">
+                          <div key={level} className="flex items-center gap-2 p-2 bg-brand_beige rounded-lg">
                             <span className="text-sm text-brand_primary">
                               {GRADE_LEVEL_LABELS[level as GradeLevel] || level}
                             </span>

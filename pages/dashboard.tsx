@@ -8,7 +8,7 @@ import { toastSuccess } from '../utils/toastUtils';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import Avatar from '../components/common/Avatar';
 import { getUserRoles, getCommunityMembers, getEffectiveRoleAndStatus, metadataHasRole } from '../utils/roleUtils';
-import { UserRole, UserProfile } from '../types/roles';
+import { UserRole, UserProfile, ROLE_NAMES, UserRoleType } from '../types/roles';
 import { updateAvatarCache } from '../hooks/useAvatar';
 import {
   Settings, Users, ChevronDown, ChevronUp, Newspaper, Play,
@@ -21,6 +21,8 @@ import WorkspaceSettingsModal from '../components/community/WorkspaceSettingsMod
 import { getOrCreateWorkspace } from '../utils/workspaceUtils';
 import { CourseWithEnrollment } from '../types/courses';
 import { UpcomingCourse, UpcomingCourseCard } from '../components/courses/UpcomingCourseCard';
+import { CourseProposalSection } from '../components/course-proposals';
+import { MemberProfileModal } from '../components/community/MemberProfileModal';
 
 // Types
 interface NewsArticle {
@@ -113,6 +115,8 @@ export default function Dashboard() {
   const [showWorkspaceSettings, setShowWorkspaceSettings] = useState(false);
   const [selectedWorkspace, setSelectedWorkspace] = useState<any>(null);
   const [selectedCommunityId, setSelectedCommunityId] = useState<string | null>(null);
+  const [selectedMember, setSelectedMember] = useState<UserProfile | null>(null);
+  const [showMemberProfile, setShowMemberProfile] = useState(false);
 
   // New dashboard sections state
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
@@ -643,33 +647,45 @@ export default function Dashboard() {
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                        {members.map(member => (
-                          <Link
-                            key={member.id}
-                            href={`/user/${member.id}`}
-                            className="flex flex-col items-center p-3 bg-gray-50 rounded-xl hover:bg-brand_accent/10 hover:shadow-sm transition-all group"
-                          >
-                            {member.avatar_url ? (
-                              <img
-                                src={member.avatar_url}
-                                alt=""
-                                className="w-12 h-12 rounded-full object-cover mb-2 group-hover:ring-2 ring-brand_accent transition-all"
-                              />
-                            ) : (
-                              <div className="w-12 h-12 rounded-full bg-brand_accent flex items-center justify-center mb-2 group-hover:ring-2 ring-brand_accent/50 transition-all">
-                                <span className="text-lg font-bold text-brand_primary">
-                                  {member.first_name?.charAt(0) || 'U'}
+                        {members.map(member => {
+                          const memberRole = member.user_roles?.[0]?.role_type as UserRoleType | undefined;
+                          const roleLabel = memberRole ? ROLE_NAMES[memberRole] : null;
+                          return (
+                            <button
+                              key={member.id}
+                              onClick={() => {
+                                setSelectedMember(member);
+                                setShowMemberProfile(true);
+                              }}
+                              className="flex flex-col items-center p-3 bg-gray-50 rounded-xl hover:bg-brand_accent/10 hover:shadow-sm transition-all group cursor-pointer"
+                            >
+                              {member.avatar_url ? (
+                                <img
+                                  src={member.avatar_url}
+                                  alt=""
+                                  className="w-12 h-12 rounded-full object-cover mb-2 group-hover:ring-2 ring-brand_accent transition-all"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded-full bg-brand_accent flex items-center justify-center mb-2 group-hover:ring-2 ring-brand_accent/50 transition-all">
+                                  <span className="text-lg font-bold text-brand_primary">
+                                    {member.first_name?.charAt(0) || 'U'}
+                                  </span>
+                                </div>
+                              )}
+                              <p className="text-sm font-medium text-gray-900 text-center truncate w-full">
+                                {member.first_name || 'Usuario'}
+                              </p>
+                              {roleLabel && (
+                                <span className="text-xs text-gray-500 text-center truncate w-full">
+                                  {roleLabel}
                                 </span>
-                              </div>
-                            )}
-                            <p className="text-sm font-medium text-gray-900 text-center truncate w-full">
-                              {member.first_name || 'Usuario'}
-                            </p>
-                            {member.id === user?.id && (
-                              <span className="text-xs text-brand_accent font-medium">Tú</span>
-                            )}
-                          </Link>
-                        ))}
+                              )}
+                              {member.id === user?.id && (
+                                <span className="text-xs text-brand_accent font-medium">Tú</span>
+                              )}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -951,6 +967,13 @@ export default function Dashboard() {
           </section>
         )}
 
+        {/* Course Proposals Section - Admin/Consultor only */}
+        {(metadataHasRole(session?.user?.user_metadata, 'admin') ||
+          metadataHasRole(session?.user?.user_metadata, 'consultor') ||
+          userRoles.some(r => r.role_type === 'admin' || r.role_type === 'consultor')) && (
+          <CourseProposalSection userId={user?.id} />
+        )}
+
         {/* Continue Learning Section - Netflix Style */}
         {inProgressCourses.length > 0 && (
           <NetflixCourseRow
@@ -1030,6 +1053,17 @@ export default function Dashboard() {
           }}
         />
       )}
+
+      {/* Member Profile Modal */}
+      <MemberProfileModal
+        isOpen={showMemberProfile}
+        onClose={() => {
+          setShowMemberProfile(false);
+          setSelectedMember(null);
+        }}
+        member={selectedMember}
+        isCurrentUser={selectedMember?.id === user?.id}
+      />
     </MainLayout>
   );
 }

@@ -123,10 +123,10 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   },
   {
     id: 'docente-assessments',
-    label: 'Mis Evaluaciones',
+    label: 'Feedback',
     icon: AcademicCapIcon,
     href: '/docente/assessments',
-    description: 'Evaluaciones de transformación asignadas',
+    description: 'Evaluaciones de tareas asignadas',
     restrictedRoles: ['docente', 'admin', 'consultor']
   },
   {
@@ -162,11 +162,26 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   },
   {
     id: 'assessment-builder',
-    label: 'Evaluaciones',
+    label: 'Procesos de Cambio',
     icon: ClipboardDocumentListIcon,
-    href: '/admin/assessment-builder',
     description: 'Constructor de evaluaciones y rúbricas',
-    consultantOnly: true
+    consultantOnly: true,
+    children: [
+      {
+        id: 'assessment-builder-main',
+        label: 'Constructor de Evaluaciones',
+        href: '/admin/assessment-builder',
+        description: 'Crear evaluaciones y rúbricas',
+        icon: ClipboardDocumentListIcon
+      },
+      {
+        id: 'migration-plan',
+        label: 'Plan de Migración',
+        href: '/school/migration-plan',
+        description: 'Definir generaciones GT/GI por año',
+        icon: MapIcon
+      }
+    ]
   },
   {
     id: 'news',
@@ -342,13 +357,6 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/school/transversal-context',
         description: 'Configuración de contexto escolar',
         icon: OfficeBuildingIcon
-      },
-      {
-        id: 'vias-plan-migracion',
-        label: 'Plan de Migración',
-        href: '/school/migration-plan',
-        description: 'Definir generaciones GT/GI por año',
-        icon: MapIcon
       },
       {
         id: 'vias-resultados-escuela',

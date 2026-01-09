@@ -445,13 +445,22 @@ const MigrationPlanPage: React.FC = () => {
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Back button */}
-        <Link href="/school/transversal-context" legacyBehavior>
-          <a className="inline-flex items-center text-sm text-brand_primary/70 hover:text-brand_accent mb-6 transition-colors">
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            Volver al Contexto Transversal
-          </a>
-        </Link>
+        {/* Back button - different behavior for admin/consultor vs directivo */}
+        {isAdmin ? (
+          <Link href="/school/migration-plan" legacyBehavior>
+            <a className="inline-flex items-center text-sm text-brand_primary/70 hover:text-brand_accent mb-6 transition-colors">
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Volver a Selección de Escuelas
+            </a>
+          </Link>
+        ) : (
+          <Link href="/school/transversal-context" legacyBehavior>
+            <a className="inline-flex items-center text-sm text-brand_primary/70 hover:text-brand_accent mb-6 transition-colors">
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Volver al Contexto Transversal
+            </a>
+          </Link>
+        )}
 
         {/* Transformation Progress Charts */}
         {grades.length > 0 && (

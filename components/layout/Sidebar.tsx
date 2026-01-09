@@ -175,6 +175,13 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         icon: ClipboardDocumentListIcon
       },
       {
+        id: 'transversal-context-admin',
+        label: 'Contexto Transversal',
+        href: '/school/transversal-context',
+        description: 'Configuración de contexto por escuela',
+        icon: OfficeBuildingIcon
+      },
+      {
         id: 'migration-plan',
         label: 'Plan de Migración',
         href: '/school/migration-plan',

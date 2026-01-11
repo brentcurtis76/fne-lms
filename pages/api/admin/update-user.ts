@@ -38,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Solo los administradores pueden editar usuarios' });
     }
 
-    const { userId, email, first_name, last_name, school } = req.body;
+    const { userId, email, first_name, last_name, school, external_school_affiliation } = req.body;
 
     if (!userId) {
       return res.status(400).json({ error: 'ID de usuario requerido' });
@@ -51,7 +51,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         first_name: first_name?.trim() || null,
         last_name: last_name?.trim() || null,
         school: school?.trim() || null,
-        email: email?.trim() // Update email in profiles as well
+        email: email?.trim(), // Update email in profiles as well
+        external_school_affiliation: external_school_affiliation || null
       })
       .eq('id', userId);
 
@@ -92,7 +93,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             email: email !== req.body.originalEmail ? { from: req.body.originalEmail, to: email } : undefined,
             first_name,
             last_name,
-            school
+            school,
+            external_school_affiliation
           }
         }
       });

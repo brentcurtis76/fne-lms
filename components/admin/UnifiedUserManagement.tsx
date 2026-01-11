@@ -26,6 +26,7 @@ import { toastSuccess, toastError } from '../../utils/toastUtils';
 import { TOAST_MESSAGES } from '../../constants/toastMessages';
 import { ROLE_NAMES } from '../../types/roles';
 import { getHighestRole } from '../../utils/roleUtils';
+import { getExternalSchoolLabel } from '../../constants/externalSchools';
 import { ConfirmModal } from '../common/ConfirmModal';
 
 interface UserType {
@@ -45,6 +46,7 @@ interface UserType {
   created_at?: string;
   expense_access_enabled?: boolean;
   is_global_admin?: boolean;
+  external_school_affiliation?: string | null;
 }
 
 interface UnifiedUserManagementProps {
@@ -519,6 +521,14 @@ export default function UnifiedUserManagement({
                                   )}
                                 </div>
                               ))}
+                            </dd>
+                          </div>
+                        )}
+                        {getUserPrimaryRole(user) === 'consultor' && user.external_school_affiliation && (
+                          <div>
+                            <dt className="text-sm text-gray-500">Escuela externa</dt>
+                            <dd className="text-sm text-gray-900">
+                              {getExternalSchoolLabel(user.external_school_affiliation)}
                             </dd>
                           </div>
                         )}

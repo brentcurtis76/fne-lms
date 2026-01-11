@@ -10,9 +10,10 @@ import { TOAST_MESSAGES } from '../constants/toastMessages';
 import MainLayout from '../components/layout/MainLayout';
 import { invalidateAvatarCache, updateAvatarCache } from '../hooks/useAvatar';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
-import { User as UserIcon, PencilIcon } from 'lucide-react';
+import { User as UserIcon, PencilIcon, Briefcase } from 'lucide-react';
 import { metadataHasRole } from '../utils/roleUtils';
 import PasswordChangeSection from '../components/profile/PasswordChangeSection';
+import { getExternalSchoolLabel } from '../constants/externalSchools';
 
 type School = {
   id: number;
@@ -33,6 +34,7 @@ type Profile = {
   school: string;
   avatar_url: string;
   growth_community: string;
+  external_school_affiliation?: string | null;
 };
 
 type GrowthCommunity = {
@@ -60,6 +62,7 @@ export default function ProfilePage() {
   const [previewUrl, setPreviewUrl] = useState('');
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isConsultant, setIsConsultant] = useState(false);
   const [growthCommunities, setGrowthCommunities] = useState<GrowthCommunity[]>([]);
 
   useEffect(() => {
@@ -116,11 +119,12 @@ export default function ProfilePage() {
         setIsNewUser(true);
       }
 
-      // Fetch user's growth communities from user_roles
+      // Fetch user's growth communities and roles from user_roles
       try {
         const { data: userRolesData, error: rolesError } = await supabase
           .from('user_roles')
           .select(`
+            role_type,
             community_id,
             growth_communities:community_id (
               id,
@@ -128,12 +132,15 @@ export default function ProfilePage() {
             )
           `)
           .eq('user_id', session.user.id)
-          .eq('is_active', true)
-          .not('community_id', 'is', null);
+          .eq('is_active', true);
 
         if (rolesError) {
           console.error('Error fetching growth communities:', rolesError);
         } else if (userRolesData) {
+          // Check if user is a consultant
+          const hasConsultorRole = userRolesData.some((role: any) => role.role_type === 'consultor');
+          setIsConsultant(hasConsultorRole);
+
           // Extract unique growth communities
           const communities: GrowthCommunity[] = userRolesData
             .filter((role: any) => role.growth_communities)
@@ -593,6 +600,25 @@ export default function ProfilePage() {
                       ))}
                     </select>
                   </div>
+
+                  {/* External School Affiliation - Only for Consultants */}
+                  {isConsultant && profile?.external_school_affiliation && (
+                    <div className="md:col-span-2">
+                      <label className="block text-[#0a0a0a] font-medium mb-2 flex items-center">
+                        <Briefcase className="w-4 h-4 mr-2" />
+                        Escuela externa (afiliación)
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200"
+                        value={getExternalSchoolLabel(profile.external_school_affiliation)}
+                        readOnly
+                      />
+                      <p className="mt-1 text-xs text-gray-500">
+                        Esta información es gestionada por los administradores
+                      </p>
+                    </div>
+                  )}
 
                   {/* Growth Communities */}
                   <div className="md:col-span-2">

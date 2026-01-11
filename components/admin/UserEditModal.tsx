@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Mail, User, Building, AlertCircle } from 'lucide-react';
+import { X, Save, Mail, User, Building, AlertCircle, Briefcase } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { toast } from 'react-hot-toast';
+import { EXTERNAL_SCHOOLS } from '../../constants/externalSchools';
 
 interface UserEditModalProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface UserEditModalProps {
     first_name?: string;
     last_name?: string;
     school?: string;
+    external_school_affiliation?: string | null;
+    user_roles?: Array<{ role_type: string }>;
   } | null;
   onUserUpdated: () => void;
 }
@@ -23,9 +26,15 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
     email: '',
     first_name: '',
     last_name: '',
-    school: ''
+    school: '',
+    external_school_affiliation: '' as string | null
   });
   const [originalEmail, setOriginalEmail] = useState('');
+
+  // Check if user is a consultant
+  const isConsultant = user?.user_roles?.some(
+    (role) => role.role_type === 'consultor'
+  ) || false;
 
   useEffect(() => {
     if (user) {
@@ -33,7 +42,8 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
         email: user.email || '',
         first_name: user.first_name || '',
         last_name: user.last_name || '',
-        school: user.school || ''
+        school: user.school || '',
+        external_school_affiliation: user.external_school_affiliation || ''
       });
       setOriginalEmail(user.email || '');
     }
@@ -65,6 +75,7 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
           first_name: formData.first_name.trim(),
           last_name: formData.last_name.trim(),
           school: formData.school.trim(),
+          external_school_affiliation: formData.external_school_affiliation || null,
           originalEmail: originalEmail
         })
       });
@@ -169,6 +180,34 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
               placeholder="Opcional"
             />
           </div>
+
+          {isConsultant && (
+            <div>
+              <label htmlFor="external_school" className="block text-sm font-medium text-gray-700 mb-1">
+                <Briefcase className="w-4 h-4 inline mr-1" />
+                Escuela Externa (Afiliación)
+              </label>
+              <select
+                id="external_school"
+                value={formData.external_school_affiliation || ''}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  external_school_affiliation: e.target.value || null
+                })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
+              >
+                <option value="">Sin afiliación externa</option>
+                {EXTERNAL_SCHOOLS.map((school) => (
+                  <option key={school.value} value={school.value}>
+                    {school.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                Escuela donde trabaja fuera de FNE (solo informativo)
+              </p>
+            </div>
+          )}
 
           <div className="flex gap-3 mt-6">
             <button

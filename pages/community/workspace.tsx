@@ -1455,16 +1455,58 @@ const DocumentsTabContent: React.FC<DocumentsTabContentProps> = ({ workspace, wo
         
       case 'download':
         if (document.storage_path) {
-          // Track download
-          await incrementDocumentCounter(document.id, 'download', user.id);
-          
-          // Trigger download
-          const link = window.document.createElement('a');
-          link.href = document.storage_path;
-          link.download = document.file_name;
-          link.click();
-          
-          toast.success('Descarga iniciada');
+          try {
+            // Track download
+            await incrementDocumentCounter(document.id, 'download', user.id);
+
+            // Get session for authentication
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) {
+              // Fallback to direct URL if no session
+              window.open(document.storage_path, '_blank');
+              return;
+            }
+
+            toast.loading('Preparando descarga...', { id: 'download' });
+
+            // Use the download API that streams the file directly
+            const downloadUrl = `/api/storage/download?url=${encodeURIComponent(document.storage_path)}&filename=${encodeURIComponent(document.file_name)}`;
+
+            const response = await fetch(downloadUrl, {
+              headers: {
+                'Authorization': `Bearer ${session.access_token}`
+              }
+            });
+
+            if (!response.ok) {
+              console.error('Download failed:', response.status);
+              toast.dismiss('download');
+              window.open(document.storage_path, '_blank');
+              return;
+            }
+
+            // Get the blob and create download link
+            const blob = await response.blob();
+            const blobUrl = window.URL.createObjectURL(blob);
+
+            const link = window.document.createElement('a');
+            link.href = blobUrl;
+            link.download = document.file_name;
+            window.document.body.appendChild(link);
+            link.click();
+            window.document.body.removeChild(link);
+
+            // Clean up the blob URL
+            window.URL.revokeObjectURL(blobUrl);
+
+            toast.dismiss('download');
+            toast.success('Descarga completada');
+          } catch (error) {
+            console.error('Download error:', error);
+            toast.dismiss('download');
+            // Fallback to direct URL
+            window.open(document.storage_path, '_blank');
+          }
         }
         break;
         
@@ -2009,13 +2051,50 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     setShowAttachmentPreview(true);
   };
 
-  const handleAttachmentDownload = (attachment: MessageAttachment) => {
+  const handleAttachmentDownload = async (attachment: MessageAttachment) => {
     if (attachment.storage_path) {
-      const link = window.document.createElement('a');
-      link.href = attachment.storage_path;
-      link.download = attachment.file_name;
-      link.click();
-      toast.success('Descarga iniciada');
+      try {
+        // Get session for authentication
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          window.open(attachment.storage_path, '_blank');
+          return;
+        }
+
+        toast.loading('Preparando descarga...', { id: 'attachment-download' });
+
+        const downloadUrl = `/api/storage/download?url=${encodeURIComponent(attachment.storage_path)}&filename=${encodeURIComponent(attachment.file_name)}`;
+
+        const response = await fetch(downloadUrl, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+
+        if (!response.ok) {
+          toast.dismiss('attachment-download');
+          window.open(attachment.storage_path, '_blank');
+          return;
+        }
+
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+
+        const link = window.document.createElement('a');
+        link.href = blobUrl;
+        link.download = attachment.file_name;
+        window.document.body.appendChild(link);
+        link.click();
+        window.document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+
+        toast.dismiss('attachment-download');
+        toast.success('Descarga completada');
+      } catch (error) {
+        console.error('Attachment download error:', error);
+        toast.dismiss('attachment-download');
+        window.open(attachment.storage_path, '_blank');
+      }
     }
   };
 

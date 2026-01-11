@@ -109,7 +109,8 @@ export interface UserProfile {
   generation_id?: string;
   community_id?: string;
   created_at?: string;
-  
+  external_school_affiliation?: string | null; // External school for consultants (informational only)
+
   // New role system
   user_roles?: UserRole[];
   school?: School;

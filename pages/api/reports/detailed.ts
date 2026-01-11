@@ -570,14 +570,61 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
       
       return allProfiles?.map(p => p.id) || [];
     } else if (userRole === 'consultor') {
-      // Consultors can only see their assigned students
+      // Consultors can see users based on their assignment scope:
+      // - individual: specific student_id
+      // - school: all users in assigned school(s)
+      // - generation: all users in assigned generation(s)
+      // - community: all users in assigned community/communities
       const { data: assignments } = await supabase
         .from('consultant_assignments')
-        .select('student_id')
+        .select('student_id, school_id, generation_id, community_id, assignment_data')
         .eq('consultant_id', userId)
         .eq('is_active', true);
-      
-      return assignments?.map(a => a.student_id) || [];
+
+      console.log('[getReportableUsers] Consultant assignments:', assignments?.length);
+
+      if (!assignments || assignments.length === 0) {
+        return [];
+      }
+
+      const userIds = new Set<string>();
+
+      // Process assignments based on scope stored in assignment_data
+      for (const assignment of assignments) {
+        const scope = (assignment.assignment_data as any)?.assignment_scope || 'individual';
+        console.log('[getReportableUsers] Processing assignment with scope:', scope);
+
+        if (scope === 'individual' && assignment.student_id) {
+          userIds.add(assignment.student_id);
+        } else if (scope === 'school' && assignment.school_id) {
+          const { data: schoolUsers } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('school_id', assignment.school_id)
+            .eq('is_active', true);
+          console.log('[getReportableUsers] School users found:', schoolUsers?.length);
+          schoolUsers?.forEach(u => userIds.add(u.user_id));
+        } else if (scope === 'generation' && assignment.generation_id) {
+          const { data: generationUsers } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('generation_id', assignment.generation_id)
+            .eq('is_active', true);
+          console.log('[getReportableUsers] Generation users found:', generationUsers?.length);
+          generationUsers?.forEach(u => userIds.add(u.user_id));
+        } else if (scope === 'community' && assignment.community_id) {
+          const { data: communityUsers } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('community_id', assignment.community_id)
+            .eq('is_active', true);
+          console.log('[getReportableUsers] Community users found:', communityUsers?.length);
+          communityUsers?.forEach(u => userIds.add(u.user_id));
+        }
+      }
+
+      console.log('[getReportableUsers] Total unique users:', userIds.size);
+      return Array.from(userIds);
     } else if (userRole === 'equipo_directivo') {
       // School leadership can see users from their school
       // FIX: Use user_roles as source of truth for school assignments

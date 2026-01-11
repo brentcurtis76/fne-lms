@@ -590,7 +590,7 @@ export default function StudentLessonViewer() {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-600 mb-4">No se pudo cargar la lección</p>
+          <p className="text-brand_gray_dark mb-4">No se pudo cargar la lección</p>
           <button
             onClick={() => router.back()}
             className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition"
@@ -697,7 +697,7 @@ export default function StudentLessonViewer() {
                   style={{ width: `${showCompletionPage ? 100 : getProgressPercentage()}%` }}
                 ></div>
               </div>
-              <span className="font-bold text-[#10B981]">
+              <span className="font-bold text-brand_accent_hover">
                 {showCompletionPage ? 100 : getProgressPercentage()}%
               </span>
             </div>
@@ -726,7 +726,7 @@ export default function StudentLessonViewer() {
         </div>
         
         {isAdmin && (
-          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">ADMIN</span>
+          <span className="px-2 py-1 bg-brand_accent/20 text-brand_primary text-xs rounded-full font-medium">ADMIN</span>
         )}
       </ResponsiveFunctionalPageHeader>
 
@@ -769,7 +769,7 @@ export default function StudentLessonViewer() {
         {showCompletionPage ? (
           /* Completion Page */
           <div className="max-w-4xl mx-auto p-6 pt-8">
-            <div className="bg-gradient-to-br from-[#0a0a0a] to-[#004a7c] rounded-2xl p-8 text-white text-center relative overflow-hidden min-h-[500px] flex items-center justify-center">
+            <div className="bg-gradient-to-br from-brand_primary to-brand_gray_dark rounded-2xl p-8 text-white text-center relative overflow-hidden min-h-[500px] flex items-center justify-center">
               {/* Background decorations */}
               <div className="absolute inset-0 opacity-10">
                 <div className="absolute top-4 left-4">
@@ -847,7 +847,7 @@ export default function StudentLessonViewer() {
                   {nextLesson ? (
                     <button
                       onClick={() => router.push(`/student/lesson/${nextLesson.id}`)}
-                      className="px-6 py-3 bg-[#fbbf24] text-[#0a0a0a] rounded-lg font-medium hover:bg-yellow-400 transition flex items-center gap-2"
+                      className="px-6 py-3 bg-[#fbbf24] text-[#0a0a0a] rounded-lg font-medium hover:bg-brand_accent_hover transition flex items-center gap-2"
                     >
                       Siguiente Lección
                       <ArrowRight className="w-4 h-4" />
@@ -862,7 +862,7 @@ export default function StudentLessonViewer() {
                           router.push('/dashboard');
                         }
                       }}
-                      className="px-6 py-3 bg-[#fbbf24] text-[#0a0a0a] rounded-lg font-medium hover:bg-yellow-400 transition flex items-center gap-2"
+                      className="px-6 py-3 bg-[#fbbf24] text-[#0a0a0a] rounded-lg font-medium hover:bg-brand_accent_hover transition flex items-center gap-2"
                     >
                       <CheckCircle className="w-4 h-4" />
                       Ver Curso Completado
@@ -870,7 +870,7 @@ export default function StudentLessonViewer() {
                   ) : (
                     <button
                       onClick={() => router.push('/dashboard')}
-                      className="px-6 py-3 bg-[#fbbf24] text-[#0a0a0a] rounded-lg font-medium hover:bg-yellow-400 transition flex items-center gap-2"
+                      className="px-6 py-3 bg-[#fbbf24] text-[#0a0a0a] rounded-lg font-medium hover:bg-brand_accent_hover transition flex items-center gap-2"
                     >
                       Ir al Dashboard
                       <ArrowRight className="w-4 h-4" />

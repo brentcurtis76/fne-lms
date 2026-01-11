@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Mail, User, Building2, Users, Calendar, ExternalLink } from 'lucide-react';
+import { X, Mail, User, Building2, Users, Calendar, ExternalLink, Briefcase } from 'lucide-react';
 import Link from 'next/link';
 import {
   Dialog,
@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 import { ROLE_NAMES, UserRoleType, UserProfile } from '../../types/roles';
+import { getExternalSchoolLabel } from '../../constants/externalSchools';
 
 interface MemberProfileModalProps {
   isOpen: boolean;
@@ -91,6 +92,21 @@ export function MemberProfileModal({
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-500">Colegio</p>
                 <p className="text-sm font-medium text-gray-900 truncate">{member.school.name}</p>
+              </div>
+            </div>
+          )}
+
+          {/* External School Affiliation - Only for Consultants */}
+          {memberRole === 'consultor' && member.external_school_affiliation && (
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gray-100 rounded-lg">
+                <Briefcase className="w-4 h-4 text-gray-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-500">Escuela externa</p>
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {getExternalSchoolLabel(member.external_school_affiliation)}
+                </p>
               </div>
             </div>
           )}

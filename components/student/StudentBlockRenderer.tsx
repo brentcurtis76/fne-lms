@@ -105,6 +105,9 @@ export default function StudentBlockRenderer({
   const [hasVisited, setHasVisited] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  // Download block state
+  const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+
   // Track time spent on block
   useEffect(() => {
     const interval = setInterval(() => {
@@ -172,7 +175,7 @@ export default function StudentBlockRenderer({
         )}
 
         {isCompleted && (
-          <div className="flex items-center gap-2 text-green-600 p-3 bg-green-50 rounded-lg">
+          <div className="flex items-center gap-2 text-brand_accent_hover p-3 bg-brand_accent/10 rounded-lg">
             <CheckCircle className="w-5 h-5" />
             <span className="text-sm font-medium">Contenido leído</span>
           </div>
@@ -276,18 +279,18 @@ export default function StudentBlockRenderer({
               {isEmbedVideo ? (
                 // For embedded videos, require manual confirmation since we can't track progress
                 !isAdmin && (
-                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <div className="bg-brand_accent/10 p-4 rounded-lg border border-brand_accent/30">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${videoWatched ? 'bg-green-500' : 'bg-blue-500'}`}></div>
-                        <span className="text-sm text-blue-700">
+                        <div className={`w-3 h-3 rounded-full ${videoWatched ? 'bg-brand_accent' : 'bg-brand_gray_medium'}`}></div>
+                        <span className="text-sm text-brand_gray_dark">
                           {videoWatched ? 'Video marcado como completado' : 'Confirma cuando hayas visto todo el video'}
                         </span>
                       </div>
                       {!videoWatched && (
                         <button
                           onClick={() => setVideoWatched(true)}
-                          className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                          className="px-3 py-1 bg-brand_primary text-white text-xs rounded hover:bg-brand_gray_dark transition-colors"
                         >
                           Marcar como visto
                         </button>
@@ -341,7 +344,7 @@ export default function StudentBlockRenderer({
         )}
 
         {isCompleted && (
-          <div className="flex items-center gap-2 text-green-600 p-3 bg-green-50 rounded-lg">
+          <div className="flex items-center gap-2 text-brand_accent_hover p-3 bg-brand_accent/10 rounded-lg">
             <CheckCircle className="w-5 h-5" />
             <span className="text-sm font-medium">Video completado</span>
           </div>
@@ -496,7 +499,7 @@ export default function StudentBlockRenderer({
         )}
 
         {isCompleted && (
-          <div className="flex items-center gap-2 text-green-600 p-3 bg-green-50 rounded-lg">
+          <div className="flex items-center gap-2 text-brand_accent_hover p-3 bg-brand_accent/10 rounded-lg">
             <CheckCircle className="w-5 h-5" />
             <span className="text-sm font-medium">
               {allImages.length > 1 ? 'Galería revisada' : 'Imagen revisada'}
@@ -526,22 +529,22 @@ export default function StudentBlockRenderer({
     // Check if quiz is already completed
     if (isCompleted) {
       return (
-        <div className="p-6 bg-green-50 border border-green-200 rounded-lg">
+        <div className="p-6 bg-brand_accent/10 border border-brand_accent/30 rounded-lg">
           <div className="flex items-start space-x-3">
-            <CheckCircle className="w-6 h-6 text-green-600 mt-0.5" />
+            <CheckCircle className="w-6 h-6 text-brand_accent mt-0.5" />
             <div className="flex-1">
-              <h3 className="text-lg font-semibold mb-2 text-green-900">
+              <h3 className="text-lg font-semibold mb-2 text-brand_primary">
                 {block.payload?.title || 'Quiz Interactivo'} - Completado
               </h3>
-              <p className="text-green-800">
-                ¡Has completado este quiz exitosamente! 
+              <p className="text-brand_gray_dark">
+                ¡Has completado este quiz exitosamente!
               </p>
               {block.payload?.totalPoints && (
-                <p className="text-sm text-green-700 mt-2">
+                <p className="text-sm text-brand_gray_medium mt-2">
                   Puntos totales del quiz: {block.payload.totalPoints}
                 </p>
               )}
-              <p className="text-sm text-green-700 mt-2">
+              <p className="text-sm text-brand_gray_medium mt-2">
                 Puedes continuar con el siguiente contenido de la lección.
               </p>
             </div>
@@ -661,7 +664,7 @@ export default function StudentBlockRenderer({
         )}
 
         {isCompleted && (
-          <div className="flex items-center gap-2 text-green-600 p-3 bg-green-50 rounded-lg">
+          <div className="flex items-center gap-2 text-brand_accent_hover p-3 bg-brand_accent/10 rounded-lg">
             <CheckCircle className="w-5 h-5" />
             <span className="text-sm font-medium">Enlaces visitados</span>
           </div>
@@ -689,7 +692,7 @@ export default function StudentBlockRenderer({
         {!isCompleted && (
           <button
             onClick={() => onComplete({ timeSpent })}
-            className="w-full px-4 py-3 bg-[#10B981] text-white rounded-md hover:bg-green-700 transition flex items-center justify-center gap-2"
+            className="w-full px-4 py-3 bg-brand_primary text-white rounded-md hover:bg-brand_gray_dark transition flex items-center justify-center gap-2"
           >
             <CheckCircle className="w-5 h-5" />
             Marcar como completado
@@ -704,6 +707,59 @@ export default function StudentBlockRenderer({
     const title = block.payload?.title || 'Archivos para descargar';
     const description = block.payload?.description || '';
 
+    const handleDownload = async (file: any) => {
+      setDownloadingFile(file.id || file.url);
+      const filename = file.name || file.originalName || 'archivo';
+
+      try {
+        // Get session for authentication
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          // Fallback to direct URL if no session
+          window.open(file.url, '_blank');
+          return;
+        }
+
+        // Use the download API that streams the file directly
+        const downloadUrl = `/api/storage/download?url=${encodeURIComponent(file.url)}&filename=${encodeURIComponent(filename)}`;
+
+        // Fetch the file with authentication
+        const response = await fetch(downloadUrl, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+
+        if (!response.ok) {
+          console.error('Download failed:', response.status, response.statusText);
+          // Fallback to direct URL if API fails
+          window.open(file.url, '_blank');
+          return;
+        }
+
+        // Get the blob and create download link
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        // Clean up the blob URL
+        window.URL.revokeObjectURL(blobUrl);
+
+      } catch (error) {
+        console.error('Download error:', error);
+        // Fallback to direct URL
+        window.open(file.url, '_blank');
+      } finally {
+        setDownloadingFile(null);
+      }
+    };
+
     return (
       <div className="space-y-6">
         <div>
@@ -711,7 +767,7 @@ export default function StudentBlockRenderer({
           {description && (
             <div className="text-gray-600 mb-4 whitespace-pre-wrap">{description}</div>
           )}
-          
+
           {files.length > 0 ? (
             <div className="space-y-3">
               {files.map((file: any, index: number) => (
@@ -721,19 +777,18 @@ export default function StudentBlockRenderer({
                     <div>
                       <p className="font-medium text-gray-900">{file.name || file.originalName || 'Archivo'}</p>
                       <p className="text-sm text-gray-500">
-                        {file.size ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : ''} • {file.type || 'Archivo'}
+                        {file.size ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : ''} {file.type ? `• ${file.type}` : ''}
                       </p>
                     </div>
                   </div>
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition flex items-center gap-2"
+                  <button
+                    onClick={() => handleDownload(file)}
+                    disabled={downloadingFile === (file.id || file.url)}
+                    className="px-4 py-2 bg-[#0a0a0a] text-white rounded-md hover:bg-[#fbbf24] hover:text-[#0a0a0a] transition flex items-center gap-2 disabled:opacity-50"
                   >
-                    <Download className="w-4 h-4" />
-                    Descargar
-                  </a>
+                    <Download className={`w-4 h-4 ${downloadingFile === (file.id || file.url) ? 'animate-pulse' : ''}`} />
+                    {downloadingFile === (file.id || file.url) ? 'Descargando...' : 'Descargar'}
+                  </button>
                 </div>
               ))}
             </div>
@@ -747,7 +802,7 @@ export default function StudentBlockRenderer({
 
         {!isCompleted && (
           <button
-            onClick={() => onComplete({ 
+            onClick={() => onComplete({
               filesAccessed: files.length > 0,
               timeSpent
             })}
@@ -759,7 +814,7 @@ export default function StudentBlockRenderer({
         )}
 
         {isCompleted && (
-          <div className="flex items-center gap-2 text-green-600 p-3 bg-green-50 rounded-lg">
+          <div className="flex items-center gap-2 text-brand_accent_hover p-3 bg-brand_accent/10 rounded-lg">
             <CheckCircle className="w-5 h-5" />
             <span className="text-sm font-medium">Archivos revisados</span>
           </div>
@@ -782,25 +837,25 @@ export default function StudentBlockRenderer({
     
     return (
       <div className="space-y-6">
-        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
+        <div className="bg-brand_accent/10 border-2 border-brand_accent/30 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-[#0a0a0a] mb-3">
             {title ? `Tarea Grupal: ${title}` : 'Tarea Grupal'}
           </h3>
-          
+
           {description && (
             <p className="text-gray-700 mb-4">{description}</p>
           )}
-          
+
           {instructions && (
-            <div className="bg-white p-4 rounded-md border border-blue-100 mb-4">
+            <div className="bg-white p-4 rounded-md border border-brand_accent/20 mb-4">
               <h4 className="font-medium text-gray-800 mb-2">Instrucciones:</h4>
               <p className="text-gray-700 whitespace-pre-wrap">{instructions}</p>
             </div>
           )}
-          
+
           <div className="space-y-4">
             <div className="flex items-start gap-3">
-              <svg className="w-6 h-6 text-blue-600 mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 text-brand_accent_hover mt-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               <div>
@@ -812,28 +867,28 @@ export default function StudentBlockRenderer({
                 </p>
                 <ul className="mt-2 space-y-1 text-gray-600 text-sm">
                   <li className="flex items-center gap-2">
-                    <span className="text-blue-600">•</span>
+                    <span className="text-brand_accent_hover">•</span>
                     Los detalles completos de la tarea
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-blue-600">•</span>
+                    <span className="text-brand_accent_hover">•</span>
                     Tu grupo asignado y compañeros de equipo
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-blue-600">•</span>
+                    <span className="text-brand_accent_hover">•</span>
                     El espacio de discusión grupal
                   </li>
                   <li className="flex items-center gap-2">
-                    <span className="text-blue-600">•</span>
+                    <span className="text-brand_accent_hover">•</span>
                     La opción para entregar el trabajo
                   </li>
                 </ul>
               </div>
             </div>
             
-            <div className="bg-white p-4 rounded-md border border-blue-100">
+            <div className="bg-white p-4 rounded-md border border-brand_accent/20">
               <p className="text-sm text-gray-600">
-                <span className="font-semibold text-gray-700">Nota:</span> Completar esta tarea grupal no es requisito para continuar con la siguiente lección. 
+                <span className="font-semibold text-gray-700">Nota:</span> Completar esta tarea grupal no es requisito para continuar con la siguiente lección.
                 Sin embargo, es importante realizarla para tu aprendizaje y evaluación del curso.
               </p>
             </div>
@@ -851,7 +906,7 @@ export default function StudentBlockRenderer({
         )}
 
         {isCompleted && (
-          <div className="flex items-center gap-2 text-green-600 p-3 bg-green-50 rounded-lg">
+          <div className="flex items-center gap-2 text-brand_accent_hover p-3 bg-brand_accent/10 rounded-lg">
             <CheckCircle className="w-5 h-5" />
             <span className="text-sm font-medium">Información de tarea grupal revisada</span>
           </div>
@@ -938,11 +993,11 @@ export default function StudentBlockRenderer({
                   >
                     <div className="flex items-start gap-4">
                       {item.type === 'pdf' ? (
-                        <FileText className="w-6 h-6 text-red-600 flex-shrink-0 mt-1" />
+                        <FileText className="w-6 h-6 text-brand_accent flex-shrink-0 mt-1" />
                       ) : item.type === 'image' ? (
-                        <Image className="w-6 h-6 text-green-600 flex-shrink-0 mt-1" />
+                        <Image className="w-6 h-6 text-brand_accent flex-shrink-0 mt-1" />
                       ) : (
-                        <ExternalLink className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                        <ExternalLink className="w-6 h-6 text-brand_primary flex-shrink-0 mt-1" />
                       )}
                       
                       <div className="flex-1">
@@ -1002,7 +1057,7 @@ export default function StudentBlockRenderer({
                                 e.currentTarget.style.display = 'none';
                                 e.currentTarget.parentElement?.insertAdjacentHTML(
                                   'afterbegin',
-                                  '<div class="text-sm text-red-600 bg-red-50 p-2 rounded">Error al cargar la imagen</div>'
+                                  '<div class="text-sm text-gray-600 bg-gray-100 p-2 rounded">Error al cargar la imagen</div>'
                                 );
                               }}
                             />
@@ -1013,14 +1068,14 @@ export default function StudentBlockRenderer({
                       <div className="flex-shrink-0">
                         {item.type === 'pdf' ? (
                           <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand_accent/20 text-brand_accent_hover">
                               PDF
                             </span>
                             <a
                               href={item.url}
                               download
                               onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 transition-colors"
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-brand_accent_hover bg-brand_accent/10 rounded hover:bg-brand_accent/20 transition-colors"
                               title="Descargar PDF"
                             >
                               <Download className="w-3 h-3 mr-1" />
@@ -1028,11 +1083,11 @@ export default function StudentBlockRenderer({
                             </a>
                           </div>
                         ) : item.type === 'image' ? (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand_accent/20 text-brand_accent_hover">
                             Imagen
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-brand_primary/10 text-brand_primary">
                             Enlace
                           </span>
                         )}
@@ -1063,7 +1118,7 @@ export default function StudentBlockRenderer({
         )}
 
         {isCompleted && (
-          <div className="flex items-center gap-2 text-green-600 p-3 bg-green-50 rounded-lg">
+          <div className="flex items-center gap-2 text-brand_accent_hover p-3 bg-brand_accent/10 rounded-lg">
             <CheckCircle className="w-5 h-5" />
             <span className="text-sm font-medium">Recursos bibliográficos revisados</span>
           </div>

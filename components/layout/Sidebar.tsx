@@ -142,6 +142,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Cursos',
     icon: BookOpenIcon,
     description: 'Gestión de cursos',
+    adminOnly: true,
     permission: ['view_courses_all', 'view_courses_school', 'view_courses_own'],
     children: [
       {
@@ -196,6 +197,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: NewspaperIcon,
     href: '/admin/news',
     description: 'Gestión de noticias y artículos',
+    adminOnly: true,
     permission: 'view_news_all'
   },
   {
@@ -204,6 +206,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: CalendarIcon,
     href: '/admin/events',
     description: 'Gestión de eventos y línea de tiempo',
+    adminOnly: true,
     permission: 'view_events_all'
   },
   {
@@ -212,6 +215,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: MapIcon,
     href: '/admin/learning-paths',
     description: 'Gestión de rutas de aprendizaje',
+    adminOnly: true,
     permission: ['view_learning_paths_all', 'view_learning_paths_school', 'view_learning_paths_own']
   },
   {
@@ -220,7 +224,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: ViewGridIcon,
     href: '/admin/assignment-matrix',
     description: 'Asignaciones por usuario',
-    consultantOnly: true
+    adminOnly: true
   },
   {
     id: 'users',
@@ -228,6 +232,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: UsersIcon,
     href: '/admin/user-management',
     description: 'Administrar usuarios',
+    adminOnly: true,
     permission: ['view_users_all', 'view_users_school', 'view_users_network']
   },
   {
@@ -236,6 +241,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: OfficeBuildingIcon,
     href: '/admin/schools',
     description: 'Gestión de escuelas y generaciones',
+    adminOnly: true,
     permission: ['view_schools_all', 'view_schools_network']
   },
   {
@@ -244,6 +250,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: NetworkIcon,
     href: '/admin/network-management',
     description: 'Gestión de redes y supervisores',
+    adminOnly: true,
     permission: 'manage_networks'
   },
   {
@@ -251,13 +258,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Consultorías',
     icon: UserIcon,
     description: 'Gestión de consultorías',
-    permission: 'view_consultants_all',
+    consultantOnly: true,
     children: [
       {
         id: 'consultant-assignments',
         label: 'Asignación de Consultores',
         href: '/admin/consultant-assignments',
         description: 'Gestionar asignaciones',
+        adminOnly: true,
         permission: 'assign_consultants_all'
       },
       {
@@ -274,6 +282,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Gestión',
     icon: BriefcaseIcon,
     description: 'Gestión empresarial',
+    adminOnly: true,
     permission: [
       'view_contracts_all',
       'view_contracts_school',
@@ -342,6 +351,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: ChartBarIcon,
     href: '/detailed-reports',
     description: 'Análisis y reportes',
+    consultantOnly: true,
     permission: ['view_reports_all', 'view_reports_network', 'view_reports_school', 'view_reports_generation', 'view_reports_community']
   },
   {
@@ -350,6 +360,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: LightningBoltIcon,
     href: '/vias-transformacion',
     description: 'Evaluaciones de transformación escolar',
+    adminOnly: true,
     // Note: Visible to all users with a school - access checked on the page
     children: [
       {
@@ -402,6 +413,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         permission: 'manage_communities_all'
       }
     ]
+  },
+  {
+    id: 'consultor-settings',
+    label: 'Configuración',
+    icon: CogIcon,
+    href: '/profile',
+    description: 'Configuración personal',
+    restrictedRoles: ['consultor']
   },
   {
     id: 'admin',
@@ -636,8 +655,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         if (!communityCheckDone) {
           return false;
         }
-        // Hide if user doesn't have a community (admins are handled in the check)
-        if (!hasCommunity) {
+        // Hide if user doesn't have a community (admins and consultors are allowed)
+        if (!hasCommunity && userRole !== 'consultor') {
           return false;
         }
       }
@@ -664,8 +683,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         }
       }
 
-      // Check RBAC permissions (admins bypass)
-      if (item.permission && !isAdmin) {
+      // Check RBAC permissions (admins bypass, consultors bypass for consultantOnly items)
+      const isConsultor = userRole === 'consultor';
+      const consultorBypassesPermission = item.consultantOnly && isConsultor;
+
+      if (item.permission && !isAdmin && !consultorBypassesPermission) {
         // While loading, hide all permission-based items for security
         if (permissionsLoading) {
           return false;

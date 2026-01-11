@@ -18,6 +18,7 @@ type MemberProfile = {
   generation_id?: string | null;
   community_id?: string | null;
   created_at?: string;
+  external_school_affiliation?: string | null;
   user_roles: Array<{
     id: string;
     user_id: string;
@@ -93,7 +94,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch profiles for users
     const { data: profiles, error: profilesError } = await serviceClient
       .from('profiles')
-      .select('id, email, first_name, last_name, avatar_url, school_id, generation_id, community_id, created_at')
+      .select('id, email, first_name, last_name, avatar_url, school_id, generation_id, community_id, created_at, external_school_affiliation')
       .in('id', userIds);
 
     if (profilesError) {
@@ -113,6 +114,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         generation_id: p?.generation_id ?? null,
         community_id: p?.community_id ?? null,
         created_at: p?.created_at,
+        external_school_affiliation: p?.external_school_affiliation ?? null,
         user_roles: [
           {
             id: rr.id,

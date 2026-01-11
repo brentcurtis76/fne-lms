@@ -62,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let profileQuery = supabaseService
       .from('profiles')
       .select(
-        `id,email,first_name,last_name,school_id,approval_status,created_at,
+        `id,email,first_name,last_name,school_id,approval_status,created_at,external_school_affiliation,
          school:schools(id,name)`,
         { count: 'exact' }
       )

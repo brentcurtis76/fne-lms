@@ -7,18 +7,17 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import QuizReviewPanel from '../../components/quiz/QuizReviewPanel';
 import { useAvatar } from '../../hooks/useAvatar';
-import { getQuizSubmission } from '../../lib/services/quizSubmissions';
-import { hasAdminPrivileges } from '../../utils/roleUtils';
 
 export default function QuizReviewDetailPage() {
   const router = useRouter();
   const { id } = router.query;
   const session = useSession();
-  const supabase = useSupabaseClient();
+  const supabaseClient = useSupabaseClient();
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState<string>('');
   const [submission, setSubmission] = useState<any>(null);
-  
+
   const user = session?.user ?? null;
   const { url: avatarUrl } = useAvatar(user);
 
@@ -28,40 +27,46 @@ export default function QuizReviewDetailPage() {
     const loadData = async () => {
       try {
         setLoading(true);
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
 
-        if (profileError || !profile) {
-          toast.error('No se pudo cargar tu perfil.');
-          router.push('/dashboard');
+        // Get auth token for API call
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (!currentSession?.access_token) {
+          toast.error('Sesión no válida');
+          router.push('/login');
           return;
         }
 
-        const userIsAdmin = await hasAdminPrivileges(supabase, session.user.id);
-        setIsAdmin(userIsAdmin);
+        // Call API endpoint that uses service role to bypass RLS
+        const response = await fetch(`/api/quiz-reviews/${id}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${currentSession.access_token}`
+          }
+        });
 
-        if (!['admin', 'consultor', 'equipo_directivo'].includes(profile.role)) {
-          toast.error('No tienes permisos para acceder a esta página');
-          router.push('/dashboard');
-          return;
+        if (!response.ok) {
+          const errorData = await response.json();
+
+          if (response.status === 403) {
+            toast.error(errorData.error || 'No tienes permisos para acceder a esta página');
+            router.push('/dashboard');
+            return;
+          }
+
+          if (response.status === 404) {
+            toast.error('Quiz no encontrado');
+            router.push('/quiz-reviews');
+            return;
+          }
+
+          throw new Error(errorData.error || 'Failed to fetch quiz');
         }
 
-        const { data: submissionData, error: submissionError } = await getQuizSubmission(supabase, id as string);
+        const { data: submissionData, userRole: role, isAdmin: adminStatus } = await response.json();
 
-        if (submissionError) {
-          toast.error('Error al cargar el quiz');
-          router.push('/quiz-reviews');
-          return;
-        }
-
-        if (!submissionData) {
-          toast.error('Quiz no encontrado');
-          router.push('/quiz-reviews');
-          return;
-        }
+        setIsAdmin(adminStatus);
+        setUserRole(role);
 
         if (submissionData.review_status && submissionData.review_status !== 'pending') {
           toast('Este quiz ya ha sido revisado', { icon: 'ℹ️' });
@@ -69,7 +74,6 @@ export default function QuizReviewDetailPage() {
           return;
         }
 
-        submissionData.graded_by = session.user.id;
         setSubmission(submissionData);
       } catch (error) {
         console.error('Error loading quiz submission:', error);
@@ -81,10 +85,10 @@ export default function QuizReviewDetailPage() {
     };
 
     loadData();
-  }, [id, session, router, supabase]);
+  }, [id, session, router]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     router.push('/login');
   };
 
@@ -112,6 +116,7 @@ export default function QuizReviewDetailPage() {
         currentPage="quiz-reviews"
         pageTitle="Revisar Quiz"
         isAdmin={isAdmin}
+        userRole={userRole}
         onLogout={handleLogout}
         avatarUrl={avatarUrl}
       >

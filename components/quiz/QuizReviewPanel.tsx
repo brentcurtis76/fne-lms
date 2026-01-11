@@ -1,20 +1,14 @@
 import React, { useState } from 'react';
 import { MessageSquare, Save, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { supabase } from '../../lib/supabase';
 
 interface QuizReviewPanelProps {
   submission: any;
   onGradingComplete?: () => void;
 }
 
-interface QuestionFeedback {
-  questionId: string;
-  feedback: string;
-}
-
 export default function QuizReviewPanel({ submission, onGradingComplete }: QuizReviewPanelProps) {
-  const supabase = useSupabaseClient();
   const [reviewStatus, setReviewStatus] = useState<'pass' | 'needs_review'>('pass');
   const [generalFeedback, setGeneralFeedback] = useState('');
   const [questionFeedback, setQuestionFeedback] = useState<Record<string, string>>({});
@@ -43,9 +37,9 @@ export default function QuizReviewPanel({ submission, onGradingComplete }: QuizR
       toast.error('Por favor proporciona retroalimentación general cuando el estudiante necesita revisar');
       return;
     }
-    
+
     setIsSaving(true);
-    
+
     try {
       // Prepare question feedback object
       const feedbackObject = Object.keys(questionFeedback).reduce((acc, key) => {
@@ -55,36 +49,35 @@ export default function QuizReviewPanel({ submission, onGradingComplete }: QuizR
         return acc;
       }, {} as Record<string, string>);
 
-      const { error } = await supabase.rpc('grade_quiz_feedback', {
-        p_submission_id: submission.id,
-        p_graded_by: submission.graded_by,
-        p_review_status: reviewStatus,
-        p_general_feedback: generalFeedback,
-        p_question_feedback: Object.keys(feedbackObject).length > 0 ? feedbackObject : null
+      // Get auth token for API call
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Sesión no válida');
+        return;
+      }
+
+      // Call API endpoint that uses service role to bypass RLS
+      const response = await fetch('/api/quiz-reviews/submit-review', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          submissionId: submission.id,
+          reviewStatus,
+          generalFeedback,
+          questionFeedback: Object.keys(feedbackObject).length > 0 ? feedbackObject : null
+        })
       });
-      
-      if (error) throw error;
-      
-      // Send notification to student
-      const notificationMessage = reviewStatus === 'pass' 
-        ? 'Tu quiz ha sido revisado y aprobado. ¡Buen trabajo!'
-        : 'Tu quiz ha sido revisado. Por favor revisa la retroalimentación del instructor.';
-        
-      await supabase.from('notifications').insert({
-        user_id: submission.student_id,
-        type: 'quiz_reviewed',
-        title: 'Quiz revisado',
-        message: notificationMessage,
-        data: {
-          submission_id: submission.id,
-          course_id: submission.course_id,
-          lesson_id: submission.lesson_id,
-          review_status: reviewStatus
-        }
-      });
-      
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save review');
+      }
+
       toast.success('Revisión guardada exitosamente');
-      
+
       if (onGradingComplete) {
         onGradingComplete();
       }

@@ -65,7 +65,9 @@
     "seed:progress": "node -e \"const { generateProgress } = require('./scripts/data-seeding/generators/progress'); console.log('Progress generation would run here')\"",
     "seed:validate": "node -e \"console.log('Data validation would run here')\"",
     "seed:report": "node -e \"console.log('Report generation would run here')\"",
-    "seed:test-security": "node scripts/data-seeding/test-security.js"
+    "seed:test-security": "node scripts/data-seeding/test-security.js",
+    "demo:seed": "node -r dotenv/config --loader tsx scripts/demo-data/seed-demo.ts dotenv_config_path=.env.local",
+    "demo:cleanup": "node -r dotenv/config --loader tsx scripts/demo-data/cleanup-demo.ts dotenv_config_path=.env.local"
   },
   "keywords": [],
   "author": "",

@@ -190,7 +190,7 @@ export default function QuizTaker({
                 key={option.id}
                 className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-colors ${
                   answer?.selectedOption === option.id
-                    ? 'border-brand_blue bg-blue-50'
+                    ? 'border-brand_primary bg-brand_accent/10'
                     : 'border-gray-200 hover:border-gray-300'
                 }`}
               >
@@ -265,7 +265,7 @@ export default function QuizTaker({
         <div className="flex justify-center mt-6">
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700 transition"
+            className="px-6 py-2 bg-brand_blue text-white rounded-md hover:bg-brand_gray_dark transition"
           >
             Volver a la lección
           </button>
@@ -285,7 +285,7 @@ export default function QuizTaker({
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-xl font-semibold">{quiz.title}</h2>
-            <p className="text-blue-100 mt-1">
+            <p className="text-gray-300 mt-1">
               Pregunta {currentQuestionIndex + 1} de {questions.length}
             </p>
           </div>
@@ -323,9 +323,9 @@ export default function QuizTaker({
               onClick={() => setCurrentQuestionIndex(index)}
               className={`w-8 h-8 rounded-full text-xs font-medium transition-colors ${
                 index === currentQuestionIndex
-                  ? 'bg-brand_blue text-white'
+                  ? 'bg-brand_primary text-white'
                   : answers[questions[index].id]
-                    ? 'bg-green-100 text-green-800'
+                    ? 'bg-brand_accent/20 text-brand_accent_hover'
                     : 'bg-gray-100 text-gray-600'
               }`}
             >
@@ -338,7 +338,7 @@ export default function QuizTaker({
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-6 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-6 py-2 bg-brand_blue text-white rounded-md hover:bg-brand_gray_dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isSubmitting ? (
               <>Enviando...</>
@@ -352,7 +352,7 @@ export default function QuizTaker({
         ) : (
           <button
             onClick={handleNext}
-            className="px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700"
+            className="px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-brand_gray_dark"
           >
             Siguiente
           </button>

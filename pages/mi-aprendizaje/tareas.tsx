@@ -309,7 +309,6 @@ const TareasPage: React.FC = () => {
       user={user}
       currentPage="tareas"
       pageTitle=""
-      userRole="estudiante"
     >
       <ResponsiveFunctionalPageHeader
         icon={<ClipboardCheckIcon className="h-6 w-6" />}

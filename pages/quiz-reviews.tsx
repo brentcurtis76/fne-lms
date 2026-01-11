@@ -7,7 +7,6 @@ import MainLayout from '../components/layout/MainLayout';
 import { ClipboardCheckIcon, ClockIcon, UserGroupIcon } from '@heroicons/react/outline';
 import { useAuth } from '../hooks/useAuth';
 import { getHighestRole } from '../utils/roleUtils';
-import { getPendingQuizReviews } from '../lib/services/quizSubmissions';
 import Link from 'next/link';
 
 export default function QuizReviewsPage() {
@@ -19,31 +18,55 @@ export default function QuizReviewsPage() {
   useEffect(() => {
     const initializePage = async () => {
       if (loading) return; // Wait for auth to load
-      
+
       if (!user) {
         router.push('/login');
         return;
       }
-      
+
       // Check if user has permission to access this page
       if (!hasRole('admin') && !hasRole('consultor') && !hasRole('equipo_directivo')) {
         toast.error('No tienes permisos para acceder a esta página');
         router.push('/dashboard');
         return;
       }
-      
-      await loadPendingReviews();
+
+      // Wait for userRoles to be loaded before fetching reviews
+      if (userRoles && userRoles.length > 0) {
+        await loadPendingReviews();
+      }
     };
 
     initializePage();
-  }, [user, loading, hasRole]);
+  }, [user, loading, hasRole, userRoles]);
   
   const loadPendingReviews = async () => {
     try {
-      const { data, error } = await getPendingQuizReviews(supabase);
-      
-      if (error) throw error;
-      
+      // Get auth token for API call
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No session token');
+      }
+
+      console.log('[QuizReviews] Loading reviews via API for user:', user?.id);
+
+      // Call API endpoint that uses service role to bypass RLS
+      const response = await fetch('/api/quiz-reviews/pending', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch reviews');
+      }
+
+      const { data } = await response.json();
+      console.log('[QuizReviews] Got reviews:', data?.length);
+
       setPendingReviews(data || []);
     } catch (error) {
       console.error('Error loading pending reviews:', error);

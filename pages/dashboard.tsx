@@ -13,8 +13,9 @@ import { updateAvatarCache } from '../hooks/useAvatar';
 import {
   Settings, Users, ChevronDown, ChevronUp, Newspaper, Play,
   BookOpen, TrendingUp, ArrowRight, Clock,
-  GraduationCap, ExternalLink, MapPin
+  GraduationCap, ExternalLink, MapPin, Briefcase
 } from 'lucide-react';
+import { getExternalSchoolLabel } from '../constants/externalSchools';
 import { LearningPathCard } from '../components/learning-paths';
 import { NetflixCourseRow } from '../components/courses';
 import WorkspaceSettingsModal from '../components/community/WorkspaceSettingsModal';
@@ -292,7 +293,7 @@ export default function Dashboard() {
           // Fetch profile
           let { data: profileData, error: profileError } = await supabase
             .from('profiles')
-            .select('first_name, last_name, avatar_url, school, description, must_change_password')
+            .select('first_name, last_name, avatar_url, school, description, must_change_password, external_school_affiliation')
             .eq('id', userData.user.id)
             .single();
 
@@ -301,7 +302,7 @@ export default function Dashboard() {
             if (!refreshError && refreshData?.session) {
               const { data: retryData } = await supabase
                 .from('profiles')
-                .select('first_name, last_name, avatar_url, school, description, must_change_password')
+                .select('first_name, last_name, avatar_url, school, description, must_change_password, external_school_affiliation')
                 .eq('id', userData.user.id)
                 .single();
               profileData = retryData;
@@ -500,6 +501,12 @@ export default function Dashboard() {
                 <p className="text-gray-600 mt-1">
                   Bienvenido de vuelta al hub de transformación de tu colegio
                 </p>
+                {userRole === 'consultor' && profileData?.external_school_affiliation && (
+                  <div className="flex items-center gap-2 mt-2 text-sm text-gray-600">
+                    <Briefcase className="w-4 h-4 text-brand_accent" />
+                    <span>{getExternalSchoolLabel(profileData.external_school_affiliation)}</span>
+                  </div>
+                )}
               </div>
             </div>
             <Link
@@ -678,6 +685,11 @@ export default function Dashboard() {
                               {roleLabel && (
                                 <span className="text-xs text-gray-500 text-center truncate w-full">
                                   {roleLabel}
+                                </span>
+                              )}
+                              {memberRole === 'consultor' && member.external_school_affiliation && (
+                                <span className="text-xs text-brand_accent text-center truncate w-full">
+                                  {getExternalSchoolLabel(member.external_school_affiliation)}
                                 </span>
                               )}
                               {member.id === user?.id && (

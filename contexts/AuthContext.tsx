@@ -106,36 +106,83 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Set loading state
         setAuthState(prev => ({ ...prev, loading: true }));
 
-        // Fetch profile and roles
-        const profileData = await getUserProfileWithRoles(supabase, session.user.id);
-        
-        if (!profileData) {
-          console.error('[AuthContext] No profile found for user');
+        // Fetch profile data
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select(`
+            *,
+            school:schools(*),
+            generation:generations(*),
+            community:growth_communities(*)
+          `)
+          .eq('id', session.user.id)
+          .single();
+
+        if (profileError || !profileData) {
+          console.error('[AuthContext] No profile found for user:', profileError);
           setAuthState(prev => ({ ...prev, loading: false }));
           return;
         }
 
-        // The function returns { ...profile, roles: UserRole[] }
-        // But UserProfile type expects user_roles
-        const userRoles = (profileData as any).roles || profileData.user_roles || [];
+        // Fetch roles via API to bypass RLS restrictions
+        let userRoles: UserRole[] = [];
+        console.log('[AuthContext] Starting role fetch for user:', session.user.id, session.user.email);
 
-        // Check for legacy role and migrate if needed
-        if (profileData.role && userRoles.length === 0 && (profileData.role === 'admin' || profileData.role === 'docente')) {
-          console.log('[AuthContext] Migrating legacy role:', profileData.role);
-          const migrationResult = await migrateLegacyUser(supabase, session.user.id, profileData.role as 'admin' | 'docente');
+        // Get the access token from session to pass as Bearer token
+        const accessToken = session.access_token;
+
+        try {
+          const rolesResponse = await fetch('/api/auth/my-roles', {
+            credentials: 'include',
+            headers: accessToken ? {
+              'Authorization': `Bearer ${accessToken}`
+            } : undefined
+          });
+          console.log('[AuthContext] API response status:', rolesResponse.status);
+          if (rolesResponse.ok) {
+            const rolesData = await rolesResponse.json();
+            userRoles = rolesData.roles || [];
+            console.log('[AuthContext] Fetched roles via API:', userRoles.map(r => r.role_type));
+          } else {
+            const errorText = await rolesResponse.text();
+            console.warn('[AuthContext] Failed to fetch roles via API:', rolesResponse.status, errorText);
+            // Fallback to direct query
+            console.log('[AuthContext] Attempting direct query fallback...');
+            const directRoles = await getUserProfileWithRoles(supabase, session.user.id);
+            console.log('[AuthContext] Direct query result:', directRoles);
+            userRoles = (directRoles as any)?.roles || directRoles?.user_roles || [];
+            console.log('[AuthContext] Roles from direct query:', userRoles.map((r: any) => r.role_type || r));
+          }
+        } catch (apiError) {
+          console.warn('[AuthContext] API fetch failed:', apiError);
+          const directRoles = await getUserProfileWithRoles(supabase, session.user.id);
+          console.log('[AuthContext] Direct query fallback result:', directRoles);
+          userRoles = (directRoles as any)?.roles || directRoles?.user_roles || [];
+        }
+        console.log('[AuthContext] Final userRoles:', userRoles.length, 'roles');
+
+        // Check for legacy role and migrate if needed (profiles.role column may not exist)
+        const legacyRole = (profileData as any).role;
+        if (legacyRole && userRoles.length === 0 && (legacyRole === 'admin' || legacyRole === 'docente')) {
+          console.log('[AuthContext] Migrating legacy role:', legacyRole);
+          const migrationResult = await migrateLegacyUser(supabase, session.user.id, legacyRole as 'admin' | 'docente');
           if (migrationResult.success) {
-            // Re-fetch profile after migration
-            const updatedProfile = await getUserProfileWithRoles(supabase, session.user.id);
-            if (updatedProfile) {
-              const updatedRoles = (updatedProfile as any).roles || updatedProfile.user_roles || [];
-              userRoles.length = 0;
-              userRoles.push(...updatedRoles);
+            // Re-fetch roles via API after migration
+            try {
+              const rolesResponse = await fetch('/api/auth/my-roles');
+              if (rolesResponse.ok) {
+                const rolesData = await rolesResponse.json();
+                userRoles.length = 0;
+                userRoles.push(...(rolesData.roles || []));
+              }
+            } catch {
+              // Ignore errors during migration re-fetch
             }
           }
         }
 
         // Get permissions - PHASE 1 FIX: Pass legacy role for backward compatibility
-        const permissions = getUserPermissions(userRoles, profileData.role);
+        const permissions = getUserPermissions(userRoles, legacyRole);
         const isGlobalAdmin = await hasAdminPrivileges(supabase, session.user.id);
         const highestRole = getHighestRole(userRoles);
 

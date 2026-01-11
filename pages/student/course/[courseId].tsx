@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 
 import Head from 'next/head';
 import Link from 'next/link';
-import { ArrowLeft, Play, CheckCircle, Clock, BookOpen, FileText } from 'lucide-react';
+import { ArrowLeft, Play, CheckCircle, Clock, BookOpen, FileText, BarChart3 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
@@ -452,15 +452,16 @@ export default function StudentCourseViewer() {
         </button>
         <div className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md">
           <div className="flex items-center gap-2">
-            <span>📊 Progreso:</span>
+            <BarChart3 className="w-4 h-4 text-brand_accent" />
+            <span>Progreso:</span>
             <div className="flex items-center gap-2">
               <div className="w-24 bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-gradient-to-r from-[#10B981] to-[#059669] h-2 rounded-full transition-all duration-500"
+                <div
+                  className="bg-brand_accent h-2 rounded-full transition-all duration-500"
                   style={{ width: `${getCourseProgressPercentage()}%` }}
                 ></div>
               </div>
-              <span className="font-bold text-[#10B981]">
+              <span className="font-bold text-brand_accent_hover">
                 {getCourseProgressPercentage()}%
               </span>
             </div>
@@ -473,12 +474,12 @@ export default function StudentCourseViewer() {
         <div className="max-w-6xl mx-auto p-6">
           {/* Continue Learning Section */}
           {nextLesson && (
-            <div className="bg-gradient-to-r from-[#0a0a0a] to-[#004080] text-white rounded-lg p-6 mb-8">
+            <div className="bg-brand_primary text-white rounded-lg p-6 mb-8">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-xl font-bold mb-2">Continuar Aprendiendo</h2>
                   {nextLesson.module && (
-                    <p className="text-blue-100 mb-1">
+                    <p className="text-gray-300 mb-1">
                       Módulo {nextLesson.module.order_number}: {nextLesson.module.title}
                     </p>
                   )}
@@ -486,12 +487,12 @@ export default function StudentCourseViewer() {
                     Lección {nextLesson.lesson.order_number}: {nextLesson.lesson.title}
                   </p>
                   <div className="mt-2">
-                    <div className="text-sm text-blue-100 mb-1">
+                    <div className="text-sm text-gray-300 mb-1">
                       Progreso: {getLessonProgressPercentage(nextLesson.lesson.id)}%
                     </div>
-                    <div className="w-48 bg-blue-800 rounded-full h-2">
-                      <div 
-                        className="bg-[#fbbf24] h-2 rounded-full transition-all"
+                    <div className="w-48 bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-brand_accent h-2 rounded-full transition-all"
                         style={{ width: `${getLessonProgressPercentage(nextLesson.lesson.id)}%` }}
                       ></div>
                     </div>
@@ -499,7 +500,7 @@ export default function StudentCourseViewer() {
                 </div>
                 <Link
                   href={`/student/lesson/${nextLesson.lesson.id}`}
-                  className="bg-[#fbbf24] text-[#0a0a0a] px-6 py-3 rounded-lg font-medium hover:bg-yellow-400 transition flex items-center gap-2"
+                  className="bg-brand_accent text-brand_primary px-6 py-3 rounded-lg font-medium hover:bg-brand_accent_hover transition flex items-center gap-2"
                   onClick={() => {
                     console.log('DEBUG: Navigating to lesson ID:', nextLesson.lesson.id);
                     console.log('DEBUG: Full lesson object:', nextLesson.lesson);
@@ -552,12 +553,12 @@ export default function StudentCourseViewer() {
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex items-center gap-2">
                               <div className={`p-2 rounded-full ${
-                                isCompleted ? 'bg-green-100' : hasStarted ? 'bg-blue-100' : 'bg-gray-200'
+                                isCompleted ? 'bg-brand_accent/20' : hasStarted ? 'bg-brand_accent_light/30' : 'bg-gray-200'
                               }`}>
                                 {isCompleted ? (
-                                  <CheckCircle className="text-green-600" size={16} />
+                                  <CheckCircle className="text-brand_accent_hover" size={16} />
                                 ) : (
-                                  <BookOpen className={`${hasStarted ? 'text-blue-600' : 'text-gray-400'}`} size={16} />
+                                  <BookOpen className={`${hasStarted ? 'text-brand_accent' : 'text-gray-400'}`} size={16} />
                                 )}
                               </div>
                               <span className="text-sm font-medium text-gray-600">
@@ -584,9 +585,9 @@ export default function StudentCourseViewer() {
                             </div>
                             
                             <div className="w-full bg-gray-200 rounded-full h-1.5">
-                              <div 
+                              <div
                                 className={`h-1.5 rounded-full transition-all ${
-                                  isCompleted ? 'bg-green-500' : hasStarted ? 'bg-blue-500' : 'bg-gray-300'
+                                  isCompleted ? 'bg-brand_accent' : hasStarted ? 'bg-brand_accent_light' : 'bg-gray-300'
                                 }`}
                                 style={{ width: `${progressPercentage}%` }}
                               ></div>
@@ -637,19 +638,19 @@ export default function StudentCourseViewer() {
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-2">
                                 <div className={`p-2 rounded-full ${
-                                  isCompleted ? 'bg-green-100' : hasStarted ? 'bg-blue-100' : 'bg-gray-200'
+                                  isCompleted ? 'bg-brand_accent/20' : hasStarted ? 'bg-brand_accent_light/30' : 'bg-gray-200'
                                 }`}>
                                   {isCompleted ? (
-                                    <CheckCircle className="text-green-600" size={16} />
+                                    <CheckCircle className="text-brand_accent_hover" size={16} />
                                   ) : (
-                                    <BookOpen className={`${hasStarted ? 'text-blue-600' : 'text-gray-400'}`} size={16} />
+                                    <BookOpen className={`${hasStarted ? 'text-brand_accent' : 'text-gray-400'}`} size={16} />
                                   )}
                                 </div>
                                 <span className="text-sm font-medium text-gray-600">
                                   Lección {lesson.order_number}
                                 </span>
                               </div>
-                              
+
                               {lessonProgress?.lastAccessed && (
                                 <div className="text-xs text-gray-400">
                                   <Clock size={12} className="inline mr-1" />
@@ -667,11 +668,11 @@ export default function StudentCourseViewer() {
                                 <span>{lessonProgress?.totalBlocks || 0} bloques</span>
                                 <span>{progressPercentage}% completado</span>
                               </div>
-                              
+
                               <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                <div 
+                                <div
                                   className={`h-1.5 rounded-full transition-all ${
-                                    isCompleted ? 'bg-green-500' : hasStarted ? 'bg-blue-500' : 'bg-gray-300'
+                                    isCompleted ? 'bg-brand_accent' : hasStarted ? 'bg-brand_accent_light' : 'bg-gray-300'
                                   }`}
                                   style={{ width: `${progressPercentage}%` }}
                                 ></div>
@@ -689,12 +690,12 @@ export default function StudentCourseViewer() {
 
           {/* Course Completion */}
           {getCourseProgressPercentage() === 100 && (
-            <div className="mt-8 bg-green-50 border border-green-200 rounded-lg p-6 text-center">
-              <CheckCircle className="mx-auto text-green-600 mb-4" size={48} />
-              <h3 className="text-xl font-bold text-green-800 mb-2">
+            <div className="mt-8 bg-brand_accent/10 border border-brand_accent/30 rounded-lg p-6 text-center">
+              <CheckCircle className="mx-auto text-brand_accent mb-4" size={48} />
+              <h3 className="text-xl font-bold text-brand_primary mb-2">
                 ¡Curso Completado!
               </h3>
-              <p className="text-green-600">
+              <p className="text-brand_gray_dark">
                 Has completado todas las lecciones de este curso. ¡Felicitaciones!
               </p>
             </div>

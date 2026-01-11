@@ -245,7 +245,7 @@ export default function LearningQuizTaker({
                   answer?.selectedOption === option.id
                     ? showError 
                       ? 'border-red-500 bg-red-50' 
-                      : 'border-brand_blue bg-blue-50'
+                      : 'border-brand_blue bg-brand_accent/10'
                     : 'border-gray-200 hover:border-gray-300'
                 } ${attemptStage !== 'answering' && question.type !== 'open-ended' ? 'cursor-not-allowed' : ''}`}
               >
@@ -309,21 +309,21 @@ export default function LearningQuizTaker({
     
     if (attemptStage === 'tier2-feedback') {
       return (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+        <div className="bg-brand_accent/10 border border-brand_accent/30 rounded-lg p-6 mb-6">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-6 h-6 text-blue-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-6 h-6 text-brand_accent flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h3 className="font-semibold text-blue-900 mb-2">
+              <h3 className="font-semibold text-brand_primary mb-2">
                 Preguntas marcadas para revisión
               </h3>
-              <p className="text-blue-800">
+              <p className="text-brand_gray_dark">
                 Hemos marcado las preguntas que necesitan más atención. Tómate tu tiempo para 
                 revisar estas preguntas específicas. Puedes continuar cuando estés listo.
               </p>
               <div className="flex gap-3 mt-4">
                 <button
                   onClick={handleRetry}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-brand_primary text-white rounded-md hover:bg-brand_gray_dark flex items-center gap-2"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Intentar de nuevo
@@ -356,8 +356,8 @@ export default function LearningQuizTaker({
             Has completado el quiz exitosamente.
           </p>
           {openEndedQuestions.length > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 max-w-md mx-auto">
-              <p className="text-sm text-blue-800">
+            <div className="bg-brand_accent/10 border border-brand_accent/30 rounded-lg p-4 mb-6 max-w-md mx-auto">
+              <p className="text-sm text-brand_gray_dark">
                 Las preguntas abiertas serán revisadas por tu profesor. 
                 Recibirás retroalimentación pronto.
               </p>
@@ -365,7 +365,7 @@ export default function LearningQuizTaker({
           )}
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700 transition"
+            className="px-6 py-2 bg-brand_blue text-white rounded-md hover:bg-brand_gray_dark transition"
           >
             Continuar con la lección
           </button>
@@ -385,7 +385,7 @@ export default function LearningQuizTaker({
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-xl font-semibold">{quiz.title}</h2>
-            <p className="text-blue-100 mt-1">
+            <p className="text-gray-300 mt-1">
               Pregunta {currentQuestionIndex + 1} de {questions.length}
             </p>
           </div>
@@ -408,12 +408,12 @@ export default function LearningQuizTaker({
       
       {/* Instructions Section - NEW */}
       {quiz.instructions && (
-        <div className="bg-blue-50 border-b border-blue-200 p-6">
+        <div className="bg-brand_accent/10 border-b border-brand_accent/30 p-6">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-brand_accent flex-shrink-0 mt-0.5" />
             <div className="flex-1">
-              <h3 className="font-semibold text-blue-900 mb-2">Instrucciones</h3>
-              <div className="text-blue-800 whitespace-pre-wrap">{quiz.instructions}</div>
+              <h3 className="font-semibold text-brand_primary mb-2">Instrucciones</h3>
+              <div className="text-brand_gray_dark whitespace-pre-wrap">{quiz.instructions}</div>
             </div>
           </div>
         </div>
@@ -450,7 +450,7 @@ export default function LearningQuizTaker({
                   : answers[questions[index].id]
                     ? attemptStage === 'tier2-feedback' && incorrectQuestions.has(q.id)
                       ? 'bg-red-100 text-red-800'
-                      : 'bg-green-100 text-green-800'
+                      : 'bg-brand_accent/20 text-brand_accent_hover'
                     : 'bg-gray-100 text-gray-600'
               }`}
             >
@@ -463,7 +463,7 @@ export default function LearningQuizTaker({
           <button
             onClick={handleSubmit}
             disabled={isSubmitting || attemptStage !== 'answering'}
-            className="px-6 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-6 py-2 bg-brand_blue text-white rounded-md hover:bg-brand_gray_dark disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isSubmitting ? (
               <>Enviando...</>
@@ -477,7 +477,7 @@ export default function LearningQuizTaker({
         ) : (
           <button
             onClick={handleNext}
-            className="px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-blue-700"
+            className="px-4 py-2 bg-brand_blue text-white rounded-md hover:bg-brand_gray_dark"
           >
             Siguiente
           </button>

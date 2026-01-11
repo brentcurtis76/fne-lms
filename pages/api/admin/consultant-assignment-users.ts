@@ -37,46 +37,62 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'User not found' });
     }
 
-    // Verify admin role
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    // Verify admin role using user_roles table
+    const { data: adminRole, error: adminRoleError } = await supabase
+      .from('user_roles')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('role_type', 'admin')
+      .eq('is_active', true)
+      .limit(1);
 
-    if (profileError) {
-      console.error('Profile fetch error:', profileError.message);
-      return res.status(500).json({ error: 'Failed to fetch user profile', details: profileError.message });
+    if (adminRoleError) {
+      console.error('Admin role check error:', adminRoleError.message);
+      return res.status(500).json({ error: 'Failed to verify admin role', details: adminRoleError.message });
     }
 
-    if (profile?.role !== 'admin') {
-      console.error('User is not admin:', profile?.role);
+    if (!adminRole || adminRole.length === 0) {
+      console.error('User is not admin');
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    // Fetch consultants (users with consultor role or admins)
-    const { data: consultants, error: consultantsError } = await supabase
-      .from('profiles')
-      .select(`
-        id,
-        first_name,
-        last_name,
-        email,
-        role,
-        school_id,
-        generation_id,
-        community_id,
-        school:school_id(id, name),
-        generation:generation_id(id, name),
-        community:community_id(id, name)
-      `)
-      .in('role', ['consultor', 'admin'])
-      .eq('approval_status', 'approved')
-      .order('last_name', { ascending: true });
+    // Fetch consultants (users with consultor or admin role from user_roles table)
+    const { data: consultorRoles, error: consultorRolesError } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .in('role_type', ['consultor', 'admin'])
+      .eq('is_active', true);
 
-    if (consultantsError) {
-      console.error('Error fetching consultants:', consultantsError);
-      return res.status(500).json({ error: 'Failed to fetch consultants' });
+    if (consultorRolesError) {
+      console.error('Error fetching consultant roles:', consultorRolesError);
+      return res.status(500).json({ error: 'Failed to fetch consultant roles' });
+    }
+
+    const consultantUserIds = [...new Set((consultorRoles || []).map(r => r.user_id))];
+
+    let consultants: any[] = [];
+    if (consultantUserIds.length > 0) {
+      const { data: consultantProfiles, error: consultantsError } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          email,
+          school_id,
+          generation_id,
+          community_id,
+          external_school_affiliation
+        `)
+        .in('id', consultantUserIds)
+        .eq('approval_status', 'approved')
+        .order('last_name', { ascending: true });
+
+      if (consultantsError) {
+        console.error('Error fetching consultants:', consultantsError);
+        return res.status(500).json({ error: 'Failed to fetch consultants' });
+      }
+      consultants = consultantProfiles || [];
     }
 
     // Fetch all users that can be assigned to consultants (all roles)
@@ -87,7 +103,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         first_name,
         last_name,
         email,
-        role,
         school_id,
         generation_id,
         community_id,

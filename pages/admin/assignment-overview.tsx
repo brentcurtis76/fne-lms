@@ -165,7 +165,7 @@ export default function AssignmentOverview() {
 
   const loadAssignments = async (reset = false) => {
     if (!user || !profileData) return;
-    
+
     try {
       if (reset) {
         setLoading(true);
@@ -176,31 +176,43 @@ export default function AssignmentOverview() {
       }
 
       const offset = reset ? 0 : currentOffset;
-      
-      // Create a clean filters object with only non-null values
-      const cleanFilters: any = {};
-      if (filters.school_id) cleanFilters.school_id = filters.school_id;
-      if (filters.community_id) cleanFilters.community_id = filters.community_id;
-      if (filters.generation_id) cleanFilters.generation_id = filters.generation_id;
-      
-      const { assignments: newAssignments, total, error } = await groupAssignmentsV2Service.getAllAssignmentsForAdmin(
-        user.id,
-        cleanFilters,
-        limit,
-        offset
-      );
 
-      if (error) {
-        console.error('Error loading assignments:', error);
-        throw error;
+      // Get auth token for API call
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('No session token');
       }
+
+      // Build query params
+      const params = new URLSearchParams();
+      if (filters.school_id) params.append('school_id', filters.school_id);
+      if (filters.community_id) params.append('community_id', filters.community_id);
+      if (filters.generation_id) params.append('generation_id', filters.generation_id);
+      params.append('limit', limit.toString());
+      params.append('offset', offset.toString());
+
+      // Call API endpoint that uses service role to bypass RLS
+      const response = await fetch(`/api/assignments/admin-overview?${params.toString()}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch assignments');
+      }
+
+      const { assignments: newAssignments, total } = await response.json();
 
       if (reset) {
         setAssignments(newAssignments || []);
       } else {
         setAssignments(prev => [...prev, ...(newAssignments || [])]);
       }
-      
+
       setTotalAssignments(total || 0);
       setCurrentOffset(offset + (newAssignments?.length || 0));
     } catch (error) {

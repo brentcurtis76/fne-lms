@@ -262,20 +262,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         const submittedGroups = submissions?.filter(s => s.status === 'submitted' || s.status === 'reviewed').length || 0;
 
-        // Get unique community info
-        const community = filteredGroups[0]?.growth_communities;
+        // Get unique community info - type cast since Supabase infers arrays
+        const community = filteredGroups[0]?.growth_communities as any;
+
+        // Type cast courses since Supabase returns it as array type but it's actually a single object
+        const courseData = lesson.courses as unknown as { id: any; title: any } | null;
 
         assignments.push({
           id: `${lesson.id}_${block.id}`,
           lesson_id: lesson.id,
           lesson_title: lesson.title,
           course_id: lesson.course_id,
-          course_title: lesson.courses?.title,
+          course_title: courseData?.title,
           title: block.data?.title || 'Tarea Grupal',
           description: block.data?.description || '',
           instructions: block.data?.instructions || '',
           resources: block.data?.resources || [],
-          created_at: block.data?.created_at || lesson.created_at,
+          created_at: block.data?.created_at || (lesson as any).created_at,
           groups_count: filteredGroups.length,
           students_count: filteredGroups.reduce((sum: number, g: any) =>
             sum + (g.assignment_group_members?.length || 0), 0),

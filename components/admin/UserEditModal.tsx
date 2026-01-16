@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, Mail, User, Building, AlertCircle, Briefcase } from 'lucide-react';
+import { X, Save, Mail, User, Building, AlertCircle, Briefcase, FlaskConical } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { toast } from 'react-hot-toast';
 import { EXTERNAL_SCHOOLS } from '../../constants/externalSchools';
@@ -15,6 +15,7 @@ interface UserEditModalProps {
     school?: string;
     external_school_affiliation?: string | null;
     user_roles?: Array<{ role_type: string }>;
+    can_run_qa_tests?: boolean;
   } | null;
   onUserUpdated: () => void;
 }
@@ -27,8 +28,10 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
     first_name: '',
     last_name: '',
     school: '',
-    external_school_affiliation: '' as string | null
+    external_school_affiliation: '' as string | null,
+    can_run_qa_tests: false
   });
+  const [updatingQATester, setUpdatingQATester] = useState(false);
   const [originalEmail, setOriginalEmail] = useState('');
 
   // Check if user is a consultant
@@ -43,7 +46,8 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         school: user.school || '',
-        external_school_affiliation: user.external_school_affiliation || ''
+        external_school_affiliation: user.external_school_affiliation || '',
+        can_run_qa_tests: user.can_run_qa_tests || false
       });
       setOriginalEmail(user.email || '');
     }
@@ -94,6 +98,44 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
       toast.error(error.message || 'Error al actualizar usuario');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleQATesterToggle = async (enabled: boolean) => {
+    if (!user) return;
+    setUpdatingQATester(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No hay sesión activa');
+      }
+
+      const response = await fetch('/api/admin/update-qa-tester-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          canRunQATests: enabled
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Error al actualizar estado de tester QA');
+      }
+
+      setFormData({ ...formData, can_run_qa_tests: enabled });
+      toast.success(enabled ? 'Usuario habilitado como tester QA' : 'Usuario deshabilitado como tester QA');
+    } catch (error: any) {
+      console.error('Error toggling QA tester status:', error);
+      toast.error(error.message || 'Error al actualizar estado de tester QA');
+    } finally {
+      setUpdatingQATester(false);
     }
   };
 
@@ -208,6 +250,42 @@ export default function UserEditModal({ isOpen, onClose, user, onUserUpdated }: 
               </p>
             </div>
           )}
+
+          {/* QA Tester Toggle */}
+          <div className="border-t pt-4 mt-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FlaskConical className="w-4 h-4 text-purple-600" />
+                <div>
+                  <label htmlFor="qa_tester" className="text-sm font-medium text-gray-700">
+                    Tester QA
+                  </label>
+                  <p className="text-xs text-gray-500">
+                    Puede acceder a /qa y ejecutar pruebas
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleQATesterToggle(!formData.can_run_qa_tests)}
+                disabled={updatingQATester}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 ${
+                  formData.can_run_qa_tests ? 'bg-purple-600' : 'bg-gray-200'
+                } ${updatingQATester ? 'opacity-50 cursor-wait' : ''}`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    formData.can_run_qa_tests ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+            {formData.can_run_qa_tests && (
+              <div className="mt-2 text-xs text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                ✓ Este usuario puede ejecutar pruebas QA
+              </div>
+            )}
+          </div>
 
           <div className="flex gap-3 mt-6">
             <button

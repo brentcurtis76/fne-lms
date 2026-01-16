@@ -347,6 +347,49 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventConfig> = {
   },
 
   // ============================================
+  // QA TESTING EVENTS
+  // ============================================
+
+  qa_test_failed: {
+    defaultTitle: (d) =>
+      d.scenario_name
+        ? `QA Fallo: ${d.scenario_name}`
+        : 'Fallo en prueba QA',
+    defaultDescription: (d) => {
+      const step = d.step_index ? `Paso ${d.step_index}` : 'Un paso';
+      const tester = d.tester_email ? ` (probado por ${d.tester_email})` : '';
+      return `${step} falló: "${d.step_instruction || 'Sin descripción'}"${tester}`;
+    },
+    defaultUrl: '/admin/qa',
+    importance: 'high',
+    category: 'admin',
+  },
+
+  qa_scenario_assigned: {
+    defaultTitle: (d) => {
+      const count = d.scenario_count || 1;
+      return count > 1
+        ? `${count} escenarios QA asignados`
+        : 'Nuevo escenario QA asignado';
+    },
+    defaultDescription: (d) => {
+      const count = d.scenario_count || 1;
+      const names = d.scenario_names as string[] | undefined;
+      const dueDate = d.due_date
+        ? ` Fecha límite: ${new Date(d.due_date as string).toLocaleDateString('es-CL')}.`
+        : '';
+
+      if (count === 1 && names && names.length > 0) {
+        return `Se te ha asignado el escenario "${names[0]}".${dueDate}`;
+      }
+      return `Se te han asignado ${count} escenarios para pruebas QA.${dueDate}`;
+    },
+    defaultUrl: '/qa',
+    importance: 'normal',
+    category: 'qa',
+  },
+
+  // ============================================
   // SYSTEM EVENTS
   // ============================================
 

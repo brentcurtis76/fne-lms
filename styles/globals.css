@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
 @import './tiptap.css';
+@import './tour.css';
 
 /* Add @font-face rules here if you have local font files for Mont and Eames Century Modern */
 /* Example for Mont (replace with actual paths and font weights/styles):

@@ -1,0 +1,230 @@
+/**
+ * QA Scenarios API
+ *
+ * GET - List scenarios (authenticated users)
+ * POST - Create scenario (admin only)
+ */
+
+import { NextApiRequest, NextApiResponse } from 'next';
+import {
+  getApiUser,
+  createApiSupabaseClient,
+  checkIsAdmin,
+  sendAuthError,
+  handleMethodNotAllowed,
+} from '@/lib/api-auth';
+import type {
+  QAScenario,
+  CreateScenarioRequest,
+  FeatureArea,
+} from '@/types/qa';
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method === 'GET') {
+    return handleGetScenarios(req, res);
+  }
+
+  if (req.method === 'POST') {
+    return handleCreateScenario(req, res);
+  }
+
+  return handleMethodNotAllowed(res, ['GET', 'POST']);
+}
+
+/**
+ * GET /api/qa/scenarios
+ * Query params:
+ * - feature_area: Filter by feature area
+ * - role: Filter by role required
+ * - is_active: Filter by active status (default: true)
+ * - priority: Filter by priority level
+ * - automated_only: Filter by automation type ('true', 'false', or 'all')
+ * - include_automated: If 'false', excludes automated_only scenarios (for tester UI)
+ */
+async function handleGetScenarios(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  const { user, error } = await getApiUser(req, res);
+  if (error || !user) {
+    return sendAuthError(res, 'Autenticación requerida');
+  }
+
+  const supabaseClient = await createApiSupabaseClient(req, res);
+
+  try {
+    const {
+      feature_area,
+      role,
+      is_active = 'true',
+      priority,
+      automated_only,
+      include_automated = 'true',
+    } = req.query;
+
+    let query = supabaseClient
+      .from('qa_scenarios')
+      .select('*')
+      .order('priority', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    // Apply filters
+    if (feature_area) {
+      query = query.eq('feature_area', feature_area as string);
+    }
+
+    if (role) {
+      query = query.eq('role_required', role as string);
+    }
+
+    if (is_active !== 'all') {
+      query = query.eq('is_active', is_active === 'true');
+    }
+
+    if (priority) {
+      query = query.eq('priority', parseInt(priority as string, 10));
+    }
+
+    // Filter by automated_only status
+    if (automated_only === 'true') {
+      query = query.eq('automated_only', true);
+    } else if (automated_only === 'false') {
+      query = query.eq('automated_only', false);
+    }
+    // If automated_only is 'all' or not specified, no filter applied
+
+    // For tester UI: exclude automated_only scenarios
+    if (include_automated === 'false') {
+      query = query.or('automated_only.is.null,automated_only.eq.false');
+    }
+
+    const { data: scenarios, error: fetchError } = await query;
+
+    if (fetchError) {
+      console.error('Error fetching scenarios:', fetchError);
+      return res.status(500).json({
+        error: 'Error al obtener escenarios',
+        details: fetchError.message,
+      });
+    }
+
+    // Count automated scenarios (only if we're filtering them out)
+    let automatedCount = 0;
+    if (include_automated === 'false') {
+      const { count } = await supabaseClient
+        .from('qa_scenarios')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true)
+        .eq('automated_only', true);
+      automatedCount = count || 0;
+    }
+
+    return res.status(200).json({
+      success: true,
+      scenarios: scenarios || [],
+      total: scenarios?.length || 0,
+      automatedCount, // Number of scenarios that require Playwright
+    });
+  } catch (err) {
+    console.error('Unexpected error fetching scenarios:', err);
+    return res.status(500).json({
+      error: 'Error inesperado al obtener escenarios',
+    });
+  }
+}
+
+/**
+ * POST /api/qa/scenarios
+ * Creates a new QA scenario (admin only)
+ */
+async function handleCreateScenario(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  const { isAdmin, user, error } = await checkIsAdmin(req, res);
+  if (error || !user) {
+    return sendAuthError(res, 'Autenticación requerida');
+  }
+
+  if (!isAdmin) {
+    return res.status(403).json({
+      error: 'Solo administradores pueden crear escenarios',
+    });
+  }
+
+  const supabaseClient = await createApiSupabaseClient(req, res);
+
+  try {
+    const body: CreateScenarioRequest = req.body;
+
+    // Validate required fields
+    if (!body.name || !body.feature_area || !body.role_required || !body.steps) {
+      return res.status(400).json({
+        error: 'Faltan campos requeridos: name, feature_area, role_required, steps',
+      });
+    }
+
+    // Validate steps array
+    if (!Array.isArray(body.steps) || body.steps.length === 0) {
+      return res.status(400).json({
+        error: 'El escenario debe tener al menos un paso',
+      });
+    }
+
+    // Validate each step
+    for (let i = 0; i < body.steps.length; i++) {
+      const step = body.steps[i];
+      if (!step.instruction || !step.expectedOutcome) {
+        return res.status(400).json({
+          error: `El paso ${i + 1} debe tener instruction y expectedOutcome`,
+        });
+      }
+    }
+
+    // Create the scenario
+    const scenarioData = {
+      name: body.name,
+      description: body.description || null,
+      feature_area: body.feature_area,
+      role_required: body.role_required,
+      preconditions: body.preconditions || [],
+      steps: body.steps.map((step, index) => ({
+        ...step,
+        index: index + 1,
+        captureOnFail: step.captureOnFail ?? true,
+        captureOnPass: step.captureOnPass ?? false,
+      })),
+      priority: body.priority || 2,
+      estimated_duration_minutes: body.estimated_duration_minutes || 5,
+      created_by: user.id,
+      is_active: true,
+    };
+
+    const { data: scenario, error: insertError } = await supabaseClient
+      .from('qa_scenarios')
+      .insert(scenarioData)
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error creating scenario:', insertError);
+      return res.status(500).json({
+        error: 'Error al crear escenario',
+        details: insertError.message,
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      scenario,
+    });
+  } catch (err) {
+    console.error('Unexpected error creating scenario:', err);
+    return res.status(500).json({
+      error: 'Error inesperado al crear escenario',
+    });
+  }
+}

@@ -1,9 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
-import { IndicatorCategory } from '@/types/assessment-builder';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 
-// Check if user has admin/consultor permissions (queries user_roles table)
+// Check if user has admin/consultor permissions
 async function hasAssessmentAdminPermission(supabaseClient: any, userId: string): Promise<boolean> {
   const { data: roles } = await supabaseClient
     .from('user_roles')
@@ -15,19 +14,19 @@ async function hasAssessmentAdminPermission(supabaseClient: any, userId: string)
   return roles.some((r: any) => ['admin', 'consultor'].includes(r.role_type));
 }
 
-/**
- * GET /api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators/[indicatorId]
- * Returns a single indicator
- *
- * PUT /api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators/[indicatorId]
- * Updates an indicator
- *
- * DELETE /api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators/[indicatorId]
- * Deletes an indicator (only if template is draft)
- */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'GET' && req.method !== 'PUT' && req.method !== 'DELETE') {
-    return handleMethodNotAllowed(res, ['GET', 'PUT', 'DELETE']);
+  const { templateId, moduleId, indicatorId } = req.query;
+
+  if (!templateId || typeof templateId !== 'string') {
+    return res.status(400).json({ error: 'ID de template inválido' });
+  }
+
+  if (!moduleId || typeof moduleId !== 'string') {
+    return res.status(400).json({ error: 'ID de módulo inválido' });
+  }
+
+  if (!indicatorId || typeof indicatorId !== 'string') {
+    return res.status(400).json({ error: 'ID de indicador inválido' });
   }
 
   // Authentication check
@@ -38,33 +37,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const supabaseClient = await createApiSupabaseClient(req, res);
 
-  // Permission check - query user_roles table
+  // Permission check
   const hasPermission = await hasAssessmentAdminPermission(supabaseClient, user.id);
   if (!hasPermission) {
-    return res.status(403).json({ error: 'No tienes permiso para gestionar indicadores' });
+    return res.status(403).json({ error: 'Solo administradores y consultores pueden acceder al constructor de evaluaciones' });
   }
 
-  const { templateId, moduleId, indicatorId } = req.query;
-  if (!templateId || typeof templateId !== 'string') {
-    return res.status(400).json({ error: 'templateId es requerido' });
-  }
-  if (!moduleId || typeof moduleId !== 'string') {
-    return res.status(400).json({ error: 'moduleId es requerido' });
-  }
-  if (!indicatorId || typeof indicatorId !== 'string') {
-    return res.status(400).json({ error: 'indicatorId es requerido' });
+  // Verify template exists
+  const { data: template, error: templateError } = await supabaseClient
+    .from('assessment_templates')
+    .select('id, status, is_archived')
+    .eq('id', templateId)
+    .single();
+
+  if (templateError || !template) {
+    return res.status(404).json({ error: 'Template no encontrado' });
   }
 
-  // Verify indicator exists and belongs to the correct module/template
+  // Verify module exists and belongs to template
+  const { data: module, error: moduleError } = await supabaseClient
+    .from('assessment_modules')
+    .select('id, template_id')
+    .eq('id', moduleId)
+    .single();
+
+  if (moduleError || !module) {
+    return res.status(404).json({ error: 'Módulo no encontrado' });
+  }
+
+  if (module.template_id !== templateId) {
+    return res.status(400).json({ error: 'El módulo no pertenece a este template' });
+  }
+
+  // Verify indicator exists and belongs to module
   const { data: indicator, error: indicatorError } = await supabaseClient
     .from('assessment_indicators')
-    .select(`
-      *,
-      assessment_modules:module_id (
-        id,
-        template_id
-      )
-    `)
+    .select('id, module_id')
     .eq('id', indicatorId)
     .single();
 
@@ -72,70 +80,82 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(404).json({ error: 'Indicador no encontrado' });
   }
 
-  const module = indicator.assessment_modules as any;
-  if (module?.id !== moduleId || module?.template_id !== templateId) {
-    return res.status(404).json({ error: 'Indicador no encontrado en este módulo' });
+  if (indicator.module_id !== moduleId) {
+    return res.status(400).json({ error: 'El indicador no pertenece a este módulo' });
   }
 
-  if (req.method === 'GET') {
-    // GET is allowed for any template status (to view indicator)
-    return handleGet(res, indicator);
-  } else {
-    // PUT and DELETE - blocked only for archived templates
-    const { data: template, error: templateError } = await supabaseClient
-      .from('assessment_templates')
-      .select('status, is_archived')
-      .eq('id', templateId)
+  switch (req.method) {
+    case 'GET':
+      return handleGet(req, res, supabaseClient, indicatorId);
+    case 'PUT':
+    case 'DELETE':
+      if (template.is_archived) {
+        return res.status(400).json({ error: 'Los templates archivados no pueden ser modificados' });
+      }
+      if (req.method === 'PUT') {
+        return handlePut(req, res, supabaseClient, templateId, indicatorId, user.id);
+      }
+      return handleDelete(req, res, supabaseClient, indicatorId, moduleId, templateId, user.id);
+    default:
+      return handleMethodNotAllowed(res, ['GET', 'PUT', 'DELETE']);
+  }
+}
+
+// GET /api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators/[indicatorId]
+async function handleGet(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  supabaseClient: any,
+  indicatorId: string
+) {
+  try {
+    const { data: indicator, error } = await supabaseClient
+      .from('assessment_indicators')
+      .select(`
+        id,
+        module_id,
+        code,
+        name,
+        description,
+        category,
+        frequency_config,
+        level_0_descriptor,
+        level_1_descriptor,
+        level_2_descriptor,
+        level_3_descriptor,
+        level_4_descriptor,
+        display_order,
+        weight,
+        visibility_condition,
+        created_at,
+        updated_at
+      `)
+      .eq('id', indicatorId)
       .single();
 
-    if (templateError || !template) {
-      return res.status(404).json({ error: 'Template no encontrado' });
+    if (error) {
+      console.error('Error fetching indicator:', error);
+      return res.status(500).json({ error: 'Error al obtener el indicador' });
     }
 
-    if (template.is_archived) {
-      return res.status(400).json({ error: 'Los templates archivados no pueden ser modificados' });
-    }
+    return res.status(200).json({
+      success: true,
+      indicator
+    });
 
-    if (req.method === 'PUT') {
-      return handlePut(req, res, supabaseClient, templateId, indicatorId, indicator, user.id);
-    } else {
-      return handleDelete(req, res, supabaseClient, templateId, indicatorId, user.id);
-    }
+  } catch (err: any) {
+    console.error('Unexpected error fetching indicator:', err);
+    return res.status(500).json({ error: err.message || 'Error al obtener indicador' });
   }
 }
 
-function handleGet(res: NextApiResponse, indicator: any) {
-  return res.status(200).json({
-    success: true,
-    indicator: {
-      id: indicator.id,
-      moduleId: indicator.module_id,
-      code: indicator.code,
-      name: indicator.name,
-      description: indicator.description,
-      category: indicator.category,
-      frequencyConfig: indicator.frequency_config,
-      frequencyUnitOptions: indicator.frequency_unit_options,
-      level0Descriptor: indicator.level_0_descriptor,
-      level1Descriptor: indicator.level_1_descriptor,
-      level2Descriptor: indicator.level_2_descriptor,
-      level3Descriptor: indicator.level_3_descriptor,
-      level4Descriptor: indicator.level_4_descriptor,
-      displayOrder: indicator.display_order,
-      weight: indicator.weight,
-      createdAt: indicator.created_at,
-      updatedAt: indicator.updated_at,
-    },
-  });
-}
-
+// PUT /api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators/[indicatorId]
 async function handlePut(
   req: NextApiRequest,
   res: NextApiResponse,
   supabaseClient: any,
   templateId: string,
   indicatorId: string,
-  currentIndicator: any,
   userId: string
 ) {
   try {
@@ -144,85 +164,37 @@ async function handlePut(
       name,
       description,
       category,
-      frequencyConfig,
-      frequencyUnitOptions,
-      level0Descriptor,
-      level1Descriptor,
-      level2Descriptor,
-      level3Descriptor,
-      level4Descriptor,
-      displayOrder,
+      frequency_config,
+      level_0_descriptor,
+      level_1_descriptor,
+      level_2_descriptor,
+      level_3_descriptor,
+      level_4_descriptor,
       weight,
+      visibility_condition
     } = req.body;
 
-    // Build update object with only provided fields
-    const updateData: any = {};
-
-    if (name !== undefined) {
-      if (typeof name !== 'string' || name.trim().length === 0) {
-        return res.status(400).json({ error: 'El nombre del indicador no puede estar vacío' });
-      }
-      updateData.name = name.trim();
-    }
-
-    if (code !== undefined) {
-      updateData.code = code?.trim() || null;
-    }
-
-    if (description !== undefined) {
-      updateData.description = description?.trim() || null;
-    }
-
-    if (category !== undefined) {
-      const validCategories: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad'];
-      if (!validCategories.includes(category)) {
-        return res.status(400).json({
-          error: 'Categoría inválida. Debe ser: cobertura, frecuencia, o profundidad',
-        });
-      }
-      updateData.category = category;
-    }
-
-    // Determine the effective category for validation
-    const effectiveCategory = category || currentIndicator.category;
-
-    if (frequencyConfig !== undefined) {
-      updateData.frequency_config = effectiveCategory === 'frecuencia' ? frequencyConfig : null;
-    }
-
-    if (level0Descriptor !== undefined) {
-      updateData.level_0_descriptor = effectiveCategory === 'profundidad' ? (level0Descriptor?.trim() || null) : null;
-    }
-    if (level1Descriptor !== undefined) {
-      updateData.level_1_descriptor = effectiveCategory === 'profundidad' ? (level1Descriptor?.trim() || null) : null;
-    }
-    if (level2Descriptor !== undefined) {
-      updateData.level_2_descriptor = effectiveCategory === 'profundidad' ? (level2Descriptor?.trim() || null) : null;
-    }
-    if (level3Descriptor !== undefined) {
-      updateData.level_3_descriptor = effectiveCategory === 'profundidad' ? (level3Descriptor?.trim() || null) : null;
-    }
-    if (level4Descriptor !== undefined) {
-      updateData.level_4_descriptor = effectiveCategory === 'profundidad' ? (level4Descriptor?.trim() || null) : null;
-    }
-
-    if (displayOrder !== undefined) {
-      updateData.display_order = displayOrder;
-    }
-
-    if (weight !== undefined) {
-      updateData.weight = weight;
-    }
-
-    if (frequencyUnitOptions !== undefined) {
-      updateData.frequency_unit_options = effectiveCategory === 'frecuencia' ? frequencyUnitOptions : null;
-    }
+    // Build update object
+    const updateData: Record<string, any> = {};
+    if (code !== undefined) updateData.code = code;
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (category !== undefined) updateData.category = category;
+    if (frequency_config !== undefined) updateData.frequency_config = frequency_config;
+    if (level_0_descriptor !== undefined) updateData.level_0_descriptor = level_0_descriptor;
+    if (level_1_descriptor !== undefined) updateData.level_1_descriptor = level_1_descriptor;
+    if (level_2_descriptor !== undefined) updateData.level_2_descriptor = level_2_descriptor;
+    if (level_3_descriptor !== undefined) updateData.level_3_descriptor = level_3_descriptor;
+    if (level_4_descriptor !== undefined) updateData.level_4_descriptor = level_4_descriptor;
+    if (weight !== undefined) updateData.weight = weight;
+    if (visibility_condition !== undefined) updateData.visibility_condition = visibility_condition;
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No hay campos para actualizar' });
     }
 
-    const { data: updated, error } = await supabaseClient
+    // Update indicator
+    const { data: indicator, error } = await supabaseClient
       .from('assessment_indicators')
       .update(updateData)
       .eq('id', indicatorId)
@@ -231,71 +203,39 @@ async function handlePut(
 
     if (error) {
       console.error('Error updating indicator:', error);
-      return res.status(500).json({ error: 'Error al actualizar indicador' });
+      return res.status(500).json({ error: 'Error al actualizar el indicador' });
     }
 
     // Update the snapshot for published templates
     const snapshotResult = await updatePublishedTemplateSnapshot(templateId, userId);
     if (!snapshotResult.success) {
       console.error('Failed to update snapshot:', snapshotResult.error);
-      // Don't fail the request, just log the error
     }
 
     return res.status(200).json({
       success: true,
-      indicator: {
-        id: updated.id,
-        moduleId: updated.module_id,
-        code: updated.code,
-        name: updated.name,
-        description: updated.description,
-        category: updated.category,
-        frequencyConfig: updated.frequency_config,
-        frequencyUnitOptions: updated.frequency_unit_options,
-        level0Descriptor: updated.level_0_descriptor,
-        level1Descriptor: updated.level_1_descriptor,
-        level2Descriptor: updated.level_2_descriptor,
-        level3Descriptor: updated.level_3_descriptor,
-        level4Descriptor: updated.level_4_descriptor,
-        displayOrder: updated.display_order,
-        weight: updated.weight,
-        createdAt: updated.created_at,
-        updatedAt: updated.updated_at,
-      },
+      indicator,
       snapshotUpdated: snapshotResult.success,
     });
+
   } catch (err: any) {
     console.error('Unexpected error updating indicator:', err);
     return res.status(500).json({ error: err.message || 'Error al actualizar indicador' });
   }
 }
 
+// DELETE /api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators/[indicatorId]
 async function handleDelete(
   req: NextApiRequest,
   res: NextApiResponse,
   supabaseClient: any,
-  templateId: string,
   indicatorId: string,
+  moduleId: string,
+  templateId: string,
   userId: string
 ) {
   try {
-    // Check if template is archived (archived templates cannot have indicators deleted)
-    const { data: template, error: templateError } = await supabaseClient
-      .from('assessment_templates')
-      .select('status, is_archived')
-      .eq('id', templateId)
-      .single();
-
-    if (templateError || !template) {
-      return res.status(404).json({ error: 'Template no encontrado' });
-    }
-
-    if (template.is_archived) {
-      return res.status(400).json({
-        error: 'Los templates archivados no pueden ser modificados',
-      });
-    }
-
+    // Delete indicator
     const { error } = await supabaseClient
       .from('assessment_indicators')
       .delete()
@@ -303,7 +243,25 @@ async function handleDelete(
 
     if (error) {
       console.error('Error deleting indicator:', error);
-      return res.status(500).json({ error: 'Error al eliminar indicador' });
+      return res.status(500).json({ error: 'Error al eliminar el indicador' });
+    }
+
+    // Re-order remaining indicators
+    const { data: remainingIndicators } = await supabaseClient
+      .from('assessment_indicators')
+      .select('id, display_order')
+      .eq('module_id', moduleId)
+      .order('display_order', { ascending: true });
+
+    if (remainingIndicators && remainingIndicators.length > 0) {
+      for (let i = 0; i < remainingIndicators.length; i++) {
+        if (remainingIndicators[i].display_order !== i + 1) {
+          await supabaseClient
+            .from('assessment_indicators')
+            .update({ display_order: i + 1 })
+            .eq('id', remainingIndicators[i].id);
+        }
+      }
     }
 
     // Update the snapshot for published templates
@@ -317,6 +275,7 @@ async function handleDelete(
       message: 'Indicador eliminado correctamente',
       snapshotUpdated: snapshotResult.success,
     });
+
   } catch (err: any) {
     console.error('Unexpected error deleting indicator:', err);
     return res.status(500).json({ error: err.message || 'Error al eliminar indicador' });

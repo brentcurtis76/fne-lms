@@ -11,6 +11,8 @@ import { toasterConfig } from '../constants/toastStyles';
 import { useEnvironmentValidation } from '../lib/utils/environmentMonitor';
 import { PermissionProvider } from '../contexts/PermissionContext';
 import DynamicFavicon from '../components/DynamicFavicon';
+import { QASessionProvider } from '../components/qa/QASessionProvider';
+import { useWebVitals } from '../hooks/useWebVitals';
 
 // Create a singleton Supabase client
 const supabaseClient = createPagesBrowserClient();
@@ -18,7 +20,10 @@ const supabaseClient = createPagesBrowserClient();
 export default function MyApp({ Component, pageProps }: AppProps) {
   // Environment validation on app startup
   useEnvironmentValidation();
-  
+
+  // Collect Core Web Vitals for QA monitoring (enabled in production)
+  useWebVitals(process.env.NODE_ENV === 'production');
+
   return (
     <SessionContextProvider supabaseClient={supabaseClient} initialSession={pageProps.initialSession}>
       <PermissionProvider>
@@ -36,16 +41,18 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         </Head>
         {/* Dynamic favicon based on route */}
         <DynamicFavicon />
-        <Component {...pageProps} />
-        <Toaster
-          position="bottom-right"
-          reverseOrder={false}
-          toastOptions={toasterConfig}
-          containerStyle={{
-            bottom: 24,
-            right: 24,
-          }}
-        />
+        <QASessionProvider>
+          <Component {...pageProps} />
+          <Toaster
+            position="bottom-right"
+            reverseOrder={false}
+            toastOptions={toasterConfig}
+            containerStyle={{
+              bottom: 24,
+              right: 24,
+            }}
+          />
+        </QASessionProvider>
       </PermissionProvider>
     </SessionContextProvider>
   );

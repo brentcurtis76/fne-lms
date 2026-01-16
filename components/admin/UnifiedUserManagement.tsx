@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  Search, 
+import {
+  Search,
   ChevronDown,
   ChevronRight,
-  CheckCircle, 
-  XCircle, 
+  CheckCircle,
+  XCircle,
   Clock,
   Users,
   UserPlus,
@@ -20,7 +20,8 @@ import {
   Upload,
   Edit,
   Loader2,
-  X
+  X,
+  FlaskConical
 } from 'lucide-react';
 import { toastSuccess, toastError } from '../../utils/toastUtils';
 import { TOAST_MESSAGES } from '../../constants/toastMessages';
@@ -47,6 +48,7 @@ interface UserType {
   expense_access_enabled?: boolean;
   is_global_admin?: boolean;
   external_school_affiliation?: string | null;
+  can_run_qa_tests?: boolean;
 }
 
 interface UnifiedUserManagementProps {
@@ -459,6 +461,12 @@ export default function UnifiedUserManagement({
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getRoleBadgeColor(getUserPrimaryRole(user) || '')}`}>
                           {getRoleDisplayName(user)}
                         </span>
+                        {user.can_run_qa_tests && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 border border-purple-200" title="Puede ejecutar pruebas QA">
+                            <FlaskConical className="w-3 h-3 mr-1" />
+                            QA
+                          </span>
+                        )}
                         {getAssignmentCount(user) > 0 && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
                             {getAssignmentCount(user)} asignaciones

@@ -389,6 +389,22 @@ class NotificationService {
           }
           break;
 
+        case 'qa_test_failed':
+          // Recipients are admin users (passed in admin_user_ids)
+          if (eventData.admin_user_ids && Array.isArray(eventData.admin_user_ids)) {
+            for (const userId of eventData.admin_user_ids) {
+              recipients.push({ id: userId });
+            }
+          }
+          break;
+
+        case 'qa_scenario_assigned':
+          // Recipient is the assigned tester
+          if (eventData.tester_id) {
+            recipients.push({ id: eventData.tester_id as string });
+          }
+          break;
+
         default:
           console.warn(`⚠️ Unknown event type for recipient determination: ${eventType}`);
       }

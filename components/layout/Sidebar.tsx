@@ -355,6 +355,57 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     permission: ['view_reports_all', 'view_reports_network', 'view_reports_school', 'view_reports_generation', 'view_reports_community']
   },
   {
+    id: 'qa-testing',
+    label: 'QA Testing',
+    icon: ClipboardDocumentCheckIcon,
+    description: 'Pruebas de calidad',
+    adminOnly: true,
+    children: [
+      {
+        id: 'qa-run-tests',
+        label: 'Ejecutar Pruebas',
+        href: '/qa',
+        description: 'Ejecutar escenarios de prueba',
+        icon: ClipboardDocumentCheckIcon
+      },
+      {
+        id: 'qa-admin',
+        label: 'Panel de QA',
+        href: '/admin/qa',
+        description: 'Dashboard y gestión',
+        adminOnly: true
+      },
+      {
+        id: 'qa-scenarios',
+        label: 'Escenarios',
+        href: '/admin/qa/scenarios',
+        description: 'Gestionar escenarios',
+        adminOnly: true
+      },
+      {
+        id: 'qa-import',
+        label: 'Importar',
+        href: '/admin/qa/import',
+        description: 'Importar escenarios',
+        adminOnly: true
+      },
+      {
+        id: 'qa-time-tracking',
+        label: 'Registro de Horas',
+        href: '/admin/qa/time-tracking',
+        description: 'Tiempo activo para facturación',
+        adminOnly: true
+      },
+      {
+        id: 'qa-generator',
+        label: 'Generador',
+        href: '/admin/qa/generate',
+        description: 'Generar escenarios con IA',
+        adminOnly: true
+      }
+    ]
+  },
+  {
     id: 'vias-transformacion',
     label: 'Vías de Transformación',
     icon: LightningBoltIcon,

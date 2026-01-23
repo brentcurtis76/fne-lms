@@ -197,7 +197,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: NewspaperIcon,
     href: '/admin/news',
     description: 'Gestión de noticias y artículos',
-    adminOnly: true,
+    restrictedRoles: ['admin', 'community_manager'],
     permission: 'view_news_all'
   },
   {
@@ -206,7 +206,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: CalendarIcon,
     href: '/admin/events',
     description: 'Gestión de eventos y línea de tiempo',
-    adminOnly: true,
+    restrictedRoles: ['admin', 'community_manager'],
     permission: 'view_events_all'
   },
   {
@@ -282,7 +282,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Gestión',
     icon: BriefcaseIcon,
     description: 'Gestión empresarial',
-    adminOnly: true,
+    restrictedRoles: ['admin', 'community_manager'],
     permission: [
       'view_contracts_all',
       'view_contracts_school',

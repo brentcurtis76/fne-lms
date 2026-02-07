@@ -121,7 +121,7 @@ export function EvaluationSummary({ evaluation, schoolName, completedDate, colla
         {/* AI Summary Quote */}
         <div className="mt-6 bg-white/70 rounded-lg p-4 border-l-4 border-brand_yellow">
           <p className="text-slate-700 italic leading-relaxed">
-            "{evaluation.summary}"
+            &quot;{evaluation.summary}&quot;
           </p>
         </div>
 

@@ -1,0 +1,268 @@
+QUICK REFERENCE: 101 ORIGINAL QA SCENARIOS - TEST COVERAGE SUMMARY
+Generated: 2026-02-07
+
+================================================================================
+OVERALL STATISTICS
+================================================================================
+Total Original Scenarios:    101
+✅ Fully Tested:             87 (86%)
+⚠️ Partially Tested:          7 (7%)
+❌ Not Tested:                7 (7%)
+
+================================================================================
+COVERAGE BY CATEGORY
+================================================================================
+
+PERMISSION BOUNDARIES (SHOULD DENY)
+├─ Total: 12
+├─ Tested: 10 (83%)
+├─ Not Tested: 2
+│  ├─ Scenario 3: Edit another user's profile (API)
+│  └─ Scenario 4: Assign roles to users (API)
+└─ Test Methods: 8 UI (Feb 5) + 2 API (Feb 7)
+
+CORRECT ACCESS (SHOULD ALLOW)
+├─ Total: 10
+├─ Tested: 10 (100%)
+├─ Test Methods: 7 UI (Feb 5) + 3 API (Feb 7)
+└─ Status: All scenarios covered ✅
+
+SCHOOL ASSIGNMENT SCOPING
+├─ Total: 4
+├─ Tested: 4 (100%)
+├─ Test Methods: API (Feb 7)
+└─ Status: All scenarios covered ✅
+
+SIDEBAR VISIBILITY - VISIBLE
+├─ Total: 7
+├─ Tested: 7 (100%)
+├─ Test Methods: UI (Feb 5)
+└─ Status: All scenarios covered ✅
+
+SIDEBAR VISIBILITY - NOT VISIBLE
+├─ Total: 19
+├─ Tested: 19 (100%)
+├─ Test Methods: 10 UI (Feb 5) + 9 Code+DB (Feb 7)
+└─ Status: All scenarios covered ✅
+
+EDGE CASES
+├─ Total: 8
+├─ Tested: 5 (63%)
+├─ Not Tested: 3
+│  ├─ Scenario 1: No school assignment
+│  ├─ Scenario 3: School deactivated
+│  └─ Scenario 4: Multiple role records
+├─ Untested: 1
+│  └─ Scenario 7: Direct API access
+└─ Test Methods: UI + Code+API
+
+COURSE PARTICIPATION
+├─ Total: 10
+├─ Tested: 9 (90%)
+├─ N/A: 1
+│  └─ Text/PDF lesson content (no test data)
+└─ Test Methods: UI (Feb 5) + Code+Data (Feb 7)
+
+QUIZ TAKING
+├─ Total: 11
+├─ Tested: 8 (73%)
+├─ N/A: 3
+│  ├─ Open-ended questions (feature exists, no test data)
+│  ├─ Timed quiz (feature exists, no timeLimit in test quiz)
+│  └─ Pending review for open-ended (no open-ended in test)
+└─ Test Methods: 6 UI (Feb 5) + 2 Code (Feb 7)
+
+ASSIGNMENT/TASK SUBMISSION
+├─ Total: 9
+├─ Tested: 5 (56%)
+├─ Code-Only: 2 (UI not tested)
+│  ├─ File upload
+│  └─ Text response
+├─ Not Implemented: 2
+│  ├─ Edit submission before deadline
+│  └─ Rubric scoring
+└─ Test Methods: UI (Feb 5) + Code+Data (Feb 7) + API (Feb 7)
+
+COLLABORATIVE WORKSPACE
+├─ Total: 7
+├─ Tested: 6 (86%)
+├─ Not Tested: 1
+│  └─ Download shared file
+└─ Test Methods: UI (Feb 5)
+
+PROFILE & NOTIFICATIONS
+├─ Total: 4
+├─ Tested: 4 (100%)
+├─ Test Methods: UI (Feb 5) + Code (Feb 7)
+└─ Status: All scenarios covered ✅
+
+================================================================================
+TEST METHOD BREAKDOWN
+================================================================================
+
+UI Testing (Runtime, Browser):          45 scenarios (45%)
+  - Dashboard, sidebar, workspace, quiz, course learning, profile
+
+API Testing (Runtime, Authenticated):   25 scenarios (25%)
+  - School scoping, permissions, assignments, quiz data
+
+Code+DB Testing (Static + Data):        17 scenarios (17%)
+  - Sidebar filtering, progress tracking, avatar upload
+
+N/A (Feature exists, no test data):      5 scenarios (5%)
+  - Open-ended quiz, timed quiz, text/PDF blocks
+
+Code-Only (Source verified, UI not):     2 scenarios (2%)
+  - File upload, text response submission
+
+Not Implemented (Feature doesn't exist):  2 scenarios (2%)
+  - Edit submission, rubric scoring
+
+Not Tested (Missing):                    3 scenarios (3%)
+  - No-school edge case, deactivated-school, multi-role
+
+================================================================================
+REDUNDANT TEST ROWS
+================================================================================
+
+Assessment Builder (NOT redundant):
+├─ Row A (Feb 5, UI): /admin/assessment-builder → Redirected
+├─ Row B (Feb 7, API): POST endpoint → 403
+└─ Status: Different test methods ✅
+
+Espacio Colaborativo (NOT redundant):
+├─ Row A (Feb 5): No community_id → Hidden
+├─ Row B (Feb 5): With community_id → Visible
+└─ Status: Complementary conditions ✅
+
+Overall Finding: MINIMAL REDUNDANCY - No true duplicates found
+
+================================================================================
+EXTRA TEST ROWS NOT IN ORIGINAL 101
+================================================================================
+
+Permission Boundary Extensions:    5 rows
+├─ Events admin access
+├─ Learning paths admin access
+├─ Transversal context access
+├─ News admin access
+└─ Vias transformacion API
+
+Functional Extensions:            31+ rows
+├─ Badge System (5) - NEW FEATURE
+├─ Group Assignment (5) - Extension
+├─ Course Completion (3) - Variant
+├─ Learning Paths (2) - UI detail
+├─ Dashboard (3) - Extension
+├─ Document Upload (5) - Breakdown
+├─ Mensajes Tab (3) - Detail
+└─ Tasks UI (4) - Tab detail
+
+Total Extra Scenarios: ~36 beyond original 101
+
+================================================================================
+CRITICAL GAPS
+================================================================================
+
+Missing Permission API Tests (2):
+├─ PUT /api/admin/users/[id] - Edit other user profile
+└─ POST /api/admin/role-management - Assign roles
+
+Missing Edge Cases (3):
+├─ No school assignment
+├─ School deactivated
+└─ Multiple role records
+
+Features Not Implemented (2):
+├─ Edit submission before deadline
+└─ Rubric scoring system
+
+No Test Data Variety (3):
+├─ Open-ended quiz questions
+├─ Timed quiz
+└─ Text/PDF lesson blocks
+
+Untested Functionality (1):
+└─ Workspace file download
+
+================================================================================
+SCENARIOS BY STATUS
+================================================================================
+
+✅ TESTED (87 scenarios):
+- All Permission Boundaries except 2 API tests
+- All Correct Access
+- All School Scoping
+- All Sidebar items (26 total)
+- Most Edge Cases (5/8)
+- Most Course Participation (9/10)
+- Most Quiz Taking (8/11)
+- Some Assignments (5/9)
+- Most Workspace (6/7)
+- All Profile & Notifications
+
+⚠️ PARTIAL (7 scenarios):
+- 3 Quiz scenarios (N/A - no test data)
+- 1 Course scenario (N/A - no test data)
+- 2 Task scenarios (Code-only)
+- 1 Workspace (Untested)
+
+❌ NOT TESTED (7 scenarios):
+- 2 Permission API tests
+- 3 Edge cases
+- 2 Task scenarios (Not implemented)
+
+================================================================================
+RECOMMENDATIONS PRIORITY
+================================================================================
+
+HIGH PRIORITY:
+1. Add missing permission API tests (2 scenarios)
+2. Test task submission UI interactions (2 scenarios)
+3. Verify workspace file download (1 scenario)
+
+MEDIUM PRIORITY:
+4. Create test data for quiz variety (open-ended, timed)
+5. Create test data for lesson variety (text, PDF blocks)
+6. Create special test users (no-school, deactivated, multi-role)
+
+LOWER PRIORITY:
+7. Implement missing features (edit submission, rubric scoring)
+8. Clarify code-verification vs runtime testing standards
+
+================================================================================
+FINAL VERDICT
+================================================================================
+
+Status: 86% COMPLETE
+
+Breakdown:
+- Core functionality: ✅ WELL TESTED
+- Permission boundaries: ✅ WELL TESTED (83%)
+- User workflows: ✅ WELL TESTED (happy path)
+- Edge cases: ⚠️ PARTIALLY TESTED (63%)
+- Quiz variety: ⚠️ LIMITED BY DATA (73%)
+- Task features: ⚠️ INCOMPLETE (56%)
+- Implementation gaps: ⚠️ DOCUMENTED (2 features)
+
+Recommendation: Mark as "Substantially Complete" with documented gaps.
+Platform ready for use with noted test coverage limitations.
+
+================================================================================
+ANALYSIS METADATA
+================================================================================
+
+Analysis Date: 2026-02-07
+Source Files:
+  - /docs/QA_SCENARIOS_DOCENTE.md (original 101 scenarios)
+  - /docs/QA_TEST_RESULTS_DOCENTE.md (test results Feb 5-7)
+
+Output Files:
+  - QA_MAPPING_ANALYSIS_2026-02-07.md (full detailed analysis)
+  - QA_MAPPING_SUMMARY_TABLE.txt (this file)
+
+Test Period: 2026-02-05 through 2026-02-07
+Test Account: docente.qa@fne.cl
+Test Methods: UI (Chrome), API (Authenticated), Code Review, DB Queries
+
+================================================================================

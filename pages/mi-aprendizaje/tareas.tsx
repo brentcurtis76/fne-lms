@@ -186,13 +186,34 @@ const TareasPage: React.FC = () => {
         return;
       }
 
-      // Get user's existing group (does NOT auto-create)
-      const { group, error: groupError } = await groupAssignmentsV2Service.getUserGroup(
-        assignment.assignment_id,
-        user.id
-      );
+      // Get user's existing group via API (bypasses RLS issues)
+      let group = null;
+      try {
+        console.log('[tareas] Fetching user group for assignmentId:', assignment.assignment_id);
+        const groupResponse = await fetch(`/api/assignments/user-group?assignmentId=${assignment.assignment_id}`);
 
-      if (groupError) {
+        // Handle non-JSON responses (like 404 HTML pages)
+        const contentType = groupResponse.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.error('[tareas] Non-JSON response from user-group API:', groupResponse.status, contentType);
+          toast.dismiss(loadingToast);
+          toast.error(`Error al cargar el grupo (${groupResponse.status})`);
+          return;
+        }
+
+        const groupData = await groupResponse.json();
+
+        if (!groupResponse.ok) {
+          console.error('[tareas] Error fetching user group:', groupData.error, 'details:', groupData.details, 'status:', groupResponse.status);
+          toast.dismiss(loadingToast);
+          toast.error(`Error al cargar el grupo: ${groupData.error || groupResponse.status}`);
+          return;
+        }
+
+        group = groupData.group;
+        console.log('[tareas] User group fetched:', group ? `id=${group.id}` : 'null (no group yet)');
+      } catch (groupFetchError) {
+        console.error('[tareas] Exception fetching user group:', groupFetchError);
         toast.dismiss(loadingToast);
         toast.error('Error al cargar el grupo');
         return;
@@ -224,12 +245,23 @@ const TareasPage: React.FC = () => {
   };
 
   const handleGroupSubmit = async (submissionData: any) => {
-    if (!user || !selectedAssignment || !selectedGroup) return;
+    if (!user || !selectedAssignment) {
+      toast.error('Error: usuario o tarea no encontrados');
+      return;
+    }
+
+    // Use group from submission data (set by modal) or fallback to selectedGroup
+    const groupToUse = submissionData.group || selectedGroup;
+
+    if (!groupToUse?.id) {
+      toast.error('Debes crear un grupo antes de entregar');
+      return;
+    }
 
     try {
       const result = await groupAssignmentsV2Service.submitGroupAssignment(
         selectedAssignment.assignment_id,
-        selectedGroup.id,
+        groupToUse.id,
         submissionData
       );
 

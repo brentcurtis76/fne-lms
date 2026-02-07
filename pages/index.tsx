@@ -485,7 +485,7 @@ export default function HomePage() {
                   <div className="bg-white rounded-2xl p-8 shadow-lg mb-8">
                     <h3 className="text-2xl font-bold mb-4">Nuestra Historia</h3>
                     <p className="text-gray-700 leading-relaxed">
-                      En Los Pellines nos hemos dedicado por más de 30 años al cuidado y fortalecimiento de la calidad de las relaciones. Hoy llevamos este "espíritu" a la sala de clases con una propuesta que pone en el centro el Aprendizaje con Sentido.
+                      En Los Pellines nos hemos dedicado por más de 30 años al cuidado y fortalecimiento de la calidad de las relaciones. Hoy llevamos este &quot;espíritu&quot; a la sala de clases con una propuesta que pone en el centro el Aprendizaje con Sentido.
                     </p>
                   </div>
 

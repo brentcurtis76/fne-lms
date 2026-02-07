@@ -271,8 +271,8 @@ const QAScenarioImportPage: React.FC = () => {
             <li>
               Claude Code generará un JSON con el formato esperado
             </li>
-            <li>Pega el JSON aquí y haz clic en "Validar"</li>
-            <li>Revisa los escenarios y haz clic en "Importar"</li>
+            <li>Pega el JSON aquí y haz clic en &quot;Validar&quot;</li>
+            <li>Revisa los escenarios y haz clic en &quot;Importar&quot;</li>
           </ol>
           <div className="mt-3 flex gap-2">
             <button

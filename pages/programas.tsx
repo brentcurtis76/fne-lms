@@ -311,7 +311,7 @@ export default function ProgramasPage() {
                 Descubre nuestros programas diseñados para acompañar a las comunidades educativas en su viaje hacia una educación de vanguardia.
               </p>
               <p className="text-lg text-gray-600 leading-relaxed text-center">
-                La "evolución de la cultura" de una escuela se basa en la conservación de su identidad, en la elevación de sus fortalezas y en la creación colectiva de una nueva mirada y nuevas habilidades.
+                La &quot;evolución de la cultura&quot; de una escuela se basa en la conservación de su identidad, en la elevación de sus fortalezas y en la creación colectiva de una nueva mirada y nuevas habilidades.
               </p>
             </div>
           </div>

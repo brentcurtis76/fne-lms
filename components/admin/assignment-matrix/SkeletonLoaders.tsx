@@ -183,7 +183,7 @@ export function EmptyState({ icon, title, description, action }: EmptyStateProps
   );
 }
 
-export default {
+const SkeletonLoaders = {
   UserItemSkeleton,
   GroupItemSkeleton,
   AssignmentCardSkeleton,
@@ -194,3 +194,5 @@ export default {
   AssignmentListSkeleton,
   EmptyState
 };
+
+export default SkeletonLoaders;

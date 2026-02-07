@@ -466,14 +466,6 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     ]
   },
   {
-    id: 'consultor-settings',
-    label: 'Configuración',
-    icon: CogIcon,
-    href: '/profile',
-    description: 'Configuración personal',
-    restrictedRoles: ['consultor']
-  },
-  {
     id: 'admin',
     label: 'Configuración',
     icon: CogIcon,

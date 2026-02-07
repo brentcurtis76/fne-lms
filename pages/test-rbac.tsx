@@ -63,8 +63,8 @@ export default function TestRBAC() {
             <div className="border rounded p-4 bg-yellow-50">
               <h2 className="font-semibold mb-2">Troubleshooting:</h2>
               <ol className="list-decimal list-inside space-y-1 text-sm">
-                <li>If FEATURE_FLAG is undefined, env vars aren't set in Vercel</li>
-                <li>If it's "false" (string), change it to true in Vercel</li>
+                <li>If FEATURE_FLAG is undefined, env vars aren&apos;t set in Vercel</li>
+                <li>If it&apos;s &quot;false&quot; (string), change it to true in Vercel</li>
                 <li>After changing, you MUST redeploy for changes to take effect</li>
                 <li>Try hard refresh: Cmd+Shift+R (Mac) or Ctrl+Shift+R (PC)</li>
               </ol>

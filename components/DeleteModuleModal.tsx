@@ -46,7 +46,7 @@ const DeleteModuleModal: React.FC<DeleteModuleModalProps> = ({
                   Esta acción no se puede deshacer
                 </h4>
                 <p className="text-sm text-red-700">
-                  Se eliminará permanentemente el módulo <strong>"{moduleTitle}"</strong> y <strong>todas sus lecciones asociadas</strong>, incluyendo todo el contenido de bloques.
+                  Se eliminará permanentemente el módulo <strong>&quot;{moduleTitle}&quot;</strong> y <strong>todas sus lecciones asociadas</strong>, incluyendo todo el contenido de bloques.
                 </p>
               </div>
             </div>

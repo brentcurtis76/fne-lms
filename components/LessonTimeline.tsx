@@ -46,6 +46,7 @@ const TimelineBlock: React.FC<TimelineBlockProps> = ({
       case 'video':
         return <Video size={16} className="text-amber-600" />;
       case 'image':
+        /* eslint-disable-next-line jsx-a11y/alt-text */
         return <Image size={16} className="text-green-600" />;
       case 'quiz':
         return <HelpCircle size={16} className="text-orange-600" />;

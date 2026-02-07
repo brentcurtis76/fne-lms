@@ -150,7 +150,7 @@ export default function AuthStatus() {
                   <li>Already has full admin privileges and history</li>
                   <li>Avoids potential issues with repeatedly deleted/recreated accounts</li>
                   <li>Maintains audit trail and consistency</li>
-                  <li>Follows the principle of "one primary admin account"</li>
+                  <li>Follows the principle of &quot;one primary admin account&quot;</li>
                 </ul>
                 <p className="mt-3 text-sm">
                   The brentcurtis76@gmail.com account has been deleted and recreated multiple times,

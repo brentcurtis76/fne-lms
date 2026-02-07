@@ -2,18 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import type { UpdateTemplateRequest } from '@/types/assessment-builder';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
-
-// Check if user has admin/consultor permissions
-async function hasAssessmentAdminPermission(supabaseClient: any, userId: string): Promise<boolean> {
-  const { data: roles } = await supabaseClient
-    .from('user_roles')
-    .select('role_type')
-    .eq('user_id', userId)
-    .eq('is_active', true);
-
-  if (!roles || roles.length === 0) return false;
-  return roles.some((r: any) => ['admin', 'consultor'].includes(r.role_type));
-}
+import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { templateId } = req.query;
@@ -30,19 +19,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const supabaseClient = await createApiSupabaseClient(req, res);
 
-  // Permission check
-  const hasPermission = await hasAssessmentAdminPermission(supabaseClient, user.id);
-  if (!hasPermission) {
-    return res.status(403).json({ error: 'Solo administradores y consultores pueden acceder al constructor de evaluaciones' });
+  // Read permission check (admin or consultor)
+  const canRead = await hasAssessmentReadPermission(supabaseClient, user.id);
+  if (!canRead) {
+    return res.status(403).json({ error: 'No tienes permiso para acceder al constructor de evaluaciones' });
   }
 
   switch (req.method) {
     case 'GET':
       return handleGet(req, res, supabaseClient, templateId);
-    case 'PUT':
+    case 'PUT': {
+      const canWrite = await hasAssessmentWritePermission(supabaseClient, user.id);
+      if (!canWrite) {
+        return res.status(403).json({ error: 'Solo administradores pueden modificar templates' });
+      }
       return handlePut(req, res, supabaseClient, templateId, user.id);
-    case 'DELETE':
+    }
+    case 'DELETE': {
+      const canDelete = await hasAssessmentWritePermission(supabaseClient, user.id);
+      if (!canDelete) {
+        return res.status(403).json({ error: 'Solo administradores pueden eliminar templates' });
+      }
       return handleDelete(req, res, supabaseClient, templateId);
+    }
     default:
       return handleMethodNotAllowed(res, ['GET', 'PUT', 'DELETE']);
   }

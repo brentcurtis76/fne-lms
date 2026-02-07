@@ -494,7 +494,7 @@ export default function ContractPDFImporter({
                       <div>
                         <p className="font-medium text-brand_primary">Cliente existente encontrado</p>
                         <p className="text-gray-700 text-sm mt-1">
-                          Se encontró el cliente "{existingClient.nombre_legal}" con el mismo RUT.
+                          Se encontró el cliente &quot;{existingClient.nombre_legal}&quot; con el mismo RUT.
                           Los datos del cliente se usarán automáticamente.
                         </p>
                       </div>

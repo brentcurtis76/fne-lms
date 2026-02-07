@@ -393,7 +393,7 @@ export default function DocumentFilters({
           <span>Filtros activos:</span>
           {filters.search && (
             <span className="inline-flex items-center px-2 py-1 rounded bg-blue-100 text-blue-800">
-              Búsqueda: "{filters.search}"
+              Búsqueda: &quot;{filters.search}&quot;
               <button
                 onClick={() => updateFilters({ search: '' })}
                 className="ml-1 text-blue-600 hover:text-blue-800"

@@ -295,13 +295,13 @@ const QAMarkdownImportPage: React.FC = () => {
           </h2>
           <ol className="list-decimal list-inside text-sm text-blue-800 space-y-1">
             <li>
-              Exporta escenarios existentes desde la página de gestión (botón "Exportar MD")
+              Exporta escenarios existentes desde la página de gestión (botón &quot;Exportar MD&quot;)
             </li>
             <li>
               Edita el archivo .md en tu editor favorito (VS Code, Sublime, etc.)
             </li>
             <li>
-              Pega el contenido editado aquí y haz clic en "Validar"
+              Pega el contenido editado aquí y haz clic en &quot;Validar&quot;
             </li>
             <li>
               Revisa los escenarios parseados e importa

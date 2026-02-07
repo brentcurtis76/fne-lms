@@ -251,7 +251,7 @@ export interface SaveStepResultRequest {
   step_index: number;
   step_instruction: string;
   expected_outcome: string;
-  passed: boolean;
+  passed: boolean | null;
   tester_note?: string;
   console_logs?: ConsoleLogEntry[];
   network_logs?: NetworkLogEntry[];

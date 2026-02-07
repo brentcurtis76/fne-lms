@@ -343,7 +343,7 @@ const QAConfirmOutcomesPage: React.FC = () => {
               </h2>
               <p className="text-sm text-yellow-700 mt-1">
                 Cuando Claude Code genera escenarios, algunos resultados esperados pueden marcarse con
-                "??? (NEEDS CONFIRMATION)" si no está seguro del comportamiento exacto.
+                &quot;??? (NEEDS CONFIRMATION)&quot; si no está seguro del comportamiento exacto.
                 Revisa estos pasos y proporciona el resultado esperado correcto.
               </p>
             </div>

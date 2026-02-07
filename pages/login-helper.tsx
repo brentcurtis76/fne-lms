@@ -72,7 +72,7 @@ export default function LoginHelper() {
           <div className="mt-8 pt-6 border-t border-gray-200">
             <h3 className="font-semibold mb-2 text-gray-700">After logging in:</h3>
             <ol className="list-decimal list-inside space-y-1 text-gray-600">
-              <li>You'll be redirected to the dashboard</li>
+              <li>You&apos;ll be redirected to the dashboard</li>
               <li>Full admin menu will be available in the sidebar</li>
               <li>All features and permissions will be active</li>
             </ol>

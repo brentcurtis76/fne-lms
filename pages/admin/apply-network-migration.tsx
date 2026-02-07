@@ -115,7 +115,7 @@ const ApplyNetworkMigration: React.FC = () => {
                   <div>
                     <strong>Accede al Dashboard de Supabase</strong>
                     <p className="text-sm text-gray-600">
-                      Ve a tu proyecto de Supabase y navega a la sección "SQL Editor"
+                      Ve a tu proyecto de Supabase y navega a la sección &quot;SQL Editor&quot;
                     </p>
                   </div>
                 </li>
@@ -144,13 +144,13 @@ const ApplyNetworkMigration: React.FC = () => {
                   <div>
                     <strong>Ejecuta la Migración en DOS PASOS</strong>
                     <p className="text-sm text-gray-600">
-                      <strong>PASO 1:</strong> Ejecuta SOLO la primera parte (hasta "COMMIT the enum change")
+                      <strong>PASO 1:</strong> Ejecuta SOLO la primera parte (hasta &quot;COMMIT the enum change&quot;)
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      <strong>PASO 2:</strong> Después ejecuta el resto (desde "BEGIN;")
+                      <strong>PASO 2:</strong> Después ejecuta el resto (desde &quot;BEGIN;&quot;)
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
-                      Esto evita el error "unsafe use of new value of enum type"
+                      Esto evita el error &quot;unsafe use of new value of enum type&quot;
                     </p>
                   </div>
                 </li>
@@ -162,7 +162,7 @@ const ApplyNetworkMigration: React.FC = () => {
                   <div>
                     <strong>Verifica la Instalación</strong>
                     <p className="text-sm text-gray-600">
-                      Haz clic en "Verificar Estado de Migración" arriba para confirmar
+                      Haz clic en &quot;Verificar Estado de Migración&quot; arriba para confirmar
                     </p>
                     <p className="text-sm text-gray-600 mt-1">
                       Una vez verificado, podrás usar la gestión de redes

@@ -41,6 +41,7 @@ const AssessmentBuilderIndex: React.FC = () => {
   const [isArchiving, setIsArchiving] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active');
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Duplicate modal state
   const [duplicateModal, setDuplicateModal] = useState<{ template: AssessmentTemplate } | null>(null);
@@ -78,7 +79,9 @@ const AssessmentBuilderIndex: React.FC = () => {
         .eq('is_active', true);
 
       const hasAdminAccess = roles?.some(r => ['admin', 'consultor'].includes(r.role_type)) || false;
+      const adminRole = roles?.some((r: any) => r.role_type === 'admin') || false;
       setHasPermission(hasAdminAccess);
+      setIsAdmin(adminRole);
     };
 
     checkAuth();
@@ -452,7 +455,7 @@ const AssessmentBuilderIndex: React.FC = () => {
             </select>
           </div>
 
-          {activeTab === 'active' && (
+          {activeTab === 'active' && isAdmin && (
             <Link href="/admin/assessment-builder/create" legacyBehavior>
               <a className="inline-flex items-center justify-center px-4 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-brand_blue/90 transition-colors text-sm font-medium">
                 <Plus className="w-4 h-4 mr-2" />
@@ -490,7 +493,7 @@ const AssessmentBuilderIndex: React.FC = () => {
                     ? '¡Comienza creando tu primer template de evaluación!'
                     : 'Intenta con otros términos de búsqueda o filtros'}
                 </p>
-                {templates.length === 0 && (
+                {templates.length === 0 && isAdmin && (
                   <div className="mt-8">
                     <Link href="/admin/assessment-builder/create" legacyBehavior>
                       <a className="inline-flex items-center px-5 py-2.5 text-sm font-medium rounded-md shadow-sm text-white bg-brand_blue hover:bg-brand_blue/90 transition-colors">
@@ -566,13 +569,13 @@ const AssessmentBuilderIndex: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end gap-2">
-                          {/* View/Edit button - Eye for archived, Pencil for draft/published */}
+                          {/* View/Edit button - Eye for archived or consultor, Pencil for admin draft/published */}
                           <Link href={`/admin/assessment-builder/${template.id}`} legacyBehavior>
                             <a
                               className="p-2 text-brand_blue hover:bg-brand_blue/10 rounded-lg transition-colors"
-                              title={template.is_archived ? 'Ver' : 'Editar'}
+                              title={template.is_archived || !isAdmin ? 'Ver' : 'Editar'}
                             >
-                              {template.is_archived ? (
+                              {template.is_archived || !isAdmin ? (
                                 <Eye className="w-4 h-4" />
                               ) : (
                                 <Edit2 className="w-4 h-4" />
@@ -580,8 +583,8 @@ const AssessmentBuilderIndex: React.FC = () => {
                             </a>
                           </Link>
 
-                          {/* Duplicate button - for non-archived templates */}
-                          {!template.is_archived && (
+                          {/* Duplicate button - for non-archived templates (admin only) */}
+                          {isAdmin && !template.is_archived && (
                             <button
                               onClick={() => openDuplicateModal(template)}
                               className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -591,8 +594,8 @@ const AssessmentBuilderIndex: React.FC = () => {
                             </button>
                           )}
 
-                          {/* Archive button - for published, non-archived templates */}
-                          {template.status === 'published' && !template.is_archived && (
+                          {/* Archive button - for published, non-archived templates (admin only) */}
+                          {isAdmin && template.status === 'published' && !template.is_archived && (
                             <button
                               onClick={() => handleArchive(template)}
                               disabled={isArchiving === template.id}
@@ -603,8 +606,8 @@ const AssessmentBuilderIndex: React.FC = () => {
                             </button>
                           )}
 
-                          {/* Restore button - for archived templates */}
-                          {template.is_archived && (
+                          {/* Restore button - for archived templates (admin only) */}
+                          {isAdmin && template.is_archived && (
                             <button
                               onClick={() => handleRestore(template)}
                               disabled={isArchiving === template.id}
@@ -615,8 +618,8 @@ const AssessmentBuilderIndex: React.FC = () => {
                             </button>
                           )}
 
-                          {/* Delete button - for draft templates OR archived templates */}
-                          {(template.status === 'draft' || template.is_archived) && (
+                          {/* Delete button - for draft templates OR archived templates (admin only) */}
+                          {isAdmin && (template.status === 'draft' || template.is_archived) && (
                             <button
                               onClick={() => handleDelete(template)}
                               disabled={isDeleting === template.id}
@@ -645,7 +648,7 @@ const AssessmentBuilderIndex: React.FC = () => {
               Confirmar Eliminación
             </h3>
             <p className="text-gray-600 mb-4">
-              ¿Estás seguro de eliminar el template <strong>"{deleteConfirmation.template.name}"</strong>?
+              ¿Estás seguro de eliminar el template <strong>&quot;{deleteConfirmation.template.name}&quot;</strong>?
             </p>
             {deleteConfirmation.counts && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">

@@ -534,8 +534,8 @@ export default function UserPreferences({ userId }: UserPreferencesProps) {
               Acerca de las preferencias
             </h4>
             <p className="text-sm text-blue-700">
-              Las preferencias se aplican inmediatamente. Las notificaciones marcadas como "Alta prioridad" 
-              siempre se enviarán durante los horarios silenciosos si tienes activada esa opción. 
+              Las preferencias se aplican inmediatamente. Las notificaciones marcadas como &quot;Alta prioridad&quot;
+              siempre se enviarán durante los horarios silenciosos si tienes activada esa opción.
               Los resúmenes por email se envían según la frecuencia que elijas.
             </p>
           </div>

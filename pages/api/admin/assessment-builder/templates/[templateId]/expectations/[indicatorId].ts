@@ -1,17 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
-
-// Check if user has admin/consultor permissions (queries user_roles table)
-async function hasAssessmentAdminPermission(supabaseClient: any, userId: string): Promise<boolean> {
-  const { data: roles } = await supabaseClient
-    .from('user_roles')
-    .select('role_type')
-    .eq('user_id', userId)
-    .eq('is_active', true);
-
-  if (!roles || roles.length === 0) return false;
-  return roles.some((r: any) => ['admin', 'consultor'].includes(r.role_type));
-}
+import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 
 /**
  * GET /api/admin/assessment-builder/templates/[templateId]/expectations/[indicatorId]
@@ -36,10 +25,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const supabaseClient = await createApiSupabaseClient(req, res);
 
-  // Permission check - query user_roles table
-  const hasPermission = await hasAssessmentAdminPermission(supabaseClient, user.id);
-  if (!hasPermission) {
-    return res.status(403).json({ error: 'No tienes permiso para gestionar expectativas' });
+  // Read permission check (admin or consultor)
+  const canRead = await hasAssessmentReadPermission(supabaseClient, user.id);
+  if (!canRead) {
+    return res.status(403).json({ error: 'No tienes permiso para acceder a expectativas' });
   }
 
   const { templateId, indicatorId } = req.query;
@@ -64,9 +53,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (req.method === 'GET') {
     return handleGet(req, res, supabaseClient, templateId, indicatorId);
-  } else if (req.method === 'PUT') {
-    return handlePut(req, res, supabaseClient, templateId, indicatorId);
   } else {
+    // PUT/DELETE require write access (admin only)
+    const canWrite = await hasAssessmentWritePermission(supabaseClient, user.id);
+    if (!canWrite) {
+      return res.status(403).json({ error: 'Solo administradores pueden modificar expectativas' });
+    }
+    if (req.method === 'PUT') {
+      return handlePut(req, res, supabaseClient, templateId, indicatorId);
+    }
     return handleDelete(req, res, supabaseClient, templateId, indicatorId);
   }
 }

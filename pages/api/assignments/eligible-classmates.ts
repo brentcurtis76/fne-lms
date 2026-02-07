@@ -98,7 +98,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 3. Get requester's school_id from active user_roles (handle multiple roles)
-    const { data: requesterRoles, error: roleError } = await supabase
+    // Use supabaseAdmin to bypass RLS
+    const { data: requesterRoles, error: roleError } = await supabaseAdmin
       .from('user_roles')
       .select('school_id, role_type')
       .eq('user_id', userId)
@@ -127,7 +128,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('[eligible-classmates] requester has', requesterRoles.length, 'active roles, selected role:', selectedRole.role_type, 'school_id:', requesterSchoolId);
 
     // 4. Get assignment's course_id by traversing blocks → lessons
-    const { data: assignmentBlock, error: blockError } = await supabase
+    // Use supabaseAdmin to bypass RLS (blocks table may have restrictive policies)
+    const { data: assignmentBlock, error: blockError } = await supabaseAdmin
       .from('blocks')
       .select('lesson_id')
       .eq('id', assignmentId as string)
@@ -138,34 +140,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Tarea no encontrada' });
     }
 
-    const { data: lesson, error: lessonError } = await supabase
+    // Get lesson to find course_id (separate query, no FK join)
+    const { data: lesson, error: lessonError } = await supabaseAdmin
       .from('lessons')
-      .select('course_id')
+      .select('course_id, module_id')
       .eq('id', assignmentBlock.lesson_id)
       .single();
 
-    if (lessonError || !lesson || !lesson.course_id) {
-      console.error('[eligible-classmates] Lesson not found or has no course:', assignmentBlock.lesson_id, lessonError);
+    if (lessonError || !lesson) {
+      console.error('[eligible-classmates] Lesson not found:', assignmentBlock.lesson_id, lessonError);
       return res.status(404).json({ error: 'Curso no encontrado para esta tarea' });
     }
 
-    const courseId = lesson.course_id;
-    console.log('[eligible-classmates] assignment course_id:', courseId);
+    console.log('[eligible-classmates] STEP 4a - Lesson data:', { lesson_id: assignmentBlock.lesson_id, course_id: lesson.course_id, module_id: lesson.module_id });
 
-    // 5. Get all students from the SAME school who are enrolled in this course
+    // course_id can be on lesson directly OR on the module — query module separately if needed
+    let courseId = lesson.course_id;
+
+    if (!courseId && lesson.module_id) {
+      const { data: moduleData, error: moduleError } = await supabaseAdmin
+        .from('modules')
+        .select('course_id')
+        .eq('id', lesson.module_id)
+        .single();
+
+      if (moduleError) {
+        console.error('[eligible-classmates] Error fetching module:', lesson.module_id, moduleError);
+      }
+
+      console.log('[eligible-classmates] STEP 4b - Module data:', { module_id: lesson.module_id, course_id: moduleData?.course_id, error: moduleError?.message });
+      courseId = moduleData?.course_id || null;
+    }
+
+    if (!courseId) {
+      console.error('[eligible-classmates] No course_id found on lesson or module:', assignmentBlock.lesson_id);
+      return res.status(404).json({ error: 'Curso no encontrado para esta tarea' });
+    }
+    console.log('[eligible-classmates] STEP 4 - Resolved course_id:', courseId);
+
+    // 5. Get all students enrolled in this course (no FK join — just user_id)
     // Use supabaseAdmin to bypass RLS (safe: already validated user is group member)
     const { data: enrolledClassmates, error: enrollmentError } = await supabaseAdmin
       .from('course_enrollments')
-      .select(`
-        user_id,
-        user:profiles!course_enrollments_user_id_fkey(
-          id,
-          first_name,
-          last_name,
-          email,
-          avatar_url
-        )
-      `)
+      .select('user_id')
       .eq('course_id', courseId)
       .eq('status', 'active')
       .neq('user_id', userId); // Exclude self
@@ -180,7 +197,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener compañeros' });
     }
 
-    console.log('[eligible-classmates] total course enrollments (excluding self):', enrolledClassmates?.length || 0);
+    console.log('[eligible-classmates] STEP 5 - Total course enrollments (excluding self):', enrolledClassmates?.length || 0);
+    if (enrolledClassmates && enrolledClassmates.length > 0) {
+      console.log('[eligible-classmates] STEP 5 - Enrolled user_ids:', enrolledClassmates.map(e => e.user_id));
+    }
 
     if (!enrolledClassmates || enrolledClassmates.length === 0) {
       console.log('[eligible-classmates] No enrolled classmates found for course:', courseId);
@@ -204,7 +224,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const sameSchoolUserIds = new Set(classmateRoles?.map(r => r.user_id) || []);
     const sameSchoolClassmates = enrolledClassmates.filter(c => sameSchoolUserIds.has(c.user_id));
 
-    console.log('[eligible-classmates] same school classmates:', sameSchoolClassmates.length);
+    console.log('[eligible-classmates] STEP 6 - Classmate roles in same school:', classmateRoles?.length || 0);
+    if (classmateRoles && classmateRoles.length > 0) {
+      console.log('[eligible-classmates] STEP 6 - Same-school user_ids:', classmateRoles.map(r => r.user_id));
+    }
+    console.log('[eligible-classmates] STEP 6 - Same school classmates after filter:', sameSchoolClassmates.length);
 
     if (sameSchoolClassmates.length === 0) {
       console.log('[eligible-classmates] No classmates from school_id:', requesterSchoolId);
@@ -224,25 +248,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const assignedUserIds = groupMembers?.map(m => m.user_id) || [];
-    console.log('[eligible-classmates] already assigned user count:', assignedUserIds.length);
+    console.log('[eligible-classmates] STEP 7 - Already assigned users:', assignedUserIds.length);
+    if (assignedUserIds.length > 0) {
+      console.log('[eligible-classmates] STEP 7 - Assigned user_ids:', assignedUserIds);
+    }
 
-    // 8. Filter out already-assigned students
-    const eligibleClassmates = sameSchoolClassmates
+    // 8. Filter out already-assigned students, then fetch profiles separately
+    const eligibleUserIds = sameSchoolClassmates
       .filter(member => !assignedUserIds.includes(member.user_id))
-      .map(member => {
-        // Supabase returns user as an array with one element due to the foreign key join
-        const userData = Array.isArray(member.user) ? member.user[0] : member.user;
-        return {
-          id: userData?.id || member.user_id,
-          first_name: userData?.first_name,
-          last_name: userData?.last_name,
-          full_name: userData
-            ? `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Usuario desconocido'
-            : 'Usuario desconocido',
-          email: userData?.email,
-          avatar_url: userData?.avatar_url
-        };
-      });
+      .map(member => member.user_id);
+
+    console.log('[eligible-classmates] STEP 8 - Eligible user_ids after filtering:', eligibleUserIds.length, eligibleUserIds);
+
+    if (eligibleUserIds.length === 0) {
+      console.log('[eligible-classmates] No eligible classmates after filtering assigned users');
+      return res.status(200).json({ classmates: [] });
+    }
+
+    // Fetch profiles separately (no FK join)
+    const { data: profiles, error: profilesError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, first_name, last_name, email, avatar_url')
+      .in('id', eligibleUserIds);
+
+    if (profilesError) {
+      console.error('[eligible-classmates] STEP 8 - Error fetching profiles:', profilesError);
+      return res.status(500).json({ error: 'Error al obtener perfiles de compañeros' });
+    }
+
+    console.log('[eligible-classmates] STEP 8 - Profiles fetched:', profiles?.length || 0);
+
+    // Build a lookup map from profiles
+    const profileMap = new Map(
+      (profiles || []).map(p => [p.id, p])
+    );
+
+    // Build response by joining profile data in application code
+    const eligibleClassmates = eligibleUserIds.map(uid => {
+      const profile = profileMap.get(uid);
+      return {
+        id: uid,
+        first_name: profile?.first_name,
+        last_name: profile?.last_name,
+        full_name: profile
+          ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Usuario desconocido'
+          : 'Usuario desconocido',
+        email: profile?.email,
+        avatar_url: profile?.avatar_url
+      };
+    });
 
     console.log('[eligible-classmates] user', userId, 'assignment', assignmentId, 'group', groupId, 'school_id', requesterSchoolId, 'course_id', courseId, 'eligible', eligibleClassmates.length, '(filtered from', sameSchoolClassmates.length, 'same-school enrolled classmates)');
     return res.status(200).json({ classmates: eligibleClassmates });

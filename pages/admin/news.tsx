@@ -8,6 +8,9 @@ import TipTapEditor from '@/src/components/TipTapEditor';
 import { uploadFile } from '@/utils/storage';
 import { getEnhancedUserInfo } from '@/utils/authHelpers';
 
+// Roles allowed to access this page
+const ALLOWED_ROLES = ['admin', 'community_manager'];
+
 interface NewsArticle {
   id: string;
   title: string;
@@ -43,6 +46,7 @@ export default function NewsAdmin() {
   // Role detection state - FIXED: No more hardcoded isAdmin
   const [isAdmin, setIsAdmin] = useState(false);
   const [userRole, setUserRole] = useState<string>('');
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null); // null = loading, false = denied, true = allowed
   
   // Form state
   const [title, setTitle] = useState('');
@@ -59,25 +63,31 @@ export default function NewsAdmin() {
   // FIXED: Use enhanced auth detection with multiple fallback strategies
   useEffect(() => {
     console.log('🚀 [news.tsx] Enhanced auth detection triggered, user:', user?.id);
-    
+
     const detectUserRole = async () => {
       try {
         const userInfo = await getEnhancedUserInfo(user, supabase);
         console.log('🔍 [news.tsx] Enhanced auth result:', userInfo);
-        
+
         setUserRole(userInfo.userRole);
         setIsAdmin(userInfo.isAdmin);
-        
+
+        // Check if user's role is in the allowed list
+        const isAllowed = ALLOWED_ROLES.includes(userInfo.userRole);
+        setHasPermission(isAllowed);
+
         if (userInfo.source === 'none') {
           console.log('⚠️  [news.tsx] No auth source available - user may need to login');
+          setHasPermission(false);
         } else {
-          console.log(`✅ [news.tsx] Auth detected via ${userInfo.source}: ${userInfo.userRole} (admin: ${userInfo.isAdmin})`);
+          console.log(`✅ [news.tsx] Auth detected via ${userInfo.source}: ${userInfo.userRole} (admin: ${userInfo.isAdmin}, allowed: ${isAllowed})`);
         }
-        
+
       } catch (error) {
         console.error('❌ [news.tsx] Enhanced auth detection failed:', error);
         setIsAdmin(false);
         setUserRole('');
+        setHasPermission(false);
       }
     };
 
@@ -263,16 +273,69 @@ export default function NewsAdmin() {
     });
   };
 
-  console.log('🔍 [news.tsx] Rendering with props:', { isAdmin, userRole });
-  console.log('👤 [news.tsx] Current user state:', { 
-    hasUser: !!user, 
-    userId: user?.id, 
-    userEmail: user?.email 
+  console.log('🔍 [news.tsx] Rendering with props:', { isAdmin, userRole, hasPermission });
+  console.log('👤 [news.tsx] Current user state:', {
+    hasUser: !!user,
+    userId: user?.id,
+    userEmail: user?.email
   });
-  
+
+  // Loading state while checking permissions
+  if (hasPermission === null) {
+    return (
+      <MainLayout
+        user={user}
+        currentPage="news"
+        pageTitle="Gestión de Noticias"
+        isAdmin={isAdmin}
+        userRole={userRole}
+      >
+        <div className="min-h-screen bg-brand_beige flex justify-center items-center">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-brand_primary"></div>
+          <p className="ml-3 text-brand_primary">Verificando permisos...</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Access denied state
+  if (hasPermission === false) {
+    return (
+      <MainLayout
+        user={user}
+        currentPage="news"
+        pageTitle="Acceso Denegado"
+        isAdmin={isAdmin}
+        userRole={userRole}
+      >
+        <div className="flex flex-col justify-center items-center min-h-[50vh]">
+          <div className="text-center p-8">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+              <svg className="h-6 w-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-semibold text-brand_primary mb-4">
+              Acceso Denegado
+            </h1>
+            <p className="text-gray-700 mb-6">
+              Solo administradores y community managers pueden acceder a la gestión de noticias.
+            </p>
+            <button
+              onClick={() => router.push('/')}
+              className="px-6 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-opacity-90 transition-colors"
+            >
+              Volver al Inicio
+            </button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
-    <MainLayout 
-      user={user} 
+    <MainLayout
+      user={user}
       currentPage="news"
       pageTitle="Gestión de Noticias"
       isAdmin={isAdmin}

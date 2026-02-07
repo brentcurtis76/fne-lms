@@ -717,7 +717,7 @@ export default function CashFlowView({ contratos }: CashFlowViewProps) {
                   ... y {overdueCuotas.length - 5} cuotas vencidas más
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  Haz clic en "Ver todas" arriba para mostrar todas las cuotas vencidas
+                  Haz clic en &quot;Ver todas&quot; arriba para mostrar todas las cuotas vencidas
                 </p>
               </div>
             )}

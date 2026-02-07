@@ -95,7 +95,7 @@ const MoveLessonModal: React.FC<MoveLessonModalProps> = ({
                   Mover lección a otro módulo
                 </h4>
                 <p className="text-sm text-blue-700">
-                  La lección <strong>"{lessonTitle}"</strong> se moverá al módulo seleccionado y se reorganizará automáticamente.
+                  La lección <strong>&quot;{lessonTitle}&quot;</strong> se moverá al módulo seleccionado y se reorganizará automáticamente.
                 </p>
               </div>
             </div>

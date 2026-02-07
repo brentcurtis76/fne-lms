@@ -211,6 +211,7 @@ const tutorialData: BlockTutorialData[] = [
   {
     type: 'image',
     name: 'Bloque de Imagen',
+    /* eslint-disable-next-line jsx-a11y/alt-text */
     icon: <Image className="text-green-600" />,
     description: 'Agrega imágenes, diagramas, infografías y otros elementos visuales para enriquecer tu contenido.',
     whenToUse: [

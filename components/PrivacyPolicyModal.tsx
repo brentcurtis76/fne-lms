@@ -115,7 +115,7 @@ export default function PrivacyPolicyModal({ isOpen, onClose }: PrivacyPolicyMod
 
               <h3 className="text-lg font-semibold mb-3">9. Cambios a esta Política</h3>
               <p className="mb-4">
-                Podemos actualizar esta política de privacidad periódicamente. Le notificaremos sobre cambios significativos publicando la nueva política en nuestro sitio web y actualizando la fecha de "última actualización".
+                Podemos actualizar esta política de privacidad periódicamente. Le notificaremos sobre cambios significativos publicando la nueva política en nuestro sitio web y actualizando la fecha de &quot;última actualización&quot;.
               </p>
 
               <h3 className="text-lg font-semibold mb-3">10. Contacto</h3>

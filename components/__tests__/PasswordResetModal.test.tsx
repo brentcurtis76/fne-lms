@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -61,13 +62,13 @@ describe('PasswordResetModal', () => {
     expect(screen.getByText(/El usuario deberá cambiar esta contraseña temporal/)).toBeInTheDocument();
   });
 
-  it.skip('should show error when submitting empty password', async () => {
-    const user = userEvent.setup();
+  it('should show error when submitting empty password', async () => {
     render(<PasswordResetModal {...defaultProps} />);
-    
-    const submitButton = screen.getByRole('button', { name: 'Restablecer Contraseña' });
-    await user.click(submitButton);
-    
+
+    // Use fireEvent.submit to bypass HTML5 required attribute validation in jsdom
+    const form = document.querySelector('form') as HTMLFormElement;
+    fireEvent.submit(form);
+
     expect(toast.error).toHaveBeenCalledWith('Por favor ingresa una contraseña temporal');
     expect(mockOnPasswordReset).not.toHaveBeenCalled();
   });

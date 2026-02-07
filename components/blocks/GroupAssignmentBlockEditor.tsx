@@ -418,7 +418,7 @@ export default function GroupAssignmentBlockEditor({
                 <li>Esta es una plantilla que se reutilizará para diferentes cohortes</li>
                 <li>Los grupos se crearán cuando el instructor active una instancia de esta tarea</li>
                 <li>Las fechas de entrega se establecerán para cada instancia específica</li>
-                <li>Los estudiantes verán la tarea en "Mis Tareas" cuando esté activa</li>
+                <li>Los estudiantes verán la tarea en &quot;Mis Tareas&quot; cuando esté activa</li>
               </ul>
             </div>
           </div>
@@ -430,7 +430,7 @@ export default function GroupAssignmentBlockEditor({
             <div className="flex items-center">
               <Info className="h-4 w-4 text-yellow-600 mr-2 flex-shrink-0" />
               <p className="text-sm text-yellow-800">
-                Los cambios se guardarán automáticamente al hacer clic en "Guardar Tarea" o al guardar la lección completa.
+                Los cambios se guardarán automáticamente al hacer clic en &quot;Guardar Tarea&quot; o al guardar la lección completa.
               </p>
             </div>
           </div>

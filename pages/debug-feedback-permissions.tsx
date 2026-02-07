@@ -81,9 +81,9 @@ export default function DebugFeedbackPermissions() {
             <h3 className="font-semibold text-green-800 mb-2">✅ You are an Admin</h3>
             <p className="text-green-700">You should be able to:</p>
             <ul className="list-disc list-inside text-green-700 mt-2">
-              <li>See "Configuración" in the sidebar</li>
+              <li>See &quot;Configuración&quot; in the sidebar</li>
               <li>Access the configuration page</li>
-              <li>Manage feedback permissions in the "Usuarios y Permisos" tab</li>
+              <li>Manage feedback permissions in the &quot;Usuarios y Permisos&quot; tab</li>
             </ul>
           </div>
         )}

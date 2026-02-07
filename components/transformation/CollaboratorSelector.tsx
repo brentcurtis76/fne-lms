@@ -271,7 +271,7 @@ export default function CollaboratorSelector({
 
         {filteredCollaborators.length === 0 && searchQuery && (
           <div className="p-4 text-center text-gray-500 text-sm">
-            No se encontraron colaboradores que coincidan con "{searchQuery}"
+            No se encontraron colaboradores que coincidan con &quot;{searchQuery}&quot;
           </div>
         )}
       </div>

@@ -23,7 +23,7 @@ import {
   ChevronUp,
   Terminal,
   Globe,
-  Image,
+  Image as ImageIcon,
   FileCode,
 } from 'lucide-react';
 import type { QATestRun, QAStepResult, ConsoleLogEntry, NetworkLogEntry } from '@/types/qa';
@@ -370,7 +370,7 @@ const QATestRunDetailPage: React.FC = () => {
                       </span>
                     )}
                     {result.screenshot_url && (
-                      <Image className="w-4 h-4 text-gray-400" />
+                      <ImageIcon className="w-4 h-4 text-gray-400" />
                     )}
                     {isExpanded ? (
                       <ChevronUp className="w-5 h-5 text-gray-400" />
@@ -399,7 +399,7 @@ const QATestRunDetailPage: React.FC = () => {
                     {result.screenshot_url && (
                       <div className="mt-4">
                         <p className="text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                          <Image className="w-4 h-4" />
+                          <ImageIcon className="w-4 h-4" />
                           Captura de Pantalla
                         </p>
                         <a

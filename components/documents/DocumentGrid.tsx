@@ -86,6 +86,7 @@ export default function DocumentGrid({
       FileText: <FileText className="w-5 h-5" />,
       FileSpreadsheet: <FileSpreadsheet className="w-5 h-5" />,
       Presentation: <Presentation className="w-5 h-5" />,
+      /* eslint-disable-next-line jsx-a11y/alt-text */
       Image: <Image className="w-5 h-5" />,
       Video: <Video className="w-5 h-5" />,
       File: <File className="w-5 h-5" />,

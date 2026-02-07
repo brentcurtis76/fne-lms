@@ -41,12 +41,23 @@ export default function GroupSubmissionModalV2({
   const [loading, setLoading] = useState(true);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
 
+  // Internal group state - allows updating when group is created within this component
+  // This solves the issue where parent's selectedGroup is null after group creation
+  const [activeGroup, setActiveGroup] = useState<any>(group);
+
   // Teammate invitation state
   const [eligibleClassmates, setEligibleClassmates] = useState<any[]>([]);
   const [selectedClassmates, setSelectedClassmates] = useState<Set<string>>(new Set());
   const [loadingClassmates, setLoadingClassmates] = useState(false);
   const [classmateSearchQuery, setClassmateSearchQuery] = useState('');
   const [isConsultantManaged, setIsConsultantManaged] = useState(false);
+
+  // Update activeGroup when prop changes
+  useEffect(() => {
+    if (group) {
+      setActiveGroup(group);
+    }
+  }, [group]);
 
   useEffect(() => {
     // Wait for user to be loaded before fetching group data
@@ -55,7 +66,7 @@ export default function GroupSubmissionModalV2({
       return;
     }
     loadGroupData();
-  }, [assignment, group, user?.id]);
+  }, [assignment, activeGroup, user?.id]);
 
   const loadGroupData = async () => {
     if (!assignment) return;
@@ -64,10 +75,10 @@ export default function GroupSubmissionModalV2({
       setLoading(true);
 
       // Only load group members if user is already in a group
-      if (group?.id) {
+      if (activeGroup?.id) {
         try {
           const membersResponse = await fetch(
-            `/api/assignments/group-members?groupId=${group.id}&assignmentId=${assignment.id}`
+            `/api/assignments/group-members?groupId=${activeGroup.id}&assignmentId=${assignment.id}`
           );
           const membersData = await membersResponse.json();
 
@@ -101,7 +112,7 @@ export default function GroupSubmissionModalV2({
           .from('group_assignment_submissions')
           .select('*')
           .eq('assignment_id', assignment.id)
-          .eq('group_id', group.id)
+          .eq('group_id', activeGroup.id)
           .eq('user_id', user.id)
           .maybeSingle();
 
@@ -132,14 +143,15 @@ export default function GroupSubmissionModalV2({
       }
 
       // Check if group is consultant-managed (only if group exists)
-      if (group?.id) {
+      let isManaged = false;
+      if (activeGroup?.id) {
         const { data: groupInfo } = await supabase
           .from('group_assignment_groups')
           .select('is_consultant_managed, community_id')
-          .eq('id', group.id)
+          .eq('id', activeGroup.id)
           .single();
 
-        const isManaged = groupInfo?.is_consultant_managed || false;
+        isManaged = groupInfo?.is_consultant_managed || false;
         setIsConsultantManaged(isManaged);
       } else {
         setIsConsultantManaged(false);
@@ -147,13 +159,13 @@ export default function GroupSubmissionModalV2({
 
       // Load eligible classmates if not submitted and not consultant-managed
       const isSubmitted = existingSubmission?.status === 'submitted' || existingSubmission?.status === 'graded';
-      console.log('[GroupSubmissionModal] loadGroupData - isSubmitted:', isSubmitted, 'isManaged:', isConsultantManaged, 'user:', user, 'user?.id:', user?.id, 'group?.id:', group?.id, 'assignment.id:', assignment.id);
-      if (!isConsultantManaged && user?.id) {
+      console.log('[GroupSubmissionModal] loadGroupData - isSubmitted:', isSubmitted, 'isManaged:', isManaged, 'user:', user, 'user?.id:', user?.id, 'activeGroup?.id:', activeGroup?.id, 'assignment.id:', assignment.id);
+      if (!isManaged && user?.id) {
         setLoadingClassmates(true);
         try {
           // Build URL with or without groupId
-          const url = group?.id
-            ? `/api/assignments/eligible-classmates?assignmentId=${assignment.id}&groupId=${group.id}`
+          const url = activeGroup?.id
+            ? `/api/assignments/eligible-classmates?assignmentId=${assignment.id}&groupId=${activeGroup.id}`
             : `/api/assignments/eligible-classmates?assignmentId=${assignment.id}`;
 
           console.log('[GroupSubmissionModal] Fetching eligible classmates from:', url);
@@ -177,10 +189,10 @@ export default function GroupSubmissionModalV2({
       } else {
         console.log('[GroupSubmissionModal] Skipping classmates fetch - conditions not met:', {
           isSubmitted,
-          isManaged: isConsultantManaged,
+          isManaged,
           hasUser: !!user,
           hasUserId: !!user?.id,
-          conditionCheck: !isConsultantManaged && user?.id
+          conditionCheck: !isManaged && user?.id
         });
       }
     } catch (error) {
@@ -206,9 +218,10 @@ export default function GroupSubmissionModalV2({
       // Store original file name
       setUploadedFileName(file.name);
 
-      // Create unique file name
+      // Create unique file name (use activeGroup.id if available, otherwise use user.id for individual submissions)
       const fileExt = file.name.split('.').pop();
-      const fileName = `group-submissions/${assignment.id}/${group.id}/${Date.now()}.${fileExt}`;
+      const groupOrUserId = activeGroup?.id || user?.id || 'unknown';
+      const fileName = `group-submissions/${assignment.id}/${groupOrUserId}/${Date.now()}.${fileExt}`;
 
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
@@ -234,6 +247,12 @@ export default function GroupSubmissionModalV2({
   };
 
   const handleSubmit = async () => {
+    // Require a group to submit
+    if (!activeGroup?.id) {
+      toast.error('Debes crear un grupo antes de entregar');
+      return;
+    }
+
     // File is required only for NEW submissions (not when editing existing ones)
     const isNewSubmission = !existingSubmission;
 
@@ -253,9 +272,11 @@ export default function GroupSubmissionModalV2({
     }
 
     try {
+      // Pass activeGroup in submission data so parent can use it even if selectedGroup is null
       await onSubmit({
         content: submissionText,
-        file_url: fileUrl
+        file_url: fileUrl,
+        group: activeGroup  // Include the group so parent knows which group to submit to
       });
     } catch (error) {
       console.error('Error submitting:', error);
@@ -290,7 +311,7 @@ export default function GroupSubmissionModalV2({
     try {
       setLoadingClassmates(true);
 
-      const isCreatingGroup = !group?.id;
+      const isCreatingGroup = !activeGroup?.id;
       const endpoint = isCreatingGroup
         ? '/api/assignments/create-group'
         : '/api/assignments/add-classmates';
@@ -298,7 +319,7 @@ export default function GroupSubmissionModalV2({
       const body = {
         assignmentId: assignment.id,
         classmateIds: Array.from(selectedClassmates),
-        ...(group?.id ? { groupId: group.id } : {})
+        ...(activeGroup?.id ? { groupId: activeGroup.id } : {})
       };
 
       const response = await fetch(endpoint, {
@@ -335,32 +356,12 @@ export default function GroupSubmissionModalV2({
       if (isCreatingGroup) {
         toast.success('Grupo creado exitosamente');
 
-        // Update local state with the new group and members
+        // Update internal activeGroup state with the new group
+        // This allows the component to function properly even though the parent's selectedGroup is null
         if (data.group) {
-          // We need to update the internal state that tracks the group
-          // Since 'group' is a prop, we can't mutate it directly. 
-          // However, this component seems to rely on 'group' prop for initial state 
-          // but might need an internal state for the "active" group to support this flow.
-
-          // Looking at the component, it uses 'group' prop. 
-          // If we can't update the parent, we must rely on fetching the data again 
-          // and potentially storing it in a local state that overrides the prop if present.
-
-          // Let's check if there's a setGroup or similar. 
-          // If not, we should probably introduce a local 'activeGroup' state that initializes from prop 
-          // but can be updated here.
-
-          // For now, let's try calling loadGroupData which might fetch the group 
-          // BUT loadGroupData relies on 'group?.id' or 'assignment.id'. 
-          // If we just created it, we need to make sure loadGroupData finds it.
-
-          // Actually, the best way without refactoring the whole parent-child flow 
-          // is to call a callback if provided, OR reload the data locally.
-
-          // Let's try to force a reload of the group data by calling the API 
-          // that loadGroupData uses, but we need to ensure it picks up the new group.
-
-          await loadGroupData();
+          console.log('[GroupSubmissionModal] Group created, updating activeGroup:', data.group);
+          setActiveGroup(data.group);
+          // loadGroupData will be triggered by the useEffect when activeGroup changes
         }
       } else {
         toast.success(`${data.count || 0} compañero(s) agregado(s) al grupo`);
@@ -383,7 +384,7 @@ export default function GroupSubmissionModalV2({
       return;
     }
 
-    if (!group?.id || !assignment?.id) return;
+    if (!activeGroup?.id || !assignment?.id) return;
 
     try {
       setRemovingMemberId(memberId);
@@ -394,7 +395,7 @@ export default function GroupSubmissionModalV2({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          groupId: group.id,
+          groupId: activeGroup.id,
           assignmentId: assignment.id,
           memberId
         }),
@@ -753,7 +754,7 @@ export default function GroupSubmissionModalV2({
                             className="px-4 py-2 bg-[#0a0a0a] text-white text-sm rounded-lg hover:bg-[#004a7a] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                           >
                             <UserPlus className="h-4 w-4" />
-                            {loadingClassmates ? 'Procesando...' : (group?.id ? 'Agregar al Grupo' : 'Crear Grupo')}
+                            {loadingClassmates ? 'Procesando...' : (activeGroup?.id ? 'Agregar al Grupo' : 'Crear Grupo')}
                           </button>
                         </div>
                       )}

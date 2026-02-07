@@ -70,7 +70,7 @@ export default function TestSentry() {
       }}>
         <strong>Instructions:</strong>
         <ol style={{ marginTop: '10px', marginBottom: '0' }}>
-          <li>Click the "Test Sentry Error" button</li>
+          <li>Click the &quot;Test Sentry Error&quot; button</li>
           <li>Check the browser console for logs</li>
           <li>Check your Sentry dashboard for the captured error</li>
         </ol>

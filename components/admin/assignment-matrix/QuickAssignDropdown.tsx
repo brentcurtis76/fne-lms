@@ -178,7 +178,7 @@ export function QuickAssignDropdown({
           {/* No results */}
           {!hasResults && searchQuery && !isSearching && (
             <div className="px-4 py-3 text-sm text-gray-500 text-center">
-              No se encontraron resultados para "{searchQuery}"
+              No se encontraron resultados para &quot;{searchQuery}&quot;
             </div>
           )}
 

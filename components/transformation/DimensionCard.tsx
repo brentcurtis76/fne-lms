@@ -148,7 +148,7 @@ export function DimensionCard({
                 {dimensionEval.evidence_quote && (
                   <div className="bg-white/50 border border-slate-200 rounded-lg p-3 mb-3">
                     <p className="text-xs font-semibold text-slate-600 mb-1">Evidencia citada:</p>
-                    <p className="text-sm text-slate-700 italic">"{dimensionEval.evidence_quote}"</p>
+                    <p className="text-sm text-slate-700 italic">&quot;{dimensionEval.evidence_quote}&quot;</p>
                   </div>
                 )}
                 {dimensionEval.next_steps && dimensionEval.next_steps.length > 0 && (

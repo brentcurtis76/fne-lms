@@ -995,6 +995,7 @@ export default function StudentBlockRenderer({
                       {item.type === 'pdf' ? (
                         <FileText className="w-6 h-6 text-brand_accent flex-shrink-0 mt-1" />
                       ) : item.type === 'image' ? (
+                        /* eslint-disable-next-line jsx-a11y/alt-text */
                         <Image className="w-6 h-6 text-brand_accent flex-shrink-0 mt-1" />
                       ) : (
                         <ExternalLink className="w-6 h-6 text-brand_primary flex-shrink-0 mt-1" />

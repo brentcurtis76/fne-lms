@@ -1001,7 +1001,7 @@ const NetworkManagementPage: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-2xl w-full p-6 max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">
-              Asignar Escuelas a "{selectedNetwork.name}"
+              Asignar Escuelas a &quot;{selectedNetwork.name}&quot;
             </h3>
             
             <div className="bg-brand_beige border border-brand_accent rounded-lg p-3 mb-4">
@@ -1101,7 +1101,7 @@ const NetworkManagementPage: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-md w-full p-6">
             <h3 className="text-lg font-semibold mb-4">
-              Asignar Supervisor a "{selectedNetwork.name}"
+              Asignar Supervisor a &quot;{selectedNetwork.name}&quot;
             </h3>
             
             {availableUsers.length > 0 ? (
@@ -1167,7 +1167,7 @@ const NetworkManagementPage: React.FC = () => {
             </div>
             
             <p className="text-gray-600 mb-4">
-              ¿Estás seguro de que quieres eliminar la red "{selectedNetwork.name}"?
+              ¿Estás seguro de que quieres eliminar la red &quot;{selectedNetwork.name}&quot;?
             </p>
             
             {selectedNetwork.supervisor_count > 0 && (

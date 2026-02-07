@@ -35,6 +35,7 @@
   "exclude": [
     "node_modules",
     "node_modules.old",
+    "cc-bridge-mcp-server",
     "e2e",
     "playwright.config.ts",
     "__tests__",

@@ -193,7 +193,7 @@ const MeetingDeletionModal: React.FC<MeetingDeletionModalProps> = ({
               {/* Content */}
               <div className="px-6 py-4">
                 <p className="text-sm text-gray-700 mb-4">
-                  Estás a punto de eliminar la reunión: <span className="font-semibold">"{meetingTitle}"</span>
+                  Estás a punto de eliminar la reunión: <span className="font-semibold">&quot;{meetingTitle}&quot;</span>
                 </p>
 
                 {/* Deletion Type Selection */}
@@ -263,7 +263,7 @@ const MeetingDeletionModal: React.FC<MeetingDeletionModalProps> = ({
                 {/* Confirmation input */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Para confirmar, escribe <span className="font-semibold">"{CONFIRM_PHRASE}"</span>
+                    Para confirmar, escribe <span className="font-semibold">&quot;{CONFIRM_PHRASE}&quot;</span>
                   </label>
                   <input
                     type="text"

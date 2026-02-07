@@ -117,6 +117,71 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           completion_date: completionData.completed_at
         });
         console.log(`✅ Course completion notification triggered for user ${user.id}`);
+
+        // Award badge and create community announcement for course completion
+        try {
+          const courseName = courseData?.title || 'Curso';
+
+          // Award the badge using database function
+          const { data: badgeResult, error: badgeError } = await supabaseAdmin
+            .rpc('award_course_completion_badge', {
+              p_user_id: user.id,
+              p_course_id: course_id,
+              p_course_name: courseName
+            });
+
+          if (badgeError) {
+            console.warn('Badge award warning:', badgeError.message);
+          } else {
+            console.log(`🏅 Badge awarded for user ${user.id}:`, badgeResult ? 'new badge' : 'already exists');
+          }
+
+          // Get user's community workspace for congratulatory post
+          const { data: userRole } = await supabaseAdmin
+            .from('user_roles')
+            .select('community_id')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .not('community_id', 'is', null)
+            .limit(1)
+            .maybeSingle();
+
+          if (userRole?.community_id) {
+            const { data: workspace } = await supabaseAdmin
+              .from('community_workspaces')
+              .select('id')
+              .eq('community_id', userRole.community_id)
+              .eq('is_active', true)
+              .maybeSingle();
+
+            if (workspace?.id) {
+              // Create congratulatory post with badge mention
+              const congratsContent = {
+                text: `🏅 ¡Ha ganado la insignia "Curso Completado" por completar el curso "${courseName}"!`,
+                formatted: `<p>🏅 ¡Ha ganado la insignia <strong>"Curso Completado"</strong> por completar el curso <strong>"${courseName}"</strong>!</p>`
+              };
+
+              const { error: postError } = await supabaseAdmin
+                .from('community_posts')
+                .insert({
+                  workspace_id: workspace.id,
+                  author_id: user.id,
+                  type: 'text',
+                  content: congratsContent,
+                  visibility: 'community',
+                });
+
+              if (postError) {
+                console.warn('Community post warning:', postError.message);
+              } else {
+                console.log(`📢 Congratulatory post created for user ${user.id}`);
+              }
+            }
+          }
+        } catch (badgePostError) {
+          console.warn('Badge/post system warning:', badgePostError);
+          // Don't fail - badge system might not be configured yet
+        }
       } else if (completion_type === 'module') {
         await NotificationService.triggerNotification('module_completed', {
           course_id,

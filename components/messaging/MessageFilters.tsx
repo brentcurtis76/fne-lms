@@ -576,7 +576,7 @@ export default function MessageFilters({
           {((activeView === 'messages' && messageFilters.search) || 
             (activeView === 'threads' && threadFilters.search)) && (
             <span className="inline-flex items-center px-2 py-1 rounded bg-blue-100 text-blue-800">
-              Búsqueda: "{activeView === 'messages' ? messageFilters.search : threadFilters.search}"
+              Búsqueda: &quot;{activeView === 'messages' ? messageFilters.search : threadFilters.search}&quot;
               <button
                 onClick={() => {
                   if (activeView === 'messages') {

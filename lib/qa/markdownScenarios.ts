@@ -319,7 +319,7 @@ export function countUnconfirmedOutcomes(scenario: QAScenario | CreateScenarioRe
   ).length;
 }
 
-export default {
+const markdownScenarios = {
   scenarioToMarkdown,
   scenariosToMarkdown,
   parseScenarioFromMarkdown,
@@ -327,3 +327,4 @@ export default {
   hasUnconfirmedOutcomes,
   countUnconfirmedOutcomes,
 };
+export default markdownScenarios;

@@ -43,7 +43,7 @@ async function handleSaveStepResult(
   try {
     const body: SaveStepResultRequest = req.body;
 
-    // Validate required fields
+    // Validate required fields (passed can be true, false, or null for skipped steps)
     if (
       !body.test_run_id ||
       body.step_index === undefined ||

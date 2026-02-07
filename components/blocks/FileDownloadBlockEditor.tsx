@@ -41,6 +41,7 @@ const FileDownloadBlockEditor: React.FC<FileDownloadBlockEditorProps> = ({
   };
 
   const getFileIcon = (type: string) => {
+    /* eslint-disable-next-line jsx-a11y/alt-text */
     if (type.startsWith('image/')) return <Image size={20} className="text-green-600" />;
     if (type.startsWith('video/')) return <Video size={20} className="text-blue-600" />;
     if (type.includes('pdf')) return <FileText size={20} className="text-red-600" />;

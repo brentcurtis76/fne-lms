@@ -24,7 +24,7 @@ export default function TestSequentialQuestionsPage() {
               <li>✓ Indicador de progreso (Pregunta X de 3)</li>
               <li>✓ Auto-scroll al fondo cuando aparece nueva pregunta</li>
               <li>✓ Enter para enviar, Shift+Enter para nueva línea</li>
-              <li>✓ Botón "Finalizar Evaluación" al responder última pregunta</li>
+              <li>✓ Botón &quot;Finalizar Evaluación&quot; al responder última pregunta</li>
             </ul>
           </div>
         </div>

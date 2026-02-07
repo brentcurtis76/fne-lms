@@ -345,6 +345,7 @@ export default function BibliographyBlockEditor({
                 {item.type === 'pdf' ? (
                   <FileText className="w-5 h-5 text-red-600 flex-shrink-0" />
                 ) : item.type === 'image' ? (
+                  /* eslint-disable-next-line jsx-a11y/alt-text */
                   <Image className="w-5 h-5 text-green-600 flex-shrink-0" />
                 ) : (
                   <Link className="w-5 h-5 text-blue-600 flex-shrink-0" />
@@ -459,6 +460,7 @@ export default function BibliographyBlockEditor({
                 onClick={() => addItem('image')}
                 className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm flex items-center gap-1"
               >
+                {/* eslint-disable-next-line jsx-a11y/alt-text */}
                 <Image className="w-4 h-4" />
                 Agregar Imagen
               </button>
@@ -474,6 +476,7 @@ export default function BibliographyBlockEditor({
                     {item.type === 'pdf' ? (
                       <FileText className="w-5 h-5 text-red-600" />
                     ) : item.type === 'image' ? (
+                      /* eslint-disable-next-line jsx-a11y/alt-text */
                       <Image className="w-5 h-5 text-green-600" />
                     ) : (
                       <Link className="w-5 h-5 text-blue-600" />
@@ -616,6 +619,7 @@ export default function BibliographyBlockEditor({
                                     {item.type === 'pdf' ? (
                                       <FileText className="w-10 h-10 text-red-600 flex-shrink-0" />
                                     ) : (
+                                      /* eslint-disable-next-line jsx-a11y/alt-text */
                                       <Image className="w-10 h-10 text-green-600 flex-shrink-0" />
                                     )}
                                     <div className="flex-1 min-w-0">
@@ -780,7 +784,7 @@ export default function BibliographyBlockEditor({
                     {/* Save Reminder */}
                     {hasUnsavedChanges && (
                       <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-700">
-                        Recuerda hacer clic en "Guardar Bibliografía" para guardar todos los cambios.
+                        Recuerda hacer clic en &quot;Guardar Bibliografía&quot; para guardar todos los cambios.
                       </div>
                     )}
                   </div>
@@ -814,7 +818,7 @@ export default function BibliographyBlockEditor({
                   ⚠️ Tienes cambios sin guardar
                 </p>
                 <p className="text-xs text-amber-700 mt-1">
-                  Los archivos subidos se guardarán automáticamente. Para otros cambios, haz clic en "Guardar Bibliografía".
+                  Los archivos subidos se guardarán automáticamente. Para otros cambios, haz clic en &quot;Guardar Bibliografía&quot;.
                 </p>
               </div>
             </div>

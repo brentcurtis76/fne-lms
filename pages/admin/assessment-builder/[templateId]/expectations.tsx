@@ -74,6 +74,7 @@ const ExpectationsEditor: React.FC = () => {
   const supabase = useSupabaseClient();
   const [user, setUser] = useState<any>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -112,7 +113,9 @@ const ExpectationsEditor: React.FC = () => {
         .eq('is_active', true);
 
       const hasAdminAccess = roles?.some(r => ['admin', 'consultor'].includes(r.role_type)) || false;
+      const adminRole = roles?.some((r: any) => r.role_type === 'admin') || false;
       setHasPermission(hasAdminAccess);
+      setIsAdmin(adminRole);
     };
 
     checkAuth();
@@ -600,7 +603,7 @@ const ExpectationsEditor: React.FC = () => {
             <div className="text-sm text-gray-600">
               <span className="font-medium">{stats.configured}</span> de <span className="font-medium">{stats.total}</span> indicadores configurados
             </div>
-            {isDraft ? (
+            {isDraft && isAdmin ? (
               <button
                 onClick={handleSaveAll}
                 disabled={isSaving || !hasChanges}
@@ -612,7 +615,7 @@ const ExpectationsEditor: React.FC = () => {
             ) : (
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <Lock className="w-4 h-4" />
-                Solo lectura (publicado)
+                {!isAdmin ? 'Solo lectura (consultor)' : 'Solo lectura (publicado)'}
               </div>
             )}
           </div>
@@ -628,7 +631,7 @@ const ExpectationsEditor: React.FC = () => {
                 <li><strong>Profundidad (0-4):</strong> Selecciona el nivel de madurez esperado para cada año de transformación</li>
                 <li><strong>Cobertura:</strong> Marca si se espera que el indicador esté implementado en ese año</li>
                 <li><strong>Frecuencia:</strong> Ingresa el valor mínimo esperado (ej: 4 veces por semestre)</li>
-                <li><strong>Tolerancia:</strong> Define cuántos niveles por debajo de lo esperado se considera "en camino" (0-2)</li>
+                <li><strong>Tolerancia:</strong> Define cuántos niveles por debajo de lo esperado se considera &quot;en camino&quot; (0-2)</li>
                 <li>Deja en blanco (-) si no hay expectativa definida para ese año</li>
               </ul>
             </div>
@@ -773,11 +776,11 @@ const ExpectationsEditor: React.FC = () => {
                                 </span>
                               )}
                             </td>
-                            {renderYearCell(module.moduleId, indicator, 'GT', 'year1', !isDraft)}
-                            {renderYearCell(module.moduleId, indicator, 'GT', 'year2', !isDraft)}
-                            {renderYearCell(module.moduleId, indicator, 'GT', 'year3', !isDraft)}
-                            {renderYearCell(module.moduleId, indicator, 'GT', 'year4', !isDraft)}
-                            {renderYearCell(module.moduleId, indicator, 'GT', 'year5', !isDraft)}
+                            {renderYearCell(module.moduleId, indicator, 'GT', 'year1', !isDraft || !isAdmin)}
+                            {renderYearCell(module.moduleId, indicator, 'GT', 'year2', !isDraft || !isAdmin)}
+                            {renderYearCell(module.moduleId, indicator, 'GT', 'year3', !isDraft || !isAdmin)}
+                            {renderYearCell(module.moduleId, indicator, 'GT', 'year4', !isDraft || !isAdmin)}
+                            {renderYearCell(module.moduleId, indicator, 'GT', 'year5', !isDraft || !isAdmin)}
                             <td className="px-2 py-2 text-center">
                               <select
                                 value={indicator.expectationsGT.tolerance}
@@ -788,7 +791,7 @@ const ExpectationsEditor: React.FC = () => {
                                   'tolerance',
                                   parseInt(e.target.value, 10)
                                 )}
-                                disabled={!isDraft}
+                                disabled={!isDraft || !isAdmin}
                                 className="w-14 px-1 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_blue disabled:bg-gray-100 disabled:opacity-50"
                               >
                                 <option value="0">0</option>
@@ -811,11 +814,11 @@ const ExpectationsEditor: React.FC = () => {
                                 GI
                               </span>
                             </td>
-                            {renderYearCell(module.moduleId, indicator, 'GI', 'year1', !isDraft)}
-                            {renderYearCell(module.moduleId, indicator, 'GI', 'year2', !isDraft)}
-                            {renderYearCell(module.moduleId, indicator, 'GI', 'year3', !isDraft)}
-                            {renderYearCell(module.moduleId, indicator, 'GI', 'year4', !isDraft)}
-                            {renderYearCell(module.moduleId, indicator, 'GI', 'year5', !isDraft)}
+                            {renderYearCell(module.moduleId, indicator, 'GI', 'year1', !isDraft || !isAdmin)}
+                            {renderYearCell(module.moduleId, indicator, 'GI', 'year2', !isDraft || !isAdmin)}
+                            {renderYearCell(module.moduleId, indicator, 'GI', 'year3', !isDraft || !isAdmin)}
+                            {renderYearCell(module.moduleId, indicator, 'GI', 'year4', !isDraft || !isAdmin)}
+                            {renderYearCell(module.moduleId, indicator, 'GI', 'year5', !isDraft || !isAdmin)}
                             <td className="px-2 py-2 text-center">
                               <select
                                 value={indicator.expectationsGI.tolerance}
@@ -826,7 +829,7 @@ const ExpectationsEditor: React.FC = () => {
                                   'tolerance',
                                   parseInt(e.target.value, 10)
                                 )}
-                                disabled={!isDraft}
+                                disabled={!isDraft || !isAdmin}
                                 className="w-14 px-1 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_blue disabled:bg-gray-100 disabled:opacity-50"
                               >
                                 <option value="0">0</option>
@@ -891,16 +894,16 @@ const ExpectationsEditor: React.FC = () => {
             </div>
             <div className="mt-3 pt-3 border-t border-gray-200">
               <p className="text-sm text-gray-600">
-                <strong>Tolerancia:</strong> Número de niveles por debajo del esperado que se considera "en camino".
-                Por ejemplo, si el esperado es nivel 3 y tolerancia es 1, alcanzar nivel 2 se considera "en camino".
+                <strong>Tolerancia:</strong> Número de niveles por debajo del esperado que se considera &quot;en camino&quot;.
+                Por ejemplo, si el esperado es nivel 3 y tolerancia es 1, alcanzar nivel 2 se considera &quot;en camino&quot;.
               </p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Unsaved changes warning */}
-      {hasChanges && (
+      {/* Unsaved changes warning (admin only) */}
+      {hasChanges && isAdmin && (
         <div className="fixed bottom-4 right-4 bg-yellow-100 border border-yellow-300 rounded-lg shadow-lg p-4 flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-yellow-600" />
           <span className="text-sm text-yellow-800">Hay cambios sin guardar</span>

@@ -441,6 +441,7 @@ const MessageComposer: React.FC<MessageComposerProps> = ({
             <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
               <div className="flex items-center space-x-2">
                 {file.type.startsWith('image/') ? (
+                  /* eslint-disable-next-line jsx-a11y/alt-text */
                   <Image className="w-4 h-4 text-blue-500" />
                 ) : (
                   <FileText className="w-4 h-4 text-gray-500" />

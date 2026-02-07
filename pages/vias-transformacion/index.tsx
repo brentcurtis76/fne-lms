@@ -13,6 +13,7 @@ import {
   Building2,
   GraduationCap,
   AlertCircle,
+  ShieldAlert,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -21,6 +22,9 @@ import { useAuth } from '@/hooks/useAuth';
 import { AREA_LABELS, AREA_ICONS, type TransformationArea } from '@/types/transformation';
 import { formatGradesDisplay, type ChileanGrade } from '@/types/grades';
 import AssessmentSetupModal from '@/components/transformation/AssessmentSetupModal';
+
+// Roles allowed to access this page (matching sidebar adminOnly: true restriction)
+const ALLOWED_ROLES = ['admin'];
 
 interface Collaborator {
   id: string;
@@ -60,13 +64,47 @@ export default function ViasTransformacionPage() {
   const [showSetupModal, setShowSetupModal] = useState(false);
   const [selectedSchool, setSelectedSchool] = useState<{ id: number; name: string } | null>(null);
   const [schools, setSchools] = useState<{ id: number; name: string }[]>([]);
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null); // null = loading, false = denied, true = allowed
+  const [userRole, setUserRole] = useState<string>('');
+
+  // Check user role and permission
+  useEffect(() => {
+    const checkPermission = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { data: roles, error } = await supabase
+          .from('user_roles')
+          .select('role_type')
+          .eq('user_id', user.id)
+          .eq('is_active', true);
+
+        if (error) throw error;
+
+        // Find the highest priority role (admin > community_manager > etc)
+        const roleTypes = roles?.map(r => r.role_type) || [];
+        const primaryRole = roleTypes.includes('admin') ? 'admin' : roleTypes[0] || '';
+        setUserRole(primaryRole);
+
+        const isAllowed = ALLOWED_ROLES.some(allowedRole => roleTypes.includes(allowedRole));
+        setHasPermission(isAllowed);
+
+        console.log('[ViasTransformacion] Permission check:', { roleTypes, primaryRole, isAllowed });
+      } catch (error) {
+        console.error('[ViasTransformacion] Error checking permission:', error);
+        setHasPermission(false);
+      }
+    };
+
+    checkPermission();
+  }, [user?.id, supabase]);
 
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && hasPermission === true) {
       loadAssessments();
       loadUserSchools();
     }
-  }, [user?.id]);
+  }, [user?.id, hasPermission]);
 
   const loadAssessments = async () => {
     try {
@@ -181,6 +219,45 @@ export default function ViasTransformacionPage() {
   const myAssessments = assessments.filter(a => a.is_creator || a.is_user_collaborator);
   const otherAssessments = assessments.filter(a => !a.is_creator && !a.is_user_collaborator);
 
+  // Loading state while checking permissions (permission not yet determined)
+  if (hasPermission === null) {
+    return (
+      <MainLayout currentPage="vias-transformacion" pageTitle="Vías de Transformación">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500" />
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Access denied state - check BEFORE loading state since loading stays true when denied
+  if (hasPermission === false) {
+    return (
+      <MainLayout currentPage="vias-transformacion" pageTitle="Acceso Denegado">
+        <div className="flex flex-col justify-center items-center min-h-[50vh]">
+          <div className="text-center p-8">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+              <ShieldAlert className="h-6 w-6 text-red-600" />
+            </div>
+            <h1 className="text-2xl font-semibold text-brand_primary mb-4">
+              Acceso Denegado
+            </h1>
+            <p className="text-gray-700 mb-6">
+              Solo administradores pueden acceder a las Vías de Transformación.
+            </p>
+            <button
+              onClick={() => router.push('/')}
+              className="px-6 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-opacity-90 transition-colors"
+            >
+              Volver al Inicio
+            </button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // Loading data state (only reached when hasPermission === true)
   if (loading) {
     return (
       <MainLayout currentPage="vias-transformacion" pageTitle="Vías de Transformación">

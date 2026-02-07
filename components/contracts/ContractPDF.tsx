@@ -178,11 +178,11 @@ export default function ContractPDF({ contractData }: ContractPDFProps) {
             Rol Único Tributario número {cliente.rut}, representada por {cliente.nombre_representante}
             {cliente.rut_representante && `, cédula nacional de identidad número ${cliente.rut_representante}`}, 
             todos con domicilio para estos efectos en {cliente.direccion}, comuna de {cliente.comuna}, 
-            {cliente.ciudad}, en adelante e indistintamente como "{cliente.nombre_fantasia}" por una parte, 
-            FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN), Rol Único Tributario número 65.166.503-5, 
-            representada por don Arnoldo Cisternas Chávez, cédula nacional de identidad número 10.740.623-9, 
-            ambos domiciliados para estos efectos calle Carlos Silva Vildósola n° 10448, comuna de La Reina, 
-            en adelante indistintamente como "FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN)"; se ha convenido 
+            {cliente.ciudad}, en adelante e indistintamente como &quot;{cliente.nombre_fantasia}&quot; por una parte,
+            FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN), Rol Único Tributario número 65.166.503-5,
+            representada por don Arnoldo Cisternas Chávez, cédula nacional de identidad número 10.740.623-9,
+            ambos domiciliados para estos efectos calle Carlos Silva Vildósola n° 10448, comuna de La Reina,
+            en adelante indistintamente como &quot;FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN)&quot;; se ha convenido 
             el siguiente contrato de prestación de servicios:
           </Text>
         </View>
@@ -403,7 +403,7 @@ export default function ContractPDF({ contractData }: ContractPDFProps) {
           )}
           <Text style={{ marginTop: 10 }}>
             La personería de don Arnoldo Cisternas Chávez, para actuar en representación de FUNDACIÓN INSTITUTO 
-            RELACIONAL (NUEVA EDUCACIÓN), consta en los "Estatutos Fundación Instituto Relacional" otorgados 
+            RELACIONAL (NUEVA EDUCACIÓN), consta en los &quot;Estatutos Fundación Instituto Relacional&quot; otorgados 
             por la Municipalidad de la Reina con fecha 08 de marzo del año 2018.
           </Text>
         </View>

@@ -234,7 +234,7 @@ export default function AdvancedFilters({
             {/* Search Filter */}
             {filters.search && (
               <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-brand_blue/10 text-brand_blue">
-                🔍 "{filters.search}"
+                🔍 &quot;{filters.search}&quot;
                 <button
                   onClick={() => handleFilterChange('search', '')}
                   className="ml-2 text-brand_blue hover:text-brand_yellow"

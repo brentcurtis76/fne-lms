@@ -46,7 +46,7 @@ const DeleteLessonModal: React.FC<DeleteLessonModalProps> = ({
                   Esta acción no se puede deshacer
                 </h4>
                 <p className="text-sm text-red-700">
-                  Se eliminará permanentemente la lección <strong>"{lessonTitle}"</strong> y todo su contenido, incluyendo todos los bloques de contenido.
+                  Se eliminará permanentemente la lección <strong>&quot;{lessonTitle}&quot;</strong> y todo su contenido, incluyendo todos los bloques de contenido.
                 </p>
               </div>
             </div>

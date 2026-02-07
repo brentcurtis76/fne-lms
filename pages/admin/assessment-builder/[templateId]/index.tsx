@@ -80,6 +80,7 @@ const TemplateEditor: React.FC = () => {
   const supabase = useSupabaseClient();
   const [user, setUser] = useState<any>(null);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -193,7 +194,9 @@ const TemplateEditor: React.FC = () => {
         .eq('is_active', true);
 
       const hasAdminAccess = roles?.some(r => ['admin', 'consultor'].includes(r.role_type)) || false;
+      const adminRole = roles?.some((r: any) => r.role_type === 'admin') || false;
       setHasPermission(hasAdminAccess);
+      setIsAdmin(adminRole);
     };
 
     checkAuth();
@@ -929,8 +932,8 @@ const TemplateEditor: React.FC = () => {
   const statusStyle = STATUS_LABELS[template.status] || STATUS_LABELS.draft;
   const isDraft = template.status === 'draft';
   const isArchived = template.is_archived === true;
-  // canEdit: Allow editing if not archived (both draft and published can be edited)
-  const canEdit = !isArchived;
+  // canEdit: Allow editing if not archived AND user is admin (consultors are read-only)
+  const canEdit = !isArchived && isAdmin;
 
   return (
     <MainLayout
@@ -1070,33 +1073,37 @@ const TemplateEditor: React.FC = () => {
               <>
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Edit2 className="w-4 h-4" />
-                  <span>Modo edición - Puedes modificar el template</span>
+                  <span>{isAdmin ? 'Modo edición - Puedes modificar el template' : 'Modo lectura - Solo visualización'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                    className="inline-flex items-center px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
-                    title="Eliminar template"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    {isDeleting ? 'Eliminando...' : 'Eliminar'}
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="inline-flex items-center px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+                      title="Eliminar template"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                    </button>
+                  )}
                   <Link href={`/admin/assessment-builder/${template.id}/expectations`} legacyBehavior>
                     <a className="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg shadow hover:bg-amber-700 transition-colors text-sm font-medium">
                       <Target className="w-4 h-4 mr-2" />
                       Expectativas
                     </a>
                   </Link>
-                  <button
-                    onClick={handlePublish}
-                    disabled={isPublishing || modules.length === 0}
-                    className="inline-flex items-center px-4 py-2 bg-brand_accent text-white rounded-lg shadow hover:bg-amber-400 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={modules.length === 0 ? 'Agrega módulos e indicadores antes de publicar' : 'Publicar template'}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    {isPublishing ? 'Publicando...' : 'Publicar'}
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={handlePublish}
+                      disabled={isPublishing || modules.length === 0}
+                      className="inline-flex items-center px-4 py-2 bg-brand_accent text-white rounded-lg shadow hover:bg-amber-400 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={modules.length === 0 ? 'Agrega módulos e indicadores antes de publicar' : 'Publicar template'}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {isPublishing ? 'Publicando...' : 'Publicar'}
+                    </button>
+                  )}
                 </div>
               </>
             ) : isArchived ? (
@@ -1105,68 +1112,74 @@ const TemplateEditor: React.FC = () => {
                   <Archive className="w-4 h-4" />
                   <span>Template archivado v{template.version} - No disponible para nuevas evaluaciones</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleDelete}
-                    disabled={isDeleting}
-                    className="inline-flex items-center px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
-                    title="Eliminar template"
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    {isDeleting ? 'Eliminando...' : 'Eliminar'}
-                  </button>
-                  <button
-                    onClick={handleRestore}
-                    disabled={isArchiving}
-                    className="inline-flex items-center px-4 py-2 bg-brand_accent text-white rounded-lg shadow hover:bg-amber-400 transition-colors text-sm font-medium disabled:opacity-50"
-                  >
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    {isArchiving ? 'Restaurando...' : 'Restaurar'}
-                  </button>
-                  <button
-                    onClick={handleDuplicate}
-                    disabled={isDuplicating}
-                    className="inline-flex items-center px-4 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-brand_blue/90 transition-colors text-sm font-medium disabled:opacity-50"
-                  >
-                    <Edit2 className="w-4 h-4 mr-2" />
-                    {isDuplicating ? 'Creando borrador...' : 'Editar (Nueva Versión)'}
-                  </button>
-                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleDelete}
+                      disabled={isDeleting}
+                      className="inline-flex items-center px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+                      title="Eliminar template"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                    </button>
+                    <button
+                      onClick={handleRestore}
+                      disabled={isArchiving}
+                      className="inline-flex items-center px-4 py-2 bg-brand_accent text-white rounded-lg shadow hover:bg-amber-400 transition-colors text-sm font-medium disabled:opacity-50"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      {isArchiving ? 'Restaurando...' : 'Restaurar'}
+                    </button>
+                    <button
+                      onClick={handleDuplicate}
+                      disabled={isDuplicating}
+                      className="inline-flex items-center px-4 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-brand_blue/90 transition-colors text-sm font-medium disabled:opacity-50"
+                    >
+                      <Edit2 className="w-4 h-4 mr-2" />
+                      {isDuplicating ? 'Creando borrador...' : 'Editar (Nueva Versión)'}
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <>
                 <div className="flex items-center gap-2 text-sm text-brand_accent">
                   <Edit2 className="w-4 h-4" />
-                  <span>Template publicado v{template.version} - Puedes editar</span>
+                  <span>{isAdmin ? `Template publicado v${template.version} - Puedes editar` : `Template publicado v${template.version} - Solo lectura`}</span>
                   {usageStats?.hasResponses && (
                     <span className="text-xs text-amber-600 ml-2">(con {usageStats.responseCount} respuestas)</span>
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleArchive}
-                    disabled={isArchiving}
-                    className="inline-flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
-                    title="Archivar template"
-                  >
-                    <Archive className="w-4 h-4 mr-2" />
-                    {isArchiving ? 'Archivando...' : 'Archivar'}
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={handleArchive}
+                      disabled={isArchiving}
+                      className="inline-flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+                      title="Archivar template"
+                    >
+                      <Archive className="w-4 h-4 mr-2" />
+                      {isArchiving ? 'Archivando...' : 'Archivar'}
+                    </button>
+                  )}
                   <Link href={`/admin/assessment-builder/${template.id}/expectations`} legacyBehavior>
                     <a className="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg shadow hover:bg-amber-700 transition-colors text-sm font-medium">
                       <Target className="w-4 h-4 mr-2" />
                       Expectativas
                     </a>
                   </Link>
-                  <button
-                    onClick={handleDuplicate}
-                    disabled={isDuplicating}
-                    className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg shadow hover:bg-gray-200 transition-colors text-sm font-medium disabled:opacity-50"
-                    title="Crear copia borrador"
-                  >
-                    <Copy className="w-4 h-4 mr-2" />
-                    {isDuplicating ? 'Duplicando...' : 'Duplicar'}
-                  </button>
+                  {isAdmin && (
+                    <button
+                      onClick={handleDuplicate}
+                      disabled={isDuplicating}
+                      className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg shadow hover:bg-gray-200 transition-colors text-sm font-medium disabled:opacity-50"
+                      title="Crear copia borrador"
+                    >
+                      <Copy className="w-4 h-4 mr-2" />
+                      {isDuplicating ? 'Duplicando...' : 'Duplicar'}
+                    </button>
+                  )}
                 </div>
               </>
             )}
@@ -1764,7 +1777,7 @@ const TemplateEditor: React.FC = () => {
               Confirmar Eliminación
             </h3>
             <p className="text-gray-600 mb-4">
-              ¿Estás seguro de eliminar el template <strong>"{template.name}"</strong>?
+              ¿Estás seguro de eliminar el template <strong>&quot;{template.name}&quot;</strong>?
             </p>
             {deleteConfirmData.counts && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">

@@ -5,18 +5,7 @@ import type {
   TransformationArea,
   CreateTemplateRequest
 } from '@/types/assessment-builder';
-
-// Check if user has admin/consultor permissions
-async function hasAssessmentAdminPermission(supabaseClient: any, userId: string): Promise<boolean> {
-  const { data: roles } = await supabaseClient
-    .from('user_roles')
-    .select('role_type')
-    .eq('user_id', userId)
-    .eq('is_active', true);
-
-  if (!roles || roles.length === 0) return false;
-  return roles.some((r: any) => ['admin', 'consultor'].includes(r.role_type));
-}
+import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 
 // Generate next version number for an area
 async function getNextVersion(supabaseClient: any, area: TransformationArea): Promise<string> {
@@ -47,17 +36,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const supabaseClient = await createApiSupabaseClient(req, res);
 
-  // Permission check
-  const hasPermission = await hasAssessmentAdminPermission(supabaseClient, user.id);
-  if (!hasPermission) {
-    return res.status(403).json({ error: 'Solo administradores y consultores pueden acceder al constructor de evaluaciones' });
+  // Permission check (read access for GET, write access for POST)
+  const canRead = await hasAssessmentReadPermission(supabaseClient, user.id);
+  if (!canRead) {
+    return res.status(403).json({ error: 'No tienes permiso para acceder al constructor de evaluaciones' });
   }
 
   switch (req.method) {
     case 'GET':
       return handleGet(req, res, supabaseClient);
-    case 'POST':
+    case 'POST': {
+      const canWrite = await hasAssessmentWritePermission(supabaseClient, user.id);
+      if (!canWrite) {
+        return res.status(403).json({ error: 'Solo administradores pueden crear templates' });
+      }
       return handlePost(req, res, supabaseClient, user.id);
+    }
     default:
       return handleMethodNotAllowed(res, ['GET', 'POST']);
   }

@@ -609,7 +609,7 @@ export default function RoleManagement() {
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
             <div className="space-y-2">
               <p className="text-sm text-gray-600">
-                <strong>Nota:</strong> Haz clic en los botones de alcance para cambiar permisos. Los cambios se guardan cuando presionas "Guardar Cambios".
+                <strong>Nota:</strong> Haz clic en los botones de alcance para cambiar permisos. Los cambios se guardan cuando presionas &quot;Guardar Cambios&quot;.
               </p>
               <div className="text-xs text-gray-500 space-y-1">
                 <p><strong>Alcances:</strong></p>

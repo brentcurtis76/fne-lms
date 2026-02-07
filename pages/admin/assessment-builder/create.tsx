@@ -49,15 +49,23 @@ const CreateTemplate: React.FC = () => {
         setAvatarUrl(profileData.avatar_url);
       }
 
-      // Check permissions (admin or consultor)
+      // Check permissions (admin only - consultors cannot create templates)
       const { data: roles } = await supabase
         .from('user_roles')
         .select('role_type')
         .eq('user_id', session.user.id)
         .eq('is_active', true);
 
-      const hasAdminAccess = roles?.some(r => ['admin', 'consultor'].includes(r.role_type)) || false;
-      setHasPermission(hasAdminAccess);
+      const isAdmin = roles?.some((r: any) => r.role_type === 'admin') || false;
+      const isConsultor = roles?.some((r: any) => r.role_type === 'consultor') || false;
+
+      if (isConsultor && !isAdmin) {
+        toast.error('Los consultores solo tienen acceso de lectura al constructor de evaluaciones.');
+        router.push('/admin/assessment-builder');
+        return;
+      }
+
+      setHasPermission(isAdmin);
     };
 
     checkAuth();

@@ -154,7 +154,7 @@ export function CommunityAssignModal({
             <div className="mx-6 mt-4 p-3 bg-brand_beige border border-brand_accent rounded-lg flex items-center gap-3">
               <CheckCircle className="h-5 w-5 text-brand_accent flex-shrink-0" />
               <div className="text-sm text-gray-800">
-                <span className="font-medium">{lastResult.type === 'course' ? 'Curso' : 'Ruta'} "{lastResult.title}":</span>
+                <span className="font-medium">{lastResult.type === 'course' ? 'Curso' : 'Ruta'} &quot;{lastResult.title}&quot;:</span>
                 {lastResult.assigned > 0
                   ? ` ${lastResult.assigned} asignado(s)${lastResult.skipped > 0 ? `, ${lastResult.skipped} ya tenían asignación` : ''}`
                   : ' ya asignado a todos los usuarios'
@@ -193,7 +193,7 @@ export function CommunityAssignModal({
 
             {searchQuery && !hasResults && !isSearching && (
               <div className="text-center py-8 text-gray-500">
-                <p>No se encontraron resultados para "{searchQuery}"</p>
+                <p>No se encontraron resultados para &quot;{searchQuery}&quot;</p>
               </div>
             )}
 

@@ -381,7 +381,7 @@ export default function EventsManagement() {
                   </p>
                   {deletingEventId && events.find(e => e.id === deletingEventId) && (
                     <p className="text-sm font-medium text-gray-900 mt-2">
-                      "{events.find(e => e.id === deletingEventId)?.title}"
+                      &quot;{events.find(e => e.id === deletingEventId)?.title}&quot;
                     </p>
                   )}
                   <p className="text-sm text-gray-500 mt-2">

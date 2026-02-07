@@ -91,6 +91,7 @@ const MessageCard: React.FC<MessageCardProps> = ({
 
   // Get file icon by mime type
   const getFileIcon = (mimeType: string) => {
+    /* eslint-disable-next-line jsx-a11y/alt-text */
     if (mimeType.startsWith('image/')) return <Image className="w-4 h-4" />;
     if (mimeType.startsWith('video/')) return <Video className="w-4 h-4" />;
     if (mimeType.startsWith('audio/')) return <Music className="w-4 h-4" />;

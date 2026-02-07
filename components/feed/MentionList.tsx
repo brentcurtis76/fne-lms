@@ -11,7 +11,7 @@ interface MentionListProps {
   command: (item: any) => void;
 }
 
-export default forwardRef((props: MentionListProps, ref) => {
+const MentionList = forwardRef((props: MentionListProps, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
 
   const selectItem = (index: number) => {
@@ -135,3 +135,7 @@ export default forwardRef((props: MentionListProps, ref) => {
     </div>
   );
 });
+
+MentionList.displayName = 'MentionList';
+
+export default MentionList;

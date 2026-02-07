@@ -21,6 +21,7 @@ import {
   LogOut,
   Clock,
   Pause,
+  SkipForward,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { captureScreenshot, getBrowserInfo, detectEnvironment } from '@/lib/qa';
@@ -541,6 +542,88 @@ const QAFloatingWidget: React.FC<QAFloatingWidgetProps> = ({ onClose }) => {
     }
   };
 
+  // Skip step (save with passed=null, no screenshot)
+  const skipStep = async () => {
+    if (!testRunId || !scenario) return;
+
+    const currentStep = scenario.steps[currentStepIndex];
+    if (!currentStep) return;
+
+    setSaving(true);
+
+    try {
+      const timeSpent = Math.round((new Date().getTime() - stepStartTime.getTime()) / 1000);
+      const stepActiveSeconds = activityTracker.activeSeconds;
+
+      const stepResultData: SaveStepResultRequest & { active_seconds?: number } = {
+        test_run_id: testRunId,
+        step_index: currentStepIndex + 1,
+        step_instruction: currentStep.instruction,
+        expected_outcome: currentStep.expectedOutcome,
+        passed: null,
+        tester_note: testerNote || 'Paso saltado',
+        console_logs: [],
+        network_logs: [],
+        time_spent_seconds: timeSpent,
+        active_seconds: stepActiveSeconds,
+      };
+
+      const response = await fetch('/api/qa/step-results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stepResultData),
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          const buffer: CaptureBufferEntry[] = JSON.parse(sessionStorage.getItem(QA_CAPTURE_BUFFER_KEY) || '[]');
+          buffer.push({ stepResult: stepResultData, timestamp: new Date().toISOString() });
+          sessionStorage.setItem(QA_CAPTURE_BUFFER_KEY, JSON.stringify(buffer));
+          toast('Resultado guardado localmente (sin sesión)', { icon: '📦' });
+        } else {
+          const data = await response.json();
+          throw new Error(data.error || 'Error al guardar resultado');
+        }
+      }
+
+      // Update step results tracker with null (skipped)
+      setStepResults((prev) => new Map(prev).set(currentStepIndex, null));
+
+      // Accumulate total active seconds and reset for next step
+      const newTotalActive = totalActiveSeconds + stepActiveSeconds;
+      setTotalActiveSeconds(newTotalActive);
+      sessionStorage.setItem(QA_TOTAL_ACTIVE_SECONDS_KEY, String(newTotalActive));
+      activityTracker.reset();
+      activityTracker.start();
+
+      // Clear for next step
+      clearCapture();
+      setTesterNote('');
+      setStepStartTime(new Date());
+
+      // Check if this was the last step
+      if (currentStepIndex >= scenario.steps.length - 1) {
+        stopCapture();
+        activityTracker.stop();
+        setIsComplete(true);
+      } else {
+        setCurrentStepIndex((prev) => prev + 1);
+        toast('Paso saltado ⏭️', { icon: '⏭️' });
+
+        // Navigate to next step's route if specified
+        const nextStep = scenario.steps[currentStepIndex + 1];
+        if (nextStep?.route && nextStep.route !== router.asPath) {
+          router.push(nextStep.route);
+        }
+      }
+    } catch (error: any) {
+      console.error('Error skipping step:', error);
+      toast.error(error.message || 'Error al saltar paso');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Complete test run
   const completeTestRun = async () => {
     if (!testRunId) return;
@@ -552,12 +635,14 @@ const QAFloatingWidget: React.FC<QAFloatingWidgetProps> = ({ onClose }) => {
       const failedCount = results.filter((r) => r === false).length;
       const passedCount = results.filter((r) => r === true).length;
 
+      // Skipped steps (null) do not count as failures
       let overallResult: 'pass' | 'fail' | 'partial' = 'pass';
       if (failedCount > 0 && passedCount === 0) {
         overallResult = 'fail';
       } else if (failedCount > 0) {
         overallResult = 'partial';
       }
+      // A test with only passes and skips is still 'pass'
 
       const response = await fetch(`/api/qa/runs/${testRunId}`, {
         method: 'PUT',
@@ -739,6 +824,7 @@ const QAFloatingWidget: React.FC<QAFloatingWidgetProps> = ({ onClose }) => {
               let bgClass = 'bg-gray-200';
               if (result === true) bgClass = 'bg-green-500';
               else if (result === false) bgClass = 'bg-red-500';
+              else if (result === null) bgClass = 'bg-yellow-500';
               else if (index === currentStepIndex) bgClass = 'bg-brand_accent';
 
               return (
@@ -829,6 +915,14 @@ const QAFloatingWidget: React.FC<QAFloatingWidgetProps> = ({ onClose }) => {
               Fallo
             </button>
             <button
+              onClick={skipStep}
+              disabled={saving || isCapturingScreenshot}
+              className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-yellow-500 text-white rounded-lg font-medium text-sm hover:bg-yellow-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <SkipForward className="w-4 h-4" />}
+              Saltar
+            </button>
+            <button
               onClick={() => saveStepResult(true)}
               disabled={saving || isCapturingScreenshot}
               className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-green-500 text-white rounded-lg font-medium text-sm hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -846,7 +940,7 @@ const QAFloatingWidget: React.FC<QAFloatingWidgetProps> = ({ onClose }) => {
           <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
           <div className="font-medium text-gray-900">¡Prueba Completada!</div>
 
-          <div className="flex justify-center gap-6 text-sm">
+          <div className="flex justify-center gap-4 text-sm">
             <div>
               <div className="text-xl font-bold text-green-600">
                 {Array.from(stepResults.values()).filter((r) => r === true).length}
@@ -858,6 +952,12 @@ const QAFloatingWidget: React.FC<QAFloatingWidgetProps> = ({ onClose }) => {
                 {Array.from(stepResults.values()).filter((r) => r === false).length}
               </div>
               <div className="text-gray-500">Fallaron</div>
+            </div>
+            <div>
+              <div className="text-xl font-bold text-yellow-600">
+                {Array.from(stepResults.values()).filter((r) => r === null).length}
+              </div>
+              <div className="text-gray-500">Saltados</div>
             </div>
           </div>
 

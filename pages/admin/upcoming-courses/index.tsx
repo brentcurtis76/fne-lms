@@ -229,7 +229,7 @@ export default function UpcomingCoursesAdmin() {
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Próximos Cursos</h1>
               <p className="mt-1 text-sm text-gray-600">
-                Administra los cursos que aparecerán como "Próximamente" en el dashboard
+                Administra los cursos que aparecerán como &quot;Próximamente&quot; en el dashboard
               </p>
             </div>
             <button
@@ -520,7 +520,7 @@ export default function UpcomingCoursesAdmin() {
                         className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-amber-500 focus:outline-none focus:ring-1 focus:ring-amber-500 sm:text-sm"
                       />
                       <p className="mt-1 text-xs text-gray-500">
-                        Se mostrará como "Disponible en [Mes Año]"
+                        Se mostrará como &quot;Disponible en [Mes Año]&quot;
                       </p>
                     </div>
 

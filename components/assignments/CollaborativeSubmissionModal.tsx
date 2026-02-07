@@ -542,7 +542,7 @@ const CollaborativeSubmissionModal: React.FC<CollaborativeSubmissionModalProps> 
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <p className="text-sm text-yellow-800">
                     <strong>Nota:</strong> Todos los miembros seleccionados verán este
-                    trabajo como "Entregado" en su lista de tareas.
+                    trabajo como &quot;Entregado&quot; en su lista de tareas.
                   </p>
                 </div>
               )}

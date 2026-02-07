@@ -139,7 +139,7 @@ const MentionPicker: React.FC<MentionPickerProps> = ({
           <span>Mencionar usuario</span>
           {query && (
             <span className="text-gray-400">
-              buscando "{query}"
+              buscando &quot;{query}&quot;
             </span>
           )}
         </div>

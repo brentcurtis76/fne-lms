@@ -24,6 +24,7 @@ import { CourseWithEnrollment } from '../types/courses';
 import { UpcomingCourse, UpcomingCourseCard } from '../components/courses/UpcomingCourseCard';
 import { CourseProposalSection } from '../components/course-proposals';
 import { MemberProfileModal } from '../components/community/MemberProfileModal';
+import { BadgesSection } from '../components/badges';
 
 // Types
 interface NewsArticle {
@@ -984,6 +985,11 @@ export default function Dashboard() {
           metadataHasRole(session?.user?.user_metadata, 'consultor') ||
           userRoles.some(r => r.role_type === 'admin' || r.role_type === 'consultor')) && (
           <CourseProposalSection userId={user?.id} />
+        )}
+
+        {/* Badges/Achievements Section - Mis Logros */}
+        {user?.id && (
+          <BadgesSection userId={user.id} maxDisplay={4} showViewAll={true} />
         )}
 
         {/* Continue Learning Section - Netflix Style */}

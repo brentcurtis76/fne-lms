@@ -105,7 +105,7 @@ export default function TermsOfUseModal({ isOpen, onClose }: TermsOfUseModalProp
 
               <h3 className="text-lg font-semibold mb-3">8. Limitación de Responsabilidad</h3>
               <p className="mb-4">
-                FNE proporciona la plataforma "tal como está" y no garantiza que el servicio sea ininterrumpido o libre de errores. En la máxima medida permitida por la ley, FNE no será responsable por:
+                FNE proporciona la plataforma &quot;tal como está&quot; y no garantiza que el servicio sea ininterrumpido o libre de errores. En la máxima medida permitida por la ley, FNE no será responsable por:
               </p>
               <ul className="list-disc pl-6 mb-4">
                 <li>Daños indirectos, incidentales o consecuentes</li>

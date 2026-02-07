@@ -233,7 +233,7 @@ export default function TransformationAccessManagement() {
                   <ul className="list-disc pl-5 space-y-1">
                     <li>Al revocar acceso, los assessments activos se archivarán automáticamente</li>
                     <li>Los assessments archivados NO se reactivarán si vuelves a asignar acceso</li>
-                    <li>Actualmente solo "Personalización" está disponible de las 7 vías</li>
+                    <li>Actualmente solo &quot;Personalización&quot; está disponible de las 7 vías</li>
                   </ul>
                 </div>
               </div>

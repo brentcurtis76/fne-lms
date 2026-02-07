@@ -133,7 +133,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     roleTypes: roles?.map(r => r.role_type)
   });
 
-  const isAdmin = roles?.some(r => ['admin', 'consultor', 'community_manager'].includes(r.role_type));
+  const isAdmin = roles?.some(r => ['admin', 'community_manager'].includes(r.role_type));
   
   console.log('[news API] Admin check:', { isAdmin, hasRoles: !!roles?.length });
   

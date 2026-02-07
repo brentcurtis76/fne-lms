@@ -19,11 +19,33 @@ async function hasDirectivoPermission(
     return { hasPermission: false, schoolId: null, isAdmin: false };
   }
 
-  const isAdmin = roles.some((r: any) => ['admin', 'consultor'].includes(r.role_type));
+  const isActualAdmin = roles.some((r: any) => r.role_type === 'admin');
 
-  if (isAdmin) {
+  if (isActualAdmin) {
     // Admin can access any school, but needs a school_id to be specified
     return { hasPermission: true, schoolId: schoolId || null, isAdmin: true };
+  }
+
+  // Consultor: must validate against consultant_assignments
+  const isConsultor = roles.some((r: any) => r.role_type === 'consultor');
+  if (isConsultor) {
+    const { data: assignments } = await supabaseClient
+      .from('consultant_assignments')
+      .select('school_id')
+      .eq('user_id', userId)
+      .eq('is_active', true);
+
+    if (!assignments || assignments.length === 0) {
+      return { hasPermission: false, schoolId: null, isAdmin: false };
+    }
+
+    const assignedSchoolIds = assignments.map((a: any) => a.school_id);
+
+    if (schoolId && !assignedSchoolIds.includes(schoolId)) {
+      return { hasPermission: false, schoolId: null, isAdmin: false };
+    }
+
+    return { hasPermission: true, schoolId: schoolId || assignments[0].school_id, isAdmin: false };
   }
 
   // Check for directivo role

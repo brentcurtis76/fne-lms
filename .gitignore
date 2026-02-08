@@ -28,6 +28,9 @@ dist/
 
 # Claude Code agents (local only)
 .claude/agents/
+
+# Pipeline state (local only)
+.pipeline/
 *.swp
 *.swo
 *~
@@ -104,6 +107,8 @@ run-*.mjs
 !Progresión/  # Transformation rubric files folder (exception must come AFTER wildcard)
 !Progresión/*.md  # Markdown files in Progresión folder
 !docs/qa/*.md  # QA testing documentation
+!docs/*.md  # QA audit documentation (role audits, scenarios, etc.)
+!docs/qa-system/*.sql  # QA seed data scripts
 *.json
 !.eslintrc.json  # ESLint configuration must be tracked
 !package.json  # Package manifest must be tracked

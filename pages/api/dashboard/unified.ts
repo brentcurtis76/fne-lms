@@ -185,11 +185,26 @@ async function getReportableUsers(userId: string, userRole: string, filters: any
 
       case 'lider_comunidad':
         // Community leaders see users in their communities
-        const { data: communityUsers } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('community_id', filters.communityId || 'user-community-id');
-        return communityUsers?.map(u => u.id) || [];
+        // Resolve community_id from user_roles (source of truth)
+        const { data: requesterCommunityRole } = await supabase
+          .from('user_roles')
+          .select('community_id')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .not('community_id', 'is', null)
+          .limit(1)
+          .maybeSingle();
+
+        if (requesterCommunityRole?.community_id) {
+          const { data: communityUserRoles } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .eq('community_id', requesterCommunityRole.community_id)
+            .eq('is_active', true);
+
+          return [...new Set(communityUserRoles?.map(r => r.user_id) || [])];
+        }
+        return [];
 
       case 'docente':
         // Teachers see their students

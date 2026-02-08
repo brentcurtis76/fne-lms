@@ -316,19 +316,24 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
       }
     } else if (userRole === 'lider_comunidad') {
       // Community leaders can see users from their community
-      const { data: requesterProfile } = await supabase
-        .from('profiles')
+      // Use user_roles as source of truth for community assignments (matches detailed.ts)
+      const { data: requesterRoles } = await supabase
+        .from('user_roles')
         .select('community_id')
-        .eq('id', userId)
-        .single();
-      
-      if (requesterProfile?.community_id) {
-        const { data: communityUsers } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('community_id', requesterProfile.community_id);
-        
-        return communityUsers?.map(u => u.id) || [];
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .not('community_id', 'is', null)
+        .limit(1)
+        .maybeSingle();
+
+      if (requesterRoles?.community_id) {
+        const { data: communityUserRoles } = await supabase
+          .from('user_roles')
+          .select('user_id')
+          .eq('community_id', requesterRoles.community_id)
+          .eq('is_active', true);
+
+        return [...new Set(communityUserRoles?.map(r => r.user_id) || [])];
       }
     } else if (userRole === 'supervisor_de_red') {
       // Network supervisors can see users from schools in their network

@@ -43,6 +43,9 @@ export default async function handler(
  * - priority: Filter by priority level
  * - automated_only: Filter by automation type ('true', 'false', or 'all')
  * - include_automated: If 'false', excludes automated_only scenarios (for tester UI)
+ * - page: Page number (default: 1)
+ * - pageSize: Items per page (default: 25, max: 100)
+ * - search: Text search across name and description
  */
 async function handleGetScenarios(
   req: NextApiRequest,
@@ -65,9 +68,16 @@ async function handleGetScenarios(
       include_automated = 'true',
     } = req.query;
 
+    // Pagination params — only apply when explicitly requested
+    const hasPagination = req.query.page !== undefined || req.query.pageSize !== undefined;
+    const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
+    const pageSize = Math.min(Math.max(parseInt((req.query.pageSize as string) || '25', 10), 1), 100);
+    const search = (req.query.search as string)?.trim() || '';
+    const offset = (page - 1) * pageSize;
+
     let query = supabaseClient
       .from('qa_scenarios')
-      .select('*')
+      .select('*', { count: 'exact' })
       .order('priority', { ascending: true })
       .order('created_at', { ascending: false });
 
@@ -101,7 +111,18 @@ async function handleGetScenarios(
       query = query.or('automated_only.is.null,automated_only.eq.false');
     }
 
-    const { data: scenarios, error: fetchError } = await query;
+    // Text search (server-side)
+    if (search) {
+      const sanitized = search.replace(/%/g, '').toLowerCase();
+      query = query.or(`name.ilike.%${sanitized}%,description.ilike.%${sanitized}%`);
+    }
+
+    // Apply pagination only when explicitly requested
+    if (hasPagination) {
+      query = query.range(offset, offset + pageSize - 1);
+    }
+
+    const { data: scenarios, count, error: fetchError } = await query;
 
     if (fetchError) {
       console.error('Error fetching scenarios:', fetchError);
@@ -125,7 +146,9 @@ async function handleGetScenarios(
     return res.status(200).json({
       success: true,
       scenarios: scenarios || [],
-      total: scenarios?.length || 0,
+      total: count ?? 0,
+      page,
+      pageSize,
       automatedCount, // Number of scenarios that require Playwright
     });
   } catch (err) {

@@ -60,6 +60,12 @@ export const ROLE_TO_QA_TEST_USER: Record<string, QATestUser> = {
     role: 'lider_generacion',
     displayName: 'Líder Generación QA',
   },
+  community_manager: {
+    email: 'admin.qa@fne.cl', // Shares with admin for now - TODO: create dedicated test user
+    userId: '7650804a-fe7d-476a-b988-25ce6201aeda',
+    role: 'community_manager',
+    displayName: 'Community Manager QA',
+  },
 };
 
 /**

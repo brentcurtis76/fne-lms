@@ -54,6 +54,7 @@ const ROLE_OPTIONS = [
   { value: 'admin', label: 'Administrador' },
   { value: 'docente', label: 'Docente' },
   { value: 'consultor', label: 'Consultor' },
+  { value: 'community_manager', label: 'Community Manager' },
   { value: 'equipo_directivo', label: 'Equipo Directivo' },
   { value: 'lider_generacion', label: 'Líder de Generación' },
   { value: 'lider_comunidad', label: 'Líder de Comunidad' },

@@ -3,7 +3,7 @@
  * Provides backward-compatible authentication with new role system
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase-wrapper';
@@ -226,15 +226,18 @@ export function useAuth() {
     };
   }, [authState.userRoles]);
 
-  return {
+  // Memoize return value to prevent unnecessary re-renders in consumers
+  const returnValue = useMemo(() => ({
     ...authState,
     logout,
     hasPermission,
     hasRole,
     getOrganizationalScope,
-    // Backward compatibility helpers
-    canCreateCourses: hasPermission('can_create_courses'),
-    canManageUsers: hasPermission('can_create_users'),
-    canAssignCourses: hasPermission('can_assign_courses')
-  };
+    // Backward compatibility helpers - compute directly from permissions to avoid extra calls
+    canCreateCourses: authState.permissions.can_create_courses === true,
+    canManageUsers: authState.permissions.can_create_users === true,
+    canAssignCourses: authState.permissions.can_assign_courses === true
+  }), [authState, logout, hasPermission, hasRole, getOrganizationalScope]);
+
+  return returnValue;
 }

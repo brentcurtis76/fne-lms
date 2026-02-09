@@ -484,6 +484,300 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   }
 ];
 
+interface SidebarItemProps {
+  item: NavigationItem;
+  isCollapsed: boolean;
+  expandedItems: Set<string>;
+  isAdmin: boolean;
+  userRole?: string;
+  hasPermission: (permission: string) => boolean;
+  hasAnyPermission: (permissions: string[]) => boolean;
+  hasAllPermissions: (permissions: string[]) => boolean;
+  newFeedbackCount: number;
+  isItemActive: (href: string, currentPath: string) => boolean;
+  toggleExpanded: (itemId: string) => void;
+  routerAsPath: string;
+}
+
+const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
+  item,
+  isCollapsed,
+  expandedItems,
+  isAdmin,
+  hasPermission,
+  hasAnyPermission,
+  hasAllPermissions,
+  newFeedbackCount,
+  isItemActive,
+  toggleExpanded,
+  routerAsPath
+}) => {
+  const router = useRouter();
+  const [showCollapsedMenu, setShowCollapsedMenu] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isExpanded = expandedItems.has(item.id);
+
+  // Close floating menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setShowCollapsedMenu(false);
+      }
+    };
+
+    if (showCollapsedMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showCollapsedMenu]);
+
+  // Cleanup hover timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Filter children based on admin status and permissions
+  const filteredChildren = useMemo(() => item.children?.filter(child => {
+    if (child.adminOnly && !isAdmin) {
+      return false;
+    }
+    if (child.permission && !isAdmin) {
+      if (Array.isArray(child.permission)) {
+        if (child.requireAllPermissions) {
+          return hasAllPermissions(child.permission);
+        } else {
+          return hasAnyPermission(child.permission);
+        }
+      } else {
+        return hasPermission(child.permission);
+      }
+    }
+    return true;
+  }) || [], [item.children, isAdmin, hasPermission, hasAnyPermission, hasAllPermissions]);
+
+  const hasChildren = filteredChildren.length > 0;
+  const isActive = item.href ? isItemActive(item.href, routerAsPath) : false;
+
+  const handleClick = useCallback(async () => {
+    if (isCollapsed && hasChildren) {
+      setShowCollapsedMenu(prev => !prev);
+    } else if (hasChildren) {
+      toggleExpanded(item.id);
+    } else if (item.href) {
+      try {
+        router.push(item.href);
+      } catch (err) {
+        console.error('Navigation error in sidebar:', err);
+      }
+    }
+  }, [isCollapsed, hasChildren, item.id, item.href, toggleExpanded, router]);
+
+  // Don't render parent items that have children but all children are filtered out
+  if (item.children && !hasChildren && !item.href) {
+    return null;
+  }
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => {
+        if (isCollapsed) {
+          hoverTimeoutRef.current = setTimeout(() => {
+            setIsHovered(true);
+            if (hasChildren) setShowCollapsedMenu(true);
+          }, 150);
+        }
+      }}
+      onMouseLeave={() => {
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current);
+        }
+        setIsHovered(false);
+        if (hasChildren) {
+          setShowCollapsedMenu(false);
+        }
+      }}
+    >
+      <button
+        onClick={handleClick}
+        className={`
+          group flex items-center w-full text-left transition-all duration-200 rounded-lg relative
+          ${isCollapsed ? 'px-3 py-3 justify-center' : 'px-3 py-3'}
+          ${isActive && !hasChildren
+            ? 'bg-[#0a0a0a] text-white shadow-lg'
+            : 'text-gray-700 hover:bg-gray-100 hover:text-[#0a0a0a]'
+          }
+          ${isCollapsed && hasChildren && showCollapsedMenu ? 'bg-gray-100 text-[#0a0a0a]' : ''}
+        `}
+        title={isCollapsed ? item.label : undefined}
+        style={{ cursor: 'pointer', pointerEvents: 'auto' }}
+      >
+        {/* Active indicator */}
+        {isActive && !hasChildren && !isCollapsed && (
+          <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#fbbf24] rounded-r-lg"></div>
+        )}
+
+        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} flex-1`}>
+          <item.icon className={`flex-shrink-0 ${isCollapsed ? 'h-6 w-6' : 'h-5 w-5'} ${isActive && !hasChildren ? 'text-white' : 'text-gray-500 group-hover:text-[#0a0a0a]'
+            }`} />
+
+          {!isCollapsed && (
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium truncate">
+                  {item.label}
+                </div>
+                {item.id === 'feedback' && newFeedbackCount > 0 && (
+                  <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                    {newFeedbackCount}
+                  </span>
+                )}
+              </div>
+              {item.description && (
+                <div className={`text-xs truncate mt-0.5 ${isActive && !hasChildren ? 'text-blue-100' : 'text-gray-500'
+                  }`}>
+                  {item.description}
+                </div>
+              )}
+            </div>
+          )}
+
+          {!isCollapsed && hasChildren && (
+            <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''
+              } ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#0a0a0a]'}`} />
+          )}
+
+          {isCollapsed && hasChildren && filteredChildren.length > 0 && (
+            <div className="absolute -top-1 -right-1 bg-[#fbbf24] text-[#0a0a0a] text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-sm pointer-events-none">
+              {filteredChildren.length}
+            </div>
+          )}
+        </div>
+      </button>
+
+      {/* Tooltip for collapsed items WITHOUT children */}
+      {isCollapsed && !hasChildren && isHovered && (
+        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 pointer-events-none">
+          <div className="bg-[#0a0a0a] text-white text-sm rounded-lg px-3 py-2 whitespace-nowrap shadow-lg relative">
+            {item.label}
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full">
+              <div className="border-8 border-transparent border-r-[#0a0a0a]"></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Collapsed state floating menu */}
+      {isCollapsed && hasChildren && showCollapsedMenu && (
+          <div
+            ref={menuRef}
+            className="absolute left-full top-0 pl-2 z-50"
+          >
+            <div className="bg-white rounded-lg shadow-xl border border-gray-200 min-w-48 overflow-hidden">
+          <div className="p-2 bg-gray-50 border-b border-gray-200">
+            <h3 className="text-sm font-medium text-gray-900">{item.label}</h3>
+            {item.description && (
+              <p className="text-xs text-gray-500 mt-1">{item.description}</p>
+            )}
+          </div>
+          <div className="py-1">
+            {filteredChildren.map(child => (
+              <Link
+                key={child.id}
+                href={child.href}
+                onClick={() => setShowCollapsedMenu(false)}
+                className={`
+                  group flex items-center px-3 py-2 text-sm transition-colors
+                  ${isItemActive(child.href, routerAsPath)
+                    ? 'bg-[#0a0a0a] text-white'
+                    : 'text-gray-700 hover:bg-gray-100 hover:text-[#0a0a0a]'
+                  }
+                `}
+              >
+                {child.icon ? (
+                  <child.icon className={`h-4 w-4 mr-3 ${isItemActive(child.href, routerAsPath)
+                    ? 'text-white'
+                    : 'text-gray-400 group-hover:text-[#0a0a0a]'
+                    }`} />
+                ) : (
+                  <ChevronRightIcon className="h-4 w-4 mr-3 text-gray-400 group-hover:text-[#0a0a0a]" />
+                )}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate">{child.label}</span>
+                    {child.id === 'feedback' && newFeedbackCount > 0 && (
+                      <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                        {newFeedbackCount}
+                      </span>
+                    )}
+                  </div>
+                  {child.description && (
+                    <div className="text-xs text-gray-500 truncate mt-0.5">
+                      {child.description}
+                    </div>
+                  )}
+                </div>
+              </Link>
+            ))}
+          </div>
+            </div>
+          </div>
+      )}
+
+      {/* Children */}
+      {!isCollapsed && hasChildren && isExpanded && (
+        <div className="ml-6 mt-1 space-y-1">
+          {filteredChildren.map(child => (
+            <Link
+              key={child.id}
+              href={child.href}
+              className={`
+                group flex items-center px-3 py-2 text-sm rounded-lg transition-all duration-200
+                ${isItemActive(child.href, routerAsPath)
+                  ? 'bg-[#0a0a0a]/10 text-[#0a0a0a] font-medium'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a]'
+                }
+              `}
+            >
+              {child.icon ? (
+                <child.icon className={`h-4 w-4 mr-2 ${isItemActive(child.href, routerAsPath)
+                  ? 'text-[#0a0a0a]'
+                  : 'text-gray-400 group-hover:text-[#0a0a0a]'
+                  }`} />
+              ) : (
+                <ChevronRightIcon className="h-4 w-4 mr-2 text-gray-400 group-hover:text-[#0a0a0a]" />
+              )}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="truncate">{child.label}</div>
+                  {child.id === 'feedback' && newFeedbackCount > 0 && (
+                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                      {newFeedbackCount}
+                    </span>
+                  )}
+                </div>
+                {child.description && (
+                  <div className="text-xs text-gray-500 truncate">
+                    {child.description}
+                  </div>
+                )}
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+});
+
+SidebarItem.displayName = 'SidebarItem';
+
 const Sidebar: React.FC<SidebarProps> = React.memo(({
   user,
   currentPage,
@@ -520,70 +814,79 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     }
   }, [supabase]);
 
+  const userId = user?.id;
+
   // Check if user is superadmin
   useEffect(() => {
-    const checkSuperadmin = async () => {
-      if (!user || !isAdmin) {
-        setIsSuperadmin(false);
-        setSuperadminCheckDone(true);
-        return;
-      }
+    if (!userId || !isAdmin) {
+      setIsSuperadmin(prev => prev === false ? prev : false);
+      setSuperadminCheckDone(prev => prev === true ? prev : true);
+      return;
+    }
 
+    let cancelled = false;
+    const checkSuperadmin = async () => {
       try {
         const { data, error } = await supabase
           .from('superadmins')
           .select('is_active')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .eq('is_active', true)
           .single();
 
-        setIsSuperadmin(!error && !!data);
+        if (!cancelled) {
+          setIsSuperadmin(!error && !!data);
+        }
       } catch (error) {
-        setIsSuperadmin(false);
+        if (!cancelled) setIsSuperadmin(false);
       } finally {
-        setSuperadminCheckDone(true);
+        if (!cancelled) setSuperadminCheckDone(true);
       }
     };
 
     checkSuperadmin();
-  }, [user, isAdmin, supabase]);
+    return () => { cancelled = true; };
+  }, [userId, isAdmin, supabase]);
 
   // Check if user has community membership
   useEffect(() => {
+    if (!userId) {
+      setHasCommunity(prev => prev === false ? prev : false);
+      setCommunityCheckDone(prev => prev === true ? prev : true);
+      return;
+    }
+
+    // Admins always have access to workspace
+    if (isAdmin) {
+      setHasCommunity(prev => prev === true ? prev : true);
+      setCommunityCheckDone(prev => prev === true ? prev : true);
+      return;
+    }
+
+    let cancelled = false;
     const checkCommunity = async () => {
-      if (!user) {
-        setHasCommunity(false);
-        setCommunityCheckDone(true);
-        return;
-      }
-
-      // Admins always have access to workspace
-      if (isAdmin) {
-        setHasCommunity(true);
-        setCommunityCheckDone(true);
-        return;
-      }
-
       try {
-        // Check if user has any role with a community_id
         const { data, error } = await supabase
           .from('user_roles')
           .select('community_id')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .eq('is_active', true)
           .not('community_id', 'is', null)
           .limit(1);
 
-        setHasCommunity(!error && data && data.length > 0);
+        if (!cancelled) {
+          setHasCommunity(!error && data && data.length > 0);
+        }
       } catch (error) {
-        setHasCommunity(false);
+        if (!cancelled) setHasCommunity(false);
       } finally {
-        setCommunityCheckDone(true);
+        if (!cancelled) setCommunityCheckDone(true);
       }
     };
 
     checkCommunity();
-  }, [user, isAdmin, supabase]);
+    return () => { cancelled = true; };
+  }, [userId, isAdmin, supabase]);
 
   // Fetch new feedback count for admins
   useEffect(() => {
@@ -664,383 +967,49 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   }, []);
 
   const filteredNavigationItems = useMemo(() => {
-    console.log('Sidebar: Filtering items, isAdmin:', isAdmin, 'userRole:', userRole, 'permissionsLoading:', permissionsLoading, 'isSuperadmin:', isSuperadmin, 'superadminCheckDone:', superadminCheckDone);
     return NAVIGATION_ITEMS.filter(item => {
-      // Check superadmin-only items (RBAC feature)
       if (item.superadminOnly) {
-        // Only show if feature flag is enabled
-        if (!isFeatureEnabled('FEATURE_SUPERADMIN_RBAC')) {
-          return false;
-        }
-        // Hide RBAC menu until superadmin check is complete
-        if (!superadminCheckDone) {
-          return false;
-        }
-        // Only show to actual superadmins
-        if (!isSuperadmin) {
-          return false;
-        }
+        if (!isFeatureEnabled('FEATURE_SUPERADMIN_RBAC')) return false;
+        if (!superadminCheckDone) return false;
+        if (!isSuperadmin) return false;
       }
 
-      // Check admin-only items
-      if (item.adminOnly && !isAdmin) {
-        return false;
-      }
+      if (item.adminOnly && !isAdmin) return false;
 
-      // Check consultant-only items
       if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
         return false;
       }
 
-      // Check requiresCommunity items - user must have community membership
       if (item.requiresCommunity) {
-        // Wait for community check to complete
-        if (!communityCheckDone) {
-          return false;
-        }
-        // Hide if user doesn't have a community (admins and consultors are allowed)
-        if (!hasCommunity && userRole !== 'consultor') {
-          return false;
-        }
+        if (!communityCheckDone) return false;
+        if (!hasCommunity && userRole !== 'consultor') return false;
       }
 
-      // Check restricted roles - user must have specific role listed
       if (item.restrictedRoles && item.restrictedRoles.length > 0) {
-        if (item.id === 'events') {
-          console.log('Events item check:', {
-            itemId: item.id,
-            restrictedRoles: item.restrictedRoles,
-            userRole,
-            isAdmin,
-            includesAdmin: item.restrictedRoles.includes('admin'),
-            includesUserRole: item.restrictedRoles.includes(userRole || '')
-          });
-        }
-        // Admin has access to items that include 'admin' in restrictedRoles
-        if (isAdmin && item.restrictedRoles.includes('admin')) {
-          return true;
-        }
-        // Only show item if user's role is explicitly in the restrictedRoles list
-        if (!item.restrictedRoles.includes(userRole || '')) {
-          return false;
-        }
+        if (isAdmin && item.restrictedRoles.includes('admin')) return true;
+        if (!item.restrictedRoles.includes(userRole || '')) return false;
       }
 
-      // Check RBAC permissions (admins bypass, consultors bypass for consultantOnly items)
       const isConsultor = userRole === 'consultor';
       const consultorBypassesPermission = item.consultantOnly && isConsultor;
 
       if (item.permission && !isAdmin && !consultorBypassesPermission) {
-        // While loading, hide all permission-based items for security
-        if (permissionsLoading) {
-          return false;
-        }
+        if (permissionsLoading) return false;
 
         if (Array.isArray(item.permission)) {
-          // Multiple permissions - check if user has ANY (OR logic by default)
           if (item.requireAllPermissions) {
-            // Require ALL permissions (AND logic)
-            if (!hasAllPermissions(item.permission)) {
-              return false;
-            }
+            if (!hasAllPermissions(item.permission)) return false;
           } else {
-            // Require ANY permission (OR logic)
-            if (!hasAnyPermission(item.permission)) {
-              return false;
-            }
+            if (!hasAnyPermission(item.permission)) return false;
           }
         } else {
-          // Single permission
-          if (!hasPermission(item.permission)) {
-            return false;
-          }
+          if (!hasPermission(item.permission)) return false;
         }
       }
 
       return true;
     });
   }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone]);
-
-  const SidebarItem: React.FC<{ item: NavigationItem; isCollapsed: boolean }> = React.memo(({ item, isCollapsed }) => {
-    const [showCollapsedMenu, setShowCollapsedMenu] = useState(false);
-    const [isHovered, setIsHovered] = useState(false);
-    const menuRef = useRef<HTMLDivElement>(null);
-    const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    const isExpanded = expandedItems.has(item.id);
-
-    // Close floating menu when clicking outside
-    useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-        if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-          setShowCollapsedMenu(false);
-        }
-      };
-
-      if (showCollapsedMenu) {
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-      }
-    }, [showCollapsedMenu]);
-
-    // Cleanup hover timeout on unmount
-    useEffect(() => {
-      return () => {
-        if (hoverTimeoutRef.current) {
-          clearTimeout(hoverTimeoutRef.current);
-        }
-      };
-    }, []);
-
-    // Filter children based on admin status and permissions
-    const filteredChildren = item.children?.filter(child => {
-      // Check admin-only restriction
-      if (child.adminOnly && !isAdmin) {
-        return false;
-      }
-
-      // Check RBAC permissions (admins bypass)
-      if (child.permission && !isAdmin) {
-        if (Array.isArray(child.permission)) {
-          // Multiple permissions
-          if (child.requireAllPermissions) {
-            return hasAllPermissions(child.permission);
-          } else {
-            return hasAnyPermission(child.permission);
-          }
-        } else {
-          // Single permission
-          return hasPermission(child.permission);
-        }
-      }
-
-      return true;
-    }) || [];
-
-    const hasChildren = filteredChildren.length > 0;
-    const isActive = item.href ? isItemActive(item.href, router.asPath) : false;
-
-    // Define handleClick callback (must be before conditional return to avoid hooks rule violation)
-    const handleClick = useCallback(async () => {
-      if (isCollapsed && hasChildren) {
-        // In collapsed state, toggle the floating menu
-        setShowCollapsedMenu(!showCollapsedMenu);
-      } else if (hasChildren) {
-        // In expanded state, toggle normal expansion
-        toggleExpanded(item.id);
-      } else if (item.href) {
-        // Direct navigation without navigation manager for sidebar
-        try {
-          router.push(item.href);
-        } catch (err) {
-          console.error('Navigation error in sidebar:', err);
-        }
-      }
-    }, [isCollapsed, hasChildren, showCollapsedMenu, item.id, item.href]);
-
-    // Don't render parent items that have children but all children are filtered out
-    if (item.children && !hasChildren && !item.href) {
-      return null;
-    }
-
-    return (
-      <div
-        className="relative"
-        onMouseEnter={() => {
-          if (isCollapsed) {
-            hoverTimeoutRef.current = setTimeout(() => {
-              setIsHovered(true);
-              if (hasChildren) setShowCollapsedMenu(true);
-            }, 150);
-          }
-        }}
-        onMouseLeave={() => {
-          if (hoverTimeoutRef.current) {
-            clearTimeout(hoverTimeoutRef.current);
-          }
-          setIsHovered(false);
-          if (hasChildren) {
-            setShowCollapsedMenu(false);
-          }
-        }}
-      >
-        <button
-          onClick={handleClick}
-          className={`
-            group flex items-center w-full text-left transition-all duration-200 rounded-lg relative
-            ${isCollapsed ? 'px-3 py-3 justify-center' : 'px-3 py-3'}
-            ${isActive && !hasChildren
-              ? 'bg-[#0a0a0a] text-white shadow-lg'
-              : 'text-gray-700 hover:bg-gray-100 hover:text-[#0a0a0a]'
-            }
-            ${isCollapsed && hasChildren && showCollapsedMenu ? 'bg-gray-100 text-[#0a0a0a]' : ''}
-          `}
-          title={isCollapsed ? item.label : undefined}
-          style={{ cursor: 'pointer', pointerEvents: 'auto' }}
-        >
-          {/* Active indicator */}
-          {isActive && !hasChildren && !isCollapsed && (
-            <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#fbbf24] rounded-r-lg"></div>
-          )}
-
-          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3'} flex-1`}>
-            <item.icon className={`flex-shrink-0 ${isCollapsed ? 'h-6 w-6' : 'h-5 w-5'} ${isActive && !hasChildren ? 'text-white' : 'text-gray-500 group-hover:text-[#0a0a0a]'
-              }`} />
-
-            {!isCollapsed && (
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <div className="text-sm font-medium truncate">
-                    {item.label}
-                  </div>
-                  {/* Show badge for feedback item if there are new items */}
-                  {item.id === 'feedback' && newFeedbackCount > 0 && (
-                    <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
-                      {newFeedbackCount}
-                    </span>
-                  )}
-                </div>
-                {item.description && (
-                  <div className={`text-xs truncate mt-0.5 ${isActive && !hasChildren ? 'text-blue-100' : 'text-gray-500'
-                    }`}>
-                    {item.description}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {!isCollapsed && hasChildren && (
-              <ChevronDownIcon className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''
-                } ${isActive ? 'text-white' : 'text-gray-400 group-hover:text-[#0a0a0a]'}`} />
-            )}
-
-            {/* Badge count for collapsed state with children */}
-            {isCollapsed && hasChildren && filteredChildren.length > 0 && (
-              <div className="absolute -top-1 -right-1 bg-[#fbbf24] text-[#0a0a0a] text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-sm pointer-events-none">
-                {filteredChildren.length}
-              </div>
-            )}
-          </div>
-        </button>
-
-        {/* Tooltip for collapsed items WITHOUT children */}
-        {isCollapsed && !hasChildren && isHovered && (
-          <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 pointer-events-none">
-            <div className="bg-[#0a0a0a] text-white text-sm rounded-lg px-3 py-2 whitespace-nowrap shadow-lg relative">
-              {item.label}
-              {/* Arrow pointing to icon */}
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-full">
-                <div className="border-8 border-transparent border-r-[#0a0a0a]"></div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Collapsed state floating menu */}
-        {isCollapsed && hasChildren && showCollapsedMenu && (
-            <div
-              ref={menuRef}
-              className="absolute left-full top-0 pl-2 z-50"
-            >
-              <div className="bg-white rounded-lg shadow-xl border border-gray-200 min-w-48 overflow-hidden">
-            <div className="p-2 bg-gray-50 border-b border-gray-200">
-              <h3 className="text-sm font-medium text-gray-900">{item.label}</h3>
-              {item.description && (
-                <p className="text-xs text-gray-500 mt-1">{item.description}</p>
-              )}
-            </div>
-            <div className="py-1">
-              {filteredChildren.map(child => (
-                <Link
-                  key={child.id}
-                  href={child.href}
-                  onClick={() => setShowCollapsedMenu(false)}
-                  className={`
-                    group flex items-center px-3 py-2 text-sm transition-colors
-                    ${isItemActive(child.href, router.asPath)
-                      ? 'bg-[#0a0a0a] text-white'
-                      : 'text-gray-700 hover:bg-gray-100 hover:text-[#0a0a0a]'
-                    }
-                  `}
-                >
-                  {child.icon ? (
-                    <child.icon className={`h-4 w-4 mr-3 ${isItemActive(child.href, router.asPath)
-                      ? 'text-white'
-                      : 'text-gray-400 group-hover:text-[#0a0a0a]'
-                      }`} />
-                  ) : (
-                    <ChevronRightIcon className="h-4 w-4 mr-3 text-gray-400 group-hover:text-[#0a0a0a]" />
-                  )}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate">{child.label}</span>
-                      {/* Show badge for feedback child item if there are new items */}
-                      {child.id === 'feedback' && newFeedbackCount > 0 && (
-                        <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
-                          {newFeedbackCount}
-                        </span>
-                      )}
-                    </div>
-                    {child.description && (
-                      <div className="text-xs text-gray-500 truncate mt-0.5">
-                        {child.description}
-                      </div>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-              </div>
-            </div>
-        )}
-
-        {/* Children */}
-        {!isCollapsed && hasChildren && isExpanded && (
-          <div className="ml-6 mt-1 space-y-1">
-            {filteredChildren.map(child => (
-              <Link
-                key={child.id}
-                href={child.href}
-                className={`
-                  group flex items-center px-3 py-2 text-sm rounded-lg transition-all duration-200
-                  ${isItemActive(child.href, router.asPath)
-                    ? 'bg-[#0a0a0a]/10 text-[#0a0a0a] font-medium'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-[#0a0a0a]'
-                  }
-                `}
-              >
-                {child.icon ? (
-                  <child.icon className={`h-4 w-4 mr-2 ${isItemActive(child.href, router.asPath)
-                    ? 'text-[#0a0a0a]'
-                    : 'text-gray-400 group-hover:text-[#0a0a0a]'
-                    }`} />
-                ) : (
-                  <ChevronRightIcon className="h-4 w-4 mr-2 text-gray-400 group-hover:text-[#0a0a0a]" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <div className="truncate">{child.label}</div>
-                    {/* Show badge for feedback child item if there are new items */}
-                    {child.id === 'feedback' && newFeedbackCount > 0 && (
-                      <span className="inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
-                        {newFeedbackCount}
-                      </span>
-                    )}
-                  </div>
-                  {child.description && (
-                    <div className="text-xs text-gray-500 truncate">
-                      {child.description}
-                    </div>
-                  )}
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  });
-
-  SidebarItem.displayName = 'SidebarItem';
 
   return (
     <>
@@ -1117,7 +1086,21 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         {/* Navigation Content */}
         <div className="flex-1 overflow-y-auto py-4 px-2 space-y-1 max-h-[calc(100vh-8rem)] border-r border-gray-200">
           {filteredNavigationItems.map(item => (
-            <SidebarItem key={item.id} item={item} isCollapsed={isCollapsed} />
+            <SidebarItem
+              key={item.id}
+              item={item}
+              isCollapsed={isCollapsed}
+              expandedItems={expandedItems}
+              isAdmin={isAdmin}
+              userRole={userRole}
+              hasPermission={hasPermission}
+              hasAnyPermission={hasAnyPermission}
+              hasAllPermissions={hasAllPermissions}
+              newFeedbackCount={newFeedbackCount}
+              isItemActive={isItemActive}
+              toggleExpanded={toggleExpanded}
+              routerAsPath={router.asPath}
+            />
           ))}
         </div>
 

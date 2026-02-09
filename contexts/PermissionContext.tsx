@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
 
 interface PermissionContextType {
@@ -18,28 +18,38 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
   const [permissions, setPermissions] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
 
+  // Stable references: extract primitives from user object to avoid re-render cascades
+  const userId = user?.id;
+  const userRef = useRef(user);
+  userRef.current = user;
+
+  const isAdmin = useMemo(() => {
+    return user?.user_metadata?.roles?.includes('admin') ||
+           user?.user_metadata?.role === 'admin' || false;
+  }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // isAdmin only changes when the user changes (by id)
+
   // Load cached permissions when user becomes available
   useEffect(() => {
-    if (typeof window !== 'undefined' && user?.id) {
-      const cached = localStorage.getItem(`permissions_${user.id}`);
+    if (typeof window !== 'undefined' && userId) {
+      const cached = localStorage.getItem(`permissions_${userId}`);
       if (cached) {
         try {
           const cachedPerms = JSON.parse(cached);
-          console.log('[PermissionContext] Loaded cached permissions:', Object.keys(cachedPerms).length);
           setPermissions(cachedPerms);
-          setLoading(false); // Don't show loading state if we have cached data
+          setLoading(false);
         } catch (e) {
           console.error('Failed to parse cached permissions:', e);
         }
       }
     }
-  }, [user?.id]);
+  }, [userId]);
 
-  const fetchPermissions = async () => {
-    if (!user) {
+  const fetchPermissions = useCallback(async () => {
+    const currentUser = userRef.current;
+    if (!currentUser) {
       setPermissions({});
       setLoading(false);
-      // Clear cached permissions when user logs out
       if (typeof window !== 'undefined') {
         Object.keys(localStorage).forEach(key => {
           if (key.startsWith('permissions_')) {
@@ -53,12 +63,10 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
     try {
       setLoading(true);
 
-      // Get user's role(s) from user_roles table
-      console.log('[PermissionContext] Fetching roles for user:', user.id);
       const { data: userRoles, error: rolesError } = await supabase
         .from('user_roles')
         .select('role_type')
-        .eq('user_id', user.id)
+        .eq('user_id', currentUser.id)
         .eq('is_active', true);
 
       if (rolesError) {
@@ -68,8 +76,6 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      console.log('[PermissionContext] Found roles:', userRoles);
-
       if (!userRoles || userRoles.length === 0) {
         console.warn('[PermissionContext] User has no active roles');
         setPermissions({});
@@ -77,9 +83,7 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      // Get all permissions for user's role(s)
       const roleTypes = userRoles.map(r => r.role_type);
-      console.log('[PermissionContext] Fetching permissions for roles:', roleTypes);
 
       const { data: rolePermissions, error: permsError } = await supabase
         .from('role_permissions')
@@ -95,27 +99,20 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
         return;
       }
 
-      console.log('[PermissionContext] Raw permissions from DB:', rolePermissions?.length || 0);
-
-      // Build permission map (if user has multiple roles, use OR logic - granted if ANY role grants it)
       const permMap: Record<string, boolean> = {};
 
       rolePermissions?.forEach(perm => {
-        // If any role grants the permission, user has it
         if (perm.granted) {
           permMap[perm.permission_key] = true;
         } else if (!(perm.permission_key in permMap)) {
-          // Only set to false if not already granted by another role
           permMap[perm.permission_key] = false;
         }
       });
 
-      console.log(`[PermissionContext] Loaded ${Object.keys(permMap).length} permissions for user`);
       setPermissions(permMap);
 
-      // Cache permissions in localStorage for instant access on page navigation
-      if (typeof window !== 'undefined' && user.id) {
-        localStorage.setItem(`permissions_${user.id}`, JSON.stringify(permMap));
+      if (typeof window !== 'undefined' && currentUser.id) {
+        localStorage.setItem(`permissions_${currentUser.id}`, JSON.stringify(permMap));
       }
 
     } catch (error) {
@@ -124,26 +121,19 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase]); // Only depends on supabase client, reads user from ref
 
   useEffect(() => {
     fetchPermissions();
-  }, [user?.id]);
+  }, [userId, fetchPermissions]);
 
-  const hasPermission = (permission: string): boolean => {
-    // Admin bypass - check if user has admin role
-    const isAdmin = user?.user_metadata?.roles?.includes('admin') ||
-                    user?.user_metadata?.role === 'admin';
-
+  const hasPermission = useCallback((permission: string): boolean => {
     if (isAdmin) {
-      console.log(`[PermissionContext] Admin bypass for: ${permission}`);
       return true;
     }
 
     const result = permissions[permission] === true;
 
-    // Only log permission denials in development when explicitly enabled
-    // Set NEXT_PUBLIC_DEBUG_PERMISSIONS=true in .env.local to enable
     if (!result && !loading) {
       if (process.env.NODE_ENV === 'development' && process.env.NEXT_PUBLIC_DEBUG_PERMISSIONS === 'true') {
         console.warn(`[PermissionContext] Permission denied: ${permission}`);
@@ -151,27 +141,27 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
     }
 
     return result;
-  };
+  }, [permissions, loading, isAdmin]);
 
-  const hasAnyPermission = (perms: string[]): boolean => {
+  const hasAnyPermission = useCallback((perms: string[]): boolean => {
     return perms.some(p => hasPermission(p));
-  };
+  }, [hasPermission]);
 
-  const hasAllPermissions = (perms: string[]): boolean => {
+  const hasAllPermissions = useCallback((perms: string[]): boolean => {
     return perms.every(p => hasPermission(p));
-  };
+  }, [hasPermission]);
+
+  const contextValue = useMemo(() => ({
+    permissions,
+    loading,
+    hasPermission,
+    hasAnyPermission,
+    hasAllPermissions,
+    refetch: fetchPermissions
+  }), [permissions, loading, hasPermission, hasAnyPermission, hasAllPermissions, fetchPermissions]);
 
   return (
-    <PermissionContext.Provider
-      value={{
-        permissions,
-        loading,
-        hasPermission,
-        hasAnyPermission,
-        hasAllPermissions,
-        refetch: fetchPermissions
-      }}
-    >
+    <PermissionContext.Provider value={contextValue}>
       {children}
     </PermissionContext.Provider>
   );

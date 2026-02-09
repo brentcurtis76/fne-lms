@@ -3,7 +3,7 @@
  * Provides consistent sidebar navigation across all authenticated pages
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import Head from 'next/head';
@@ -60,29 +60,33 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const user = userProp || auth.user;
   const rawIsAdmin = isAdminProp !== undefined ? isAdminProp : auth.isAdmin;
   const highestRole = getHighestRole(auth.userRoles);
-  const userRole = userRoleProp || highestRole || '';
+  const userRole = useMemo(() => userRoleProp || highestRole || '', [userRoleProp, highestRole]);
   const avatarUrl = avatarUrlProp || auth.avatarUrl;
   const onLogout = onLogoutProp || auth.logout;
-  const collectedRoles = new Set<string>();
 
-  if (userRole) {
-    collectedRoles.add(userRole);
-  }
+  // Memoize role collection and admin computation to prevent unnecessary recalculations
+  const effectiveIsAdmin = useMemo(() => {
+    const collectedRoles = new Set<string>();
 
-  if (Array.isArray(auth.userRoles)) {
-    auth.userRoles.forEach(role => collectedRoles.add(role.role_type));
-  }
+    if (userRole) {
+      collectedRoles.add(userRole);
+    }
 
-  if (profileData?.role) {
-    collectedRoles.add(profileData.role);
-  }
+    if (Array.isArray(auth.userRoles)) {
+      auth.userRoles.forEach(role => collectedRoles.add(role.role_type));
+    }
 
-  if (user?.user_metadata) {
-    extractRolesFromMetadata(user.user_metadata).forEach((role) => collectedRoles.add(role));
-  }
+    if (profileData?.role) {
+      collectedRoles.add(profileData.role);
+    }
 
-  const hasAdminRole = collectedRoles.has('admin') || auth.isGlobalAdmin;
-  const effectiveIsAdmin = hasAdminRole || (rawIsAdmin && collectedRoles.size === 0);
+    if (user?.user_metadata) {
+      extractRolesFromMetadata(user.user_metadata).forEach((role) => collectedRoles.add(role));
+    }
+
+    const hasAdminRole = collectedRoles.has('admin') || auth.isGlobalAdmin;
+    return hasAdminRole || (rawIsAdmin && collectedRoles.size === 0);
+  }, [userRole, auth.userRoles, auth.isGlobalAdmin, rawIsAdmin, profileData?.role, user?.user_metadata]);
 
   // Sidebar state with localStorage persistence
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -121,7 +125,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const [cachedAvatarUrl, setCachedAvatarUrl] = useState<string | null>(null);
   
   useEffect(() => {
-    if (!avatarUrl && user) {
+    if (!avatarUrl && user?.id) {
       try {
         const sessionCacheData = sessionStorage.getItem('fne-avatar-cache');
         if (sessionCacheData) {
@@ -135,7 +139,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         // Ignore session storage errors
       }
     }
-  }, [user, avatarUrl]);
+  }, [user?.id, avatarUrl]);
 
   // Fetch school name for header pill
   useEffect(() => {
@@ -216,17 +220,18 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     localStorage.setItem('fne-sidebar-collapsed', JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
   
-  const handleSidebarToggle = () => {
-    setSidebarCollapsed(!sidebarCollapsed);
-  };
-  
-  const handleLogout = () => {
+  // Memoize handlers to prevent prop instability
+  const handleSidebarToggle = useCallback(() => {
+    setSidebarCollapsed(prev => !prev);
+  }, []);
+
+  const handleLogout = useCallback(() => {
     if (onLogout) {
       onLogout();
     } else {
       router.push('/login');
     }
-  };
+  }, [onLogout, router]);
   
   // Generate page title
   const fullTitle = pageTitle

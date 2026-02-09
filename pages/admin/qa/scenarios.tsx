@@ -4,13 +4,13 @@
  * CRUD interface for managing test scenarios.
  */
 
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPageHeader';
+import { useAuth } from '@/hooks/useAuth';
 import {
   ClipboardList,
   Plus,
@@ -30,12 +30,9 @@ import { FEATURE_AREA_LABELS, PRIORITY_LABELS, PRIORITY_COLORS } from '@/types/q
 
 const QAScenarioManagementPage: React.FC = () => {
   const router = useRouter();
-  const supabase = useSupabaseClient();
-  const [user, setUser] = useState<any>(null);
+  const { user, loading: authLoading, isAdmin, avatarUrl, logout } = useAuth();
   const [scenarios, setScenarios] = useState<QAScenario[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [avatarUrl, setAvatarUrl] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [featureAreaFilter, setFeatureAreaFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
@@ -77,46 +74,17 @@ const QAScenarioManagementPage: React.FC = () => {
     initializedFromUrl.current = true;
   }, [router.isReady, router.query]);
 
-  // Check auth and permissions
+  // Redirect to login if not authenticated
   useEffect(() => {
-    const checkAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) {
-        router.push('/login');
-        return;
-      }
-      setUser(session.user);
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [authLoading, user, router]);
 
-      // Get avatar
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('avatar_url')
-        .eq('id', session.user.id)
-        .single();
-
-      if (profileData?.avatar_url) {
-        setAvatarUrl(profileData.avatar_url);
-      }
-
-      // Check permissions (admin only)
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('role_type')
-        .eq('user_id', session.user.id)
-        .eq('is_active', true);
-
-      const isAdmin = roles?.some((r) => r.role_type === 'admin') || false;
-      setHasPermission(isAdmin);
-    };
-
-    checkAuth();
-  }, [supabase, router]);
-
-  // Fetch scenarios
+  // Fetch scenarios — router is NOT in deps to avoid infinite loop
+  // (router.replace inside callback would change router ref → recreate callback → re-trigger effect)
   const fetchScenarios = useCallback(async () => {
-    if (!user || hasPermission === false) return;
+    if (!user || !isAdmin) return;
 
     setLoading(true);
     try {
@@ -139,32 +107,35 @@ const QAScenarioManagementPage: React.FC = () => {
       const data = await response.json();
       setScenarios(data.scenarios || []);
       setTotalScenarios(data.total || 0);
-
-      // Update URL with current filters
-      const query: Record<string, string> = {};
-      if (currentPage > 1) query.page = String(currentPage);
-      if (pageSize !== 25) query.pageSize = String(pageSize);
-      if (debouncedSearch) query.search = debouncedSearch;
-      if (featureAreaFilter) query.feature_area = featureAreaFilter;
-      if (roleFilter) query.role = roleFilter;
-      if (priorityFilter) query.priority = priorityFilter;
-      if (activeFilter !== 'all') query.is_active = activeFilter;
-      if (automatedFilter !== 'all') query.automated_only = automatedFilter;
-
-      router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
     } catch (error: any) {
       console.error('Error fetching scenarios:', error);
       toast.error(error.message || 'Error al cargar escenarios');
     } finally {
       setLoading(false);
     }
-  }, [user, hasPermission, currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, activeFilter, automatedFilter, router]);
+  }, [user, isAdmin, currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, activeFilter, automatedFilter]);
+
+  // Sync filter state to URL (separate from fetch to avoid router dependency loop)
+  useEffect(() => {
+    if (!initializedFromUrl.current) return;
+    const query: Record<string, string> = {};
+    if (currentPage > 1) query.page = String(currentPage);
+    if (pageSize !== 25) query.pageSize = String(pageSize);
+    if (debouncedSearch) query.search = debouncedSearch;
+    if (featureAreaFilter) query.feature_area = featureAreaFilter;
+    if (roleFilter) query.role = roleFilter;
+    if (priorityFilter) query.priority = priorityFilter;
+    if (activeFilter !== 'all') query.is_active = activeFilter;
+    if (automatedFilter !== 'all') query.automated_only = automatedFilter;
+
+    router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+  }, [currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, activeFilter, automatedFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (user && hasPermission === true && initializedFromUrl.current) {
+    if (user && isAdmin && initializedFromUrl.current) {
       fetchScenarios();
     }
-  }, [user, hasPermission, fetchScenarios]);
+  }, [user, isAdmin, fetchScenarios]);
 
   // Debounced search handler
   const handleSearchChange = useCallback((value: string) => {
@@ -271,12 +242,7 @@ const QAScenarioManagementPage: React.FC = () => {
     }
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    localStorage.removeItem('rememberMe');
-    sessionStorage.removeItem('sessionOnly');
-    router.push('/login');
-  };
+  const handleLogout = logout;
 
   // Filter change handlers (reset page to 1)
   const handleFeatureAreaChange = (value: string) => {
@@ -349,8 +315,8 @@ const QAScenarioManagementPage: React.FC = () => {
     setCurrentPage(page);
   };
 
-  // Loading state
-  if (loading && hasPermission === null) {
+  // Loading state — wait for auth to resolve
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-brand_beige flex justify-center items-center">
         <p className="text-xl text-brand_primary">Cargando...</p>
@@ -359,16 +325,12 @@ const QAScenarioManagementPage: React.FC = () => {
   }
 
   // Access denied
-  if (hasPermission === false) {
+  if (!isAdmin) {
     return (
       <MainLayout
-        user={user}
         currentPage="qa-admin"
         pageTitle=""
         breadcrumbs={[]}
-        isAdmin={false}
-        onLogout={handleLogout}
-        avatarUrl={avatarUrl}
       >
         <div className="flex flex-col justify-center items-center min-h-[50vh]">
           <div className="text-center p-8">
@@ -392,13 +354,9 @@ const QAScenarioManagementPage: React.FC = () => {
 
   return (
     <MainLayout
-      user={user}
       currentPage="qa-admin"
       pageTitle=""
       breadcrumbs={[]}
-      isAdmin={true}
-      onLogout={handleLogout}
-      avatarUrl={avatarUrl}
     >
       <ResponsiveFunctionalPageHeader
         icon={<ClipboardList />}

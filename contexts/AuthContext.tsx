@@ -7,7 +7,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { User } from '@supabase/supabase-js';
-import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
+import { useSessionContext, useSupabaseClient } from '@supabase/auth-helpers-react';
 import { 
   getUserProfileWithRoles,
   hasAdminPrivileges, 
@@ -43,7 +43,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const session = useSession(); // Single source of truth from SessionContextProvider
+  const { session, isLoading: sessionLoading } = useSessionContext(); // Single source of truth
   const supabase = useSupabaseClient();
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -73,8 +73,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch user profile and roles when session changes
   useEffect(() => {
     const fetchUserData = async () => {
+      // Wait for session to finish initializing before acting on null
+      if (sessionLoading) return;
+
       if (!session?.user?.id) {
-        // No session - clear auth state
+        // Session resolved but no user — clear auth state
         setAuthState({
           user: null,
           profile: null,
@@ -103,9 +106,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        // Set loading state
-        setAuthState(prev => ({ ...prev, loading: true }));
-
         // Fetch profile data
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
@@ -214,7 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     fetchUserData();
-  }, [session?.user?.id, supabase]);
+  }, [session?.user?.id, sessionLoading, supabase]);
 
   // Logout function
   const logout = async () => {
@@ -303,10 +303,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+const defaultPermissions: RolePermissions = {
+  can_create_courses: false,
+  can_edit_all_courses: false,
+  can_delete_courses: false,
+  can_assign_courses: false,
+  can_create_users: false,
+  can_edit_users: false,
+  can_delete_users: false,
+  can_assign_roles: false,
+  can_manage_schools: false,
+  can_manage_generations: false,
+  can_manage_communities: false,
+  reporting_scope: 'individual',
+  feedback_scope: 'individual'
+};
+
+const defaultAuthValue: AuthContextType = {
+  user: null,
+  profile: null,
+  loading: true,
+  isAdmin: false,
+  isGlobalAdmin: false,
+  userRoles: [],
+  permissions: defaultPermissions,
+  avatarUrl: '',
+  logout: async () => {},
+  hasPermission: () => false,
+  hasRole: () => false,
+  getOrganizationalScope: () => null,
+  canCreateCourses: false,
+  canManageUsers: false,
+  canAssignCourses: false
+};
+
 export function useAuth() {
   const context = useContext(AuthContext);
+  // Return safe defaults during SSR or if provider is missing
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      console.warn('[AuthContext] useAuth used outside AuthProvider - returning defaults');
+    }
+    return defaultAuthValue;
   }
   return context;
 }

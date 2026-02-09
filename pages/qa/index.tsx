@@ -6,12 +6,13 @@
  */
 
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPageHeader';
+import { useAuth } from '@/hooks/useAuth';
 import {
   ClipboardCheck,
   Play,
@@ -43,88 +44,93 @@ interface AssignedScenario extends QAScenario {
 const QAScenarioListPage: React.FC = () => {
   const router = useRouter();
   const supabase = useSupabaseClient();
-  const [user, setUser] = useState<any>(null);
+  const { user, loading: authLoading, isAdmin, avatarUrl, logout } = useAuth();
   const [scenarios, setScenarios] = useState<QAScenario[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [featureAreaFilter, setFeatureAreaFilter] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<string>('');
-  const [avatarUrl, setAvatarUrl] = useState<string>('');
+  const [roleFilter, setRoleFilter] = useState<string>('');
   const [lastRuns, setLastRuns] = useState<Map<string, LastRunInfo>>(new Map());
-  const [isAdmin, setIsAdmin] = useState(false);
   const [canRunQATests, setCanRunQATests] = useState(false);
-  const [authLoading, setAuthLoading] = useState(true);
   const [automatedCount, setAutomatedCount] = useState(0);
   const [assignedScenarios, setAssignedScenarios] = useState<AssignedScenario[]>([]);
   const [assignedLoading, setAssignedLoading] = useState(true);
 
-  // Check auth
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [totalScenarios, setTotalScenarios] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Refs for debounce and initialization
+  const searchTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const initializedFromUrl = useRef(false);
+
+  // Initialize from URL query params
   useEffect(() => {
-    const checkAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) {
-        router.push('/login');
-        return;
-      }
-      setUser(session.user);
+    if (!router.isReady || initializedFromUrl.current) return;
 
-      // Get avatar (and QA permission if column exists)
-      // Note: can_run_qa_tests column may not exist yet - handle gracefully
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('avatar_url')
-        .eq('id', session.user.id)
-        .single();
+    const q = router.query;
+    if (q.page) setCurrentPage(Number(q.page) || 1);
+    if (q.pageSize) setPageSize(Number(q.pageSize) || 25);
+    if (q.search) {
+      const searchValue = String(q.search);
+      setSearchQuery(searchValue);
+      setDebouncedSearch(searchValue);
+    }
+    if (q.feature_area) setFeatureAreaFilter(String(q.feature_area));
+    if (q.role) setRoleFilter(String(q.role));
+    if (q.priority) setPriorityFilter(String(q.priority));
 
-      if (profileData?.avatar_url) {
-        setAvatarUrl(profileData.avatar_url);
-      }
+    initializedFromUrl.current = true;
+  }, [router.isReady, router.query]);
 
-      // Get QA permission flag from profile
-      let canRunQA = false;
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [authLoading, user, router]);
+
+  // Check canRunQATests permission (separate from useAuth)
+  useEffect(() => {
+    const checkQAPermission = async () => {
+      if (!user) return;
+
       const { data: qaData, error: qaError } = await supabase
         .from('profiles')
         .select('can_run_qa_tests')
-        .eq('id', session.user.id)
+        .eq('id', user.id)
         .single();
 
       if (qaError) {
         console.error('[QA] Error fetching can_run_qa_tests:', qaError.message);
         // Column might not exist - admins will still have access via role check
+        setCanRunQATests(isAdmin);
       } else {
-        canRunQA = qaData?.can_run_qa_tests === true;
-        console.log('[QA] can_run_qa_tests value:', qaData?.can_run_qa_tests, '-> canRunQA:', canRunQA);
+        const canRunQA = qaData?.can_run_qa_tests === true;
+        // User can run QA tests if admin OR has the flag set
+        setCanRunQATests(isAdmin || canRunQA);
       }
-
-      // Get user roles
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('role_type')
-        .eq('user_id', session.user.id)
-        .eq('is_active', true);
-
-      const roleTypes = roles?.map((r) => r.role_type) || [];
-      const userIsAdmin = roleTypes.includes('admin');
-      setIsAdmin(userIsAdmin);
-
-      // User can run QA tests if admin OR has the flag set
-      setCanRunQATests(userIsAdmin || canRunQA);
-      setAuthLoading(false);
     };
 
-    checkAuth();
-  }, [supabase, router]);
+    checkQAPermission();
+  }, [user, isAdmin, supabase]);
 
-  // Fetch scenarios
+  // Fetch scenarios — router is NOT in deps to avoid infinite loop
+  // (router.replace inside callback would change router ref → recreate callback → re-trigger effect)
   const fetchScenarios = useCallback(async () => {
-    if (!user) return;
+    if (!user || !canRunQATests) return;
 
     setLoading(true);
     try {
       const params = new URLSearchParams();
+      params.append('page', String(currentPage));
+      params.append('pageSize', String(pageSize));
+      if (debouncedSearch) params.append('search', debouncedSearch);
       if (featureAreaFilter) params.append('feature_area', featureAreaFilter);
+      if (roleFilter) params.append('role', roleFilter);
       if (priorityFilter) params.append('priority', priorityFilter);
       // Exclude automated_only scenarios from manual tester UI
       params.append('include_automated', 'false');
@@ -137,9 +143,10 @@ const QAScenarioListPage: React.FC = () => {
 
       const data = await response.json();
       setScenarios(data.scenarios || []);
+      setTotalScenarios(data.total || 0);
       setAutomatedCount(data.automatedCount || 0);
 
-      // Fetch last run info for each scenario
+      // Fetch last run info for current page's scenarios only
       const scenarioIds = data.scenarios?.map((s: QAScenario) => s.id) || [];
       if (scenarioIds.length > 0) {
         const { data: runs } = await supabase
@@ -163,7 +170,7 @@ const QAScenarioListPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, featureAreaFilter, priorityFilter, supabase]);
+  }, [user, canRunQATests, currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, supabase]);
 
   // Fetch assigned scenarios for current user
   const fetchAssignedScenarios = useCallback(async () => {
@@ -226,31 +233,66 @@ const QAScenarioListPage: React.FC = () => {
     }
   }, [user, supabase]);
 
+  // Sync filter state to URL (separate from fetch to avoid router dependency loop)
+  useEffect(() => {
+    if (!initializedFromUrl.current) return;
+    const query: Record<string, string> = {};
+    if (currentPage > 1) query.page = String(currentPage);
+    if (pageSize !== 25) query.pageSize = String(pageSize);
+    if (debouncedSearch) query.search = debouncedSearch;
+    if (featureAreaFilter) query.feature_area = featureAreaFilter;
+    if (roleFilter) query.role = roleFilter;
+    if (priorityFilter) query.priority = priorityFilter;
+
+    router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
+  }, [currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Trigger fetch when filters change
+  useEffect(() => {
+    if (user && canRunQATests && initializedFromUrl.current) {
+      fetchScenarios();
+    }
+  }, [user, canRunQATests, fetchScenarios]);
+
+  // Fetch assigned scenarios separately
   useEffect(() => {
     if (user) {
-      fetchScenarios();
       fetchAssignedScenarios();
     }
-  }, [user, fetchScenarios, fetchAssignedScenarios]);
+  }, [user, fetchAssignedScenarios]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    localStorage.removeItem('rememberMe');
-    sessionStorage.removeItem('sessionOnly');
-    router.push('/login');
+  // Debounced search handler
+  const handleSearchChange = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(value);
+      setCurrentPage(1);
+    }, 300);
+  }, []);
+
+  // Filter change handlers (reset page to 1)
+  const handleFeatureAreaChange = (value: string) => {
+    setFeatureAreaFilter(value);
+    setCurrentPage(1);
   };
 
-  // Filter scenarios
-  const filteredScenarios = scenarios.filter((scenario) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    const featureLabel = FEATURE_AREA_LABELS[scenario.feature_area] || scenario.feature_area;
-    return (
-      scenario.name.toLowerCase().includes(query) ||
-      scenario.description?.toLowerCase().includes(query) ||
-      featureLabel.toLowerCase().includes(query)
-    );
-  });
+  const handleRoleFilterChange = (value: string) => {
+    setRoleFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handlePriorityFilterChange = (value: string) => {
+    setPriorityFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handlePageSizeChange = (value: string) => {
+    setPageSize(Number(value));
+    setCurrentPage(1);
+  };
+
+  const handleLogout = logout;
 
   // Get result icon
   const getResultIcon = (result: 'pass' | 'fail' | 'partial' | null) => {
@@ -266,6 +308,16 @@ const QAScenarioListPage: React.FC = () => {
     }
   };
 
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(totalScenarios / pageSize));
+  const pageStart = totalScenarios === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const pageEnd = totalScenarios === 0 ? 0 : pageStart + scenarios.length - 1;
+
+  const handlePageChange = (page: number) => {
+    if (page < 1 || page > totalPages) return;
+    setCurrentPage(page);
+  };
+
   // Loading state
   if (authLoading || (loading && !user)) {
     return (
@@ -279,13 +331,9 @@ const QAScenarioListPage: React.FC = () => {
   if (!canRunQATests && user) {
     return (
       <MainLayout
-        user={user}
         currentPage="qa-testing"
         pageTitle=""
         breadcrumbs={[]}
-        isAdmin={isAdmin}
-        onLogout={handleLogout}
-        avatarUrl={avatarUrl}
       >
         <div className="max-w-2xl mx-auto px-4 py-12 text-center">
           <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
@@ -307,20 +355,16 @@ const QAScenarioListPage: React.FC = () => {
 
   return (
     <MainLayout
-      user={user}
       currentPage="qa-testing"
       pageTitle=""
       breadcrumbs={[]}
-      isAdmin={isAdmin}
-      onLogout={handleLogout}
-      avatarUrl={avatarUrl}
     >
       <ResponsiveFunctionalPageHeader
         icon={<ClipboardCheck />}
         title="Pruebas de QA"
-        subtitle={`${filteredScenarios.length} escenario${filteredScenarios.length !== 1 ? 's' : ''} disponible${filteredScenarios.length !== 1 ? 's' : ''}`}
+        subtitle={`${totalScenarios} escenario${totalScenarios !== 1 ? 's' : ''} disponible${totalScenarios !== 1 ? 's' : ''}`}
         searchValue={searchQuery}
-        onSearchChange={setSearchQuery}
+        onSearchChange={handleSearchChange}
         searchPlaceholder="Buscar escenarios..."
       />
 
@@ -331,7 +375,7 @@ const QAScenarioListPage: React.FC = () => {
             <Filter className="w-4 h-4 text-gray-500" />
             <select
               value={featureAreaFilter}
-              onChange={(e) => setFeatureAreaFilter(e.target.value)}
+              onChange={(e) => handleFeatureAreaChange(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_accent"
             >
               <option value="">Todas las áreas</option>
@@ -344,8 +388,26 @@ const QAScenarioListPage: React.FC = () => {
           </div>
 
           <select
+            value={roleFilter}
+            onChange={(e) => handleRoleFilterChange(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_accent"
+          >
+            <option value="">Todos los roles</option>
+            <option value="admin">admin</option>
+            <option value="director">director</option>
+            <option value="supervisor_de_red">supervisor_de_red</option>
+            <option value="community_manager">community_manager</option>
+            <option value="lider_generacion">lider_generacion</option>
+            <option value="lider_comunidad">lider_comunidad</option>
+            <option value="docente">docente</option>
+            <option value="estudiante">estudiante</option>
+            <option value="apoderado">apoderado</option>
+            <option value="consultor">consultor</option>
+          </select>
+
+          <select
             value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
+            onChange={(e) => handlePriorityFilterChange(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_accent"
           >
             <option value="">Todas las prioridades</option>
@@ -476,11 +538,11 @@ const QAScenarioListPage: React.FC = () => {
         )}
 
         {/* Section Header for Other Scenarios */}
-        {assignedScenarios.length > 0 && filteredScenarios.length > 0 && (
+        {assignedScenarios.length > 0 && totalScenarios > 0 && (
           <div className="flex items-center gap-2 mb-4">
             <ClipboardCheck className="w-5 h-5 text-gray-500" />
             <h2 className="text-lg font-semibold text-gray-900">
-              Otros Escenarios Disponibles ({filteredScenarios.length})
+              Otros Escenarios Disponibles ({totalScenarios})
             </h2>
           </div>
         )}
@@ -490,23 +552,24 @@ const QAScenarioListPage: React.FC = () => {
           <div className="text-center py-12">
             <p className="text-gray-500">Cargando escenarios...</p>
           </div>
-        ) : filteredScenarios.length === 0 ? (
+        ) : scenarios.length === 0 ? (
           <div className="text-center bg-white p-12 rounded-xl shadow-lg">
             <ClipboardCheck className="mx-auto h-16 w-16 text-brand_gray_medium" />
             <h3 className="mt-4 text-xl font-semibold text-brand_primary">
-              {scenarios.length === 0
+              {totalScenarios === 0
                 ? 'No hay escenarios de prueba'
                 : 'No se encontraron escenarios'}
             </h3>
             <p className="mt-2 text-sm text-gray-600">
-              {scenarios.length === 0
+              {totalScenarios === 0
                 ? 'Los escenarios de prueba serán creados por administradores.'
                 : 'Intenta con otros términos de búsqueda o filtros'}
             </p>
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {filteredScenarios.map((scenario) => {
+          <>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {scenarios.map((scenario) => {
               const lastRun = lastRuns.get(scenario.id);
               const priorityClasses = PRIORITY_COLORS[scenario.priority] || '';
 
@@ -577,7 +640,48 @@ const QAScenarioListPage: React.FC = () => {
                 </div>
               );
             })}
-          </div>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-6 px-6 py-4 bg-gray-50 border-t border-gray-200 rounded-lg">
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-gray-500">
+                  {totalScenarios === 0
+                    ? 'No hay escenarios para mostrar'
+                    : `Mostrando ${pageStart}-${pageEnd} de ${totalScenarios} escenarios`}
+                </span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(e.target.value)}
+                  className="px-2 py-1 border border-gray-300 rounded text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_accent"
+                >
+                  <option value="10">10 por página</option>
+                  <option value="25">25 por página</option>
+                  <option value="50">50 por página</option>
+                  <option value="100">100 por página</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1 || loading}
+                  className="px-3 py-1 rounded border border-gray-300 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+                >
+                  Anterior
+                </button>
+                <span className="text-sm text-gray-600">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <button
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage >= totalPages || loading}
+                  className="px-3 py-1 rounded border border-gray-300 text-sm text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition-colors"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
     </MainLayout>

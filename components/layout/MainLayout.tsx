@@ -64,7 +64,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({
   const avatarUrl = avatarUrlProp || auth.avatarUrl;
   const onLogout = onLogoutProp || auth.logout;
 
-  // Memoize role collection and admin computation to prevent unnecessary recalculations
+  // Memoize role collection and admin computation
+  // Use user?.id as proxy for user_metadata changes (metadata only changes when user changes)
   const effectiveIsAdmin = useMemo(() => {
     const collectedRoles = new Set<string>();
 
@@ -86,7 +87,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({
 
     const hasAdminRole = collectedRoles.has('admin') || auth.isGlobalAdmin;
     return hasAdminRole || (rawIsAdmin && collectedRoles.size === 0);
-  }, [userRole, auth.userRoles, auth.isGlobalAdmin, rawIsAdmin, profileData?.role, user?.user_metadata]);
+  }, [userRole, auth.userRoles, auth.isGlobalAdmin, rawIsAdmin, profileData?.role, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sidebar state with localStorage persistence
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

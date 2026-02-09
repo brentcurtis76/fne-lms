@@ -10,6 +10,7 @@ import { Toaster } from 'react-hot-toast';
 import { toasterConfig } from '../constants/toastStyles';
 import { useEnvironmentValidation } from '../lib/utils/environmentMonitor';
 import { PermissionProvider } from '../contexts/PermissionContext';
+import { AuthProvider } from '../contexts/AuthContext';
 import DynamicFavicon from '../components/DynamicFavicon';
 import { QASessionProvider } from '../components/qa/QASessionProvider';
 import { useWebVitals } from '../hooks/useWebVitals';
@@ -26,6 +27,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
 
   return (
     <SessionContextProvider supabaseClient={supabaseClient} initialSession={pageProps.initialSession}>
+      <AuthProvider>
       <PermissionProvider>
         <Head>
           <title>Genera</title>
@@ -54,6 +56,7 @@ export default function MyApp({ Component, pageProps }: AppProps) {
           />
         </QASessionProvider>
       </PermissionProvider>
+      </AuthProvider>
     </SessionContextProvider>
   );
 }

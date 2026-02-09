@@ -165,23 +165,38 @@ async function getReportableUsers(userId: string, userRole: string, filters: any
 
       case 'supervisor_de_red':
         // Network supervisors see users in their assigned schools
-        const { data: networkUsers } = await supabase
+        // Step 1: Get supervisor's network ID from user_roles
+        const { data: supervisorRole } = await supabase
+          .from('user_roles')
+          .select('red_id')
+          .eq('user_id', userId)
+          .eq('role_type', 'supervisor_de_red')
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (!supervisorRole?.red_id) {
+          return [];
+        }
+
+        // Step 2: Get schools in that network and their users
+        const { data: networkSchools } = await supabase
           .from('red_escuelas')
-          .select(`
-            school_id,
-            schools!inner(
-              profiles!inner(id)
-            )
-          `)
-          .eq('supervisor_id', userId);
-        
-        return networkUsers?.flatMap((n: any) => {
-          const schools = Array.isArray(n.schools) ? n.schools : [n.schools];
-          return schools.flatMap((s: any) => {
-            const profiles = Array.isArray(s?.profiles) ? s.profiles : (s?.profiles ? [s.profiles] : []);
-            return profiles.map((p: any) => p.id);
-          });
-        }) || [];
+          .select('school_id')
+          .eq('red_id', supervisorRole.red_id);
+
+        if (!networkSchools || networkSchools.length === 0) {
+          return [];
+        }
+
+        const schoolIds = networkSchools.map(ns => ns.school_id);
+
+        // Step 3: Get all users from those schools via profiles
+        const { data: networkProfiles } = await supabase
+          .from('profiles')
+          .select('id')
+          .in('school_id', schoolIds);
+
+        return networkProfiles?.map(p => p.id) || [];
 
       case 'lider_comunidad':
         // Community leaders see users in their communities

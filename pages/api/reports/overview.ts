@@ -337,18 +337,33 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
       }
     } else if (userRole === 'supervisor_de_red') {
       // Network supervisors can see users from schools in their network
+      // Step 1: Get supervisor's network ID from user_roles
+      const { data: supervisorRole } = await supabase
+        .from('user_roles')
+        .select('red_id')
+        .eq('user_id', userId)
+        .eq('role_type', 'supervisor_de_red')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (!supervisorRole?.red_id) {
+        return [];
+      }
+
+      // Step 2: Get schools in that network
       const { data: networkSchools } = await supabase
         .from('red_escuelas')
         .select('school_id')
-        .eq('supervisor_id', userId);
-      
+        .eq('red_id', supervisorRole.red_id);
+
       if (networkSchools && networkSchools.length > 0) {
         const schoolIds = networkSchools.map(ns => ns.school_id);
+        // Step 3: Get users from those schools
         const { data: networkUsers } = await supabase
           .from('profiles')
           .select('id')
           .in('school_id', schoolIds);
-        
+
         return networkUsers?.map(u => u.id) || [];
       }
     }

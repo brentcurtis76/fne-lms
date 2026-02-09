@@ -165,10 +165,28 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<FilterOptions |
 
     } else if (highestRole === 'supervisor_de_red') {
       // Network supervisors see schools in their network
+      // Step 1: Get supervisor's network ID from user_roles
+      const { data: supervisorRole } = await supabase
+        .from('user_roles')
+        .select('red_id')
+        .eq('user_id', session.user.id)
+        .eq('role_type', 'supervisor_de_red')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (!supervisorRole?.red_id) {
+        return res.status(200).json({
+          schools: [],
+          generations: [],
+          communities: []
+        });
+      }
+
+      // Step 2: Get schools in that network
       const { data: networkSchools } = await supabase
         .from('red_escuelas')
         .select('school_id')
-        .eq('supervisor_id', session.user.id);
+        .eq('red_id', supervisorRole.red_id);
       
       if (networkSchools && networkSchools.length > 0) {
         const schoolIds = networkSchools.map(ns => ns.school_id);

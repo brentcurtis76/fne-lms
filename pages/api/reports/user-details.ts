@@ -7,6 +7,20 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+async function supervisorCanAccessUser(supervisorUserId: string, targetUserId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('supervisor_can_access_user', {
+    supervisor_user_id: supervisorUserId,
+    target_user_id: targetUserId
+  });
+
+  if (error) {
+    console.error('Error checking supervisor access:', error);
+    return false;
+  }
+
+  return data === true;
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -54,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Permission check based on roles
-    const hasAccess = checkUserAccessModern(user.id, highestRole, userRoles, targetUserProfile);
+    const hasAccess = await checkUserAccessModern(user.id, highestRole, userRoles, targetUserProfile);
     if (!hasAccess) {
       return res.status(403).json({ error: 'Access denied to view this user' });
     }
@@ -118,7 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-function checkUserAccessModern(requestingUserId: string, highestRole: string, userRoles: any[], targetUser: any): boolean {
+async function checkUserAccessModern(requestingUserId: string, highestRole: string, userRoles: any[], targetUser: any): Promise<boolean> {
   // Admin can see everyone
   if (highestRole === 'admin') return true;
 
@@ -142,12 +156,17 @@ function checkUserAccessModern(requestingUserId: string, highestRole: string, us
       return communityRole && targetUser.community_id === communityRole.community_id;
     
     case 'consultor':
-      // Simplified for now - consultors can see assigned users
-      return true;
-    
+      // Consultors can see users in their assigned schools
+      const consultorSchoolIds = userRoles
+        .filter(r => r.role_type === 'consultor' && r.school_id)
+        .map(r => r.school_id);
+      return consultorSchoolIds.includes(targetUser.school_id);
+
     case 'supervisor_de_red':
-      // Simplified for now - supervisors can see users in their network
-      return true;
+      // Supervisors can see users in their network schools
+      // This requires checking if target user's school is in supervisor's network
+      // We'll use the DB function supervisor_can_access_user for this
+      return await supervisorCanAccessUser(requestingUserId, targetUser.id);
     
     default:
       return false;

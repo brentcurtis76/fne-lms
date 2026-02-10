@@ -30,8 +30,6 @@ export async function getWorkspaceThreads(
   filters: ThreadFilters = {}
 ): Promise<ThreadWithDetails[]> {
   try {
-    console.log('Getting threads for workspace:', workspaceId);
-    
     // First get the threads - be explicit about columns to avoid schema cache issues
     let query = supabase
       .from('message_threads')
@@ -80,8 +78,6 @@ export async function getWorkspaceThreads(
       }
       return [];
     }
-    
-    console.log('Threads fetched:', data?.length || 0);
 
     // Get creator information for all threads
     const creatorIds = Array.from(new Set((data || []).map(thread => thread.created_by)));
@@ -511,15 +507,11 @@ export async function sendMessage(
     // Handle attachments if provided
     let attachmentRecords: any[] = [];
     if (messageData.attachments && messageData.attachments.length > 0) {
-      console.log('Processing attachments:', messageData.attachments.length);
-      
       for (const file of messageData.attachments) {
         try {
           // Generate unique file name
           const fileExt = file.name.split('.').pop();
           const fileName = `${workspaceId}/${message.id}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-          
-          console.log('Uploading file:', file.name, 'to:', fileName);
           
           // Upload to storage
           const { data: uploadData, error: uploadError } = await supabase.storage

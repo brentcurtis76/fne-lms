@@ -1827,11 +1827,8 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
   // Load community members for @mention suggestions
   const loadMentionSuggestions = async () => {
     if (!workspace || !workspace.community_id) {
-      console.log('[Mentions] No workspace or community_id, skipping load');
       return;
     }
-
-    console.log('[Mentions] Loading members for community:', workspace.community_id);
 
     try {
       // Load members of the current community using direct user_roles query
@@ -1856,8 +1853,6 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
         return;
       }
 
-      console.log('[Mentions] Raw role data:', roleData?.length, 'records');
-
       // If no community members found and user is admin, fall back to loading all profiles
       // This ensures @mentions work for admins even in communities without assigned members
       // Regular users will see no suggestions if their community has no members
@@ -1865,8 +1860,6 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
         const userRoles = user?.user_metadata?.roles || [];
         const isUserAdmin = userRoles.includes('admin');
         if (isUserAdmin) {
-          console.log('[Mentions] No community members found, admin fallback: loading all profiles');
-
           const { data: profilesData, error: profilesError } = await supabase
             .from('profiles')
             .select('id, first_name, last_name, email, avatar_url')
@@ -1889,10 +1882,8 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
             avatar: profile.avatar_url || null
           }));
 
-          console.log('[Mentions] Fallback suggestions loaded:', fallbackSuggestions.length);
           setCommunityMembers(fallbackSuggestions);
         } else {
-          console.log('[Mentions] No community members found and user is not admin - no suggestions available');
           setCommunityMembers([]);
         }
         return;
@@ -1913,7 +1904,6 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
         };
       });
 
-      console.log('[Mentions] Processed suggestions:', suggestions.length);
       setCommunityMembers(suggestions);
     } catch (error) {
       console.error('[Mentions] Error loading community members:', error);
@@ -1922,8 +1912,6 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
 
   // Handle @mention autocomplete
   const handleMentionRequest = (query: string) => {
-    console.log('[Mentions] Request for query:', query, 'Available members:', communityMembers.length);
-
     if (!communityMembers.length) {
       // Try to load members if not loaded yet
       loadMentionSuggestions();
@@ -1937,7 +1925,6 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
              member.email.toLowerCase().includes(searchQuery);
     });
 
-    console.log('[Mentions] Filtered results:', filtered.length);
     setMentionSuggestions(filtered.slice(0, 10)); // Limit to 10 suggestions
   };
 
@@ -1998,10 +1985,6 @@ const MessagingTabContent: React.FC<MessagingTabContentProps> = ({ workspace, wo
     if (!workspace || !user) return;
 
     try {
-      console.log('Creating thread with data:', threadData);
-      console.log('Workspace ID:', workspace.id);
-      console.log('User ID:', user.id);
-      
       const newThread = await createThread(workspace.id, threadData, user.id);
       setThreads(prev => [newThread, ...prev]);
       setSelectedThread(newThread);

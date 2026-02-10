@@ -101,12 +101,6 @@ function getColumnIndices(
   const findIndex = (patterns: string[]) =>
     headers.findIndex(h => patterns.some(p => h.toLowerCase().includes(p)));
 
-  // ENHANCED DIAGNOSTICS: Log column detection
-  console.log('[CSV-PARSER] Column detection:', {
-    originalHeaders: headers,
-    normalizedHeaders: headers.map(h => h.toLowerCase().trim())
-  });
-
   const columnIndices = {
     email: mapping?.email ?? findIndex(['email', 'correo']),
     firstName: mapping?.firstName ?? findIndex(['first', 'nombre', 'firstname']),
@@ -119,8 +113,6 @@ function getColumnIndices(
     generation_id: mapping?.generation_id ?? findIndex(['generation_id', 'generacion_id', 'generation', 'generacion']),
     community_id: mapping?.community_id ?? findIndex(['community_id', 'comunidad_id', 'community', 'comunidad']),
   };
-
-  console.log('[CSV-PARSER] Column indices:', columnIndices);
 
   // Validate critical columns
   if (columnIndices.email === -1) {
@@ -143,13 +135,6 @@ function parseUserRow(
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // ENHANCED DIAGNOSTICS: Log row parsing details
-  console.log('[CSV-PARSER] Parsing row:', {
-    totalCells: cells.length,
-    cellValues: cells,
-    columnMapping: columns
-  });
-
   // Get raw values without trimming
   const rawEmail = cells[columns.email] || '';
   const rawFirstName = cells[columns.firstName] || '';
@@ -162,17 +147,6 @@ function parseUserRow(
   const rawSchoolId = columns.school_id >= 0 ? cells[columns.school_id] || '' : '';
   const rawGenerationId = columns.generation_id >= 0 ? cells[columns.generation_id] || '' : '';
   const rawCommunityId = columns.community_id >= 0 ? cells[columns.community_id] || '' : '';
-
-  console.log('[CSV-PARSER] Extracted values:', {
-    email: rawEmail,
-    firstName: rawFirstName,
-    lastName: rawLastName,
-    role: rawRole,
-    password: rawPassword ? '***PRESENT***' : 'MISSING',
-    school_id: rawSchoolId || 'NOT_IN_CSV',
-    generation_id: rawGenerationId || 'NOT_IN_CSV',
-    community_id: rawCommunityId || 'NOT_IN_CSV'
-  });
 
   // --- Validation Phase --- (on trimmed values)
   const emailForValidation = rawEmail.trim();
@@ -221,13 +195,6 @@ function parseUserRow(
     generation: csvGenerationId !== undefined,
     community: csvCommunityId !== undefined,
   };
-
-  console.log('[CSV-PARSER] Organizational assignment:', {
-    csvValues: { school: csvSchoolId, generation: csvGenerationId, community: csvCommunityId },
-    globalValues: options.organizationalScope,
-    finalValues: { school: finalSchoolId, generation: finalGenerationId, community: finalCommunityId },
-    overrides: csv_overrides
-  });
 
   // --- Sanitization & Output Phase --- (on raw values, then trim)
   return {

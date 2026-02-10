@@ -37,15 +37,13 @@ export async function checkProfileCompletionSimple(
     
     if (!data) {
       // No profile found - this is a new user
-      console.log('No profile found for user, redirecting to profile setup');
       return false;
     }
-    
+
     // Check if basic fields are filled
     const hasName = Boolean(data.first_name?.trim() && data.last_name?.trim());
-    
+
     if (!hasName) {
-      console.log('Profile incomplete - missing name fields');
       return false;
     }
     

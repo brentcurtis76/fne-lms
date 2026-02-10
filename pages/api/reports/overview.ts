@@ -1,11 +1,37 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
-import { getUserPrimaryRole } from '../../../utils/roleUtils';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// Get user's primary role using the service role client (bypasses RLS)
+async function getServiceRolePrimaryRole(userId: string): Promise<string> {
+  try {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role_type')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: true });
+
+    if (error || !data || data.length === 0) return '';
+
+    const roleOrder = [
+      'admin', 'consultor', 'equipo_directivo', 'lider_generacion',
+      'lider_comunidad', 'supervisor_de_red', 'community_manager', 'docente'
+    ];
+
+    for (const roleType of roleOrder) {
+      if (data.some(r => r.role_type === roleType)) return roleType;
+    }
+
+    return data[0].role_type || '';
+  } catch {
+    return '';
+  }
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -16,54 +42,56 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Verify authentication
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-      console.error('No authorization header provided');
       return res.status(401).json({ error: 'No authorization header' });
     }
 
     const token = authHeader.split(' ')[1];
     if (!token) {
-      console.error('No token in authorization header');
       return res.status(401).json({ error: 'No token provided' });
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError) {
-      console.error('Auth error:', authError.message);
-      return res.status(401).json({ error: 'Invalid authentication', details: authError.message });
-    }
-    
-    if (!user) {
-      console.error('No user found for token');
-      return res.status(401).json({ error: 'User not found' });
+
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid authentication' });
     }
 
-    // Get user role using the modern role system
-    const userRole = await getUserPrimaryRole(user.id);
-    
+    // Get user role using service role client (bypasses RLS)
+    const userRole = await getServiceRolePrimaryRole(user.id);
+
     // Check if user has access to reports
     const allowedRoles = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red'];
     if (!userRole || !allowedRoles.includes(userRole)) {
-      console.error('User does not have report access:', userRole);
       return res.status(403).json({ error: 'Report access required' });
     }
 
+    const warnings: string[] = [];
+
     // Get reportable users based on role and assignments
-    const reportableUsers = await getReportableUsers(user.id, userRole);
+    let reportableUsers: string[] = [];
+    try {
+      reportableUsers = await getReportableUsers(user.id, userRole);
+    } catch (error) {
+      console.error('[Reports] getReportableUsers failed:', error);
+      warnings.push('No se pudo determinar el alcance de usuarios');
+    }
+
+    const emptyResponse = {
+      summary: {
+        total_users: 0,
+        active_users: 0,
+        total_courses: 0,
+        avg_completion_rate: 0,
+        total_time_spent: 0
+      },
+      users: [],
+      communities: [],
+      recent_activity: [],
+      warnings
+    };
 
     if (reportableUsers.length === 0) {
-      return res.status(200).json({ 
-        summary: {
-          total_users: 0,
-          active_users: 0,
-          total_courses: 0,
-          avg_completion_rate: 0,
-          total_time_spent: 0
-        },
-        users: [],
-        communities: [],
-        recent_activity: []
-      });
+      return res.status(200).json(emptyResponse);
     }
 
     // Get user profile data with organizational information
@@ -82,7 +110,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (profileError) {
       console.error('Profile fetch error:', profileError.message);
-      return res.status(500).json({ error: 'Failed to fetch user profiles', details: profileError.message });
+      warnings.push('No se pudieron cargar perfiles de usuarios');
+      return res.status(200).json(emptyResponse);
     }
 
     // Get organizational data separately to avoid relationship issues
@@ -164,12 +193,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           learningPathData.push(...batchData);
         }
       } catch (error) {
-        console.log('Learning path data not available for batch:', error);
+        console.error('Learning path data not available for batch:', error);
       }
     }
 
     if (pathError) {
-      console.error('Learning path data error:', pathError.message);
+      console.error('[Reports] Learning path data error:', pathError.message);
     }
 
     // Get course enrollment data for additional metrics (paginated to avoid URL limits)
@@ -200,12 +229,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           courseData.push(...batchData);
         }
       } catch (error) {
-        console.log('Course enrollment data not available for batch:', error);
+        console.error('Course enrollment data not available for batch:', error);
       }
     }
 
     if (courseError) {
-      console.error('Course data error:', courseError.message);
+      console.error('[Reports] Course data error:', courseError.message);
     }
 
     // Get consultant assignments for the consultant info (paginated to avoid URL limits)
@@ -237,12 +266,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           consultantData.push(...batchData);
         }
       } catch (error) {
-        console.log('Consultant assignment data not available for batch:', error);
+        console.error('Consultant assignment data not available for batch:', error);
       }
     }
 
     if (consultantError) {
-      console.error('Consultant data error:', consultantError.message);
+      console.error('[Reports] Consultant data error:', consultantError.message);
+    }
+
+    if (pathError) {
+      warnings.push('No se pudieron cargar datos de rutas de aprendizaje');
+    }
+    if (courseError) {
+      warnings.push('No se pudieron cargar datos de inscripciones de cursos');
+    }
+    if (consultantError) {
+      warnings.push('No se pudieron cargar datos de asignaciones de consultores');
     }
 
     // Format data for dashboard UI
@@ -254,11 +293,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       consultantData || []
     );
 
-    return res.status(200).json(formattedData);
+    return res.status(200).json({ ...formattedData, warnings });
 
   } catch (error) {
     console.error('Overview reports API error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(200).json({
+      summary: {
+        total_users: 0,
+        active_users: 0,
+        total_courses: 0,
+        avg_completion_rate: 0,
+        total_time_spent: 0
+      },
+      users: [],
+      communities: [],
+      recent_activity: [],
+      warnings: ['Error interno del servidor al cargar reportes']
+    });
   }
 }
 

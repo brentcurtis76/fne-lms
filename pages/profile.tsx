@@ -84,13 +84,12 @@ export default function ProfilePage() {
 
       // Get user metadata and check for admin role
       const { data: userData, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError) {
         console.error('Error fetching user data:', userError);
       } else {
         // Check if user has admin role in metadata
         const adminRole = metadataHasRole(userData?.user?.user_metadata, 'admin');
-        console.log('Is admin from metadata:', adminRole);
         setIsAdmin(adminRole);
       }
 
@@ -119,46 +118,17 @@ export default function ProfilePage() {
         setIsNewUser(true);
       }
 
-      // Fetch schools for dropdown FIRST (needed for school_id lookup below)
-      let schoolsData: School[] = [];
+      // Fetch user's roles from user_roles (needed to scope school dropdown)
+      let userRolesData: any[] = [];
       try {
-        console.log('Fetching schools from Supabase...');
-        const { data: fetchedSchools, error: schoolsError } = await supabase
-          .from('schools')
-          .select('*');
-
-        console.log('Schools query result:', { data: fetchedSchools, error: schoolsError });
-
-        if (schoolsError) {
-          console.error('Error fetching schools:', schoolsError);
-        }
-
-        if (fetchedSchools && fetchedSchools.length > 0) {
-          console.log(`Found ${fetchedSchools.length} schools in the database`);
-          schoolsData = fetchedSchools;
-          setSchools(fetchedSchools);
-        } else {
-          console.warn('No schools found in the database');
-          // Create some sample schools for testing if none exist
-          const sampleSchools = [
-            { id: -1, name: 'Escuela de Prueba 1' },
-            { id: -2, name: 'Escuela de Prueba 2' },
-          ];
-          schoolsData = sampleSchools;
-          setSchools(sampleSchools);
-        }
-      } catch (error) {
-        console.error('Exception when fetching schools:', error);
-      }
-
-      // Fetch user's growth communities and roles from user_roles
-      try {
-        const { data: userRolesData, error: rolesError } = await supabase
+        const { data: rolesResult, error: rolesError } = await supabase
           .from('user_roles')
           .select(`
             role_type,
             community_id,
             school_id,
+            generation_id,
+            red_id,
             growth_communities:community_id (
               id,
               name
@@ -168,43 +138,129 @@ export default function ProfilePage() {
           .eq('is_active', true);
 
         if (rolesError) {
-          console.error('Error fetching growth communities:', rolesError);
-        } else if (userRolesData) {
+          console.error('Error fetching user roles:', rolesError);
+        } else if (rolesResult) {
+          userRolesData = rolesResult;
+
           // Check if user is a consultant
-          const hasConsultorRole = userRolesData.some((role: any) => role.role_type === 'consultor');
+          const hasConsultorRole = rolesResult.some((role: any) => role.role_type === 'consultor');
           setIsConsultant(hasConsultorRole);
 
           // Extract unique growth communities
-          const communities: GrowthCommunity[] = userRolesData
+          const communities: GrowthCommunity[] = rolesResult
             .filter((role: any) => role.growth_communities)
             .map((role: any) => ({
               id: role.growth_communities.id,
               name: role.growth_communities.name
             }));
 
-          // Remove duplicates (user might have multiple roles in same community)
           const uniqueCommunities = communities.filter(
             (community, index, self) =>
               index === self.findIndex(c => c.id === community.id)
           );
 
           setGrowthCommunities(uniqueCommunities);
-
-          // If profile.school is empty but user has school_id in user_roles, pre-fill it
-          if ((!profileData?.school || profileData.school === '') && userRolesData.length > 0) {
-            // Get first school_id from user_roles
-            const roleWithSchool = userRolesData.find((role: any) => role.school_id);
-            if (roleWithSchool && schoolsData.length > 0) {
-              const matchingSchool = schoolsData.find(s => s.id === roleWithSchool.school_id);
-              if (matchingSchool) {
-                console.log(`Pre-filling school from user_roles: ${matchingSchool.name}`);
-                setSchool(matchingSchool.name);
-              }
-            }
-          }
         }
       } catch (error) {
-        console.error('Exception when fetching growth communities:', error);
+        console.error('Exception when fetching user roles:', error);
+      }
+
+      // Fetch schools for dropdown — scoped by user role
+      let schoolsData: School[] = [];
+      try {
+        const roleTypes = userRolesData.map((r: any) => r.role_type);
+        const isAdminRole = roleTypes.includes('admin');
+
+        if (isAdminRole) {
+          // Admin sees all schools
+          const { data: fetchedSchools, error: schoolsError } = await supabase
+            .from('schools')
+            .select('*');
+          if (schoolsError) console.error('Error fetching schools:', schoolsError);
+          if (fetchedSchools && fetchedSchools.length > 0) {
+            schoolsData = fetchedSchools;
+          }
+        } else if (roleTypes.includes('supervisor_de_red')) {
+          // Supervisor de Red: schools in their network
+          const redIds = userRolesData
+            .filter((r: any) => r.role_type === 'supervisor_de_red' && r.red_id)
+            .map((r: any) => r.red_id);
+
+          if (redIds.length > 0) {
+            const { data: networkSchools } = await supabase
+              .from('red_escuelas')
+              .select('school_id')
+              .in('red_id', redIds);
+
+            const schoolIds = networkSchools?.map((ns: any) => ns.school_id) || [];
+            if (schoolIds.length > 0) {
+              const { data: fetchedSchools } = await supabase
+                .from('schools')
+                .select('*')
+                .in('id', schoolIds);
+              if (fetchedSchools) schoolsData = fetchedSchools;
+            }
+          }
+        } else if (roleTypes.includes('lider_generacion')) {
+          // Lider Generacion: schools linked to their generation
+          const generationIds = userRolesData
+            .filter((r: any) => r.role_type === 'lider_generacion' && r.generation_id)
+            .map((r: any) => r.generation_id);
+
+          if (generationIds.length > 0) {
+            const { data: generations } = await supabase
+              .from('generations')
+              .select('school_id')
+              .in('id', generationIds);
+
+            const schoolIds = generations?.map((g: any) => g.school_id).filter(Boolean) || [];
+            if (schoolIds.length > 0) {
+              const { data: fetchedSchools } = await supabase
+                .from('schools')
+                .select('*')
+                .in('id', schoolIds);
+              if (fetchedSchools) schoolsData = fetchedSchools;
+            }
+          }
+        } else {
+          // All other roles: only their own school(s) from user_roles
+          const schoolIds = userRolesData
+            .filter((r: any) => r.school_id)
+            .map((r: any) => r.school_id);
+
+          const uniqueSchoolIds = [...new Set(schoolIds)];
+
+          if (uniqueSchoolIds.length > 0) {
+            const { data: fetchedSchools } = await supabase
+              .from('schools')
+              .select('*')
+              .in('id', uniqueSchoolIds);
+            if (fetchedSchools) schoolsData = fetchedSchools;
+          } else if (profileData?.school) {
+            // Fallback: if user has a school name in profile but no school_id in roles
+            const { data: fetchedSchools } = await supabase
+              .from('schools')
+              .select('*')
+              .eq('name', profileData.school)
+              .limit(1);
+            if (fetchedSchools) schoolsData = fetchedSchools;
+          }
+        }
+
+        setSchools(schoolsData);
+      } catch (error) {
+        console.error('Exception when fetching schools:', error);
+      }
+
+      // If profile.school is empty but user has school_id in user_roles, pre-fill it
+      if ((!profileData?.school || profileData.school === '') && userRolesData.length > 0) {
+        const roleWithSchool = userRolesData.find((role: any) => role.school_id);
+        if (roleWithSchool && schoolsData.length > 0) {
+          const matchingSchool = schoolsData.find(s => s.id === roleWithSchool.school_id);
+          if (matchingSchool) {
+            setSchool(matchingSchool.name);
+          }
+        }
       }
 
       setLoading(false);
@@ -303,10 +359,9 @@ export default function ProfilePage() {
       
       let updateMethod;
       let updateData;
-      
+
       // If the profile exists, use update instead of upsert to avoid RLS issues
       if (existingProfile) {
-        console.log('Existing profile found, using update method');
         updateMethod = supabase
           .from('profiles')
           .update({
@@ -322,7 +377,6 @@ export default function ProfilePage() {
           .eq('id', user.id);
       } else {
         // If no profile exists, use insert
-        console.log('No existing profile, using insert method');
         updateMethod = supabase
           .from('profiles')
           .insert({
@@ -357,11 +411,9 @@ export default function ProfilePage() {
           .select('*')
           .eq('user_id', user.id)
           .single();
-        
+
         // If no role exists, create one
         if (!userRole && !roleCheckError) {
-          console.log('No role found for user, creating docente role');
-          
           // Get school_id from schools table (required for docente role)
           let schoolId = null;
           if (school) {
@@ -370,12 +422,12 @@ export default function ProfilePage() {
               .select('id')
               .eq('name', school)
               .single();
-            
+
             if (schoolData) {
               schoolId = schoolData.id;
             }
           }
-          
+
           const { error: roleInsertError } = await supabase
             .from('user_roles')
             .insert({
@@ -384,11 +436,9 @@ export default function ProfilePage() {
               school_id: schoolId, // Required for docente role by constraint
               is_active: true
             });
-          
+
           if (roleInsertError) {
             console.error('Error creating user role:', roleInsertError);
-          } else {
-            console.log('User role created successfully with school_id:', schoolId);
           }
         }
         // Update avatar cache with new URL
@@ -601,21 +651,31 @@ export default function ProfilePage() {
                   {/* School */}
                   <div className="md:col-span-2">
                     <label htmlFor="school" className="block text-[#0a0a0a] font-medium mb-2">Escuela</label>
-                    <select
-                      id="school"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
-                      value={school}
-                      onChange={(e) => setSchool(e.target.value)}
-                    >
-                      <option value="">Selecciona una escuela</option>
-                      {schools.map((schoolItem) => (
-                        <option key={schoolItem.id} value={schoolItem.name}>
-                          {schoolItem.name}
-                          {schoolItem.location && ` - ${schoolItem.location}`}
-                          {schoolItem.type && ` (${schoolItem.type})`}
-                        </option>
-                      ))}
-                    </select>
+                    {!isAdmin && schools.length <= 1 ? (
+                      <input
+                        id="school"
+                        type="text"
+                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200"
+                        value={school || (schools[0]?.name ?? 'No asignada')}
+                        readOnly
+                      />
+                    ) : (
+                      <select
+                        id="school"
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#0a0a0a]"
+                        value={school}
+                        onChange={(e) => setSchool(e.target.value)}
+                      >
+                        <option value="">Selecciona una escuela</option>
+                        {schools.map((schoolItem) => (
+                          <option key={schoolItem.id} value={schoolItem.name}>
+                            {schoolItem.name}
+                            {schoolItem.location && ` - ${schoolItem.location}`}
+                            {schoolItem.type && ` (${schoolItem.type})`}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                   </div>
 
                   {/* External School Affiliation - Only for Consultants */}

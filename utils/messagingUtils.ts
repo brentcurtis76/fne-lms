@@ -59,32 +59,26 @@ export function getReactionLabel(reactionType: string): string {
 
 // Stub functions for components (will show placeholder messages)
 export async function getThreadMessages(threadId: string, filters: any = {}): Promise<any> {
-  console.log('getThreadMessages: Función no implementada', threadId, filters);
   return { messages: [] };
 }
 
 export async function createMessage(messageData: any, userId: string): Promise<any> {
-  console.log('createMessage: Función no implementada', messageData, userId);
   throw new Error('Función no implementada');
 }
 
 export async function editMessage(messageId: string, editData: any, userId: string): Promise<any> {
-  console.log('editMessage: Función no implementada', messageId, editData, userId);
   throw new Error('Función no implementada');
 }
 
 export async function deleteMessage(messageId: string, userId: string): Promise<any> {
-  console.log('deleteMessage: Función no implementada', messageId, userId);
   throw new Error('Función no implementada');
 }
 
 export async function toggleMessageReaction(messageId: string, reactionType: string, userId: string): Promise<any> {
-  console.log('toggleMessageReaction: Función no implementada', messageId, reactionType, userId);
   return { added: false };
 }
 
 export async function markMentionsAsRead(userId: string, messageIds: string[]): Promise<any> {
-  console.log('markMentionsAsRead: Función no implementada', userId, messageIds);
   return true;
 }
 

@@ -26,18 +26,11 @@ export async function getEnhancedUserInfo(
   contextUser: AuthUser | null,
   supabase: any
 ): Promise<UserRoleInfo> {
-  console.log('🔍 [authHelpers] getEnhancedUserInfo called with contextUser:', contextUser?.id);
-  
   // Strategy 1: Use context user if available
   if (contextUser) {
     try {
       const { effectiveRole, isAdmin } = await getEffectiveRoleAndStatus(supabase, contextUser.id);
-      console.log('✅ [authHelpers] Context user role detection successful:', {
-        userId: contextUser.id,
-        effectiveRole,
-        isAdmin
-      });
-      
+
       return {
         user: contextUser,
         isAdmin,
@@ -45,27 +38,19 @@ export async function getEnhancedUserInfo(
         source: 'context'
       };
     } catch (error) {
-      console.error('❌ [authHelpers] Context user role detection failed:', error);
+      console.error('[authHelpers] Context user role detection failed');
     }
   }
 
   // Strategy 2: Check Supabase session directly
-  console.log('🔄 [authHelpers] Context user unavailable, checking Supabase session');
   try {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+
     if (sessionError) {
-      console.error('❌ [authHelpers] Session error:', sessionError.message);
+      console.error('[authHelpers] Session error');
     } else if (session?.user) {
-      console.log('✅ [authHelpers] Found session user:', session.user.id);
-      
       const { effectiveRole, isAdmin } = await getEffectiveRoleAndStatus(supabase, session.user.id);
-      console.log('✅ [authHelpers] Session user role detection successful:', {
-        userId: session.user.id,
-        effectiveRole,
-        isAdmin
-      });
-      
+
       return {
         user: {
           id: session.user.id,
@@ -77,26 +62,19 @@ export async function getEnhancedUserInfo(
       };
     }
   } catch (sessionError) {
-    console.error('❌ [authHelpers] Session check failed:', sessionError);
+    console.error('[authHelpers] Session check failed');
   }
 
   // Strategy 3: API endpoint fallback (browser only)
   if (typeof window !== 'undefined') {
-    console.log('🔄 [authHelpers] Browser context, trying API session fallback');
     try {
       const response = await fetch('/api/auth/session');
       if (response.ok) {
         const sessionData = await response.json();
-        console.log('🔍 [authHelpers] API session response:', sessionData);
-        
+
         if (sessionData.user && sessionData.user.id) {
           const { effectiveRole, isAdmin } = await getEffectiveRoleAndStatus(supabase, sessionData.user.id);
-          console.log('✅ [authHelpers] API session role detection successful:', {
-            userId: sessionData.user.id,
-            effectiveRole,
-            isAdmin
-          });
-          
+
           return {
             user: sessionData.user,
             isAdmin,
@@ -106,12 +84,11 @@ export async function getEnhancedUserInfo(
         }
       }
     } catch (apiError) {
-      console.error('❌ [authHelpers] API session fallback failed:', apiError);
+      console.error('[authHelpers] API session fallback failed');
     }
   }
 
   // Strategy 4: Final fallback
-  console.log('❌ [authHelpers] All auth detection strategies failed');
   return {
     user: null,
     isAdmin: false,

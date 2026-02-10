@@ -43,30 +43,16 @@ export default function LoginPage() {
     return () => clearTimeout(timer);
   }, [isLoading, session]);
 
-  // Debug Supabase configuration
+  // Test Supabase connection
   useEffect(() => {
-    console.log('[Login Page] Supabase config check:', {
-      url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      keyExists: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      keyLength: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.length,
-      supabaseInstance: !!supabaseClient,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Test the connection immediately
     const testConnection = async () => {
       try {
-        const { data, error } = await supabaseClient.auth.getSession();
-        console.log('[Login Page] Session check:', {
-          hasSession: !!data?.session,
-          error: error?.message,
-          errorStatus: error?.status
-        });
+        await supabaseClient.auth.getSession();
       } catch (e) {
         console.error('[Login Page] Session check exception:', e);
       }
     };
-    
+
     testConnection();
   }, [supabaseClient]);
 
@@ -143,16 +129,12 @@ export default function LoginPage() {
             } else {
               // Check if profile is complete
               const isProfileComplete = await checkProfileCompletionSimple(supabaseClient, userId);
-              
-              console.log('[Login] Profile completion check result:', isProfileComplete);
-              
+
               if (isProfileComplete) {
                 // If profile is complete, redirect to dashboard
-                console.log('[Login] Redirecting to dashboard');
                 router.push('/dashboard');
               } else {
                 // If profile is incomplete, redirect to profile page
-                console.log('[Login] Redirecting to profile page');
                 router.push('/profile?from=login');
               }
             }

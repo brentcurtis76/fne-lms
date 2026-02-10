@@ -62,12 +62,9 @@ export default function NewsAdmin() {
 
   // FIXED: Use enhanced auth detection with multiple fallback strategies
   useEffect(() => {
-    console.log('🚀 [news.tsx] Enhanced auth detection triggered, user:', user?.id);
-
     const detectUserRole = async () => {
       try {
         const userInfo = await getEnhancedUserInfo(user, supabase);
-        console.log('🔍 [news.tsx] Enhanced auth result:', userInfo);
 
         setUserRole(userInfo.userRole);
         setIsAdmin(userInfo.isAdmin);
@@ -77,14 +74,11 @@ export default function NewsAdmin() {
         setHasPermission(isAllowed);
 
         if (userInfo.source === 'none') {
-          console.log('⚠️  [news.tsx] No auth source available - user may need to login');
           setHasPermission(false);
-        } else {
-          console.log(`✅ [news.tsx] Auth detected via ${userInfo.source}: ${userInfo.userRole} (admin: ${userInfo.isAdmin}, allowed: ${isAllowed})`);
         }
 
       } catch (error) {
-        console.error('❌ [news.tsx] Enhanced auth detection failed:', error);
+        console.error('[news.tsx] Enhanced auth detection failed');
         setIsAdmin(false);
         setUserRole('');
         setHasPermission(false);
@@ -272,13 +266,6 @@ export default function NewsAdmin() {
       minute: '2-digit'
     });
   };
-
-  console.log('🔍 [news.tsx] Rendering with props:', { isAdmin, userRole, hasPermission });
-  console.log('👤 [news.tsx] Current user state:', {
-    hasUser: !!user,
-    userId: user?.id,
-    userEmail: user?.email
-  });
 
   // Loading state while checking permissions
   if (hasPermission === null) {

@@ -61,15 +61,12 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
   };
 
   const handleSubmit = async () => {
-    console.log('[PasswordChange] handleSubmit called');
-
     if (!allRequirementsMet) {
       toastError('Por favor cumple todos los requisitos de la contraseña');
       return;
     }
 
     setIsSubmitting(true);
-    console.log('[PasswordChange] Starting API call...');
 
     try {
       const response = await fetch('/api/auth/change-password', {
@@ -92,12 +89,10 @@ export default function PasswordChangeSection({ userEmail }: PasswordChangeSecti
       // Persist success state to sessionStorage FIRST (survives auth-triggered page reloads)
       try {
         sessionStorage.setItem(PASSWORD_SUCCESS_KEY, 'true');
-        console.log('[PasswordChange] Success flag saved to sessionStorage');
       } catch (e) {
         console.error('[PasswordChange] Failed to save success flag:', e);
       }
 
-      console.log('[PasswordChange] Password changed successfully, setting success state');
       // Show inline success message immediately
       setSuccessMessage(true);
       setCurrentPassword('');

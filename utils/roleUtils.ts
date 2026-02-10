@@ -256,7 +256,6 @@ export function hasPermission(
 export function getUserPermissions(roles: UserRole[], legacyRole?: string): RolePermissions {
   // PHASE 1 FIX: Check legacy admin role first
   if (legacyRole === 'admin') {
-    console.log('[getUserPermissions] Legacy admin detected, granting full permissions');
     return ROLE_HIERARCHY.admin; // Return full admin permissions immediately
   }
 
@@ -667,7 +666,6 @@ export async function getAvailableCommunitiesForAssignment(
       const schoolIdInt = parseInt(schoolId);
       if (!isNaN(schoolIdInt)) {
         query = query.eq('school_id', schoolIdInt);
-        console.log('Filtering communities by school_id:', schoolIdInt);
       }
     }
     if (generationId) {
@@ -681,7 +679,6 @@ export async function getAvailableCommunitiesForAssignment(
       return [];
     }
 
-    console.log('Communities fetched:', data?.length || 0, 'communities');
     return data || [];
   } catch (error) {
     console.error('Error in getAvailableCommunitiesForAssignment:', error);

@@ -458,18 +458,12 @@ export default function SchoolsManagement() {
           name: schoolForm.name,
           has_generations: schoolForm.has_generations
         };
-        
-        console.log('Updating school with payload:', updatePayload);
-        
-        const { data, error } = await supabase
+
+        const { error } = await supabase
           .from('schools')
           .update(updatePayload)
           .eq('id', editingSchool.id)
           .select();
-          
-        if (data) {
-          console.log('School updated:', data);
-        }
 
         if (error) throw error;
         toast.success('Escuela actualizada exitosamente');
@@ -479,17 +473,11 @@ export default function SchoolsManagement() {
           name: schoolForm.name,
           has_generations: schoolForm.has_generations
         };
-        
-        console.log('Creating school with payload:', insertPayload);
-        
-        const { data, error } = await supabase
+
+        const { error } = await supabase
           .from('schools')
           .insert(insertPayload)
           .select();
-          
-        if (data) {
-          console.log('School created:', data);
-        }
 
         if (error) throw error;
         toast.success('Escuela creada exitosamente');

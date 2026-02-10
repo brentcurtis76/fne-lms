@@ -52,30 +52,25 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
     // Debounce mechanism - prevent fetches within 1 second of each other
     const now = Date.now();
     if (now - lastFetchRef.current < 1000) {
-      console.log('Skipping fetch - too soon after last fetch');
       return;
     }
     
     // Prevent concurrent fetches
     if (isFetchingRef.current) {
-      console.log('Skipping fetch - already fetching');
       return;
     }
-    
+
     isFetchingRef.current = true;
     lastFetchRef.current = now;
-    
+
     try {
       if (showLoading) setLoading(true);
       setError(null);
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) {
-        console.log('No session found');
         return;
       }
-
-      console.log('Fetching notifications for user:', session.user.id);
 
       // Fetch user's notifications directly
       const { data: notifications, error: notifError } = await supabase
@@ -97,8 +92,6 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
         console.error('Error fetching notifications:', notifError);
         throw new Error('Failed to fetch notifications');
       }
-
-      console.log('Notifications found:', notifications?.length || 0);
 
       // Count unread notifications
       const { count: unreadCount, error: countError } = await supabase
@@ -124,7 +117,6 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
 
       setNotifications(transformedNotifications);
       setUnreadCount(unreadCount || 0);
-      console.log('Set notifications:', transformedNotifications.length, 'unread:', unreadCount);
     } catch (err) {
       console.error('Error fetching notifications:', err);
       setError(err instanceof Error ? err.message : 'Failed to load notifications');
@@ -324,9 +316,7 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
             fallbackUrl = '/dashboard';
         }
       }
-      
-      console.log(`📍 No related_url for notification "${notification.title}", using fallback: ${fallbackUrl}`);
-      
+
       setIsOpen(false);
       router.push(fallbackUrl);
     }

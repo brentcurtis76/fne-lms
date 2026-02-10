@@ -101,6 +101,13 @@ const TransversalContextDashboard: React.FC = () => {
       let effectiveSchoolId: number | null = null;
       if (directivoRole?.school_id) {
         effectiveSchoolId = directivoRole.school_id;
+
+        // Block cross-school access: if query has a different school_id, ignore it
+        const querySchoolId = router.query.school_id;
+        if (querySchoolId && !isAdmin && parseInt(String(querySchoolId)) !== effectiveSchoolId) {
+          router.push('/dashboard');
+          return;
+        }
       } else if (isAdmin) {
         // For admin, check query parameter or show school selector
         const querySchoolId = router.query.school_id;

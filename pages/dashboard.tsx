@@ -47,6 +47,7 @@ interface YouTubeVideo {
 
 interface DashboardStats {
   totalUsers: number;
+  statsLabel?: string;
   mostCompletedCourse: {
     id: string;
     title: string;
@@ -226,11 +227,16 @@ export default function Dashboard() {
     fetchVideos();
   }, []);
 
-  // Fetch dashboard stats
+  // Fetch dashboard stats (with auth for role-scoped data)
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch('/api/dashboard/stats');
+        const { data: { session: statsSession } } = await supabase.auth.getSession();
+        const headers: Record<string, string> = {};
+        if (statsSession?.access_token) {
+          headers['Authorization'] = `Bearer ${statsSession.access_token}`;
+        }
+        const response = await fetch('/api/dashboard/stats', { headers });
         if (response.ok) {
           const data = await response.json();
           setDashboardStats(data);
@@ -242,7 +248,7 @@ export default function Dashboard() {
       }
     };
     fetchStats();
-  }, []);
+  }, [supabase]);
 
   // Fetch upcoming courses
   useEffect(() => {
@@ -681,7 +687,7 @@ export default function Dashboard() {
                                 </div>
                               )}
                               <p className="text-sm font-medium text-gray-900 text-center truncate w-full">
-                                {member.first_name || 'Usuario'}
+                                {[member.first_name, member.last_name].filter(Boolean).join(' ') || (member as any).name || 'Usuario'}
                               </p>
                               {roleLabel && (
                                 <span className="text-xs text-gray-500 text-center truncate w-full">
@@ -846,7 +852,7 @@ export default function Dashboard() {
 
         {/* Statistics Section - Netflix-inspired minimal design */}
         <section>
-          <h2 className="text-xl font-bold text-brand_primary mb-6">Estadísticas de la Plataforma</h2>
+          <h2 className="text-xl font-bold text-brand_primary mb-6">{dashboardStats?.statsLabel || 'Estadísticas de la Plataforma'}</h2>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Total Users - Large emphasis card */}
@@ -859,7 +865,7 @@ export default function Dashboard() {
                   (dashboardStats?.totalUsers || 0).toLocaleString()
                 )}
               </p>
-              <p className="text-gray-500 text-sm mt-3">en toda la plataforma</p>
+              <p className="text-gray-500 text-sm mt-3">en tu alcance</p>
             </div>
 
             {/* Most Completed Course */}

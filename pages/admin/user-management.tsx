@@ -239,10 +239,7 @@ export default function UserManagement() {
   
   // Approval functions
   const handleApproveUser = async (userId: string) => {
-    console.log('🔥 APPROVE BUTTON CLICKED FOR USER:', userId);
     try {
-      console.log('Attempting to approve user via admin API:', userId);
-      
       // Get current user's session token
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -263,13 +260,11 @@ export default function UserManagement() {
       });
 
       const result = await response.json();
-      console.log('API response:', result);
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to approve user');
       }
 
-      console.log('User approved successfully:', result.user);
       toast.success('Usuario aprobado correctamente');
       // Refresh users list
       fetchUsers(currentPage);
@@ -301,8 +296,6 @@ export default function UserManagement() {
 
   const handleRejectUser = async (userId: string) => {
     try {
-      console.log('Attempting to reject user via admin API:', userId);
-      
       // Get current user's session token
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) {
@@ -323,13 +316,11 @@ export default function UserManagement() {
       });
 
       const result = await response.json();
-      console.log('Reject API response:', result);
 
       if (!response.ok) {
         throw new Error(result.error || 'Failed to reject user');
       }
 
-      console.log('User rejected successfully:', result.user);
       toast.success('Usuario rechazado');
       // Refresh users list
       fetchUsers(currentPage);

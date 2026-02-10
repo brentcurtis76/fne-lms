@@ -32,8 +32,6 @@ export async function getMeetings(
   sort: MeetingSortOptions = { field: 'meeting_date', direction: 'desc' }
 ): Promise<CommunityMeeting[]> {
   try {
-    console.log('Fetching meetings for workspace:', workspaceId);
-    
     let query = supabase
       .from('community_meetings')
       .select(`
@@ -72,7 +70,6 @@ export async function getMeetings(
       throw error;
     }
 
-    console.log('Fetched meetings:', data?.length || 0);
     return data || [];
 
   } catch (error) {

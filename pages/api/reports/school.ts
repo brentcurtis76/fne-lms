@@ -6,6 +6,33 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// Get user's primary role using the service role client (bypasses RLS)
+async function getServiceRolePrimaryRole(userId: string): Promise<string> {
+  try {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role_type')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .order('created_at', { ascending: true });
+
+    if (error || !data || data.length === 0) return '';
+
+    const roleOrder = [
+      'admin', 'consultor', 'equipo_directivo', 'lider_generacion',
+      'lider_comunidad', 'supervisor_de_red', 'community_manager', 'docente'
+    ];
+
+    for (const roleType of roleOrder) {
+      if (data.some(r => r.role_type === roleType)) return roleType;
+    }
+
+    return data[0].role_type || '';
+  } catch {
+    return '';
+  }
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -15,52 +42,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Verify authentication
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-      console.error('No authorization header provided');
       return res.status(401).json({ error: 'No authorization header' });
     }
 
     const token = authHeader.split(' ')[1];
     if (!token) {
-      console.error('No token in authorization header');
       return res.status(401).json({ error: 'No token provided' });
     }
 
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    
-    if (authError) {
-      console.error('Auth error:', authError.message);
-      return res.status(401).json({ error: 'Invalid authentication', details: authError.message });
-    }
-    
-    if (!user) {
-      console.error('No user found for token');
-      return res.status(401).json({ error: 'User not found' });
+
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid authentication' });
     }
 
-    // Get user profile and verify role
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role, id')
-      .eq('id', user.id)
-      .single();
-
-    if (profileError) {
-      console.error('Profile fetch error:', profileError.message);
-      return res.status(500).json({ error: 'Failed to fetch user profile', details: profileError.message });
-    }
+    // Get user role using service role client (bypasses RLS)
+    const userRole = await getServiceRolePrimaryRole(user.id);
 
     // Check if user has access to reports
     const allowedRoles = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red'];
-    if (!profile || !allowedRoles.includes(profile.role)) {
-      console.error('User does not have report access:', profile?.role);
+    if (!userRole || !allowedRoles.includes(userRole)) {
       return res.status(403).json({ error: 'Report access required' });
     }
+
+    const warnings: string[] = [];
 
     // Get query parameters
     const { school_id, community_id, start_date, end_date } = req.query;
 
     // Get accessible schools based on user role
-    const accessibleSchools = await getAccessibleSchools(user.id, profile.role);
+    let accessibleSchools: string[] = [];
+    try {
+      accessibleSchools = await getAccessibleSchools(user.id, userRole);
+    } catch (error) {
+      console.error('[School Reports] getAccessibleSchools failed:', error);
+      warnings.push('No se pudo determinar el alcance de escuelas');
+    }
 
     // Since school_progress_report view doesn't exist, generate report data from existing tables
     let schoolData: any[] = [];
@@ -74,7 +91,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         schoolsToQuery = schoolsToQuery.includes(schoolIdStr) ? [schoolIdStr] : [];
       }
       
-      if (schoolsToQuery.length === 0 && profile.role !== 'admin') {
+      if (schoolsToQuery.length === 0 && userRole !== 'admin') {
         return res.status(200).json({
           message: 'No accessible schools found',
           data: []
@@ -82,7 +99,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // If admin and no specific schools, get all schools
-      if (profile.role === 'admin' && schoolsToQuery.length === 0) {
+      if (userRole === 'admin' && schoolsToQuery.length === 0) {
         const { data: allSchools } = await supabase
           .from('schools')
           .select('id');
@@ -116,12 +133,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const schoolIds = filteredSchools.map(s => s.id);
         const { data: schoolUsers } = await supabase
           .from('profiles')
-          .select('id, school_id, role')
+          .select('id, school_id')
           .in('school_id', schoolIds)
           .not('school_id', 'is', null);
 
         // Get course enrollments for these users
         const userIds = schoolUsers?.map(u => u.id) || [];
+
+        // Get roles from user_roles table (not legacy profiles.role)
+        const { data: schoolUserRoles } = userIds.length > 0 ? await supabase
+          .from('user_roles')
+          .select('user_id, role_type')
+          .in('user_id', userIds)
+          .eq('is_active', true) : { data: [] };
+
+        // Build role lookup map (primary role per user by priority)
+        const userRoleMap = new Map<string, string>();
+        if (schoolUserRoles) {
+          const roleOrder = [
+            'admin', 'consultor', 'equipo_directivo', 'lider_generacion',
+            'lider_comunidad', 'supervisor_de_red', 'community_manager', 'docente'
+          ];
+          for (const ur of schoolUserRoles) {
+            const existing = userRoleMap.get(ur.user_id);
+            if (!existing || roleOrder.indexOf(ur.role_type) < roleOrder.indexOf(existing)) {
+              userRoleMap.set(ur.user_id, ur.role_type);
+            }
+          }
+        }
+
         const { data: courseEnrollments } = userIds.length > 0 ? await supabase
           .from('course_enrollments')
           .select('user_id, course_id, progress_percentage, completed_at, time_spent')
@@ -131,38 +171,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         schoolData = filteredSchools.map((school: any) => {
           const schoolUsersData = schoolUsers?.filter(u => u.school_id === school.id) || [];
           const schoolUserIds = schoolUsersData.map(u => u.id);
-          
-          // Separate teachers and students
-          const teachers = schoolUsersData.filter(u => u.role === 'docente' || u.role === 'admin');
-          const students = schoolUsersData.filter(u => u.role === 'estudiante');
-          
+
+          // Separate teachers and students using user_roles
+          const teachers = schoolUsersData.filter(u => {
+            const role = userRoleMap.get(u.id);
+            return role === 'docente' || role === 'admin';
+          });
+          const students = schoolUsersData.filter(u => {
+            const role = userRoleMap.get(u.id);
+            return role === 'estudiante' || role === 'student';
+          });
+
           // Calculate metrics
           const totalTeachers = teachers.length;
           const totalStudents = students.length;
           const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-          
+
           // Get enrollments for this school's users
           const schoolEnrollments = courseEnrollments?.filter(e => schoolUserIds.includes(e.user_id)) || [];
-          
+
           let activeTeachers = 0;
           let activeStudents = 0;
           let totalCourses = schoolEnrollments.length;
           let completedCourses = schoolEnrollments.filter(e => e.progress_percentage >= 100).length;
-          
+
           // Count active users (users with activity in last 7 days)
-          const activeUserIds = new Set();
+          const activeUserIds = new Set<string>();
           schoolEnrollments.forEach(enrollment => {
             if (enrollment.completed_at && new Date(enrollment.completed_at) > sevenDaysAgo) {
               activeUserIds.add(enrollment.user_id);
             }
           });
-          
-          // Categorize active users as teachers or students
-          activeUserIds.forEach(userId => {
-            const user = schoolUsersData.find(u => u.id === userId);
-            if (user?.role === 'docente' || user?.role === 'admin') {
+
+          // Categorize active users as teachers or students using user_roles
+          activeUserIds.forEach(uid => {
+            const role = userRoleMap.get(uid);
+            if (role === 'docente' || role === 'admin') {
               activeTeachers++;
-            } else if (user?.role === 'estudiante') {
+            } else if (role === 'estudiante' || role === 'student') {
               activeStudents++;
             }
           });
@@ -192,8 +238,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (schoolError) {
-      console.error('School report error:', schoolError.message);
-      return res.status(500).json({ error: 'Failed to fetch school data', details: schoolError.message });
+      console.error('[School Reports] error:', (schoolError as any)?.message || schoolError);
+      warnings.push('Error al generar datos de escuelas');
     }
 
     // Format data for dashboard UI
@@ -202,52 +248,117 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({
       data: formattedData,
       total_schools: new Set(schoolData?.map(s => s.school_id)).size || 0,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      warnings
     });
 
   } catch (error) {
-    console.error('School reports API error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('[School Reports] API error:', error);
+    return res.status(200).json({
+      data: { summary: {}, by_community: [], all_schools: [] },
+      total_schools: 0,
+      timestamp: new Date().toISOString(),
+      warnings: ['Error interno del servidor al cargar reportes de escuelas']
+    });
   }
 }
 
 async function getAccessibleSchools(userId: string, userRole: string): Promise<string[]> {
   try {
     if (userRole === 'admin') {
-      // Admins can see all schools
       const { data: allSchools } = await supabase
         .from('schools')
         .select('id');
-      
       return allSchools?.map(s => s.id) || [];
+
     } else if (userRole === 'consultor') {
-      // Consultors can see schools where they have assigned students
       const { data: assignments } = await supabase
         .from('consultant_assignments')
-        .select(`
-          school_id,
-          student:student_id(school_id)
-        `)
+        .select('student_id')
         .eq('consultant_id', userId)
         .eq('is_active', true);
-      
-      const schoolIds = new Set<string>();
-      assignments?.forEach((assignment: any) => {
-        if (assignment.school_id) {
-          schoolIds.add(assignment.school_id);
-        }
-        // Also include schools from student profiles
-        if (assignment.student?.school_id) {
-          schoolIds.add(assignment.student.school_id);
-        }
-      });
-      
-      return Array.from(schoolIds);
+
+      if (!assignments || assignments.length === 0) return [];
+
+      const studentIds = assignments.map(a => a.student_id);
+      const { data: studentProfiles } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .in('id', studentIds)
+        .not('school_id', 'is', null);
+
+      return [...new Set(studentProfiles?.map(p => p.school_id).filter(Boolean) || [])] as string[];
+
+    } else if (userRole === 'supervisor_de_red') {
+      const { data: supervisorRole } = await supabase
+        .from('user_roles')
+        .select('red_id')
+        .eq('user_id', userId)
+        .eq('role_type', 'supervisor_de_red')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (!supervisorRole?.red_id) return [];
+
+      const { data: networkSchools } = await supabase
+        .from('red_escuelas')
+        .select('school_id')
+        .eq('red_id', supervisorRole.red_id);
+
+      return networkSchools?.map(ns => ns.school_id) || [];
+
+    } else if (userRole === 'equipo_directivo') {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('id', userId)
+        .single();
+
+      return profile?.school_id ? [profile.school_id] : [];
+
+    } else if (userRole === 'lider_generacion') {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('generation_id')
+        .eq('id', userId)
+        .single();
+
+      if (!profile?.generation_id) return [];
+
+      // Get schools that have users in this generation
+      const { data: genUsers } = await supabase
+        .from('profiles')
+        .select('school_id')
+        .eq('generation_id', profile.generation_id)
+        .not('school_id', 'is', null);
+
+      return [...new Set(genUsers?.map(u => u.school_id).filter(Boolean) || [])] as string[];
+
+    } else if (userRole === 'lider_comunidad') {
+      const { data: requesterRoles } = await supabase
+        .from('user_roles')
+        .select('community_id')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .not('community_id', 'is', null)
+        .limit(1)
+        .maybeSingle();
+
+      if (!requesterRoles?.community_id) return [];
+
+      // Get school for this community
+      const { data: community } = await supabase
+        .from('growth_communities')
+        .select('school_id')
+        .eq('id', requesterRoles.community_id)
+        .single();
+
+      return community?.school_id ? [community.school_id.toString()] : [];
     }
-    
+
     return [];
   } catch (error) {
-    console.error('Error getting accessible schools:', error);
+    console.error('[School Reports] Error getting accessible schools:', error);
     return [];
   }
 }

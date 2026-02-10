@@ -88,8 +88,6 @@ export default function ViasTransformacionPage() {
 
         const isAllowed = ALLOWED_ROLES.some(allowedRole => roleTypes.includes(allowedRole));
         setHasPermission(isAllowed);
-
-        console.log('[ViasTransformacion] Permission check:', { roleTypes, primaryRole, isAllowed });
       } catch (error) {
         console.error('[ViasTransformacion] Error checking permission:', error);
         setHasPermission(false);

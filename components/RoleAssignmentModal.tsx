@@ -96,15 +96,12 @@ export default function RoleAssignmentModal({
   useEffect(() => {
     const loadCommunitiesForSchool = async () => {
       if (selectedSchool) {
-        console.log('Loading communities for school:', selectedSchool);
         const comms = await getAvailableCommunitiesForAssignment(supabase, selectedSchool);
         setAvailableCommunities(comms);
-        console.log('Communities loaded for school', selectedSchool, ':', comms);
       } else {
         // Load all communities if no school selected
         const comms = await getAvailableCommunitiesForAssignment(supabase);
         setAvailableCommunities(comms);
-        console.log('All communities loaded:', comms);
       }
     };
 
@@ -148,8 +145,6 @@ export default function RoleAssignmentModal({
       // Initially load all communities
       const allComms = await getAvailableCommunitiesForAssignment(supabase);
       setAvailableCommunities(allComms);
-      console.log('Initial available communities:', allComms);
-      console.log('Schools data:', schoolsResult.data);
 
       // Don't set a default school - let user choose
       // This ensures all communities are visible initially
@@ -634,8 +629,6 @@ export default function RoleAssignmentModal({
                                 onChange={(e) => {
                                   const newSchoolId = e.target.value;
                                   setSelectedSchool(newSchoolId);
-                                  console.log('School selection changed to:', newSchoolId);
-                                  console.log('Available communities for filtering:', availableCommunities);
                                 }}
                                 className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                               >

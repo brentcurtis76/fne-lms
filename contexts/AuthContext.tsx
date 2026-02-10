@@ -119,14 +119,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .single();
 
         if (profileError || !profileData) {
-          console.error('[AuthContext] No profile found for user:', profileError);
+          console.error('[AuthContext] No profile found for user');
           setAuthState(prev => ({ ...prev, loading: false }));
           return;
         }
 
         // Fetch roles via API to bypass RLS restrictions
         let userRoles: UserRole[] = [];
-        console.log('[AuthContext] Starting role fetch for user:', session.user.id, session.user.email);
 
         // Get the access token from session to pass as Bearer token
         const accessToken = session.access_token;
@@ -138,33 +137,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               'Authorization': `Bearer ${accessToken}`
             } : undefined
           });
-          console.log('[AuthContext] API response status:', rolesResponse.status);
           if (rolesResponse.ok) {
             const rolesData = await rolesResponse.json();
             userRoles = rolesData.roles || [];
-            console.log('[AuthContext] Fetched roles via API:', userRoles.map(r => r.role_type));
           } else {
             const errorText = await rolesResponse.text();
-            console.warn('[AuthContext] Failed to fetch roles via API:', rolesResponse.status, errorText);
+            console.warn('[AuthContext] Failed to fetch roles via API:', rolesResponse.status);
             // Fallback to direct query
-            console.log('[AuthContext] Attempting direct query fallback...');
             const directRoles = await getUserProfileWithRoles(supabase, session.user.id);
-            console.log('[AuthContext] Direct query result:', directRoles);
             userRoles = (directRoles as any)?.roles || directRoles?.user_roles || [];
-            console.log('[AuthContext] Roles from direct query:', userRoles.map((r: any) => r.role_type || r));
           }
         } catch (apiError) {
-          console.warn('[AuthContext] API fetch failed:', apiError);
+          console.warn('[AuthContext] API fetch failed');
           const directRoles = await getUserProfileWithRoles(supabase, session.user.id);
-          console.log('[AuthContext] Direct query fallback result:', directRoles);
           userRoles = (directRoles as any)?.roles || directRoles?.user_roles || [];
         }
-        console.log('[AuthContext] Final userRoles:', userRoles.length, 'roles');
 
         // Check for legacy role and migrate if needed (profiles.role column may not exist)
         const legacyRole = (profileData as any).role;
         if (legacyRole && userRoles.length === 0 && (legacyRole === 'admin' || legacyRole === 'docente')) {
-          console.log('[AuthContext] Migrating legacy role:', legacyRole);
           const migrationResult = await migrateLegacyUser(supabase, session.user.id, legacyRole as 'admin' | 'docente');
           if (migrationResult.success) {
             // Re-fetch roles via API after migration
@@ -208,7 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
 
       } catch (error) {
-        console.error('[AuthContext] Error fetching user data:', error);
+        console.error('[AuthContext] Error fetching user data');
         setAuthState(prev => ({ ...prev, loading: false }));
       }
     };
@@ -255,7 +246,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       router.push('/login');
     } catch (error) {
-      console.error('[AuthContext] Logout error:', error);
+      console.error('[AuthContext] Logout error');
     }
   };
 

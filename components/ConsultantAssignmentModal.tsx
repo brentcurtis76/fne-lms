@@ -85,12 +85,6 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
     }
   }, [isOpen, editingAssignment]);
   
-  // Debug effect to log formData changes
-  useEffect(() => {
-    console.log('FormData changed:', formData);
-    console.log('Current schools list:', schools);
-    console.log('Current communities list:', communities);
-  }, [formData, schools, communities]);
 
   const fetchData = async () => {
     setDataLoading(true);
@@ -179,8 +173,6 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
   const handleInputChange = (field: string, value: any) => {
     // Handle scope changes intelligently
     if (field === 'assignment_scope') {
-      console.log('Changing assignment scope from', formData.assignment_scope, 'to', value);
-      
       // If we have a fixed user, always keep their data and populate accordingly
       if (fixedUser) {
         const student = students.find(s => s.id === fixedUser.id) || fixedUser;
@@ -257,26 +249,16 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
     // When selecting a student, auto-populate their school and community
     if (field === 'student_id' && value) {
       const selectedStudent = students.find(s => s.id === value);
-      console.log('Selected student:', selectedStudent);
-      console.log('All student data:', JSON.stringify(selectedStudent, null, 2));
-      
+
       if (selectedStudent) {
         // Get school_id from either direct field or from school object
         let schoolId = selectedStudent.school_id || selectedStudent.school?.id;
         let communityId = selectedStudent.community_id || selectedStudent.community?.id;
-        
-        console.log('Found school_id:', schoolId);
-        console.log('Found community_id:', communityId);
-        console.log('Schools list:', schools);
-        console.log('Communities list:', communities);
-        
+
         // Check if the school exists in our schools list
         const schoolExists = schools.some(s => s.id === schoolId || s.id === String(schoolId));
         const communityExists = communities.some(c => c.id === communityId || c.id === String(communityId));
-        
-        console.log('School exists in dropdown:', schoolExists);
-        console.log('Community exists in dropdown:', communityExists);
-        
+
         // If school doesn't exist in the list, add it temporarily
         if (schoolId && !schoolExists && selectedStudent.school) {
           const tempSchool = {
@@ -285,17 +267,16 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
             has_generations: false // Los Pellines doesn't have generations
           };
           setSchools(prev => [...prev, tempSchool]);
-          console.log('Added temporary school to list:', tempSchool);
         }
-        
+
         // If community doesn't exist in the list, DO NOT add it
         // This prevents sending invalid community IDs to the API
         if (communityId && !communityExists) {
-          console.warn('Community ID exists on user but not in database:', communityId);
+          console.warn('Community ID exists on user but not in database');
           // Don't set the community_id if it doesn't exist in the database
           communityId = null;
         }
-        
+
         // Update form data with school and community
         const newFormData = {
           ...formData,
@@ -303,10 +284,9 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
           school_id: schoolId ? String(schoolId) : '',
           community_id: communityId ? String(communityId) : ''
         };
-        
-        console.log('Setting formData to:', newFormData);
+
         setFormData(newFormData);
-        
+
         return;
       }
     }
@@ -591,8 +571,6 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
       const url = '/api/admin/consultant-assignments';
       const method = (editingAssignment && editingAssignment.id && !editingAssignment.student) ? 'PUT' : 'POST';
 
-      console.log('Sending assignment request:', { method, url, payload });
-
       const response = await fetch(url, {
         method,
         headers: {
@@ -602,20 +580,14 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
         body: JSON.stringify(payload)
       });
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', response.headers);
-      
       let result;
       try {
         const responseText = await response.text();
-        console.log('Response text:', responseText);
         result = responseText ? JSON.parse(responseText) : {};
       } catch (parseError) {
         console.error('Failed to parse response:', parseError);
         result = {};
       }
-      
-      console.log('Assignment API response:', { status: response.status, result });
 
       if (!response.ok) {
         console.error('Assignment API error:', result);
@@ -845,16 +817,11 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                         required
                       >
                         <option value="">Seleccionar escuela...</option>
-                        {schools.map(school => {
-                          const optionValue = String(school.id);
-                          const isSelected = optionValue === String(formData.school_id);
-                          console.log(`School option: ${school.name} (${optionValue}) - Selected: ${isSelected}`);
-                          return (
-                            <option key={school.id} value={optionValue}>
-                              {school.name}
-                            </option>
-                          );
-                        })}
+                        {schools.map(school => (
+                          <option key={school.id} value={String(school.id)}>
+                            {school.name}
+                          </option>
+                        ))}
                       </select>
                     )}
                   </div>

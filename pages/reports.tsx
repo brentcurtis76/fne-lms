@@ -13,7 +13,6 @@ import LearningPathAnalytics from '../components/reports/LearningPathAnalytics';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { BarChart3, Calendar, Map } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import { supabase } from '../lib/supabase';
 import { getUserPrimaryRole } from '../utils/roleUtils';
 
 interface User {
@@ -59,6 +58,7 @@ interface OverviewData {
     activity_type: string;
     created_at: string;
   }>;
+  warnings?: string[];
 }
 
 interface CommunityData {
@@ -109,6 +109,9 @@ const ReportsPage: React.FC = () => {
   
   // Data state
   const [loading, setLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('overview');
   const [overviewData, setOverviewData] = useState<OverviewData | null>(null);
   const [communityData, setCommunityData] = useState<CommunityData[]>([]);
@@ -201,11 +204,16 @@ const ReportsPage: React.FC = () => {
   };
 
   const fetchReportingData = async () => {
+    setDataLoading(true);
+    setFetchError(null);
+    setWarnings([]);
+
     try {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
+
       if (sessionError || !session?.access_token) {
-        toast.error('Error de autenticación');
+        setFetchError('Error de autenticación. Por favor, inicia sesión nuevamente.');
+        setDataLoading(false);
         return;
       }
 
@@ -222,32 +230,46 @@ const ReportsPage: React.FC = () => {
         });
 
         const response = await fetch(`/api/reports/overview?${params}`, { headers });
+        const data = await response.json();
         if (response.ok) {
-          const data = await response.json();
           setOverviewData(data);
+          if (data.warnings?.length > 0) setWarnings(data.warnings);
+        } else {
+          setFetchError(data.error || 'No se pudieron cargar los reportes.');
         }
       } else if (activeTab === 'community') {
         const response = await fetch('/api/reports/community', { headers });
         if (response.ok) {
           const data = await response.json();
           setCommunityData(data.communities || []);
+          if (data.warnings?.length > 0) setWarnings(data.warnings);
+        } else {
+          setFetchError('No se pudieron cargar los datos de comunidades.');
         }
       } else if (activeTab === 'school') {
         const response = await fetch('/api/reports/school', { headers });
+        const data = await response.json();
         if (response.ok) {
-          const data = await response.json();
-          setSchoolData(data.schools || []);
+          setSchoolData(data.data?.all_schools || []);
+          if (data.warnings?.length > 0) setWarnings(data.warnings);
+        } else {
+          setFetchError('No se pudieron cargar los datos de escuelas.');
         }
       } else if (activeTab === 'courses') {
         const response = await fetch('/api/reports/course-analytics', { headers });
         if (response.ok) {
           const data = await response.json();
           setCourseAnalytics(data.courses || []);
+          if (data.warnings?.length > 0) setWarnings(data.warnings);
+        } else {
+          setFetchError('No se pudieron cargar los datos de cursos.');
         }
       }
     } catch (error) {
       console.error('Error fetching reporting data:', error);
-      toast.error('Error al cargar datos de reportes');
+      setFetchError('Error de conexión al cargar datos de reportes.');
+    } finally {
+      setDataLoading(false);
     }
   };
 
@@ -375,8 +397,56 @@ const ReportsPage: React.FC = () => {
             </nav>
           </div>
 
+          {/* Warnings Banner */}
+          {warnings.length > 0 && (
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-800">
+                Algunos datos pueden estar incompletos: {warnings.join(', ')}
+              </p>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {dataLoading && (
+            <div className="flex justify-center items-center py-16">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0a0a0a]"></div>
+              <span className="ml-3 text-gray-600">Cargando datos...</span>
+            </div>
+          )}
+
+          {/* Error State */}
+          {fetchError && !dataLoading && (
+            <div className="text-center py-16">
+              <div className="text-red-500 mb-4">
+                <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+              <p className="text-gray-900 font-medium mb-2">{fetchError}</p>
+              <button
+                onClick={fetchReportingData}
+                className="mt-4 px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] rounded-lg font-medium hover:bg-[#f59e0b] transition-colors"
+              >
+                Intentar de nuevo
+              </button>
+            </div>
+          )}
+
+          {/* Empty Data State for Overview */}
+          {activeTab === 'overview' && overviewData && overviewData.summary.total_users === 0 && !dataLoading && !fetchError && (
+            <div className="text-center py-16">
+              <div className="text-gray-400 mb-4">
+                <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <p className="text-gray-900 font-medium mb-2">No hay datos disponibles para tu nivel de acceso.</p>
+              <p className="text-sm text-gray-500">Contacta al administrador si crees que deberías ver reportes aquí.</p>
+            </div>
+          )}
+
           {/* Overview Tab */}
-          {activeTab === 'overview' && overviewData && (
+          {activeTab === 'overview' && overviewData && overviewData.summary.total_users > 0 && !dataLoading && !fetchError && (
             <div className="space-y-6">
               {/* Summary Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -516,7 +586,7 @@ const ReportsPage: React.FC = () => {
           )}
 
           {/* Analytics Tab */}
-          {activeTab === 'analytics' && (
+          {activeTab === 'analytics' && !dataLoading && !fetchError && (
             <div className="space-y-6">
               {/* Analytics-specific Time Range Filter */}
               <div className="bg-white rounded-lg shadow p-4">
@@ -588,7 +658,7 @@ const ReportsPage: React.FC = () => {
           )}
 
           {/* Community Tab */}
-          {activeTab === 'community' && (
+          {activeTab === 'community' && !dataLoading && !fetchError && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Análisis por Comunidades</h3>
@@ -634,7 +704,7 @@ const ReportsPage: React.FC = () => {
           )}
 
           {/* School Tab */}
-          {activeTab === 'school' && (
+          {activeTab === 'school' && !dataLoading && !fetchError && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Análisis por Escuelas</h3>
@@ -695,7 +765,7 @@ const ReportsPage: React.FC = () => {
           )}
 
           {/* Learning Paths Tab */}
-          {activeTab === 'learning-paths' && (
+          {activeTab === 'learning-paths' && !dataLoading && !fetchError && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Análisis de Rutas de Aprendizaje</h3>
@@ -707,7 +777,7 @@ const ReportsPage: React.FC = () => {
           )}
 
           {/* Courses Tab */}
-          {activeTab === 'courses' && (
+          {activeTab === 'courses' && !dataLoading && !fetchError && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Análisis de Cursos</h3>

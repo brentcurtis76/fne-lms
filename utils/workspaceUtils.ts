@@ -46,13 +46,9 @@ export interface CommunityWorkspace {
  */
 export async function getUserWorkspaceAccess(userId: string, isAdminOverride?: boolean): Promise<WorkspaceAccess> {
   try {
-    console.log('[WorkspaceUtils] Getting workspace access for user:', userId, 'isAdminOverride:', isAdminOverride);
-
     // If we have an admin override from the auth hook, skip the role query and grant admin access
     if (isAdminOverride === true) {
-      console.log('[WorkspaceUtils] Admin override active, granting admin access');
       const allCommunities = await getAllCommunitiesForAdmin();
-      console.log('[WorkspaceUtils] Admin access granted via override, communities:', allCommunities.length);
       return {
         canAccess: true,
         accessType: 'admin',
@@ -82,10 +78,7 @@ export async function getUserWorkspaceAccess(userId: string, isAdminOverride?: b
       };
     }
 
-    console.log('[WorkspaceUtils] Found user roles:', userRoles?.length || 0, userRoles);
-
     if (!userRoles || userRoles.length === 0) {
-      console.log('[WorkspaceUtils] No roles found for user');
       return {
         canAccess: false,
         accessType: 'none',
@@ -95,10 +88,8 @@ export async function getUserWorkspaceAccess(userId: string, isAdminOverride?: b
 
     // Check if user is admin
     const isAdmin = userRoles.some(role => role.role_type === 'admin');
-    console.log('[WorkspaceUtils] Is admin:', isAdmin);
     if (isAdmin) {
       const allCommunities = await getAllCommunitiesForAdmin();
-      console.log('[WorkspaceUtils] Admin access granted, communities:', allCommunities.length);
       return {
         canAccess: true,
         accessType: 'admin',
@@ -109,10 +100,8 @@ export async function getUserWorkspaceAccess(userId: string, isAdminOverride?: b
 
     // Check if user is consultant
     const consultantRoles = userRoles.filter(role => role.role_type === 'consultor');
-    console.log('[WorkspaceUtils] Consultant roles:', consultantRoles.length);
     if (consultantRoles.length > 0) {
       const consultantCommunities = await getCommunitiesForConsultant(consultantRoles);
-      console.log('[WorkspaceUtils] Consultant access, communities:', consultantCommunities.length);
       return {
         canAccess: consultantCommunities.length > 0,
         accessType: 'consultant',
@@ -123,11 +112,9 @@ export async function getUserWorkspaceAccess(userId: string, isAdminOverride?: b
 
     // Check if user is community_manager (access to their assigned communities only)
     const communityManagerRoles = userRoles.filter(role => role.role_type === 'community_manager');
-    console.log('[WorkspaceUtils] Community Manager roles:', communityManagerRoles.length);
     if (communityManagerRoles.length > 0) {
       const managerCommunities = await getCommunitiesForMember(communityManagerRoles);
       const userCommunityId = communityManagerRoles[0].community_id;
-      console.log('[WorkspaceUtils] Community Manager access granted, communities:', managerCommunities.length);
       return {
         canAccess: managerCommunities.length > 0,
         accessType: 'community_member',

@@ -62,7 +62,6 @@ export default function GroupSubmissionModalV2({
   useEffect(() => {
     // Wait for user to be loaded before fetching group data
     if (!user?.id) {
-      console.log('[GroupSubmissionModal] Waiting for user to load...');
       return;
     }
     loadGroupData();
@@ -97,12 +96,10 @@ export default function GroupSubmissionModalV2({
             }));
             setGroupMembers(transformedMembers);
           } else {
-            console.error('[GroupSubmissionModal] Error loading members:', membersData.error);
             toast.error(membersData.error || 'Error al cargar miembros del grupo');
             setGroupMembers([]);
           }
         } catch (membersError) {
-          console.error('[GroupSubmissionModal] Exception loading members:', membersError);
           toast.error('Error al cargar miembros del grupo');
           setGroupMembers([]);
         }
@@ -115,10 +112,6 @@ export default function GroupSubmissionModalV2({
           .eq('group_id', activeGroup.id)
           .eq('user_id', user.id)
           .maybeSingle();
-
-        if (submissionError) {
-          console.error('[GroupSubmissionModal] Error fetching submission:', submissionError);
-        }
 
         if (submission) {
           setExistingSubmission(submission);
@@ -159,7 +152,6 @@ export default function GroupSubmissionModalV2({
 
       // Load eligible classmates if not submitted and not consultant-managed
       const isSubmitted = existingSubmission?.status === 'submitted' || existingSubmission?.status === 'graded';
-      console.log('[GroupSubmissionModal] loadGroupData - isSubmitted:', isSubmitted, 'isManaged:', isManaged, 'user:', user, 'user?.id:', user?.id, 'activeGroup?.id:', activeGroup?.id, 'assignment.id:', assignment.id);
       if (!isManaged && user?.id) {
         setLoadingClassmates(true);
         try {
@@ -168,16 +160,12 @@ export default function GroupSubmissionModalV2({
             ? `/api/assignments/eligible-classmates?assignmentId=${assignment.id}&groupId=${activeGroup.id}`
             : `/api/assignments/eligible-classmates?assignmentId=${assignment.id}`;
 
-          console.log('[GroupSubmissionModal] Fetching eligible classmates from:', url);
           const response = await fetch(url);
           const data = await response.json();
 
-          console.log('[GroupSubmissionModal] Response status:', response.status, 'data:', data);
           if (response.ok) {
-            console.log('[GroupSubmissionModal] eligible classmates fetched:', data.classmates?.length, 'classmates:', data.classmates);
             setEligibleClassmates(data.classmates || []);
           } else {
-            console.error('[GroupSubmissionModal] Error loading classmates:', data.error, 'status:', response.status);
             toast.error(data.error || 'Error al cargar compañeros');
           }
         } catch (error) {
@@ -186,14 +174,6 @@ export default function GroupSubmissionModalV2({
         } finally {
           setLoadingClassmates(false);
         }
-      } else {
-        console.log('[GroupSubmissionModal] Skipping classmates fetch - conditions not met:', {
-          isSubmitted,
-          isManaged,
-          hasUser: !!user,
-          hasUserId: !!user?.id,
-          conditionCheck: !isManaged && user?.id
-        });
       }
     } catch (error) {
       console.error('Error loading group data:', error);
@@ -359,7 +339,6 @@ export default function GroupSubmissionModalV2({
         // Update internal activeGroup state with the new group
         // This allows the component to function properly even though the parent's selectedGroup is null
         if (data.group) {
-          console.log('[GroupSubmissionModal] Group created, updating activeGroup:', data.group);
           setActiveGroup(data.group);
           // loadGroupData will be triggered by the useEffect when activeGroup changes
         }

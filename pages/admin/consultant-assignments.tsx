@@ -169,16 +169,12 @@ const ConsultantAssignmentsPage: React.FC = () => {
       }
 
       const result = await response.json();
-      console.log('Raw API response:', result);
-      
+
       // Handle the wrapped response structure from sendApiResponse
       const data = result.data || result;
-      console.log('Extracted data:', data);
-      console.log('First assignment consultant data:', data.assignments?.[0]?.consultant);
-      
+
       // Enrich assignments with additional data
       const enrichedAssignments = await Promise.all((data.assignments || []).map(async (assignment: Assignment) => {
-        console.log('Processing assignment:', assignment.id, 'Consultant:', assignment.consultant);
         // Determine assignment scope
         let scope = 'individual';
         let affectedCount = 1;
@@ -249,9 +245,7 @@ const ConsultantAssignmentsPage: React.FC = () => {
           student: assignment.student || null
         };
       }));
-      
-      console.log('Enriched assignments:', enrichedAssignments);
-      console.log('First enriched assignment consultant:', enrichedAssignments[0]?.consultant);
+
       setAssignments(enrichedAssignments);
     } catch (error) {
       console.error('Error fetching assignments:', error);

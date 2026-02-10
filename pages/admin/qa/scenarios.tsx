@@ -37,6 +37,7 @@ const QAScenarioManagementPage: React.FC = () => {
   const [featureAreaFilter, setFeatureAreaFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [automatedFilter, setAutomatedFilter] = useState<string>('all');
+  const [completionFilter, setCompletionFilter] = useState<string>('all');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [togglingAutomatedId, setTogglingAutomatedId] = useState<string | null>(null);
@@ -70,6 +71,7 @@ const QAScenarioManagementPage: React.FC = () => {
     if (q.feature_area) setFeatureAreaFilter(String(q.feature_area));
     if (q.is_active) setActiveFilter(String(q.is_active));
     if (q.automated_only) setAutomatedFilter(String(q.automated_only));
+    if (q.completion_status) setCompletionFilter(String(q.completion_status));
 
     initializedFromUrl.current = true;
   }, [router.isReady, router.query]);
@@ -97,6 +99,7 @@ const QAScenarioManagementPage: React.FC = () => {
       if (priorityFilter) params.append('priority', priorityFilter);
       if (activeFilter !== 'all') params.append('is_active', activeFilter);
       if (automatedFilter !== 'all') params.append('automated_only', automatedFilter);
+      if (completionFilter !== 'all') params.append('completion_status', completionFilter);
 
       const response = await fetch(`/api/qa/scenarios?${params.toString()}`);
       if (!response.ok) {
@@ -113,7 +116,7 @@ const QAScenarioManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, isAdmin, currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, activeFilter, automatedFilter]);
+  }, [user, isAdmin, currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, activeFilter, automatedFilter, completionFilter]);
 
   // Sync filter state to URL (separate from fetch to avoid router dependency loop)
   useEffect(() => {
@@ -127,9 +130,10 @@ const QAScenarioManagementPage: React.FC = () => {
     if (priorityFilter) query.priority = priorityFilter;
     if (activeFilter !== 'all') query.is_active = activeFilter;
     if (automatedFilter !== 'all') query.automated_only = automatedFilter;
+    if (completionFilter !== 'all') query.completion_status = completionFilter;
 
     router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
-  }, [currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, activeFilter, automatedFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, activeFilter, automatedFilter, completionFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (user && isAdmin && initializedFromUrl.current) {
@@ -260,6 +264,11 @@ const QAScenarioManagementPage: React.FC = () => {
     setCurrentPage(1);
   };
 
+  const handleCompletionFilterChange = (value: string) => {
+    setCompletionFilter(value);
+    setCurrentPage(1);
+  };
+
   const handleRoleFilterChange = (value: string) => {
     setRoleFilter(value);
     setCurrentPage(1);
@@ -302,7 +311,8 @@ const QAScenarioManagementPage: React.FC = () => {
     roleFilter ||
     priorityFilter ||
     (activeFilter !== 'all') ||
-    (automatedFilter !== 'all')
+    (automatedFilter !== 'all') ||
+    (completionFilter !== 'all')
   );
 
   // Pagination calculations
@@ -441,6 +451,16 @@ const QAScenarioManagementPage: React.FC = () => {
               <option value="all">Todos (Manual + Auto)</option>
               <option value="false">Solo Manuales</option>
               <option value="true">Solo Automatizados</option>
+            </select>
+
+            <select
+              value={completionFilter}
+              onChange={(e) => handleCompletionFilterChange(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_accent"
+            >
+              <option value="all">Completación: Todos</option>
+              <option value="completed">Completados</option>
+              <option value="pending">Pendientes</option>
             </select>
 
             <button

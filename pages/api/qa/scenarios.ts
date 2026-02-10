@@ -51,7 +51,7 @@ async function handleGetScenarios(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const { user, error } = await getApiUser(req, res);
+  const { isAdmin, user, error } = await checkIsAdmin(req, res);
   if (error || !user) {
     return sendAuthError(res, 'Autenticación requerida');
   }
@@ -66,7 +66,13 @@ async function handleGetScenarios(
       priority,
       automated_only,
       include_automated = 'true',
+      completion_status: rawCompletionStatus,
     } = req.query;
+
+    // Validate and sanitize completion_status
+    const completion_status = ['all', 'completed', 'pending'].includes(String(rawCompletionStatus || 'all'))
+      ? String(rawCompletionStatus || 'all')
+      : 'all';
 
     // Pagination params — only apply when explicitly requested
     const hasPagination = req.query.page !== undefined || req.query.pageSize !== undefined;
@@ -75,11 +81,61 @@ async function handleGetScenarios(
     const search = (req.query.search as string)?.trim() || '';
     const offset = (page - 1) * pageSize;
 
+    // Step 1: Query qa_test_runs for completed scenario IDs (if filtering by completion status)
+    let completedIds: string[] = [];
+    if (completion_status !== 'all') {
+      let runsQuery = supabaseClient
+        .from('qa_test_runs')
+        .select('scenario_id')
+        .eq('status', 'completed');
+
+      // Non-admin users only see their own completion status
+      if (!isAdmin) {
+        runsQuery = runsQuery.eq('tester_id', user.id);
+      }
+
+      const { data: runsData, error: runsError } = await runsQuery;
+
+      if (runsError) {
+        console.error('Error fetching test runs:', runsError);
+        return res.status(500).json({
+          error: 'Error al obtener datos de ejecución',
+          details: runsError.message,
+        });
+      }
+
+      // Extract unique scenario IDs
+      completedIds = [...new Set((runsData || []).map((r) => r.scenario_id))];
+    }
+
+    // Step 2: Build main query with completion status filter
     let query = supabaseClient
       .from('qa_scenarios')
       .select('*', { count: 'exact' })
       .order('priority', { ascending: true })
       .order('created_at', { ascending: false });
+
+    // Apply completion status filter
+    if (completion_status === 'completed') {
+      if (completedIds.length === 0) {
+        // No completed scenarios — return empty result
+        return res.status(200).json({
+          success: true,
+          scenarios: [],
+          total: 0,
+          page,
+          pageSize,
+          automatedCount: 0,
+        });
+      }
+      query = query.in('id', completedIds);
+    } else if (completion_status === 'pending') {
+      if (completedIds.length > 0) {
+        // Exclude completed scenarios
+        query = query.not('id', 'in', `(${completedIds.join(',')})`);
+      }
+      // If completedIds.length === 0, all scenarios are pending — no filter needed
+    }
 
     // Apply filters
     if (feature_area) {

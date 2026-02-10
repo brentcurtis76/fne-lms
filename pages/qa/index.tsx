@@ -51,6 +51,7 @@ const QAScenarioListPage: React.FC = () => {
   const [featureAreaFilter, setFeatureAreaFilter] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<string>('');
   const [roleFilter, setRoleFilter] = useState<string>('');
+  const [completionFilter, setCompletionFilter] = useState<string>('');
   const [lastRuns, setLastRuns] = useState<Map<string, LastRunInfo>>(new Map());
   const [canRunQATests, setCanRunQATests] = useState(false);
   const [automatedCount, setAutomatedCount] = useState(0);
@@ -82,6 +83,7 @@ const QAScenarioListPage: React.FC = () => {
     if (q.feature_area) setFeatureAreaFilter(String(q.feature_area));
     if (q.role) setRoleFilter(String(q.role));
     if (q.priority) setPriorityFilter(String(q.priority));
+    if (q.completion_status) setCompletionFilter(String(q.completion_status));
 
     initializedFromUrl.current = true;
   }, [router.isReady, router.query]);
@@ -132,6 +134,7 @@ const QAScenarioListPage: React.FC = () => {
       if (featureAreaFilter) params.append('feature_area', featureAreaFilter);
       if (roleFilter) params.append('role', roleFilter);
       if (priorityFilter) params.append('priority', priorityFilter);
+      if (completionFilter) params.append('completion_status', completionFilter);
       // Exclude automated_only scenarios from manual tester UI
       params.append('include_automated', 'false');
 
@@ -170,7 +173,7 @@ const QAScenarioListPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, canRunQATests, currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, supabase]);
+  }, [user, canRunQATests, currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, completionFilter, supabase]);
 
   // Fetch assigned scenarios for current user
   const fetchAssignedScenarios = useCallback(async () => {
@@ -243,9 +246,10 @@ const QAScenarioListPage: React.FC = () => {
     if (featureAreaFilter) query.feature_area = featureAreaFilter;
     if (roleFilter) query.role = roleFilter;
     if (priorityFilter) query.priority = priorityFilter;
+    if (completionFilter) query.completion_status = completionFilter;
 
     router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
-  }, [currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, completionFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Trigger fetch when filters change
   useEffect(() => {
@@ -284,6 +288,11 @@ const QAScenarioListPage: React.FC = () => {
 
   const handlePriorityFilterChange = (value: string) => {
     setPriorityFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleCompletionFilterChange = (value: string) => {
+    setCompletionFilter(value);
     setCurrentPage(1);
   };
 
@@ -416,6 +425,16 @@ const QAScenarioListPage: React.FC = () => {
                 {label}
               </option>
             ))}
+          </select>
+
+          <select
+            value={completionFilter}
+            onChange={(e) => handleCompletionFilterChange(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_accent"
+          >
+            <option value="">Todos (Completación)</option>
+            <option value="completed">Completados</option>
+            <option value="pending">Pendientes</option>
           </select>
 
           {isAdmin && (

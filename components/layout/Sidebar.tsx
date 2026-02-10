@@ -143,7 +143,6 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: BookOpenIcon,
     description: 'Gestión de cursos',
     adminOnly: true,
-    permission: ['view_courses_all', 'view_courses_school', 'view_courses_own'],
     children: [
       {
         id: 'course-builder',
@@ -197,8 +196,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: NewspaperIcon,
     href: '/admin/news',
     description: 'Gestión de noticias y artículos',
-    restrictedRoles: ['admin', 'community_manager'],
-    permission: 'view_news_all'
+    restrictedRoles: ['admin', 'community_manager']
   },
   {
     id: 'events',
@@ -206,8 +204,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: CalendarIcon,
     href: '/admin/events',
     description: 'Gestión de eventos y línea de tiempo',
-    restrictedRoles: ['admin', 'community_manager'],
-    permission: 'view_events_all'
+    restrictedRoles: ['admin', 'community_manager']
   },
   {
     id: 'learning-paths',
@@ -215,8 +212,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: MapIcon,
     href: '/admin/learning-paths',
     description: 'Gestión de rutas de aprendizaje',
-    adminOnly: true,
-    permission: ['view_learning_paths_all', 'view_learning_paths_school', 'view_learning_paths_own']
+    adminOnly: true
   },
   {
     id: 'assignment-matrix',
@@ -232,8 +228,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: UsersIcon,
     href: '/admin/user-management',
     description: 'Administrar usuarios',
-    adminOnly: true,
-    permission: ['view_users_all', 'view_users_school', 'view_users_network']
+    adminOnly: true
   },
   {
     id: 'schools',
@@ -241,8 +236,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: OfficeBuildingIcon,
     href: '/admin/schools',
     description: 'Gestión de escuelas y generaciones',
-    adminOnly: true,
-    permission: ['view_schools_all', 'view_schools_network']
+    adminOnly: true
   },
   {
     id: 'networks',
@@ -250,8 +244,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: NetworkIcon,
     href: '/admin/network-management',
     description: 'Gestión de redes y supervisores',
-    adminOnly: true,
-    permission: 'manage_networks'
+    adminOnly: true
   },
   {
     id: 'consultants',
@@ -283,17 +276,6 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: BriefcaseIcon,
     description: 'Gestión empresarial',
     restrictedRoles: ['admin', 'community_manager'],
-    permission: [
-      'view_contracts_all',
-      'view_contracts_school',
-      'view_contracts_own',
-      'view_internship_proposals_all',
-      'view_internship_proposals_school',
-      'view_internship_proposals_own',
-      'view_expense_reports_all',
-      'view_expense_reports_school',
-      'view_expense_reports_own'
-    ],
     children: [
       {
         id: 'clients',
@@ -351,8 +333,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: ChartBarIcon,
     href: '/detailed-reports',
     description: 'Análisis y reportes',
-    restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red'],
-    permission: ['view_reports_all', 'view_reports_network', 'view_reports_school', 'view_reports_generation', 'view_reports_community']
+    restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red']
   },
   {
     id: 'qa-testing',
@@ -986,8 +967,10 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       }
 
       if (item.restrictedRoles && item.restrictedRoles.length > 0) {
-        if (isAdmin && item.restrictedRoles.includes('admin')) return true;
-        if (!item.restrictedRoles.includes(userRole || '')) return false;
+        // restrictedRoles is the definitive access list — if your role is in
+        // the list you see the item, if not you don't.  No further permission
+        // check needed (children still have their own permission gates).
+        return item.restrictedRoles.includes(userRole || '') || (isAdmin && item.restrictedRoles.includes('admin'));
       }
 
       const isConsultor = userRole === 'consultor';

@@ -126,7 +126,7 @@ export default function Footer({ className = '' }: FooterProps) {
           <div className="max-w-7xl mx-auto px-6 py-6">
             <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
               <div className="text-sm text-white/70">
-                © 2025 Fundación Nueva Educación. Todos los derechos reservados.
+                © {new Date().getFullYear()} Fundación Nueva Educación. Todos los derechos reservados.
               </div>
               <div className="flex items-center space-x-6 text-sm">
                 <button 

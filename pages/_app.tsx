@@ -22,8 +22,8 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   // Environment validation on app startup
   useEnvironmentValidation();
 
-  // Collect Core Web Vitals for QA monitoring (enabled in production)
-  useWebVitals(process.env.NODE_ENV === 'production');
+  // Collect Core Web Vitals for QA monitoring (enabled when NEXT_PUBLIC_ENABLE_VITALS is 'true')
+  useWebVitals(process.env.NEXT_PUBLIC_ENABLE_VITALS === 'true');
 
   return (
     <SessionContextProvider supabaseClient={supabaseClient} initialSession={pageProps.initialSession}>

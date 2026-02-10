@@ -119,6 +119,38 @@ export default function ProfilePage() {
         setIsNewUser(true);
       }
 
+      // Fetch schools for dropdown FIRST (needed for school_id lookup below)
+      let schoolsData: School[] = [];
+      try {
+        console.log('Fetching schools from Supabase...');
+        const { data: fetchedSchools, error: schoolsError } = await supabase
+          .from('schools')
+          .select('*');
+
+        console.log('Schools query result:', { data: fetchedSchools, error: schoolsError });
+
+        if (schoolsError) {
+          console.error('Error fetching schools:', schoolsError);
+        }
+
+        if (fetchedSchools && fetchedSchools.length > 0) {
+          console.log(`Found ${fetchedSchools.length} schools in the database`);
+          schoolsData = fetchedSchools;
+          setSchools(fetchedSchools);
+        } else {
+          console.warn('No schools found in the database');
+          // Create some sample schools for testing if none exist
+          const sampleSchools = [
+            { id: -1, name: 'Escuela de Prueba 1' },
+            { id: -2, name: 'Escuela de Prueba 2' },
+          ];
+          schoolsData = sampleSchools;
+          setSchools(sampleSchools);
+        }
+      } catch (error) {
+        console.error('Exception when fetching schools:', error);
+      }
+
       // Fetch user's growth communities and roles from user_roles
       try {
         const { data: userRolesData, error: rolesError } = await supabase
@@ -126,6 +158,7 @@ export default function ProfilePage() {
           .select(`
             role_type,
             community_id,
+            school_id,
             growth_communities:community_id (
               id,
               name
@@ -156,38 +189,22 @@ export default function ProfilePage() {
           );
 
           setGrowthCommunities(uniqueCommunities);
+
+          // If profile.school is empty but user has school_id in user_roles, pre-fill it
+          if ((!profileData?.school || profileData.school === '') && userRolesData.length > 0) {
+            // Get first school_id from user_roles
+            const roleWithSchool = userRolesData.find((role: any) => role.school_id);
+            if (roleWithSchool && schoolsData.length > 0) {
+              const matchingSchool = schoolsData.find(s => s.id === roleWithSchool.school_id);
+              if (matchingSchool) {
+                console.log(`Pre-filling school from user_roles: ${matchingSchool.name}`);
+                setSchool(matchingSchool.name);
+              }
+            }
+          }
         }
       } catch (error) {
         console.error('Exception when fetching growth communities:', error);
-      }
-
-      // Fetch schools for dropdown
-      try {
-        console.log('Fetching schools from Supabase...');
-        const { data: schoolsData, error: schoolsError } = await supabase
-          .from('schools')
-          .select('*');
-        
-        console.log('Schools query result:', { data: schoolsData, error: schoolsError });
-        
-        if (schoolsError) {
-          console.error('Error fetching schools:', schoolsError);
-        }
-        
-        if (schoolsData && schoolsData.length > 0) {
-          console.log(`Found ${schoolsData.length} schools in the database`);
-          setSchools(schoolsData);
-        } else {
-          console.warn('No schools found in the database');
-          // Create some sample schools for testing if none exist
-          const sampleSchools = [
-            { id: -1, name: 'Escuela de Prueba 1' },
-            { id: -2, name: 'Escuela de Prueba 2' },
-          ];
-          setSchools(sampleSchools);
-        }
-      } catch (error) {
-        console.error('Exception when fetching schools:', error);
       }
 
       setLoading(false);

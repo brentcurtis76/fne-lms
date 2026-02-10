@@ -351,7 +351,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: ChartBarIcon,
     href: '/detailed-reports',
     description: 'Análisis y reportes',
-    consultantOnly: true,
+    restrictedRoles: ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'supervisor_de_red'],
     permission: ['view_reports_all', 'view_reports_network', 'view_reports_school', 'view_reports_generation', 'view_reports_community']
   },
   {

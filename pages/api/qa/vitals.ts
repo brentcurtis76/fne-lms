@@ -190,13 +190,13 @@ async function handleGet(
 
 /**
  * POST: Record new vital measurement (public endpoint for RUM)
+ * Never returns 5xx - gracefully skips on failure
  */
 async function handlePost(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
   try {
-    const supabaseAdmin = createServiceRoleClient();
     const {
       page_url,
       vital_name,
@@ -215,6 +215,8 @@ async function handlePost(
     if (!validVitals.includes(vital_name)) {
       return res.status(400).json({ error: 'vital_name inválido' });
     }
+
+    const supabaseAdmin = createServiceRoleClient();
 
     // Calculate rating based on thresholds
     const thresholds = VITAL_THRESHOLDS[vital_name];
@@ -242,13 +244,15 @@ async function handlePost(
 
     if (error) {
       console.error('Error recording vital:', error);
-      return res.status(500).json({ error: 'Error al registrar vital' });
+      // Return 200 with skipped flag instead of 500
+      return res.status(200).json({ ok: true, skipped: true });
     }
 
     return res.status(201).json({ vital: data });
   } catch (error) {
     console.error('Exception in POST vitals:', error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
+    // Return 200 with skipped flag instead of 500
+    return res.status(200).json({ ok: true, skipped: true });
   }
 }
 

@@ -77,20 +77,20 @@ Generated: 2026-02-08
 
 | # | Scenario | Route / Action | Expected Result |
 |---|----------|---------------|----------------|
-| PB-1 | Equipo Directivo tries to create a new course | POST /api/admin/courses or navigate to /admin/create-course | Access denied / 403. Sidebar does not show 'Cursos' (adminOnly: true). |
-| PB-2 | Equipo Directivo tries to create a user | Navigate to /admin/user-management or POST /api/admin/create-user | Access denied. 'Usuarios' not visible in sidebar (adminOnly: true). |
-| PB-3 | Equipo Directivo tries to edit another user's profile | PUT /api/admin/update-user | Access denied / 403 (hasAdminPrivileges check). |
-| PB-4 | Equipo Directivo tries to assign roles to users | POST /api/admin/assign-role | Access denied / 403 (role_type === 'admin' check). |
-| PB-5 | Equipo Directivo tries to manage schools | Navigate to /admin/schools or POST /api/admin/schools | Access denied. 'Escuelas' not visible (adminOnly: true). |
-| PB-6 | Equipo Directivo tries to manage network of schools | Navigate to /admin/network-management | Access denied. 'Redes de Colegios' not visible (adminOnly: true). |
-| PB-7 | Equipo Directivo tries to create an assessment template | POST /api/admin/assessment-builder/templates | Access denied / 403. hasAssessmentWritePermission returns false (admin-only). hasAssessmentReadPermission also returns false (admin+consultor only). |
-| PB-8 | Equipo Directivo tries to view assessment builder page | Navigate to /admin/assessment-builder | Access denied. 'Procesos de Cambio' not visible (consultantOnly: true). Page itself checks for admin/consultor. |
-| PB-9 | Equipo Directivo tries to create/edit news items | Navigate to /admin/news or POST /api/admin/news | Access denied. 'Noticias' not visible (restrictedRoles: ['admin', 'community_manager']). API blocks (admin/community_manager only). |
-| PB-10 | Equipo Directivo tries to create/edit events | Navigate to /admin/events | Access denied. 'Eventos' not visible (restrictedRoles: ['admin', 'community_manager']). |
-| PB-11 | Equipo Directivo tries to manage contracts | Navigate to /contracts | Access denied. 'Gestión' not visible (restrictedRoles: ['admin', 'community_manager']). Page has client-side admin check. |
-| PB-12 | Equipo Directivo tries to access system configuration | Navigate to /admin/configuration | Access denied. 'Configuración' not visible (requires manage_system_settings permission). |
-| PB-13 | Equipo Directivo tries to assign consultants | Navigate to /admin/consultant-assignments | Access denied. 'Consultorías' not visible (consultantOnly: true). API: checkIsAdmin() blocks. |
-| PB-14 | Equipo Directivo tries to assign courses to students | POST /api/courses/batch-assign | Access denied / 403. hasAssignPermission checks for admin or consultor only (can_assign_courses: false). |
+| PB-1 | Equipo Directivo tries to create a new course | Navegar a la página de Creación de Curso | Se muestra un mensaje de acceso denegado. El menú lateral no muestra 'Cursos' (adminOnly: true). |
+| PB-2 | Equipo Directivo tries to create a user | Navegar a la página de Gestión de Usuarios | Se muestra un mensaje de acceso denegado. 'Usuarios' no visible en el menú lateral (adminOnly: true). |
+| PB-3 | Equipo Directivo tries to edit another user's profile | Intentar actualizar perfil de otro usuario | Se muestra un mensaje de acceso denegado (hasAdminPrivileges check). |
+| PB-4 | Equipo Directivo tries to assign roles to users | Intentar asignar roles a usuarios | Se muestra un mensaje de acceso denegado (role_type === 'admin' check). |
+| PB-5 | Equipo Directivo tries to manage schools | Navegar a la página de Escuelas | Se muestra un mensaje de acceso denegado. 'Escuelas' no visible (adminOnly: true). |
+| PB-6 | Equipo Directivo tries to manage network of schools | Navegar a la página de Gestión de Redes | Se muestra un mensaje de acceso denegado. 'Redes de Colegios' no visible (adminOnly: true). |
+| PB-7 | Equipo Directivo tries to create an assessment template | Intentar crear plantilla de evaluación | Se muestra un mensaje de acceso denegado. hasAssessmentWritePermission retorna false (admin-only). hasAssessmentReadPermission también retorna false (admin+consultor only). |
+| PB-8 | Equipo Directivo tries to view assessment builder page | Navegar a la página del Constructor de Evaluaciones | Se muestra un mensaje de acceso denegado. 'Procesos de Cambio' no visible (consultantOnly: true). La página verifica admin/consultor. |
+| PB-9 | Equipo Directivo tries to create/edit news items | Navegar a la página de Noticias | Se muestra un mensaje de acceso denegado. 'Noticias' no visible (restrictedRoles: ['admin', 'community_manager']). El sistema bloquea (admin/community_manager only). |
+| PB-10 | Equipo Directivo tries to create/edit events | Navegar a la página de Eventos | Se muestra un mensaje de acceso denegado. 'Eventos' no visible (restrictedRoles: ['admin', 'community_manager']). |
+| PB-11 | Equipo Directivo tries to manage contracts | Navegar a la página de Contratos | Se muestra un mensaje de acceso denegado. 'Gestión' no visible (restrictedRoles: ['admin', 'community_manager']). La página tiene verificación de admin en el cliente. |
+| PB-12 | Equipo Directivo tries to access system configuration | Navegar a la página de Configuración | Se muestra un mensaje de acceso denegado. 'Configuración' no visible (requiere permisos manage_system_settings). |
+| PB-13 | Equipo Directivo tries to assign consultants | Navegar a la página de Asignación de Consultores | Se muestra un mensaje de acceso denegado. 'Consultorías' no visible (consultantOnly: true). El sistema bloquea con checkIsAdmin(). |
+| PB-14 | Equipo Directivo tries to assign courses to students | Intentar asignar cursos a estudiantes | Se muestra un mensaje de acceso denegado. hasAssignPermission verifica solo admin o consultor (can_assign_courses: false). |
 
 ---
 
@@ -98,20 +98,20 @@ Generated: 2026-02-08
 
 | # | Scenario | Route / Action | Expected Result |
 |---|----------|---------------|----------------|
-| CA-1 | Equipo Directivo views their dashboard | Navigate to /dashboard | Dashboard loads. No role restriction (requires session?.user only). |
-| CA-2 | Equipo Directivo views their profile | Navigate to /profile | Profile page loads correctly. No role restriction. |
-| CA-3 | Equipo Directivo views 'Mi Aprendizaje' | Navigate to /mi-aprendizaje | Learning page loads with enrolled courses. No role restriction. |
-| CA-4 | Equipo Directivo accesses quiz review page | Navigate to /quiz-reviews | Page loads. Permission check: `hasRole('admin') || hasRole('consultor') || hasRole('equipo_directivo')` (line 28). |
-| CA-5 | Equipo Directivo grades an open-ended quiz question | Submit quiz grade on /quiz-reviews | Grade saved. API allowedRoles: ['admin', 'consultor', 'equipo_directivo'] (submit-review.ts line 45). |
-| CA-6 | Equipo Directivo views pending quiz reviews | GET /api/quiz-reviews/pending | Returns pending reviews. allowedRoles includes equipo_directivo (pending.ts line 56). |
-| CA-7 | Equipo Directivo views detailed reports | Navigate to /detailed-reports | Reports page loads. hasReportingAccess includes equipo_directivo (line 209). |
-| CA-8 | Equipo Directivo views report overview | GET /api/reports/overview | Returns overview data. allowedRoles includes equipo_directivo (line 45). |
-| CA-9 | Equipo Directivo views Contexto Transversal | Navigate to /school/transversal-context | Page loads for assigned school. Permission checks for equipo_directivo role (line 89). Uses school_id from user_roles. |
-| CA-10 | Equipo Directivo views Plan de Migración | Navigate to /school/migration-plan | Page loads for assigned school. Permission checks for equipo_directivo role (line 92). |
-| CA-11 | Equipo Directivo views school results dashboard | Navigate to /directivo/assessments/dashboard | Dashboard loads. Permission: roleTypes.includes('equipo_directivo') (line 152). |
-| CA-12 | Equipo Directivo views school assessment results API | GET /api/directivo/assessments/school-results | Returns school results. isDirectivo = roleTypes.includes('equipo_directivo') (line 56). School scoped via user_roles.school_id. |
-| CA-13 | Equipo Directivo views course assessment results API | GET /api/directivo/assessments/course-results | Returns course results. Same permission check as CA-12 (line 48). |
-| CA-14 | Equipo Directivo views assignment audit log | GET /api/admin/assignment-matrix/audit-log | Returns audit data. allowedRoles: ['admin', 'consultor', 'equipo_directivo'] (line 58). |
+| CA-1 | Equipo Directivo views their dashboard | Navegar al Panel Principal | El panel carga. Sin restricción de rol (requiere solo session?.user). |
+| CA-2 | Equipo Directivo views their profile | Navegar a la página de Perfil | La página de perfil carga correctamente. Sin restricción de rol. |
+| CA-3 | Equipo Directivo views 'Mi Aprendizaje' | Navegar a la página de Mi Aprendizaje | La página carga con cursos inscritos. Sin restricción de rol. |
+| CA-4 | Equipo Directivo accesses quiz review page | Navegar a la página de Revisión de Quizzes | La página carga. Verificación de permisos: `hasRole('admin') || hasRole('consultor') || hasRole('equipo_directivo')` (línea 28). |
+| CA-5 | Equipo Directivo grades an open-ended quiz question | Enviar calificación de quiz en la página de revisión | La calificación se guarda. allowedRoles: ['admin', 'consultor', 'equipo_directivo'] (submit-review.ts línea 45). |
+| CA-6 | Equipo Directivo views pending quiz reviews | Ver revisiones de quiz pendientes | Se muestran las revisiones pendientes. allowedRoles incluye equipo_directivo (pending.ts línea 56). |
+| CA-7 | Equipo Directivo views detailed reports | Navegar a la página de Reportes Detallados | La página de reportes carga. hasReportingAccess incluye equipo_directivo (línea 209). |
+| CA-8 | Equipo Directivo views report overview | Ver resumen de reportes | Se muestran los datos de resumen. allowedRoles incluye equipo_directivo (línea 45). |
+| CA-9 | Equipo Directivo views Contexto Transversal | Navegar a la página de Contexto Transversal | La página carga para el colegio asignado. Verifica permisos de rol equipo_directivo (línea 89). Usa school_id de user_roles. |
+| CA-10 | Equipo Directivo views Plan de Migración | Navegar a la página de Plan de Migración | La página carga para el colegio asignado. Verifica permisos de rol equipo_directivo (línea 92). |
+| CA-11 | Equipo Directivo views school results dashboard | Navegar a la página del Panel de Resultados | El panel carga. Permisos: roleTypes.includes('equipo_directivo') (línea 152). |
+| CA-12 | Equipo Directivo views school assessment results API | Ver resultados de evaluaciones del colegio | Se muestran los resultados del colegio. isDirectivo = roleTypes.includes('equipo_directivo') (línea 56). Filtrado por user_roles.school_id. |
+| CA-13 | Equipo Directivo views course assessment results API | Ver resultados de evaluaciones del curso | Se muestran los resultados del curso. Misma verificación de permisos que CA-12 (línea 48). |
+| CA-14 | Equipo Directivo views assignment audit log | Ver registro de auditoría de asignaciones | Se muestran los datos de auditoría. allowedRoles: ['admin', 'consultor', 'equipo_directivo'] (línea 58). |
 
 ---
 
@@ -121,7 +121,7 @@ Generated: 2026-02-08
 |---|----------|-----------------|
 | SS-1 | Equipo Directivo views reports — only sees data from assigned school | Reports API returns data filtered by school_id from user_roles. getReportableUsers() at line 628 queries user's school_id and returns only users in that school. |
 | SS-2 | Equipo Directivo tries to view reports for a different school (URL manipulation) | API scopes by querying user_roles.school_id first. Cannot expand beyond own school's users. Server-side enforced. |
-| SS-3 | Equipo Directivo views Contexto Transversal for another school (URL param manipulation) | Access denied / 403. hasDirectivoPermission() at lines 52-58 checks if requested school_id matches directivoRole.school_id. Mismatch returns hasPermission: false. |
+| SS-3 | Equipo Directivo views Contexto Transversal for another school (URL param manipulation) | Se muestra un mensaje de acceso denegado. hasDirectivoPermission() en líneas 52-58 verifica si school_id solicitado coincide con directivoRole.school_id. Mismatch retorna hasPermission: false. |
 | SS-4 | Equipo Directivo views filter options — only sees own school | filter-options.ts lines 81-105: equipo_directivo sees only their school and its related generations/communities. Explicitly coded at `highestRole === 'equipo_directivo' && userProfile.school_id`. |
 | SS-5 | Equipo Directivo views school results for another school (query param manipulation) | API at school-results.ts lines 73-76: directivo's school_id comes from user_roles, NOT from query params. Cannot override. |
 | SS-6 | Equipo Directivo views quiz reviews — sees reviews scoped to their context | pending.ts line 151 comment: "For equipo_directivo or other roles, return all for now". Note: this may need verification — scoping may be incomplete. |

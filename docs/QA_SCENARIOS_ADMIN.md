@@ -26,46 +26,46 @@ Admin must access ALL authenticated pages and ALL API endpoints.
 
 | # | Scenario | Route / Action | Expected Result |
 |---|----------|---------------|----------------|
-| CA-1 | Admin views dashboard | Navigate to /dashboard | Dashboard loads with global data (all schools, all users). |
-| CA-2 | Admin views their profile | Navigate to /profile | Profile page loads correctly. |
-| CA-3 | Admin views Mi Aprendizaje | Navigate to /mi-aprendizaje | Learning page loads with all courses. |
-| CA-4 | Admin creates a new course | Navigate to /admin/create-course | Course creation page loads. POST /api/admin/courses succeeds (201). |
-| CA-5 | Admin edits existing course | Navigate to /admin/course-builder/[courseId]/edit | Course edit page loads. Can modify and save. |
-| CA-6 | Admin deletes a course | DELETE /api/admin/courses/[id] | API returns 200. RLS allows DELETE on courses table. |
-| CA-7 | Admin creates a user | Navigate to /admin/user-management, POST /api/admin/create-user | User creation succeeds with 201. |
-| CA-8 | Admin edits any user's profile | PUT /api/admin/update-user | API returns 200. RLS allows UPDATE on profiles table. |
-| CA-9 | Admin deletes a user | DELETE /api/admin/delete-user | API returns 200. |
-| CA-10 | Admin assigns roles to users | POST /api/admin/roles/permissions | Role assignment succeeds (201). RLS allows INSERT on user_roles. |
-| CA-11 | Admin creates a school | Navigate to /admin/schools, POST /api/admin/schools | School creation succeeds. RLS allows INSERT on schools. |
-| CA-12 | Admin edits a school | PUT /api/admin/schools/[id] | School update succeeds. |
-| CA-13 | Admin deletes a school | DELETE /api/admin/schools/[id] | School delete succeeds (if no dependencies). |
-| CA-14 | Admin creates a network | Navigate to /admin/network-management, POST /api/admin/networks | Network creation succeeds. RLS allows INSERT on redes_de_colegios. |
-| CA-15 | Admin assigns schools to network | POST /api/admin/networks/schools | Assignment succeeds. RLS allows INSERT on red_escuelas. |
-| CA-16 | Admin views assessment templates | Navigate to /admin/assessment-builder, GET /api/admin/assessment-builder/templates | Template list loads. Admin sees all templates. |
-| CA-17 | Admin creates assessment template | POST /api/admin/assessment-builder/templates | Template creation succeeds (201). hasAssessmentWritePermission returns true. |
-| CA-18 | Admin edits assessment template | PUT /api/admin/assessment-builder/templates/[id] | Template edit succeeds. |
-| CA-19 | Admin deletes assessment template | DELETE /api/admin/assessment-builder/templates/[id] | Template delete succeeds. |
-| CA-20 | Admin accesses quiz review page | Navigate to /quiz-reviews | Page loads. Admin can grade all schools' pending reviews. |
-| CA-21 | Admin grades an open-ended quiz | Submit quiz grade on /quiz-reviews | Grade saved successfully (allowedRoles includes admin). |
-| CA-22 | Admin views detailed reports | Navigate to /detailed-reports, POST /api/reports/detailed | Reports load with GLOBAL scope (all schools, no filters). |
-| CA-23 | Admin views report filter options | GET /api/reports/filter-options | Returns ALL schools, ALL generations, ALL communities (unfiltered). |
-| CA-24 | Admin views user details in reports | GET /api/reports/user-details?userId=X | Returns details for ANY user (admin bypass at line 137). |
-| CA-25 | Admin views Contexto Transversal | Navigate to /school/transversal-context?school_id=X | Loads for ANY school. Admin bypasses school assignment check. |
-| CA-26 | Admin edits Contexto Transversal | POST /api/school/transversal-context with school_id | Update succeeds for ANY school. |
-| CA-27 | Admin views Plan de Migración | Navigate to /school/migration-plan?school_id=X | Loads for ANY school. |
-| CA-28 | Admin edits Plan de Migración | POST /api/school/migration-plan | Update succeeds for ANY school. |
-| CA-29 | Admin views assignment overview | Navigate to /admin/assignment-overview | Group assignment monitoring page loads. |
-| CA-30 | Admin creates news article | Navigate to /admin/news, POST /api/admin/news | News creation succeeds. RLS allows INSERT (admin + community_manager). |
-| CA-31 | Admin edits news article | PUT /api/admin/news/[id] | News edit succeeds. |
-| CA-32 | Admin creates event | Navigate to /admin/events, POST /api/admin/events | Event creation succeeds. RLS allows INSERT (admin + community_manager). |
-| CA-33 | Admin creates learning path | Navigate to /admin/learning-paths/new, POST /api/admin/learning-paths | Learning path creation succeeds. |
-| CA-34 | Admin assigns learning path | Navigate to /admin/learning-paths/[id]/assign | Assignment page loads and succeeds. |
-| CA-35 | Admin creates contract | Navigate to /contracts, POST /api/admin/contracts | Contract creation succeeds. RLS allows INSERT (admin only). |
-| CA-36 | Admin assigns consultant | Navigate to /admin/consultant-assignments, POST /api/admin/consultant-assignments | Consultant assignment succeeds. |
-| CA-37 | Admin accesses system configuration | Navigate to /admin/configuration | Configuration page loads (manage_system_settings permission). |
-| CA-38 | Admin manages notification types | POST /api/admin/notification-types | Notification type management succeeds. |
-| CA-39 | Admin accesses Espacio Colaborativo | Navigate to /community/workspace | Workspace loads. Admin bypasses community requirement (line 561-563 Sidebar.tsx). |
-| CA-40 | Admin accesses transformation assessments | Navigate to /admin/transformation/assessments | Transformation assessment page loads. |
+| CA-1 | Admin views dashboard | Navegar al Panel Principal | El panel carga con datos globales (todos los colegios, todos los usuarios). |
+| CA-2 | Admin views their profile | Navegar a la página de Perfil | La página de perfil carga correctamente. |
+| CA-3 | Admin views Mi Aprendizaje | Navegar a la página de Mi Aprendizaje | La página carga con todos los cursos. |
+| CA-4 | Admin creates a new course | Navegar a la página de Creación de Curso | La página de creación de curso carga. La creación se completa correctamente. |
+| CA-5 | Admin edits existing course | Navegar a la página de edición de curso | La página de edición de curso carga. Puede modificar y guardar. |
+| CA-6 | Admin deletes a course | Hacer clic en Eliminar curso y confirmar | La operación se completa correctamente. RLS permite DELETE en la tabla courses. |
+| CA-7 | Admin creates a user | Navegar a la página de Gestión de Usuarios y crear usuario | La creación del usuario se completa correctamente. |
+| CA-8 | Admin edits any user's profile | Editar perfil de cualquier usuario | La operación se completa correctamente. RLS permite UPDATE en la tabla profiles. |
+| CA-9 | Admin deletes a user | Hacer clic en Eliminar usuario y confirmar | La operación se completa correctamente. |
+| CA-10 | Admin assigns roles to users | Asignar roles a usuarios | La asignación de rol se completa correctamente. RLS permite INSERT en user_roles. |
+| CA-11 | Admin creates a school | Navegar a la página de Escuelas y crear colegio | La creación del colegio se completa correctamente. RLS permite INSERT en schools. |
+| CA-12 | Admin edits a school | Editar colegio y hacer clic en Guardar cambios | La actualización del colegio se completa correctamente. |
+| CA-13 | Admin deletes a school | Hacer clic en Eliminar colegio y confirmar | La eliminación del colegio se completa correctamente (si no hay dependencias). |
+| CA-14 | Admin creates a network | Navegar a la página de Gestión de Redes y crear red | La creación de la red se completa correctamente. RLS permite INSERT en redes_de_colegios. |
+| CA-15 | Admin assigns schools to network | Asignar colegios a la red | La asignación se completa correctamente. RLS permite INSERT en red_escuelas. |
+| CA-16 | Admin views assessment templates | Navegar a la página del Constructor de Evaluaciones | La lista de plantillas carga. Admin ve todas las plantillas. |
+| CA-17 | Admin creates assessment template | Crear plantilla de evaluación | La creación de plantilla se completa correctamente. hasAssessmentWritePermission retorna true. |
+| CA-18 | Admin edits assessment template | Editar plantilla de evaluación | La edición de plantilla se completa correctamente. |
+| CA-19 | Admin deletes assessment template | Hacer clic en Eliminar plantilla y confirmar | La eliminación de plantilla se completa correctamente. |
+| CA-20 | Admin accesses quiz review page | Navegar a la página de Revisión de Quizzes | La página carga. Admin puede calificar las revisiones pendientes de todos los colegios. |
+| CA-21 | Admin grades an open-ended quiz | Enviar calificación de quiz en la página de revisión | La calificación se guarda correctamente (allowedRoles incluye admin). |
+| CA-22 | Admin views detailed reports | Navegar a la página de Reportes Detallados | Los reportes cargan con alcance GLOBAL (todos los colegios, sin filtros). |
+| CA-23 | Admin views report filter options | Abrir opciones de filtro en reportes | Se muestran TODOS los colegios, TODAS las generaciones, TODAS las comunidades (sin filtrar). |
+| CA-24 | Admin views user details in reports | Ver detalles de usuario en reportes | Se muestran los detalles de CUALQUIER usuario (admin bypass en línea 137). |
+| CA-25 | Admin views Contexto Transversal | Navegar a la página de Contexto Transversal con school_id | Carga para CUALQUIER colegio. Admin pasa por alto la verificación de asignación de colegio. |
+| CA-26 | Admin edits Contexto Transversal | Editar Contexto Transversal con school_id | La actualización se completa correctamente para CUALQUIER colegio. |
+| CA-27 | Admin views Plan de Migración | Navegar a la página de Plan de Migración con school_id | Carga para CUALQUIER colegio. |
+| CA-28 | Admin edits Plan de Migración | Editar Plan de Migración | La actualización se completa correctamente para CUALQUIER colegio. |
+| CA-29 | Admin views assignment overview | Navegar a la página de Vista de Tareas | La página de monitoreo de tareas grupales carga. |
+| CA-30 | Admin creates news article | Navegar a la página de Noticias y crear artículo | La creación de noticia se completa correctamente. RLS permite INSERT (admin + community_manager). |
+| CA-31 | Admin edits news article | Editar artículo de noticia | La edición de noticia se completa correctamente. |
+| CA-32 | Admin creates event | Navegar a la página de Eventos y crear evento | La creación del evento se completa correctamente. RLS permite INSERT (admin + community_manager). |
+| CA-33 | Admin creates learning path | Navegar a la página de Rutas de Aprendizaje y crear ruta | La creación de ruta de aprendizaje se completa correctamente. |
+| CA-34 | Admin assigns learning path | Navegar a la página de asignación de ruta de aprendizaje | La página de asignación carga y se completa correctamente. |
+| CA-35 | Admin creates contract | Navegar a la página de Contratos y crear contrato | La creación del contrato se completa correctamente. RLS permite INSERT (solo admin). |
+| CA-36 | Admin assigns consultant | Navegar a la página de Asignación de Consultores y asignar | La asignación de consultor se completa correctamente. |
+| CA-37 | Admin accesses system configuration | Navegar a la página de Configuración | La página de configuración carga (permisos manage_system_settings). |
+| CA-38 | Admin manages notification types | Gestionar tipos de notificación | La gestión de tipos de notificación se completa correctamente. |
+| CA-39 | Admin accesses Espacio Colaborativo | Navegar a la página de Espacio Colaborativo | El espacio de trabajo carga. Admin pasa por alto el requisito de comunidad (línea 561-563 Sidebar.tsx). |
+| CA-40 | Admin accesses transformation assessments | Navegar a la página de Evaluaciones de Transformación | La página de evaluaciones de transformación carga. |
 
 ---
 
@@ -178,14 +178,14 @@ Reports show ALL schools, Dashboard shows ALL data, no accidental scoping.
 
 | # | Scenario | Expected Result |
 |---|----------|-----------------|
-| GS-1 | Admin views reports — sees ALL schools globally | POST /api/reports/detailed returns data from ALL schools, no school_id filter applied. |
-| GS-2 | Admin views filter options — ALL schools/generations/communities | GET /api/reports/filter-options returns unfiltered lists (lines 57-159 in filter-options.ts). |
-| GS-3 | Admin views dashboard — ALL data globally | GET /api/dashboard/unified returns global metrics (admin at line 48, global scope at line 159). |
-| GS-4 | Admin accesses user details for ANY user | GET /api/reports/user-details?userId=X with ANY userId returns details (admin bypass line 137). |
-| GS-5 | Admin views assessment templates — ALL templates globally | GET /api/admin/assessment-builder/templates returns all templates (no school filter). |
-| GS-6 | Admin views quiz reviews — ALL schools' pending reviews | /quiz-reviews shows pending reviews from ALL schools (allowedRoles includes admin). |
-| GS-7 | Admin views transformation assessments — ALL schools | /admin/transformation/assessments shows assessments for ALL schools. |
-| GS-8 | Admin views assignment matrix — ALL users and assignments | /admin/assignment-matrix shows global assignment data. |
+| GS-1 | Admin views reports — sees ALL schools globally | Los reportes muestran datos de TODOS los colegios, sin filtro de school_id aplicado. |
+| GS-2 | Admin views filter options — ALL schools/generations/communities | Las opciones de filtro muestran listas sin filtrar (líneas 57-159 en filter-options.ts). |
+| GS-3 | Admin views dashboard — ALL data globally | El panel muestra métricas globales (admin en línea 48, alcance global en línea 159). |
+| GS-4 | Admin accesses user details for ANY user | Los detalles de CUALQUIER usuario se muestran (admin bypass línea 137). |
+| GS-5 | Admin views assessment templates — ALL templates globally | Se muestran todas las plantillas (sin filtro de colegio). |
+| GS-6 | Admin views quiz reviews — ALL schools' pending reviews | La página de revisión de quizzes muestra revisiones pendientes de TODOS los colegios (allowedRoles incluye admin). |
+| GS-7 | Admin views transformation assessments — ALL schools | La página de evaluaciones de transformación muestra evaluaciones para TODOS los colegios. |
+| GS-8 | Admin views assignment matrix — ALL users and assignments | La página de matriz de asignaciones muestra datos de asignación globales. |
 
 ---
 
@@ -195,16 +195,16 @@ Verify admin access not blocked by recent RLS policies and API changes for other
 
 | # | Scenario | Route / Action | Expected Result |
 |---|----------|---------------|----------------|
-| RG-1 | Supervisor migration — admin RLS bypass on red_escuelas | SELECT from red_escuelas as admin | RLS policy includes admin bypass (migration line 49-55). Admin sees all red_escuelas records. |
-| RG-2 | Supervisor migration — admin RLS bypass on redes_de_colegios | SELECT from redes_de_colegios as admin | RLS policy includes admin bypass (migration line 72-78). Admin sees all networks. |
-| RG-3 | Consultor RLS fix — admin INSERT on assessment_templates | POST /rest/v1/assessment_templates as admin | RLS allows INSERT for admin (consultor fix migration). |
-| RG-4 | Consultor RLS fix — admin INSERT on news_articles | POST /rest/v1/news_articles as admin | RLS allows INSERT for admin + community_manager. |
-| RG-5 | Consultor RLS fix — admin INSERT on contratos | POST /rest/v1/contratos as admin | RLS allows INSERT for admin only. |
-| RG-6 | API reports/detailed.ts modified for supervisor — admin still in allowedRoles | POST /api/reports/detailed as admin | API returns 200. Admin in allowedRoles array (line 68). |
-| RG-7 | API reports/overview.ts modified for supervisor — admin still in allowedRoles | POST /api/reports/overview as admin | API returns 200. Admin in allowedRoles array (line 45). |
-| RG-8 | API reports/filter-options.ts modified for supervisor — admin gets global scope | GET /api/reports/filter-options as admin | API returns ALL schools/generations/communities (line 57). |
-| RG-9 | API reports/user-details.ts modified for supervisor — admin bypass exists | GET /api/reports/user-details?userId=X as admin | API returns user details. Admin bypass at line 137. |
-| RG-10 | API dashboard/unified.ts modified for supervisor — admin in allowedRoles and gets global scope | GET /api/dashboard/unified as admin | API returns 200. Admin in allowedRoles (line 48), gets global scope (line 159). |
+| RG-1 | Supervisor migration — admin RLS bypass on red_escuelas | Consultar red_escuelas como admin | La política RLS incluye bypass de admin (migration línea 49-55). Admin ve todos los registros de red_escuelas. |
+| RG-2 | Supervisor migration — admin RLS bypass on redes_de_colegios | Consultar redes_de_colegios como admin | La política RLS incluye bypass de admin (migration línea 72-78). Admin ve todas las redes. |
+| RG-3 | Consultor RLS fix — admin INSERT on assessment_templates | Insertar en assessment_templates como admin | RLS permite INSERT para admin (consultor fix migration). |
+| RG-4 | Consultor RLS fix — admin INSERT on news_articles | Insertar en news_articles como admin | RLS permite INSERT para admin + community_manager. |
+| RG-5 | Consultor RLS fix — admin INSERT on contratos | Insertar en contratos como admin | RLS permite INSERT solo para admin. |
+| RG-6 | API reports/detailed.ts modified for supervisor — admin still in allowedRoles | Acceder a reportes detallados como admin | La operación se completa correctamente. Admin en allowedRoles array (línea 68). |
+| RG-7 | API reports/overview.ts modified for supervisor — admin still in allowedRoles | Acceder a resumen de reportes como admin | La operación se completa correctamente. Admin en allowedRoles array (línea 45). |
+| RG-8 | API reports/filter-options.ts modified for supervisor — admin gets global scope | Acceder a opciones de filtro como admin | El sistema muestra TODOS los colegios/generaciones/comunidades (línea 57). |
+| RG-9 | API reports/user-details.ts modified for supervisor — admin bypass exists | Ver detalles de usuario como admin | El sistema muestra los detalles del usuario. Admin bypass en línea 137. |
+| RG-10 | API dashboard/unified.ts modified for supervisor — admin in allowedRoles and gets global scope | Acceder al panel unificado como admin | La operación se completa correctamente. Admin en allowedRoles (línea 48), obtiene alcance global (línea 159). |
 
 ---
 

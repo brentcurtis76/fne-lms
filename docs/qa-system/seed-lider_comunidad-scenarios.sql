@@ -53,7 +53,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden crear cursos. El acceso debe ser denegado con error 403.',
   'course_builder',
   '[{"type":"role","description":"Iniciar sesión como lider_comunidad"},{"type":"navigation","description":"El usuario debe estar autenticado"},{"type":"custom","description":"El sidebar no debe mostrar el menú Cursos"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard del líder de comunidad"},{"index":2,"instruction":"Intentar navegar a /admin/create-course","expectedOutcome":"Se muestra página de acceso denegado o se redirige al dashboard"},{"index":3,"instruction":"Intentar POST /api/admin/courses con datos de nuevo curso","expectedOutcome":"API devuelve 403 Forbidden"},{"index":4,"instruction":"Verificar que el menú Cursos NO aparece en la barra lateral","expectedOutcome":"El elemento Cursos no es visible en el sidebar"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard del líder de comunidad"},{"index":2,"instruction":"Intentar acceder a la página de Creación de Curso","expectedOutcome":"Se muestra página de acceso denegado o se redirige al dashboard"},{"index":3,"instruction":"Intentar realizar la acción con datos de nuevo curso","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":4,"instruction":"Verificar que el menú Cursos NO aparece en la barra lateral","expectedOutcome":"El elemento Cursos no es visible en el sidebar"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -64,7 +64,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden crear usuarios. El acceso debe ser denegado.',
   'user_management',
   '[{"type":"role","description":"Iniciar sesión como lider_comunidad"},{"type":"navigation","description":"El usuario está autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/user-management","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Intentar POST /api/admin/users con datos de nuevo usuario","expectedOutcome":"API devuelve 403 Forbidden"},{"index":4,"instruction":"Verificar que el menú Usuarios NO aparece en la barra lateral","expectedOutcome":"El elemento Usuarios no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Gestión de Usuarios","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Intentar realizar la acción con datos de nuevo usuario","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":4,"instruction":"Verificar que el menú Usuarios NO aparece en la barra lateral","expectedOutcome":"El elemento Usuarios no es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -75,7 +75,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden editar perfiles de otros usuarios.',
   'user_management',
   '[{"type":"role","description":"Lider de comunidad autenticado"},{"type":"data","description":"Existe un usuario diferente en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar PUT /api/admin/users/[otro_id] con datos modificados","expectedOutcome":"API devuelve 403 Forbidden"},{"index":3,"instruction":"Verificar que no hay formulario de edición de usuario disponible","expectedOutcome":"El formulario no está accesible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con datos modificados","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que no hay formulario de edición de usuario disponible","expectedOutcome":"El formulario no está accesible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -86,7 +86,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden asignar roles.',
   'role_assignment',
   '[{"type":"role","description":"Lider de comunidad autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar POST /api/admin/roles/permissions con datos de asignación de rol","expectedOutcome":"API devuelve 403 Forbidden"},{"index":3,"instruction":"Verificar que no hay opción de asignar roles en la UI","expectedOutcome":"La opción no es accesible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con datos de asignación de rol","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que no hay opción de asignar roles en la UI","expectedOutcome":"La opción no es accesible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -97,7 +97,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden acceder a gestión de colegios.',
   'school_management',
   '[{"type":"role","description":"Lider de comunidad autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/schools","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Escuelas NO aparece en la barra lateral","expectedOutcome":"El elemento Escuelas no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Escuelas","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Escuelas NO aparece en la barra lateral","expectedOutcome":"El elemento Escuelas no es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -108,7 +108,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden acceder a gestión de redes.',
   'network_management',
   '[{"type":"role","description":"Lider de comunidad autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/network-management","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Redes de Colegios NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Gestión de Redes","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Redes de Colegios NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -119,7 +119,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden crear plantillas de evaluación.',
   'assessment_builder',
   '[{"type":"role","description":"Lider de comunidad autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/assessment-builder","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Intentar POST /api/admin/assessment-builder/templates con datos de nueva plantilla","expectedOutcome":"API devuelve 403 Forbidden"},{"index":4,"instruction":"Verificar que el menú Procesos de Cambio NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Constructor de Evaluaciones","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Intentar realizar la acción con datos de nueva plantilla","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":4,"instruction":"Verificar que el menú Procesos de Cambio NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -130,7 +130,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden ver plantillas de evaluación (solo admin y consultor).',
   'assessment_builder',
   '[{"type":"role","description":"Lider de comunidad autenticado"},{"type":"data","description":"Existen plantillas de evaluación en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/assessment-builder","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Intentar GET /api/admin/assessment-builder/templates","expectedOutcome":"API devuelve 403 Forbidden"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Constructor de Evaluaciones","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Intentar realizar la acción","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -141,7 +141,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden acceder al módulo de revisión de quizzes.',
   'quiz_submission',
   '[{"type":"role","description":"Lider de comunidad autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /quiz-reviews","expectedOutcome":"Se muestra página de acceso denegado o redirige"},{"index":3,"instruction":"Intentar GET /api/quiz-reviews/pending","expectedOutcome":"API devuelve 403 Forbidden"},{"index":4,"instruction":"Verificar que el menú Revisión de Quizzes NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Revisión de Quizzes","expectedOutcome":"Se muestra página de acceso denegado o redirige"},{"index":3,"instruction":"Intentar realizar la acción","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":4,"instruction":"Verificar que el menú Revisión de Quizzes NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -152,7 +152,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden gestionar noticias (solo admin y community_manager).',
   'navigation',
   '[{"type":"role","description":"Lider de comunidad autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/news","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Intentar POST /api/admin/news con datos de nueva noticia","expectedOutcome":"API devuelve 403 Forbidden"},{"index":4,"instruction":"Verificar que el menú Noticias NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Noticias","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Intentar realizar la acción con datos de nueva noticia","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":4,"instruction":"Verificar que el menú Noticias NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -163,7 +163,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden gestionar eventos (solo admin y community_manager).',
   'navigation',
   '[{"type":"role","description":"Lider de comunidad autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/events","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Eventos NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Eventos","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Eventos NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -174,7 +174,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden acceder al módulo de gestión de contratos.',
   'navigation',
   '[{"type":"role","description":"Lider de comunidad autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /contracts","expectedOutcome":"Se muestra página de acceso denegado o redirige"},{"index":3,"instruction":"Verificar que el menú Gestión NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Contratos","expectedOutcome":"Se muestra página de acceso denegado o redirige"},{"index":3,"instruction":"Verificar que el menú Gestión NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -185,7 +185,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden acceder a la configuración del sistema.',
   'role_assignment',
   '[{"type":"role","description":"Lider de comunidad autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/configuration","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Configuración NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Configuración","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Configuración NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -196,7 +196,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad no pueden acceder al módulo de QA Testing (solo admin).',
   'role_assignment',
   '[{"type":"role","description":"Lider de comunidad autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/qa","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú QA Testing NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Qa","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú QA Testing NO aparece en el sidebar","expectedOutcome":"El elemento no es visible"}]'::jsonb,
   2, 3, true, false, false
 );
 
@@ -228,7 +228,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad pueden acceder a su página de perfil.',
   'user_management',
   '[{"type":"role","description":"Iniciar sesión como lider_comunidad"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /profile","expectedOutcome":"La página de perfil carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los datos del usuario","expectedOutcome":"Se muestra información del perfil"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Perfil","expectedOutcome":"La página de perfil carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los datos del usuario","expectedOutcome":"Se muestra información del perfil"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -239,7 +239,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad pueden acceder a la página Mi Aprendizaje.',
   'course_enrollment',
   '[{"type":"role","description":"Iniciar sesión como lider_comunidad"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /mi-aprendizaje","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los cursos inscritos","expectedOutcome":"Se muestra lista de cursos"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Mi Aprendizaje","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los cursos inscritos","expectedOutcome":"Se muestra lista de cursos"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -250,7 +250,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad pueden acceder al workspace de su comunidad.',
   'community_workspace',
   '[{"type":"role","description":"Iniciar sesión como lider_comunidad"},{"type":"data","description":"El usuario tiene una comunidad asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /community/workspace","expectedOutcome":"El workspace carga correctamente"},{"index":3,"instruction":"Verificar que solo se muestra contenido de su comunidad","expectedOutcome":"Solo se muestra contenido de la comunidad asignada"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Community/workspace","expectedOutcome":"El workspace carga correctamente"},{"index":3,"instruction":"Verificar que solo se muestra contenido de su comunidad","expectedOutcome":"Solo se muestra contenido de la comunidad asignada"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -261,7 +261,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad pueden ver la lista de miembros de su comunidad.',
   'community_workspace',
   '[{"type":"role","description":"Iniciar sesión como lider_comunidad"},{"type":"data","description":"La comunidad tiene miembros"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/community/members?communityId=3aadfecf-e37a-4fdd-9ff1-c85f0989b1fd","expectedOutcome":"API retorna lista de miembros de su comunidad"},{"index":3,"instruction":"Verificar que solo se retornan miembros de su comunidad","expectedOutcome":"Todos los miembros tienen el mismo community_id"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"El sistema lista de miembros de su comunidad"},{"index":3,"instruction":"Verificar que solo se retornan miembros de su comunidad","expectedOutcome":"Todos los miembros tienen el mismo community_id"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -272,7 +272,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad pueden acceder a la página de tareas (rol estudiante).',
   'docente_experience',
   '[{"type":"role","description":"Iniciar sesión como lider_comunidad"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /assignments","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran tareas pendientes como estudiante","expectedOutcome":"Se muestra vista de tareas"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Assignments","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran tareas pendientes como estudiante","expectedOutcome":"Se muestra vista de tareas"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -283,7 +283,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad pueden acceder a reportes detallados filtrados por su comunidad.',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como lider_comunidad"},{"type":"data","description":"Existen datos de reporte en la comunidad"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"La página de reportes carga correctamente"},{"index":3,"instruction":"Verificar que solo se muestran datos de su comunidad","expectedOutcome":"Todos los datos están filtrados por community_id"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"La página de reportes carga correctamente"},{"index":3,"instruction":"Verificar que solo se muestran datos de su comunidad","expectedOutcome":"Todos los datos están filtrados por community_id"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -294,7 +294,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad pueden acceder al API de dashboard unificado con datos filtrados.',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como lider_comunidad"},{"type":"data","description":"La comunidad tiene datos"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/dashboard/unified con token de autenticación","expectedOutcome":"API retorna datos del dashboard"},{"index":3,"instruction":"Verificar que los datos están filtrados por community_id","expectedOutcome":"Solo se retornan datos de la comunidad del usuario"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente con token de autenticación","expectedOutcome":"El sistema datos del dashboard"},{"index":3,"instruction":"Verificar que los datos están filtrados por community_id","expectedOutcome":"Solo se retornan datos de la comunidad del usuario"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -305,7 +305,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad pueden acceder al API de reportes de comunidad.',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como lider_comunidad"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/reports/community","expectedOutcome":"API retorna datos de reporte"},{"index":3,"instruction":"Verificar que los datos corresponden a su comunidad","expectedOutcome":"Datos filtrados por community_id"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"El sistema datos de reporte"},{"index":3,"instruction":"Verificar que los datos corresponden a su comunidad","expectedOutcome":"Datos filtrados por community_id"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -316,7 +316,7 @@ INSERT INTO qa_scenarios (
   'Verificar que líderes de comunidad pueden obtener opciones de filtro para reportes.',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como lider_comunidad"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/reports/filter-options","expectedOutcome":"API retorna opciones de filtro disponibles"},{"index":3,"instruction":"Verificar que las opciones están filtradas por su comunidad","expectedOutcome":"Solo opciones relevantes a su comunidad"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"El sistema opciones de filtro disponibles"},{"index":3,"instruction":"Verificar que las opciones están filtradas por su comunidad","expectedOutcome":"Solo opciones relevantes a su comunidad"}]'::jsonb,
   3, 2, true, false, false
 );
 
@@ -337,7 +337,7 @@ INSERT INTO qa_scenarios (
   'Verificar que los reportes solo muestran datos de la comunidad asignada del líder.',
   'reporting',
   '[{"type":"role","description":"Lider de comunidad autenticado"},{"type":"data","description":"Existen múltiples comunidades con datos"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/reports/detailed","expectedOutcome":"API retorna datos"},{"index":3,"instruction":"Verificar que todos los usuarios retornados pertenecen a la comunidad del líder","expectedOutcome":"Ningún dato de otras comunidades"},{"index":4,"instruction":"Realizar GET /api/reports/overview","expectedOutcome":"API retorna datos"},{"index":5,"instruction":"Verificar que los datos coinciden con la comunidad asignada","expectedOutcome":"Solo datos de su comunidad"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"El sistema datos"},{"index":3,"instruction":"Verificar que todos los usuarios retornados pertenecen a la comunidad del líder","expectedOutcome":"Ningún dato de otras comunidades"},{"index":4,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"El sistema datos"},{"index":5,"instruction":"Verificar que los datos coinciden con la comunidad asignada","expectedOutcome":"Solo datos de su comunidad"}]'::jsonb,
   1, 4, true, false, false
 ),
 
@@ -348,7 +348,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el sistema rechaza intentos de acceder a datos de otras comunidades.',
   'reporting',
   '[{"type":"role","description":"Lider de comunidad autenticado"},{"type":"data","description":"Existe otra comunidad en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar GET /api/community/members?communityId=[otro_community_id]","expectedOutcome":"API retorna 403 Forbidden o datos vacíos"},{"index":3,"instruction":"Verificar que el filtro de comunidad es aplicado server-side","expectedOutcome":"No se pueden obtener datos de otras comunidades"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción","expectedOutcome":"El sistema aparece un mensaje de error de permisos o datos vacíos"},{"index":3,"instruction":"Verificar que el filtro de comunidad es aplicado server-side","expectedOutcome":"No se pueden obtener datos de otras comunidades"}]'::jsonb,
   1, 3, true, false, false
 ),
 
@@ -359,7 +359,7 @@ INSERT INTO qa_scenarios (
   'Verificar que al consultar miembros, solo se retornan los de su comunidad.',
   'community_workspace',
   '[{"type":"role","description":"Lider de comunidad autenticado"},{"type":"data","description":"Existen múltiples comunidades"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/community/members con su community_id","expectedOutcome":"API retorna miembros"},{"index":3,"instruction":"Verificar que todos tienen el mismo community_id que el líder","expectedOutcome":"Todos los miembros pertenecen a la misma comunidad"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente con su community_id","expectedOutcome":"El sistema miembros"},{"index":3,"instruction":"Verificar que todos tienen el mismo community_id que el líder","expectedOutcome":"Todos los miembros pertenecen a la misma comunidad"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -370,7 +370,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el workspace muestra solo contenido de la comunidad asignada.',
   'community_workspace',
   '[{"type":"role","description":"Lider de comunidad autenticado"},{"type":"data","description":"Existen workspaces de múltiples comunidades"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /community/workspace","expectedOutcome":"Workspace carga"},{"index":3,"instruction":"Verificar que solo se muestra contenido de su comunidad","expectedOutcome":"No hay contenido de otras comunidades visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Community/workspace","expectedOutcome":"Workspace carga"},{"index":3,"instruction":"Verificar que solo se muestra contenido de su comunidad","expectedOutcome":"No hay contenido de otras comunidades visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -381,7 +381,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el dashboard unificado resuelve community_id correctamente y filtra datos.',
   'reporting',
   '[{"type":"role","description":"Lider de comunidad autenticado"},{"type":"data","description":"Existen datos en múltiples comunidades"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/dashboard/unified","expectedOutcome":"API retorna KPIs"},{"index":3,"instruction":"Verificar que los KPIs reflejan solo datos de su comunidad","expectedOutcome":"Solo datos de la comunidad asignada"},{"index":4,"instruction":"Verificar que no se usa placeholder user-community-id","expectedOutcome":"Se resuelve community_id real desde user_roles"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"El sistema KPIs"},{"index":3,"instruction":"Verificar que los KPIs reflejan solo datos de su comunidad","expectedOutcome":"Solo datos de la comunidad asignada"},{"index":4,"instruction":"Verificar que no se usa placeholder user-community-id","expectedOutcome":"Se resuelve community_id real desde user_roles"}]'::jsonb,
   1, 4, true, false, false
 ),
 
@@ -392,7 +392,7 @@ INSERT INTO qa_scenarios (
   'Verificar que ambos endpoints retornan el mismo conjunto de usuarios de la comunidad.',
   'reporting',
   '[{"type":"role","description":"Lider de comunidad autenticado"},{"type":"data","description":"Comunidad tiene múltiples usuarios"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/reports/overview","expectedOutcome":"API retorna lista de usuarios"},{"index":3,"instruction":"Realizar GET /api/reports/detailed","expectedOutcome":"API retorna lista de usuarios"},{"index":4,"instruction":"Verificar que ambas listas contienen los mismos user IDs","expectedOutcome":"Ambos endpoints usan user_roles.community_id, datos consistentes"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"El sistema lista de usuarios"},{"index":3,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"El sistema lista de usuarios"},{"index":4,"instruction":"Verificar que ambas listas contienen los mismos user IDs","expectedOutcome":"Ambos endpoints usan user_roles.community_id, datos consistentes"}]'::jsonb,
   1, 4, true, false, false
 );
 
@@ -676,7 +676,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el sistema maneja correctamente el caso de un líder sin comunidad asignada.',
   'reporting',
   '[{"type":"role","description":"Usuario con rol lider_comunidad"},{"type":"data","description":"user_roles.community_id es NULL"}]'::jsonb,
-  '[{"index":1,"instruction":"Configurar usuario con rol lider_comunidad pero sin community_id","expectedOutcome":"Usuario puede iniciar sesión"},{"index":2,"instruction":"Navegar a /dashboard","expectedOutcome":"Dashboard carga sin errores"},{"index":3,"instruction":"Intentar GET /api/reports/detailed","expectedOutcome":"API retorna error apropiado o datos vacíos"},{"index":4,"instruction":"Verificar que no hay crash ni información sensible expuesta","expectedOutcome":"Manejo de error apropiado"}]'::jsonb,
+  '[{"index":1,"instruction":"Configurar usuario con rol lider_comunidad pero sin community_id","expectedOutcome":"Usuario puede iniciar sesión"},{"index":2,"instruction":"Navegar a la página de Panel Principal","expectedOutcome":"Dashboard carga sin errores"},{"index":3,"instruction":"Intentar realizar la acción","expectedOutcome":"El sistema error apropiado o datos vacíos"},{"index":4,"instruction":"Verificar que no hay crash ni información sensible expuesta","expectedOutcome":"Manejo de error apropiado"}]'::jsonb,
   2, 4, true, false, false
 ),
 
@@ -687,7 +687,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el sistema maneja correctamente una comunidad sin miembros.',
   'community_workspace',
   '[{"type":"role","description":"Lider de comunidad autenticado"},{"type":"data","description":"La comunidad no tiene otros miembros"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /community/workspace","expectedOutcome":"Workspace carga sin errores"},{"index":3,"instruction":"Verificar que se muestra estado vacío apropiado","expectedOutcome":"Mensaje de estado vacío, sin crash"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Community/workspace","expectedOutcome":"Workspace carga sin errores"},{"index":3,"instruction":"Verificar que se muestra estado vacío apropiado","expectedOutcome":"Mensaje de estado vacío, sin crash"}]'::jsonb,
   3, 3, true, false, false
 ),
 
@@ -709,7 +709,7 @@ INSERT INTO qa_scenarios (
   'Verificar que los controles de permiso server-side se aplican independientemente del cliente.',
   'reporting',
   '[{"type":"role","description":"Lider de comunidad autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl y obtener token","expectedOutcome":"Token obtenido"},{"index":2,"instruction":"Realizar peticiones API directamente con curl o Postman","expectedOutcome":"Todas las peticiones tienen auth checks"},{"index":3,"instruction":"Intentar acceder a endpoint restringido (e.g., /api/admin/courses)","expectedOutcome":"API retorna 403 independientemente de sidebar"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl y obtener token","expectedOutcome":"Token obtenido"},{"index":2,"instruction":"Realizar peticiones API directamente con curl o Postman","expectedOutcome":"Todas las peticiones tienen auth checks"},{"index":3,"instruction":"Intentar acceder a endpoint restringido (e.g., )","expectedOutcome":"El sistema independientemente de sidebar"}]'::jsonb,
   2, 4, true, false, false
 ),
 
@@ -731,7 +731,7 @@ INSERT INTO qa_scenarios (
   'Verificar que no se pueden ver detalles de usuarios de otras comunidades.',
   'reporting',
   '[{"type":"role","description":"Lider de comunidad autenticado"},{"type":"data","description":"Existe un usuario en otra comunidad"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar GET /api/reports/user-details con user_id de otra comunidad","expectedOutcome":"API retorna 403 o datos vacíos"},{"index":3,"instruction":"Verificar que checkUserAccessModern compara community_id","expectedOutcome":"Acceso denegado si community_id no coincide"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con user_id de otra comunidad","expectedOutcome":"El sistema o datos vacíos"},{"index":3,"instruction":"Verificar que checkUserAccessModern compara community_id","expectedOutcome":"Acceso denegado si community_id no coincide"}]'::jsonb,
   1, 3, true, false, false
 );
 

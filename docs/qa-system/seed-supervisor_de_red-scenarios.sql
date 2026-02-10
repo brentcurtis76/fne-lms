@@ -56,7 +56,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden crear cursos. El acceso debe ser denegado con error 403.',
   'course_builder',
   '[{"type":"role","description":"Iniciar sesión como supervisor_de_red"},{"type":"navigation","description":"El usuario supervisor debe estar autenticado"},{"type":"custom","description":"El sidebar no debe mostrar el menú Cursos"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard del supervisor"},{"index":2,"instruction":"Intentar navegar a /admin/create-course","expectedOutcome":"Se muestra página de acceso denegado o se redirige al dashboard"},{"index":3,"instruction":"Intentar POST /api/admin/courses con datos de nuevo curso","expectedOutcome":"API devuelve 403 Forbidden"},{"index":4,"instruction":"Verificar que el menú Cursos NO aparece en la barra lateral","expectedOutcome":"El elemento Cursos no es visible en el sidebar"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard del supervisor"},{"index":2,"instruction":"Intentar acceder a la página de Creación de Curso","expectedOutcome":"Se muestra página de acceso denegado o se redirige al dashboard"},{"index":3,"instruction":"Intentar realizar la acción con datos de nuevo curso","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":4,"instruction":"Verificar que el menú Cursos NO aparece en la barra lateral","expectedOutcome":"El elemento Cursos no es visible en el sidebar"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -67,7 +67,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden crear usuarios. El acceso debe ser denegado.',
   'user_management',
   '[{"type":"role","description":"Iniciar sesión como supervisor_de_red"},{"type":"navigation","description":"El usuario está autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/user-management","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Intentar POST /api/admin/users con datos de nuevo usuario","expectedOutcome":"API devuelve 403 Forbidden"},{"index":4,"instruction":"Verificar que el menú Usuarios NO aparece en la barra lateral","expectedOutcome":"El elemento Usuarios no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Gestión de Usuarios","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Intentar realizar la acción con datos de nuevo usuario","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":4,"instruction":"Verificar que el menú Usuarios NO aparece en la barra lateral","expectedOutcome":"El elemento Usuarios no es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -78,7 +78,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden editar perfiles de otros usuarios.',
   'user_management',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"Existe un usuario diferente en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar PUT /api/admin/users/[otro_id] con datos modificados","expectedOutcome":"API devuelve 403 Forbidden"},{"index":3,"instruction":"Verificar que no hay formulario de edición de usuario disponible","expectedOutcome":"El formulario no está accesible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con datos modificados","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que no hay formulario de edición de usuario disponible","expectedOutcome":"El formulario no está accesible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -89,7 +89,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden asignar roles.',
   'role_assignment',
   '[{"type":"role","description":"Supervisor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar POST /api/admin/roles/permissions con datos de asignación de rol","expectedOutcome":"API devuelve 403 Forbidden"},{"index":3,"instruction":"Verificar que no hay opción de asignar roles en la UI","expectedOutcome":"La opción no es accesible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con datos de asignación de rol","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que no hay opción de asignar roles en la UI","expectedOutcome":"La opción no es accesible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -100,7 +100,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden acceder a gestión de colegios.',
   'school_management',
   '[{"type":"role","description":"Supervisor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/schools","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Escuelas NO aparece en la barra lateral","expectedOutcome":"El elemento Escuelas no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Escuelas","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Escuelas NO aparece en la barra lateral","expectedOutcome":"El elemento Escuelas no es visible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -111,7 +111,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden acceder a gestión de redes (página administrativa).',
   'network_management',
   '[{"type":"role","description":"Supervisor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/network-management","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Redes de Colegios NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (gestión es admin-only)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Gestión de Redes","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Redes de Colegios NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (gestión es admin-only)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -122,7 +122,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden crear plantillas de evaluación.',
   'assessment_builder',
   '[{"type":"role","description":"Supervisor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar POST /api/admin/assessment-builder/templates con datos de nueva plantilla","expectedOutcome":"API devuelve 403 Forbidden (hasAssessmentWritePermission retorna false)"},{"index":3,"instruction":"Verificar que supervisor NO está en la lista de roles con permiso de escritura","expectedOutcome":"Solo admin tiene permiso de escritura en assessment-permissions.ts"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con datos de nueva plantilla","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que supervisor NO está en la lista de roles con permiso de escritura","expectedOutcome":"Solo admin tiene permiso de escritura en assessment-permissions.ts"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -133,7 +133,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden acceder a revisión de quizzes.',
   'quiz_submission',
   '[{"type":"role","description":"Supervisor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /quiz-reviews","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que supervisor NO está en allowedRoles","expectedOutcome":"Solo admin, consultor, equipo_directivo permitidos (quiz-reviews.tsx:28, pending.ts:56)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Revisión de Quizzes","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que supervisor NO está en allowedRoles","expectedOutcome":"Solo admin, consultor, equipo_directivo permitidos (quiz-reviews.tsx:28, pending.ts:56)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -144,7 +144,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden calificar quizzes.',
   'quiz_submission',
   '[{"type":"role","description":"Supervisor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar POST /api/quiz-reviews/submit-review con calificación","expectedOutcome":"API devuelve 403 Forbidden"},{"index":3,"instruction":"Verificar que supervisor NO está en allowedRoles del endpoint","expectedOutcome":"Solo admin, consultor, equipo_directivo permitidos"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con calificación","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que supervisor NO está en allowedRoles del endpoint","expectedOutcome":"Solo admin, consultor, equipo_directivo permitidos"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -155,7 +155,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden asignar consultores.',
   'role_assignment',
   '[{"type":"role","description":"Supervisor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/consultant-assignments","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que el menú Asignación de Consultores NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (adminOnly: true)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Asignación de Consultores","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que el menú Asignación de Consultores NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (adminOnly: true)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -166,7 +166,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden acceder a configuración.',
   'role_assignment',
   '[{"type":"role","description":"Supervisor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/configuration","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Configuración NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (requiere manage_system_settings)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Configuración","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Configuración NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (requiere manage_system_settings)"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -177,7 +177,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden gestionar noticias.',
   'navigation',
   '[{"type":"role","description":"Supervisor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/news","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Noticias NO aparece en la barra lateral","expectedOutcome":"El elemento Noticias no es visible (solo para admin/community_manager)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Noticias","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Noticias NO aparece en la barra lateral","expectedOutcome":"El elemento Noticias no es visible (solo para admin/community_manager)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -188,7 +188,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red no pueden gestionar eventos.',
   'navigation',
   '[{"type":"role","description":"Supervisor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/events","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Eventos NO aparece en la barra lateral","expectedOutcome":"El elemento Eventos no es visible (solo para admin/community_manager)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Eventos","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Eventos NO aparece en la barra lateral","expectedOutcome":"El elemento Eventos no es visible (solo para admin/community_manager)"}]'::jsonb,
   2, 2, true, false, false
 );
 
@@ -209,7 +209,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red pueden acceder a su dashboard con datos de su red de colegios.',
   'docente_experience',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"Supervisor tiene red asignada (red_id en user_roles)"},{"type":"custom","description":"La red tiene colegios asignados en red_escuelas"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard correctamente"},{"index":2,"instruction":"Navegar a /dashboard","expectedOutcome":"La página carga correctamente con datos de la red asignada"},{"index":3,"instruction":"Verificar que se muestran estadísticas solo de colegios de la red","expectedOutcome":"Los datos mostrados corresponden solo a los colegios de la red asignada"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard correctamente"},{"index":2,"instruction":"Navegar a la página de Panel Principal","expectedOutcome":"La página carga correctamente con datos de la red asignada"},{"index":3,"instruction":"Verificar que se muestran estadísticas solo de colegios de la red","expectedOutcome":"Los datos mostrados corresponden solo a los colegios de la red asignada"}]'::jsonb,
   1, 3, true, false, false
 ),
 
@@ -220,7 +220,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red pueden ver y acceder a su perfil.',
   'user_management',
   '[{"type":"role","description":"Supervisor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /profile","expectedOutcome":"La página de perfil carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los datos del supervisor autenticado","expectedOutcome":"El perfil muestra información correcta"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Perfil","expectedOutcome":"La página de perfil carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los datos del supervisor autenticado","expectedOutcome":"El perfil muestra información correcta"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -231,7 +231,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red pueden ver la página de aprendizaje e inscribirse como estudiantes.',
   'course_enrollment',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"Hay cursos disponibles"},{"type":"custom","description":"Supervisor puede inscribirse en cursos como estudiante (dual behavior)"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /mi-aprendizaje o hacer clic en menú Mi Aprendizaje","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los cursos disponibles","expectedOutcome":"Se listan los cursos (supervisor puede inscribirse como estudiante per role description)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Mi Aprendizaje o hacer clic en menú Mi Aprendizaje","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los cursos disponibles","expectedOutcome":"Se listan los cursos (supervisor puede inscribirse como estudiante per role description)"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -242,7 +242,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red pueden ver reportes detallados de su red.',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"Supervisor tiene red asignada con colegios"},{"type":"data","description":"Hay datos de reporte disponibles para los colegios de la red"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /detailed-reports o hacer clic en menú Reportes","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran reportes filtrados por red asignada","expectedOutcome":"Los datos mostrados corresponden solo a colegios de la red (detailed.ts:694-722 usa 3-step pattern)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados o hacer clic en menú Reportes","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran reportes filtrados por red asignada","expectedOutcome":"Los datos mostrados corresponden solo a colegios de la red (detailed.ts:694-722 usa 3-step pattern)"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -253,7 +253,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red pueden ver el resumen de reportes de su red.',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"Supervisor tiene red asignada con colegios"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Llamar GET /api/reports/overview","expectedOutcome":"API devuelve 200 OK con datos de la red"},{"index":3,"instruction":"Verificar que solo se retornan usuarios de colegios de la red","expectedOutcome":"overview.ts:338-363 usa 3-step pattern para filtrar por red"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Verificar que la funcionalidad opera correctamente","expectedOutcome":"Los datos se muestran correctamente con datos de la red"},{"index":3,"instruction":"Verificar que solo se retornan usuarios de colegios de la red","expectedOutcome":"overview.ts:- usa 3-step pattern para filtrar por red"}]'::jsonb,
   2, 4, true, false, false
 ),
 
@@ -264,7 +264,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red ven opciones de filtro limitadas a su red.',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"Supervisor tiene red asignada con colegios"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Llamar GET /api/reports/filter-options","expectedOutcome":"API devuelve 200 OK con opciones de filtro"},{"index":3,"instruction":"Verificar que solo se listan colegios de la red","expectedOutcome":"filter-options.ts:166-194 filtra por red_id del supervisor"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Verificar que la funcionalidad opera correctamente","expectedOutcome":"Los datos se muestran correctamente con opciones de filtro"},{"index":3,"instruction":"Verificar que solo se listan colegios de la red","expectedOutcome":"filter-options.ts:166-194 filtra por red_id del supervisor"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -275,7 +275,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red pueden acceder a reportes por colegio (FUNCTIONALITY GAP - retorna vacío).',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"Hay datos de reporte disponibles"},{"type":"custom","description":"FUNCTIONALITY GAP: getAccessibleSchools() solo maneja admin/consultor"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a GET /api/reports/school","expectedOutcome":"API devuelve 200 OK pero data vacía (supervisor en allowedRoles pero getAccessibleSchools no lo maneja)"},{"index":3,"instruction":"Documentar como functionality gap, no como bug de seguridad","expectedOutcome":"Feature incompleta, no data leak"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a realizar la acción correspondiente","expectedOutcome":"Los datos se muestran correctamente pero data vacía (supervisor en allowedRoles pero getAccessibleSchools no lo maneja)"},{"index":3,"instruction":"Documentar como functionality gap, no como bug de seguridad","expectedOutcome":"Feature incompleta, no data leak"}]'::jsonb,
   3, 3, true, false, false
 ),
 
@@ -286,7 +286,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red pueden acceder a reportes de comunidad (FUNCTIONALITY GAP - retorna vacío).',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"custom","description":"FUNCTIONALITY GAP: getAccessibleCommunities() solo maneja admin/consultor"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a GET /api/reports/community","expectedOutcome":"API devuelve 200 OK pero data vacía"},{"index":3,"instruction":"Documentar como functionality gap","expectedOutcome":"Feature incompleta"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a realizar la acción correspondiente","expectedOutcome":"Los datos se muestran correctamente pero data vacía"},{"index":3,"instruction":"Documentar como functionality gap","expectedOutcome":"Feature incompleta"}]'::jsonb,
   3, 3, true, false, false
 ),
 
@@ -297,7 +297,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red pueden acceder a analíticas de cursos (FUNCTIONALITY GAP - retorna vacío).',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"custom","description":"FUNCTIONALITY GAP: getReportableUsers() solo maneja admin/consultor"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a GET /api/reports/course-analytics","expectedOutcome":"API devuelve 200 OK pero data vacía"},{"index":3,"instruction":"Documentar como functionality gap","expectedOutcome":"Feature incompleta"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a realizar la acción correspondiente","expectedOutcome":"Los datos se muestran correctamente pero data vacía"},{"index":3,"instruction":"Documentar como functionality gap","expectedOutcome":"Feature incompleta"}]'::jsonb,
   3, 3, true, false, false
 ),
 
@@ -308,7 +308,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisores de red pueden ver el dashboard unificado con datos de su red.',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"Supervisor tiene red asignada con colegios"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Llamar GET /api/dashboard/unified","expectedOutcome":"API devuelve 200 OK con datos agregados"},{"index":3,"instruction":"Verificar que solo se retornan datos de colegios de la red","expectedOutcome":"unified.ts:166-193 usa 3-step pattern para filtrar usuarios"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Verificar que la funcionalidad opera correctamente","expectedOutcome":"Los datos se muestran correctamente con datos agregados"},{"index":3,"instruction":"Verificar que solo se retornan datos de colegios de la red","expectedOutcome":"unified.ts:166-193 usa 3-step pattern para filtrar usuarios"}]'::jsonb,
   2, 4, true, false, false
 );
 
@@ -329,7 +329,7 @@ INSERT INTO qa_scenarios (
   'Verificar que los reportes filtran datos por red asignada del supervisor (FIXED: migration añadió user_roles.red_id).',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"Hay múltiples redes en el sistema"},{"type":"data","description":"El supervisor está asignado a una red específica (user_roles.red_id)"},{"type":"custom","description":"CRITICAL FIX: 4 API routes reescritos para usar red_id -> red_escuelas.red_id -> school_id"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"Se muestra la página de reportes"},{"index":3,"instruction":"Observar que solo se muestran datos de colegios de la red asignada","expectedOutcome":"Sin datos de otras redes (verified by red_id filtering in API routes)"},{"index":4,"instruction":"Verificar que no hay datos de colegios fuera de la red","expectedOutcome":"Solo datos de la red asignada"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"Se muestra la página de reportes"},{"index":3,"instruction":"Observar que solo se muestran datos de colegios de la red asignada","expectedOutcome":"Sin datos de otras redes (verified by red_id filtering in El sistema)"},{"index":4,"instruction":"Verificar que no hay datos de colegios fuera de la red","expectedOutcome":"Solo datos de la red asignada"}]'::jsonb,
   1, 5, true, false, false
 ),
 
@@ -340,7 +340,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisor sin red asignada recibe datos vacíos sin errores.',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"custom","description":"user_roles.red_id es NULL para este supervisor"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor con red_id NULL","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"Se muestra la página sin datos"},{"index":3,"instruction":"Verificar que APIs retornan arrays vacíos (no errores)","expectedOutcome":"Todas las APIs tienen early return: if (!supervisorRole?.red_id) return []"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor con red_id NULL","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"Se muestra la página sin datos"},{"index":3,"instruction":"Verificar que APIs retornan arrays vacíos (no errores)","expectedOutcome":"Todas las APIs tienen early return: if (!supervisorRole?.red_id) return []"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -351,7 +351,7 @@ INSERT INTO qa_scenarios (
   'Verificar que la API rechaza consultas de datos de otras redes.',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"Hay otra red en el sistema diferente a la asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar manipular parámetros de URL o payload para acceder a otra red","expectedOutcome":"API filtra server-side por user_roles.red_id del supervisor"},{"index":3,"instruction":"Verificar que red_id del supervisor se usa en TODOS los queries","expectedOutcome":"Sin acceso cross-network (RLS policies también enforzan)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar manipular parámetros de URL o payload para acceder a otra red","expectedOutcome":"El sistema server-side por user_roles.red_id del supervisor"},{"index":3,"instruction":"Verificar que red_id del supervisor se usa en TODOS los queries","expectedOutcome":"Sin acceso cross-network (RLS policies también enforzan)"}]'::jsonb,
   1, 3, true, false, false
 ),
 
@@ -362,7 +362,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisor puede ver detalles de usuarios en su red (FIXED: user-details.ts).',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"Existe usuario en un colegio de la red del supervisor"},{"type":"custom","description":"CRITICAL FIX: user-details.ts ahora llama supervisor_can_access_user() DB function"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Llamar GET /api/reports/user-details?userId=<user_in_network>","expectedOutcome":"API devuelve 200 OK con detalles completos del usuario"},{"index":3,"instruction":"Verificar que supervisor_can_access_user() retorna true","expectedOutcome":"DB function verifica que school del usuario está en red del supervisor"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Verificar que la funcionalidad opera correctamente","expectedOutcome":"Los datos se muestran correctamente con detalles completos del usuario"},{"index":3,"instruction":"Verificar que supervisor_can_access_user() retorna true","expectedOutcome":"DB function verifica que school del usuario está en red del supervisor"}]'::jsonb,
   1, 4, true, false, false
 ),
 
@@ -373,7 +373,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisor NO puede ver detalles de usuarios fuera de su red (FIXED: user-details.ts).',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"Existe usuario en un colegio NO en la red del supervisor"},{"type":"custom","description":"CRITICAL FIX: user-details.ts línea 150 ya no retorna true incondicional"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Llamar GET /api/reports/user-details?userId=<user_outside_network>","expectedOutcome":"API devuelve 403 Forbidden"},{"index":3,"instruction":"Verificar que supervisor_can_access_user() retorna false","expectedOutcome":"DB function verifica que school del usuario NO está en red del supervisor"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Verificar que la funcionalidad opera correctamente","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que supervisor_can_access_user() retorna false","expectedOutcome":"DB function verifica que school del usuario NO está en red del supervisor"}]'::jsonb,
   1, 4, true, false, false
 ),
 
@@ -384,7 +384,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisor en red sin colegios recibe datos vacíos sin errores.',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"user_roles.red_id apunta a red válida"},{"type":"custom","description":"red_escuelas no tiene filas para esta red_id"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor con red vacía","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"Se muestra la página sin datos"},{"index":3,"instruction":"Verificar que queries retornan arrays vacíos","expectedOutcome":"if (networkSchools && networkSchools.length > 0) {} no ejecuta"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor con red vacía","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"Se muestra la página sin datos"},{"index":3,"instruction":"Verificar que queries retornan arrays vacíos","expectedOutcome":"if (networkSchools && networkSchools.length > 0) {} no ejecuta"}]'::jsonb,
   3, 3, true, false, false
 ),
 
@@ -395,7 +395,7 @@ INSERT INTO qa_scenarios (
   'Verificar que cada supervisor solo ve datos de su propia red (no cross-network leakage).',
   'reporting',
   '[{"type":"role","description":"Dos supervisores autenticados en diferentes sesiones"},{"type":"data","description":"Cada supervisor asignado a red diferente"},{"type":"data","description":"Hay datos de reportes en ambas redes"}]'::jsonb,
-  '[{"index":1,"instruction":"Sesión 1: Iniciar sesión como supervisor.qa1@fne.cl (red A)","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Sesión 2: Iniciar sesión como supervisor.qa2@fne.cl (red B)","expectedOutcome":"Se accede al dashboard"},{"index":3,"instruction":"Ambas sesiones: Llamar GET /api/reports/detailed","expectedOutcome":"Cada supervisor ve solo sus propios datos de red"},{"index":4,"instruction":"Verificar que red_id filtering es per-user via session.user.id","expectedOutcome":"Sin shared state, sin cross-network leakage"}]'::jsonb,
+  '[{"index":1,"instruction":"Sesión 1: Iniciar sesión como supervisor.qa1@fne.cl (red A)","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Sesión 2: Iniciar sesión como supervisor.qa2@fne.cl (red B)","expectedOutcome":"Se accede al dashboard"},{"index":3,"instruction":"Ambas sesiones: Verificar que la funcionalidad opera correctamente","expectedOutcome":"Cada supervisor ve solo sus propios datos de red"},{"index":4,"instruction":"Verificar que red_id filtering es per-user via session.user.id","expectedOutcome":"Sin shared state, sin cross-network leakage"}]'::jsonb,
   1, 7, true, false, true
 ),
 
@@ -671,7 +671,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisor sin red asignada recibe estado vacío apropiado.',
   'docente_experience',
   '[{"type":"role","description":"Existe supervisor con red_id NULL"},{"type":"navigation","description":"El supervisor no tiene red asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor con red_id NULL","expectedOutcome":"Se accede al sistema"},{"index":2,"instruction":"Navegar a /dashboard","expectedOutcome":"Se muestra dashboard con estado vacío"},{"index":3,"instruction":"Verificar que el sistema maneja correctamente la ausencia de red","expectedOutcome":"APIs retornan arrays vacíos, sin errores de runtime"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor con red_id NULL","expectedOutcome":"Se accede al sistema"},{"index":2,"instruction":"Navegar a la página de Panel Principal","expectedOutcome":"Se muestra dashboard con estado vacío"},{"index":3,"instruction":"Verificar que el sistema maneja correctamente la ausencia de red","expectedOutcome":"APIs retornan arrays vacíos, sin errores de runtime"}]'::jsonb,
   4, 3, true, false, false
 ),
 
@@ -693,7 +693,7 @@ INSERT INTO qa_scenarios (
   'Verificar que supervisor en red sin colegios recibe estado vacío sin errores.',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"data","description":"user_roles.red_id apunta a red válida"},{"type":"custom","description":"red_escuelas no tiene filas para esta red_id"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor con red vacía","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"Se muestra la página sin datos"},{"index":3,"instruction":"Verificar que no hay errores de runtime","expectedOutcome":"APIs retornan arrays vacíos gracefully"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor con red vacía","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"Se muestra la página sin datos"},{"index":3,"instruction":"Verificar que no hay errores de runtime","expectedOutcome":"APIs retornan arrays vacíos gracefully"}]'::jsonb,
   4, 3, true, false, false
 ),
 
@@ -704,7 +704,7 @@ INSERT INTO qa_scenarios (
   'Verificar que los controles de permiso server-side se aplican sin importar cómo se accede.',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"navigation","description":"Se accede directamente a API sin UI"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se obtiene sesión válida"},{"index":2,"instruction":"Intentar POST /api/admin/courses directamente","expectedOutcome":"API devuelve 403 Forbidden"},{"index":3,"instruction":"Intentar GET /api/reports/detailed directamente","expectedOutcome":"API devuelve 200 OK con datos filtrados por red"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se obtiene sesión válida"},{"index":2,"instruction":"Intentar realizar la acción directamente","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Intentar realizar la acción directamente","expectedOutcome":"Los datos se muestran correctamente con datos filtrados por red"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -715,7 +715,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el sistema maneja expiración de sesión correctamente.',
   'reporting',
   '[{"type":"role","description":"Supervisor autenticado"},{"type":"custom","description":"Sesión va a expirar"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"Se muestra la página"},{"index":3,"instruction":"Esperar a que la sesión expire (o simular expiración)","expectedOutcome":"Se redirige a página de login"},{"index":4,"instruction":"Verificar que no hay datos obsoletos visibles","expectedOutcome":"No se muestra contenido antiguo de sesión anterior"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como supervisor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"Se muestra la página"},{"index":3,"instruction":"Esperar a que la sesión expire (o simular expiración)","expectedOutcome":"Se redirige a página de login"},{"index":4,"instruction":"Verificar que no hay datos obsoletos visibles","expectedOutcome":"No se muestra contenido antiguo de sesión anterior"}]'::jsonb,
   3, 5, true, false, false
 ),
 

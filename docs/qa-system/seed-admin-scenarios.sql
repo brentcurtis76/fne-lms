@@ -66,7 +66,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden ver su página de perfil.',
   'user_profile',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /profile","expectedOutcome":"La página de perfil carga correctamente"},{"index":2,"instruction":"Verificar que se muestran los datos del perfil","expectedOutcome":"Se muestra información personal del admin"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Perfil","expectedOutcome":"La página de perfil carga correctamente"},{"index":2,"instruction":"Verificar que se muestran los datos del perfil","expectedOutcome":"Se muestra información personal del admin"}]'::jsonb,
   3, 1, true, false, false
 ),
 
@@ -77,7 +77,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden ver la página Mi Aprendizaje con todos los cursos.',
   'learning',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /mi-aprendizaje","expectedOutcome":"La página Mi Aprendizaje carga correctamente"},{"index":2,"instruction":"Verificar que se muestran todos los cursos disponibles","expectedOutcome":"Se muestra la lista completa de cursos"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Mi Aprendizaje","expectedOutcome":"La página Mi Aprendizaje carga correctamente"},{"index":2,"instruction":"Verificar que se muestran todos los cursos disponibles","expectedOutcome":"Se muestra la lista completa de cursos"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -88,7 +88,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden crear cursos nuevos. El acceso debe ser permitido con éxito.',
   'course_builder',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"permission","description":"can_create_courses: true"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/create-course","expectedOutcome":"La página de creación de curso carga correctamente"},{"index":2,"instruction":"Completar el formulario de nuevo curso con datos válidos","expectedOutcome":"El formulario acepta los datos"},{"index":3,"instruction":"Enviar POST /api/admin/courses con datos de nuevo curso","expectedOutcome":"API devuelve 201 Created"},{"index":4,"instruction":"Verificar que el curso aparece en la lista de cursos","expectedOutcome":"El nuevo curso es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Creación de Curso","expectedOutcome":"La página de creación de curso carga correctamente"},{"index":2,"instruction":"Completar el formulario de nuevo curso con datos válidos","expectedOutcome":"El formulario acepta los datos"},{"index":3,"instruction":"Hacer clic en el botón Guardar con datos de nuevo curso","expectedOutcome":"Aparece un mensaje de éxito y el elemento se muestra en la lista"},{"index":4,"instruction":"Verificar que el curso aparece en la lista de cursos","expectedOutcome":"El nuevo curso es visible"}]'::jsonb,
   1, 5, true, false, false
 ),
 
@@ -99,7 +99,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden editar cualquier curso existente.',
   'course_builder',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos un curso en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/course-builder/[courseId]/edit","expectedOutcome":"La página de edición carga correctamente"},{"index":2,"instruction":"Modificar datos del curso","expectedOutcome":"Los cambios se guardan exitosamente"},{"index":3,"instruction":"Verificar que los cambios se reflejan en el curso","expectedOutcome":"El curso muestra los datos actualizados"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Constructor de Curso/[courseId]/edit","expectedOutcome":"La página de edición carga correctamente"},{"index":2,"instruction":"Modificar datos del curso","expectedOutcome":"Los cambios se guardan exitosamente"},{"index":3,"instruction":"Verificar que los cambios se reflejan en el curso","expectedOutcome":"El curso muestra los datos actualizados"}]'::jsonb,
   2, 4, true, false, false
 ),
 
@@ -110,7 +110,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden eliminar cursos.',
   'course_builder',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe un curso sin dependencias"}]'::jsonb,
-  '[{"index":1,"instruction":"Seleccionar un curso para eliminar","expectedOutcome":"El curso es seleccionado"},{"index":2,"instruction":"Enviar DELETE /api/admin/courses/[id]","expectedOutcome":"API devuelve 200 OK"},{"index":3,"instruction":"Verificar que el curso ya no aparece en la lista","expectedOutcome":"El curso fue eliminado"}]'::jsonb,
+  '[{"index":1,"instruction":"Seleccionar un curso para eliminar","expectedOutcome":"El curso es seleccionado"},{"index":2,"instruction":"Hacer clic en Eliminar y confirmar","expectedOutcome":"Los datos se muestran correctamente"},{"index":3,"instruction":"Verificar que el curso ya no aparece en la lista","expectedOutcome":"El curso fue eliminado"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -121,7 +121,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden crear usuarios nuevos.',
   'user_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"permission","description":"can_create_users: true"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/user-management","expectedOutcome":"La página de gestión de usuarios carga"},{"index":2,"instruction":"Hacer clic en crear nuevo usuario","expectedOutcome":"El formulario de creación se muestra"},{"index":3,"instruction":"Completar formulario y enviar POST /api/admin/create-user","expectedOutcome":"API devuelve 201 Created"},{"index":4,"instruction":"Verificar que el usuario aparece en la lista","expectedOutcome":"El nuevo usuario es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Gestión de Usuarios","expectedOutcome":"La página de gestión de usuarios carga"},{"index":2,"instruction":"Hacer clic en crear nuevo usuario","expectedOutcome":"El formulario de creación se muestra"},{"index":3,"instruction":"Completar formulario y hacer clic en el botón Guardar","expectedOutcome":"Aparece un mensaje de éxito y el elemento se muestra en la lista"},{"index":4,"instruction":"Verificar que el usuario aparece en la lista","expectedOutcome":"El nuevo usuario es visible"}]'::jsonb,
   1, 4, true, false, false
 ),
 
@@ -132,7 +132,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden editar perfiles de cualquier usuario.',
   'user_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos un usuario en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Seleccionar un usuario para editar","expectedOutcome":"Se abre el formulario de edición"},{"index":2,"instruction":"Modificar datos del usuario y enviar PUT /api/admin/update-user","expectedOutcome":"API devuelve 200 OK"},{"index":3,"instruction":"Verificar que los cambios se guardaron","expectedOutcome":"El perfil muestra los datos actualizados"}]'::jsonb,
+  '[{"index":1,"instruction":"Seleccionar un usuario para editar","expectedOutcome":"Se abre el formulario de edición"},{"index":2,"instruction":"Modificar datos del usuario y hacer clic en el botón Guardar","expectedOutcome":"Los datos se muestran correctamente"},{"index":3,"instruction":"Verificar que los cambios se guardaron","expectedOutcome":"El perfil muestra los datos actualizados"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -143,7 +143,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden eliminar usuarios.',
   'user_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe un usuario sin dependencias críticas"}]'::jsonb,
-  '[{"index":1,"instruction":"Seleccionar un usuario para eliminar","expectedOutcome":"El usuario es seleccionado"},{"index":2,"instruction":"Enviar DELETE /api/admin/delete-user","expectedOutcome":"API devuelve 200 OK"},{"index":3,"instruction":"Verificar que el usuario ya no aparece","expectedOutcome":"El usuario fue eliminado"}]'::jsonb,
+  '[{"index":1,"instruction":"Seleccionar un usuario para eliminar","expectedOutcome":"El usuario es seleccionado"},{"index":2,"instruction":"Hacer clic en Eliminar y confirmar","expectedOutcome":"Los datos se muestran correctamente"},{"index":3,"instruction":"Verificar que el usuario ya no aparece","expectedOutcome":"El usuario fue eliminado"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -154,7 +154,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden asignar roles a cualquier usuario.',
   'role_assignment',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"permission","description":"can_assign_roles: true"}]'::jsonb,
-  '[{"index":1,"instruction":"Seleccionar un usuario para asignar rol","expectedOutcome":"El usuario es seleccionado"},{"index":2,"instruction":"Seleccionar un rol y enviar POST /api/admin/roles/permissions","expectedOutcome":"API devuelve 201 Created"},{"index":3,"instruction":"Verificar que el rol fue asignado","expectedOutcome":"El usuario muestra el nuevo rol"}]'::jsonb,
+  '[{"index":1,"instruction":"Seleccionar un usuario para asignar rol","expectedOutcome":"El usuario es seleccionado"},{"index":2,"instruction":"Seleccionar un rol y hacer clic en el botón Guardar","expectedOutcome":"Aparece un mensaje de éxito y el elemento se muestra en la lista"},{"index":3,"instruction":"Verificar que el rol fue asignado","expectedOutcome":"El usuario muestra el nuevo rol"}]'::jsonb,
   1, 3, true, false, false
 ),
 
@@ -165,7 +165,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden crear escuelas nuevas.',
   'school_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"permission","description":"can_manage_schools: true"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/schools","expectedOutcome":"La página de escuelas carga"},{"index":2,"instruction":"Hacer clic en crear nueva escuela","expectedOutcome":"El formulario de creación se muestra"},{"index":3,"instruction":"Completar formulario y enviar POST /api/admin/schools","expectedOutcome":"API devuelve 201 Created"},{"index":4,"instruction":"Verificar que la escuela aparece en la lista","expectedOutcome":"La nueva escuela es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Escuelas","expectedOutcome":"La página de escuelas carga"},{"index":2,"instruction":"Hacer clic en crear nueva escuela","expectedOutcome":"El formulario de creación se muestra"},{"index":3,"instruction":"Completar formulario y hacer clic en el botón Guardar","expectedOutcome":"Aparece un mensaje de éxito y el elemento se muestra en la lista"},{"index":4,"instruction":"Verificar que la escuela aparece en la lista","expectedOutcome":"La nueva escuela es visible"}]'::jsonb,
   1, 4, true, false, false
 ),
 
@@ -175,7 +175,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden editar cualquier escuela.',
   'school_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos una escuela"}]'::jsonb,
-  '[{"index":1,"instruction":"Seleccionar una escuela para editar","expectedOutcome":"Se abre el formulario de edición"},{"index":2,"instruction":"Modificar datos y enviar PUT /api/admin/schools/[id]","expectedOutcome":"API devuelve 200 OK"},{"index":3,"instruction":"Verificar que los cambios se guardaron","expectedOutcome":"La escuela muestra los datos actualizados"}]'::jsonb,
+  '[{"index":1,"instruction":"Seleccionar una escuela para editar","expectedOutcome":"Se abre el formulario de edición"},{"index":2,"instruction":"Modificar datos y hacer clic en el botón Guardar","expectedOutcome":"Los datos se muestran correctamente"},{"index":3,"instruction":"Verificar que los cambios se guardaron","expectedOutcome":"La escuela muestra los datos actualizados"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -185,7 +185,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden eliminar escuelas sin dependencias.',
   'school_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe una escuela sin dependencias"}]'::jsonb,
-  '[{"index":1,"instruction":"Seleccionar una escuela para eliminar","expectedOutcome":"La escuela es seleccionada"},{"index":2,"instruction":"Enviar DELETE /api/admin/schools/[id]","expectedOutcome":"API devuelve 200 OK o error si hay dependencias"},{"index":3,"instruction":"Verificar resultado","expectedOutcome":"Si no hay dependencias, la escuela fue eliminada"}]'::jsonb,
+  '[{"index":1,"instruction":"Seleccionar una escuela para eliminar","expectedOutcome":"La escuela es seleccionada"},{"index":2,"instruction":"Hacer clic en Eliminar y confirmar","expectedOutcome":"Los datos se muestran correctamente o error si hay dependencias"},{"index":3,"instruction":"Verificar resultado","expectedOutcome":"Si no hay dependencias, la escuela fue eliminada"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -195,7 +195,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden crear redes de colegios.',
   'network_management',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/network-management","expectedOutcome":"La página de redes carga"},{"index":2,"instruction":"Hacer clic en crear nueva red","expectedOutcome":"El formulario de creación se muestra"},{"index":3,"instruction":"Completar formulario y enviar POST /api/admin/networks","expectedOutcome":"API devuelve 201 Created"},{"index":4,"instruction":"Verificar que la red aparece en la lista","expectedOutcome":"La nueva red es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Gestión de Redes","expectedOutcome":"La página de redes carga"},{"index":2,"instruction":"Hacer clic en crear nueva red","expectedOutcome":"El formulario de creación se muestra"},{"index":3,"instruction":"Completar formulario y hacer clic en el botón Guardar","expectedOutcome":"Aparece un mensaje de éxito y el elemento se muestra en la lista"},{"index":4,"instruction":"Verificar que la red aparece en la lista","expectedOutcome":"La nueva red es visible"}]'::jsonb,
   1, 4, true, false, false
 ),
 
@@ -205,7 +205,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden asignar escuelas a redes.',
   'network_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos una red y una escuela"}]'::jsonb,
-  '[{"index":1,"instruction":"Seleccionar una red","expectedOutcome":"La red es seleccionada"},{"index":2,"instruction":"Seleccionar escuelas para asignar y enviar POST /api/admin/networks/schools","expectedOutcome":"API devuelve 201 Created"},{"index":3,"instruction":"Verificar que las escuelas fueron asignadas","expectedOutcome":"Las escuelas aparecen en la red"}]'::jsonb,
+  '[{"index":1,"instruction":"Seleccionar una red","expectedOutcome":"La red es seleccionada"},{"index":2,"instruction":"Seleccionar escuelas para asignar y hacer clic en el botón Guardar","expectedOutcome":"Aparece un mensaje de éxito y el elemento se muestra en la lista"},{"index":3,"instruction":"Verificar que las escuelas fueron asignadas","expectedOutcome":"Las escuelas aparecen en la red"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -216,7 +216,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden ver todas las plantillas de evaluación globalmente.',
   'assessment_builder',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/assessment-builder","expectedOutcome":"La página de evaluaciones carga"},{"index":2,"instruction":"Verificar que se muestran todas las plantillas","expectedOutcome":"Se ven plantillas de todas las escuelas"},{"index":3,"instruction":"Enviar GET /api/admin/assessment-builder/templates","expectedOutcome":"API devuelve 200 OK con todas las plantillas"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Constructor de Evaluaciones","expectedOutcome":"La página de evaluaciones carga"},{"index":2,"instruction":"Verificar que se muestran todas las plantillas","expectedOutcome":"Se ven plantillas de todas las escuelas"},{"index":3,"instruction":"Verificar que la información se carga correctamente","expectedOutcome":"Los datos se muestran correctamente con todas las plantillas"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -226,7 +226,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden crear plantillas de evaluación.',
   'assessment_builder',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"En /admin/assessment-builder, hacer clic en crear plantilla","expectedOutcome":"El formulario de creación se muestra"},{"index":2,"instruction":"Completar formulario y enviar POST /api/admin/assessment-builder/templates","expectedOutcome":"API devuelve 201 Created (hasAssessmentWritePermission=true para admin)"},{"index":3,"instruction":"Verificar que la plantilla aparece en la lista","expectedOutcome":"La nueva plantilla es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"En la página del Constructor de Evaluaciones, hacer clic en crear plantilla","expectedOutcome":"El formulario de creación se muestra"},{"index":2,"instruction":"Completar formulario y hacer clic en el botón Guardar","expectedOutcome":"Aparece un mensaje de éxito y el elemento se muestra en la lista"},{"index":3,"instruction":"Verificar que la plantilla aparece en la lista","expectedOutcome":"La nueva plantilla es visible"}]'::jsonb,
   1, 5, true, false, false
 ),
 
@@ -236,7 +236,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden editar cualquier plantilla de evaluación.',
   'assessment_builder',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos una plantilla"}]'::jsonb,
-  '[{"index":1,"instruction":"Seleccionar una plantilla para editar","expectedOutcome":"Se abre el editor de plantilla"},{"index":2,"instruction":"Modificar datos y enviar PUT /api/admin/assessment-builder/templates/[id]","expectedOutcome":"API devuelve 200 OK"},{"index":3,"instruction":"Verificar que los cambios se guardaron","expectedOutcome":"La plantilla muestra los datos actualizados"}]'::jsonb,
+  '[{"index":1,"instruction":"Seleccionar una plantilla para editar","expectedOutcome":"Se abre el editor de plantilla"},{"index":2,"instruction":"Modificar datos y hacer clic en el botón Guardar","expectedOutcome":"Los datos se muestran correctamente"},{"index":3,"instruction":"Verificar que los cambios se guardaron","expectedOutcome":"La plantilla muestra los datos actualizados"}]'::jsonb,
   2, 4, true, false, false
 ),
 
@@ -246,7 +246,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden eliminar plantillas de evaluación.',
   'assessment_builder',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe una plantilla sin dependencias"}]'::jsonb,
-  '[{"index":1,"instruction":"Seleccionar una plantilla para eliminar","expectedOutcome":"La plantilla es seleccionada"},{"index":2,"instruction":"Enviar DELETE /api/admin/assessment-builder/templates/[id]","expectedOutcome":"API devuelve 200 OK"},{"index":3,"instruction":"Verificar que la plantilla ya no aparece","expectedOutcome":"La plantilla fue eliminada"}]'::jsonb,
+  '[{"index":1,"instruction":"Seleccionar una plantilla para eliminar","expectedOutcome":"La plantilla es seleccionada"},{"index":2,"instruction":"Hacer clic en Eliminar y confirmar","expectedOutcome":"Los datos se muestran correctamente"},{"index":3,"instruction":"Verificar que la plantilla ya no aparece","expectedOutcome":"La plantilla fue eliminada"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -256,7 +256,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden acceder a la página de revisión de quizzes.',
   'quiz_grading',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /quiz-reviews","expectedOutcome":"La página de revisión de quizzes carga"},{"index":2,"instruction":"Verificar que se muestran quizzes pendientes de todas las escuelas","expectedOutcome":"Se ven quizzes de todas las escuelas (alcance global)"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Revisión de Quizzes","expectedOutcome":"La página de revisión de quizzes carga"},{"index":2,"instruction":"Verificar que se muestran quizzes pendientes de todas las escuelas","expectedOutcome":"Se ven quizzes de todas las escuelas (alcance global)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -277,7 +277,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores ven reportes con datos de TODAS las escuelas (alcance global).',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /detailed-reports","expectedOutcome":"La página de reportes carga"},{"index":2,"instruction":"Enviar POST /api/reports/detailed sin filtros de escuela","expectedOutcome":"API devuelve 200 OK con datos de TODAS las escuelas"},{"index":3,"instruction":"Verificar que no hay filtro de escuela pre-aplicado","expectedOutcome":"El reporte muestra alcance global"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"La página de reportes carga"},{"index":2,"instruction":"Hacer clic en el botón Guardar sin filtros de escuela","expectedOutcome":"Los datos se muestran correctamente con datos de TODAS las escuelas"},{"index":3,"instruction":"Verificar que no hay filtro de escuela pre-aplicado","expectedOutcome":"El reporte muestra alcance global"}]'::jsonb,
   1, 3, true, false, false
 ),
 
@@ -287,7 +287,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores ven TODAS las escuelas/generaciones/comunidades en filtros (sin restricción).',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Enviar GET /api/reports/filter-options","expectedOutcome":"API devuelve 200 OK"},{"index":2,"instruction":"Verificar que se retornan TODAS las escuelas sin filtro","expectedOutcome":"La lista de escuelas es completa (alcance global)"},{"index":3,"instruction":"Verificar que se retornan TODAS las generaciones y comunidades","expectedOutcome":"Las listas son completas sin restricción"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar que la información se carga correctamente","expectedOutcome":"Los datos se muestran correctamente"},{"index":2,"instruction":"Verificar que se retornan TODAS las escuelas sin filtro","expectedOutcome":"La lista de escuelas es completa (alcance global)"},{"index":3,"instruction":"Verificar que se retornan TODAS las generaciones y comunidades","expectedOutcome":"Las listas son completas sin restricción"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -297,7 +297,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden ver detalles de CUALQUIER usuario sin restricción.',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos un usuario en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Seleccionar un usuario cualquiera","expectedOutcome":"El usuario es seleccionado"},{"index":2,"instruction":"Enviar GET /api/reports/user-details?userId=X","expectedOutcome":"API devuelve 200 OK con detalles completos (admin bypass en línea 137)"},{"index":3,"instruction":"Verificar que no hay restricción de acceso","expectedOutcome":"Se muestran todos los detalles del usuario"}]'::jsonb,
+  '[{"index":1,"instruction":"Seleccionar un usuario cualquiera","expectedOutcome":"El usuario es seleccionado"},{"index":2,"instruction":"Verificar que la información se carga correctamente","expectedOutcome":"Los datos se muestran correctamente con detalles completos"},{"index":3,"instruction":"Verificar que no hay restricción de acceso","expectedOutcome":"Se muestran todos los detalles del usuario"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -307,7 +307,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden ver el Contexto Transversal de CUALQUIER escuela.',
   'transformation',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos una escuela con contexto transversal"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /school/transversal-context?school_id=X (cualquier ID)","expectedOutcome":"La página carga exitosamente"},{"index":2,"instruction":"Verificar que se muestra el contexto de la escuela seleccionada","expectedOutcome":"El contexto transversal es visible"},{"index":3,"instruction":"Probar con otra escuela diferente","expectedOutcome":"Funciona sin restricción para cualquier escuela"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Escuela/transversal-context?school_id=X (cualquier ID)","expectedOutcome":"La página carga exitosamente"},{"index":2,"instruction":"Verificar que se muestra el contexto de la escuela seleccionada","expectedOutcome":"El contexto transversal es visible"},{"index":3,"instruction":"Probar con otra escuela diferente","expectedOutcome":"Funciona sin restricción para cualquier escuela"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -317,7 +317,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden editar el Contexto Transversal de CUALQUIER escuela.',
   'transformation',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos una escuela"}]'::jsonb,
-  '[{"index":1,"instruction":"En /school/transversal-context?school_id=X, modificar datos","expectedOutcome":"Los cambios son aceptados"},{"index":2,"instruction":"Enviar POST /api/school/transversal-context con school_id","expectedOutcome":"API devuelve 200 OK (hasDirectivoPermission permite admin)"},{"index":3,"instruction":"Verificar que los cambios se guardaron","expectedOutcome":"El contexto muestra los datos actualizados"}]'::jsonb,
+  '[{"index":1,"instruction":"En la página de Contexto Transversal de la escuela, modificar datos","expectedOutcome":"Los cambios son aceptados"},{"index":2,"instruction":"Hacer clic en el botón Guardar con school_id","expectedOutcome":"Los datos se muestran correctamente"},{"index":3,"instruction":"Verificar que los cambios se guardaron","expectedOutcome":"El contexto muestra los datos actualizados"}]'::jsonb,
   2, 4, true, false, false
 ),
 
@@ -327,7 +327,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden ver el Plan de Migración de CUALQUIER escuela.',
   'transformation',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos una escuela"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /school/migration-plan?school_id=X (cualquier ID)","expectedOutcome":"La página carga exitosamente"},{"index":2,"instruction":"Verificar que se muestra el plan de la escuela seleccionada","expectedOutcome":"El plan de migración es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Escuela/migration-plan?school_id=X (cualquier ID)","expectedOutcome":"La página carga exitosamente"},{"index":2,"instruction":"Verificar que se muestra el plan de la escuela seleccionada","expectedOutcome":"El plan de migración es visible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -337,7 +337,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden editar el Plan de Migración de CUALQUIER escuela.',
   'transformation',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos una escuela"}]'::jsonb,
-  '[{"index":1,"instruction":"En /school/migration-plan, modificar datos del plan","expectedOutcome":"Los cambios son aceptados"},{"index":2,"instruction":"Enviar POST /api/school/migration-plan","expectedOutcome":"API devuelve 200 OK"},{"index":3,"instruction":"Verificar que los cambios se guardaron","expectedOutcome":"El plan muestra los datos actualizados"}]'::jsonb,
+  '[{"index":1,"instruction":"En la página del Plan de Migración, modificar datos del plan","expectedOutcome":"Los cambios son aceptados"},{"index":2,"instruction":"Hacer clic en el botón Guardar","expectedOutcome":"Los datos se muestran correctamente"},{"index":3,"instruction":"Verificar que los cambios se guardaron","expectedOutcome":"El plan muestra los datos actualizados"}]'::jsonb,
   2, 4, true, false, false
 ),
 
@@ -347,7 +347,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden acceder a la vista de monitoreo de tareas grupales.',
   'group_assignments',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/assignment-overview","expectedOutcome":"La página de vista de tareas carga"},{"index":2,"instruction":"Verificar que se muestran tareas de todas las escuelas","expectedOutcome":"Se ven tareas grupales globalmente"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Vista de Tareas","expectedOutcome":"La página de vista de tareas carga"},{"index":2,"instruction":"Verificar que se muestran tareas de todas las escuelas","expectedOutcome":"Se ven tareas grupales globalmente"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -358,7 +358,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden crear artículos de noticias.',
   'news_management',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/news","expectedOutcome":"La página de noticias carga"},{"index":2,"instruction":"Hacer clic en crear nuevo artículo","expectedOutcome":"El formulario de creación se muestra"},{"index":3,"instruction":"Completar formulario y enviar POST /api/admin/news","expectedOutcome":"API devuelve 201 Created (admin en allowed roles)"},{"index":4,"instruction":"Verificar que el artículo aparece en la lista","expectedOutcome":"El nuevo artículo es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Noticias","expectedOutcome":"La página de noticias carga"},{"index":2,"instruction":"Hacer clic en crear nuevo artículo","expectedOutcome":"El formulario de creación se muestra"},{"index":3,"instruction":"Completar formulario y hacer clic en el botón Guardar","expectedOutcome":"Aparece un mensaje de éxito y el elemento se muestra en la lista"},{"index":4,"instruction":"Verificar que el artículo aparece en la lista","expectedOutcome":"El nuevo artículo es visible"}]'::jsonb,
   2, 4, true, false, false
 ),
 
@@ -368,7 +368,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden editar artículos de noticias existentes.',
   'news_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos un artículo"}]'::jsonb,
-  '[{"index":1,"instruction":"Seleccionar un artículo para editar","expectedOutcome":"Se abre el editor"},{"index":2,"instruction":"Modificar datos y enviar PUT /api/admin/news/[id]","expectedOutcome":"API devuelve 200 OK"},{"index":3,"instruction":"Verificar que los cambios se guardaron","expectedOutcome":"El artículo muestra los datos actualizados"}]'::jsonb,
+  '[{"index":1,"instruction":"Seleccionar un artículo para editar","expectedOutcome":"Se abre el editor"},{"index":2,"instruction":"Modificar datos y hacer clic en el botón Guardar","expectedOutcome":"Los datos se muestran correctamente"},{"index":3,"instruction":"Verificar que los cambios se guardaron","expectedOutcome":"El artículo muestra los datos actualizados"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -378,7 +378,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden crear eventos.',
   'event_management',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/events","expectedOutcome":"La página de eventos carga"},{"index":2,"instruction":"Hacer clic en crear nuevo evento","expectedOutcome":"El formulario de creación se muestra"},{"index":3,"instruction":"Completar formulario y guardar","expectedOutcome":"El evento se crea exitosamente (RLS permite admin + community_manager)"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Eventos","expectedOutcome":"La página de eventos carga"},{"index":2,"instruction":"Hacer clic en crear nuevo evento","expectedOutcome":"El formulario de creación se muestra"},{"index":3,"instruction":"Completar formulario y guardar","expectedOutcome":"El evento se crea exitosamente (RLS permite admin + community_manager)"}]'::jsonb,
   2, 4, true, false, false
 ),
 
@@ -388,7 +388,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden crear rutas de aprendizaje.',
   'learning_paths',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/learning-paths/new","expectedOutcome":"La página de creación de ruta carga"},{"index":2,"instruction":"Completar formulario de nueva ruta","expectedOutcome":"El formulario acepta los datos"},{"index":3,"instruction":"Guardar la ruta","expectedOutcome":"La ruta se crea exitosamente"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Rutas de Aprendizaje/new","expectedOutcome":"La página de creación de ruta carga"},{"index":2,"instruction":"Completar formulario de nueva ruta","expectedOutcome":"El formulario acepta los datos"},{"index":3,"instruction":"Guardar la ruta","expectedOutcome":"La ruta se crea exitosamente"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -398,7 +398,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden asignar rutas de aprendizaje a usuarios.',
   'learning_paths',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos una ruta y un usuario"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/learning-paths/[id]/assign","expectedOutcome":"La página de asignación carga"},{"index":2,"instruction":"Seleccionar usuarios y asignar la ruta","expectedOutcome":"La asignación se completa exitosamente"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Rutas de Aprendizaje/[id]/assign","expectedOutcome":"La página de asignación carga"},{"index":2,"instruction":"Seleccionar usuarios y asignar la ruta","expectedOutcome":"La asignación se completa exitosamente"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -408,7 +408,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden crear contratos.',
   'contract_management',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /contracts","expectedOutcome":"La página de contratos carga"},{"index":2,"instruction":"Hacer clic en crear nuevo contrato","expectedOutcome":"El formulario de creación se muestra"},{"index":3,"instruction":"Completar formulario y guardar","expectedOutcome":"El contrato se crea exitosamente (RLS admin-only INSERT)"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Contratos","expectedOutcome":"La página de contratos carga"},{"index":2,"instruction":"Hacer clic en crear nuevo contrato","expectedOutcome":"El formulario de creación se muestra"},{"index":3,"instruction":"Completar formulario y guardar","expectedOutcome":"El contrato se crea exitosamente (RLS admin-only INSERT)"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -418,7 +418,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden asignar consultores a escuelas.',
   'consultant_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos un consultor y una escuela"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/consultant-assignments","expectedOutcome":"La página de asignaciones carga"},{"index":2,"instruction":"Seleccionar consultor y escuela","expectedOutcome":"La selección es aceptada"},{"index":3,"instruction":"Enviar POST /api/admin/consultant-assignments","expectedOutcome":"API devuelve 201 Created (checkIsAdmin en línea 18)"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Asignación de Consultores","expectedOutcome":"La página de asignaciones carga"},{"index":2,"instruction":"Seleccionar consultor y escuela","expectedOutcome":"La selección es aceptada"},{"index":3,"instruction":"Hacer clic en el botón Guardar","expectedOutcome":"Aparece un mensaje de éxito y el elemento se muestra en la lista"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -428,7 +428,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden acceder a la configuración del sistema.',
   'system_configuration',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/configuration","expectedOutcome":"La página de configuración carga (admin check en línea 82-97)"},{"index":2,"instruction":"Verificar que se muestran opciones de configuración","expectedOutcome":"Las opciones de configuración son visibles"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Configuración","expectedOutcome":"La página de configuración carga (admin check en línea 82-97)"},{"index":2,"instruction":"Verificar que se muestran opciones de configuración","expectedOutcome":"Las opciones de configuración son visibles"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -438,7 +438,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden gestionar tipos de notificaciones del sistema.',
   'notification_management',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Acceder a gestión de notificaciones","expectedOutcome":"La interfaz de gestión se muestra"},{"index":2,"instruction":"Enviar POST /api/admin/notification-types con datos de tipo","expectedOutcome":"API devuelve 200 OK (metadataHasRole admin en línea 64-71)"}]'::jsonb,
+  '[{"index":1,"instruction":"Acceder a gestión de notificaciones","expectedOutcome":"La interfaz de gestión se muestra"},{"index":2,"instruction":"Hacer clic en el botón Guardar con datos de tipo","expectedOutcome":"Los datos se muestran correctamente"}]'::jsonb,
   3, 3, true, false, false
 ),
 
@@ -448,7 +448,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden acceder al Espacio Colaborativo sin restricción de comunidad.',
   'workspace',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /community/workspace","expectedOutcome":"El workspace carga sin restricción"},{"index":2,"instruction":"Verificar que admin bypassa requiresCommunity","expectedOutcome":"El acceso es permitido (hasCommunity=true en Sidebar línea 561-563)"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Community/workspace","expectedOutcome":"El workspace carga sin restricción"},{"index":2,"instruction":"Verificar que admin bypassa requiresCommunity","expectedOutcome":"El acceso es permitido (hasCommunity=true en Sidebar línea -)"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -458,7 +458,7 @@ INSERT INTO qa_scenarios (
   'Verificar que administradores pueden acceder a todas las evaluaciones de transformación.',
   'transformation',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/transformation/assessments","expectedOutcome":"La página de evaluaciones carga"},{"index":2,"instruction":"Verificar que se muestran evaluaciones de todas las escuelas","expectedOutcome":"Se ven evaluaciones globalmente"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Transformation/assessments","expectedOutcome":"La página de evaluaciones carga"},{"index":2,"instruction":"Verificar que se muestran evaluaciones de todas las escuelas","expectedOutcome":"Se ven evaluaciones globalmente"}]'::jsonb,
   2, 2, true, false, false
 );
 
@@ -539,7 +539,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el menú Revisión de Quizzes es visible para administradores (bypassa consultantOnly).',
   'navigation',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Verificar que Revisión de Quizzes aparece en la barra lateral","expectedOutcome":"El elemento es visible (admin bypassa consultantOnly, Sidebar línea 691)"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar que Revisión de Quizzes aparece en la barra lateral","expectedOutcome":"El elemento es visible"}]'::jsonb,
   3, 1, true, false, false
 ),
 
@@ -579,7 +579,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el menú Procesos de Cambio es visible para administradores (bypassa consultantOnly).',
   'navigation',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Verificar que Procesos de Cambio aparece en la barra lateral","expectedOutcome":"El elemento es visible (admin bypassa consultantOnly)"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar que Procesos de Cambio aparece en la barra lateral","expectedOutcome":"El elemento es visible"}]'::jsonb,
   2, 1, true, false, false
 ),
 
@@ -689,7 +689,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el menú Consultorías es visible para administradores.',
   'navigation',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Verificar que Consultorías aparece en la barra lateral","expectedOutcome":"El elemento es visible (admin bypassa consultantOnly)"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar que Consultorías aparece en la barra lateral","expectedOutcome":"El elemento es visible"}]'::jsonb,
   2, 1, true, false, false
 ),
 
@@ -779,7 +779,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el menú Reportes es visible para administradores.',
   'navigation',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Verificar que Reportes aparece en la barra lateral","expectedOutcome":"El elemento es visible (admin bypassa consultantOnly y permission)"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar que Reportes aparece en la barra lateral","expectedOutcome":"El elemento es visible"}]'::jsonb,
   2, 1, true, false, false
 ),
 
@@ -909,7 +909,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el menú Espacio Colaborativo es visible para administradores.',
   'navigation',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Verificar que Espacio Colaborativo aparece en la barra lateral","expectedOutcome":"El elemento es visible (admin bypassa requiresCommunity)"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar que Espacio Colaborativo aparece en la barra lateral","expectedOutcome":"El elemento es visible"}]'::jsonb,
   2, 1, true, false, false
 ),
 
@@ -939,7 +939,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el menú Configuración es visible para administradores.',
   'navigation',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Verificar que Configuración aparece en la barra lateral","expectedOutcome":"El elemento es visible (admin bypassa permission)"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar que Configuración aparece en la barra lateral","expectedOutcome":"El elemento es visible"}]'::jsonb,
   2, 1, true, false, false
 );
 
@@ -989,7 +989,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede crear, leer, actualizar y eliminar cursos.',
   'course_builder',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"permission","description":"can_create_courses, can_edit_all_courses, can_delete_courses = true"}]'::jsonb,
-  '[{"index":1,"instruction":"CREATE: Crear un curso nuevo","expectedOutcome":"API devuelve 201, RLS permite INSERT"},{"index":2,"instruction":"READ: Leer lista de cursos","expectedOutcome":"Se ven todos los cursos globalmente"},{"index":3,"instruction":"UPDATE: Editar el curso creado","expectedOutcome":"API devuelve 200, RLS permite UPDATE"},{"index":4,"instruction":"DELETE: Eliminar el curso","expectedOutcome":"API devuelve 200, RLS permite DELETE"}]'::jsonb,
+  '[{"index":1,"instruction":"CREATE: Crear un curso nuevo","expectedOutcome":"La operación se completa correctamente RLS permite INSERT"},{"index":2,"instruction":"READ: Leer lista de cursos","expectedOutcome":"Se ven todos los cursos globalmente"},{"index":3,"instruction":"UPDATE: Editar el curso creado","expectedOutcome":"La operación se completa correctamente RLS permite UPDATE"},{"index":4,"instruction":"DELETE: Eliminar el curso","expectedOutcome":"La operación se completa correctamente RLS permite DELETE"}]'::jsonb,
   1, 6, true, false, false
 ),
 
@@ -999,7 +999,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede crear, leer, actualizar y eliminar usuarios.',
   'user_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"permission","description":"can_create_users, can_edit_users, can_delete_users = true"}]'::jsonb,
-  '[{"index":1,"instruction":"CREATE: Crear un usuario nuevo vía API","expectedOutcome":"API devuelve 201"},{"index":2,"instruction":"READ: Leer lista de usuarios","expectedOutcome":"Se ven todos los usuarios"},{"index":3,"instruction":"UPDATE: Editar perfil del usuario","expectedOutcome":"API devuelve 200, RLS permite UPDATE en profiles"},{"index":4,"instruction":"DELETE: Eliminar el usuario","expectedOutcome":"API devuelve 200"}]'::jsonb,
+  '[{"index":1,"instruction":"CREATE: Crear un usuario nuevo vía API","expectedOutcome":"La operación se completa correctamente"},{"index":2,"instruction":"READ: Leer lista de usuarios","expectedOutcome":"Se ven todos los usuarios"},{"index":3,"instruction":"UPDATE: Editar perfil del usuario","expectedOutcome":"La operación se completa correctamente RLS permite UPDATE en profiles"},{"index":4,"instruction":"DELETE: Eliminar el usuario","expectedOutcome":"La operación se completa correctamente"}]'::jsonb,
   1, 6, true, false, false
 ),
 
@@ -1009,7 +1009,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede asignar, leer, actualizar y eliminar roles de usuarios.',
   'role_assignment',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"permission","description":"can_assign_roles = true"}]'::jsonb,
-  '[{"index":1,"instruction":"CREATE: Asignar rol a usuario","expectedOutcome":"API devuelve 201, RLS permite INSERT en user_roles"},{"index":2,"instruction":"READ: Leer roles del usuario","expectedOutcome":"Se ven los roles asignados"},{"index":3,"instruction":"UPDATE: Modificar rol (cambiar is_active)","expectedOutcome":"RLS permite UPDATE"},{"index":4,"instruction":"DELETE: Eliminar rol del usuario","expectedOutcome":"RLS permite DELETE"}]'::jsonb,
+  '[{"index":1,"instruction":"CREATE: Asignar rol a usuario","expectedOutcome":"La operación se completa correctamente RLS permite INSERT en user_roles"},{"index":2,"instruction":"READ: Leer roles del usuario","expectedOutcome":"Se ven los roles asignados"},{"index":3,"instruction":"UPDATE: Modificar rol (cambiar is_active)","expectedOutcome":"RLS permite UPDATE"},{"index":4,"instruction":"DELETE: Eliminar rol del usuario","expectedOutcome":"RLS permite DELETE"}]'::jsonb,
   1, 5, true, false, false
 ),
 
@@ -1019,7 +1019,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede crear, leer, actualizar y eliminar escuelas.',
   'school_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"permission","description":"can_manage_schools = true"}]'::jsonb,
-  '[{"index":1,"instruction":"CREATE: Crear escuela nueva","expectedOutcome":"API devuelve 201, RLS permite INSERT en schools"},{"index":2,"instruction":"READ: Leer lista de escuelas","expectedOutcome":"Se ven todas las escuelas"},{"index":3,"instruction":"UPDATE: Editar datos de escuela","expectedOutcome":"API devuelve 200, RLS permite UPDATE"},{"index":4,"instruction":"DELETE: Eliminar escuela sin dependencias","expectedOutcome":"API devuelve 200, RLS permite DELETE"}]'::jsonb,
+  '[{"index":1,"instruction":"CREATE: Crear escuela nueva","expectedOutcome":"La operación se completa correctamente RLS permite INSERT en schools"},{"index":2,"instruction":"READ: Leer lista de escuelas","expectedOutcome":"Se ven todas las escuelas"},{"index":3,"instruction":"UPDATE: Editar datos de escuela","expectedOutcome":"La operación se completa correctamente RLS permite UPDATE"},{"index":4,"instruction":"DELETE: Eliminar escuela sin dependencias","expectedOutcome":"La operación se completa correctamente RLS permite DELETE"}]'::jsonb,
   1, 6, true, false, false
 ),
 
@@ -1029,7 +1029,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede crear, leer, actualizar y eliminar redes (RLS bypass en migración 20260208160000).',
   'network_management',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"CREATE: Crear red nueva","expectedOutcome":"API devuelve 201, RLS permite INSERT en redes_de_colegios"},{"index":2,"instruction":"READ: Leer lista de redes","expectedOutcome":"Se ven todas las redes (RLS bypass línea 72-78)"},{"index":3,"instruction":"UPDATE: Editar datos de red","expectedOutcome":"RLS permite UPDATE"},{"index":4,"instruction":"DELETE: Eliminar red sin dependencias","expectedOutcome":"RLS permite DELETE"}]'::jsonb,
+  '[{"index":1,"instruction":"CREATE: Crear red nueva","expectedOutcome":"La operación se completa correctamente RLS permite INSERT en redes_de_colegios"},{"index":2,"instruction":"READ: Leer lista de redes","expectedOutcome":"Se ven todas las redes (RLS bypass línea 72-78)"},{"index":3,"instruction":"UPDATE: Editar datos de red","expectedOutcome":"RLS permite UPDATE"},{"index":4,"instruction":"DELETE: Eliminar red sin dependencias","expectedOutcome":"RLS permite DELETE"}]'::jsonb,
   1, 6, true, false, false
 ),
 
@@ -1039,7 +1039,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede asignar escuelas a redes, leer, actualizar y eliminar asignaciones (RLS bypass en migración 20260208160000).',
   'network_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos una red y una escuela"}]'::jsonb,
-  '[{"index":1,"instruction":"CREATE: Asignar escuela a red","expectedOutcome":"API devuelve 201, RLS permite INSERT en red_escuelas (bypass línea 49-55)"},{"index":2,"instruction":"READ: Leer asignaciones","expectedOutcome":"Se ven todas las asignaciones"},{"index":3,"instruction":"UPDATE: Modificar asignación","expectedOutcome":"RLS permite UPDATE"},{"index":4,"instruction":"DELETE: Eliminar asignación","expectedOutcome":"RLS permite DELETE"}]'::jsonb,
+  '[{"index":1,"instruction":"CREATE: Asignar escuela a red","expectedOutcome":"La operación se completa correctamente RLS permite INSERT en red_escuelas (bypass línea 49-55)"},{"index":2,"instruction":"READ: Leer asignaciones","expectedOutcome":"Se ven todas las asignaciones"},{"index":3,"instruction":"UPDATE: Modificar asignación","expectedOutcome":"RLS permite UPDATE"},{"index":4,"instruction":"DELETE: Eliminar asignación","expectedOutcome":"RLS permite DELETE"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -1049,7 +1049,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede crear, leer, actualizar y eliminar plantillas (hasAssessmentWritePermission = admin only).',
   'assessment_builder',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"CREATE: Crear plantilla nueva","expectedOutcome":"API devuelve 201 (hasAssessmentWritePermission true para admin línea 33)"},{"index":2,"instruction":"READ: Leer plantillas","expectedOutcome":"Se ven todas las plantillas (hasAssessmentReadPermission línea 19)"},{"index":3,"instruction":"UPDATE: Editar plantilla","expectedOutcome":"API devuelve 200 (write permission)"},{"index":4,"instruction":"DELETE: Eliminar plantilla","expectedOutcome":"API devuelve 200"}]'::jsonb,
+  '[{"index":1,"instruction":"CREATE: Crear plantilla nueva","expectedOutcome":"La operación se completa correctamente"},{"index":2,"instruction":"READ: Leer plantillas","expectedOutcome":"Se ven todas las plantillas"},{"index":3,"instruction":"UPDATE: Editar plantilla","expectedOutcome":"La operación se completa correctamente (write permission)"},{"index":4,"instruction":"DELETE: Eliminar plantilla","expectedOutcome":"La operación se completa correctamente"}]'::jsonb,
   1, 6, true, false, false
 ),
 
@@ -1059,7 +1059,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede crear, leer, actualizar y eliminar noticias (RLS FOR ALL admin + community_manager).',
   'news_management',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"CREATE: Crear artículo nuevo","expectedOutcome":"API devuelve 201, RLS permite INSERT"},{"index":2,"instruction":"READ: Leer artículos","expectedOutcome":"Se ven todos los artículos"},{"index":3,"instruction":"UPDATE: Editar artículo","expectedOutcome":"API devuelve 200, RLS permite UPDATE"},{"index":4,"instruction":"DELETE: Eliminar artículo","expectedOutcome":"RLS permite DELETE"}]'::jsonb,
+  '[{"index":1,"instruction":"CREATE: Crear artículo nuevo","expectedOutcome":"La operación se completa correctamente RLS permite INSERT"},{"index":2,"instruction":"READ: Leer artículos","expectedOutcome":"Se ven todos los artículos"},{"index":3,"instruction":"UPDATE: Editar artículo","expectedOutcome":"La operación se completa correctamente RLS permite UPDATE"},{"index":4,"instruction":"DELETE: Eliminar artículo","expectedOutcome":"RLS permite DELETE"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -1089,7 +1089,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede crear, leer, actualizar y eliminar rutas de aprendizaje.',
   'learning_paths',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"CREATE: Crear ruta nueva","expectedOutcome":"API devuelve 201"},{"index":2,"instruction":"READ: Leer rutas","expectedOutcome":"Se ven todas las rutas"},{"index":3,"instruction":"UPDATE: Editar ruta","expectedOutcome":"API devuelve 200"},{"index":4,"instruction":"DELETE: Eliminar ruta","expectedOutcome":"API devuelve 200"}]'::jsonb,
+  '[{"index":1,"instruction":"CREATE: Crear ruta nueva","expectedOutcome":"La operación se completa correctamente"},{"index":2,"instruction":"READ: Leer rutas","expectedOutcome":"Se ven todas las rutas"},{"index":3,"instruction":"UPDATE: Editar ruta","expectedOutcome":"La operación se completa correctamente"},{"index":4,"instruction":"DELETE: Eliminar ruta","expectedOutcome":"La operación se completa correctamente"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -1099,7 +1099,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede asignar, leer, actualizar y eliminar asignaciones de consultores.',
   'consultant_management',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"CREATE: Asignar consultor a escuela","expectedOutcome":"API devuelve 201 (checkIsAdmin línea 18)"},{"index":2,"instruction":"READ: Leer asignaciones","expectedOutcome":"Se ven todas las asignaciones"},{"index":3,"instruction":"UPDATE: Modificar asignación","expectedOutcome":"API devuelve 200"},{"index":4,"instruction":"DELETE: Eliminar asignación","expectedOutcome":"API devuelve 200"}]'::jsonb,
+  '[{"index":1,"instruction":"CREATE: Asignar consultor a escuela","expectedOutcome":"La operación se completa correctamente (checkIsAdmin línea 18)"},{"index":2,"instruction":"READ: Leer asignaciones","expectedOutcome":"Se ven todas las asignaciones"},{"index":3,"instruction":"UPDATE: Modificar asignación","expectedOutcome":"La operación se completa correctamente"},{"index":4,"instruction":"DELETE: Eliminar asignación","expectedOutcome":"La operación se completa correctamente"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -1129,7 +1129,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede crear, leer, actualizar y eliminar tipos de notificaciones.',
   'notification_management',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"CREATE: Crear tipo de notificación nuevo","expectedOutcome":"API devuelve 201 (metadataHasRole admin línea 64-71)"},{"index":2,"instruction":"READ: Leer tipos de notificaciones","expectedOutcome":"Se ven todos los tipos"},{"index":3,"instruction":"UPDATE: Editar tipo","expectedOutcome":"API devuelve 200"},{"index":4,"instruction":"DELETE: Eliminar tipo","expectedOutcome":"API devuelve 200"}]'::jsonb,
+  '[{"index":1,"instruction":"CREATE: Crear tipo de notificación nuevo","expectedOutcome":"La operación se completa correctamente (metadataHasRole admin línea 64-71)"},{"index":2,"instruction":"READ: Leer tipos de notificaciones","expectedOutcome":"Se ven todos los tipos"},{"index":3,"instruction":"UPDATE: Editar tipo","expectedOutcome":"La operación se completa correctamente"},{"index":4,"instruction":"DELETE: Eliminar tipo","expectedOutcome":"La operación se completa correctamente"}]'::jsonb,
   3, 4, true, false, false
 );
 
@@ -1149,7 +1149,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin ve datos de TODAS las escuelas en reportes detallados sin filtro de escuela.',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Enviar POST /api/reports/detailed sin filtro de escuela","expectedOutcome":"API devuelve 200 (admin en allowedRoles línea 68)"},{"index":2,"instruction":"Verificar que getReportableUsers retorna TODOS los usuarios","expectedOutcome":"No hay filtro de escuela aplicado (alcance global)"},{"index":3,"instruction":"Verificar que reporting_scope = global en ROLE_HIERARCHY","expectedOutcome":"Confirmado en types/roles.ts línea 159"}]'::jsonb,
+  '[{"index":1,"instruction":"Hacer clic en el botón Guardar sin filtro de escuela","expectedOutcome":"La operación se completa correctamente (admin en allowedRoles línea 68)"},{"index":2,"instruction":"Verificar que getReportableUsers retorna TODOS los usuarios","expectedOutcome":"No hay filtro de escuela aplicado (alcance global)"},{"index":3,"instruction":"Verificar que reporting_scope = global en ROLE_HIERARCHY","expectedOutcome":"Confirmado en types/roles.ts línea 159"}]'::jsonb,
   1, 3, true, false, false
 ),
 
@@ -1159,7 +1159,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin ve TODAS las escuelas/generaciones/comunidades en filtros (listas completas).',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Enviar GET /api/reports/filter-options","expectedOutcome":"API devuelve 200 (admin check línea 57)"},{"index":2,"instruction":"Verificar que retorna TODAS las escuelas sin filtro","expectedOutcome":"Lista completa de escuelas (líneas 57-159)"},{"index":3,"instruction":"Verificar que retorna TODAS las generaciones y comunidades","expectedOutcome":"Listas completas sin restricción"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar que la información se carga correctamente","expectedOutcome":"La operación se completa correctamente (admin check línea 57)"},{"index":2,"instruction":"Verificar que retorna TODAS las escuelas sin filtro","expectedOutcome":"Lista completa de escuelas (líneas 57-159)"},{"index":3,"instruction":"Verificar que retorna TODAS las generaciones y comunidades","expectedOutcome":"Listas completas sin restricción"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -1169,7 +1169,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el dashboard muestra métricas globales de TODAS las escuelas.',
   'dashboard',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Enviar GET /api/dashboard/unified","expectedOutcome":"API devuelve 200 (admin en allowedRoles línea 48)"},{"index":2,"instruction":"Verificar que admin scope logic retorna datos globales","expectedOutcome":"Scope global verificado (línea 159 de unified.ts)"},{"index":3,"instruction":"Verificar que no hay filtro de escuela pre-aplicado","expectedOutcome":"Dashboard muestra alcance global"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar que la información se carga correctamente","expectedOutcome":"La operación se completa correctamente (admin en allowedRoles línea 48)"},{"index":2,"instruction":"Verificar que admin scope logic retorna datos globales","expectedOutcome":"Scope global verificado (línea 159 de unified.ts)"},{"index":3,"instruction":"Verificar que no hay filtro de escuela pre-aplicado","expectedOutcome":"Dashboard muestra alcance global"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -1179,7 +1179,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede ver detalles de CUALQUIER usuario (admin bypass en API).',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe al menos un usuario"}]'::jsonb,
-  '[{"index":1,"instruction":"Enviar GET /api/reports/user-details?userId=X (cualquier ID)","expectedOutcome":"API devuelve 200"},{"index":2,"instruction":"Verificar admin bypass en línea 137: if (highestRole === admin) return true","expectedOutcome":"Admin bypassa checkUserAccessModern"},{"index":3,"instruction":"Verificar que se retornan detalles completos del usuario","expectedOutcome":"No hay restricción de acceso"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar que la información se carga correctamente (cualquier ID)","expectedOutcome":"La operación se completa correctamente"},{"index":2,"instruction":"Verificar admin bypass en línea 137: if (highestRole === admin) return true","expectedOutcome":"Admin bypassa checkUserAccessModern"},{"index":3,"instruction":"Verificar que se retornan detalles completos del usuario","expectedOutcome":"No hay restricción de acceso"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -1189,7 +1189,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin ve TODAS las plantillas sin filtro de escuela.',
   'assessment_builder',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Enviar GET /api/admin/assessment-builder/templates","expectedOutcome":"API devuelve 200"},{"index":2,"instruction":"Verificar que NO hay filtro de school_id en query","expectedOutcome":"Plantillas globales retornadas"},{"index":3,"instruction":"Verificar que hasAssessmentReadPermission incluye admin","expectedOutcome":"Admin puede leer todas las plantillas (línea 19)"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar que la información se carga correctamente","expectedOutcome":"La operación se completa correctamente"},{"index":2,"instruction":"Verificar que NO hay filtro de school_id en query","expectedOutcome":"Plantillas globales retornadas"},{"index":3,"instruction":"Verificar que hasAssessmentReadPermission incluye admin","expectedOutcome":"Admin puede leer todas las plantillas (línea 19)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -1199,7 +1199,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin ve quizzes pendientes de TODAS las escuelas (alcance global).',
   'quiz_grading',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /quiz-reviews","expectedOutcome":"Página carga"},{"index":2,"instruction":"Verificar que allowedRoles incluye admin","expectedOutcome":"Admin tiene acceso"},{"index":3,"instruction":"Verificar que se muestran quizzes de TODAS las escuelas","expectedOutcome":"No hay filtro de escuela (alcance global)"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Revisión de Quizzes","expectedOutcome":"Página carga"},{"index":2,"instruction":"Verificar que allowedRoles incluye admin","expectedOutcome":"Admin tiene acceso"},{"index":3,"instruction":"Verificar que se muestran quizzes de TODAS las escuelas","expectedOutcome":"No hay filtro de escuela (alcance global)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -1209,7 +1209,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin ve evaluaciones de transformación globalmente.',
   'transformation',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/transformation/assessments","expectedOutcome":"Página carga (admin-only)"},{"index":2,"instruction":"Verificar que se muestran evaluaciones de TODAS las escuelas","expectedOutcome":"Alcance global verificado"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Transformation/assessments","expectedOutcome":"Página carga (admin-only)"},{"index":2,"instruction":"Verificar que se muestran evaluaciones de TODAS las escuelas","expectedOutcome":"Alcance global verificado"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -1219,7 +1219,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin ve asignaciones de TODOS los usuarios globalmente.',
   'assignment_tracking',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/assignment-matrix","expectedOutcome":"Página carga (admin-only)"},{"index":2,"instruction":"Verificar que se muestran asignaciones de TODOS los usuarios","expectedOutcome":"Datos globales sin restricción"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Assignment Matrix","expectedOutcome":"Página carga (admin-only)"},{"index":2,"instruction":"Verificar que se muestran asignaciones de TODOS los usuarios","expectedOutcome":"Datos globales sin restricción"}]'::jsonb,
   2, 2, true, false, false
 );
 
@@ -1259,7 +1259,7 @@ INSERT INTO qa_scenarios (
   'Verificar que migración consultor fix preserva INSERT para admin en assessment_templates.',
   'assessment_builder',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Verificar policy admin-only INSERT en assessment_templates","expectedOutcome":"RLS permite INSERT para admin"},{"index":2,"instruction":"Verificar hasAssessmentWritePermission línea 33","expectedOutcome":"Retorna true para admin ONLY"},{"index":3,"instruction":"Intentar INSERT directo vía Supabase REST API","expectedOutcome":"201 Created (admin allowed)"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar policy admin-only INSERT en assessment_templates","expectedOutcome":"RLS permite INSERT para admin"},{"index":2,"instruction":"Verificar hasAssessmentWritePermission línea 33","expectedOutcome":"Retorna true para admin ONLY"},{"index":3,"instruction":"Intentar INSERT directo vía Supabase REST API","expectedOutcome":"aparece un mensaje de éxito (admin allowed)"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -1269,7 +1269,7 @@ INSERT INTO qa_scenarios (
   'Verificar que migración consultor fix preserva INSERT para admin en news_articles.',
   'news_management',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Verificar policy FOR ALL admin + community_manager","expectedOutcome":"RLS permite INSERT/UPDATE/DELETE para admin"},{"index":2,"instruction":"Verificar API /api/admin/news allowed roles","expectedOutcome":"Admin está en allowed roles"},{"index":3,"instruction":"Intentar INSERT directo vía Supabase REST API","expectedOutcome":"201 Created (admin allowed)"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar policy FOR ALL admin + community_manager","expectedOutcome":"RLS permite INSERT/UPDATE/DELETE para admin"},{"index":2,"instruction":"Verificar que la funcionalidad opera correctamente","expectedOutcome":"Admin está en allowed roles"},{"index":3,"instruction":"Intentar INSERT directo vía Supabase REST API","expectedOutcome":"aparece un mensaje de éxito (admin allowed)"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -1279,7 +1279,7 @@ INSERT INTO qa_scenarios (
   'Verificar que migración consultor fix incluye policy admin-only INSERT en contratos.',
   'contract_management',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Verificar policy admin-only INSERT en contratos","expectedOutcome":"RLS permite INSERT para admin solamente"},{"index":2,"instruction":"Intentar INSERT directo vía Supabase REST API","expectedOutcome":"201 Created (admin allowed)"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar policy admin-only INSERT en contratos","expectedOutcome":"RLS permite INSERT para admin solamente"},{"index":2,"instruction":"Intentar INSERT directo vía Supabase REST API","expectedOutcome":"aparece un mensaje de éxito (admin allowed)"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -1289,7 +1289,7 @@ INSERT INTO qa_scenarios (
   'Verificar que API reports/detailed.ts modificada para supervisor incluye admin en allowedRoles.',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Leer pages/api/reports/detailed.ts línea 68","expectedOutcome":"allowedRoles = [admin, consultor, equipo_directivo, lider_generacion, lider_comunidad, supervisor_de_red]"},{"index":2,"instruction":"Enviar POST /api/reports/detailed","expectedOutcome":"API devuelve 200 (admin en array)"}]'::jsonb,
+  '[{"index":1,"instruction":"Leer pages línea 68","expectedOutcome":"allowedRoles = [admin, consultor, equipo_directivo, lider_generacion, lider_comunidad, supervisor_de_red]"},{"index":2,"instruction":"Hacer clic en el botón Guardar","expectedOutcome":"La operación se completa correctamente (admin en array)"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -1299,7 +1299,7 @@ INSERT INTO qa_scenarios (
   'Verificar que API reports/overview.ts modificada para supervisor incluye admin en allowedRoles.',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Leer pages/api/reports/overview.ts línea 45","expectedOutcome":"allowedRoles incluye admin"},{"index":2,"instruction":"Enviar POST /api/reports/overview","expectedOutcome":"API devuelve 200 (admin en array)"}]'::jsonb,
+  '[{"index":1,"instruction":"Leer pages línea 45","expectedOutcome":"allowedRoles incluye admin"},{"index":2,"instruction":"Hacer clic en el botón Guardar","expectedOutcome":"La operación se completa correctamente (admin en array)"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -1309,7 +1309,7 @@ INSERT INTO qa_scenarios (
   'Verificar que API filter-options.ts modificada para supervisor da alcance global a admin.',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Leer pages/api/reports/filter-options.ts línea 57","expectedOutcome":"if (highestRole === admin) → retorna listas sin filtro"},{"index":2,"instruction":"Enviar GET /api/reports/filter-options","expectedOutcome":"API devuelve listas completas (alcance global)"}]'::jsonb,
+  '[{"index":1,"instruction":"Leer pages línea 57","expectedOutcome":"if (highestRole === admin) → retorna listas sin filtro"},{"index":2,"instruction":"Verificar que la información se carga correctamente","expectedOutcome":"El sistema listas completas (alcance global)"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -1319,7 +1319,7 @@ INSERT INTO qa_scenarios (
   'Verificar que API user-details.ts modificada para supervisor incluye admin bypass.',
   'reporting',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Leer pages/api/reports/user-details.ts línea 137","expectedOutcome":"if (highestRole === admin) return true;"},{"index":2,"instruction":"Verificar que supervisorCanAccessUser NO aplica a admin","expectedOutcome":"Admin bypassa función supervisor-specific (línea 10)"},{"index":3,"instruction":"Enviar GET /api/reports/user-details?userId=X","expectedOutcome":"API devuelve 200 para cualquier userId"}]'::jsonb,
+  '[{"index":1,"instruction":"Leer pages línea 137","expectedOutcome":"if (highestRole === admin) return true;"},{"index":2,"instruction":"Verificar que supervisorCanAccessUser NO aplica a admin","expectedOutcome":"Admin bypassa función supervisor-specific (línea 10)"},{"index":3,"instruction":"Verificar que la información se carga correctamente","expectedOutcome":"La operación se completa correctamente para cualquier userId"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -1329,7 +1329,7 @@ INSERT INTO qa_scenarios (
   'Verificar que API dashboard/unified.ts modificada para supervisor preserva admin access + alcance global.',
   'dashboard',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Leer pages/api/dashboard/unified.ts línea 48","expectedOutcome":"allowedRoles incluye admin"},{"index":2,"instruction":"Leer línea 159 (admin scope logic)","expectedOutcome":"Admin obtiene alcance global"},{"index":3,"instruction":"Enviar GET /api/dashboard/unified","expectedOutcome":"API devuelve 200 con datos globales"}]'::jsonb,
+  '[{"index":1,"instruction":"Leer pages línea 48","expectedOutcome":"allowedRoles incluye admin"},{"index":2,"instruction":"Leer línea 159 (admin scope logic)","expectedOutcome":"Admin obtiene alcance global"},{"index":3,"instruction":"Verificar que la información se carga correctamente","expectedOutcome":"La operación se completa correctamente con datos globales"}]'::jsonb,
   1, 2, true, false, false
 );
 
@@ -1349,7 +1349,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin sin school_id en profile puede ver dashboard (requiresSchool: false).',
   'dashboard',
   '[{"type":"role","description":"Admin sin school_id en profiles"},{"type":"custom","description":"requiresSchool: false en types/roles.ts"}]'::jsonb,
-  '[{"index":1,"instruction":"Verificar que profile.school_id es NULL","expectedOutcome":"Admin no tiene school_id asignado"},{"index":2,"instruction":"Navegar a /dashboard","expectedOutcome":"Dashboard carga exitosamente (no requiere school)"},{"index":3,"instruction":"Verificar que no hay error por falta de school_id","expectedOutcome":"Funciona correctamente (alcance global no requiere school)"}]'::jsonb,
+  '[{"index":1,"instruction":"Verificar que profile.school_id es NULL","expectedOutcome":"Admin no tiene school_id asignado"},{"index":2,"instruction":"Navegar a la página de Panel Principal","expectedOutcome":"Dashboard carga exitosamente (no requiere school)"},{"index":3,"instruction":"Verificar que no hay error por falta de school_id","expectedOutcome":"Funciona correctamente (alcance global no requiere school)"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -1359,7 +1359,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin sin school_id puede ver y gestionar TODAS las escuelas (alcance global).',
   'school_management',
   '[{"type":"role","description":"Admin sin school_id"}]'::jsonb,
-  '[{"index":1,"instruction":"Navegar a /admin/schools","expectedOutcome":"Página carga exitosamente"},{"index":2,"instruction":"Verificar que se muestran TODAS las escuelas","expectedOutcome":"Lista completa visible (no filtrada por school_id del admin)"},{"index":3,"instruction":"Intentar crear/editar una escuela","expectedOutcome":"Operación exitosa (can_manage_schools: true)"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la página de Escuelas","expectedOutcome":"Página carga exitosamente"},{"index":2,"instruction":"Verificar que se muestran TODAS las escuelas","expectedOutcome":"Lista completa visible (no filtrada por school_id del admin)"},{"index":3,"instruction":"Intentar crear/editar una escuela","expectedOutcome":"Operación exitosa (can_manage_schools: true)"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -1379,7 +1379,7 @@ INSERT INTO qa_scenarios (
   'Verificar que si sesión de admin expira, se redirige a login sin data stale.',
   'authentication',
   '[{"type":"role","description":"Admin con sesión por expirar"}]'::jsonb,
-  '[{"index":1,"instruction":"Estar en /admin/course-builder cuando sesión expira","expectedOutcome":"Página detecta sesión expirada"},{"index":2,"instruction":"Verificar que redirige a /login","expectedOutcome":"Redirección automática a login"},{"index":3,"instruction":"Verificar que no queda data stale visible","expectedOutcome":"No hay data visible post-expiración (SessionContextProvider usa autoRefreshToken: true)"}]'::jsonb,
+  '[{"index":1,"instruction":"Estar en la página del Constructor de Curso cuando la sesión expira","expectedOutcome":"Página detecta sesión expirada"},{"index":2,"instruction":"Verificar que redirige a la página de inicio de sesión","expectedOutcome":"Redirección automática a login"},{"index":3,"instruction":"Verificar que no quedan datos visibles después de que la sesión expira","expectedOutcome":"No hay datos visibles después de que la sesión expira"}]'::jsonb,
   4, 2, true, false, false
 ),
 
@@ -1389,7 +1389,7 @@ INSERT INTO qa_scenarios (
   'Verificar que admin puede acceder a endpoints API directamente vía URL (auth server-side funciona).',
   'api_access',
   '[{"type":"role","description":"Iniciar sesión como admin"}]'::jsonb,
-  '[{"index":1,"instruction":"Enviar request directo a POST /api/admin/courses (bypass UI)","expectedOutcome":"Server-side auth funciona, admin en allowedRoles, API devuelve 200"},{"index":2,"instruction":"Enviar request directo a PUT /api/admin/schools/[id]","expectedOutcome":"Auth independiente funciona, admin bypassa checks"},{"index":3,"instruction":"Verificar que TODOS los 65 admin API routes tienen auth server-side","expectedOutcome":"Ningún endpoint depende solo de UI sidebar para auth"}]'::jsonb,
+  '[{"index":1,"instruction":"Enviar request directo a realizar la acción correspondiente (bypass UI)","expectedOutcome":"Server-side auth funciona, admin en allowedRoles, La operación se completa correctamente"},{"index":2,"instruction":"Enviar request directo a realizar la acción correspondiente","expectedOutcome":"Auth independiente funciona, admin bypassa checks"},{"index":3,"instruction":"Verificar que TODOS los 65 admin API routes tienen auth server-side","expectedOutcome":"Ningún endpoint depende solo de UI sidebar para auth"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -1409,7 +1409,7 @@ INSERT INTO qa_scenarios (
   'Verificar que al intentar eliminar escuela con dependencias, API retorna error manejado.',
   'school_management',
   '[{"type":"role","description":"Iniciar sesión como admin"},{"type":"data","description":"Existe escuela con usuarios/cursos asignados"}]'::jsonb,
-  '[{"index":1,"instruction":"Seleccionar escuela con dependencias (usuarios, cursos, etc)","expectedOutcome":"Escuela seleccionada"},{"index":2,"instruction":"Intentar DELETE /api/admin/schools/[id]","expectedOutcome":"API devuelve error por foreign key constraints (PostgreSQL)"},{"index":3,"instruction":"Verificar que error es manejado gracefully","expectedOutcome":"Mensaje de error claro: No se puede eliminar escuela con dependencias. Admin puede retry después de eliminar dependencias"}]'::jsonb,
+  '[{"index":1,"instruction":"Seleccionar escuela con dependencias (usuarios, cursos, etc)","expectedOutcome":"Escuela seleccionada"},{"index":2,"instruction":"Intentar realizar la acción","expectedOutcome":"El sistema error por foreign key constraints (PostgreSQL)"},{"index":3,"instruction":"Verificar que error es manejado gracefully","expectedOutcome":"Mensaje de error claro: No se puede eliminar escuela con dependencias. Admin puede retry después de eliminar dependencias"}]'::jsonb,
   4, 2, true, false, false
 );
 

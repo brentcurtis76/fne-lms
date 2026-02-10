@@ -53,7 +53,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede crear cursos. El acceso debe ser denegado con error 403.',
   'course_builder',
   '[{"type":"role","description":"Iniciar sesión como equipo_directivo"},{"type":"navigation","description":"El usuario debe estar autenticado"},{"type":"custom","description":"El sidebar no debe mostrar el menú Cursos"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard del equipo directivo"},{"index":2,"instruction":"Intentar navegar a /admin/create-course","expectedOutcome":"Se muestra página de acceso denegado o se redirige al dashboard"},{"index":3,"instruction":"Intentar POST /api/admin/courses con datos de nuevo curso","expectedOutcome":"API devuelve 403 Forbidden"},{"index":4,"instruction":"Verificar que el menú Cursos NO aparece en la barra lateral","expectedOutcome":"El elemento Cursos no es visible en el sidebar"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard del equipo directivo"},{"index":2,"instruction":"Intentar acceder a la página de Creación de Curso","expectedOutcome":"Se muestra página de acceso denegado o se redirige al dashboard"},{"index":3,"instruction":"Intentar realizar la acción con datos de nuevo curso","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":4,"instruction":"Verificar que el menú Cursos NO aparece en la barra lateral","expectedOutcome":"El elemento Cursos no es visible en el sidebar"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -64,7 +64,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede crear usuarios. El acceso debe ser denegado.',
   'user_management',
   '[{"type":"role","description":"Iniciar sesión como equipo_directivo"},{"type":"navigation","description":"El usuario está autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/user-management","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Intentar POST /api/admin/users con datos de nuevo usuario","expectedOutcome":"API devuelve 403 Forbidden"},{"index":4,"instruction":"Verificar que el menú Usuarios NO aparece en la barra lateral","expectedOutcome":"El elemento Usuarios no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Gestión de Usuarios","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Intentar realizar la acción con datos de nuevo usuario","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":4,"instruction":"Verificar que el menú Usuarios NO aparece en la barra lateral","expectedOutcome":"El elemento Usuarios no es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -75,7 +75,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede editar perfiles de otros usuarios.',
   'user_management',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Existe un usuario diferente en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar PUT /api/admin/update-user con datos modificados","expectedOutcome":"API devuelve 403 Forbidden"},{"index":3,"instruction":"Verificar que no hay formulario de edición de usuario disponible","expectedOutcome":"El formulario no está accesible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con datos modificados","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que no hay formulario de edición de usuario disponible","expectedOutcome":"El formulario no está accesible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -86,7 +86,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede asignar roles.',
   'role_assignment',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar POST /api/admin/assign-role con datos de asignación de rol","expectedOutcome":"API devuelve 403 Forbidden"},{"index":3,"instruction":"Verificar que no hay opción de asignar roles en la UI","expectedOutcome":"La opción no es accesible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con datos de asignación de rol","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que no hay opción de asignar roles en la UI","expectedOutcome":"La opción no es accesible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -97,7 +97,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede acceder a gestión de colegios.',
   'school_management',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/schools","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Escuelas NO aparece en la barra lateral","expectedOutcome":"El elemento Escuelas no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Escuelas","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Escuelas NO aparece en la barra lateral","expectedOutcome":"El elemento Escuelas no es visible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -108,7 +108,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede acceder a gestión de redes.',
   'network_management',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/network-management","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Redes de Colegios NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Gestión de Redes","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Redes de Colegios NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -119,7 +119,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede crear plantillas de evaluación.',
   'assessment_builder',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar POST /api/admin/assessment-builder/templates con datos de nueva plantilla","expectedOutcome":"API devuelve 403 Forbidden (hasAssessmentWritePermission retorna false)"},{"index":3,"instruction":"Verificar que los botones Crear/Editar NO aparecen en el constructor de evaluaciones","expectedOutcome":"Los botones no son visibles"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con datos de nueva plantilla","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que los botones Crear/Editar NO aparecen en el constructor de evaluaciones","expectedOutcome":"Los botones no son visibles"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -130,7 +130,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede acceder al constructor de evaluaciones.',
   'assessment_builder',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/assessment-builder","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que Procesos de Cambio NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (consultantOnly: true)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Constructor de Evaluaciones","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que Procesos de Cambio NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (consultantOnly: true)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -141,7 +141,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede gestionar noticias.',
   'navigation',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/news","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Noticias NO aparece en la barra lateral","expectedOutcome":"El elemento Noticias no es visible (solo para admin/community_manager)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Noticias","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Noticias NO aparece en la barra lateral","expectedOutcome":"El elemento Noticias no es visible (solo para admin/community_manager)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -152,7 +152,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede gestionar eventos.',
   'navigation',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/events","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Eventos NO aparece en la barra lateral","expectedOutcome":"El elemento Eventos no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Eventos","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Eventos NO aparece en la barra lateral","expectedOutcome":"El elemento Eventos no es visible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -163,7 +163,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede acceder a gestión de contratos.',
   'navigation',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /contracts","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Gestión NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Contratos","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Gestión NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -174,7 +174,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede acceder a configuración.',
   'role_assignment',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/configuration","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Configuración NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (requiere manage_system_settings)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Configuración","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Configuración NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (requiere manage_system_settings)"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -185,7 +185,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede asignar consultores.',
   'role_assignment',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/consultant-assignments","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que el menú Consultorías NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (consultantOnly: true)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Asignación de Consultores","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que el menú Consultorías NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (consultantOnly: true)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -196,7 +196,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo no puede asignar cursos.',
   'course_enrollment',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar POST /api/courses/batch-assign con datos de asignación","expectedOutcome":"API devuelve 403 Forbidden (can_assign_courses: false)"},{"index":3,"instruction":"Verificar que no hay interfaz de asignación de cursos disponible","expectedOutcome":"La funcionalidad no está accesible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con datos de asignación","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción (can_assign_courses: false)"},{"index":3,"instruction":"Verificar que no hay interfaz de asignación de cursos disponible","expectedOutcome":"La funcionalidad no está accesible"}]'::jsonb,
   2, 3, true, false, false
 );
 
@@ -217,7 +217,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede acceder a su dashboard con datos del colegio asignado.',
   'docente_experience',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Equipo Directivo tiene escuela asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard correctamente"},{"index":2,"instruction":"Navegar a /dashboard","expectedOutcome":"La página carga correctamente con datos del colegio asignado"},{"index":3,"instruction":"Verificar que se muestran estadísticas de la escuela asignada","expectedOutcome":"Los datos mostrados corresponden solo a la escuela asignada"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard correctamente"},{"index":2,"instruction":"Navegar a la página de Panel Principal","expectedOutcome":"La página carga correctamente con datos del colegio asignado"},{"index":3,"instruction":"Verificar que se muestran estadísticas de la escuela asignada","expectedOutcome":"Los datos mostrados corresponden solo a la escuela asignada"}]'::jsonb,
   1, 3, true, false, false
 ),
 
@@ -228,7 +228,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede ver y acceder a su perfil.',
   'user_management',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /profile","expectedOutcome":"La página de perfil carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los datos del usuario autenticado","expectedOutcome":"El perfil muestra información correcta"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Perfil","expectedOutcome":"La página de perfil carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los datos del usuario autenticado","expectedOutcome":"El perfil muestra información correcta"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -239,7 +239,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede ver la página de aprendizaje.',
   'course_enrollment',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay cursos asignados"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /mi-aprendizaje o hacer clic en menú Mi Aprendizaje","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los cursos inscritos","expectedOutcome":"Se listan los cursos disponibles"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Mi Aprendizaje o hacer clic en menú Mi Aprendizaje","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los cursos inscritos","expectedOutcome":"Se listan los cursos disponibles"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -250,7 +250,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede ver y acceder a quizzes pendientes de revisión.',
   'quiz_submission',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay quizzes pendientes de calificar en la escuela asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /quiz-reviews (vía URL directa)","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran quizzes pendientes de la escuela asignada","expectedOutcome":"Se listan los quizzes con estado pendiente"},{"index":4,"instruction":"Nota: El sidebar NO muestra este elemento (consultantOnly: true)","expectedOutcome":"Acceso vía URL directa funciona correctamente"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Revisión de Quizzes (vía URL directa)","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran quizzes pendientes de la escuela asignada","expectedOutcome":"Se listan los quizzes con estado pendiente"},{"index":4,"instruction":"Nota: El sidebar NO muestra este elemento (consultantOnly: true)","expectedOutcome":"Acceso vía URL directa funciona correctamente"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -261,7 +261,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede calificar preguntas abiertas de quizzes.',
   'quiz_submission',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay un quiz con pregunta abierta pendiente de calificación"},{"type":"navigation","description":"Usuario está en página de revisión de quizzes"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /quiz-reviews","expectedOutcome":"Se muestra lista de quizzes pendientes"},{"index":3,"instruction":"Seleccionar un quiz y abrir una pregunta abierta","expectedOutcome":"Se muestra el formulario de calificación"},{"index":4,"instruction":"Ingresar una calificación y guardar","expectedOutcome":"La calificación se guarda exitosamente"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Revisión de Quizzes","expectedOutcome":"Se muestra lista de quizzes pendientes"},{"index":3,"instruction":"Seleccionar un quiz y abrir una pregunta abierta","expectedOutcome":"Se muestra el formulario de calificación"},{"index":4,"instruction":"Ingresar una calificación y guardar","expectedOutcome":"La calificación se guarda exitosamente"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -272,7 +272,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede obtener la lista de quizzes pendientes vía API.',
   'quiz_submission',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay quizzes pendientes en la escuela"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/quiz-reviews/pending","expectedOutcome":"API devuelve 200 con lista de quizzes pendientes"},{"index":3,"instruction":"Verificar que los datos están filtrados por contexto de la escuela","expectedOutcome":"Solo se muestran quizzes de la escuela asignada"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"La operación se completa correctamente con lista de quizzes pendientes"},{"index":3,"instruction":"Verificar que los datos están filtrados por contexto de la escuela","expectedOutcome":"Solo se muestran quizzes de la escuela asignada"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -283,7 +283,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede ver reportes de su escuela asignada.',
   'reporting',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay datos de reporte disponibles para la escuela asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /detailed-reports (vía URL directa)","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran reportes filtrados por escuela asignada","expectedOutcome":"Los datos mostrados corresponden solo a la escuela asignada"},{"index":4,"instruction":"Nota: El sidebar NO muestra Reportes (consultantOnly: true)","expectedOutcome":"Acceso vía URL directa funciona correctamente"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados (vía URL directa)","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran reportes filtrados por escuela asignada","expectedOutcome":"Los datos mostrados corresponden solo a la escuela asignada"},{"index":4,"instruction":"Nota: El sidebar NO muestra Reportes (consultantOnly: true)","expectedOutcome":"Acceso vía URL directa funciona correctamente"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -294,7 +294,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede obtener resumen de reportes vía API.',
   'reporting',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay datos de reporte en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/reports/overview","expectedOutcome":"API devuelve 200 con datos de resumen"},{"index":3,"instruction":"Verificar que los datos están filtrados por escuela asignada","expectedOutcome":"Solo se muestran métricas de la escuela del usuario"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"La operación se completa correctamente con datos de resumen"},{"index":3,"instruction":"Verificar que los datos están filtrados por escuela asignada","expectedOutcome":"Solo se muestran métricas de la escuela del usuario"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -305,7 +305,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede ver el Contexto Transversal de su escuela.',
   'school_management',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay contexto transversal para la escuela asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /school/transversal-context (vía URL directa)","expectedOutcome":"La página carga para la escuela asignada"},{"index":3,"instruction":"Verificar que se muestran los datos de contexto","expectedOutcome":"La página muestra contenido de la escuela asignada"},{"index":4,"instruction":"Nota: El sidebar NO muestra Procesos de Cambio (consultantOnly: true)","expectedOutcome":"Acceso vía URL directa funciona correctamente"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Escuela/transversal-context (vía URL directa)","expectedOutcome":"La página carga para la escuela asignada"},{"index":3,"instruction":"Verificar que se muestran los datos de contexto","expectedOutcome":"La página muestra contenido de la escuela asignada"},{"index":4,"instruction":"Nota: El sidebar NO muestra Procesos de Cambio (consultantOnly: true)","expectedOutcome":"Acceso vía URL directa funciona correctamente"}]'::jsonb,
   3, 4, true, false, false
 ),
 
@@ -316,7 +316,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede ver el Plan de Migración de su escuela.',
   'school_management',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay plan de migración para la escuela asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /school/migration-plan (vía URL directa)","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los datos del plan","expectedOutcome":"Se visualiza la información del plan de la escuela asignada"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Escuela/migration-plan (vía URL directa)","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los datos del plan","expectedOutcome":"Se visualiza la información del plan de la escuela asignada"}]'::jsonb,
   3, 4, true, false, false
 ),
 
@@ -327,7 +327,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede acceder al dashboard de evaluaciones directivas.',
   'transformation_assessment',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay resultados de evaluación disponibles"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /directivo/assessments/dashboard (vía URL directa)","expectedOutcome":"Dashboard carga con datos de transformación escolar"},{"index":3,"instruction":"Verificar que se muestran resultados de la escuela asignada","expectedOutcome":"Se visualizan métricas y evaluaciones del colegio"},{"index":4,"instruction":"Nota: El sidebar NO muestra Vías de Transformación (adminOnly: true)","expectedOutcome":"Acceso vía URL directa funciona correctamente"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Directivo/assessments/dashboard (vía URL directa)","expectedOutcome":"Dashboard carga con datos de transformación escolar"},{"index":3,"instruction":"Verificar que se muestran resultados de la escuela asignada","expectedOutcome":"Se visualizan métricas y evaluaciones del colegio"},{"index":4,"instruction":"Nota: El sidebar NO muestra Vías de Transformación (adminOnly: true)","expectedOutcome":"Acceso vía URL directa funciona correctamente"}]'::jsonb,
   1, 5, true, false, false
 ),
 
@@ -338,7 +338,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede obtener resultados de evaluaciones vía API.',
   'transformation_assessment',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay resultados de evaluación en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/directivo/assessments/school-results","expectedOutcome":"API devuelve 200 con resultados de la escuela"},{"index":3,"instruction":"Verificar que los datos están limitados a la escuela asignada","expectedOutcome":"Solo se muestran resultados del colegio del usuario"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"La operación se completa correctamente con resultados de la escuela"},{"index":3,"instruction":"Verificar que los datos están limitados a la escuela asignada","expectedOutcome":"Solo se muestran resultados del colegio del usuario"}]'::jsonb,
   1, 3, true, false, false
 ),
 
@@ -349,7 +349,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede obtener resultados por curso vía API.',
   'transformation_assessment',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay resultados de evaluación por curso"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/directivo/assessments/course-results","expectedOutcome":"API devuelve 200 con resultados por curso"},{"index":3,"instruction":"Verificar que los datos están filtrados por escuela asignada","expectedOutcome":"Solo se muestran cursos de la escuela del usuario"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"La operación se completa correctamente con resultados por curso"},{"index":3,"instruction":"Verificar que los datos están filtrados por escuela asignada","expectedOutcome":"Solo se muestran cursos de la escuela del usuario"}]'::jsonb,
   1, 3, true, false, false
 ),
 
@@ -360,7 +360,7 @@ INSERT INTO qa_scenarios (
   'Verificar que equipo directivo puede acceder al log de auditoría de asignaciones.',
   'reporting',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay registros de auditoría en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/admin/assignment-matrix/audit-log","expectedOutcome":"API devuelve 200 con datos de auditoría"},{"index":3,"instruction":"Verificar que los datos están filtrados apropiadamente","expectedOutcome":"Se visualizan registros relevantes para el contexto del usuario"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"La operación se completa correctamente con datos de auditoría"},{"index":3,"instruction":"Verificar que los datos están filtrados apropiadamente","expectedOutcome":"Se visualizan registros relevantes para el contexto del usuario"}]'::jsonb,
   3, 3, true, false, false
 );
 
@@ -381,7 +381,7 @@ INSERT INTO qa_scenarios (
   'Verificar que los reportes filtran datos por escuela asignada del directivo.',
   'reporting',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay múltiples escuelas en el sistema"},{"type":"data","description":"El directivo está asignado a una escuela específica"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"Se muestra la página de reportes"},{"index":3,"instruction":"Observar que el filtro de escuela está preestablecido a la escuela asignada","expectedOutcome":"El filtro no se puede cambiar a otra escuela"},{"index":4,"instruction":"Verificar que no hay datos de otras escuelas visibles","expectedOutcome":"Solo se muestran datos de la escuela asignada"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"Se muestra la página de reportes"},{"index":3,"instruction":"Observar que el filtro de escuela está preestablecido a la escuela asignada","expectedOutcome":"El filtro no se puede cambiar a otra escuela"},{"index":4,"instruction":"Verificar que no hay datos de otras escuelas visibles","expectedOutcome":"Solo se muestran datos de la escuela asignada"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -392,7 +392,7 @@ INSERT INTO qa_scenarios (
   'Verificar que la API rechaza consultas de datos de otras escuelas.',
   'reporting',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay otra escuela en el sistema diferente a la asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /detailed-reports?school_id=OTRA_ESCUELA","expectedOutcome":"La página se carga pero no muestra datos"},{"index":3,"instruction":"Verificar la respuesta de la API para la otra escuela","expectedOutcome":"API devuelve datos vacíos (validación server-side impide acceso)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Reportes Detallados","expectedOutcome":"La página se carga pero no muestra datos"},{"index":3,"instruction":"Verificar la respuesta de la API para la otra escuela","expectedOutcome":"El sistema datos vacíos (validación server-side impide acceso)"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -403,7 +403,7 @@ INSERT INTO qa_scenarios (
   'Verificar que acceso al contexto está restringido a escuela asignada.',
   'school_management',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay otra escuela en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /school/transversal-context?school_id=OTRA_ESCUELA","expectedOutcome":"Se muestra página de acceso denegado o error 403"},{"index":3,"instruction":"Verificar que solo los datos de la escuela asignada son accesibles","expectedOutcome":"Solo la escuela asignada es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Escuela/transversal-context?school_id=OTRA_ESCUELA","expectedOutcome":"Se muestra página de acceso denegado o error"},{"index":3,"instruction":"Verificar que solo los datos de la escuela asignada son accesibles","expectedOutcome":"Solo la escuela asignada es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -414,7 +414,7 @@ INSERT INTO qa_scenarios (
   'Verificar que las opciones de filtro están limitadas a la escuela asignada.',
   'reporting',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay múltiples escuelas en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar GET /api/reports/filter-options","expectedOutcome":"API devuelve opciones de filtro"},{"index":3,"instruction":"Verificar que solo aparece la escuela asignada","expectedOutcome":"Solo se muestra la escuela del directivo y sus generaciones/comunidades relacionadas"},{"index":4,"instruction":"Confirmar que no hay opción de seleccionar otras escuelas","expectedOutcome":"Las opciones están limitadas a la escuela asignada"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Realizar realizar la acción correspondiente","expectedOutcome":"El sistema opciones de filtro"},{"index":3,"instruction":"Verificar que solo aparece la escuela asignada","expectedOutcome":"Solo se muestra la escuela del directivo y sus generaciones/comunidades relacionadas"},{"index":4,"instruction":"Confirmar que no hay opción de seleccionar otras escuelas","expectedOutcome":"Las opciones están limitadas a la escuela asignada"}]'::jsonb,
   2, 4, true, false, false
 ),
 
@@ -425,7 +425,7 @@ INSERT INTO qa_scenarios (
   'Verificar que la API de resultados escolares usa school_id del usuario, no de query params.',
   'transformation_assessment',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay resultados de múltiples escuelas"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar GET /api/directivo/assessments/school-results?school_id=OTRA_ESCUELA","expectedOutcome":"API devuelve resultados solo de la escuela asignada"},{"index":3,"instruction":"Verificar que el parámetro school_id es ignorado","expectedOutcome":"La API usa school_id de user_roles, no de query params"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción","expectedOutcome":"El sistema resultados solo de la escuela asignada"},{"index":3,"instruction":"Verificar que el parámetro school_id es ignorado","expectedOutcome":"La El sistema school_id de user_roles, no de query params"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -436,7 +436,7 @@ INSERT INTO qa_scenarios (
   'Verificar que las revisiones de quizzes están filtradas por escuela asignada.',
   'quiz_submission',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Hay quizzes pendientes de múltiples escuelas"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /quiz-reviews","expectedOutcome":"Se muestra lista de quizzes pendientes"},{"index":3,"instruction":"Verificar que solo se muestran quizzes de estudiantes de la escuela asignada","expectedOutcome":"No hay quizzes de otras escuelas visibles"},{"index":4,"instruction":"Nota: Comentario en código indica return all for now — verificar comportamiento real","expectedOutcome":"Confirmar que el filtrado funciona correctamente en runtime"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Revisión de Quizzes","expectedOutcome":"Se muestra lista de quizzes pendientes"},{"index":3,"instruction":"Verificar que solo se muestran quizzes de estudiantes de la escuela asignada","expectedOutcome":"No hay quizzes de otras escuelas visibles"},{"index":4,"instruction":"Nota: Comentario en código indica return all for now — verificar comportamiento real","expectedOutcome":"Confirmar que el filtrado funciona correctamente en runtime"}]'::jsonb,
   2, 5, true, false, false
 );
 
@@ -678,7 +678,7 @@ INSERT INTO qa_scenarios (
   'Verificar que Vías de Transformación no es visible. adminOnly: true (línea 414). Nota: las páginas subyacentes SÍ permiten acceso por URL directo.',
   'navigation',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Observar la barra lateral completa","expectedOutcome":"El elemento Vías de Transformación NO es visible (aunque /directivo/assessments/dashboard sí permite acceso)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Observar la barra lateral completa","expectedOutcome":"El elemento Vías de Transformación NO es visible (aunque la página del Dashboard de Evaluaciones sí permite acceso)"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -733,7 +733,7 @@ INSERT INTO qa_scenarios (
   'Verificar y documentar que hay 6 páginas accesibles por URL sin enlace en sidebar.',
   'navigation',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar directamente a /quiz-reviews","expectedOutcome":"Página carga correctamente (sidebar no muestra el enlace)"},{"index":3,"instruction":"Navegar directamente a /detailed-reports","expectedOutcome":"Página carga correctamente (sidebar no muestra Reportes)"},{"index":4,"instruction":"Navegar directamente a /admin/learning-paths","expectedOutcome":"Página carga correctamente (sidebar no muestra Rutas de Aprendizaje)"},{"index":5,"instruction":"Navegar directamente a /school/transversal-context","expectedOutcome":"Página carga correctamente (sidebar no muestra Procesos de Cambio)"},{"index":6,"instruction":"Navegar directamente a /directivo/assessments/dashboard","expectedOutcome":"Página carga correctamente (sidebar no muestra Vías de Transformación)"},{"index":7,"instruction":"Documentar este comportamiento como hallazgo, no como bug","expectedOutcome":"Decisión de PM requerida: mantener oculto o agregar enlaces específicos"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar directamente a la página de Revisión de Quizzes","expectedOutcome":"La página carga correctamente aunque la barra lateral no muestra el enlace"},{"index":3,"instruction":"Navegar directamente a la página de Reportes Detallados","expectedOutcome":"La página carga correctamente aunque la barra lateral no muestra Reportes"},{"index":4,"instruction":"Navegar directamente a la página de Rutas de Aprendizaje","expectedOutcome":"La página carga correctamente aunque la barra lateral no muestra Rutas de Aprendizaje"},{"index":5,"instruction":"Navegar directamente a la página de Contexto Transversal","expectedOutcome":"La página carga correctamente aunque la barra lateral no muestra Procesos de Cambio"},{"index":6,"instruction":"Navegar directamente a la página del Dashboard de Evaluaciones","expectedOutcome":"La página carga correctamente aunque la barra lateral no muestra Vías de Transformación"},{"index":7,"instruction":"Documentar este comportamiento como hallazgo informativo, no como error","expectedOutcome":"Se requiere una decisión del administrador del proyecto sobre esta funcionalidad"}]'::jsonb,
   3, 10, true, false, false
 );
 
@@ -754,7 +754,7 @@ INSERT INTO qa_scenarios (
   'Verificar que directivo sin escuela asignada recibe estado vacío apropiado.',
   'reporting',
   '[{"type":"role","description":"Existe equipo_directivo sin escuela asignada"},{"type":"navigation","description":"El directivo no tiene school_id válido"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl sin school_id","expectedOutcome":"Se accede al sistema"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"Se muestra estado vacío apropiado"},{"index":3,"instruction":"Verificar que el sistema maneja correctamente la ausencia de escuela","expectedOutcome":"Se muestra un estado coherente sin errores de runtime"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl sin school_id","expectedOutcome":"Se accede al sistema"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"Se muestra estado vacío apropiado"},{"index":3,"instruction":"Verificar que el sistema maneja correctamente la ausencia de escuela","expectedOutcome":"Se muestra un estado coherente sin errores"}]'::jsonb,
   4, 3, true, false, false
 ),
 
@@ -765,7 +765,7 @@ INSERT INTO qa_scenarios (
   'Verificar que la API devuelve error 400 apropiado.',
   'school_management',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Usuario NO tiene school_id en user_roles"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl sin school_id","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /school/transversal-context","expectedOutcome":"API devuelve 400: No se encontró escuela asociada al usuario"},{"index":3,"instruction":"Verificar que el error es manejado gracefully","expectedOutcome":"Se muestra mensaje de error apropiado al usuario"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl sin school_id","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Escuela/transversal-context","expectedOutcome":"La operación se completa correctamente No se encontró escuela asociada al usuario"},{"index":3,"instruction":"Verificar que el error es manejado gracefully","expectedOutcome":"Se muestra mensaje de error apropiado al usuario"}]'::jsonb,
   4, 2, true, false, false
 ),
 
@@ -787,7 +787,7 @@ INSERT INTO qa_scenarios (
   'Verificar que los controles de permiso server-side se aplican sin importar cómo se accede.',
   'reporting',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"navigation","description":"Se accede directamente a API sin UI"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se obtiene sesión válida"},{"index":2,"instruction":"Intentar POST /api/admin/courses directamente","expectedOutcome":"API devuelve 403 Forbidden (permiso denegado)"},{"index":3,"instruction":"Intentar GET /api/reports/detailed directamente","expectedOutcome":"API devuelve 200 OK (lectura permitida)"},{"index":4,"instruction":"Verificar que todos los endpoints tienen auth independiente","expectedOutcome":"Cada API valida roles server-side"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se obtiene sesión válida"},{"index":2,"instruction":"Intentar realizar la acción directamente","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción (permiso denegado)"},{"index":3,"instruction":"Intentar realizar la acción directamente","expectedOutcome":"Los datos se muestran correctamente"},{"index":4,"instruction":"Verificar que todos los endpoints tienen auth independiente","expectedOutcome":"Cada El sistema roles server-side"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -798,7 +798,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el sistema de QA administrativo está protegido.',
   'role_assignment',
   '[{"type":"role","description":"Equipo Directivo autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/qa-scenarios","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que se renderiza mensaje: Solo administradores pueden acceder al panel de QA","expectedOutcome":"Mensaje de error apropiado es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Escenarios QA","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que se renderiza mensaje: Solo administradores pueden acceder al panel de QA","expectedOutcome":"Mensaje de error apropiado es visible"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -809,7 +809,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el sistema maneja expiración de sesión correctamente.',
   'reporting',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"custom","description":"Sesión va a expirar"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"Se muestra la página"},{"index":3,"instruction":"Esperar a que la sesión expire (o simular expiración)","expectedOutcome":"Se redirige a página de login"},{"index":4,"instruction":"Verificar que no hay datos obsoletos visibles","expectedOutcome":"No se muestra contenido antiguo de sesión anterior"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"Se muestra la página"},{"index":3,"instruction":"Esperar a que la sesión expire (o simular expiración)","expectedOutcome":"Se redirige a página de login"},{"index":4,"instruction":"Verificar que no hay datos obsoletos visibles","expectedOutcome":"No se muestra contenido antiguo de sesión anterior"}]'::jsonb,
   3, 5, true, false, false
 ),
 
@@ -820,7 +820,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el workspace carga correctamente para miembros de comunidad.',
   'collaborative_space',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Usuario tiene community_id asignado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl con community_id","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /community/workspace","expectedOutcome":"Workspace carga correctamente"},{"index":3,"instruction":"Verificar que getUserWorkspaceAccess retorna community_member accessType","expectedOutcome":"El usuario tiene acceso apropiado al workspace"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl con community_id","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Community/workspace","expectedOutcome":"Workspace carga correctamente"},{"index":3,"instruction":"Verificar que getUserWorkspaceAccess retorna community_member accessType","expectedOutcome":"El usuario tiene acceso apropiado al workspace"}]'::jsonb,
   3, 4, true, false, false
 ),
 
@@ -831,7 +831,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el acceso es denegado sin membresía de comunidad.',
   'collaborative_space',
   '[{"type":"role","description":"Equipo Directivo autenticado"},{"type":"data","description":"Usuario NO tiene community_id"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl sin community_id","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /community/workspace","expectedOutcome":"Se muestra página de acceso denegado o error"},{"index":3,"instruction":"Verificar que requiresCommunity filter funciona correctamente","expectedOutcome":"Acceso denegado sin community_id"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como directivo.qa@fne.cl sin community_id","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Community/workspace","expectedOutcome":"Se muestra página de acceso denegado o error"},{"index":3,"instruction":"Verificar que requiresCommunity filter funciona correctamente","expectedOutcome":"Acceso denegado sin community_id"}]'::jsonb,
   3, 3, true, false, false
 );
 

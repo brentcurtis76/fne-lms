@@ -53,7 +53,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion no puede crear cursos (can_create_courses: false).',
   'course_builder',
   '[{"type":"role","description":"Iniciar sesión como lider_generacion"},{"type":"navigation","description":"El usuario debe estar autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/create-course","expectedOutcome":"Se muestra acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que el menú Cursos NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (adminOnly: true)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Creación de Curso","expectedOutcome":"Se muestra acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que el menú Cursos NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (adminOnly: true)"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -64,7 +64,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion no puede crear usuarios (can_create_users: false).',
   'user_management',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/user-management","expectedOutcome":"Acceso denegado"},{"index":3,"instruction":"Verificar que Usuarios NO aparece en sidebar","expectedOutcome":"No visible (adminOnly)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Gestión de Usuarios","expectedOutcome":"Acceso denegado"},{"index":3,"instruction":"Verificar que Usuarios NO aparece en sidebar","expectedOutcome":"No visible (adminOnly)"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -75,7 +75,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion no puede editar perfiles de otros (can_edit_users: false).',
   'user_management',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"data","description":"Existe otro usuario en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar PUT /api/admin/update-user con datos modificados","expectedOutcome":"API devuelve 403 Forbidden"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar realizar la acción con datos modificados","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -86,7 +86,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion no puede asignar roles (can_assign_roles: false).',
   'role_assignment',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar POST /api/admin/assign-role","expectedOutcome":"403 Forbidden"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar realizar la acción","expectedOutcome":"aparece un mensaje de error de permisos"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -97,7 +97,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion no puede gestionar escuelas (can_manage_schools: false).',
   'school_management',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar navegar a /admin/schools","expectedOutcome":"Acceso denegado"},{"index":3,"instruction":"Verificar que Escuelas NO aparece en sidebar","expectedOutcome":"No visible (adminOnly)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar acceder a la página de Escuelas","expectedOutcome":"Acceso denegado"},{"index":3,"instruction":"Verificar que Escuelas NO aparece en sidebar","expectedOutcome":"No visible (adminOnly)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -119,7 +119,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion no puede crear plantillas (hasAssessmentWritePermission: admin-only).',
   'assessment_builder',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar POST /api/admin/assessment-builder/templates","expectedOutcome":"403 Forbidden"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar realizar la acción","expectedOutcome":"aparece un mensaje de error de permisos"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -130,7 +130,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion no puede VER plantillas (hasAssessmentReadPermission: admin+consultor only).',
   'assessment_builder',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar GET /api/admin/assessment-builder/templates","expectedOutcome":"403 Forbidden (lider_generacion excluido)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar realizar la acción","expectedOutcome":"aparece un mensaje de error de permisos (lider_generacion excluido)"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -141,7 +141,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion no puede acceder a quiz reviews (allowedRoles: admin+consultor+equipo_directivo only).',
   'quiz_submission',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar navegar a /quiz-reviews","expectedOutcome":"Acceso denegado"},{"index":3,"instruction":"Intentar GET /api/quiz-reviews/pending","expectedOutcome":"403 Forbidden"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar acceder a la página de Revisión de Quizzes","expectedOutcome":"Acceso denegado"},{"index":3,"instruction":"Intentar realizar la acción","expectedOutcome":"aparece un mensaje de error de permisos"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -188,7 +188,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion no puede asignar consultores (adminOnly).',
   'role_assignment',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar navegar a /admin/consultant-assignments","expectedOutcome":"Acceso denegado"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar acceder a la página de Asignación de Consultores","expectedOutcome":"Acceso denegado"}]'::jsonb,
   2, 2, true, false, false
 ),
 (
@@ -197,7 +197,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion no puede acceder a QA testing (adminOnly).',
   'role_assignment',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar navegar a /admin/qa-scenarios","expectedOutcome":"Acceso denegado"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar acceder a la página de Escenarios QA","expectedOutcome":"Acceso denegado"}]'::jsonb,
   1, 2, true, false, false
 ),
 (
@@ -206,7 +206,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion no puede batch-assign courses (hasAssignPermission: admin+consultor only).',
   'course_enrollment',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar POST /api/courses/batch-assign","expectedOutcome":"403 Forbidden"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar realizar la acción","expectedOutcome":"aparece un mensaje de error de permisos"}]'::jsonb,
   2, 3, true, false, false
 );
 
@@ -235,7 +235,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion puede ver su perfil.',
   'user_management',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a /profile","expectedOutcome":"Perfil carga correctamente"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a la página de Perfil","expectedOutcome":"Perfil carga correctamente"}]'::jsonb,
   3, 2, true, false, false
 ),
 (
@@ -244,7 +244,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion puede ver Mi Aprendizaje.',
   'course_enrollment',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a /mi-aprendizaje","expectedOutcome":"Página carga con cursos"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a la página de Mi Aprendizaje","expectedOutcome":"Página carga con cursos"}]'::jsonb,
   3, 2, true, false, false
 ),
 (
@@ -253,7 +253,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion puede ver reportes con datos de su generación (scoped by user_roles.generation_id).',
   'reporting',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"data","description":"Tiene generation_id en user_roles"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"Reportes cargan con datos de generación"},{"index":3,"instruction":"Verificar que solo se muestran datos de la generación asignada","expectedOutcome":"Datos filtrados por generation_id"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"Reportes cargan con datos de generación"},{"index":3,"instruction":"Verificar que solo se muestran datos de la generación asignada","expectedOutcome":"Datos filtrados por generation_id"}]'::jsonb,
   2, 5, true, false, false
 ),
 (
@@ -262,7 +262,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion puede ver overview con datos de su generación (scoped by profiles.generation_id).',
   'reporting',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"data","description":"Tiene generation_id en profiles"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"GET /api/reports/overview","expectedOutcome":"200 OK con datos de generación"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"realizar la acción correspondiente","expectedOutcome":"la operación se completa correctamente con datos de generación"}]'::jsonb,
   2, 5, true, false, false
 ),
 (
@@ -271,7 +271,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion puede ver filter-options (requiere school_id Y generation_id en profiles).',
   'reporting',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"data","description":"Tiene school_id Y generation_id en profiles"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"GET /api/reports/filter-options","expectedOutcome":"200 OK con opciones"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"realizar la acción correspondiente","expectedOutcome":"la operación se completa correctamente con opciones"}]'::jsonb,
   2, 3, true, false, false
 ),
 (
@@ -280,7 +280,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion puede ver unified dashboard (devuelve solo [userId], no generation-scoped).',
   'docente_experience',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"GET /api/dashboard/unified","expectedOutcome":"200 OK con solo datos propios"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"realizar la acción correspondiente","expectedOutcome":"la operación se completa correctamente con solo datos propios"}]'::jsonb,
   3, 3, true, false, false
 ),
 (
@@ -289,7 +289,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion puede ver assignments como teacher (isTeacher incluye lider_generacion).',
   'docente_experience',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a /assignments","expectedOutcome":"Página carga con vista de teacher"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a la página de Assignments","expectedOutcome":"Página carga con vista de teacher"}]'::jsonb,
   2, 4, true, false, false
 ),
 (
@@ -298,7 +298,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion puede ver assignment submissions.',
   'docente_experience',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"data","description":"Existen tareas con entregas"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a /assignments/[id]/submissions","expectedOutcome":"Página carga con entregas"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a la página de Assignments/[id]/submissions","expectedOutcome":"Página carga con entregas"}]'::jsonb,
   2, 4, true, false, false
 ),
 (
@@ -307,7 +307,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion puede acceder a /docente/assessments (no role restriction, by user_id).',
   'docente_experience',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"data","description":"Tiene assessment instances asignados"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a /docente/assessments","expectedOutcome":"Página carga con assessments"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a la página de Docente/assessments","expectedOutcome":"Página carga con assessments"}]'::jsonb,
   3, 3, true, false, false
 ),
 (
@@ -316,7 +316,7 @@ INSERT INTO qa_scenarios (
   'Verificar que lider_generacion puede ver user-details de usuarios de su generación (scoped by user_roles.generation_id).',
   'reporting',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"data","description":"Existe usuario en misma generación"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"GET /api/reports/user-details?userId=SAME_GEN","expectedOutcome":"200 OK con detalles"},{"index":3,"instruction":"GET /api/reports/user-details?userId=DIFF_GEN","expectedOutcome":"403 o vacío"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"realizar la acción correspondiente","expectedOutcome":"la operación se completa correctamente con detalles"},{"index":3,"instruction":"realizar la acción correspondiente","expectedOutcome":"o vacío"}]'::jsonb,
   2, 5, true, false, false
 );
 
@@ -336,7 +336,7 @@ INSERT INTO qa_scenarios (
   'Verificar que los reportes filtran datos por generation_id del lider_generacion.',
   'reporting',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"data","description":"Hay múltiples generaciones"},{"type":"data","description":"Lider tiene generation_id asignado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"Reportes cargan"},{"index":3,"instruction":"Verificar que solo se muestran datos de la generación asignada","expectedOutcome":"Sin datos de otras generaciones"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"Reportes cargan"},{"index":3,"instruction":"Verificar que solo se muestran datos de la generación asignada","expectedOutcome":"Sin datos de otras generaciones"}]'::jsonb,
   2, 5, true, false, false
 ),
 (
@@ -345,7 +345,7 @@ INSERT INTO qa_scenarios (
   'Verificar que la API rechaza consultas de datos de otras generaciones.',
   'reporting',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"data","description":"Hay otra generación diferente"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"POST /api/reports/detailed con filters.generation_id=OTRA_GEN","expectedOutcome":"Respuesta vacía o 403"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"realizar la acción correspondiente con filters.generation_id=OTRA_GEN","expectedOutcome":"El sistema no muestra datos o muestra un mensaje de error de permisos"}]'::jsonb,
   2, 3, true, false, false
 ),
 (
@@ -354,7 +354,7 @@ INSERT INTO qa_scenarios (
   'Verificar inconsistencia: detailed usa user_roles.generation_id, overview usa profiles.generation_id.',
   'reporting',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"data","description":"generation_id en AMBOS user_roles y profiles"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"GET /api/reports/detailed","expectedOutcome":"Datos de generation_id via user_roles"},{"index":3,"instruction":"GET /api/reports/overview","expectedOutcome":"Datos de generation_id via profiles"},{"index":4,"instruction":"Verificar consistencia de datos","expectedOutcome":"Datos deben coincidir si ambos tienen generation_id"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"realizar la acción correspondiente","expectedOutcome":"Datos de generation_id via user_roles"},{"index":3,"instruction":"realizar la acción correspondiente","expectedOutcome":"Datos de generation_id via profiles"},{"index":4,"instruction":"Verificar consistencia de datos","expectedOutcome":"Datos deben coincidir si ambos tienen generation_id"}]'::jsonb,
   2, 5, true, false, false
 ),
 (
@@ -363,7 +363,7 @@ INSERT INTO qa_scenarios (
   'Verificar que filter-options API requiere AMBOS school_id y generation_id en profiles.',
   'reporting',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"data","description":"Perfil con school_id Y generation_id"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"GET /api/reports/filter-options","expectedOutcome":"200 OK con opciones"},{"index":3,"instruction":"Simular falta de generation_id en profiles","expectedOutcome":"Opciones vacías"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"realizar la acción correspondiente","expectedOutcome":"la operación se completa correctamente con opciones"},{"index":3,"instruction":"Simular falta de generation_id en profiles","expectedOutcome":"Opciones vacías"}]'::jsonb,
   2, 4, true, false, false
 ),
 (
@@ -372,7 +372,7 @@ INSERT INTO qa_scenarios (
   'Verificar que unified dashboard NO tiene caso lider_generacion, devuelve solo [userId].',
   'docente_experience',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"data","description":"Hay otros usuarios en la generación"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"GET /api/dashboard/unified","expectedOutcome":"200 OK con solo datos propios"},{"index":3,"instruction":"Verificar que NO se muestran datos de otros usuarios de la generación","expectedOutcome":"Solo userId propio en respuesta"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"realizar la acción correspondiente","expectedOutcome":"la operación se completa correctamente con solo datos propios"},{"index":3,"instruction":"Verificar que NO se muestran datos de otros usuarios de la generación","expectedOutcome":"Solo userId propio en respuesta"}]'::jsonb,
   3, 4, true, false, false
 );
 
@@ -624,7 +624,7 @@ INSERT INTO qa_scenarios (
   'Verificar inconsistencia: detailed funciona, overview/filter-options devuelven vacío.',
   'reporting',
   '[{"type":"role","description":"Lider con generation_id SOLO en user_roles"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión con generation_id en user_roles","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"GET /api/reports/detailed","expectedOutcome":"Funciona"},{"index":3,"instruction":"GET /api/reports/overview","expectedOutcome":"Vacío"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión con generation_id en user_roles","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"realizar la acción correspondiente","expectedOutcome":"Funciona"},{"index":3,"instruction":"realizar la acción correspondiente","expectedOutcome":"Vacío"}]'::jsonb,
   3, 5, true, false, false
 ),
 (
@@ -651,7 +651,7 @@ INSERT INTO qa_scenarios (
   'Verificar que páginas de QA están protegidas (adminOnly).',
   'role_assignment',
   '[{"type":"role","description":"Lider_generacion autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar navegar a /admin/qa-scenarios","expectedOutcome":"Acceso denegado"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Intentar acceder a la página de Escenarios QA","expectedOutcome":"Acceso denegado"}]'::jsonb,
   1, 2, true, false, false
 ),
 (
@@ -660,7 +660,7 @@ INSERT INTO qa_scenarios (
   'Verificar manejo de expiración de sesión.',
   'reporting',
   '[{"type":"role","description":"Lider_generacion autenticado"},{"type":"custom","description":"Sesión va a expirar"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"Reportes cargan"},{"index":3,"instruction":"Esperar expiración de sesión","expectedOutcome":"Redirige a login"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como lider-gen.qa@fne.cl","expectedOutcome":"Dashboard carga"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"Reportes cargan"},{"index":3,"instruction":"Esperar expiración de sesión","expectedOutcome":"Redirige a login"}]'::jsonb,
   3, 5, true, false, false
 ),
 (

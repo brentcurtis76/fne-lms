@@ -25,22 +25,22 @@ Generated: 2026-02-08
 
 | # | Scenario | Route / Action | Expected Result |
 |---|----------|---------------|----------------|
-| PB-1 | Lider de Generacion tries to create a new course | POST /api/admin/courses or navigate to /admin/create-course | Access denied / 403. Sidebar should not show 'Cursos' menu item (adminOnly). |
-| PB-2 | Lider de Generacion tries to create a user | Navigate to /admin/user-management or POST /api/admin/create-user | Access denied / 403. 'Usuarios' menu not visible in sidebar (adminOnly). |
-| PB-3 | Lider de Generacion tries to edit another user's profile | PUT /api/admin/update-user | Access denied / 403. |
-| PB-4 | Lider de Generacion tries to assign roles to users | POST /api/admin/assign-role | Access denied / 403. |
-| PB-5 | Lider de Generacion tries to manage schools | Navigate to /admin/schools | Access denied. 'Escuelas' menu not visible (adminOnly). |
-| PB-6 | Lider de Generacion tries to manage network of schools | Navigate to /admin/network-management | Access denied. 'Redes de Colegios' not visible (adminOnly). |
-| PB-7 | Lider de Generacion tries to create an assessment template | POST /api/admin/assessment-builder/templates | Access denied / 403 (hasAssessmentWritePermission returns false for lider_generacion). |
-| PB-8 | Lider de Generacion tries to VIEW assessment templates | GET /api/admin/assessment-builder/templates | Access denied / 403 (hasAssessmentReadPermission allows only admin+consultor, excludes lider_generacion). |
-| PB-9 | Lider de Generacion tries to access quiz reviews | Navigate to /quiz-reviews or GET /api/quiz-reviews/pending | Access denied. allowedRoles = ['admin', 'consultor', 'equipo_directivo'] at API line 56, excludes lider_generacion. |
-| PB-10 | Lider de Generacion tries to create/edit news items | Navigate to /admin/news or POST /api/admin/news | Access denied. 'Noticias' not visible in sidebar (admin/community_manager only). |
-| PB-11 | Lider de Generacion tries to create/edit events | Navigate to /admin/events | Access denied. 'Eventos' not visible in sidebar (admin/community_manager only). |
-| PB-12 | Lider de Generacion tries to manage contracts | Navigate to /contracts | Access denied. 'Gestión' not visible in sidebar (admin/community_manager only). |
-| PB-13 | Lider de Generacion tries to access system configuration | Navigate to /admin/configuration | Access denied. 'Configuración' not visible (requires manage_system_settings permission). |
-| PB-14 | Lider de Generacion tries to assign consultants | Navigate to /admin/consultant-assignments | Access denied. Menu item is adminOnly. |
-| PB-15 | Lider de Generacion tries to access QA testing pages | Navigate to /admin/qa-scenarios | Access denied. 'QA Testing' not visible (adminOnly). |
-| PB-16 | Lider de Generacion tries to batch-assign courses | POST /api/courses/batch-assign | Access denied. hasAssignPermission checks admin+consultor only (lines 7-18). |
+| PB-1 | Lider de Generacion tries to create a new course | Navegar a la página de Creación de Curso | Se muestra un mensaje de acceso denegado. El menú lateral no muestra 'Cursos' (adminOnly). |
+| PB-2 | Lider de Generacion tries to create a user | Navegar a la página de Gestión de Usuarios | Se muestra un mensaje de acceso denegado. 'Usuarios' no visible en el menú lateral (adminOnly). |
+| PB-3 | Lider de Generacion tries to edit another user's profile | Intentar editar perfil de otro usuario | Se muestra un mensaje de acceso denegado. |
+| PB-4 | Lider de Generacion tries to assign roles to users | Intentar asignar roles a usuarios | Se muestra un mensaje de acceso denegado. |
+| PB-5 | Lider de Generacion tries to manage schools | Navegar a la página de Escuelas | Se muestra un mensaje de acceso denegado. 'Escuelas' no visible (adminOnly). |
+| PB-6 | Lider de Generacion tries to manage network of schools | Navegar a la página de Gestión de Redes | Se muestra un mensaje de acceso denegado. 'Redes de Colegios' no visible (adminOnly). |
+| PB-7 | Lider de Generacion tries to create an assessment template | Intentar crear plantilla de evaluación | Se muestra un mensaje de acceso denegado (hasAssessmentWritePermission retorna false para lider_generacion). |
+| PB-8 | Lider de Generacion tries to VIEW assessment templates | Navegar a la página del Constructor de Evaluaciones | Se muestra un mensaje de acceso denegado (hasAssessmentReadPermission permite solo admin+consultor, excluye lider_generacion). |
+| PB-9 | Lider de Generacion tries to access quiz reviews | Navegar a la página de Revisión de Quizzes | Se muestra un mensaje de acceso denegado. allowedRoles = ['admin', 'consultor', 'equipo_directivo'], excluye lider_generacion. |
+| PB-10 | Lider de Generacion tries to create/edit news items | Navegar a la página de Noticias | Se muestra un mensaje de acceso denegado. 'Noticias' no visible en el menú lateral (admin/community_manager only). |
+| PB-11 | Lider de Generacion tries to create/edit events | Navegar a la página de Eventos | Se muestra un mensaje de acceso denegado. 'Eventos' no visible en el menú lateral (admin/community_manager only). |
+| PB-12 | Lider de Generacion tries to manage contracts | Navegar a la página de Contratos | Se muestra un mensaje de acceso denegado. 'Gestión' no visible en el menú lateral (admin/community_manager only). |
+| PB-13 | Lider de Generacion tries to access system configuration | Navegar a la página de Configuración | Se muestra un mensaje de acceso denegado. 'Configuración' no visible (requiere permisos manage_system_settings). |
+| PB-14 | Lider de Generacion tries to assign consultants | Navegar a la página de Asignación de Consultores | Se muestra un mensaje de acceso denegado. El elemento del menú es adminOnly. |
+| PB-15 | Lider de Generacion tries to access QA testing pages | Navegar a la página de QA Testing | Se muestra un mensaje de acceso denegado. 'QA Testing' no visible (adminOnly). |
+| PB-16 | Lider de Generacion tries to batch-assign courses | Intentar asignar cursos en lote | Se muestra un mensaje de acceso denegado. hasAssignPermission verifica solo admin+consultor. |
 
 ---
 
@@ -48,17 +48,17 @@ Generated: 2026-02-08
 
 | # | Scenario | Route / Action | Expected Result |
 |---|----------|---------------|----------------|
-| CA-1 | Lider de Generacion views their dashboard | Navigate to /dashboard | Dashboard loads with generation-scoped data. |
-| CA-2 | Lider de Generacion views their profile | Navigate to /profile | Profile page loads correctly. |
-| CA-3 | Lider de Generacion views 'Mi Aprendizaje' | Navigate to /mi-aprendizaje | Learning page loads with enrolled courses. |
-| CA-4 | Lider de Generacion views detailed reports | Navigate to /detailed-reports | Reports page loads with generation-level data only (API line 68 allows lider_generacion, lines 650-670 scope by user_roles.generation_id). |
-| CA-5 | Lider de Generacion views report overview | GET /api/reports/overview | Overview loads with generation-scoped data (API line 45 allows lider_generacion, lines 301-315 scope by profiles.generation_id). |
-| CA-6 | Lider de Generacion views report filter options | GET /api/reports/filter-options | Filter options load (API line 36 allows lider_generacion, lines 107-131 require both school_id AND generation_id). |
-| CA-7 | Lider de Generacion views unified dashboard stats | GET /api/dashboard/unified | Dashboard stats load (API line 48 allows lider_generacion, but falls to default case returning only [userId]). |
-| CA-8 | Lider de Generacion accesses assignments page as teacher | Navigate to /assignments | Page loads with teacher view and stats (isTeacher check at line 35 includes lider_generacion). |
-| CA-9 | Lider de Generacion views assignment submissions | Navigate to /assignments/[id]/submissions | Submissions page loads for generation students. |
-| CA-10 | Lider de Generacion accesses Feedback page | Navigate to /docente/assessments | Page loads (no role restriction, queries assessment_instance_assignees by user_id). |
-| CA-11 | Lider de Generacion views user details for generation member | GET /api/reports/user-details | User details load for same-generation users (lines 134-138 check generation_id match via user_roles). |
+| CA-1 | Lider de Generacion views their dashboard | Navegar al Panel Principal | El panel carga con datos del nivel de generación. |
+| CA-2 | Lider de Generacion views their profile | Navegar a la página de Perfil | La página de perfil carga correctamente. |
+| CA-3 | Lider de Generacion views 'Mi Aprendizaje' | Navegar a la página de Mi Aprendizaje | La página carga con cursos inscritos. |
+| CA-4 | Lider de Generacion views detailed reports | Navegar a la página de Reportes Detallados | La página de reportes carga solo con datos del nivel de generación. |
+| CA-5 | Lider de Generacion views report overview | Cargar resumen de reportes | El resumen carga con datos del nivel de generación. |
+| CA-6 | Lider de Generacion views report filter options | Abrir opciones de filtro en reportes | Las opciones de filtro cargan (requiere tanto school_id como generation_id). |
+| CA-7 | Lider de Generacion views unified dashboard stats | Cargar estadísticas del panel unificado | Las estadísticas del panel cargan (el sistema permite acceso para lider_generacion). |
+| CA-8 | Lider de Generacion accesses assignments page as teacher | Navegar a la página de Tareas | La página carga con vista de profesor y estadísticas. |
+| CA-9 | Lider de Generacion views assignment submissions | Navegar a la página de Envíos de Tareas | La página de envíos carga para estudiantes de la generación. |
+| CA-10 | Lider de Generacion accesses Feedback page | Navegar a la página de Feedback | La página carga (sin restricción de rol, consulta por user_id). |
+| CA-11 | Lider de Generacion views user details for generation member | Ver detalles de usuario de la misma generación | Los detalles del usuario cargan para usuarios de la misma generación. |
 
 ---
 
@@ -67,7 +67,7 @@ Generated: 2026-02-08
 | # | Scenario | Expected Result |
 |---|----------|-----------------|
 | GS-1 | Lider de Generacion views reports — only sees generation data | Reports API returns data filtered by generation_id. No data from other generations visible. |
-| GS-2 | Lider de Generacion tries to view reports for different generation (URL manipulation) | API returns 403 or empty data. Generation filter enforced server-side. |
+| GS-2 | Lider de Generacion tries to view reports for different generation (URL manipulation) | El sistema muestra un mensaje de acceso denegado o datos vacíos. Filtro de generación aplicado server-side. |
 | GS-3 | Lider de Generacion detailed report vs overview report consistency | Both detailed.ts and overview.ts should scope to same generation, but detailed uses user_roles.generation_id while overview uses profiles.generation_id (INCONSISTENCY per Architect review). |
 | GS-4 | Lider de Generacion filter-options requires both school AND generation | Filter-options API requires BOTH school_id AND generation_id from profiles (lines 107-131). If either missing, returns empty. |
 | GS-5 | Lider de Generacion unified dashboard data scope | Unified dashboard API has NO lider_generacion case in switch, defaults to [userId] only (not generation-scoped). |

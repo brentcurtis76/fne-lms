@@ -1,0 +1,69 @@
+-- ============================================================================
+-- Migration: Fix remaining QA jargon in community_manager + consultor + admin
+-- ============================================================================
+-- Date: 2026-02-10
+-- Description: The original migration (20260210_rewrite_qa_steps_tester_friendly.sql)
+--              had name mismatches for some community_manager, consultor, and admin
+--              scenarios. The seed file names didn't include the "CA-5:" prefix
+--              that exists in the database. This fix migration corrects those 25 rows.
+-- ============================================================================
+
+BEGIN;
+
+-- === COMMUNITY_MANAGER fixes (15 scenarios) ===
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Click en botón Nueva Noticia","expectedOutcome":"Modal de creación aparece"},{"index":2,"instruction":"Llenar título, contenido, fecha","expectedOutcome":"Formulario válido"},{"index":3,"instruction":"Click en Publicar","expectedOutcome":"Aparece un mensaje de éxito y el artículo se muestra en la lista"},{"index":4,"instruction":"Verificar que el artículo aparece en la lista","expectedOutcome":"Artículo visible"}]'::jsonb WHERE name = 'CA-5: CM puede crear noticias' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Navegar a la página de Noticias","expectedOutcome":"Lista de noticias visible"},{"index":2,"instruction":"Click en Editar en un artículo","expectedOutcome":"Modal de edición aparece con datos"},{"index":3,"instruction":"Modificar título o contenido","expectedOutcome":"Cambios reflejados en formulario"},{"index":4,"instruction":"Click en Guardar","expectedOutcome":"Aparece un mensaje de éxito y los cambios se guardan correctamente"}]'::jsonb WHERE name = 'CA-6: CM puede editar noticias' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Navegar a la página de Noticias","expectedOutcome":"Lista visible"},{"index":2,"instruction":"Click en Eliminar en un artículo","expectedOutcome":"Modal de confirmación aparece"},{"index":3,"instruction":"Confirmar eliminación","expectedOutcome":"Aparece un mensaje de éxito y el artículo es eliminado"},{"index":4,"instruction":"Verificar que el artículo ya no aparece","expectedOutcome":"Artículo removido de lista"}]'::jsonb WHERE name = 'CA-7: CM puede eliminar noticias' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Verificar sidebar: Gestión > Propuestas Pasantías","expectedOutcome":"Visible si CM tiene permiso de ver propuestas de pasantías"},{"index":2,"instruction":"Navegar a la página de Cotizaciones","expectedOutcome":"Página carga exitosamente"},{"index":3,"instruction":"Verificar que se muestra la lista de cotizaciones","expectedOutcome":"Lista de cotizaciones visible"}]'::jsonb WHERE name = 'CA-10: CM puede listar cotizaciones' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Click en Nueva Cotización","expectedOutcome":"Navega a la página de creación de cotización"},{"index":2,"instruction":"Llenar formulario de cotización","expectedOutcome":"Formulario válido"},{"index":3,"instruction":"Click en Crear","expectedOutcome":"Aparece un mensaje de éxito y la cotización se crea correctamente"},{"index":4,"instruction":"Verificar que la cotización aparece en lista","expectedOutcome":"Cotización creada visible"}]'::jsonb WHERE name = 'CA-11: CM puede crear cotizaciones' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Navegar a la página de Cotizaciones","expectedOutcome":"Lista visible"},{"index":2,"instruction":"Click en Editar en una cotización","expectedOutcome":"Navega a la página de edición de cotización"},{"index":3,"instruction":"Modificar datos","expectedOutcome":"Formulario actualizado"},{"index":4,"instruction":"Click en Guardar","expectedOutcome":"Aparece un mensaje de éxito y los cambios se guardan correctamente"}]'::jsonb WHERE name = 'CA-12: CM puede editar cotizaciones' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Navegar a la página de Cotizaciones","expectedOutcome":"Lista visible"},{"index":2,"instruction":"Click en Eliminar en una cotización","expectedOutcome":"Modal de confirmación aparece"},{"index":3,"instruction":"Confirmar eliminación","expectedOutcome":"Aparece un mensaje de éxito y la cotización es eliminada"},{"index":4,"instruction":"Verificar que la cotización ya no aparece","expectedOutcome":"Cotización removida"}]'::jsonb WHERE name = 'CA-13: CM puede eliminar cotizaciones' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Abrir modal de edición de noticia","expectedOutcome":"Modal abierto"},{"index":2,"instruction":"Simular expiración de sesión (borrar cookies o esperar timeout)","expectedOutcome":"Sesión expirada"},{"index":3,"instruction":"Intentar guardar cambios","expectedOutcome":"El sistema muestra un error de sesión expirada"},{"index":4,"instruction":"Verificar redirect","expectedOutcome":"Usuario redirigido a la página de inicio de sesión"}]'::jsonb WHERE name = 'EC-3: CM sesión expira durante edición' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Intentar acceder directamente a la página de Gestión de Cursos escribiendo la URL en el navegador","expectedOutcome":"Acceso denegado (error de permisos)"},{"index":2,"instruction":"Intentar acceder a la página de Crear Usuario escribiendo la URL","expectedOutcome":"Acceso denegado"},{"index":3,"instruction":"Verificar que las restricciones de rol funcionan correctamente","expectedOutcome":"Todos los accesos a funciones de solo-admin son denegados"}]'::jsonb WHERE name = 'EC-4: CM accede API directamente (URL)' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Navegar al dashboard y verificar sidebar","expectedOutcome":"El menú Cursos NO debe aparecer en el sidebar"},{"index":2,"instruction":"Intentar navegar directamente a la página de Crear Curso escribiendo la URL","expectedOutcome":"Usuario es redirigido al dashboard o recibe error de permisos"},{"index":3,"instruction":"Verificar que no hay forma de acceder a la creación de cursos","expectedOutcome":"Acceso denegado completamente"}]'::jsonb WHERE name = 'PB-1: CM no puede crear cursos' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Verificar sidebar en el dashboard","expectedOutcome":"El menú Usuarios NO aparece"},{"index":2,"instruction":"Intentar navegar a la página de Gestión de Usuarios escribiendo la URL","expectedOutcome":"Redirigido al dashboard o error de permisos"},{"index":3,"instruction":"Verificar que no hay forma de acceder a la gestión de usuarios","expectedOutcome":"Acceso denegado completamente"}]'::jsonb WHERE name = 'PB-2: CM no puede crear usuarios' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Obtener ID de otro usuario del sistema","expectedOutcome":"ID obtenido correctamente"},{"index":2,"instruction":"Intentar acceder a la página de edición de perfil de otro usuario","expectedOutcome":"Acceso denegado (error de permisos)"}]'::jsonb WHERE name = 'PB-3: CM no puede editar perfiles ajenos' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Obtener ID de usuario sin rol","expectedOutcome":"ID obtenido"},{"index":2,"instruction":"Intentar asignar un rol a un usuario desde la interfaz o URL directa","expectedOutcome":"Acceso denegado (error de permisos)"}]'::jsonb WHERE name = 'PB-4: CM no puede asignar roles' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Intentar acceder a la página del Constructor de Evaluaciones","expectedOutcome":"Acceso denegado (sin permisos de escritura de evaluaciones)"}]'::jsonb WHERE name = 'PB-7: CM no puede crear plantillas evaluación' AND role_required = 'community_manager';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Verificar política RLS de news_articles DELETE para community_manager","expectedOutcome":"Política RLS funciona según diseño"}]'::jsonb WHERE name = 'RLS-4: news_articles DELETE' AND role_required = 'community_manager';
+
+-- === CONSULTOR fixes (6 scenarios) ===
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Dashboard cargado"},{"index":2,"instruction":"Navegar a la página de Asignación de Cursos y asignar cursos a estudiantes","expectedOutcome":"Asignación exitosa"}]'::jsonb WHERE name = 'CA-13: Consultor asigna cursos a estudiantes' AND role_required = 'consultor';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Dashboard cargado"},{"index":2,"instruction":"Intentar acceder a la página de edición de perfil de otro usuario","expectedOutcome":"Acceso denegado (error de permisos)"}]'::jsonb WHERE name = 'PB-3: Consultor intenta editar perfil de otro usuario' AND role_required = 'consultor';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Dashboard cargado"},{"index":2,"instruction":"Intentar acceder a la página de Asignación de Roles","expectedOutcome":"Acceso denegado (error de permisos)"}]'::jsonb WHERE name = 'PB-4: Consultor intenta asignar roles' AND role_required = 'consultor';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Dashboard cargado"},{"index":2,"instruction":"Intentar acceder a la página del Constructor de Evaluaciones para crear plantilla","expectedOutcome":"Acceso denegado (error de permisos)"},{"index":3,"instruction":"Verificar que botón Crear no aparece en la página del Constructor de Evaluaciones","expectedOutcome":"No visible"}]'::jsonb WHERE name = 'PB-7: Consultor intenta crear plantilla de evaluación' AND role_required = 'consultor';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Dashboard cargado"},{"index":2,"instruction":"Navegar a la página de Noticias","expectedOutcome":"Acceso denegado en UI"},{"index":3,"instruction":"Intentar acceder a la creación de noticias desde la URL directa","expectedOutcome":"FALLO: El sistema permite acceso en vez de denegarlo"},{"index":4,"instruction":"Verificar que Noticias NO aparece en sidebar","expectedOutcome":"No visible"}]'::jsonb WHERE name = 'PB-8: Consultor intenta crear/editar noticias' AND role_required = 'consultor';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Dashboard cargado"},{"index":2,"instruction":"Intentar acceder a reportes de otra escuela cambiando el ID en la URL","expectedOutcome":"Acceso denegado o datos vacíos"},{"index":3,"instruction":"Verificar que el filtro es del lado servidor","expectedOutcome":"No se pueden expandir los datos más allá de la escuela asignada"}]'::jsonb WHERE name = 'SS-2: Manipulación de URL para otra escuela denegada' AND role_required = 'consultor';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Dashboard cargado"},{"index":2,"instruction":"Navegar a la página de Contexto Transversal de otra escuela cambiando el ID en la URL","expectedOutcome":"FALLO: Datos de otra escuela son accesibles"},{"index":3,"instruction":"Intentar modificar datos en el Contexto Transversal de otra escuela","expectedOutcome":"FALLO: Escritura permitida en otra escuela"}]'::jsonb WHERE name = 'SS-3: Contexto Transversal de otra escuela (BUG: acceso permitido)' AND role_required = 'consultor';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Dashboard cargado"},{"index":2,"instruction":"Navegar a la página del Constructor de Evaluaciones y ver plantillas","expectedOutcome":"Todas las plantillas publicadas visibles"},{"index":3,"instruction":"Verificar que son las mismas plantillas que ve un admin","expectedOutcome":"Datos idénticos, modo solo lectura"}]'::jsonb WHERE name = 'SS-4: Plantillas de evaluación son globales (no filtradas por escuela)' AND role_required = 'consultor';
+
+-- === ADMIN fixes (2 scenarios) ===
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Crear contrato nuevo desde la interfaz","expectedOutcome":"El sistema permite la creación (política de solo-admin)"},{"index":2,"instruction":"Leer contratos existentes","expectedOutcome":"Se ven todos los contratos"},{"index":3,"instruction":"Editar un contrato existente","expectedOutcome":"El sistema permite la edición (solo-admin)"},{"index":4,"instruction":"Eliminar un contrato","expectedOutcome":"El sistema permite la eliminación (solo-admin)"}]'::jsonb WHERE name = 'CRUD-10: Admin CRUD completo en contratos' AND role_required = 'admin';
+
+UPDATE qa_scenarios SET steps = '[{"index":1,"instruction":"Verificar política de acceso para admin y community_manager en noticias","expectedOutcome":"La política permite crear/editar/eliminar para admin"},{"index":2,"instruction":"Verificar que la funcionalidad opera correctamente","expectedOutcome":"Admin está en los roles permitidos"},{"index":3,"instruction":"Intentar crear un artículo de noticias directamente","expectedOutcome":"Aparece un mensaje de éxito (admin permitido)"}]'::jsonb WHERE name = 'RG-4: Admin INSERT en news_articles (migración consultor fix)' AND role_required = 'admin';
+
+COMMIT;

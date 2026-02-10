@@ -50,16 +50,16 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM no puede crear cursos',
-  'Verificar que community_manager no puede acceder a /admin/create-course ni crear cursos vía API. El menú "Cursos" no debe ser visible en sidebar.',
+  'Verificar que community_manager no puede acceder a la página de Creación de Curso ni crear cursos vía API. El menú "Cursos" no debe ser visible en sidebar.',
   'course_management',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
     {"type":"navigation","description":"Usuario autenticado en el sistema"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /dashboard y verificar sidebar","expectedOutcome":"El menú \"Cursos\" NO debe aparecer en el sidebar"},
-    {"index":2,"instruction":"Intentar navegar directamente a /admin/create-course","expectedOutcome":"Usuario es redirigido a /dashboard o recibe error 403"},
-    {"index":3,"instruction":"Intentar POST /api/admin/courses con datos de curso","expectedOutcome":"API devuelve 403 Forbidden"}
+    {"index":1,"instruction":"Navegar al Panel Principal y verificar la barra lateral","expectedOutcome":"El menú \"Cursos\" NO debe aparecer en el sidebar"},
+    {"index":2,"instruction":"Intentar acceder directamente a la página de Creación de Curso","expectedOutcome":"El usuario es redirigido al Panel Principal o recibe un mensaje de error"},
+    {"index":3,"instruction":"Intentar realizar la acción con datos de curso","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"}
   ]',
   1,
   5,
@@ -79,9 +79,9 @@ INSERT INTO qa_scenarios (
     {"type":"navigation","description":"Usuario autenticado en el sistema"}
   ]',
   '[
-    {"index":1,"instruction":"Verificar sidebar en /dashboard","expectedOutcome":"El menú \"Usuarios\" NO aparece"},
-    {"index":2,"instruction":"Intentar navegar a /admin/user-management","expectedOutcome":"Redirigido o 403"},
-    {"index":3,"instruction":"Intentar POST /api/admin/users con datos de usuario","expectedOutcome":"API devuelve 403"}
+    {"index":1,"instruction":"Verificar la barra lateral en el Panel Principal","expectedOutcome":"El menú \"Usuarios\" NO aparece"},
+    {"index":2,"instruction":"Intentar acceder a la página de Gestión de Usuarios","expectedOutcome":"Redirigido o"},
+    {"index":3,"instruction":"Intentar realizar la acción con datos de usuario","expectedOutcome":"La operación se completa correctamente"}
   ]',
   1,
   5,
@@ -102,7 +102,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Obtener ID de otro usuario del sistema","expectedOutcome":"ID obtenido correctamente"},
-    {"index":2,"instruction":"Intentar PUT /api/admin/users/[id] con cambios","expectedOutcome":"API devuelve 403 Forbidden"}
+    {"index":2,"instruction":"Intentar realizar la acción con cambios","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"}
   ]',
   1,
   5,
@@ -115,7 +115,7 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM no puede asignar roles',
-  'Verificar que community_manager no puede asignar roles a usuarios vía /api/admin/assign-role.',
+  'Verificar que community_manager no puede asignar roles a usuarios.',
   'role_assignment',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
@@ -123,7 +123,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Obtener ID de usuario sin rol","expectedOutcome":"ID obtenido"},
-    {"index":2,"instruction":"Intentar POST /api/admin/assign-role con role_type: \"docente\"","expectedOutcome":"API devuelve 403 o 401"}
+    {"index":2,"instruction":"Intentar asignar el rol de docente a un usuario desde la interfaz","expectedOutcome":"El sistema muestra un mensaje de error indicando que no tiene permisos"}
   ]',
   1,
   5,
@@ -144,7 +144,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"El menú \"Escuelas\" NO aparece"},
-    {"index":2,"instruction":"Intentar navegar a /admin/schools","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Escuelas","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -165,7 +165,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"\"Redes de Colegios\" NO aparece"},
-    {"index":2,"instruction":"Intentar navegar a /admin/network-management","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Gestión de Redes","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -185,7 +185,7 @@ INSERT INTO qa_scenarios (
     {"type":"data","description":"Sistema tiene plantillas de evaluación existentes"}
   ]',
   '[
-    {"index":1,"instruction":"Intentar POST /api/admin/assessment-builder/templates con datos de plantilla","expectedOutcome":"API devuelve 403 (hasAssessmentWritePermission = false)"}
+    {"index":1,"instruction":"Intentar realizar la acción con datos de plantilla","expectedOutcome":"La operación se completa correctamente"}
   ]',
   1,
   5,
@@ -198,7 +198,7 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM no puede revisar quizzes',
-  'Verificar que community_manager no puede acceder a /quiz-reviews. El menú "Revisión de Quizzes" no debe ser visible (consultantOnly).',
+  'Verificar que community_manager no puede acceder a la página de Revisión de Quizzes. El menú "Revisión de Quizzes" no debe ser visible (consultantOnly).',
   'quiz_submission',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
@@ -206,7 +206,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"\"Revisión de Quizzes\" NO aparece (consultantOnly: true)"},
-    {"index":2,"instruction":"Intentar navegar a /quiz-reviews","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Revisión de Quizzes","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -219,7 +219,7 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM no puede acceder Procesos Cambio',
-  'Verificar que community_manager no puede acceder a /admin/assessment-builder. El menú "Procesos de Cambio" no debe ser visible (consultantOnly).',
+  'Verificar que community_manager no puede acceder a la página del Constructor de Evaluaciones. El menú "Procesos de Cambio" no debe ser visible (consultantOnly).',
   'assessment_builder',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
@@ -227,7 +227,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"\"Procesos de Cambio\" NO aparece"},
-    {"index":2,"instruction":"Intentar navegar a /admin/assessment-builder","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Constructor de Evaluaciones","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -240,7 +240,7 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM no puede acceder Contexto Transversal',
-  'Verificar que community_manager no puede acceder a /school/transversal-context (consultantOnly).',
+  'Verificar que community_manager no puede acceder a la página de Contexto Transversal (consultantOnly).',
   'assessment_builder',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
@@ -248,7 +248,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar que el menú Contexto Transversal NO aparece en sidebar","expectedOutcome":"No visible (child de Procesos de Cambio)"},
-    {"index":2,"instruction":"Intentar navegar a /school/transversal-context","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Escuela/transversal-context","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -261,7 +261,7 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM no puede acceder Plan Migración',
-  'Verificar que community_manager no puede acceder a /school/migration-plan (consultantOnly).',
+  'Verificar que community_manager no puede acceder a la página del Plan de Migración (consultantOnly).',
   'assessment_builder',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
@@ -269,7 +269,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar que Plan de Migración NO aparece en sidebar","expectedOutcome":"No visible"},
-    {"index":2,"instruction":"Intentar navegar a /school/migration-plan","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Escuela/migration-plan","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -290,7 +290,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"Menú \"Consultorías\" NO aparece"},
-    {"index":2,"instruction":"Intentar navegar a /admin/consultant-assignments","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Asignación de Consultores","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -303,7 +303,7 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM no puede acceder Reportes',
-  'Verificar que community_manager no puede acceder a /detailed-reports. El menú "Reportes" no debe ser visible (consultantOnly).',
+  'Verificar que community_manager no puede acceder a la página de Reportes Detallados. El menú "Reportes" no debe ser visible (consultantOnly).',
   'reporting',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
@@ -311,7 +311,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"\"Reportes\" NO aparece"},
-    {"index":2,"instruction":"Intentar navegar a /detailed-reports","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Reportes Detallados","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -332,7 +332,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"\"Vías de Transformación\" NO aparece"},
-    {"index":2,"instruction":"Intentar navegar a /vias-transformacion","expectedOutcome":"Redirigido a /dashboard (ALLOWED_ROLES check)"}
+    {"index":2,"instruction":"Intentar acceder a la página de Vias Transformacion","expectedOutcome":"Redirigido al Panel Principal (ALLOWED_ROLES check)"}
   ]',
   2,
   5,
@@ -345,7 +345,7 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM no puede gestionar Rutas Aprendizaje',
-  'Verificar que community_manager no puede acceder a /admin/learning-paths. El menú "Rutas de Aprendizaje" no debe ser visible (adminOnly).',
+  'Verificar que community_manager no puede acceder a la página de Rutas de Aprendizaje. El menú "Rutas de Aprendizaje" no debe ser visible (adminOnly).',
   'course_management',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
@@ -353,7 +353,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"\"Rutas de Aprendizaje\" NO aparece"},
-    {"index":2,"instruction":"Intentar navegar a /admin/learning-paths","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Rutas de Aprendizaje","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -374,7 +374,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"\"Matriz de Asignaciones\" NO aparece"},
-    {"index":2,"instruction":"Intentar navegar a /admin/assignment-matrix","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Assignment Matrix","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -387,7 +387,7 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM no puede acceder QA Testing',
-  'Verificar que community_manager no puede acceder a /admin/qa. El menú "QA Testing" no debe ser visible (adminOnly).',
+  'Verificar que community_manager no puede acceder a la página de QA Testing. El menú "QA Testing" no debe ser visible (adminOnly).',
   'navigation',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
@@ -395,7 +395,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"\"QA Testing\" NO aparece"},
-    {"index":2,"instruction":"Intentar navegar a /admin/qa","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Qa","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -416,7 +416,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"\"Roles y Permisos\" NO aparece"},
-    {"index":2,"instruction":"Intentar navegar a /admin/role-management","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Role Management","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -437,7 +437,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar que Asignación de Consultores NO aparece en sidebar","expectedOutcome":"No visible (adminOnly child)"},
-    {"index":2,"instruction":"Intentar navegar a /admin/consultant-assignments","expectedOutcome":"Redirigido o 403"}
+    {"index":2,"instruction":"Intentar acceder a la página de Asignación de Consultores","expectedOutcome":"Redirigido o"}
   ]',
   2,
   5,
@@ -460,14 +460,14 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM puede ver su dashboard',
-  'Verificar que community_manager puede acceder a /dashboard sin restricciones.',
+  'Verificar que community_manager puede acceder al Panel Principal sin restricciones.',
   'navigation',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
     {"type":"navigation","description":"Usuario autenticado en el sistema"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /dashboard","expectedOutcome":"Dashboard carga correctamente sin errores"},
+    {"index":1,"instruction":"Navegar a la página de Panel Principal","expectedOutcome":"Dashboard carga correctamente sin errores"},
     {"index":2,"instruction":"Verificar que el sidebar muestra Mi Panel","expectedOutcome":"Mi Panel visible y activo"}
   ]',
   3,
@@ -488,7 +488,7 @@ INSERT INTO qa_scenarios (
     {"type":"navigation","description":"Usuario autenticado en el sistema"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /profile","expectedOutcome":"Página de perfil carga correctamente"},
+    {"index":1,"instruction":"Navegar a la página de Perfil","expectedOutcome":"Página de perfil carga correctamente"},
     {"index":2,"instruction":"Verificar que se muestra información personal del usuario","expectedOutcome":"Nombre, email, avatar visibles"}
   ]',
   3,
@@ -509,7 +509,7 @@ INSERT INTO qa_scenarios (
     {"type":"navigation","description":"Usuario autenticado en el sistema"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /mi-aprendizaje","expectedOutcome":"Página carga con cursos enrollados"},
+    {"index":1,"instruction":"Navegar a la página de Mi Aprendizaje","expectedOutcome":"Página carga con cursos enrollados"},
     {"index":2,"instruction":"Verificar que el sidebar muestra Mi Aprendizaje","expectedOutcome":"Visible con children (Mis Cursos, Mis Tareas)"}
   ]',
   3,
@@ -531,7 +531,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"\"Noticias\" aparece en el sidebar"},
-    {"index":2,"instruction":"Click en Noticias en sidebar","expectedOutcome":"Navega a /admin/news exitosamente"},
+    {"index":2,"instruction":"Click en Noticias en sidebar","expectedOutcome":"Navega a la página de Noticias exitosamente"},
     {"index":3,"instruction":"Verificar que la página carga","expectedOutcome":"Lista de noticias visible con botón Nueva Noticia"}
   ]',
   2,
@@ -549,12 +549,12 @@ INSERT INTO qa_scenarios (
   'navigation',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
-    {"type":"navigation","description":"Usuario en /admin/news"}
+    {"type":"navigation","description":"Usuario en la página de Noticias"}
   ]',
   '[
     {"index":1,"instruction":"Click en botón Nueva Noticia","expectedOutcome":"Modal de creación aparece"},
     {"index":2,"instruction":"Llenar título, contenido, fecha","expectedOutcome":"Formulario válido"},
-    {"index":3,"instruction":"Click en Publicar","expectedOutcome":"POST /api/admin/news exitoso, artículo creado"},
+    {"index":3,"instruction":"Click en Publicar","expectedOutcome":"Aparece un mensaje de éxito y el artículo se muestra en la lista"},
     {"index":4,"instruction":"Verificar que el artículo aparece en la lista","expectedOutcome":"Artículo visible"}
   ]',
   2,
@@ -575,10 +575,10 @@ INSERT INTO qa_scenarios (
     {"type":"data","description":"Existe al menos un artículo de noticias"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /admin/news","expectedOutcome":"Lista de noticias visible"},
+    {"index":1,"instruction":"Navegar a la página de Noticias","expectedOutcome":"Lista de noticias visible"},
     {"index":2,"instruction":"Click en Editar en un artículo","expectedOutcome":"Modal de edición aparece con datos"},
     {"index":3,"instruction":"Modificar título o contenido","expectedOutcome":"Cambios reflejados en formulario"},
-    {"index":4,"instruction":"Click en Guardar","expectedOutcome":"PUT /api/admin/news exitoso, cambios guardados"}
+    {"index":4,"instruction":"Click en Guardar","expectedOutcome":"Aparece un mensaje de éxito y los cambios se reflejan en la lista"}
   ]',
   2,
   8,
@@ -598,9 +598,9 @@ INSERT INTO qa_scenarios (
     {"type":"data","description":"Existe al menos un artículo de noticias"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /admin/news","expectedOutcome":"Lista visible"},
+    {"index":1,"instruction":"Navegar a la página de Noticias","expectedOutcome":"Lista visible"},
     {"index":2,"instruction":"Click en Eliminar en un artículo","expectedOutcome":"Modal de confirmación aparece"},
-    {"index":3,"instruction":"Confirmar eliminación","expectedOutcome":"DELETE /api/admin/news exitoso, artículo eliminado"},
+    {"index":3,"instruction":"Confirmar eliminación","expectedOutcome":"El artículo se elimina y desaparece de la lista"},
     {"index":4,"instruction":"Verificar que el artículo ya no aparece","expectedOutcome":"Artículo removido de lista"}
   ]',
   2,
@@ -622,7 +622,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar","expectedOutcome":"\"Eventos\" aparece en el sidebar"},
-    {"index":2,"instruction":"Click en Eventos","expectedOutcome":"Navega a /admin/events exitosamente"},
+    {"index":2,"instruction":"Click en Eventos","expectedOutcome":"Navega a la página de Eventos exitosamente"},
     {"index":3,"instruction":"Verificar que la página carga","expectedOutcome":"Lista de eventos visible"}
   ]',
   2,
@@ -640,7 +640,7 @@ INSERT INTO qa_scenarios (
   'navigation',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
-    {"type":"navigation","description":"Usuario en /admin/events"}
+    {"type":"navigation","description":"Usuario en la página de Eventos"}
   ]',
   '[
     {"index":1,"instruction":"Click en Nuevo Evento","expectedOutcome":"Modal de creación aparece"},
@@ -659,7 +659,7 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM puede listar cotizaciones',
-  'Verificar que community_manager puede ver todas las cotizaciones vía GET /api/quotes/list. Line 25: role check.',
+  'Verificar que community_manager puede ver todas las cotizaciones.',
   'navigation',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
@@ -667,8 +667,8 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar sidebar: Gestión > Propuestas Pasantías","expectedOutcome":"Visible SI CM tiene permission view_internship_proposals_*"},
-    {"index":2,"instruction":"Navegar a /admin/quotes","expectedOutcome":"Página carga exitosamente"},
-    {"index":3,"instruction":"Verificar que GET /api/quotes/list retorna datos","expectedOutcome":"Lista de cotizaciones visible (todas, sin filtro de school)"}
+    {"index":2,"instruction":"Navegar a la página de Quotes","expectedOutcome":"Página carga exitosamente"},
+    {"index":3,"instruction":"Verificar que realizar la acción correspondiente retorna datos","expectedOutcome":"Lista de cotizaciones visible (todas, sin filtro de school)"}
   ]',
   2,
   5,
@@ -681,16 +681,16 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM puede crear cotizaciones',
-  'Verificar que community_manager puede crear cotizaciones vía POST /api/quotes/create. Role check line 25.',
+  'Verificar que community_manager puede crear cotizaciones.',
   'navigation',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
-    {"type":"navigation","description":"Usuario en /admin/quotes"}
+    {"type":"navigation","description":"Usuario en la página de Cotizaciones"}
   ]',
   '[
-    {"index":1,"instruction":"Click en Nueva Cotización","expectedOutcome":"Navega a /admin/quotes/new"},
+    {"index":1,"instruction":"Click en Nueva Cotización","expectedOutcome":"Navega a la página de Nueva Cotización"},
     {"index":2,"instruction":"Llenar formulario de cotización","expectedOutcome":"Formulario válido"},
-    {"index":3,"instruction":"Click en Crear","expectedOutcome":"POST /api/quotes/create exitoso"},
+    {"index":3,"instruction":"Click en Crear","expectedOutcome":"Aparece un mensaje de éxito y la cotización se muestra en la lista"},
     {"index":4,"instruction":"Verificar que la cotización aparece en lista","expectedOutcome":"Cotización creada visible"}
   ]',
   2,
@@ -704,17 +704,17 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM puede editar cotizaciones',
-  'Verificar que community_manager puede editar cotizaciones vía PUT /api/quotes/[id]. Role check lines 131, 262.',
+  'Verificar que community_manager puede editar cotizaciones.',
   'navigation',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
     {"type":"data","description":"Existe al menos una cotización"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /admin/quotes","expectedOutcome":"Lista visible"},
-    {"index":2,"instruction":"Click en Editar en una cotización","expectedOutcome":"Navega a /admin/quotes/[id]/edit"},
+    {"index":1,"instruction":"Navegar a la página de Quotes","expectedOutcome":"Lista visible"},
+    {"index":2,"instruction":"Click en Editar en una cotización","expectedOutcome":"Navega a la página de Edición de Cotización"},
     {"index":3,"instruction":"Modificar datos","expectedOutcome":"Formulario actualizado"},
-    {"index":4,"instruction":"Click en Guardar","expectedOutcome":"PUT /api/quotes/[id] exitoso"}
+    {"index":4,"instruction":"Click en Guardar","expectedOutcome":"Aparece un mensaje de éxito y los cambios se guardan correctamente"}
   ]',
   2,
   10,
@@ -727,16 +727,16 @@ INSERT INTO qa_scenarios (
 (
   'community_manager',
   'CM puede eliminar cotizaciones',
-  'Verificar que community_manager puede eliminar cotizaciones vía DELETE /api/quotes/[id]. Role check line 262.',
+  'Verificar que community_manager puede eliminar cotizaciones.',
   'navigation',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
     {"type":"data","description":"Existe al menos una cotización"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /admin/quotes","expectedOutcome":"Lista visible"},
+    {"index":1,"instruction":"Navegar a la página de Quotes","expectedOutcome":"Lista visible"},
     {"index":2,"instruction":"Click en Eliminar en una cotización","expectedOutcome":"Modal de confirmación aparece"},
-    {"index":3,"instruction":"Confirmar eliminación","expectedOutcome":"DELETE /api/quotes/[id] exitoso"},
+    {"index":3,"instruction":"Confirmar eliminación","expectedOutcome":"La cotización se elimina y desaparece de la lista"},
     {"index":4,"instruction":"Verificar que la cotización ya no aparece","expectedOutcome":"Cotización removida"}
   ]',
   2,
@@ -789,7 +789,7 @@ INSERT INTO qa_scenarios (
     {"type":"data","description":"Existen noticias asociadas a diferentes escuelas"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /admin/news","expectedOutcome":"Página carga"},
+    {"index":1,"instruction":"Navegar a la página de Noticias","expectedOutcome":"Página carga"},
     {"index":2,"instruction":"Verificar lista de noticias","expectedOutcome":"CM ve TODAS las noticias, independiente de school_id"},
     {"index":3,"instruction":"Verificar que no hay filtro de escuela activo","expectedOutcome":"No hay selector de escuela en UI"}
   ]',
@@ -808,7 +808,7 @@ INSERT INTO qa_scenarios (
   'navigation',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
-    {"type":"navigation","description":"Usuario en /admin/news"}
+    {"type":"navigation","description":"Usuario en la página de Noticias"}
   ]',
   '[
     {"index":1,"instruction":"Click en Nueva Noticia","expectedOutcome":"Modal aparece"},
@@ -833,7 +833,7 @@ INSERT INTO qa_scenarios (
     {"type":"data","description":"Existen eventos en el sistema"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /admin/events","expectedOutcome":"Página carga"},
+    {"index":1,"instruction":"Navegar a la página de Eventos","expectedOutcome":"Página carga"},
     {"index":2,"instruction":"Verificar lista de eventos","expectedOutcome":"CM ve TODOS los eventos sin filtro"},
     {"index":3,"instruction":"Verificar que no hay filtro organizacional","expectedOutcome":"No hay selector de escuela/generación"}
   ]',
@@ -852,7 +852,7 @@ INSERT INTO qa_scenarios (
   'navigation',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
-    {"type":"navigation","description":"Usuario en /admin/events"}
+    {"type":"navigation","description":"Usuario en la página de Eventos"}
   ]',
   '[
     {"index":1,"instruction":"Click en Nuevo Evento","expectedOutcome":"Modal aparece"},
@@ -877,7 +877,7 @@ INSERT INTO qa_scenarios (
     {"type":"data","description":"Existen cotizaciones en el sistema"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /admin/quotes","expectedOutcome":"Página carga"},
+    {"index":1,"instruction":"Navegar a la página de Quotes","expectedOutcome":"Página carga"},
     {"index":2,"instruction":"Verificar lista de cotizaciones","expectedOutcome":"CM ve TODAS las cotizaciones sin filtro"},
     {"index":3,"instruction":"Verificar que no hay filtro de escuela","expectedOutcome":"Visibilidad global"}
   ]',
@@ -899,7 +899,7 @@ INSERT INTO qa_scenarios (
     {"type":"data","description":"Existen rendiciones en el sistema"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /expense-reports","expectedOutcome":"Página carga"},
+    {"index":1,"instruction":"Navegar a la página de Expense Reports","expectedOutcome":"Página carga"},
     {"index":2,"instruction":"Verificar lista de rendiciones","expectedOutcome":"CM ve solo reportes donde: user_id = CM.id OR existe en expense_report_access"},
     {"index":3,"instruction":"Intentar ver reporte de otro usuario sin acceso concedido","expectedOutcome":"No aparece en lista (access table model)"}
   ]',
@@ -930,7 +930,7 @@ INSERT INTO qa_scenarios (
     {"type":"role","description":"Usuario con rol community_manager activo"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar a /dashboard","expectedOutcome":"Dashboard carga"},
+    {"index":1,"instruction":"Navegar a la página de Panel Principal","expectedOutcome":"Dashboard carga"},
     {"index":2,"instruction":"Verificar sidebar","expectedOutcome":"\"Mi Panel\" visible y activo"}
   ]',
   3,
@@ -1321,7 +1321,7 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Intentar login con usuario sin user_roles","expectedOutcome":"Login exitoso pero sin rol"},
-    {"index":2,"instruction":"Intentar navegar a /dashboard","expectedOutcome":"Redirigido a /login o error 403"},
+    {"index":2,"instruction":"Intentar acceder a la página de Panel Principal","expectedOutcome":"Redirigido a la página de inicio de sesión o se muestra un mensaje de error"},
     {"index":3,"instruction":"Verificar que auth checks fallan","expectedOutcome":"Páginas protegidas inaccesibles"}
   ]',
   1,
@@ -1360,13 +1360,13 @@ INSERT INTO qa_scenarios (
   'authentication',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"},
-    {"type":"navigation","description":"Usuario en /admin/news editando artículo"}
+    {"type":"navigation","description":"Usuario en la página de Noticias editando artículo"}
   ]',
   '[
     {"index":1,"instruction":"Abrir modal de edición de noticia","expectedOutcome":"Modal abierto"},
     {"index":2,"instruction":"Simular expiración de sesión (borrar cookies o esperar timeout)","expectedOutcome":"Sesión expirada"},
-    {"index":3,"instruction":"Intentar guardar cambios","expectedOutcome":"API devuelve 401"},
-    {"index":4,"instruction":"Verificar redirect","expectedOutcome":"Usuario redirigido a /login"}
+    {"index":3,"instruction":"Intentar guardar cambios","expectedOutcome":"La operación se completa correctamente"},
+    {"index":4,"instruction":"Verificar redirect","expectedOutcome":"Usuario redirigido a la página de inicio de sesión"}
   ]',
   4,
   8,
@@ -1385,8 +1385,8 @@ INSERT INTO qa_scenarios (
     {"type":"role","description":"Usuario con rol community_manager activo"}
   ]',
   '[
-    {"index":1,"instruction":"Intentar POST /api/admin/courses directamente (curl o Postman)","expectedOutcome":"API devuelve 403"},
-    {"index":2,"instruction":"Intentar POST /api/admin/create-user","expectedOutcome":"403"},
+    {"index":1,"instruction":"Intentar realizar la acción directamente (curl o Postman)","expectedOutcome":"La operación se completa correctamente"},
+    {"index":2,"instruction":"Intentar realizar la acción","expectedOutcome":""},
     {"index":3,"instruction":"Verificar que role checks funcionan","expectedOutcome":"Todos los endpoints admin-only niegan acceso"}
   ]',
   2,
@@ -1396,18 +1396,18 @@ INSERT INTO qa_scenarios (
   false
 ),
 
--- EC-5: CM tries to access /admin/qa via URL manipulation
+-- EC-5: CM tries to access QA Testing via URL manipulation
 (
   'community_manager',
-  'CM intenta /admin/qa vía URL',
-  'Verificar que CM no puede acceder a /admin/qa manipulando URL directamente (adminOnly page).',
+  'CM intenta acceder a QA Testing vía URL',
+  'Verificar que CM no puede acceder a la página de QA Testing manipulando URL directamente (adminOnly page).',
   'navigation',
   '[
     {"type":"role","description":"Usuario con rol community_manager activo"}
   ]',
   '[
-    {"index":1,"instruction":"Navegar directamente a /admin/qa","expectedOutcome":"Redirigido a /dashboard o 403"},
-    {"index":2,"instruction":"Intentar /admin/qa/scenarios","expectedOutcome":"Redirigido o 403"},
+    {"index":1,"instruction":"Navegar directamente a la página de QA Testing","expectedOutcome":"Redirigido al Panel Principal o se muestra un error de permisos"},
+    {"index":2,"instruction":"Intentar acceder a la página de Escenarios QA","expectedOutcome":"Redirigido al Panel Principal o se muestra un error de permisos"},
     {"index":3,"instruction":"Verificar que adminOnly checks funcionan","expectedOutcome":"Todas las subpages QA inaccesibles"}
   ]',
   2,
@@ -1453,8 +1453,8 @@ INSERT INTO qa_scenarios (
   ]',
   '[
     {"index":1,"instruction":"Verificar user_roles.school_id para CM","expectedOutcome":"school_id presente aunque requiresSchool: false"},
-    {"index":2,"instruction":"Navegar a /admin/news","expectedOutcome":"CM ve TODAS las noticias (no filtrado por school_id)"},
-    {"index":3,"instruction":"Navegar a /admin/events","expectedOutcome":"CM ve TODOS los eventos (no filtrado)"},
+    {"index":2,"instruction":"Navegar a la página de Noticias","expectedOutcome":"CM ve TODAS las noticias (no filtrado por school_id)"},
+    {"index":3,"instruction":"Navegar a la página de Eventos","expectedOutcome":"CM ve TODOS los eventos (no filtrado)"},
     {"index":4,"instruction":"Documentar comportamiento","expectedOutcome":"school_id presente pero no afecta funcionalidad actual. Arquitectural debt."}
   ]',
   4,

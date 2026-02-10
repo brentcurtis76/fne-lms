@@ -53,7 +53,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden crear cursos. El acceso debe ser denegado con error 403.',
   'course_builder',
   '[{"type":"role","description":"Iniciar sesión como consultor"},{"type":"navigation","description":"El usuario consultor debe estar autenticado"},{"type":"custom","description":"El sidebar no debe mostrar el menú Cursos"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard del consultor"},{"index":2,"instruction":"Intentar navegar a /admin/create-course","expectedOutcome":"Se muestra página de acceso denegado o se redirige al dashboard"},{"index":3,"instruction":"Intentar POST /api/admin/courses con datos de nuevo curso","expectedOutcome":"API devuelve 403 Forbidden"},{"index":4,"instruction":"Verificar que el menú Cursos NO aparece en la barra lateral","expectedOutcome":"El elemento Cursos no es visible en el sidebar"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard del consultor"},{"index":2,"instruction":"Intentar acceder a la página de Creación de Curso","expectedOutcome":"Se muestra página de acceso denegado o se redirige al dashboard"},{"index":3,"instruction":"Intentar realizar la acción con datos de nuevo curso","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":4,"instruction":"Verificar que el menú Cursos NO aparece en la barra lateral","expectedOutcome":"El elemento Cursos no es visible en el sidebar"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -64,7 +64,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden crear usuarios. El acceso debe ser denegado.',
   'user_management',
   '[{"type":"role","description":"Iniciar sesión como consultor"},{"type":"navigation","description":"El usuario está autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/user-management","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Intentar POST /api/admin/users con datos de nuevo usuario","expectedOutcome":"API devuelve 403 Forbidden"},{"index":4,"instruction":"Verificar que el menú Usuarios NO aparece en la barra lateral","expectedOutcome":"El elemento Usuarios no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Gestión de Usuarios","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Intentar realizar la acción con datos de nuevo usuario","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":4,"instruction":"Verificar que el menú Usuarios NO aparece en la barra lateral","expectedOutcome":"El elemento Usuarios no es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -75,7 +75,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden editar perfiles de otros usuarios.',
   'user_management',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Existe un usuario diferente en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar PUT /api/admin/users/[otro_id] con datos modificados","expectedOutcome":"API devuelve 403 Forbidden"},{"index":3,"instruction":"Verificar que no hay formulario de edición de usuario disponible","expectedOutcome":"El formulario no está accesible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con datos modificados","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que no hay formulario de edición de usuario disponible","expectedOutcome":"El formulario no está accesible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -86,7 +86,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden asignar roles.',
   'role_assignment',
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar POST /api/admin/roles/permissions con datos de asignación de rol","expectedOutcome":"API devuelve 403 Forbidden"},{"index":3,"instruction":"Verificar que no hay opción de asignar roles en la UI","expectedOutcome":"La opción no es accesible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con datos de asignación de rol","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que no hay opción de asignar roles en la UI","expectedOutcome":"La opción no es accesible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -97,7 +97,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden acceder a gestión de colegios.',
   'school_management',
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/schools","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Escuelas NO aparece en la barra lateral","expectedOutcome":"El elemento Escuelas no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Escuelas","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Escuelas NO aparece en la barra lateral","expectedOutcome":"El elemento Escuelas no es visible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -108,7 +108,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden acceder a gestión de redes.',
   'network_management',
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/network-management","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Redes de Colegios NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Gestión de Redes","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Redes de Colegios NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -119,7 +119,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden crear plantillas de evaluación.',
   'assessment_builder',
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar POST /api/admin/assessment-builder/templates con datos de nueva plantilla","expectedOutcome":"API devuelve 403 Forbidden (hasAssessmentWritePermission retorna false)"},{"index":3,"instruction":"Verificar que los botones Crear/Editar NO aparecen en el constructor de evaluaciones","expectedOutcome":"Los botones no son visibles"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar realizar la acción con datos de nueva plantilla","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Verificar que los botones Crear/Editar NO aparecen en el constructor de evaluaciones","expectedOutcome":"Los botones no son visibles"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -130,7 +130,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden gestionar noticias.',
   'navigation',
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/news","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Noticias NO aparece en la barra lateral","expectedOutcome":"El elemento Noticias no es visible (solo para community_manager)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Noticias","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Noticias NO aparece en la barra lateral","expectedOutcome":"El elemento Noticias no es visible (solo para community_manager)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -141,7 +141,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden gestionar eventos.',
   'navigation',
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/events","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Eventos NO aparece en la barra lateral","expectedOutcome":"El elemento Eventos no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Eventos","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Eventos NO aparece en la barra lateral","expectedOutcome":"El elemento Eventos no es visible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -152,7 +152,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden acceder a gestión de contratos.',
   'navigation',
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /contracts","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Gestión NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Contratos","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Gestión NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -163,7 +163,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden acceder a configuración.',
   'role_assignment',
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/configuration","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Configuración NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (requiere manage_system_settings)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Configuración","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Configuración NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (requiere manage_system_settings)"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -174,7 +174,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden asignar otros consultores.',
   'role_assignment',
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/consultant-assignments","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que el menú Asignación de Consultores NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (adminOnly: true)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Asignación de Consultores","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que el menú Asignación de Consultores NO aparece en la barra lateral","expectedOutcome":"El elemento no es visible (adminOnly: true)"}]'::jsonb,
   2, 2, true, false, false
 );
 
@@ -195,7 +195,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden acceder a su dashboard con datos del colegio asignado.',
   'docente_experience',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Consultor tiene escuela asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard correctamente"},{"index":2,"instruction":"Navegar a /dashboard","expectedOutcome":"La página carga correctamente con datos del colegio asignado"},{"index":3,"instruction":"Verificar que se muestran estadísticas de la escuela asignada","expectedOutcome":"Los datos mostrados corresponden solo a la escuela asignada"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard correctamente"},{"index":2,"instruction":"Navegar a la página de Panel Principal","expectedOutcome":"La página carga correctamente con datos del colegio asignado"},{"index":3,"instruction":"Verificar que se muestran estadísticas de la escuela asignada","expectedOutcome":"Los datos mostrados corresponden solo a la escuela asignada"}]'::jsonb,
   1, 3, true, false, false
 ),
 
@@ -206,7 +206,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden ver y acceder a su perfil.',
   'user_management',
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /profile","expectedOutcome":"La página de perfil carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los datos del consultor autenticado","expectedOutcome":"El perfil muestra información correcta"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Perfil","expectedOutcome":"La página de perfil carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los datos del consultor autenticado","expectedOutcome":"El perfil muestra información correcta"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -217,7 +217,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden ver la página de aprendizaje.',
   'course_enrollment',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay cursos asignados"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /mi-aprendizaje o hacer clic en menú Mi Aprendizaje","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los cursos inscritos","expectedOutcome":"Se listan los cursos disponibles para el consultor"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Mi Aprendizaje o hacer clic en menú Mi Aprendizaje","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los cursos inscritos","expectedOutcome":"Se listan los cursos disponibles para el consultor"}]'::jsonb,
   3, 2, true, false, false
 ),
 
@@ -228,7 +228,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden ver plantillas pero no crearlas/editarlas.',
   'assessment_builder',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Existen plantillas de evaluación disponibles"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /admin/assessment-builder","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestra la lista de plantillas","expectedOutcome":"Se listan las plantillas disponibles"},{"index":4,"instruction":"Verificar que no hay botones Crear/Editar/Eliminar","expectedOutcome":"Solo aparecen opciones de lectura (Ver, Descargar)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Constructor de Evaluaciones","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestra la lista de plantillas","expectedOutcome":"Se listan las plantillas disponibles"},{"index":4,"instruction":"Verificar que no hay botones Crear/Editar/Eliminar","expectedOutcome":"Solo aparecen opciones de lectura (Ver, Descargar)"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -239,7 +239,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden ver y acceder a quizzes pendientes de revisión.',
   'quiz_submission',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay quizzes pendientes de calificar en la escuela asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /quiz-reviews o hacer clic en menú Revisión de Quizzes","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran quizzes pendientes de la escuela asignada","expectedOutcome":"Se listan los quizzes con estado pendiente"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Revisión de Quizzes o hacer clic en menú Revisión de Quizzes","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran quizzes pendientes de la escuela asignada","expectedOutcome":"Se listan los quizzes con estado pendiente"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -250,7 +250,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden calificar preguntas abiertas de quizzes.',
   'quiz_submission',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay un quiz con pregunta abierta pendiente de calificación"},{"type":"navigation","description":"Consultor está en página de revisión de quizzes"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /quiz-reviews","expectedOutcome":"Se muestra lista de quizzes pendientes"},{"index":3,"instruction":"Seleccionar un quiz y abrir una pregunta abierta","expectedOutcome":"Se muestra el formulario de calificación"},{"index":4,"instruction":"Ingresar una calificación y guardar","expectedOutcome":"La calificación se guarda exitosamente"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Revisión de Quizzes","expectedOutcome":"Se muestra lista de quizzes pendientes"},{"index":3,"instruction":"Seleccionar un quiz y abrir una pregunta abierta","expectedOutcome":"Se muestra el formulario de calificación"},{"index":4,"instruction":"Ingresar una calificación y guardar","expectedOutcome":"La calificación se guarda exitosamente"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -261,7 +261,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden ver reportes de su escuela asignada.',
   'reporting',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay datos de reporte disponibles para la escuela asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /detailed-reports o hacer clic en menú Reportes","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran reportes filtrados por escuela asignada","expectedOutcome":"Los datos mostrados corresponden solo a la escuela asignada"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados o hacer clic en menú Reportes","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran reportes filtrados por escuela asignada","expectedOutcome":"Los datos mostrados corresponden solo a la escuela asignada"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -272,7 +272,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden ver el Contexto Transversal en modo solo lectura.',
   'assessment_builder',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay contexto transversal para la escuela asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /school/transversal-context o acceder desde menú Procesos de Cambio","expectedOutcome":"La página carga en modo solo lectura"},{"index":3,"instruction":"Verificar que se muestran los datos de contexto","expectedOutcome":"La página muestra contenido sin opciones de edición"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Escuela/transversal-context o acceder desde menú Procesos de Cambio","expectedOutcome":"La página carga en modo solo lectura"},{"index":3,"instruction":"Verificar que se muestran los datos de contexto","expectedOutcome":"La página muestra contenido sin opciones de edición"}]'::jsonb,
   3, 4, true, false, false
 ),
 
@@ -283,7 +283,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden ver el Plan de Migración.',
   'assessment_builder',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay plan de migración para la escuela asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /school/migration-plan o acceder desde menú Procesos de Cambio","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los datos del plan","expectedOutcome":"Se visualiza la información del plan"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Escuela/migration-plan o acceder desde menú Procesos de Cambio","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran los datos del plan","expectedOutcome":"Se visualiza la información del plan"}]'::jsonb,
   3, 4, true, false, false
 ),
 
@@ -294,7 +294,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden ver la vista de tareas/asignaciones.',
   'docente_experience',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay asignaciones disponibles"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /admin/assignment-overview o acceder desde menú Consultorías","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran las asignaciones de grupo","expectedOutcome":"Se visualiza el monitor de asignaciones"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Vista de Tareas o acceder desde menú Consultorías","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran las asignaciones de grupo","expectedOutcome":"Se visualiza el monitor de asignaciones"}]'::jsonb,
   3, 4, true, false, false
 ),
 
@@ -305,7 +305,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden acceder a workspace colaborativo.',
   'collaborative_space',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Consultor es miembro de una comunidad"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /community/workspace o hacer clic en menú Espacio Colaborativo","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran las comunidades del consultor","expectedOutcome":"Se visualizan los espacios colaborativos disponibles"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Community/workspace o hacer clic en menú Espacio Colaborativo","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran las comunidades del consultor","expectedOutcome":"Se visualizan los espacios colaborativos disponibles"}]'::jsonb,
   3, 4, true, false, false
 ),
 
@@ -316,7 +316,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden ver el feedback con datos de su escuela.',
   'docente_experience',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay feedback disponible para la escuela asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /docente/assessments o hacer clic en menú Feedback","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran datos filtrados por escuela asignada","expectedOutcome":"Se visualiza feedback solo de la escuela del consultor"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Docente/assessments o hacer clic en menú Feedback","expectedOutcome":"La página carga correctamente"},{"index":3,"instruction":"Verificar que se muestran datos filtrados por escuela asignada","expectedOutcome":"Se visualiza feedback solo de la escuela del consultor"}]'::jsonb,
   3, 3, true, false, false
 ),
 
@@ -327,7 +327,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores pueden asignar cursos (can_assign_courses: true).',
   'course_enrollment',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay cursos disponibles y estudiantes para asignar"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a pantalla de asignación de cursos","expectedOutcome":"Se muestra la interfaz de asignación"},{"index":3,"instruction":"Seleccionar un curso y asignarlo a estudiantes","expectedOutcome":"La asignación se realiza exitosamente"},{"index":4,"instruction":"Verificar POST /api/courses/batch-assign","expectedOutcome":"API devuelve 200 OK"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a pantalla de asignación de cursos","expectedOutcome":"Se muestra la interfaz de asignación"},{"index":3,"instruction":"Seleccionar un curso y asignarlo a estudiantes","expectedOutcome":"La asignación se realiza exitosamente"},{"index":4,"instruction":"Verificar que la acción funciona correctamente","expectedOutcome":"Los datos se muestran correctamente"}]'::jsonb,
   2, 5, true, false, false
 );
 
@@ -348,7 +348,7 @@ INSERT INTO qa_scenarios (
   'Verificar que los reportes filtran datos por escuela asignada del consultor.',
   'reporting',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay múltiples escuelas en el sistema"},{"type":"data","description":"El consultor está asignado a una escuela específica"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /detailed-reports","expectedOutcome":"Se muestra la página de reportes"},{"index":3,"instruction":"Observar que el filtro de escuela está preestablecido a la escuela asignada","expectedOutcome":"El filtro no se puede cambiar a otra escuela"},{"index":4,"instruction":"Verificar que no hay datos de otras escuelas visibles","expectedOutcome":"Solo se muestran datos de la escuela asignada"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Reportes Detallados","expectedOutcome":"Se muestra la página de reportes"},{"index":3,"instruction":"Observar que el filtro de escuela está preestablecido a la escuela asignada","expectedOutcome":"El filtro no se puede cambiar a otra escuela"},{"index":4,"instruction":"Verificar que no hay datos de otras escuelas visibles","expectedOutcome":"Solo se muestran datos de la escuela asignada"}]'::jsonb,
   2, 5, true, false, false
 ),
 
@@ -359,7 +359,7 @@ INSERT INTO qa_scenarios (
   'Verificar que la API rechaza consultas de datos de otras escuelas.',
   'reporting',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay otra escuela en el sistema diferente a la asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /detailed-reports?school_id=OTRA_ESCUELA","expectedOutcome":"La página se carga pero no muestra datos"},{"index":3,"instruction":"Verificar la respuesta de la API para la otra escuela","expectedOutcome":"API devuelve 403 o datos vacíos (validación server-side)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Reportes Detallados","expectedOutcome":"La página se carga pero no muestra datos"},{"index":3,"instruction":"Verificar la respuesta de la API para la otra escuela","expectedOutcome":"La operación se completa correctamente o datos vacíos (validación server-side)"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -370,7 +370,7 @@ INSERT INTO qa_scenarios (
   'Verificar que acceso al contexto está restringido a escuela asignada.',
   'assessment_builder',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay otra escuela en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /school/transversal-context?school_id=OTRA_ESCUELA","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que solo los datos de la escuela asignada son accesibles","expectedOutcome":"Solo la escuela asignada es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Escuela/transversal-context?school_id=OTRA_ESCUELA","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que solo los datos de la escuela asignada son accesibles","expectedOutcome":"Solo la escuela asignada es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -381,7 +381,7 @@ INSERT INTO qa_scenarios (
   'Verificar que las plantillas de evaluación son globales y no filtradas por escuela.',
   'assessment_builder',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay plantillas de evaluación publicadas"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /admin/assessment-builder","expectedOutcome":"Se muestra la página"},{"index":3,"instruction":"Verificar que se muestran TODAS las plantillas publicadas","expectedOutcome":"Las plantillas no están filtradas por escuela asignada"},{"index":4,"instruction":"Confirmar que este es el comportamiento esperado (plantillas globales)","expectedOutcome":"Se entiende que las plantillas son recursos compartidos a nivel de sistema"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Constructor de Evaluaciones","expectedOutcome":"Se muestra la página"},{"index":3,"instruction":"Verificar que se muestran TODAS las plantillas publicadas","expectedOutcome":"Las plantillas no están filtradas por escuela asignada"},{"index":4,"instruction":"Confirmar que este es el comportamiento esperado (plantillas globales)","expectedOutcome":"Se entiende que las plantillas son recursos compartidos a nivel de sistema"}]'::jsonb,
   3, 4, true, false, false
 );
 
@@ -693,7 +693,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultor sin escuela asignada recibe error o estado vacío apropiado.',
   'docente_experience',
   '[{"type":"role","description":"Existe consultor sin escuela asignada"},{"type":"navigation","description":"El consultor no tiene school_id válido"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl sin escuela asignada","expectedOutcome":"Se accede al sistema"},{"index":2,"instruction":"Navegar a /dashboard","expectedOutcome":"Se muestra mensaje de error o estado vacío apropiado"},{"index":3,"instruction":"Verificar que el sistema maneja correctamente la ausencia de escuela","expectedOutcome":"Se muestra un estado coherente sin errores de runtime"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl sin escuela asignada","expectedOutcome":"Se accede al sistema"},{"index":2,"instruction":"Navegar a la página de Panel Principal","expectedOutcome":"Se muestra mensaje de error o estado vacío apropiado"},{"index":3,"instruction":"Verificar que el sistema maneja correctamente la ausencia de escuela","expectedOutcome":"Se muestra un estado coherente sin errores de runtime"}]'::jsonb,
   4, 3, true, false, false
 ),
 
@@ -704,7 +704,7 @@ INSERT INTO qa_scenarios (
   'Verificar que se muestra estado vacío cuando no hay plantillas de evaluación.',
   'assessment_builder',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Escuela asignada no tiene plantillas de evaluación"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /admin/assessment-builder","expectedOutcome":"Se muestra la página del constructor"},{"index":3,"instruction":"Verificar que se muestra estado vacío","expectedOutcome":"Se muestra mensaje como No hay plantillas de evaluación o similar"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Constructor de Evaluaciones","expectedOutcome":"Se muestra la página del constructor"},{"index":3,"instruction":"Verificar que se muestra estado vacío","expectedOutcome":"Se muestra mensaje como No hay plantillas de evaluación o similar"}]'::jsonb,
   4, 2, true, false, false
 ),
 
@@ -726,7 +726,7 @@ INSERT INTO qa_scenarios (
   'Verificar que los controles de permiso server-side se aplican sin importar cómo se accede.',
   'assessment_builder',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"navigation","description":"Se accede directamente a API sin UI"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se obtiene sesión válida"},{"index":2,"instruction":"Intentar POST /api/admin/assessment-builder/templates directamente","expectedOutcome":"API devuelve 403 Forbidden"},{"index":3,"instruction":"Intentar GET /api/admin/assessment-builder/templates directamente","expectedOutcome":"API devuelve 200 OK (lectura permitida)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se obtiene sesión válida"},{"index":2,"instruction":"Intentar realizar la acción directamente","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Intentar realizar la acción directamente","expectedOutcome":"Los datos se muestran correctamente"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -737,7 +737,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el sistema de QA administrativo está protegido.',
   'role_assignment',
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar navegar a /admin/qa-scenarios","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Intentar navegar a /admin/qa-test-runs","expectedOutcome":"Se muestra página de acceso denegado"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Escenarios QA","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Intentar acceder a la página de Ejecuciones de Pruebas QA","expectedOutcome":"Se muestra página de acceso denegado"}]'::jsonb,
   1, 2, true, false, false
 ),
 
@@ -748,7 +748,7 @@ INSERT INTO qa_scenarios (
   'Verificar que el sistema maneja expiración de sesión correctamente.',
   'assessment_builder',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"custom","description":"Sesión va a expirar"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a /admin/assessment-builder","expectedOutcome":"Se muestra la página"},{"index":3,"instruction":"Esperar a que la sesión expire (o simular expiración)","expectedOutcome":"Se redirige a página de login"},{"index":4,"instruction":"Verificar que no hay datos obsoletos visibles","expectedOutcome":"No se muestra contenido antiguo de sesión anterior"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a la página de Constructor de Evaluaciones","expectedOutcome":"Se muestra la página"},{"index":3,"instruction":"Esperar a que la sesión expire (o simular expiración)","expectedOutcome":"Se redirige a página de login"},{"index":4,"instruction":"Verificar que no hay datos obsoletos visibles","expectedOutcome":"No se muestra contenido antiguo de sesión anterior"}]'::jsonb,
   3, 5, true, false, false
 ),
 
@@ -759,7 +759,7 @@ INSERT INTO qa_scenarios (
   'Verificar que dos consultores de escuelas diferentes pueden ver la misma plantilla global.',
   'assessment_builder',
   '[{"type":"role","description":"Dos consultores autenticados en diferentes pestañas"},{"type":"data","description":"Ambos consultores están asignados a escuelas diferentes"},{"type":"data","description":"Hay una plantilla de evaluación publicada"}]'::jsonb,
-  '[{"index":1,"instruction":"Pestaña 1: Iniciar sesión como consultor.qa1@fne.cl (escuela A)","expectedOutcome":"Se accede al dashboard del consultor 1"},{"index":2,"instruction":"Pestaña 2: Iniciar sesión como consultor.qa2@fne.cl (escuela B)","expectedOutcome":"Se accede al dashboard del consultor 2"},{"index":3,"instruction":"Pestaña 1: Navegar a /admin/assessment-builder","expectedOutcome":"Se muestran plantillas globales"},{"index":4,"instruction":"Pestaña 2: Navegar a /admin/assessment-builder","expectedOutcome":"Se muestran las MISMAS plantillas"},{"index":5,"instruction":"Verificar que ambos ven datos idénticos","expectedOutcome":"Las plantillas son idénticas en ambas pestañas"},{"index":6,"instruction":"Verificar que ninguno puede editar","expectedOutcome":"Ambos tienen acceso solo lectura"}]'::jsonb,
+  '[{"index":1,"instruction":"Pestaña 1: Iniciar sesión como consultor.qa1@fne.cl (escuela A)","expectedOutcome":"Se accede al dashboard del consultor 1"},{"index":2,"instruction":"Pestaña 2: Iniciar sesión como consultor.qa2@fne.cl (escuela B)","expectedOutcome":"Se accede al dashboard del consultor 2"},{"index":3,"instruction":"Pestaña 1: Navegar a la página de Constructor de Evaluaciones","expectedOutcome":"Se muestran plantillas globales"},{"index":4,"instruction":"Pestaña 2: Navegar a la página de Constructor de Evaluaciones","expectedOutcome":"Se muestran las MISMAS plantillas"},{"index":5,"instruction":"Verificar que ambos ven datos idénticos","expectedOutcome":"Las plantillas son idénticas en ambas pestañas"},{"index":6,"instruction":"Verificar que ninguno puede editar","expectedOutcome":"Ambos tienen acceso solo lectura"}]'::jsonb,
   2, 7, true, false, true
 );
 

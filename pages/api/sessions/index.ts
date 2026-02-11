@@ -15,7 +15,9 @@ import {
   SessionFacilitatorInsert,
   SessionActivityLogInsert,
   MeetingProvider,
+  RecurrencePattern,
 } from '../../../lib/types/consultor-sessions.types';
+import { generateRecurrenceDates, buildRRule } from '../../../lib/utils/recurrence';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-index');
@@ -56,6 +58,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     location,
     program_enrollment_id,
     facilitators,
+    recurrence,
   } = req.body;
 
   // Validate required fields
@@ -118,6 +121,41 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     }
   }
 
+  // Validate and process recurrence if provided
+  let sessionDates: string[] = [session_date];
+  let recurrenceGroupId: string | null = null;
+  let recurrenceRule: string | null = null;
+
+  if (recurrence) {
+    try {
+      const pattern: RecurrencePattern = recurrence;
+
+      // Validate recurrence pattern
+      if (pattern.frequency === 'custom') {
+        if (!pattern.dates || pattern.dates.length < 2 || pattern.dates.length > 52) {
+          return sendAuthError(res, 'Las fechas personalizadas deben tener entre 2 y 52 elementos', 400);
+        }
+        // Validate all dates are in the future
+        const today = new Date().toISOString().split('T')[0];
+        const futureDates = pattern.dates.filter(d => d >= today);
+        if (futureDates.length !== pattern.dates.length) {
+          return sendAuthError(res, 'Todas las fechas deben ser futuras', 400);
+        }
+      } else {
+        if (!pattern.count || pattern.count < 2 || pattern.count > 52) {
+          return sendAuthError(res, 'El número de sesiones debe estar entre 2 y 52', 400);
+        }
+      }
+
+      // Generate dates
+      sessionDates = generateRecurrenceDates(session_date, pattern);
+      recurrenceGroupId = crypto.randomUUID();
+      recurrenceRule = buildRRule(pattern);
+    } catch (error: any) {
+      return sendAuthError(res, `Error en recurrencia: ${error.message}`, 400);
+    }
+  }
+
   try {
     const serviceClient = createServiceRoleClient();
 
@@ -133,14 +171,13 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
       return sendAuthError(res, 'La comunidad de crecimiento no pertenece al colegio seleccionado', 400);
     }
 
-    // Build session insert data
-    const sessionData: ConsultorSessionInsert = {
+    // Build base session data (shared across all sessions in series)
+    const baseSessionData = {
       school_id,
       growth_community_id,
       title: title.trim(),
       description: description || null,
       objectives: objectives || null,
-      session_date,
       start_time,
       end_time,
       modality,
@@ -148,81 +185,100 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
       meeting_provider: finalMeetingProvider,
       location: location || null,
       program_enrollment_id: program_enrollment_id || null,
-      status: 'borrador',
+      status: 'borrador' as const,
       created_by: user!.id,
-      recurrence_rule: null,
-      recurrence_group_id: null,
-      session_number: null,
       meeting_summary: null,
       meeting_transcript: null,
       cancellation_reason: null,
       actual_duration_minutes: null,
     };
 
-    // Insert session
-    const { data: newSession, error: sessionError } = await serviceClient
-      .from('consultor_sessions')
-      .insert(sessionData)
-      .select('*')
-      .single();
+    // Build session insert array (one per date)
+    const sessionsToInsert: ConsultorSessionInsert[] = sessionDates.map((date, index) => ({
+      ...baseSessionData,
+      session_date: date,
+      recurrence_rule: recurrenceRule,
+      recurrence_group_id: recurrenceGroupId,
+      session_number: sessionDates.length > 1 ? index + 1 : null,
+    }));
 
-    if (sessionError) {
-      console.error('Database error creating session:', sessionError);
-      return sendAuthError(res, 'Error al crear sesión', 500, sessionError.message);
+    // Insert all sessions in one call (atomic at Postgres level)
+    const { data: newSessions, error: sessionError } = await serviceClient
+      .from('consultor_sessions')
+      .insert(sessionsToInsert)
+      .select('*');
+
+    if (sessionError || !newSessions) {
+      console.error('Database error creating sessions:', sessionError);
+      return sendAuthError(res, 'Error al crear sesiones', 500, sessionError?.message);
     }
 
-    // Insert facilitators if provided
+    // Insert facilitators for all sessions if provided
     if (facilitators && Array.isArray(facilitators) && facilitators.length > 0) {
-      const facilitatorInserts: SessionFacilitatorInsert[] = facilitators.map((f) => ({
-        session_id: newSession.id,
-        user_id: f.user_id,
-        facilitator_role: f.facilitator_role,
-        is_lead: f.is_lead || false,
-      }));
+      const allFacilitatorInserts: SessionFacilitatorInsert[] = [];
+      for (const session of newSessions) {
+        for (const f of facilitators) {
+          allFacilitatorInserts.push({
+            session_id: session.id,
+            user_id: f.user_id,
+            facilitator_role: f.facilitator_role,
+            is_lead: f.is_lead || false,
+          });
+        }
+      }
 
       const { error: facilitatorsError } = await serviceClient
         .from('session_facilitators')
-        .insert(facilitatorInserts);
+        .insert(allFacilitatorInserts);
 
       if (facilitatorsError) {
         console.error('Database error inserting facilitators:', facilitatorsError);
-        // Clean up orphaned session
-        await serviceClient.from('consultor_sessions').delete().eq('id', newSession.id);
-        await serviceClient.from('session_activity_log').delete().eq('session_id', newSession.id);
-        return sendAuthError(res, 'Error al asignar facilitadores. La sesión no fue creada.', 500, facilitatorsError.message);
+        // Clean up all sessions in the group
+        if (recurrenceGroupId) {
+          await serviceClient.from('consultor_sessions').delete().eq('recurrence_group_id', recurrenceGroupId);
+        } else {
+          await serviceClient.from('consultor_sessions').delete().in('id', newSessions.map(s => s.id));
+        }
+        return sendAuthError(res, 'Error al asignar facilitadores. Las sesiones no fueron creadas.', 500, facilitatorsError.message);
       }
     }
 
-    // Insert activity log
-    const activityLogEntry: SessionActivityLogInsert = {
-      session_id: newSession.id,
+    // Insert activity log entries for all sessions
+    const allActivityLogEntries: SessionActivityLogInsert[] = newSessions.map(session => ({
+      session_id: session.id,
       user_id: user!.id,
       action: 'created',
       details: {
-        title: newSession.title,
-        school_id: newSession.school_id,
-        growth_community_id: newSession.growth_community_id,
+        title: session.title,
+        school_id: session.school_id,
+        growth_community_id: session.growth_community_id,
+        recurrence_group_id: recurrenceGroupId,
+        session_number: session.session_number,
       },
-    };
+    }));
 
     const { error: logError } = await serviceClient
       .from('session_activity_log')
-      .insert(activityLogEntry);
+      .insert(allActivityLogEntries);
 
     if (logError) {
-      console.error('Error inserting activity log:', logError);
+      console.error('Error inserting activity logs:', logError);
       // Don't fail the whole request
     }
 
-    // Fetch facilitators for response
+    // Fetch facilitators for all sessions
     const { data: sessionFacilitators } = await serviceClient
       .from('session_facilitators')
       .select('*')
-      .eq('session_id', newSession.id);
+      .in('session_id', newSessions.map(s => s.id));
 
     return sendApiResponse(
       res,
-      { session: newSession, facilitators: sessionFacilitators || [] },
+      {
+        sessions: newSessions,
+        facilitators: sessionFacilitators || [],
+        recurrence_group_id: recurrenceGroupId,
+      },
       201
     );
   } catch (error: any) {
@@ -313,7 +369,13 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
     }
 
     if (status && typeof status === 'string') {
-      query = query.eq('status', status);
+      // Support comma-separated status values for multi-select filters
+      if (status.includes(',')) {
+        const statusArray = status.split(',').map(s => s.trim());
+        query = query.in('status', statusArray);
+      } else {
+        query = query.eq('status', status);
+      }
     }
 
     if (date_from && isValidDate(date_from as string)) {

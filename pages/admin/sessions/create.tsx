@@ -5,7 +5,11 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
-import { Calendar, Save, Send } from 'lucide-react';
+import { Calendar, Save, Send, Plus, X, AlertTriangle } from 'lucide-react';
+import { RecurrencePattern, RecurrenceFrequency } from '../../../lib/types/consultor-sessions.types';
+import { generateRecurrenceDates } from '../../../lib/utils/recurrence';
+import { format, parseISO } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 interface School {
   id: number;
@@ -64,6 +68,13 @@ const SessionCreatePage: React.FC = () => {
   const [facilitators, setFacilitators] = useState<Facilitator[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  // Recurrence state
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<RecurrenceFrequency>('weekly');
+  const [recurrenceCount, setRecurrenceCount] = useState(4);
+  const [customDates, setCustomDates] = useState<string[]>(['']);
+  const [previewDates, setPreviewDates] = useState<string[]>([]);
+
   useEffect(() => {
     initializeAuth();
   }, [router]);
@@ -90,6 +101,27 @@ const SessionCreatePage: React.FC = () => {
       setFormData((prev) => ({ ...prev, meeting_provider: provider }));
     }
   }, [formData.meeting_link]);
+
+  // Update preview dates when recurrence parameters change
+  useEffect(() => {
+    if (!isRecurring || !formData.session_date) {
+      setPreviewDates([]);
+      return;
+    }
+
+    try {
+      const pattern: RecurrencePattern = {
+        frequency: recurrenceFrequency,
+        count: recurrenceFrequency === 'custom' ? undefined : recurrenceCount,
+        dates: recurrenceFrequency === 'custom' ? customDates.filter(d => d) : undefined,
+      };
+
+      const dates = generateRecurrenceDates(formData.session_date, pattern);
+      setPreviewDates(dates);
+    } catch (error) {
+      setPreviewDates([]);
+    }
+  }, [isRecurring, formData.session_date, recurrenceFrequency, recurrenceCount, customDates]);
 
   const initializeAuth = async () => {
     try {
@@ -261,6 +293,18 @@ const SessionCreatePage: React.FC = () => {
     );
   };
 
+  const handleAddCustomDate = () => {
+    setCustomDates((prev) => [...prev, '']);
+  };
+
+  const handleRemoveCustomDate = (index: number) => {
+    setCustomDates((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCustomDateChange = (index: number, value: string) => {
+    setCustomDates((prev) => prev.map((d, i) => (i === index ? value : d)));
+  };
+
   const validateForm = (): boolean => {
     if (formData.school_id <= 0) {
       toast.error('Debe seleccionar un colegio');
@@ -318,6 +362,22 @@ const SessionCreatePage: React.FC = () => {
       }
     }
 
+    // Validate recurrence if enabled
+    if (isRecurring) {
+      if (recurrenceFrequency === 'custom') {
+        const validDates = customDates.filter(d => d);
+        if (validDates.length < 2) {
+          toast.error('Debe ingresar al menos 2 fechas personalizadas');
+          return false;
+        }
+      } else {
+        if (recurrenceCount < 2 || recurrenceCount > 52) {
+          toast.error('El número de sesiones debe estar entre 2 y 52');
+          return false;
+        }
+      }
+    }
+
     return true;
   };
 
@@ -334,7 +394,7 @@ const SessionCreatePage: React.FC = () => {
         return;
       }
 
-      const payload = {
+      const payload: any = {
         school_id: formData.school_id,
         growth_community_id: formData.growth_community_id,
         title: formData.title.trim(),
@@ -349,6 +409,15 @@ const SessionCreatePage: React.FC = () => {
         location: formData.location || null,
         facilitators: facilitators.length > 0 ? facilitators : undefined,
       };
+
+      // Add recurrence if enabled
+      if (isRecurring) {
+        payload.recurrence = {
+          frequency: recurrenceFrequency,
+          count: recurrenceFrequency === 'custom' ? undefined : recurrenceCount,
+          dates: recurrenceFrequency === 'custom' ? customDates.filter(d => d) : undefined,
+        };
+      }
 
       const response = await fetch('/api/sessions', {
         method: 'POST',
@@ -365,8 +434,19 @@ const SessionCreatePage: React.FC = () => {
       }
 
       const result = await response.json();
-      toast.success('Sesión guardada como borrador');
-      router.push(`/admin/sessions/${result.data.session.id}`);
+      const sessionCount = result.data.sessions ? result.data.sessions.length : 1;
+      toast.success(
+        isRecurring
+          ? `${sessionCount} sesiones guardadas como borrador`
+          : 'Sesión guardada como borrador'
+      );
+      // For series, redirect to list page; for single session, redirect to detail page
+      if (isRecurring) {
+        router.push('/admin/sessions');
+      } else {
+        const sessionId = result.data.sessions ? result.data.sessions[0].id : result.data.session.id;
+        router.push(`/admin/sessions/${sessionId}`);
+      }
     } catch (error: any) {
       console.error('Error saving draft:', error);
       toast.error(error.message || 'Error al guardar borrador');
@@ -378,8 +458,11 @@ const SessionCreatePage: React.FC = () => {
   const handleScheduleSession = async () => {
     if (!validateForm()) return;
 
+    const sessionCount = isRecurring ? previewDates.length : 1;
     const confirmed = window.confirm(
-      '¿Está seguro de que desea programar esta sesión? Se notificará a los participantes.'
+      isRecurring
+        ? `¿Está seguro de que desea programar estas ${sessionCount} sesiones? Se notificará a los participantes.`
+        : '¿Está seguro de que desea programar esta sesión? Se notificará a los participantes.'
     );
 
     if (!confirmed) return;
@@ -394,8 +477,8 @@ const SessionCreatePage: React.FC = () => {
         return;
       }
 
-      // Create session
-      const payload = {
+      // Create session(s)
+      const payload: any = {
         school_id: formData.school_id,
         growth_community_id: formData.growth_community_id,
         title: formData.title.trim(),
@@ -410,6 +493,15 @@ const SessionCreatePage: React.FC = () => {
         location: formData.location || null,
         facilitators: facilitators.length > 0 ? facilitators : undefined,
       };
+
+      // Add recurrence if enabled
+      if (isRecurring) {
+        payload.recurrence = {
+          frequency: recurrenceFrequency,
+          count: recurrenceFrequency === 'custom' ? undefined : recurrenceCount,
+          dates: recurrenceFrequency === 'custom' ? customDates.filter(d => d) : undefined,
+        };
+      }
 
       const createResponse = await fetch('/api/sessions', {
         method: 'POST',
@@ -426,24 +518,46 @@ const SessionCreatePage: React.FC = () => {
       }
 
       const createResult = await createResponse.json();
-      const sessionId = createResult.data.session.id;
 
-      // Approve session
-      const approveResponse = await fetch(`/api/sessions/${sessionId}/approve`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      // For recurring series, use bulk approve; for single session, use single approve
+      if (isRecurring && createResult.data.recurrence_group_id) {
+        const approveResponse = await fetch('/api/sessions/bulk-approve', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ recurrence_group_id: createResult.data.recurrence_group_id }),
+        });
 
-      if (!approveResponse.ok) {
-        const errorData = await approveResponse.json();
-        throw new Error(errorData.error || 'Error al aprobar sesión');
+        if (!approveResponse.ok) {
+          const errorData = await approveResponse.json();
+          throw new Error(errorData.error || 'Error al aprobar sesiones');
+        }
+
+        toast.success(`${sessionCount} sesiones programadas exitosamente`);
+        router.push('/admin/sessions');
+      } else {
+        const sessionId = createResult.data.sessions
+          ? createResult.data.sessions[0].id
+          : createResult.data.session.id;
+
+        const approveResponse = await fetch(`/api/sessions/${sessionId}/approve`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!approveResponse.ok) {
+          const errorData = await approveResponse.json();
+          throw new Error(errorData.error || 'Error al aprobar sesión');
+        }
+
+        toast.success('Sesión programada exitosamente');
+        router.push(`/admin/sessions/${sessionId}`);
       }
-
-      toast.success('Sesión programada exitosamente');
-      router.push(`/admin/sessions/${sessionId}`);
     } catch (error: any) {
       console.error('Error scheduling session:', error);
       toast.error(error.message || 'Error al programar sesión');
@@ -634,7 +748,151 @@ const SessionCreatePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Row 6: Modality */}
+            {/* Row 6: Recurrence Toggle */}
+            <fieldset>
+              <legend className="block text-sm font-medium text-gray-700 mb-2">
+                Tipo de sesión
+              </legend>
+              <div className="flex space-x-4">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={!isRecurring}
+                    onChange={() => setIsRecurring(false)}
+                    className="mr-2"
+                  />
+                  <span>Sesión única</span>
+                </label>
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    checked={isRecurring}
+                    onChange={() => setIsRecurring(true)}
+                    className="mr-2"
+                  />
+                  <span>Serie recurrente</span>
+                </label>
+              </div>
+            </fieldset>
+
+            {/* Row 7: Recurrence Settings (conditional) */}
+            {isRecurring && (
+              <div className="border-l-4 border-blue-500 bg-blue-50 p-4 rounded-lg space-y-4">
+                <h4 className="font-medium text-gray-900">Configuración de recurrencia</h4>
+
+                {/* Frequency Selector */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Frecuencia
+                  </label>
+                  <select
+                    value={recurrenceFrequency}
+                    onChange={(e) => setRecurrenceFrequency(e.target.value as RecurrenceFrequency)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  >
+                    <option value="weekly">Semanal</option>
+                    <option value="biweekly">Quincenal</option>
+                    <option value="monthly">Mensual</option>
+                    <option value="custom">Fechas personalizadas</option>
+                  </select>
+                </div>
+
+                {/* Count Input (for non-custom) */}
+                {recurrenceFrequency !== 'custom' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Número de sesiones (2-52)
+                    </label>
+                    <input
+                      type="number"
+                      min={2}
+                      max={52}
+                      value={recurrenceCount}
+                      onChange={(e) => setRecurrenceCount(parseInt(e.target.value, 10))}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    />
+                  </div>
+                )}
+
+                {/* Custom Dates Input */}
+                {recurrenceFrequency === 'custom' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Fechas personalizadas
+                    </label>
+                    <div className="space-y-2">
+                      {customDates.map((date, index) => (
+                        <div key={index} className="flex items-center space-x-2">
+                          <input
+                            type="date"
+                            value={date}
+                            onChange={(e) => handleCustomDateChange(index, e.target.value)}
+                            min={new Date().toISOString().split('T')[0]}
+                            className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                          />
+                          {customDates.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCustomDate(index)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded"
+                              aria-label="Eliminar fecha"
+                            >
+                              <X size={20} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddCustomDate}
+                      className="mt-2 inline-flex items-center px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg"
+                    >
+                      <Plus size={16} className="mr-1" />
+                      Agregar fecha
+                    </button>
+                  </div>
+                )}
+
+                {/* Preview Panel */}
+                {previewDates.length > 0 && (
+                  <div className="bg-white p-4 rounded border border-gray-200">
+                    <h5 className="text-sm font-medium text-gray-700 mb-2">
+                      Vista previa ({previewDates.length} sesiones)
+                    </h5>
+                    <div className="max-h-48 overflow-y-auto space-y-1">
+                      {previewDates.map((date, index) => {
+                        const parsedDate = parseISO(date);
+                        const dayOfWeek = parsedDate.getDay();
+                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+                        return (
+                          <div
+                            key={index}
+                            className={`flex items-center justify-between text-sm p-2 rounded ${
+                              isWeekend ? 'bg-yellow-50 text-yellow-900' : 'bg-gray-50'
+                            }`}
+                          >
+                            <span className="font-medium">Sesión {index + 1}</span>
+                            <span>
+                              {format(parsedDate, 'EEEE, dd MMMM yyyy', { locale: es })}
+                            </span>
+                            {isWeekend && (
+                              <span className="flex items-center text-yellow-600 text-xs">
+                                <AlertTriangle size={14} className="mr-1" />
+                                Fin de semana
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Row 8: Modality */}
             <fieldset>
               <legend className="block text-sm font-medium text-gray-700 mb-2">
                 Modalidad <span className="text-red-500">*</span>
@@ -807,7 +1065,9 @@ const SessionCreatePage: React.FC = () => {
                 className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50"
               >
                 <Save size={20} className="mr-2" />
-                Guardar borrador
+                {isRecurring && previewDates.length > 0
+                  ? `Guardar serie como borrador (${previewDates.length} sesiones)`
+                  : 'Guardar borrador'}
               </button>
 
               <button
@@ -816,7 +1076,9 @@ const SessionCreatePage: React.FC = () => {
                 className="inline-flex items-center justify-center px-4 py-2 bg-brand_primary text-white hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
               >
                 <Send size={20} className="mr-2" />
-                Programar sesión
+                {isRecurring && previewDates.length > 0
+                  ? `Programar serie (${previewDates.length} sesiones)`
+                  : 'Programar sesión'}
               </button>
             </div>
           </div>

@@ -378,3 +378,24 @@ export const NON_STRUCTURAL_FIELDS = [
   'meeting_summary',
   'meeting_transcript',
 ] as const;
+
+// ============================================================
+// RECURRENCE TYPES
+// ============================================================
+
+export type RecurrenceFrequency = 'weekly' | 'biweekly' | 'monthly' | 'custom';
+
+export interface RecurrencePattern {
+  frequency: RecurrenceFrequency;
+  count?: number;       // Required for weekly/biweekly/monthly (2-52)
+  dates?: string[];     // Required for custom (YYYY-MM-DD format)
+}
+
+/**
+ * SessionListItemWithSeries - List item extended with series information
+ */
+export interface SessionListItemWithSeries extends SessionListItem {
+  recurrence_group_id: string | null;
+  session_number: number | null;
+  total_in_series?: number;
+}

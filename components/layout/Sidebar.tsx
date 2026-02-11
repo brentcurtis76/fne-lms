@@ -267,6 +267,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/admin/assignment-overview',
         description: 'Monitoreo de tareas grupales',
         icon: ClipboardDocumentCheckIcon
+      },
+      {
+        id: 'consultant-sessions',
+        label: 'Sesiones',
+        href: '/admin/sessions',
+        description: 'Gestión de sesiones de consultoría',
+        icon: CalendarIcon,
+        adminOnly: true
       }
     ]
   },

@@ -37,6 +37,7 @@ const QAScenarioManagementPage: React.FC = () => {
   const [featureAreaFilter, setFeatureAreaFilter] = useState<string>('');
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [automatedFilter, setAutomatedFilter] = useState<string>('all');
+  const [testingChannelFilter, setTestingChannelFilter] = useState<string>('all');
   const [completionFilter, setCompletionFilter] = useState<string>('all');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -71,6 +72,7 @@ const QAScenarioManagementPage: React.FC = () => {
     if (q.feature_area) setFeatureAreaFilter(String(q.feature_area));
     if (q.is_active) setActiveFilter(String(q.is_active));
     if (q.automated_only) setAutomatedFilter(String(q.automated_only));
+    if (q.testing_channel) setTestingChannelFilter(String(q.testing_channel));
     if (q.completion_status) setCompletionFilter(String(q.completion_status));
 
     initializedFromUrl.current = true;
@@ -99,6 +101,7 @@ const QAScenarioManagementPage: React.FC = () => {
       if (priorityFilter) params.append('priority', priorityFilter);
       if (activeFilter !== 'all') params.append('is_active', activeFilter);
       if (automatedFilter !== 'all') params.append('automated_only', automatedFilter);
+      if (testingChannelFilter !== 'all') params.append('testing_channel', testingChannelFilter);
       if (completionFilter !== 'all') params.append('completion_status', completionFilter);
 
       const response = await fetch(`/api/qa/scenarios?${params.toString()}`);
@@ -116,7 +119,7 @@ const QAScenarioManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, isAdmin, currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, activeFilter, automatedFilter, completionFilter]);
+  }, [user, isAdmin, currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, activeFilter, automatedFilter, testingChannelFilter, completionFilter]);
 
   // Sync filter state to URL (separate from fetch to avoid router dependency loop)
   useEffect(() => {
@@ -130,10 +133,11 @@ const QAScenarioManagementPage: React.FC = () => {
     if (priorityFilter) query.priority = priorityFilter;
     if (activeFilter !== 'all') query.is_active = activeFilter;
     if (automatedFilter !== 'all') query.automated_only = automatedFilter;
+    if (testingChannelFilter !== 'all') query.testing_channel = testingChannelFilter;
     if (completionFilter !== 'all') query.completion_status = completionFilter;
 
     router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
-  }, [currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, activeFilter, automatedFilter, completionFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize, debouncedSearch, featureAreaFilter, roleFilter, priorityFilter, activeFilter, automatedFilter, testingChannelFilter, completionFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (user && isAdmin && initializedFromUrl.current) {
@@ -264,6 +268,11 @@ const QAScenarioManagementPage: React.FC = () => {
     setCurrentPage(1);
   };
 
+  const handleTestingChannelFilterChange = (value: string) => {
+    setTestingChannelFilter(value);
+    setCurrentPage(1);
+  };
+
   const handleCompletionFilterChange = (value: string) => {
     setCompletionFilter(value);
     setCurrentPage(1);
@@ -312,6 +321,7 @@ const QAScenarioManagementPage: React.FC = () => {
     priorityFilter ||
     (activeFilter !== 'all') ||
     (automatedFilter !== 'all') ||
+    (testingChannelFilter !== 'all') ||
     (completionFilter !== 'all')
   );
 
@@ -454,6 +464,17 @@ const QAScenarioManagementPage: React.FC = () => {
             </select>
 
             <select
+              value={testingChannelFilter}
+              onChange={(e) => handleTestingChannelFilterChange(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_accent"
+            >
+              <option value="all">Canal: Todos</option>
+              <option value="automation">Automatizado</option>
+              <option value="human">Manual</option>
+              <option value="not_applicable">No Aplicable</option>
+            </select>
+
+            <select
               value={completionFilter}
               onChange={(e) => handleCompletionFilterChange(e.target.value)}
               className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_accent"
@@ -569,6 +590,12 @@ const QAScenarioManagementPage: React.FC = () => {
                   </th>
                   <th
                     scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    Canal
+                  </th>
+                  <th
+                    scope="col"
                     className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
                   >
                     Acciones
@@ -646,6 +673,21 @@ const QAScenarioManagementPage: React.FC = () => {
                           </>
                         )}
                       </button>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {scenario.testing_channel === 'automation' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700">
+                          Auto
+                        </span>
+                      ) : scenario.testing_channel === 'not_applicable' ? (
+                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-500">
+                          N/A
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700">
+                          Manual
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">

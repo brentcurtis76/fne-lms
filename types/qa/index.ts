@@ -43,6 +43,7 @@ export interface QAScenario {
   priority: number; // 1=critical, 2=high, 3=medium, 4=low
   estimated_duration_minutes: number;
   automated_only: boolean; // If true, requires Playwright (tests logged-out behavior)
+  testing_channel: 'automation' | 'human' | 'not_applicable';
   is_multi_user?: boolean; // If true, scenario requires multiple users in different browser tabs
 }
 

@@ -43,6 +43,7 @@ export default async function handler(
  * - priority: Filter by priority level
  * - automated_only: Filter by automation type ('true', 'false', or 'all')
  * - include_automated: If 'false', excludes automated_only scenarios (for tester UI)
+ * - testing_channel: Filter by testing channel ('automation', 'human', 'not_applicable', or 'all')
  * - page: Page number (default: 1)
  * - pageSize: Items per page (default: 25, max: 100)
  * - search: Text search across name and description
@@ -66,6 +67,7 @@ async function handleGetScenarios(
       priority,
       automated_only,
       include_automated = 'true',
+      testing_channel,
       completion_status: rawCompletionStatus,
     } = req.query;
 
@@ -162,9 +164,14 @@ async function handleGetScenarios(
     }
     // If automated_only is 'all' or not specified, no filter applied
 
-    // For tester UI: exclude automated_only scenarios
+    // Filter by testing channel
+    if (testing_channel && testing_channel !== 'all') {
+      query = query.eq('testing_channel', testing_channel as string);
+    }
+
+    // For tester UI: only show human-testable scenarios
     if (include_automated === 'false') {
-      query = query.or('automated_only.is.null,automated_only.eq.false');
+      query = query.eq('testing_channel', 'human');
     }
 
     // Text search (server-side)
@@ -188,14 +195,14 @@ async function handleGetScenarios(
       });
     }
 
-    // Count automated scenarios (only if we're filtering them out)
+    // Count non-human scenarios (only if we're filtering them out for tester UI)
     let automatedCount = 0;
     if (include_automated === 'false') {
       const { count } = await supabaseClient
         .from('qa_scenarios')
         .select('*', { count: 'exact', head: true })
         .eq('is_active', true)
-        .eq('automated_only', true);
+        .neq('testing_channel', 'human');
       automatedCount = count || 0;
     }
 

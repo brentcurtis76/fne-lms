@@ -540,21 +540,21 @@ const QAScenarioListPage: React.FC = () => {
           </div>
         )}
 
-        {/* Automated Scenarios Info */}
-        {automatedCount > 0 && (
-          <div className="mb-6 p-3 bg-brand_accent/10 border border-brand_accent/30 rounded-lg flex items-center gap-3">
-            <FlaskConical className="w-5 h-5 text-brand_accent flex-shrink-0" />
-            <p className="text-sm text-gray-700">
-              <span className="font-medium">{automatedCount} escenario{automatedCount !== 1 ? 's' : ''}</span>
-              {' '}requiere{automatedCount === 1 ? '' : 'n'} pruebas automatizadas (Playwright) porque necesita{automatedCount === 1 ? '' : 'n'} estado sin sesión.
-              {isAdmin && (
-                <Link href="/admin/qa/scenarios?automated_only=true" className="ml-2 text-brand_primary hover:underline">
-                  Ver en Admin
-                </Link>
-              )}
-            </p>
-          </div>
-        )}
+        {/* Manual Testing Info Banner */}
+        <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
+          <ClipboardCheck className="w-5 h-5 text-blue-500 flex-shrink-0" />
+          <p className="text-sm text-gray-700">
+            Mostrando <span className="font-medium">{totalScenarios} escenario{totalScenarios !== 1 ? 's' : ''}</span> asignado{totalScenarios !== 1 ? 's' : ''} para testing manual.
+            {automatedCount > 0 && (
+              <> Los escenarios verificados por automatizaci&oacute;n no se muestran aqu&iacute;.</>
+            )}
+            {isAdmin && (
+              <Link href="/admin/qa/scenarios" className="ml-2 text-brand_primary hover:underline">
+                Ver todos en Admin
+              </Link>
+            )}
+          </p>
+        </div>
 
         {/* Section Header for Other Scenarios */}
         {assignedScenarios.length > 0 && totalScenarios > 0 && (

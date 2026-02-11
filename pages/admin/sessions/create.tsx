@@ -151,25 +151,27 @@ const SessionCreatePage: React.FC = () => {
 
   const fetchConsultants = async (schoolId: number) => {
     try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('user_id, profiles(id, first_name, last_name, email)')
-        .eq('school_id', schoolId)
-        .eq('role_type', 'consultor')
-        .eq('is_active', true);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error('Error de autenticación');
+        return;
+      }
 
-      if (error) throw error;
+      const response = await fetch(`/api/admin/consultants?school_id=${schoolId}`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
 
-      const consultantsData: Consultant[] = (data || [])
-        .filter((item: any) => item.profiles)
-        .map((item: any) => ({
-          id: item.profiles.id,
-          first_name: item.profiles.first_name || '',
-          last_name: item.profiles.last_name || '',
-          email: item.profiles.email || '',
-        }));
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al cargar consultores');
+      }
 
-      setConsultants(consultantsData);
+      const result = await response.json();
+      setConsultants(result.data?.consultants || []);
     } catch (error) {
       console.error('Error fetching consultants:', error);
       toast.error('Error al cargar consultores');

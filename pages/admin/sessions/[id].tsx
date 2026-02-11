@@ -242,7 +242,9 @@ const SessionDetailPage: React.FC = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('es-CL', {
+    // Append T12:00:00 to prevent timezone shift from moving the date backward
+    const date = new Date(dateString + 'T12:00:00');
+    return date.toLocaleDateString('es-CL', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',

@@ -121,6 +121,18 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
   try {
     const serviceClient = createServiceRoleClient();
 
+    // Verify growth community belongs to the specified school
+    const { data: gcCheck, error: gcCheckError } = await serviceClient
+      .from('growth_communities')
+      .select('id')
+      .eq('id', growth_community_id)
+      .eq('school_id', school_id)
+      .single();
+
+    if (gcCheckError || !gcCheck) {
+      return sendAuthError(res, 'La comunidad de crecimiento no pertenece al colegio seleccionado', 400);
+    }
+
     // Build session insert data
     const sessionData: ConsultorSessionInsert = {
       school_id,
@@ -174,7 +186,10 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
 
       if (facilitatorsError) {
         console.error('Database error inserting facilitators:', facilitatorsError);
-        // Don't fail the whole request, log the error
+        // Clean up orphaned session
+        await serviceClient.from('consultor_sessions').delete().eq('id', newSession.id);
+        await serviceClient.from('session_activity_log').delete().eq('session_id', newSession.id);
+        return sendAuthError(res, 'Error al asignar facilitadores. La sesión no fue creada.', 500, facilitatorsError.message);
       }
     }
 

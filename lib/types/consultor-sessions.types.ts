@@ -41,6 +41,9 @@ export type NotificationStatus = 'scheduled' | 'sent' | 'failed' | 'cancelled';
 
 export type ReportVisibility = 'facilitators_only' | 'all_participants';
 
+/** Alias for materials and communications that share the same visibility options */
+export type ContentVisibility = ReportVisibility;
+
 export type ReportType = 'session_report' | 'planning_notes';
 
 export type ArrivalStatus = 'on_time' | 'late' | 'left_early';
@@ -169,7 +172,7 @@ export interface SessionMaterial {
   file_size: number;
   storage_path: string;
   description: string | null;
-  visibility: ReportVisibility;
+  visibility: ContentVisibility;
   created_at: string;
 }
 
@@ -181,7 +184,7 @@ export interface SessionCommunication {
   session_id: string;
   author_id: string;
   content: string;
-  visibility: ReportVisibility;
+  visibility: ContentVisibility;
   created_at: string;
   updated_at: string;
 }

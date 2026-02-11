@@ -109,23 +109,6 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       communications: communicationsRes.data || [],
     };
 
-    // Insert activity log (viewed)
-    const activityLogEntry: SessionActivityLogInsert = {
-      session_id: sessionId,
-      user_id: user.id,
-      action: 'viewed',
-      details: null,
-    };
-
-    const { error: logError } = await serviceClient
-      .from('session_activity_log')
-      .insert(activityLogEntry);
-
-    if (logError) {
-      console.error('Error inserting activity log:', logError);
-      // Don't fail the request
-    }
-
     return sendApiResponse(res, { session: sessionWithRelations });
   } catch (error: any) {
     console.error('Get session detail error:', error);
@@ -256,7 +239,13 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
       session_id: sessionId,
       user_id: user.id,
       action: 'edited',
-      details: { fields_changed: fieldsChanged },
+      details: {
+        changes: fieldsChanged.map(field => ({
+          field,
+          old: (session as any)[field],
+          new: updateData[field],
+        })),
+      },
     };
 
     const { error: logError } = await serviceClient

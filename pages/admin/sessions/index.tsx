@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { toast } from 'react-hot-toast';
@@ -72,6 +72,9 @@ const SessionsPage: React.FC = () => {
   const [schools, setSchools] = useState<School[]>([]);
   const [communities, setCommunities] = useState<GrowthCommunity[]>([]);
 
+  // Server-side stats (accurate across all pages)
+  const [serverStats, setServerStats] = useState<{ total: number; by_status: Record<string, number> } | null>(null);
+
   // Filter state (read from URL query)
   const [filters, setFilters] = useState({
     school_id: router.query.school_id as string || '',
@@ -99,6 +102,7 @@ const SessionsPage: React.FC = () => {
     if (user && isAdmin) {
       fetchSchools();
       fetchCommunities();
+      fetchStats();
     }
   }, [user, isAdmin]);
 
@@ -108,8 +112,13 @@ const SessionsPage: React.FC = () => {
     }
   }, [user, isAdmin, filters, page, viewMode, currentDate]);
 
-  // Update URL when filters change
+  // Update URL when filters change (skip initial mount to avoid redundant history entry)
+  const isInitialMount = useRef(true);
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     const query: any = {};
     if (filters.school_id) query.school_id = filters.school_id;
     if (filters.growth_community_id) query.growth_community_id = filters.growth_community_id;
@@ -117,7 +126,7 @@ const SessionsPage: React.FC = () => {
     if (filters.date_from) query.date_from = filters.date_from;
     if (filters.date_to) query.date_to = filters.date_to;
 
-    router.push({ pathname: router.pathname, query }, undefined, { shallow: true });
+    router.replace({ pathname: router.pathname, query }, undefined, { shallow: true });
   }, [filters]);
 
   const initializeAuth = async () => {
@@ -172,6 +181,28 @@ const SessionsPage: React.FC = () => {
       setCommunities(data || []);
     } catch (error) {
       console.error('Error fetching communities:', error);
+    }
+  };
+
+  const fetchStats = async () => {
+    try {
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      if (!authSession?.access_token) return;
+
+      const response = await fetch('/api/sessions/stats', {
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+        },
+      });
+
+      if (!response.ok) return;
+
+      const result = await response.json();
+      setServerStats(result.data);
+    } catch (error) {
+      console.error('Error fetching session stats:', error);
     }
   };
 
@@ -262,6 +293,7 @@ const SessionsPage: React.FC = () => {
 
       toast.success('Sesión aprobada exitosamente');
       fetchSessions();
+      fetchStats();
     } catch (error: any) {
       console.error('Error approving session:', error);
       toast.error(error.message || 'Error al aprobar sesión');
@@ -310,6 +342,7 @@ const SessionsPage: React.FC = () => {
       setCancellationReason('');
       setSelectedSessionId(null);
       fetchSessions();
+      fetchStats();
     } catch (error: any) {
       console.error('Error cancelling session:', error);
       toast.error(error.message || 'Error al cancelar sesión');
@@ -373,19 +406,25 @@ const SessionsPage: React.FC = () => {
     return format(date, 'dd MMM', { locale: es });
   };
 
+  // Compute series totals from loaded sessions (approximate when sessions span multiple pages)
+  const seriesTotals = sessions.reduce((acc, s) => {
+    if (s.recurrence_group_id) {
+      acc[s.recurrence_group_id] = (acc[s.recurrence_group_id] || 0) + 1;
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
   const getSeriesInfo = (session: SessionListItem): string | null => {
     if (!session.recurrence_group_id || !session.session_number) return null;
-
-    // Count total sessions in series (we'd need this from the API or cache)
-    // For now, just show session number
-    return `${session.session_number}`;
+    const total = seriesTotals[session.recurrence_group_id];
+    return total ? `${session.session_number}/${total}` : `${session.session_number}`;
   };
 
-  // Stats calculation
+  // Stats from server (accurate across all sessions, not just current page)
   const stats = {
-    total: totalSessions,
-    programada: sessions.filter(s => s.status === 'programada').length,
-    pendiente: sessions.filter(s => s.status === 'pendiente_informe').length,
+    total: serverStats?.total ?? totalSessions,
+    programada: serverStats?.by_status?.programada ?? 0,
+    pendiente: serverStats?.by_status?.pendiente_informe ?? 0,
   };
 
   if (loading) {
@@ -618,6 +657,31 @@ const SessionsPage: React.FC = () => {
   // Sub-components for different views
   function ListView({ sessions }: { sessions: SessionListItem[] }) {
     const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+
+    // Close dropdown on outside click and Escape key
+    useEffect(() => {
+      if (!dropdownOpen) return;
+
+      const handleClickOutside = () => {
+        setDropdownOpen(null);
+      };
+
+      const handleEscape = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') setDropdownOpen(null);
+      };
+
+      // Delay listener to avoid the opening click from immediately closing
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('click', handleClickOutside);
+      }, 0);
+      document.addEventListener('keydown', handleEscape);
+
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('click', handleClickOutside);
+        document.removeEventListener('keydown', handleEscape);
+      };
+    }, [dropdownOpen]);
 
     return (
       <div className="overflow-x-auto">

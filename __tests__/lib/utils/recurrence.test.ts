@@ -100,7 +100,7 @@ describe('recurrence utility', () => {
   });
 
   describe('generateRecurrenceDates - custom dates', () => {
-    it('should pass through provided dates and include start date', () => {
+    it('should return only the custom dates without auto-including startDate', () => {
       const startDate = '2026-03-01';
       const pattern: RecurrencePattern = {
         frequency: 'custom',
@@ -109,8 +109,8 @@ describe('recurrence utility', () => {
 
       const dates = generateRecurrenceDates(startDate, pattern);
 
-      expect(dates).toHaveLength(4); // Start date + 3 custom dates
-      expect(dates).toContain('2026-03-01');
+      expect(dates).toHaveLength(3); // Only the custom dates
+      expect(dates).not.toContain('2026-03-01'); // startDate NOT auto-included
       expect(dates).toContain('2026-03-15');
       expect(dates).toContain('2026-04-10');
       expect(dates).toContain('2026-05-20');
@@ -120,7 +120,7 @@ describe('recurrence utility', () => {
       const startDate = '2026-03-01';
       const pattern: RecurrencePattern = {
         frequency: 'custom',
-        dates: ['2026-05-01', '2026-03-01', '2026-04-01', '2026-03-01'], // Duplicates
+        dates: ['2026-05-01', '2026-04-01', '2026-05-01', '2026-03-01'], // Duplicates
       };
 
       const dates = generateRecurrenceDates(startDate, pattern);

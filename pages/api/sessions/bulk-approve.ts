@@ -56,7 +56,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const { data, error } = await serviceClient
         .from('consultor_sessions')
         .select('*')
-        .in('id', session_ids);
+        .in('id', session_ids)
+        .in('status', ['borrador', 'pendiente_aprobacion']);
 
       if (error) {
         console.error('Database error fetching sessions by ids:', error);
@@ -64,24 +65,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       sessionsToApprove = data || [];
+
+      // Report skipped sessions (not found or in non-approvable status)
+      if (sessionsToApprove.length < session_ids.length) {
+        const foundIds = new Set(sessionsToApprove.map((s: any) => s.id));
+        const skippedIds = session_ids.filter((id: string) => !foundIds.has(id));
+        if (skippedIds.length > 0) {
+          return sendAuthError(
+            res,
+            `No se pueden aprobar todas las sesiones. ${skippedIds.length} sesión(es) no encontrada(s) o en estado no aprobable.`,
+            400
+          );
+        }
+      }
     }
 
     if (sessionsToApprove.length === 0) {
       return sendAuthError(res, 'No se encontraron sesiones para aprobar', 404);
-    }
-
-    // Validate all sessions are in approvable status
-    const nonApprovable = sessionsToApprove.filter(
-      (s) => s.status !== 'borrador' && s.status !== 'pendiente_aprobacion'
-    );
-
-    if (nonApprovable.length > 0) {
-      const nonApprovableStatuses = nonApprovable.map((s) => s.status).join(', ');
-      return sendAuthError(
-        res,
-        `No se pueden aprobar todas las sesiones. Estados no aprobables encontrados: ${nonApprovableStatuses}`,
-        400
-      );
     }
 
     const sessionIds = sessionsToApprove.map((s) => s.id);

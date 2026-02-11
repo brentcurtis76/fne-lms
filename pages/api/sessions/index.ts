@@ -194,10 +194,11 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     };
 
     // Build session insert array (one per date)
+    // RRULE stored only on the first instance (source of truth for the series)
     const sessionsToInsert: ConsultorSessionInsert[] = sessionDates.map((date, index) => ({
       ...baseSessionData,
       session_date: date,
-      recurrence_rule: recurrenceRule,
+      recurrence_rule: index === 0 ? recurrenceRule : null,
       recurrence_group_id: recurrenceGroupId,
       session_number: sessionDates.length > 1 ? index + 1 : null,
     }));

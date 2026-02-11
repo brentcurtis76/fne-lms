@@ -26,21 +26,15 @@ export function generateRecurrenceDates(
   startDate: string,
   pattern: RecurrencePattern
 ): string[] {
-  const dates: string[] = [];
   const startDateParsed = parseISO(startDate);
   const originalDay = startDateParsed.getDate();
 
-  // Start date is always included
-  dates.push(startDate);
-
   if (pattern.frequency === 'custom') {
-    // For custom, validate and return the provided dates
+    // For custom, the dates array IS the complete list — don't auto-include startDate
     if (!pattern.dates || pattern.dates.length === 0) {
       throw new Error('Custom recurrence requires at least one date');
     }
 
-    // Validate all dates are valid and future
-    const today = startOfDay(new Date());
     const validatedDates = pattern.dates
       .map((d) => d.trim())
       .filter((d) => {
@@ -57,9 +51,12 @@ export function generateRecurrenceDates(
     }
 
     // Remove duplicates and sort
-    const uniqueDates = Array.from(new Set([startDate, ...validatedDates])).sort();
-    return uniqueDates;
+    return Array.from(new Set(validatedDates)).sort();
   }
+
+  const dates: string[] = [];
+  // Start date is always included for non-custom patterns
+  dates.push(startDate);
 
   // For non-custom frequencies, count is required
   if (!pattern.count || pattern.count < 2 || pattern.count > 52) {

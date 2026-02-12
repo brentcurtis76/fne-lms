@@ -353,8 +353,19 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
 
       query = query.in('school_id', consultantSchools);
     } else {
-      // Other roles: return 403 for now (GC member views come in Task 2.1)
-      return sendAuthError(res, 'Acceso denegado', 403);
+      // GC member: see sessions for their communities
+      const userCommunityIds = userRoles
+        .filter((r) => r.community_id)
+        .map((r) => r.community_id)
+        .filter((id, index, arr) => arr.indexOf(id) === index); // deduplicate
+
+      if (userCommunityIds.length === 0) {
+        return sendApiResponse(res, { sessions: [], total: 0, page: pageNum, limit: limitNum });
+      }
+
+      query = query.in('growth_community_id', userCommunityIds);
+      // Exclude drafts for non-admin/non-consultor
+      query = query.neq('status', 'borrador');
     }
 
     // Apply filters

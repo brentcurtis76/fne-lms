@@ -105,7 +105,7 @@ const SessionDetailPage: React.FC = () => {
       setUser(session.user);
 
       const userRole = await getUserPrimaryRole(session.user.id);
-      const allowed = userRole === 'consultor' || userRole === 'admin';
+      const allowed = !!userRole; // Any authenticated user with a role — API handles access control
       setIsConsultorOrAdmin(allowed);
 
       if (!allowed) {

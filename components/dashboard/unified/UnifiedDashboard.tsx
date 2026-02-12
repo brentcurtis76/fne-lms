@@ -66,15 +66,15 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
       case 'admin':
         return [...baseCards, 'communityHealth', 'workspaceActivity', 'learningPaths', 'performanceMetrics', 'upcomingSessions'];
       case 'lider_comunidad':
-        return [...baseCards, 'communityHealth', 'workspaceActivity', 'socialLearning'];
+        return [...baseCards, 'communityHealth', 'workspaceActivity', 'upcomingSessions', 'socialLearning'];
       case 'supervisor_de_red':
-        return [...baseCards, 'schoolsOverview', 'communityHealth', 'performanceMetrics'];
+        return [...baseCards, 'upcomingSessions', 'schoolsOverview', 'communityHealth', 'performanceMetrics'];
       case 'consultor':
         return ['upcomingSessions', ...baseCards, 'learningPaths', 'performanceMetrics', 'workspaceActivity'];
       case 'docente':
-        return [...baseCards, 'courseAnalytics', 'studentProgress'];
+        return [...baseCards, 'upcomingSessions', 'courseAnalytics', 'studentProgress'];
       default:
-        return baseCards;
+        return [...baseCards, 'upcomingSessions'];
     }
   }, [userRole]);
 

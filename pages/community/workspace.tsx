@@ -38,6 +38,7 @@ import { ConfirmModal } from '../../components/common/ConfirmModal';
 import WorkspaceSettingsModal from '../../components/community/WorkspaceSettingsModal';
 import FeedContainer from '../../components/feed/FeedContainer';
 import WorkspaceTabNavigation from '../../components/workspace/WorkspaceTabNavigation';
+import WorkspaceSessionsTab from '../../components/workspace/WorkspaceSessionsTab';
 import { useAuth } from '../../hooks/useAuth';
 import { communityWorkspaceService } from '../../lib/services/communityWorkspace';
 import { 
@@ -128,7 +129,7 @@ import {
 import { X, Users, CheckCircle, Settings } from 'lucide-react';
 import { navigationManager } from '../../utils/navigationManager';
 
-type SectionType = 'overview' | 'communities' | 'meetings' | 'documents' | 'messaging';
+type SectionType = 'overview' | 'communities' | 'meetings' | 'sessions' | 'documents' | 'messaging';
 
 // Sidebar state management
 interface SidebarState {
@@ -682,12 +683,20 @@ const CommunityWorkspacePage: React.FC = () => {
 
         {/* Workspace-specific sections */}
         <div style={{ display: activeSection === 'meetings' ? 'block' : 'none' }}>
-          <MeetingsTabContent 
-            workspace={currentWorkspace} 
-            workspaceAccess={workspaceAccess} 
-            user={user} 
+          <MeetingsTabContent
+            workspace={currentWorkspace}
+            workspaceAccess={workspaceAccess}
+            user={user}
             searchQuery={searchQuery}
             filterMeetingsBySearch={filterMeetingsBySearch}
+          />
+        </div>
+
+        <div style={{ display: activeSection === 'sessions' ? 'block' : 'none' }}>
+          <WorkspaceSessionsTab
+            workspace={currentWorkspace}
+            workspaceAccess={workspaceAccess}
+            user={user}
           />
         </div>
 

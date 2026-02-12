@@ -462,6 +462,11 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         description: 'Resumen del espacio'
       },
       {
+        id: 'workspace-sessions',
+        label: 'Sesiones',
+        href: '/community/workspace?section=sessions'
+      },
+      {
         id: 'workspace-communities',
         label: 'Gestión Comunidades',
         href: '/community/workspace?section=communities',

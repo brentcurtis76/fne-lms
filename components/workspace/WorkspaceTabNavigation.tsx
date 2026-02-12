@@ -5,6 +5,7 @@ import {
   DocumentTextIcon,
   ChatAlt2Icon,
   CalendarIcon,
+  ClipboardListIcon,
 } from '@heroicons/react/outline';
 
 interface Tab {
@@ -28,6 +29,7 @@ const WorkspaceTabNavigation: React.FC<WorkspaceTabNavigationProps> = ({
   const tabs: Tab[] = [
     { id: 'overview', name: 'Vista General', icon: HomeIcon, show: true },
     { id: 'meetings', name: 'Reuniones', icon: CalendarIcon, show: true },
+    { id: 'sessions', name: 'Sesiones', icon: ClipboardListIcon, show: true },
     { id: 'documents', name: 'Documentos', icon: DocumentTextIcon, show: true },
     { id: 'messaging', name: 'Mensajes', icon: ChatAlt2Icon, show: true },
     { id: 'communities', name: 'Gestión', icon: UsersIcon, show: isAdmin }

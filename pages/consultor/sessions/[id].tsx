@@ -496,8 +496,10 @@ const SessionDetailPage: React.FC = () => {
   };
 
   const hasPendingEditRequest = (): boolean => {
-    if (!session?.edit_requests) return false;
-    return session.edit_requests.some((req) => req.status === 'pending');
+    if (!session?.edit_requests || !user) return false;
+    return session.edit_requests.some(
+      (req) => req.status === 'pending' && req.requested_by === user.id
+    );
   };
 
   const formatFileSize = (bytes: number): string => {

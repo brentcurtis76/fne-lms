@@ -122,9 +122,25 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
         return sendAuthError(res, 'Sesión no encontrada', 404);
       }
 
-      // Build update object from changes
+      // Re-verify old values still match current session (prevent overwriting newer edits)
       const changes = editRequest.changes as Record<string, { old: unknown; new: unknown }>;
-      const sessionUpdate: any = {};
+      for (const key of Object.keys(changes)) {
+        const expectedOld = changes[key].old;
+        const currentValue = (session as Record<string, unknown>)[key];
+        const normalizedExpected = expectedOld === null ? null : expectedOld;
+        const normalizedCurrent = currentValue === null ? null : currentValue;
+
+        if (JSON.stringify(normalizedExpected) !== JSON.stringify(normalizedCurrent)) {
+          return sendAuthError(
+            res,
+            `El valor actual de ${key} ha cambiado desde que se creó la solicitud. La solicitud debe ser rechazada y el consultor debe crear una nueva.`,
+            409
+          );
+        }
+      }
+
+      // Build update object from changes
+      const sessionUpdate: Record<string, unknown> = {};
 
       Object.keys(changes).forEach((key) => {
         sessionUpdate[key] = changes[key].new;

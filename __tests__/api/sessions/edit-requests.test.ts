@@ -375,6 +375,109 @@ describe('/api/sessions/[id]/edit-requests', () => {
       const data = JSON.parse(res._getData());
       expect(data.error).toContain('pendiente');
     });
+
+    it('should create edit request successfully', async () => {
+      const { getApiUser, createServiceRoleClient } = await import('../../../lib/api-auth');
+
+      (getApiUser as any).mockResolvedValue({
+        user: { id: 'user-123' },
+        error: null,
+      });
+
+      const mockInsertedRequest = {
+        id: 'new-req-123',
+        session_id: 'session-123',
+        requested_by: 'user-123',
+        changes: { session_date: { old: '2026-03-01', new: '2026-03-02' } },
+        reason: 'Cambio de fecha necesario',
+        status: 'pending',
+      };
+
+      const mockClient = {
+        from: vi.fn((table: string) => {
+          if (table === 'consultor_sessions') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: {
+                      id: 'session-123',
+                      status: 'programada',
+                      session_date: '2026-03-01',
+                    },
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === 'session_facilitators') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    single: vi.fn().mockResolvedValue({
+                      data: { id: 'fac-1' },
+                      error: null,
+                    }),
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === 'session_edit_requests') {
+            return {
+              select: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  eq: vi.fn().mockReturnValue({
+                    eq: vi.fn().mockReturnValue({
+                      maybeSingle: vi.fn().mockResolvedValue({
+                        data: null,
+                        error: null,
+                      }),
+                    }),
+                  }),
+                }),
+              }),
+              insert: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: mockInsertedRequest,
+                    error: null,
+                  }),
+                }),
+              }),
+            };
+          }
+          if (table === 'session_activity_log') {
+            return {
+              insert: vi.fn().mockResolvedValue({ error: null }),
+            };
+          }
+          return { select: vi.fn() };
+        }),
+      };
+
+      (createServiceRoleClient as any).mockReturnValue(mockClient);
+
+      const { req, res } = createMocks({
+        method: 'POST',
+        query: { id: '123e4567-e89b-12d3-a456-426614174000' },
+        body: {
+          changes: {
+            session_date: { old: '2026-03-01', new: '2026-03-02' },
+          },
+          reason: 'Cambio de fecha necesario',
+        },
+      });
+
+      await handler(req as any, res as any);
+
+      expect(res._getStatusCode()).toBe(201);
+      const data = JSON.parse(res._getData());
+      expect(data.data.edit_request).toBeDefined();
+      expect(data.data.edit_request.status).toBe('pending');
+    });
   });
 
   describe('GET', () => {

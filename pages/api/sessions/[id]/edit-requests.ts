@@ -89,7 +89,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, sessionId: 
 
     // Validate all keys are structural fields
     const changeKeys = Object.keys(changes);
-    const invalidKeys = changeKeys.filter((key) => !STRUCTURAL_FIELDS.includes(key as any));
+    const invalidKeys = changeKeys.filter((key) => !(STRUCTURAL_FIELDS as readonly string[]).includes(key));
 
     if (invalidKeys.length > 0) {
       return sendAuthError(

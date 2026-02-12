@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
@@ -34,7 +35,7 @@ const SessionApprovalsPage: React.FC = () => {
   const supabase = useSupabaseClient();
 
   // Auth state
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -303,9 +304,11 @@ const SessionApprovalsPage: React.FC = () => {
             <p className="text-gray-600">
               {statusFilter === 'pending'
                 ? 'No hay solicitudes pendientes'
-                : `No hay solicitudes ${
-                    statusFilter === 'approved' ? 'aprobadas' : statusFilter === 'rejected' ? 'rechazadas' : ''
-                  }`}
+                : statusFilter === 'approved'
+                ? 'No hay solicitudes aprobadas'
+                : statusFilter === 'rejected'
+                ? 'No hay solicitudes rechazadas'
+                : 'No hay solicitudes de cambio'}
             </p>
           </div>
         ) : (

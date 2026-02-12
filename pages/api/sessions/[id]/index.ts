@@ -81,6 +81,15 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       if (consultantSchools.includes(session.school_id)) {
         canAccess = true;
       }
+    } else {
+      // GC member: can view sessions for communities they belong to
+      const userCommunityIds = userRoles
+        .filter((r) => r.community_id)
+        .map((r) => r.community_id);
+
+      if (userCommunityIds.includes(session.growth_community_id)) {
+        canAccess = true;
+      }
     }
 
     if (!canAccess) {

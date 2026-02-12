@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/router';
 import { Calendar, Clock, MapPin, Users, RefreshCw, CalendarX } from 'lucide-react';
 import { format, parseISO, isAfter, isBefore, startOfToday, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -34,6 +35,7 @@ const WorkspaceSessionsTab: React.FC<WorkspaceSessionsTabProps> = ({
   workspaceAccess,
   user,
 }) => {
+  const router = useRouter();
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -162,10 +164,13 @@ const WorkspaceSessionsTab: React.FC<WorkspaceSessionsTabProps> = ({
 
     return (
       <div
-        className="bg-white border border-gray-200 rounded-lg p-4 hover:border-brand_accent hover:shadow-sm transition-all"
+        onClick={() => router.push(`/consultor/sessions/${session.id}`)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') router.push(`/consultor/sessions/${session.id}`); }}
+        aria-label={`Ver detalles de ${session.title}`}
+        className="bg-white border border-gray-200 rounded-lg p-4 hover:border-brand_accent hover:shadow-sm transition-all cursor-pointer"
       >
-        {/* Note: Cards are informational-only for GC members.
-            Detail view access requires additional auth changes (separate task). */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">

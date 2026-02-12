@@ -138,6 +138,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     consultantOnly: true
   },
   {
+    id: 'mis-sesiones',
+    label: 'Mis Sesiones',
+    icon: CalendarIcon,
+    href: '/consultor/sessions',
+    description: 'Sesiones de consultoría asignadas',
+    consultantOnly: true
+  },
+  {
     id: 'courses',
     label: 'Cursos',
     icon: BookOpenIcon,

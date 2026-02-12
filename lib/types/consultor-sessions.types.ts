@@ -320,11 +320,14 @@ export type SessionActivityLogInsert = Omit<SessionActivityLog, 'id' | 'created_
  * SessionWithRelations - Full session data with all relations
  */
 export interface SessionWithRelations extends ConsultorSession {
-  facilitators: SessionFacilitator[];
+  facilitators: (SessionFacilitator & { profiles?: { id: string; first_name: string; last_name: string; email: string } })[];
   attendees: SessionAttendee[];
   reports: SessionReport[];
   materials: SessionMaterial[];
   communications: SessionCommunication[];
+  activity_log?: (SessionActivityLog & { profiles?: { first_name: string; last_name: string } })[];
+  schools?: { name: string };
+  growth_communities?: { name: string };
 }
 
 /**

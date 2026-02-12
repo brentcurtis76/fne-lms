@@ -48,10 +48,10 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
   try {
     const serviceClient = createServiceRoleClient();
 
-    // Fetch session
+    // Fetch session with school and growth community names
     const { data: session, error: sessionError } = await serviceClient
       .from('consultor_sessions')
-      .select('*')
+      .select('*, schools(name), growth_communities(name)')
       .eq('id', sessionId)
       .single();
 
@@ -87,8 +87,13 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
     }
 
+    // Check if activity_log should be included (exact match whitelist)
+    const include = req.query.include as string | undefined;
+    const VALID_INCLUDES = ['activity_log'];
+    const includeActivityLog = include ? VALID_INCLUDES.includes(include) : false;
+
     // Fetch all relations in parallel
-    const [facilitatorsRes, attendeesRes, reportsRes, materialsRes, communicationsRes] =
+    const [facilitatorsRes, attendeesRes, reportsRes, materialsRes, communicationsRes, activityLogRes] =
       await Promise.all([
         serviceClient
           .from('session_facilitators')
@@ -98,6 +103,14 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
         serviceClient.from('session_reports').select('*').eq('session_id', sessionId),
         serviceClient.from('session_materials').select('*').eq('session_id', sessionId),
         serviceClient.from('session_communications').select('*').eq('session_id', sessionId),
+        includeActivityLog
+          ? serviceClient
+              .from('session_activity_log')
+              .select('*, profiles:user_id(first_name, last_name)')
+              .eq('session_id', sessionId)
+              .order('created_at', { ascending: false })
+              .limit(50)
+          : Promise.resolve({ data: null }),
       ]);
 
     const sessionWithRelations: SessionWithRelations = {
@@ -107,6 +120,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       reports: reportsRes.data || [],
       materials: materialsRes.data || [],
       communications: communicationsRes.data || [],
+      ...(activityLogRes.data && { activity_log: activityLogRes.data }),
     };
 
     return sendApiResponse(res, { session: sessionWithRelations });

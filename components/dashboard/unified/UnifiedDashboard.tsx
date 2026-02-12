@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import KPISummaryCard from './KPISummaryCard';
 import CommunityHealthCard from './CommunityHealthCard';
 import WorkspaceActivityCard from './WorkspaceActivityCard';
+import UpcomingSessionsCard from './UpcomingSessionsCard';
 import DashboardCard from './DashboardCard';
 import AdvancedFilters from './AdvancedFilters';
 import { Filter, Download, Settings, RefreshCw } from 'lucide-react';
@@ -60,16 +61,16 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
   // Role-based card configuration
   const getCardConfiguration = useCallback(() => {
     const baseCards = ['kpiSummary'];
-    
+
     switch (userRole) {
       case 'admin':
-        return [...baseCards, 'communityHealth', 'workspaceActivity', 'learningPaths', 'performanceMetrics'];
+        return [...baseCards, 'communityHealth', 'workspaceActivity', 'learningPaths', 'performanceMetrics', 'upcomingSessions'];
       case 'lider_comunidad':
         return [...baseCards, 'communityHealth', 'workspaceActivity', 'socialLearning'];
       case 'supervisor_de_red':
         return [...baseCards, 'schoolsOverview', 'communityHealth', 'performanceMetrics'];
       case 'consultor':
-        return [...baseCards, 'learningPaths', 'performanceMetrics', 'workspaceActivity'];
+        return ['upcomingSessions', ...baseCards, 'learningPaths', 'performanceMetrics', 'workspaceActivity'];
       case 'docente':
         return [...baseCards, 'courseAnalytics', 'studentProgress'];
       default:
@@ -336,6 +337,11 @@ const UnifiedDashboard: React.FC<UnifiedDashboardProps> = ({
               </div>
             </div>
           </DashboardCard>
+        )}
+
+        {/* Upcoming Sessions Card */}
+        {cardConfiguration.includes('upcomingSessions') && (
+          <UpcomingSessionsCard />
         )}
       </div>
 

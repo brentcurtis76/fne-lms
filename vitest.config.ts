@@ -11,6 +11,7 @@ export default defineConfig({
       'tests/qa/**',
       '**/*.spec.ts',
       '**/*.spec.tsx',
+      '.next/**',
     ],
     setupFiles: ['./tests/setup.ts'],
     threads: false,

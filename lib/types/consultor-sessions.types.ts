@@ -312,6 +312,31 @@ export type SessionFacilitatorInsert = Omit<SessionFacilitator, 'id' | 'created_
  */
 export type SessionActivityLogInsert = Omit<SessionActivityLog, 'id' | 'created_at'>;
 
+/**
+ * SessionAttendeeInsert - Type for creating new attendee records
+ */
+export type SessionAttendeeInsert = Omit<SessionAttendee, 'id' | 'created_at'>;
+
+/**
+ * SessionReportInsert - Type for creating new session reports
+ */
+export type SessionReportInsert = Omit<SessionReport, 'id' | 'created_at' | 'updated_at'>;
+
+/**
+ * SessionMaterialInsert - Type for creating new session materials
+ */
+export type SessionMaterialInsert = Omit<SessionMaterial, 'id' | 'created_at'>;
+
+/**
+ * AttendanceUpdatePayload - Type for bulk attendance updates
+ */
+export interface AttendanceUpdatePayload {
+  user_id: string;
+  attended: boolean;
+  arrival_status?: ArrivalStatus;
+  notes?: string;
+}
+
 // ============================================================
 // COMPOSITE RESPONSE TYPES
 // ============================================================
@@ -321,7 +346,7 @@ export type SessionActivityLogInsert = Omit<SessionActivityLog, 'id' | 'created_
  */
 export interface SessionWithRelations extends ConsultorSession {
   facilitators: (SessionFacilitator & { profiles?: { id: string; first_name: string; last_name: string; email: string } })[];
-  attendees: SessionAttendee[];
+  attendees: (SessionAttendee & { profiles?: { first_name: string; last_name: string; email: string } })[];
   reports: SessionReport[];
   materials: SessionMaterial[];
   communications: SessionCommunication[];

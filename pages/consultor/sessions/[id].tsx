@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
-import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
 import {
   Calendar,
@@ -19,8 +19,21 @@ import {
   Activity,
   Link2,
   AlertCircle,
+  Upload,
+  Trash2,
+  Check,
+  X,
+  Save,
+  CheckCircle,
 } from 'lucide-react';
-import { SessionWithRelations, SessionStatus } from '../../../lib/types/consultor-sessions.types';
+import {
+  SessionWithRelations,
+  SessionStatus,
+  SessionAttendee,
+  SessionReport,
+  SessionMaterial,
+  AttendanceUpdatePayload,
+} from '../../../lib/types/consultor-sessions.types';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getStatusBadge, formatTime, getModalityIcon } from '../../../lib/utils/session-ui-helpers';
@@ -33,7 +46,7 @@ const SessionDetailPage: React.FC = () => {
   const supabase = useSupabaseClient();
 
   // Auth state
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isConsultorOrAdmin, setIsConsultorOrAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -41,6 +54,25 @@ const SessionDetailPage: React.FC = () => {
   const [session, setSession] = useState<SessionWithRelations | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('details');
   const [isFacilitator, setIsFacilitator] = useState(false);
+
+  // Attendance state
+  const [attendanceData, setAttendanceData] = useState<AttendanceUpdatePayload[]>([]);
+  const [savingAttendance, setSavingAttendance] = useState(false);
+
+  // Report state
+  const [reportContent, setReportContent] = useState('');
+  const [reportVisibility, setReportVisibility] = useState<'facilitators_only' | 'all_participants'>('facilitators_only');
+  const [editingReport, setEditingReport] = useState(false);
+  const [savingReport, setSavingReport] = useState(false);
+  const [existingReport, setExistingReport] = useState<SessionReport | null>(null);
+
+  // Materials state
+  const [uploadingMaterial, setUploadingMaterial] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Finalize state
+  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
 
   useEffect(() => {
     if (router.isReady) {
@@ -112,9 +144,31 @@ const SessionDetailPage: React.FC = () => {
 
       // Check if current user is a facilitator
       const isFac = sessionData.facilitators.some(
-        (f: any) => f.user_id === authSession.user.id
+        (f: { user_id: string }) => f.user_id === authSession.user.id
       );
       setIsFacilitator(isFac);
+
+      // Initialize attendance data
+      const attendees = sessionData.attendees || [];
+      setAttendanceData(
+        attendees.map((a: SessionAttendee) => ({
+          user_id: a.user_id,
+          attended: a.attended ?? false,
+          arrival_status: a.arrival_status || undefined,
+          notes: a.notes || undefined,
+        }))
+      );
+
+      // Check for existing report by current user
+      const reports = sessionData.reports || [];
+      const userReport = reports.find(
+        (r: SessionReport) => r.author_id === authSession.user.id && r.report_type === 'session_report'
+      );
+      if (userReport) {
+        setExistingReport(userReport);
+        setReportContent(userReport.content);
+        setReportVisibility(userReport.visibility);
+      }
     } catch (error: any) {
       console.error('Error fetching session:', error);
       toast.error(error.message || 'Error al cargar sesión');
@@ -144,8 +198,265 @@ const SessionDetailPage: React.FC = () => {
     return texts[status] || '';
   };
 
+  const handleAttendanceChange = (userId: string, field: keyof AttendanceUpdatePayload, value: any) => {
+    setAttendanceData((prev) =>
+      prev.map((a) => (a.user_id === userId ? { ...a, [field]: value } : a))
+    );
+  };
+
+  const handleMarkAllPresent = () => {
+    setAttendanceData((prev) =>
+      prev.map((a) => ({ ...a, attended: true, arrival_status: 'on_time' }))
+    );
+  };
+
+  const handleSaveAttendance = async () => {
+    if (!session) return;
+
+    setSavingAttendance(true);
+    try {
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      if (!authSession?.access_token) {
+        toast.error('Error de autenticación');
+        return;
+      }
+
+      const response = await fetch(`/api/sessions/${id}/attendees`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ attendees: attendanceData }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al guardar asistencia');
+      }
+
+      toast.success('Asistencia guardada correctamente');
+      await fetchSession();
+    } catch (error: any) {
+      console.error('Error saving attendance:', error);
+      toast.error(error.message || 'Error al guardar asistencia');
+    } finally {
+      setSavingAttendance(false);
+    }
+  };
+
+  const handleSaveReport = async () => {
+    if (!session || !reportContent.trim()) {
+      toast.error('El contenido del informe es requerido');
+      return;
+    }
+
+    setSavingReport(true);
+    try {
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      if (!authSession?.access_token) {
+        toast.error('Error de autenticación');
+        return;
+      }
+
+      const isUpdate = !!existingReport;
+      const url = isUpdate
+        ? `/api/sessions/${id}/reports/${existingReport!.id}`
+        : `/api/sessions/${id}/reports`;
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: reportContent.trim(),
+          visibility: reportVisibility,
+          report_type: 'session_report',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al guardar informe');
+      }
+
+      toast.success(isUpdate ? 'Informe actualizado correctamente' : 'Informe creado correctamente');
+      setEditingReport(false);
+      await fetchSession();
+    } catch (error: any) {
+      console.error('Error saving report:', error);
+      toast.error(error.message || 'Error al guardar informe');
+    } finally {
+      setSavingReport(false);
+    }
+  };
+
+  const handleUploadMaterial = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!event.target.files || event.target.files.length === 0 || !session) {
+      return;
+    }
+
+    const file = event.target.files[0];
+
+    // Validate file size (25 MB)
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error('El archivo excede el tamaño máximo de 25 MB');
+      return;
+    }
+
+    setUploadingMaterial(true);
+    try {
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      if (!authSession?.access_token) {
+        toast.error('Error de autenticación');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('visibility', 'all_participants');
+
+      const response = await fetch(`/api/sessions/${id}/materials`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al subir material');
+      }
+
+      toast.success('Material subido correctamente');
+      await fetchSession();
+    } catch (error: any) {
+      console.error('Error uploading material:', error);
+      toast.error(error.message || 'Error al subir material');
+    } finally {
+      setUploadingMaterial(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDeleteMaterial = async (materialId: string, fileName: string) => {
+    if (!confirm(`¿Está seguro que desea eliminar "${fileName}"?`)) {
+      return;
+    }
+
+    try {
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      if (!authSession?.access_token) {
+        toast.error('Error de autenticación');
+        return;
+      }
+
+      const response = await fetch(`/api/sessions/${id}/materials/${materialId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al eliminar material');
+      }
+
+      toast.success('Material eliminado correctamente');
+      await fetchSession();
+    } catch (error: any) {
+      console.error('Error deleting material:', error);
+      toast.error(error.message || 'Error al eliminar material');
+    }
+  };
+
+  const handleFinalize = async () => {
+    if (!session) return;
+
+    setFinalizing(true);
+    try {
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      if (!authSession?.access_token) {
+        toast.error('Error de autenticación');
+        return;
+      }
+
+      const response = await fetch(`/api/sessions/${id}/finalize`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al finalizar sesión');
+      }
+
+      toast.success('Sesión finalizada correctamente');
+      setShowFinalizeModal(false);
+      await fetchSession();
+    } catch (error: any) {
+      console.error('Error finalizing session:', error);
+      toast.error(error.message || 'Error al finalizar sesión');
+    } finally {
+      setFinalizing(false);
+    }
+  };
+
+  const canFinalizeSession = (): { can: boolean; reasons: string[] } => {
+    if (!session) return { can: false, reasons: ['Sesión no cargada'] };
+
+    const reasons: string[] = [];
+
+    if (session.status !== 'pendiente_informe') {
+      reasons.push('La sesión debe estar en estado "Pendiente de Informe"');
+    }
+
+    const sessionReports = (session.reports || []).filter(
+      (r) => r.report_type === 'session_report'
+    );
+    if (sessionReports.length === 0) {
+      reasons.push('Falta informe de sesión');
+    }
+
+    const attendees = session.attendees || [];
+    const unmarkedCount = attendees.filter((a) => a.attended === null).length;
+    if (unmarkedCount > 0) {
+      reasons.push(`Hay ${unmarkedCount} asistente(s) sin marcar`);
+    }
+
+    return { can: reasons.length === 0, reasons };
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   const renderTabContent = () => {
     if (!session) return null;
+
+    const isReadOnly = session.status === 'completada' || session.status === 'cancelada';
 
     switch (activeTab) {
       case 'details':
@@ -184,12 +495,148 @@ const SessionDetailPage: React.FC = () => {
                 ))}
               </div>
             </div>
+
+            {/* Attendance Section */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                Asistentes ({session.attendees.length})
-              </h3>
-              <div className="text-sm text-gray-600">
-                Vista previa de asistencia — no editable en esta versión.
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Asistencia ({session.attendees.length})
+                </h3>
+                {!isReadOnly && isFacilitator && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleMarkAllPresent}
+                      className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
+                    >
+                      Marcar todos presentes
+                    </button>
+                    <button
+                      onClick={handleSaveAttendance}
+                      disabled={savingAttendance}
+                      className="px-4 py-1 text-sm bg-brand_accent hover:bg-brand_accent_hover text-white rounded disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                    >
+                      <Save className="w-4 h-4" />
+                      {savingAttendance ? 'Guardando...' : 'Guardar asistencia'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Summary stats */}
+              <div className="mb-4 flex gap-4 text-sm">
+                <span className="text-green-700">
+                  <CheckCircle className="w-4 h-4 inline mr-1" />
+                  Presentes: {session.attendees.filter((a) => a.attended === true).length}
+                </span>
+                <span className="text-red-700">
+                  <X className="w-4 h-4 inline mr-1" />
+                  Ausentes: {session.attendees.filter((a) => a.attended === false).length}
+                </span>
+                <span className="text-gray-700">
+                  Sin marcar: {session.attendees.filter((a) => a.attended === null).length}
+                </span>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Nombre</th>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-700">Esperado</th>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-700">Asistió</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Estado de llegada</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Notas</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {session.attendees.map((attendee, index) => {
+                      const attData = attendanceData.find((a) => a.user_id === attendee.user_id);
+                      const profile = (attendee as SessionAttendee & { profiles?: { first_name: string; last_name: string; email: string } }).profiles;
+                      const fullName = profile
+                        ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+                        : 'Usuario desconocido';
+
+                      return (
+                        <tr
+                          key={attendee.id}
+                          className={
+                            attendee.attended === null
+                              ? 'bg-yellow-50'
+                              : ''
+                          }
+                        >
+                          <td className="px-4 py-2 text-sm text-gray-900">{fullName}</td>
+                          <td className="px-4 py-2 text-center">
+                            {attendee.expected ? (
+                              <Check className="w-4 h-4 text-green-600 mx-auto" />
+                            ) : (
+                              <X className="w-4 h-4 text-gray-400 mx-auto" />
+                            )}
+                          </td>
+                          <td className="px-4 py-2 text-center">
+                            {isReadOnly || !isFacilitator ? (
+                              attendee.attended === true ? (
+                                <Check className="w-4 h-4 text-green-600 mx-auto" />
+                              ) : attendee.attended === false ? (
+                                <X className="w-4 h-4 text-red-600 mx-auto" />
+                              ) : (
+                                <span className="text-gray-400">—</span>
+                              )
+                            ) : (
+                              <input
+                                type="checkbox"
+                                checked={attData?.attended || false}
+                                onChange={(e) =>
+                                  handleAttendanceChange(attendee.user_id, 'attended', e.target.checked)
+                                }
+                                className="w-4 h-4"
+                              />
+                            )}
+                          </td>
+                          <td className="px-4 py-2">
+                            {isReadOnly || !isFacilitator ? (
+                              <span className="text-sm text-gray-600 capitalize">
+                                {attendee.arrival_status?.replace(/_/g, ' ') || '—'}
+                              </span>
+                            ) : (
+                              <select
+                                value={attData?.arrival_status || ''}
+                                onChange={(e) =>
+                                  handleAttendanceChange(
+                                    attendee.user_id,
+                                    'arrival_status',
+                                    e.target.value || undefined
+                                  )
+                                }
+                                className="text-sm border border-gray-300 rounded px-2 py-1"
+                              >
+                                <option value="">—</option>
+                                <option value="on_time">A tiempo</option>
+                                <option value="late">Tarde</option>
+                                <option value="left_early">Salió temprano</option>
+                              </select>
+                            )}
+                          </td>
+                          <td className="px-4 py-2">
+                            {isReadOnly || !isFacilitator ? (
+                              <span className="text-sm text-gray-600">{attendee.notes || '—'}</span>
+                            ) : (
+                              <input
+                                type="text"
+                                value={attData?.notes || ''}
+                                onChange={(e) =>
+                                  handleAttendanceChange(attendee.user_id, 'notes', e.target.value || undefined)
+                                }
+                                placeholder="Notas opcionales"
+                                className="text-sm border border-gray-300 rounded px-2 py-1 w-full"
+                              />
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -205,18 +652,199 @@ const SessionDetailPage: React.FC = () => {
         );
 
       case 'materials':
+        const materials = session.materials || [];
         return (
-          <div className="text-center py-12 text-gray-500">
-            <Paperclip className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-            <p>Carga de materiales disponible próximamente</p>
+          <div className="space-y-4">
+            {!isReadOnly && isFacilitator && (
+              <div className="flex justify-end">
+                <label className="px-4 py-2 bg-brand_accent hover:bg-brand_accent_hover text-white rounded cursor-pointer flex items-center gap-2">
+                  <Upload className="w-4 h-4" />
+                  {uploadingMaterial ? 'Subiendo...' : 'Subir material'}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleUploadMaterial}
+                    disabled={uploadingMaterial}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            )}
+
+            {materials.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Paperclip className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                <p>No hay materiales subidos</p>
+              </div>
+            ) : (
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Archivo</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Tipo</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Tamaño</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Subido por</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-700">Fecha</th>
+                      <th className="px-4 py-2 text-center text-xs font-medium text-gray-700">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {materials.map((material: SessionMaterial & { profiles?: { first_name: string; last_name: string; email: string }; download_url?: string }) => {
+                      const profile = material.profiles;
+                      const uploaderName = profile
+                        ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+                        : 'Usuario desconocido';
+
+                      return (
+                        <tr key={material.id}>
+                          <td className="px-4 py-2 text-sm text-gray-900">{material.file_name}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{material.file_type}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{formatFileSize(material.file_size)}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">{uploaderName}</td>
+                          <td className="px-4 py-2 text-sm text-gray-600">
+                            {format(parseISO(material.created_at), 'dd MMM yyyy', { locale: es })}
+                          </td>
+                          <td className="px-4 py-2 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              {material.download_url && (
+                                <a
+                                  href={material.download_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-brand_accent hover:text-brand_accent_hover"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </a>
+                              )}
+                              {!isReadOnly &&
+                                (material.uploaded_by === user?.id || isFacilitator) && (
+                                  <button
+                                    onClick={() => handleDeleteMaterial(material.id, material.file_name)}
+                                    className="text-red-600 hover:text-red-800"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         );
 
       case 'report':
+        if (!isFacilitator && !existingReport) {
+          return (
+            <div className="text-center py-12 text-gray-500">
+              <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+              <p>Solo los facilitadores pueden crear informes</p>
+            </div>
+          );
+        }
+
         return (
-          <div className="text-center py-12 text-gray-500">
-            <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-            <p>Informe de sesión disponible próximamente</p>
+          <div className="space-y-4">
+            {!isReadOnly && isFacilitator && !existingReport && !editingReport && (
+              <button
+                onClick={() => setEditingReport(true)}
+                className="px-4 py-2 bg-brand_accent hover:bg-brand_accent_hover text-white rounded"
+              >
+                Crear Informe
+              </button>
+            )}
+
+            {!isReadOnly && isFacilitator && existingReport && !editingReport && (
+              <button
+                onClick={() => setEditingReport(true)}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
+              >
+                Editar Informe
+              </button>
+            )}
+
+            {editingReport && isFacilitator && !isReadOnly ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Contenido del informe</label>
+                  <textarea
+                    value={reportContent}
+                    onChange={(e) => setReportContent(e.target.value)}
+                    rows={10}
+                    className="w-full border border-gray-300 rounded px-3 py-2"
+                    placeholder="Escriba el informe de la sesión..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Visibilidad</label>
+                  <select
+                    value={reportVisibility}
+                    onChange={(e) => setReportVisibility(e.target.value as 'facilitators_only' | 'all_participants')}
+                    className="border border-gray-300 rounded px-3 py-2"
+                  >
+                    <option value="facilitators_only">Solo facilitadores</option>
+                    <option value="all_participants">Todos los participantes</option>
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveReport}
+                    disabled={savingReport || !reportContent.trim()}
+                    className="px-4 py-2 bg-brand_accent hover:bg-brand_accent_hover text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingReport ? 'Guardando...' : existingReport ? 'Actualizar' : 'Crear'}
+                  </button>
+                  {editingReport && (
+                    <button
+                      onClick={() => {
+                        setEditingReport(false);
+                        if (existingReport) {
+                          setReportContent(existingReport.content);
+                          setReportVisibility(existingReport.visibility);
+                        }
+                      }}
+                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : existingReport ? (
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">
+                      {format(parseISO(existingReport.created_at), 'dd MMM yyyy HH:mm', { locale: es })}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 text-xs rounded ${
+                        existingReport.visibility === 'all_participants'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {existingReport.visibility === 'all_participants'
+                        ? 'Todos los participantes'
+                        : 'Solo facilitadores'}
+                    </span>
+                  </div>
+                </div>
+                <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
+                  {existingReport.content}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                <p>No hay informe creado</p>
+              </div>
+            )}
           </div>
         );
 
@@ -224,7 +852,7 @@ const SessionDetailPage: React.FC = () => {
         return (
           <div className="text-center py-12 text-gray-500">
             <MessageSquare className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-            <p>Comunicaciones disponible próximamente</p>
+            <p>Comunicaciones disponibles próximamente</p>
           </div>
         );
 
@@ -293,6 +921,8 @@ const SessionDetailPage: React.FC = () => {
     { id: 'activity', label: 'Actividad', icon: Activity },
   ];
 
+  const finalizeCheck = canFinalizeSession();
+
   return (
     <MainLayout user={user} onLogout={handleLogout}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -322,6 +952,34 @@ const SessionDetailPage: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* Finalize Button */}
+            {session.status === 'pendiente_informe' && isFacilitator && (
+              <div className="relative group">
+                <button
+                  onClick={() => setShowFinalizeModal(true)}
+                  disabled={!finalizeCheck.can}
+                  className={`px-4 py-2 rounded flex items-center gap-2 ${
+                    finalizeCheck.can
+                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  Finalizar Sesión
+                </button>
+                {!finalizeCheck.can && (
+                  <div className="absolute top-full right-0 mt-2 w-64 bg-gray-900 text-white text-xs rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                    <div className="font-semibold mb-1">Condiciones faltantes:</div>
+                    <ul className="list-disc list-inside">
+                      {finalizeCheck.reasons.map((reason, i) => (
+                        <li key={i}>{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -397,6 +1055,34 @@ const SessionDetailPage: React.FC = () => {
           </div>
           <div className="p-6">{renderTabContent()}</div>
         </div>
+
+        {/* Finalize Modal */}
+        {showFinalizeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Finalizar Sesión</h3>
+              <p className="text-gray-700 mb-6">
+                ¿Está seguro que desea finalizar esta sesión? Esta acción no se puede deshacer.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowFinalizeModal(false)}
+                  disabled={finalizing}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleFinalize}
+                  disabled={finalizing}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {finalizing ? 'Finalizando...' : 'Finalizar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </MainLayout>
   );

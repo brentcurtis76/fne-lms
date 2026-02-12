@@ -93,7 +93,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
     const includeActivityLog = include ? VALID_INCLUDES.includes(include) : false;
 
     // Fetch all relations in parallel
-    const [facilitatorsRes, attendeesRes, reportsRes, materialsRes, communicationsRes, activityLogRes] =
+    const [facilitatorsRes, attendeesRes, reportsRes, materialsRes, communicationsRes, activityLogRes, editRequestsRes] =
       await Promise.all([
         serviceClient
           .from('session_facilitators')
@@ -111,6 +111,11 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
               .order('created_at', { ascending: false })
               .limit(50)
           : Promise.resolve({ data: null }),
+        serviceClient
+          .from('session_edit_requests')
+          .select('*, profiles:requested_by(first_name, last_name)')
+          .eq('session_id', sessionId)
+          .order('created_at', { ascending: false }),
       ]);
 
     const sessionWithRelations: SessionWithRelations = {
@@ -121,6 +126,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       materials: materialsRes.data || [],
       communications: communicationsRes.data || [],
       ...(activityLogRes.data && { activity_log: activityLogRes.data }),
+      edit_requests: editRequestsRes.data || [],
     };
 
     return sendApiResponse(res, { session: sessionWithRelations });

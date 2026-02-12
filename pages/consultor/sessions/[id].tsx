@@ -4,6 +4,7 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
+import EditRequestModal from '../../../components/sessions/EditRequestModal';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
 import {
   Calendar,
@@ -25,6 +26,7 @@ import {
   X,
   Save,
   CheckCircle,
+  Edit,
 } from 'lucide-react';
 import {
   SessionWithRelations,
@@ -33,6 +35,7 @@ import {
   SessionReport,
   SessionMaterial,
   AttendanceUpdatePayload,
+  SessionEditRequest,
 } from '../../../lib/types/consultor-sessions.types';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -73,6 +76,10 @@ const SessionDetailPage: React.FC = () => {
   // Finalize state
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
+
+  // Edit request state
+  const [showEditRequestModal, setShowEditRequestModal] = useState(false);
+  const [submittingEditRequest, setSubmittingEditRequest] = useState(false);
 
   useEffect(() => {
     if (router.isReady) {
@@ -445,6 +452,52 @@ const SessionDetailPage: React.FC = () => {
     }
 
     return { can: reasons.length === 0, reasons };
+  };
+
+  const handleSubmitEditRequest = async (
+    changes: Record<string, { old: unknown; new: unknown }>,
+    reason: string
+  ) => {
+    if (!session) return;
+
+    setSubmittingEditRequest(true);
+    try {
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      if (!authSession?.access_token) {
+        toast.error('Error de autenticación');
+        return;
+      }
+
+      const response = await fetch(`/api/sessions/${id}/edit-requests`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ changes, reason }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al crear solicitud de cambio');
+      }
+
+      toast.success('Solicitud de cambio enviada correctamente');
+      setShowEditRequestModal(false);
+      await fetchSession();
+    } catch (error: any) {
+      console.error('Error submitting edit request:', error);
+      toast.error(error.message || 'Error al crear solicitud de cambio');
+    } finally {
+      setSubmittingEditRequest(false);
+    }
+  };
+
+  const hasPendingEditRequest = (): boolean => {
+    if (!session?.edit_requests) return false;
+    return session.edit_requests.some((req) => req.status === 'pending');
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -953,29 +1006,55 @@ const SessionDetailPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Finalize Button */}
-            {session.status === 'pendiente_informe' && isFacilitator && (
-              <div className="relative group">
-                <button
-                  onClick={() => setShowFinalizeModal(true)}
-                  disabled={!finalizeCheck.can}
-                  className={`px-4 py-2 rounded flex items-center gap-2 ${
-                    finalizeCheck.can
-                      ? 'bg-green-600 hover:bg-green-700 text-white'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  <CheckCircle className="w-5 h-5" />
-                  Finalizar Sesión
-                </button>
-                {!finalizeCheck.can && (
-                  <div className="absolute top-full right-0 mt-2 w-64 bg-gray-900 text-white text-xs rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                    <div className="font-semibold mb-1">Condiciones faltantes:</div>
-                    <ul className="list-disc list-inside">
-                      {finalizeCheck.reasons.map((reason, i) => (
-                        <li key={i}>{reason}</li>
-                      ))}
-                    </ul>
+            {/* Action Buttons */}
+            {isFacilitator && (session.status !== 'completada' && session.status !== 'cancelada') && (
+              <div className="flex flex-col sm:flex-row gap-2">
+                {/* Edit Request Button */}
+                <div className="relative group">
+                  <button
+                    onClick={() => setShowEditRequestModal(true)}
+                    disabled={hasPendingEditRequest()}
+                    className={`px-4 py-2 rounded flex items-center gap-2 ${
+                      hasPendingEditRequest()
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-brand_accent hover:bg-brand_accent_hover text-white'
+                    }`}
+                  >
+                    <Edit className="w-5 h-5" />
+                    Solicitar Cambios
+                  </button>
+                  {hasPendingEditRequest() && (
+                    <div className="absolute top-full right-0 mt-2 w-64 bg-gray-900 text-white text-xs rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                      Ya existe una solicitud de cambio pendiente para esta sesión.
+                    </div>
+                  )}
+                </div>
+
+                {/* Finalize Button */}
+                {session.status === 'pendiente_informe' && (
+                  <div className="relative group">
+                    <button
+                      onClick={() => setShowFinalizeModal(true)}
+                      disabled={!finalizeCheck.can}
+                      className={`px-4 py-2 rounded flex items-center gap-2 ${
+                        finalizeCheck.can
+                          ? 'bg-green-600 hover:bg-green-700 text-white'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <CheckCircle className="w-5 h-5" />
+                      Finalizar Sesión
+                    </button>
+                    {!finalizeCheck.can && (
+                      <div className="absolute top-full right-0 mt-2 w-64 bg-gray-900 text-white text-xs rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                        <div className="font-semibold mb-1">Condiciones faltantes:</div>
+                        <ul className="list-disc list-inside">
+                          {finalizeCheck.reasons.map((reason, i) => (
+                            <li key={i}>{reason}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -1030,6 +1109,76 @@ const SessionDetailPage: React.FC = () => {
           )}
         </div>
 
+        {/* Edit Request History */}
+        {session.edit_requests && session.edit_requests.length > 0 && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Historial de Solicitudes de Cambio</h3>
+            <div className="space-y-3">
+              {session.edit_requests.map((request: SessionEditRequest) => {
+                const statusBadge =
+                  request.status === 'pending'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : request.status === 'approved'
+                    ? 'bg-green-100 text-green-800'
+                    : 'bg-red-100 text-red-800';
+                const statusLabel =
+                  request.status === 'pending'
+                    ? 'Pendiente'
+                    : request.status === 'approved'
+                    ? 'Aprobada'
+                    : 'Rechazada';
+
+                return (
+                  <div key={request.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusBadge}`}>
+                          {statusLabel}
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {format(parseISO(request.created_at), 'dd MMM yyyy, HH:mm', { locale: es })}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-sm space-y-1">
+                      {Object.keys(request.changes).map((field) => {
+                        const change = request.changes[field];
+                        const fieldLabel =
+                          field === 'session_date'
+                            ? 'Fecha'
+                            : field === 'start_time'
+                            ? 'Hora inicio'
+                            : field === 'end_time'
+                            ? 'Hora término'
+                            : field === 'modality'
+                            ? 'Modalidad'
+                            : field;
+                        return (
+                          <div key={field} className="text-gray-700">
+                            <span className="font-medium">{fieldLabel}:</span>{' '}
+                            <span className="line-through text-red-600">{String(change.old)}</span> →{' '}
+                            <span className="text-green-600">{String(change.new)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {request.reason && (
+                      <div className="mt-2 text-sm text-gray-600">
+                        <span className="font-medium">Razón:</span> {request.reason}
+                      </div>
+                    )}
+                    {request.review_notes && request.status !== 'pending' && (
+                      <div className="mt-2 text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                        <span className="font-medium">Nota del revisor:</span> {request.review_notes}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="bg-white rounded-lg border border-gray-200">
           <div className="border-b border-gray-200">
@@ -1082,6 +1231,16 @@ const SessionDetailPage: React.FC = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Edit Request Modal */}
+        {showEditRequestModal && session && (
+          <EditRequestModal
+            session={session}
+            onClose={() => setShowEditRequestModal(false)}
+            onSubmit={handleSubmitEditRequest}
+            submitting={submittingEditRequest}
+          />
         )}
       </div>
     </MainLayout>

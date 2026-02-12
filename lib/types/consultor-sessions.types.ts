@@ -206,6 +206,14 @@ export interface SessionEditRequest {
 }
 
 /**
+ * SessionEditRequestInsert - Type for creating new edit requests
+ */
+export type SessionEditRequestInsert = Omit<
+  SessionEditRequest,
+  'id' | 'created_at' | 'reviewed_by' | 'reviewed_at' | 'review_notes' | 'status'
+>;
+
+/**
  * SessionNotification - Scheduled notifications
  */
 export interface SessionNotification {
@@ -351,6 +359,7 @@ export interface SessionWithRelations extends ConsultorSession {
   materials: SessionMaterial[];
   communications: SessionCommunication[];
   activity_log?: (SessionActivityLog & { profiles?: { first_name: string; last_name: string } })[];
+  edit_requests?: (SessionEditRequest & { profiles?: { first_name: string; last_name: string } })[];
   schools?: { name: string };
   growth_communities?: { name: string };
 }

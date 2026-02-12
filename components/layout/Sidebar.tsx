@@ -283,6 +283,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         description: 'Gestión de sesiones de consultoría',
         icon: CalendarIcon,
         adminOnly: true
+      },
+      {
+        id: 'session-approvals',
+        label: 'Aprobaciones',
+        href: '/admin/sessions/approvals',
+        description: 'Solicitudes de cambio pendientes',
+        icon: ClipboardDocumentCheckIcon,
+        adminOnly: true
       }
     ]
   },

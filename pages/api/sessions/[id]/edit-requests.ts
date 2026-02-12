@@ -173,6 +173,37 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, sessionId: 
       // Don't fail the request
     }
 
+    // Trigger notification for admins
+    try {
+      const NotificationService = (await import('../../../../lib/notificationService')).default;
+
+      // Get admin user IDs
+      const { data: adminUsers } = await serviceClient
+        .from('profiles')
+        .select('id')
+        .eq('role', 'admin')
+        .eq('is_active', true);
+
+      if (adminUsers && adminUsers.length > 0) {
+        await NotificationService.triggerNotification('session_edit_request_submitted', {
+          session: {
+            id: sessionId,
+            title: session.title,
+          },
+          requester: {
+            id: user.id,
+            name: `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() || user.email,
+          },
+          requester_id: user.id,
+          changed_fields: Object.keys(changes),
+          admin_user_ids: adminUsers.map((u: { id: string }) => u.id),
+        });
+      }
+    } catch (notifError) {
+      console.error('Error sending edit request notification:', notifError);
+      // Don't fail the request for notification errors
+    }
+
     return sendApiResponse(res, { edit_request: editRequest }, 201);
   } catch (error: any) {
     console.error('Create edit request error:', error);

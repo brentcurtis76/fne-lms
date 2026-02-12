@@ -85,10 +85,10 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
       return sendAuthError(res, 'Acción inválida. Use: approve o reject', 400);
     }
 
-    // Fetch edit request
+    // Fetch edit request with session title
     const { data: editRequest, error: fetchError } = await serviceClient
       .from('session_edit_requests')
-      .select('*')
+      .select('*, consultor_sessions(title)')
       .eq('id', editRequestId)
       .single();
 
@@ -197,6 +197,23 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
         // Don't fail the request
       }
 
+      // Notify the requester that their edit was approved
+      try {
+        const NotificationService = (await import('../../../../lib/notificationService')).default;
+
+        await NotificationService.triggerNotification('session_edit_request_approved', {
+          session: {
+            id: sessionId,
+            title: (editRequest.consultor_sessions as any)?.title || session.title,
+          },
+          requester_id: editRequest.requested_by,
+          changed_fields: Object.keys(changes),
+          review_notes: review_notes || null,
+        });
+      } catch (notifError) {
+        console.error('Error sending edit approval notification:', notifError);
+      }
+
       return sendApiResponse(res, { edit_request: updatedEditRequest });
     } else {
       // Reject: only update edit request status
@@ -235,6 +252,22 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
       if (logError) {
         console.error('Error inserting activity log:', logError);
         // Don't fail the request
+      }
+
+      // Notify the requester that their edit was rejected
+      try {
+        const NotificationService = (await import('../../../../lib/notificationService')).default;
+
+        await NotificationService.triggerNotification('session_edit_request_rejected', {
+          session: {
+            id: sessionId,
+            title: (editRequest.consultor_sessions as any)?.title || '',
+          },
+          requester_id: editRequest.requested_by,
+          review_notes: review_notes || null,
+        });
+      } catch (notifError) {
+        console.error('Error sending edit rejection notification:', notifError);
       }
 
       return sendApiResponse(res, { edit_request: updatedEditRequest });

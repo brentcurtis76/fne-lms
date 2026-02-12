@@ -113,6 +113,27 @@ export interface SystemUpdateEventData extends BaseEventData {
   update_message?: string;
 }
 
+/** Consultor session event data */
+export interface SessionEventData extends BaseEventData {
+  session?: {
+    id?: string;
+    title?: string;
+    date?: string;
+    time?: string;
+    meeting_link?: string;
+  };
+  requester?: {
+    id?: string;
+    name?: string;
+  };
+  requester_id?: string;
+  changed_fields?: string[];
+  review_notes?: string;
+  admin_user_ids?: string[];
+  facilitator_ids?: string[];
+  attendee_ids?: string[];
+}
+
 /** Union type for all event data types */
 export type NotificationEventData =
   | CourseEventData
@@ -124,6 +145,7 @@ export type NotificationEventData =
   | FeedbackEventData
   | ConsultantEventData
   | SystemUpdateEventData
+  | SessionEventData
   | BaseEventData;
 
 // ============================================
@@ -387,6 +409,84 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventConfig> = {
     defaultUrl: '/qa',
     importance: 'normal',
     category: 'qa',
+  },
+
+  // ============================================
+  // CONSULTOR SESSION EVENTS
+  // ============================================
+
+  session_edit_request_submitted: {
+    defaultTitle: (d) =>
+      d.session?.title
+        ? `Solicitud de cambio: ${d.session.title}`
+        : 'Nueva solicitud de cambio en sesión',
+    defaultDescription: (d) => {
+      const fields = d.changed_fields as string[] | undefined;
+      const fieldList = fields ? fields.join(', ') : 'campos';
+      return `${d.requester?.name || 'Un consultor'} solicita cambios en ${fieldList}.`;
+    },
+    defaultUrl: '/admin/sessions/approvals',
+    importance: 'high',
+    category: 'sessions',
+  },
+
+  session_edit_request_approved: {
+    defaultTitle: (d) =>
+      d.session?.title
+        ? `Cambios aprobados: ${d.session.title}`
+        : 'Solicitud de cambio aprobada',
+    defaultDescription: (d) => {
+      const fields = d.changed_fields as string[] | undefined;
+      const fieldList = fields ? fields.join(', ') : 'los campos solicitados';
+      const notes = d.review_notes ? ` Nota: ${d.review_notes}` : '';
+      return `Los cambios en ${fieldList} han sido aprobados.${notes}`;
+    },
+    defaultUrl: '/consultor/sessions',
+    importance: 'normal',
+    category: 'sessions',
+  },
+
+  session_edit_request_rejected: {
+    defaultTitle: (d) =>
+      d.session?.title
+        ? `Cambios rechazados: ${d.session.title}`
+        : 'Solicitud de cambio rechazada',
+    defaultDescription: (d) => {
+      const notes = d.review_notes ? ` Motivo: ${d.review_notes}` : '';
+      return `Su solicitud de cambios ha sido rechazada.${notes}`;
+    },
+    defaultUrl: '/consultor/sessions',
+    importance: 'normal',
+    category: 'sessions',
+  },
+
+  session_reminder_24h: {
+    defaultTitle: (d) =>
+      d.session?.title
+        ? `Recordatorio: ${d.session.title} mañana`
+        : 'Sesión programada para mañana',
+    defaultDescription: (d) => {
+      const date = d.session?.date || 'mañana';
+      const time = d.session?.time || '';
+      return `Tiene una sesión programada para ${date}${time ? ' a las ' + time : ''}.`;
+    },
+    defaultUrl: '/consultor/sessions',
+    importance: 'normal',
+    category: 'sessions',
+  },
+
+  session_reminder_1h: {
+    defaultTitle: (d) =>
+      d.session?.title
+        ? `${d.session.title} comienza en 1 hora`
+        : 'Sesión comienza en 1 hora',
+    defaultDescription: (d) => {
+      const link = d.session?.meeting_link ? ' El enlace de reunión está disponible en la sesión.' : '';
+      return `Su sesión está por comenzar.${link}`;
+    },
+    defaultUrl: '/consultor/sessions',
+    importance: 'high',
+    category: 'sessions',
   },
 
   // ============================================

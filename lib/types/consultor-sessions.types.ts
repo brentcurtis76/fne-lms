@@ -27,6 +27,8 @@ export type SessionNotificationType =
   | 'session_reminder_1w'
   | 'session_reminder_2d'
   | 'session_reminder_30m'
+  | 'session_reminder_24h'
+  | 'session_reminder_1h'
   | 'session_rescheduled'
   | 'session_cancelled'
   | 'materials_uploaded'

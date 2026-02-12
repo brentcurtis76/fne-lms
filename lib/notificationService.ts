@@ -253,6 +253,15 @@ class NotificationService {
               case 'course_assigned':
                 finalRelatedUrl = '/mi-aprendizaje';
                 break;
+              case 'session_edit_request_submitted':
+                finalRelatedUrl = '/admin/sessions';
+                break;
+              case 'session_edit_request_approved':
+              case 'session_edit_request_rejected':
+              case 'session_reminder_24h':
+              case 'session_reminder_1h':
+                finalRelatedUrl = '/consultor/sessions';
+                break;
               default:
                 finalRelatedUrl = '/dashboard';
             }
@@ -402,6 +411,47 @@ class NotificationService {
           // Recipient is the assigned tester
           if (eventData.tester_id) {
             recipients.push({ id: eventData.tester_id as string });
+          }
+          break;
+
+        case 'session_edit_request_submitted':
+          // Recipients: all admin users
+          if (eventData.admin_user_ids && Array.isArray(eventData.admin_user_ids)) {
+            for (const userId of eventData.admin_user_ids) {
+              recipients.push({ id: userId });
+            }
+          }
+          break;
+
+        case 'session_edit_request_approved':
+        case 'session_edit_request_rejected':
+          // Recipient: the facilitator who submitted the request
+          if (eventData.requester_id) {
+            recipients.push({ id: eventData.requester_id as string });
+          }
+          break;
+
+        case 'session_reminder_24h':
+        case 'session_reminder_1h':
+          // Recipients: all facilitators + attendees (deduplicated)
+          {
+            const userIdSet = new Set<string>();
+
+            if (eventData.facilitator_ids && Array.isArray(eventData.facilitator_ids)) {
+              for (const userId of eventData.facilitator_ids) {
+                userIdSet.add(userId);
+              }
+            }
+            if (eventData.attendee_ids && Array.isArray(eventData.attendee_ids)) {
+              for (const userId of eventData.attendee_ids) {
+                userIdSet.add(userId);
+              }
+            }
+
+            // Convert set back to recipients array
+            for (const userId of userIdSet) {
+              recipients.push({ id: userId });
+            }
           }
           break;
 

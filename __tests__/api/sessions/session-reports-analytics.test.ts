@@ -136,7 +136,7 @@ describe('Session Reports Analytics API', () => {
 
     expect(res._getStatusCode()).toBe(401);
     const data = res._getJSONData();
-    expect(data.error).toContain('Autenticacion requerida');
+    expect(data.error).toContain('Autenticación requerida');
   });
 
   // ============================================================
@@ -317,7 +317,7 @@ describe('Session Reports Analytics API', () => {
 
     expect(res._getStatusCode()).toBe(400);
     const data = res._getJSONData();
-    expect(data.error).toContain('school_id debe ser un entero valido');
+    expect(data.error).toContain('school_id debe ser un entero válido');
   });
 
   // ============================================================
@@ -350,7 +350,7 @@ describe('Session Reports Analytics API', () => {
 
     expect(res._getStatusCode()).toBe(400);
     const data = res._getJSONData();
-    expect(data.error).toContain('growth_community_id debe ser un UUID valido');
+    expect(data.error).toContain('growth_community_id debe ser un UUID válido');
   });
 
   // ============================================================

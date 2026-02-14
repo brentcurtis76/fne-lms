@@ -8,6 +8,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
+import { BarChart3 } from 'lucide-react';
 import {
   HomeIcon,
   BookOpenIcon,
@@ -148,7 +149,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
   {
     id: 'mis-reportes-sesiones',
     label: 'Mis Reportes',
-    icon: ChartBarIcon,
+    icon: BarChart3,
     href: '/consultor/sessions/reports',
     description: 'Estadísticas de mis sesiones',
     consultantOnly: true
@@ -305,7 +306,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         label: 'Reportes',
         href: '/consultor/sessions/reports',
         description: 'Estadísticas de sesiones de consultoría',
-        icon: ChartBarIcon,
+        icon: BarChart3,
         adminOnly: true
       }
     ]

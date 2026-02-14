@@ -141,7 +141,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Authenticate
   const { user, error: authError } = await getApiUser(req, res);
   if (authError || !user) {
-    return sendAuthError(res, 'Autenticacion requerida', 401);
+    return sendAuthError(res, 'Autenticación requerida', 401);
   }
 
   // Get user role
@@ -168,12 +168,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (school_id) {
     schoolIdFilter = parseInt(school_id as string, 10);
     if (isNaN(schoolIdFilter)) {
-      return sendAuthError(res, 'school_id debe ser un entero valido', 400);
+      return sendAuthError(res, 'school_id debe ser un entero válido', 400);
     }
   }
 
   if (growth_community_id && !Validators.isUUID(growth_community_id as string)) {
-    return sendAuthError(res, 'growth_community_id debe ser un UUID valido', 400);
+    return sendAuthError(res, 'growth_community_id debe ser un UUID válido', 400);
   }
 
   if (consultant_id) {
@@ -181,7 +181,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, 'Solo administradores pueden filtrar por consultant_id', 403);
     }
     if (!Validators.isUUID(consultant_id as string)) {
-      return sendAuthError(res, 'consultant_id debe ser un UUID valido', 400);
+      return sendAuthError(res, 'consultant_id debe ser un UUID válido', 400);
     }
   }
 
@@ -230,7 +230,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ============================================================
     let sessionsQuery = serviceClient
       .from('consultor_sessions')
-      .select('id, title, session_date, status, modality, school_id, growth_community_id, scheduled_duration_minutes, actual_duration_minutes');
+      .select('id, title, session_date, status, modality, school_id, growth_community_id, scheduled_duration_minutes, actual_duration_minutes')
+      .eq('is_active', true);
 
     if (sessionIdFilter) {
       sessionsQuery = sessionsQuery.in('id', sessionIdFilter);
@@ -512,7 +513,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // STEP 7: Recent sessions
     // ============================================================
     const recentSessions: RecentSessionItem[] = sessions
-      .filter((s) => ['completada', 'finalizada'].includes(s.status) || s.status === 'pendiente_informe')
+      .filter((s) => s.status === 'completada' || s.status === 'pendiente_informe')
       .sort((a, b) => b.session_date.localeCompare(a.session_date))
       .slice(0, 10)
       .map((s) => {

@@ -146,6 +146,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     consultantOnly: true
   },
   {
+    id: 'mis-reportes-sesiones',
+    label: 'Mis Reportes',
+    icon: ChartBarIcon,
+    href: '/consultor/sessions/reports',
+    description: 'Estadísticas de mis sesiones',
+    consultantOnly: true
+  },
+  {
     id: 'courses',
     label: 'Cursos',
     icon: BookOpenIcon,
@@ -290,6 +298,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/admin/sessions/approvals',
         description: 'Solicitudes de cambio pendientes',
         icon: ClipboardDocumentCheckIcon,
+        adminOnly: true
+      },
+      {
+        id: 'session-reports',
+        label: 'Reportes',
+        href: '/consultor/sessions/reports',
+        description: 'Estadísticas de sesiones de consultoría',
+        icon: ChartBarIcon,
         adminOnly: true
       }
     ]

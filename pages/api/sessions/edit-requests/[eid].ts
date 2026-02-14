@@ -204,7 +204,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
         await NotificationService.triggerNotification('session_edit_request_approved', {
           session: {
             id: sessionId,
-            title: (editRequest.consultor_sessions as any)?.title || session.title,
+            title: (editRequest.consultor_sessions as { title: string } | null)?.title || session.title,
           },
           requester_id: editRequest.requested_by,
           changed_fields: Object.keys(changes),
@@ -261,7 +261,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
         await NotificationService.triggerNotification('session_edit_request_rejected', {
           session: {
             id: sessionId,
-            title: (editRequest.consultor_sessions as any)?.title || '',
+            title: (editRequest.consultor_sessions as { title: string } | null)?.title || '',
           },
           requester_id: editRequest.requested_by,
           review_notes: review_notes || null,

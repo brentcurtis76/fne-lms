@@ -102,7 +102,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, sessionId: 
     // Validate old values match current session
     for (const key of changeKeys) {
       const { old: oldValue } = changes[key];
-      const currentValue = (session as any)[key];
+      const currentValue = (session as Record<string, unknown>)[key];
 
       // Compare values (handle null/undefined equivalence)
       const normalizedOld = oldValue === null ? null : oldValue;

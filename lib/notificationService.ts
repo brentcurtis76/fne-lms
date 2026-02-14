@@ -254,7 +254,7 @@ class NotificationService {
                 finalRelatedUrl = '/mi-aprendizaje';
                 break;
               case 'session_edit_request_submitted':
-                finalRelatedUrl = '/admin/sessions';
+                finalRelatedUrl = '/admin/sessions/approvals';
                 break;
               case 'session_edit_request_approved':
               case 'session_edit_request_rejected':

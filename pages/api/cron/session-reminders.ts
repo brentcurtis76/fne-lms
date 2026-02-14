@@ -61,13 +61,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const userIdSet = new Set<string>();
 
       if (session.session_facilitators && Array.isArray(session.session_facilitators)) {
-        for (const f of session.session_facilitators as any[]) {
+        for (const f of session.session_facilitators as { user_id: string }[]) {
           if (f.user_id) userIdSet.add(f.user_id);
         }
       }
 
       if (session.session_attendees && Array.isArray(session.session_attendees)) {
-        for (const a of session.session_attendees as any[]) {
+        for (const a of session.session_attendees as { user_id: string }[]) {
           if (a.user_id) userIdSet.add(a.user_id);
         }
       }

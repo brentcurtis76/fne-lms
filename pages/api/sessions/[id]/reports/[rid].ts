@@ -130,7 +130,17 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Acceso denegado a este informe', 403);
     }
 
-    return sendApiResponse(res, { report });
+    // Generate signed audio URL if audio_url is present
+    let signedAudioUrl: string | null = null;
+    if (report.audio_url && typeof report.audio_url === 'string' && report.audio_url.startsWith('storage://session-audio/')) {
+      const storagePath = report.audio_url.replace('storage://session-audio/', '');
+      const { data: signedData } = await serviceClient.storage
+        .from('session-audio')
+        .createSignedUrl(storagePath, 3600); // 1 hour expiry
+      signedAudioUrl = signedData?.signedUrl || null;
+    }
+
+    return sendApiResponse(res, { report, signedAudioUrl });
   } catch (error: any) {
     console.error('Get report detail error:', error);
     return sendAuthError(res, 'Error inesperado al obtener informe', 500, error.message);

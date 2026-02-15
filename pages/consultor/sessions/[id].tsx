@@ -5,7 +5,10 @@ import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import EditRequestModal from '../../../components/sessions/EditRequestModal';
+import AudioReportUploader from '../../../components/sessions/AudioReportUploader';
+import AudioPlayer from '../../../components/sessions/AudioPlayer';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
+import { ReportSummary } from '../../../lib/services/audio-transcription';
 import {
   Calendar,
   Clock,
@@ -68,6 +71,8 @@ const SessionDetailPage: React.FC = () => {
   const [editingReport, setEditingReport] = useState(false);
   const [savingReport, setSavingReport] = useState(false);
   const [existingReport, setExistingReport] = useState<SessionReport | null>(null);
+  const [reportTranscript, setReportTranscript] = useState<string | null>(null);
+  const [signedAudioUrl, setSignedAudioUrl] = useState<string | null>(null);
 
   // Materials state
   const [uploadingMaterial, setUploadingMaterial] = useState(false);
@@ -175,10 +180,57 @@ const SessionDetailPage: React.FC = () => {
         setExistingReport(userReport);
         setReportContent(userReport.content);
         setReportVisibility(userReport.visibility);
+
+        // If report has audio, fetch the signed URL and transcript
+        if (userReport.audio_url) {
+          fetchReportAudioDetails(sessionData.id, userReport.id);
+        }
       }
     } catch (error: any) {
       console.error('Error fetching session:', error);
       toast.error(error.message || 'Error al cargar sesión');
+    }
+  };
+
+  const fetchReportAudioDetails = async (sessionId: string, reportId: string) => {
+    try {
+      const { data: { session: authSession } } = await supabase.auth.getSession();
+      if (!authSession?.access_token) return;
+
+      const response = await fetch(`/api/sessions/${sessionId}/reports/${reportId}`, {
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        console.error('Error fetching report audio details');
+        return;
+      }
+
+      const result = await response.json();
+      if (result.data?.signedAudioUrl) {
+        setSignedAudioUrl(result.data.signedAudioUrl);
+      }
+      if (result.data?.report?.transcript) {
+        setReportTranscript(result.data.report.transcript);
+      }
+    } catch (error) {
+      console.error('Error fetching report audio details:', error);
+    }
+  };
+
+  const handleAudioReportCreated = (report: SessionReport, transcript: string, summary: ReportSummary) => {
+    setExistingReport(report);
+    setReportContent(report.content);
+    setReportVisibility(report.visibility);
+    setReportTranscript(transcript);
+    setEditingReport(true); // Allow user to edit AI-generated summary before final save
+
+    // Refresh session to get the new report
+    if (session) {
+      fetchSession();
     }
   };
 
@@ -805,6 +857,15 @@ const SessionDetailPage: React.FC = () => {
 
         return (
           <div className="space-y-4">
+            {/* Audio uploader - show when no existing report and not read-only */}
+            {!isReadOnly && isFacilitator && !existingReport && !editingReport && session && (
+              <AudioReportUploader
+                sessionId={session.id}
+                onReportCreated={handleAudioReportCreated}
+                disabled={session.status === 'completada' || session.status === 'cancelada'}
+              />
+            )}
+
             {!isReadOnly && isFacilitator && !existingReport && !editingReport && (
               <button
                 onClick={() => setEditingReport(true)}
@@ -871,27 +932,37 @@ const SessionDetailPage: React.FC = () => {
                 </div>
               </div>
             ) : existingReport ? (
-              <div className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">
-                      {format(parseISO(existingReport.created_at), 'dd MMM yyyy HH:mm', { locale: es })}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 text-xs rounded ${
-                        existingReport.visibility === 'all_participants'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}
-                    >
-                      {existingReport.visibility === 'all_participants'
-                        ? 'Todos los participantes'
-                        : 'Solo facilitadores'}
-                    </span>
+              <div className="space-y-4">
+                {/* Audio player - show if report has audio */}
+                {signedAudioUrl && (
+                  <AudioPlayer
+                    audioUrl={signedAudioUrl}
+                    transcript={reportTranscript || undefined}
+                  />
+                )}
+
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-600">
+                        {format(parseISO(existingReport.created_at), 'dd MMM yyyy HH:mm', { locale: es })}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 text-xs rounded ${
+                          existingReport.visibility === 'all_participants'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {existingReport.visibility === 'all_participants'
+                          ? 'Todos los participantes'
+                          : 'Solo facilitadores'}
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
-                  {existingReport.content}
+                  <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
+                    {existingReport.content}
+                  </div>
                 </div>
               </div>
             ) : (

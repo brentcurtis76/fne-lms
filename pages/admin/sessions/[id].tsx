@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
@@ -26,7 +27,7 @@ const SessionDetailPage: React.FC = () => {
   const supabase = useSupabaseClient();
 
   // Auth state
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -209,9 +210,9 @@ const SessionDetailPage: React.FC = () => {
 
       const result = await response.json();
       setSession(result.data.session);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching session:', error);
-      toast.error(error.message || 'Error al cargar sesión');
+      toast.error(error instanceof Error ? error.message : 'Error al cargar sesión');
     }
   };
 
@@ -243,9 +244,9 @@ const SessionDetailPage: React.FC = () => {
 
       toast.success('Sesión aprobada exitosamente');
       fetchSession();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error approving session:', error);
-      toast.error(error.message || 'Error al aprobar sesión');
+      toast.error(error instanceof Error ? error.message : 'Error al aprobar sesión');
     } finally {
       setActionInProgress(false);
     }
@@ -285,9 +286,9 @@ const SessionDetailPage: React.FC = () => {
       setShowCancelModal(false);
       setCancellationReason('');
       fetchSession();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error cancelling session:', error);
-      toast.error(error.message || 'Error al cancelar sesión');
+      toast.error(error instanceof Error ? error.message : 'Error al cancelar sesión');
     } finally {
       setActionInProgress(false);
     }
@@ -721,7 +722,7 @@ const SessionDetailPage: React.FC = () => {
             <div className="mt-6 pt-6 border-t">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Facilitadores</h3>
               <div className="space-y-2">
-                {session.facilitators.map((facilitator: any) => {
+                {session.facilitators.map((facilitator) => {
                   const profile = facilitator.profiles;
                   const displayName = profile
                     ? `${profile.first_name} ${profile.last_name}`.trim() || profile.email || facilitator.user_id
@@ -741,7 +742,7 @@ const SessionDetailPage: React.FC = () => {
                         )}
                       </div>
                       <span className="text-sm text-gray-500 capitalize">
-                        {facilitator.facilitator_role.replace('_', ' ')}
+                        {facilitator.facilitator_role.replace(/_/g, ' ')}
                       </span>
                     </div>
                   );

@@ -52,6 +52,11 @@ const SessionDetailPage: React.FC = () => {
   useEffect(() => {
     if (user && isAdmin && id) {
       fetchSession();
+      // Reset series state when navigating to a different session
+      setSeriesSessions([]);
+      setSeriesStats(null);
+      setSeriesTotalSessions(0);
+      setSeriesLoading(false);
     }
   }, [user, isAdmin, id, router.isReady]);
 
@@ -532,7 +537,7 @@ const SessionDetailPage: React.FC = () => {
                           )}
                           {seriesStats.borrador > 0 && (
                             <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
-                              {seriesStats.borrador} Borrador{seriesStats.borrador > 1 ? 's' : ''}
+                              {seriesStats.borrador} {seriesStats.borrador > 1 ? 'Borradores' : 'Borrador'}
                             </span>
                           )}
                           {seriesStats.pendiente_aprobacion > 0 && (

@@ -60,12 +60,12 @@ const SessionDetailPage: React.FC = () => {
     }
   }, [user, isAdmin, id, router.isReady]);
 
-  // Lazy-load series data when panel is expanded
+  // Lazy-load series data when panel is expanded (id in deps re-triggers on navigation)
   useEffect(() => {
     if (showSeriesPanel && session?.recurrence_group_id && seriesSessions.length === 0 && !seriesLoading) {
       fetchSeriesData(session.recurrence_group_id);
     }
-  }, [showSeriesPanel, session?.recurrence_group_id]);
+  }, [showSeriesPanel, session?.recurrence_group_id, id]);
 
   // Focus trap and escape key for cancel modal
   useEffect(() => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
@@ -40,7 +41,7 @@ const SessionCreatePage: React.FC = () => {
   const supabase = useSupabaseClient();
 
   // Auth state
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -232,7 +233,7 @@ const SessionCreatePage: React.FC = () => {
 
   const handleModalityChange = (modality: 'presencial' | 'online' | 'hibrida') => {
     setFormData((prev) => {
-      const updates: any = { modality };
+      const updates: Record<string, string> = { modality };
 
       // Clear conditional fields based on modality
       if (modality === 'presencial') {
@@ -394,7 +395,7 @@ const SessionCreatePage: React.FC = () => {
         return;
       }
 
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         school_id: formData.school_id,
         growth_community_id: formData.growth_community_id,
         title: formData.title.trim(),
@@ -447,9 +448,9 @@ const SessionCreatePage: React.FC = () => {
         const sessionId = result.data.sessions ? result.data.sessions[0].id : result.data.session.id;
         router.push(`/admin/sessions/${sessionId}`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving draft:', error);
-      toast.error(error.message || 'Error al guardar borrador');
+      toast.error(error instanceof Error ? error.message : 'Error al guardar borrador');
     } finally {
       setSubmitting(false);
     }
@@ -478,7 +479,7 @@ const SessionCreatePage: React.FC = () => {
       }
 
       // Create session(s)
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         school_id: formData.school_id,
         growth_community_id: formData.growth_community_id,
         title: formData.title.trim(),
@@ -558,9 +559,9 @@ const SessionCreatePage: React.FC = () => {
         toast.success('Sesión programada exitosamente');
         router.push(`/admin/sessions/${sessionId}`);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error scheduling session:', error);
-      toast.error(error.message || 'Error al programar sesión');
+      toast.error(error instanceof Error ? error.message : 'Error al programar sesión');
     } finally {
       setSubmitting(false);
     }

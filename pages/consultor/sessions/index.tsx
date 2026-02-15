@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
@@ -10,6 +11,7 @@ import { SessionStatus } from '../../../lib/types/consultor-sessions.types';
 import { format, parseISO, differenceInDays, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getStatusBadge, formatTime, getModalityIcon } from '../../../lib/utils/session-ui-helpers';
+import { getSessionDateTime, getHoursUntilSession } from '../../../lib/utils/session-timezone';
 
 interface SessionListItem {
   id: string;
@@ -32,7 +34,7 @@ const ConsultorSessionsPage: React.FC = () => {
   const supabase = useSupabaseClient();
 
   // Auth state
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isConsultorOrAdmin, setIsConsultorOrAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -81,7 +83,7 @@ const ConsultorSessionsPage: React.FC = () => {
       isInitialMount.current = false;
       return;
     }
-    const query: any = {};
+    const query: Record<string, string> = {};
     if (filters.school_id) query.school_id = filters.school_id;
     if (filters.status) query.status = filters.status;
     if (filters.date_from) query.date_from = filters.date_from;
@@ -161,9 +163,10 @@ const ConsultorSessionsPage: React.FC = () => {
         });
         setAllSchools(Array.from(schoolMap.entries()).map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching sessions:', error);
-      toast.error(error.message || 'Error al cargar sesiones');
+      const errorMessage = error instanceof Error ? error.message : 'Error al cargar sesiones';
+      toast.error(errorMessage);
     }
   };
 
@@ -191,19 +194,19 @@ const ConsultorSessionsPage: React.FC = () => {
     const upcoming = sessions
       .filter((s) => ['programada', 'en_progreso'].includes(s.status))
       .filter((s) => {
-        const sessionDateTime = new Date(`${s.session_date}T${s.start_time}`);
+        const sessionDateTime = getSessionDateTime(s.session_date, s.start_time);
         return sessionDateTime >= now;
       })
       .sort((a, b) => {
-        const dateA = new Date(`${a.session_date}T${a.start_time}`);
-        const dateB = new Date(`${b.session_date}T${b.start_time}`);
+        const dateA = getSessionDateTime(a.session_date, a.start_time);
+        const dateB = getSessionDateTime(b.session_date, b.start_time);
         return dateA.getTime() - dateB.getTime();
       });
 
     if (upcoming.length === 0) return 'Sin sesiones próximas';
 
     const next = upcoming[0];
-    const sessionDateTime = new Date(`${next.session_date}T${next.start_time}`);
+    const sessionDateTime = getSessionDateTime(next.session_date, next.start_time);
     const diffDays = differenceInDays(sessionDateTime, now);
     const diffHours = differenceInHours(sessionDateTime, now);
 
@@ -273,6 +276,7 @@ const ConsultorSessionsPage: React.FC = () => {
                 <Clock className="w-4 h-4" />
                 <span>
                   {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                  <span className="text-xs text-gray-500 ml-1">(Chile)</span>
                 </span>
               </div>
               <div className="flex items-center gap-1">

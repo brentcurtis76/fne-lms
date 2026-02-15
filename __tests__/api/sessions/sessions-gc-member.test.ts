@@ -66,7 +66,7 @@ describe('/api/sessions - GC Member Access', () => {
         },
       ];
 
-      // Chain for GC member with no filters: from → select → in(growth_community_id) → neq(status) → range → order
+      // Chain for GC member with no filters: from → select → eq(is_active) → in(growth_community_id) → neq(status) → range → order
       const mockOrderFn = vi.fn(() => Promise.resolve({
         data: mockSessions,
         error: null,
@@ -75,7 +75,8 @@ describe('/api/sessions - GC Member Access', () => {
       const mockRangeFn = vi.fn(() => ({ order: mockOrderFn }));
       const mockNeqFn = vi.fn(() => ({ range: mockRangeFn }));
       const mockInFn = vi.fn(() => ({ neq: mockNeqFn }));
-      const mockSelectFn = vi.fn(() => ({ in: mockInFn }));
+      const mockEqFn = vi.fn(() => ({ in: mockInFn }));
+      const mockSelectFn = vi.fn(() => ({ eq: mockEqFn }));
       const mockFromFn = vi.fn(() => ({ select: mockSelectFn }));
 
       const mockClient = { from: mockFromFn };
@@ -120,21 +121,23 @@ describe('/api/sessions - GC Member Access', () => {
       const mockClient = {
         from: vi.fn(() => ({
           select: vi.fn(() => ({
-            in: vi.fn(() => ({
-              neq: vi.fn((field: string, value: string) => {
-                if (field === 'status') {
-                  capturedNeqStatus = value;
-                }
-                return {
-                  range: vi.fn(() => ({
-                    order: vi.fn(() => Promise.resolve({
-                      data: [],
-                      error: null,
-                      count: 0,
+            eq: vi.fn(() => ({
+              in: vi.fn(() => ({
+                neq: vi.fn((field: string, value: string) => {
+                  if (field === 'status') {
+                    capturedNeqStatus = value;
+                  }
+                  return {
+                    range: vi.fn(() => ({
+                      order: vi.fn(() => Promise.resolve({
+                        data: [],
+                        error: null,
+                        count: 0,
+                      })),
                     })),
-                  })),
-                };
-              }),
+                  };
+                }),
+              })),
             })),
           })),
         })),
@@ -176,22 +179,24 @@ describe('/api/sessions - GC Member Access', () => {
       const mockClient = {
         from: vi.fn(() => ({
           select: vi.fn(() => ({
-            in: vi.fn((field: string, values: string[]) => {
-              if (field === 'growth_community_id') {
-                capturedCommunityIds = values;
-              }
-              return {
-                neq: vi.fn(() => ({
-                  range: vi.fn(() => ({
-                    order: vi.fn(() => Promise.resolve({
-                      data: [],
-                      error: null,
-                      count: 0,
+            eq: vi.fn(() => ({
+              in: vi.fn((field: string, values: string[]) => {
+                if (field === 'growth_community_id') {
+                  capturedCommunityIds = values;
+                }
+                return {
+                  neq: vi.fn(() => ({
+                    range: vi.fn(() => ({
+                      order: vi.fn(() => Promise.resolve({
+                        data: [],
+                        error: null,
+                        count: 0,
+                      })),
                     })),
                   })),
-                })),
-              };
-            }),
+                };
+              }),
+            })),
           })),
         })),
       };
@@ -266,14 +271,16 @@ describe('/api/sessions - GC Member Access', () => {
       const mockClient = {
         from: vi.fn(() => ({
           select: vi.fn(() => ({
-            in: vi.fn(() => ({
-              neq: vi.fn(() => ({
-                in: vi.fn(() => ({
-                  range: vi.fn(() => ({
-                    order: vi.fn(() => Promise.resolve({
-                      data: [],
-                      error: null,
-                      count: 0,
+            eq: vi.fn(() => ({
+              in: vi.fn(() => ({
+                neq: vi.fn(() => ({
+                  in: vi.fn(() => ({
+                    range: vi.fn(() => ({
+                      order: vi.fn(() => Promise.resolve({
+                        data: [],
+                        error: null,
+                        count: 0,
+                      })),
                     })),
                   })),
                 })),
@@ -317,15 +324,17 @@ describe('/api/sessions - GC Member Access', () => {
       const mockClient = {
         from: vi.fn(() => ({
           select: vi.fn(() => ({
-            in: vi.fn(() => ({
-              neq: vi.fn(() => ({
-                gte: vi.fn(() => ({
-                  lte: vi.fn(() => ({
-                    range: vi.fn(() => ({
-                      order: vi.fn(() => Promise.resolve({
-                        data: [],
-                        error: null,
-                        count: 0,
+            eq: vi.fn(() => ({
+              in: vi.fn(() => ({
+                neq: vi.fn(() => ({
+                  gte: vi.fn(() => ({
+                    lte: vi.fn(() => ({
+                      range: vi.fn(() => ({
+                        order: vi.fn(() => Promise.resolve({
+                          data: [],
+                          error: null,
+                          count: 0,
+                        })),
                       })),
                     })),
                   })),
@@ -372,18 +381,20 @@ describe('/api/sessions - GC Member Access', () => {
       const mockClient = {
         from: vi.fn(() => ({
           select: vi.fn(() => ({
-            in: vi.fn(() => ({
-              neq: vi.fn(() => ({
-                range: vi.fn((from: number, to: number) => {
-                  capturedRange = { from, to };
-                  return {
-                    order: vi.fn(() => Promise.resolve({
-                      data: [],
-                      error: null,
-                      count: 0,
-                    })),
-                  };
-                }),
+            eq: vi.fn(() => ({
+              in: vi.fn(() => ({
+                neq: vi.fn(() => ({
+                  range: vi.fn((from: number, to: number) => {
+                    capturedRange = { from, to };
+                    return {
+                      order: vi.fn(() => Promise.resolve({
+                        data: [],
+                        error: null,
+                        count: 0,
+                      })),
+                    };
+                  }),
+                })),
               })),
             })),
           })),
@@ -438,22 +449,24 @@ describe('/api/sessions - GC Member Access', () => {
       const mockClient = {
         from: vi.fn(() => ({
           select: vi.fn(() => ({
-            in: vi.fn((field: string, values: string[]) => {
-              if (field === 'growth_community_id') {
-                capturedCommunityIds = values;
-              }
-              return {
-                neq: vi.fn(() => ({
-                  range: vi.fn(() => ({
-                    order: vi.fn(() => Promise.resolve({
-                      data: [],
-                      error: null,
-                      count: 0,
+            eq: vi.fn(() => ({
+              in: vi.fn((field: string, values: string[]) => {
+                if (field === 'growth_community_id') {
+                  capturedCommunityIds = values;
+                }
+                return {
+                  neq: vi.fn(() => ({
+                    range: vi.fn(() => ({
+                      order: vi.fn(() => Promise.resolve({
+                        data: [],
+                        error: null,
+                        count: 0,
+                      })),
                     })),
                   })),
-                })),
-              };
-            }),
+                };
+              }),
+            })),
           })),
         })),
       };

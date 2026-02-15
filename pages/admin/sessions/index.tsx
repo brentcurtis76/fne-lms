@@ -717,6 +717,7 @@ const SessionsPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900">
                     {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                    <span className="text-xs text-gray-500 ml-1">(Chile)</span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-900 max-w-xs truncate">
                     {session.title}
@@ -946,7 +947,8 @@ const SessionsPage: React.FC = () => {
                               )}
                             </div>
                             <div className="text-sm text-gray-500 mt-1">
-                              {formatTime(session.start_time)} - {formatTime(session.end_time)} | {session.schools?.name}
+                              {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                              <span className="text-xs text-gray-500 ml-1">(Chile)</span> | {session.schools?.name}
                             </div>
                           </div>
                           <div>{getStatusBadge(session.status)}</div>

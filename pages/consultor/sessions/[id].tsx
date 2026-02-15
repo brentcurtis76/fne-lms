@@ -43,6 +43,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getStatusBadge, formatTime, getModalityIcon } from '../../../lib/utils/session-ui-helpers';
+import { formatSessionTimeForConsultant } from '../../../lib/utils/session-timezone';
 
 type TabId = 'details' | 'planning' | 'materials' | 'report' | 'communications' | 'activity';
 
@@ -1141,9 +1142,15 @@ const SessionDetailPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-2 text-gray-700">
               <Clock className="w-5 h-5" />
-              <span>
-                {formatTime(session.start_time)} - {formatTime(session.end_time)}
-              </span>
+              <div className="flex flex-col gap-1">
+                <span>
+                  {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                  <span className="text-xs text-gray-500 ml-1">(hora Chile)</span>
+                </span>
+                <span className="text-xs text-gray-500">
+                  {formatSessionTimeForConsultant(session.session_date, session.start_time)} - {formatSessionTimeForConsultant(session.session_date, session.end_time)}
+                </span>
+              </div>
             </div>
             <div className="flex items-center gap-2 text-gray-700">
               {getModalityIcon(session.modality, 'w-5 h-5')}

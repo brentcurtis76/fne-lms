@@ -186,9 +186,9 @@ const SessionDetailPage: React.FC = () => {
           fetchReportAudioDetails(sessionData.id, userReport.id);
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching session:', error);
-      toast.error(error.message || 'Error al cargar sesión');
+      toast.error(error instanceof Error ? error.message : 'Error al cargar sesión');
     }
   };
 
@@ -257,7 +257,7 @@ const SessionDetailPage: React.FC = () => {
     return texts[status] || '';
   };
 
-  const handleAttendanceChange = (userId: string, field: keyof AttendanceUpdatePayload, value: any) => {
+  const handleAttendanceChange = (userId: string, field: keyof AttendanceUpdatePayload, value: string | boolean | undefined) => {
     setAttendanceData((prev) =>
       prev.map((a) => (a.user_id === userId ? { ...a, [field]: value } : a))
     );
@@ -298,9 +298,9 @@ const SessionDetailPage: React.FC = () => {
 
       toast.success('Asistencia guardada correctamente');
       await fetchSession();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving attendance:', error);
-      toast.error(error.message || 'Error al guardar asistencia');
+      toast.error(error instanceof Error ? error.message : 'Error al guardar asistencia');
     } finally {
       setSavingAttendance(false);
     }
@@ -349,9 +349,9 @@ const SessionDetailPage: React.FC = () => {
       toast.success(isUpdate ? 'Informe actualizado correctamente' : 'Informe creado correctamente');
       setEditingReport(false);
       await fetchSession();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving report:', error);
-      toast.error(error.message || 'Error al guardar informe');
+      toast.error(error instanceof Error ? error.message : 'Error al guardar informe');
     } finally {
       setSavingReport(false);
     }
@@ -399,9 +399,9 @@ const SessionDetailPage: React.FC = () => {
 
       toast.success('Material subido correctamente');
       await fetchSession();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error uploading material:', error);
-      toast.error(error.message || 'Error al subir material');
+      toast.error(error instanceof Error ? error.message : 'Error al subir material');
     } finally {
       setUploadingMaterial(false);
       if (fileInputRef.current) {
@@ -438,9 +438,9 @@ const SessionDetailPage: React.FC = () => {
 
       toast.success('Material eliminado correctamente');
       await fetchSession();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting material:', error);
-      toast.error(error.message || 'Error al eliminar material');
+      toast.error(error instanceof Error ? error.message : 'Error al eliminar material');
     }
   };
 
@@ -473,9 +473,9 @@ const SessionDetailPage: React.FC = () => {
       toast.success('Sesión finalizada correctamente');
       setShowFinalizeModal(false);
       await fetchSession();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error finalizing session:', error);
-      toast.error(error.message || 'Error al finalizar sesión');
+      toast.error(error instanceof Error ? error.message : 'Error al finalizar sesión');
     } finally {
       setFinalizing(false);
     }
@@ -539,9 +539,9 @@ const SessionDetailPage: React.FC = () => {
       toast.success('Solicitud de cambio enviada correctamente');
       setShowEditRequestModal(false);
       await fetchSession();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting edit request:', error);
-      toast.error(error.message || 'Error al crear solicitud de cambio');
+      toast.error(error instanceof Error ? error.message : 'Error al crear solicitud de cambio');
     } finally {
       setSubmittingEditRequest(false);
     }
@@ -1038,7 +1038,7 @@ const SessionDetailPage: React.FC = () => {
   const badge = getStatusBadge(session.status);
   const helperText = getStatusHelperText(session.status);
 
-  const tabs: { id: TabId; label: string; icon: React.ComponentType<any> }[] = [
+  const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'details', label: 'Detalles', icon: ClipboardList },
     ...(isFacilitator ? [{ id: 'planning' as TabId, label: 'Planificación', icon: PenLine }] : []),
     { id: 'materials', label: 'Materiales', icon: Paperclip },

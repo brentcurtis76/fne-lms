@@ -57,6 +57,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       .from('consultor_sessions')
       .select('id, growth_community_id, school_id')
       .eq('id', sessionId)
+      .eq('is_active', true)
       .single();
 
     if (sessionError || !session) {
@@ -141,9 +142,10 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
     }
 
     return sendApiResponse(res, { report, signedAudioUrl });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get report detail error:', error);
-    return sendAuthError(res, 'Error inesperado al obtener informe', 500, error.message);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+    return sendAuthError(res, 'Error inesperado al obtener informe', 500, errorMessage);
   }
 }
 
@@ -176,6 +178,7 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
       .from('consultor_sessions')
       .select('id, status')
       .eq('id', sessionId)
+      .eq('is_active', true)
       .single();
 
     if (sessionError || !session) {
@@ -250,8 +253,9 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
     }
 
     return sendApiResponse(res, { report: updatedReport });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update report error:', error);
-    return sendAuthError(res, 'Error inesperado al actualizar informe', 500, error.message);
+    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+    return sendAuthError(res, 'Error inesperado al actualizar informe', 500, errorMessage);
   }
 }

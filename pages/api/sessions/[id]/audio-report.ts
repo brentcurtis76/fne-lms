@@ -72,6 +72,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, sessionId: 
       .from('consultor_sessions')
       .select('id, status, title, session_date, objectives, schools(name), growth_communities(name)')
       .eq('id', sessionId)
+      .eq('is_active', true)
       .single();
 
     if (sessionError || !session) {

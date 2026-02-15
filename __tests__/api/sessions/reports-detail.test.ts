@@ -100,9 +100,11 @@ describe('/api/sessions/[id]/reports/[rid]', () => {
           return {
             select: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: { id: 'session-123', status: 'completada' },
-                  error: null,
+                eq: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: { id: 'session-123', status: 'completada' },
+                    error: null,
+                  }),
                 }),
               }),
             }),
@@ -172,13 +174,15 @@ describe('/api/sessions/[id]/reports/[rid]', () => {
           return {
             select: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
-                single: vi.fn().mockResolvedValue({
-                  data: {
-                    id: 'session-123',
-                    growth_community_id: 'gc-1',
-                    school_id: 1,
-                  },
-                  error: null,
+                eq: vi.fn().mockReturnValue({
+                  single: vi.fn().mockResolvedValue({
+                    data: {
+                      id: 'session-123',
+                      growth_community_id: 'gc-1',
+                      school_id: 1,
+                    },
+                    error: null,
+                  }),
                 }),
               }),
             }),

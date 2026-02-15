@@ -18,6 +18,7 @@ import {
   CheckCircle,
   XCircle,
   Eye,
+  CalendarPlus,
 } from 'lucide-react';
 import { SessionStatus } from '../../../lib/types/consultor-sessions.types';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, endOfWeek, addMonths, addWeeks } from 'date-fns';
@@ -530,9 +531,23 @@ const SessionsPage: React.FC = () => {
 
           {/* Filters */}
           <div className="p-4 bg-gray-50 border-b">
-            <div className="flex items-center mb-3">
-              <Filter size={18} className="text-gray-500 mr-2" />
-              <span className="text-sm font-medium text-gray-700">Filtros</span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center">
+                <Filter size={18} className="text-gray-500 mr-2" />
+                <span className="text-sm font-medium text-gray-700">Filtros</span>
+              </div>
+              {sessions.length > 0 && (
+                <a
+                  href={`/api/sessions/ical?${new URLSearchParams(
+                    Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
+                  ).toString()}`}
+                  download
+                  className="inline-flex items-center px-3 py-1 text-sm text-brand_accent hover:text-brand_accent_hover"
+                >
+                  <CalendarPlus size={16} className="mr-1" />
+                  Exportar Calendario
+                </a>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               <select

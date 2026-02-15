@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
-import { Calendar, CheckCircle, XCircle, Link2, ChevronDown, ChevronUp, Eye } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Link2, ChevronDown, ChevronUp, Eye, CalendarPlus } from 'lucide-react';
 import { SessionWithRelations, SessionStatus } from '../../../lib/types/consultor-sessions.types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -625,7 +625,31 @@ const SessionDetailPage: React.FC = () => {
           {/* Status and Actions */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 pb-6 border-b space-y-3 sm:space-y-0">
             <div>{getStatusBadge(session.status)}</div>
-            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 flex-wrap">
+              {/* Add to Calendar Button - for exportable statuses */}
+              {(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status) && (
+                <a
+                  href={`/api/sessions/${session.id}/ical`}
+                  download
+                  className="inline-flex items-center px-4 py-2 text-brand_accent border border-brand_accent hover:bg-brand_accent_light rounded-lg transition-colors"
+                >
+                  <CalendarPlus size={20} className="mr-2" />
+                  Agregar al Calendario
+                </a>
+              )}
+
+              {/* Export Series Button - if session is part of a series */}
+              {session.recurrence_group_id && (
+                <a
+                  href={`/api/sessions/series/${session.recurrence_group_id}/ical`}
+                  download
+                  className="inline-flex items-center px-4 py-2 text-gray-700 border border-gray-300 hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  <CalendarPlus size={20} className="mr-2" />
+                  Exportar Serie
+                </a>
+              )}
+
               {(session.status === 'borrador' || session.status === 'pendiente_aprobacion') && (
                 <button
                   onClick={handleApprove}

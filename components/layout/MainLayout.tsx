@@ -16,6 +16,7 @@ import { useAvatar } from '../../hooks/useAvatar';
 import { useAuth } from '../../hooks/useAuth';
 import { getHighestRole, extractRolesFromMetadata } from '../../utils/roleUtils';
 import { LogOut } from 'lucide-react';
+import { MenuIcon as Bars3Icon } from '@heroicons/react/outline';
 import FeedbackButtonWithPermissions from '../feedback/FeedbackButtonWithPermissions';
 
 interface Breadcrumb {
@@ -89,8 +90,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     return hasAdminRole || (rawIsAdmin && collectedRoles.size === 0);
   }, [userRole, auth.userRoles, auth.isGlobalAdmin, rawIsAdmin, profileData?.role, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Sidebar state with localStorage persistence
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Sidebar state split by viewport mode
+  const [isDesktop, setIsDesktop] = useState(true);
+  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [schoolName, setSchoolName] = useState<string>('Sin colegio');
 
   // Fetch profile data if not provided as prop
@@ -191,39 +194,73 @@ const MainLayout: React.FC<MainLayoutProps> = ({
     loadSchool();
   }, [user?.id, supabase, effectiveProfileData?.school]);
   
-  // Initialize sidebar state from localStorage
+  // Initialize responsive sidebar state
   useEffect(() => {
     const savedCollapsed = localStorage.getItem('fne-sidebar-collapsed');
-    const isLargeScreen = window.innerWidth >= 1024;
-    
     if (savedCollapsed !== null) {
-      setSidebarCollapsed(JSON.parse(savedCollapsed));
+      setDesktopSidebarCollapsed(JSON.parse(savedCollapsed));
     } else {
-      // Default to collapsed on mobile/tablet, expanded on desktop
-      setSidebarCollapsed(!isLargeScreen);
+      // Desktop default: expanded
+      setDesktopSidebarCollapsed(false);
     }
-    
-    // Handle window resize
+
     const handleResize = () => {
-      const isLarge = window.innerWidth >= 1024;
-      if (!isLarge && !sidebarCollapsed) {
-        // Auto-collapse on mobile/tablet
-        setSidebarCollapsed(true);
+      const largeScreen = window.innerWidth >= 1024;
+      setIsDesktop(largeScreen);
+      if (largeScreen) {
+        setMobileSidebarOpen(false);
       }
     };
-    
+
+    handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  
-  // Persist sidebar state
+
+  // Close mobile drawer after navigation
   useEffect(() => {
-    localStorage.setItem('fne-sidebar-collapsed', JSON.stringify(sidebarCollapsed));
-  }, [sidebarCollapsed]);
-  
+    if (!isDesktop) {
+      setMobileSidebarOpen(false);
+    }
+  }, [router.asPath, isDesktop]);
+
+  // Mobile drawer keyboard + scroll management
+  useEffect(() => {
+    if (isDesktop || !mobileSidebarOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMobileSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isDesktop, mobileSidebarOpen]);
+
+  // Persist desktop sidebar state only
+  useEffect(() => {
+    localStorage.setItem('fne-sidebar-collapsed', JSON.stringify(desktopSidebarCollapsed));
+  }, [desktopSidebarCollapsed]);
+
   // Memoize handlers to prevent prop instability
-  const handleSidebarToggle = useCallback(() => {
-    setSidebarCollapsed(prev => !prev);
+  const handleDesktopSidebarToggle = useCallback(() => {
+    setDesktopSidebarCollapsed(prev => !prev);
+  }, []);
+
+  const handleMobileSidebarOpen = useCallback(() => {
+    setMobileSidebarOpen(true);
+  }, []);
+
+  const handleMobileSidebarClose = useCallback(() => {
+    setMobileSidebarOpen(false);
   }, []);
 
   const handleLogout = useCallback(() => {
@@ -253,24 +290,38 @@ const MainLayout: React.FC<MainLayoutProps> = ({
         <Sidebar
           user={user}
           currentPage={currentPage}
-          isCollapsed={sidebarCollapsed}
+          isDesktop={isDesktop}
+          isDesktopCollapsed={desktopSidebarCollapsed}
+          isMobileOpen={mobileSidebarOpen}
           isAdmin={effectiveIsAdmin}
           userRole={userRole}
           avatarUrl={avatarUrl || cachedAvatarUrl || fetchedAvatarUrl}
-          onToggle={handleSidebarToggle}
+          onDesktopToggle={handleDesktopSidebarToggle}
+          onMobileClose={handleMobileSidebarClose}
           onLogout={handleLogout}
         />
         
         {/* Main Content Area */}
         <div className={`min-h-screen transition-all duration-300 ${
-          sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-80'
+          desktopSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-80'
         }`}>
           {/* Top Header Bar - Minimal Design (h-20 to align with Sidebar) */}
           <div className="bg-[#0a0a0a] sticky top-0 z-20 h-20 flex items-center">
             <div className="px-4 sm:px-6 lg:px-8 w-full">
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-between">
+                {/* Mobile Menu Trigger */}
+                <button
+                  type="button"
+                  onClick={handleMobileSidebarOpen}
+                  className="lg:hidden p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+                  aria-label="Abrir menú de navegación"
+                  data-testid="mobile-sidebar-trigger"
+                >
+                  <Bars3Icon className="h-6 w-6" />
+                </button>
+
                 {/* Right side only - User info, avatar + Logout */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 ml-auto">
                   {user && (
                     <>
                       {/* School name - subtle text */}

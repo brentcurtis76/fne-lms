@@ -47,11 +47,14 @@ import { usePermissions } from '../../contexts/PermissionContext';
 interface SidebarProps {
   user: User | null;
   currentPage: string;
-  isCollapsed: boolean;
+  isDesktop: boolean;
+  isDesktopCollapsed: boolean;
+  isMobileOpen: boolean;
   isAdmin: boolean;
   userRole?: string;
   avatarUrl?: string;
-  onToggle: () => void;
+  onDesktopToggle: () => void;
+  onMobileClose: () => void;
   onLogout: () => void;
   className?: string;
 }
@@ -633,6 +636,7 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
     >
       <button
         onClick={handleClick}
+        data-testid={`sidebar-item-${item.id}`}
         className={`
           group flex items-center w-full text-left transition-all duration-200 rounded-lg relative
           ${isCollapsed ? 'px-3 py-3 justify-center' : 'px-3 py-3'}
@@ -808,11 +812,14 @@ SidebarItem.displayName = 'SidebarItem';
 const Sidebar: React.FC<SidebarProps> = React.memo(({
   user,
   currentPage,
-  isCollapsed,
+  isDesktop,
+  isDesktopCollapsed,
+  isMobileOpen,
   isAdmin,
   userRole,
   avatarUrl,
-  onToggle,
+  onDesktopToggle,
+  onMobileClose,
   onLogout,
   className = ''
 }) => {
@@ -842,6 +849,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   }, [supabase]);
 
   const userId = user?.id;
+  const isCollapsed = isDesktop ? isDesktopCollapsed : false;
 
   // Check if user is superadmin
   useEffect(() => {
@@ -1043,10 +1051,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   return (
     <>
       {/* Mobile Overlay */}
-      {!isCollapsed && (
+      {!isDesktop && isMobileOpen && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={onToggle}
+          onClick={onMobileClose}
+          data-testid="mobile-sidebar-overlay"
         />
       )}
 
@@ -1054,13 +1063,14 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
       <div className={`
         fixed left-0 top-0 h-full bg-white shadow-xl transition-all duration-300
         lg:fixed lg:z-30
-        ${isCollapsed
-          ? 'w-20 -translate-x-full lg:translate-x-0'
-          : 'w-80 translate-x-0'
+        ${isDesktop
+          ? (isCollapsed ? 'w-20 translate-x-0' : 'w-80 translate-x-0')
+          : (isMobileOpen ? 'w-80 translate-x-0' : 'w-80 -translate-x-full')
         }
         z-50 lg:z-30
         ${className}
-      `}>
+      `}
+      data-testid="global-sidebar">
         {/* Header */}
         <div className="flex items-center justify-between h-20 px-4 bg-[#0a0a0a] relative z-10 -mr-[1px] pr-[calc(1rem+1px)]">
           {!isCollapsed ? (
@@ -1099,12 +1109,13 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
             )}
 
             <button
-              onClick={onToggle}
+              onClick={isDesktop ? onDesktopToggle : onMobileClose}
               className="p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
-              title={isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar'}
+              title={isDesktop ? (isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar') : 'Cerrar menú'}
+              aria-label={isDesktop ? (isCollapsed ? 'Expandir sidebar' : 'Contraer sidebar') : 'Cerrar menú'}
             >
-              {isCollapsed ? (
-                <Bars3Icon className="h-5 w-5" />
+              {isDesktop ? (
+                isCollapsed ? <Bars3Icon className="h-5 w-5" /> : <XMarkIcon className="h-5 w-5" />
               ) : (
                 <XMarkIcon className="h-5 w-5" />
               )}

@@ -3,6 +3,12 @@ import NotificationService from '../../../lib/notificationService';
 import { createServiceRoleClient } from '../../../lib/api-auth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { TZDate } from '@date-fns/tz';
+import {
+  SESSION_TIMEZONE,
+  getSessionDateTime,
+  getHoursUntilSession,
+} from '../../../lib/utils/session-timezone';
 
 /**
  * Cron job API endpoint for processing session reminders
@@ -24,13 +30,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Auth: CRON_API_KEY check
     const cronApiKey = req.headers['x-cron-key'] || req.body.cronKey;
     const expectedKey = process.env.CRON_API_KEY;
-    if (expectedKey && cronApiKey !== expectedKey) {
+    if (!expectedKey || cronApiKey !== expectedKey) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const serviceClient = createServiceRoleClient();
-    const now = new Date();
-    const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+    // Get current time in Chile timezone for accurate date filtering
+    const nowInChile = new TZDate(Date.now(), SESSION_TIMEZONE);
+    const todayChile = `${nowInChile.getFullYear()}-${String(
+      nowInChile.getMonth() + 1
+    ).padStart(2, '0')}-${String(nowInChile.getDate()).padStart(2, '0')}`;
+
+    // Get 24 hours from now in Chile timezone
+    const in24HoursMs = Date.now() + 24 * 60 * 60 * 1000;
+    const in24Chile = new TZDate(in24HoursMs, SESSION_TIMEZONE);
+    const in24ChileDate = `${in24Chile.getFullYear()}-${String(
+      in24Chile.getMonth() + 1
+    ).padStart(2, '0')}-${String(in24Chile.getDate()).padStart(2, '0')}`;
 
     // Get upcoming sessions (programada or en_progreso)
     const { data: sessions, error: sessionsError } = await serviceClient
@@ -41,8 +58,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         session_attendees(user_id)
       `)
       .in('status', ['programada', 'en_progreso'])
-      .gte('session_date', now.toISOString().split('T')[0])
-      .lte('session_date', in24Hours.toISOString().split('T')[0]);
+      .gte('session_date', todayChile)
+      .lte('session_date', in24ChileDate);
 
     if (sessionsError) {
       console.error('Error fetching sessions:', sessionsError);
@@ -53,9 +70,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let reminders1h = 0;
 
     for (const session of sessions || []) {
-      // Build session datetime from date + start_time
-      const sessionDateTime = new Date(`${session.session_date}T${session.start_time}`);
-      const hoursUntil = (sessionDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+      // Build session datetime from date + start_time using Chile timezone
+      const sessionDateTime = getSessionDateTime(session.session_date, session.start_time);
+      const hoursUntil = getHoursUntilSession(session.session_date, session.start_time);
 
       // Collect participant IDs (deduplicated via Set)
       const userIdSet = new Set<string>();
@@ -131,9 +148,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       sessionsChecked: sessions?.length || 0,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Session reminders cron failed:', error);
-    return res.status(500).json({ success: false, error: error.message });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return res.status(500).json({ success: false, error: errorMessage });
   }
 }
 

@@ -670,7 +670,8 @@ const SessionDetailPage: React.FC = () => {
             <div>
               <h3 className="text-sm font-medium text-gray-500 mb-1">Horario</h3>
               <p className="text-gray-900">
-                {formatTime(session.start_time)} - {formatTime(session.end_time)} ({session.scheduled_duration_minutes} min)
+                {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                <span className="text-xs text-gray-500 ml-1">(hora Chile)</span> ({session.scheduled_duration_minutes} min)
               </p>
             </div>
 

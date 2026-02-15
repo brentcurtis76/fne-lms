@@ -370,9 +370,11 @@ describe('Session Notifications', () => {
           if (table === 'consultor_sessions') {
             return {
               select: vi.fn().mockReturnValue({
-                in: vi.fn().mockReturnValue({
-                  gte: vi.fn().mockReturnValue({
-                    lte: vi.fn().mockResolvedValue({ data: mockSessions, error: null }),
+                eq: vi.fn().mockReturnValue({
+                  in: vi.fn().mockReturnValue({
+                    gte: vi.fn().mockReturnValue({
+                      lte: vi.fn().mockResolvedValue({ data: mockSessions, error: null }),
+                    }),
                   }),
                 }),
               }),
@@ -446,9 +448,11 @@ describe('Session Notifications', () => {
           if (table === 'consultor_sessions') {
             return {
               select: vi.fn().mockReturnValue({
-                in: vi.fn().mockReturnValue({
-                  gte: vi.fn().mockReturnValue({
-                    lte: vi.fn().mockResolvedValue({ data: mockSessions, error: null }),
+                eq: vi.fn().mockReturnValue({
+                  in: vi.fn().mockReturnValue({
+                    gte: vi.fn().mockReturnValue({
+                      lte: vi.fn().mockResolvedValue({ data: mockSessions, error: null }),
+                    }),
                   }),
                 }),
               }),
@@ -522,9 +526,11 @@ describe('Session Notifications', () => {
           if (table === 'consultor_sessions') {
             return {
               select: vi.fn().mockReturnValue({
-                in: vi.fn().mockReturnValue({
-                  gte: vi.fn().mockReturnValue({
-                    lte: vi.fn().mockResolvedValue({ data: mockSessions, error: null }),
+                eq: vi.fn().mockReturnValue({
+                  in: vi.fn().mockReturnValue({
+                    gte: vi.fn().mockReturnValue({
+                      lte: vi.fn().mockResolvedValue({ data: mockSessions, error: null }),
+                    }),
                   }),
                 }),
               }),

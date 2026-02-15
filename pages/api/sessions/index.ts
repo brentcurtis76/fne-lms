@@ -336,7 +336,8 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       .from('consultor_sessions')
       .select('*, session_facilitators(*), schools(name), growth_communities(name)', {
         count: 'exact',
-      });
+      })
+      .eq('is_active', true);
 
     // Role-based filtering
     if (highestRole === 'admin') {

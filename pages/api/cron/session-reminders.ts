@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import NotificationService from '../../../lib/notificationService';
-import { createServiceRoleClient } from '../../../lib/api-auth';
+import { createServiceRoleClient, logApiRequest, handleMethodNotAllowed } from '../../../lib/api-auth';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { TZDate } from '@date-fns/tz';
@@ -23,8 +23,10 @@ import {
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
+    logApiRequest(req, 'session-reminders cron');
+
     if (req.method !== 'POST') {
-      return res.status(405).json({ error: 'Method not allowed' });
+      return handleMethodNotAllowed(res, ['POST']);
     }
 
     // Auth: CRON_API_KEY check
@@ -57,6 +59,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         session_facilitators(user_id),
         session_attendees(user_id)
       `)
+      .eq('is_active', true)
       .in('status', ['programada', 'en_progreso'])
       .gte('session_date', todayChile)
       .lte('session_date', in24ChileDate);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
@@ -51,7 +52,7 @@ interface SessionListItem {
   session_number: number | null;
   schools: { name: string } | null;
   growth_communities: { name: string } | null;
-  session_facilitators: any[];
+  session_facilitators: { user_id: string }[];
 }
 
 const SessionsPage: React.FC = () => {
@@ -59,7 +60,7 @@ const SessionsPage: React.FC = () => {
   const supabase = useSupabaseClient();
 
   // Auth state
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -120,7 +121,7 @@ const SessionsPage: React.FC = () => {
       isInitialMount.current = false;
       return;
     }
-    const query: any = {};
+    const query: Record<string, string> = {};
     if (filters.school_id) query.school_id = filters.school_id;
     if (filters.growth_community_id) query.growth_community_id = filters.growth_community_id;
     if (filters.status) query.status = filters.status;
@@ -253,9 +254,9 @@ const SessionsPage: React.FC = () => {
       const result = await response.json();
       setSessions(result.data.sessions || []);
       setTotalSessions(result.data.total || 0);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching sessions:', error);
-      toast.error(error.message || 'Error al cargar sesiones');
+      toast.error(error instanceof Error ? error.message : 'Error al cargar sesiones');
     }
   };
 
@@ -295,9 +296,9 @@ const SessionsPage: React.FC = () => {
       toast.success('Sesión aprobada exitosamente');
       fetchSessions();
       fetchStats();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error approving session:', error);
-      toast.error(error.message || 'Error al aprobar sesión');
+      toast.error(error instanceof Error ? error.message : 'Error al aprobar sesión');
     } finally {
       setActionInProgress(false);
     }
@@ -344,9 +345,9 @@ const SessionsPage: React.FC = () => {
       setSelectedSessionId(null);
       fetchSessions();
       fetchStats();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error cancelling session:', error);
-      toast.error(error.message || 'Error al cancelar sesión');
+      toast.error(error instanceof Error ? error.message : 'Error al cancelar sesión');
     } finally {
       setActionInProgress(false);
     }

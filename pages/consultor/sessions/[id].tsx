@@ -30,6 +30,7 @@ import {
   Save,
   CheckCircle,
   Edit,
+  CalendarPlus,
 } from 'lucide-react';
 import {
   SessionWithRelations,
@@ -1081,9 +1082,21 @@ const SessionDetailPage: React.FC = () => {
             </div>
 
             {/* Action Buttons */}
-            {isFacilitator && (session.status !== 'completada' && session.status !== 'cancelada') && (
-              <div className="flex flex-col sm:flex-row gap-2">
-                {/* Edit Request Button */}
+            <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
+              {/* Add to Calendar Button - for exportable statuses */}
+              {(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status) && (
+                <a
+                  href={`/api/sessions/${session.id}/ical`}
+                  download
+                  className="px-4 py-2 rounded flex items-center gap-2 text-brand_accent border border-brand_accent hover:bg-brand_accent_light transition-colors"
+                >
+                  <CalendarPlus className="w-5 h-5" />
+                  Agregar al Calendario
+                </a>
+              )}
+
+              {/* Edit Request Button */}
+              {isFacilitator && (session.status !== 'completada' && session.status !== 'cancelada') && (
                 <div className="relative group">
                   <button
                     onClick={() => setShowEditRequestModal(true)}
@@ -1103,36 +1116,36 @@ const SessionDetailPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+              )}
 
-                {/* Finalize Button */}
-                {session.status === 'pendiente_informe' && (
-                  <div className="relative group">
-                    <button
-                      onClick={() => setShowFinalizeModal(true)}
-                      disabled={!finalizeCheck.can}
-                      className={`px-4 py-2 rounded flex items-center gap-2 ${
-                        finalizeCheck.can
-                          ? 'bg-green-600 hover:bg-green-700 text-white'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                      Finalizar Sesión
-                    </button>
-                    {!finalizeCheck.can && (
-                      <div className="absolute top-full right-0 mt-2 w-64 bg-gray-900 text-white text-xs rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-                        <div className="font-semibold mb-1">Condiciones faltantes:</div>
-                        <ul className="list-disc list-inside">
-                          {finalizeCheck.reasons.map((reason, i) => (
-                            <li key={i}>{reason}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+              {/* Finalize Button */}
+              {isFacilitator && session.status === 'pendiente_informe' && (
+                <div className="relative group">
+                  <button
+                    onClick={() => setShowFinalizeModal(true)}
+                    disabled={!finalizeCheck.can}
+                    className={`px-4 py-2 rounded flex items-center gap-2 ${
+                      finalizeCheck.can
+                        ? 'bg-green-600 hover:bg-green-700 text-white'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <CheckCircle className="w-5 h-5" />
+                    Finalizar Sesión
+                  </button>
+                  {!finalizeCheck.can && (
+                    <div className="absolute top-full right-0 mt-2 w-64 bg-gray-900 text-white text-xs rounded p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+                      <div className="font-semibold mb-1">Condiciones faltantes:</div>
+                      <ul className="list-disc list-inside">
+                        {finalizeCheck.reasons.map((reason, i) => (
+                          <li key={i}>{reason}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

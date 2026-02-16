@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { User } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
@@ -18,6 +19,7 @@ import {
   CheckCircle,
   XCircle,
   Eye,
+  CalendarPlus,
 } from 'lucide-react';
 import { SessionStatus } from '../../../lib/types/consultor-sessions.types';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, endOfWeek, addMonths, addWeeks } from 'date-fns';
@@ -50,7 +52,7 @@ interface SessionListItem {
   session_number: number | null;
   schools: { name: string } | null;
   growth_communities: { name: string } | null;
-  session_facilitators: any[];
+  session_facilitators: { user_id: string }[];
 }
 
 const SessionsPage: React.FC = () => {
@@ -58,7 +60,7 @@ const SessionsPage: React.FC = () => {
   const supabase = useSupabaseClient();
 
   // Auth state
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -119,7 +121,7 @@ const SessionsPage: React.FC = () => {
       isInitialMount.current = false;
       return;
     }
-    const query: any = {};
+    const query: Record<string, string> = {};
     if (filters.school_id) query.school_id = filters.school_id;
     if (filters.growth_community_id) query.growth_community_id = filters.growth_community_id;
     if (filters.status) query.status = filters.status;
@@ -252,9 +254,9 @@ const SessionsPage: React.FC = () => {
       const result = await response.json();
       setSessions(result.data.sessions || []);
       setTotalSessions(result.data.total || 0);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching sessions:', error);
-      toast.error(error.message || 'Error al cargar sesiones');
+      toast.error(error instanceof Error ? error.message : 'Error al cargar sesiones');
     }
   };
 
@@ -294,9 +296,9 @@ const SessionsPage: React.FC = () => {
       toast.success('Sesión aprobada exitosamente');
       fetchSessions();
       fetchStats();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error approving session:', error);
-      toast.error(error.message || 'Error al aprobar sesión');
+      toast.error(error instanceof Error ? error.message : 'Error al aprobar sesión');
     } finally {
       setActionInProgress(false);
     }
@@ -343,9 +345,9 @@ const SessionsPage: React.FC = () => {
       setSelectedSessionId(null);
       fetchSessions();
       fetchStats();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error cancelling session:', error);
-      toast.error(error.message || 'Error al cancelar sesión');
+      toast.error(error instanceof Error ? error.message : 'Error al cancelar sesión');
     } finally {
       setActionInProgress(false);
     }
@@ -530,9 +532,23 @@ const SessionsPage: React.FC = () => {
 
           {/* Filters */}
           <div className="p-4 bg-gray-50 border-b">
-            <div className="flex items-center mb-3">
-              <Filter size={18} className="text-gray-500 mr-2" />
-              <span className="text-sm font-medium text-gray-700">Filtros</span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center">
+                <Filter size={18} className="text-gray-500 mr-2" />
+                <span className="text-sm font-medium text-gray-700">Filtros</span>
+              </div>
+              {sessions.length > 0 && (
+                <a
+                  href={`/api/sessions/ical?${new URLSearchParams(
+                    Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
+                  ).toString()}`}
+                  download
+                  className="inline-flex items-center px-3 py-1 text-sm text-brand_accent hover:text-brand_accent_hover"
+                >
+                  <CalendarPlus size={16} className="mr-1" />
+                  Exportar Calendario
+                </a>
+              )}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
               <select

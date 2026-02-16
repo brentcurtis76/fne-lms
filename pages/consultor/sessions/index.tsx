@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
-import { Calendar, MapPin, Clock, Filter as FilterIcon, X, Link2, Users } from 'lucide-react';
+import { Calendar, MapPin, Clock, Filter as FilterIcon, X, Link2, Users, CalendarPlus } from 'lucide-react';
 import { SessionStatus } from '../../../lib/types/consultor-sessions.types';
 import { format, parseISO, differenceInDays, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -390,7 +390,7 @@ const ConsultorSessionsPage: React.FC = () => {
               />
             </div>
           </div>
-          <div className="mt-3">
+          <div className="mt-3 flex gap-3">
             <button
               onClick={handleClearFilters}
               className="text-sm text-brand_accent hover:text-brand_accent_hover flex items-center gap-1"
@@ -398,6 +398,18 @@ const ConsultorSessionsPage: React.FC = () => {
               <X className="w-4 h-4" />
               Limpiar filtros
             </button>
+            {sessions.length > 0 && (
+              <a
+                href={`/api/sessions/ical?${new URLSearchParams(
+                  Object.fromEntries(Object.entries(filters).filter(([, v]) => v))
+                ).toString()}`}
+                download
+                className="text-sm text-brand_accent hover:text-brand_accent_hover flex items-center gap-1"
+              >
+                <CalendarPlus className="w-4 h-4" />
+                Exportar Calendario
+              </a>
+            )}
           </div>
         </div>
 

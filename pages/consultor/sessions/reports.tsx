@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { toast } from 'react-hot-toast';
@@ -19,21 +20,24 @@ import {
   AlertCircle,
   ArrowLeft,
 } from 'lucide-react';
-import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
+
+// Lazy-load recharts components to reduce initial bundle size.
+// Type assertions needed: recharts components have complex generics
+// incompatible with next/dynamic's LoaderComponent type constraints.
+type DynAny = any; // eslint-disable-line
+const BarChart = dynamic(() => import('recharts').then(mod => ({ default: mod.BarChart })) as DynAny, { ssr: false }) as DynAny;
+const Bar = dynamic(() => import('recharts').then(mod => ({ default: mod.Bar })) as DynAny, { ssr: false }) as DynAny;
+const PieChart = dynamic(() => import('recharts').then(mod => ({ default: mod.PieChart })) as DynAny, { ssr: false }) as DynAny;
+const Pie = dynamic(() => import('recharts').then(mod => ({ default: mod.Pie })) as DynAny, { ssr: false }) as DynAny;
+const Cell = dynamic(() => import('recharts').then(mod => ({ default: mod.Cell })) as DynAny, { ssr: false }) as DynAny;
+const AreaChart = dynamic(() => import('recharts').then(mod => ({ default: mod.AreaChart })) as DynAny, { ssr: false }) as DynAny;
+const Area = dynamic(() => import('recharts').then(mod => ({ default: mod.Area })) as DynAny, { ssr: false }) as DynAny;
+const XAxis = dynamic(() => import('recharts').then(mod => ({ default: mod.XAxis })) as DynAny, { ssr: false }) as DynAny;
+const YAxis = dynamic(() => import('recharts').then(mod => ({ default: mod.YAxis })) as DynAny, { ssr: false }) as DynAny;
+const CartesianGrid = dynamic(() => import('recharts').then(mod => ({ default: mod.CartesianGrid })) as DynAny, { ssr: false }) as DynAny;
+const Tooltip = dynamic(() => import('recharts').then(mod => ({ default: mod.Tooltip })) as DynAny, { ssr: false }) as DynAny;
+const Legend = dynamic(() => import('recharts').then(mod => ({ default: mod.Legend })) as DynAny, { ssr: false }) as DynAny;
+const ResponsiveContainer = dynamic(() => import('recharts').then(mod => ({ default: mod.ResponsiveContainer })) as DynAny, { ssr: false }) as DynAny;
 import { format, parseISO, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { getStatusBadge, getStatusColor } from '../../../lib/utils/session-ui-helpers';

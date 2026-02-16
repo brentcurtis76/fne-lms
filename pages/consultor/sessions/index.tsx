@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
@@ -189,6 +189,52 @@ const ConsultorSessionsPage: React.FC = () => {
     setPage((prev) => prev + 1);
   };
 
+  const mySessions = useMemo(() =>
+    sessions.filter((s) =>
+      s.session_facilitators.some((f) => f.user_id === user?.id)
+    ),
+    [sessions, user?.id]
+  );
+
+  const otherSessions = useMemo(() =>
+    sessions.filter(
+      (s) => !s.session_facilitators.some((f) => f.user_id === user?.id)
+    ),
+    [sessions, user?.id]
+  );
+
+  // Group sessions by date
+  const groupByDate = (sessionList: SessionListItem[]) => {
+    const groups: Record<string, SessionListItem[]> = {};
+    sessionList.forEach((s) => {
+      if (!groups[s.session_date]) {
+        groups[s.session_date] = [];
+      }
+      groups[s.session_date].push(s);
+    });
+    return groups;
+  };
+
+  const mySessionsByDate = useMemo(
+    () => groupByDate(mySessions),
+    [mySessions]
+  );
+
+  const otherSessionsByDate = useMemo(
+    () => groupByDate(otherSessions),
+    [otherSessions]
+  );
+
+  const sortedMyDates = useMemo(
+    () => Object.keys(mySessionsByDate).sort().reverse(),
+    [mySessionsByDate]
+  );
+
+  const sortedOtherDates = useMemo(
+    () => Object.keys(otherSessionsByDate).sort().reverse(),
+    [otherSessionsByDate]
+  );
+
   const getNextSessionCountdown = (): string => {
     const now = new Date();
     const upcoming = sessions
@@ -218,33 +264,15 @@ const ConsultorSessionsPage: React.FC = () => {
     return `En ${diffDays} días`;
   };
 
-  const pendingReportsCount = sessions.filter((s) => s.status === 'pendiente_informe').length;
-
-  // Split sessions into "my sessions" and "other sessions"
-  const mySessions = sessions.filter((s) =>
-    s.session_facilitators.some((f) => f.user_id === user?.id)
-  );
-  const otherSessions = sessions.filter(
-    (s) => !s.session_facilitators.some((f) => f.user_id === user?.id)
+  const nextSessionCountdown = useMemo(
+    () => getNextSessionCountdown(),
+    [sessions]
   );
 
-  // Group sessions by date
-  const groupByDate = (sessionList: SessionListItem[]) => {
-    const groups: Record<string, SessionListItem[]> = {};
-    sessionList.forEach((s) => {
-      if (!groups[s.session_date]) {
-        groups[s.session_date] = [];
-      }
-      groups[s.session_date].push(s);
-    });
-    return groups;
-  };
-
-  const mySessionsByDate = groupByDate(mySessions);
-  const otherSessionsByDate = groupByDate(otherSessions);
-
-  const sortedMyDates = Object.keys(mySessionsByDate).sort().reverse();
-  const sortedOtherDates = Object.keys(otherSessionsByDate).sort().reverse();
+  const pendingReportsCount = useMemo(
+    () => sessions.filter((s) => s.status === 'pendiente_informe').length,
+    [sessions]
+  );
 
   const renderSessionCard = (session: SessionListItem, dimmed: boolean = false) => {
     const badge = getStatusBadge(session.status);
@@ -328,7 +356,7 @@ const ConsultorSessionsPage: React.FC = () => {
           </div>
           <div className="bg-white p-4 rounded-lg border border-gray-200">
             <div className="text-sm text-gray-600">Próxima Sesión</div>
-            <div className="text-2xl font-bold text-gray-900">{getNextSessionCountdown()}</div>
+            <div className="text-2xl font-bold text-gray-900">{nextSessionCountdown}</div>
           </div>
         </div>
 
@@ -390,7 +418,7 @@ const ConsultorSessionsPage: React.FC = () => {
               />
             </div>
           </div>
-          <div className="mt-3 flex gap-3">
+          <div className="mt-3 flex flex-wrap gap-3">
             <button
               onClick={handleClearFilters}
               className="text-sm text-brand_accent hover:text-brand_accent_hover flex items-center gap-1"

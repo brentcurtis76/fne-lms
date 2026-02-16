@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
@@ -612,7 +612,7 @@ const SessionDetailPage: React.FC = () => {
                   Asistencia ({session.attendees.length})
                 </h3>
                 {!isReadOnly && isFacilitator && (
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <button
                       onClick={handleMarkAllPresent}
                       className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
@@ -646,7 +646,8 @@ const SessionDetailPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="border border-gray-200 rounded-lg overflow-hidden">
+              {/* Desktop Table */}
+              <div className="hidden md:block border border-gray-200 rounded-lg overflow-hidden">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
@@ -747,6 +748,104 @@ const SessionDetailPage: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Mobile Cards */}
+              <ul className="md:hidden space-y-3" role="list" aria-label="Lista de asistencia">
+                {session.attendees.map((attendee) => {
+                  const attData = attendanceData.find((a) => a.user_id === attendee.user_id);
+                  const profile = (attendee as SessionAttendee & { profiles?: { first_name: string; last_name: string; email: string } }).profiles;
+                  const fullName = profile
+                    ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+                    : 'Usuario desconocido';
+
+                  return (
+                    <li
+                      key={attendee.id}
+                      className={`p-4 border rounded-lg ${attendee.attended === null ? 'bg-yellow-50 border-yellow-200' : 'border-gray-200'}`}
+                    >
+                      {/* Name + Expected Badge */}
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold text-gray-900">{fullName}</h4>
+                        {attendee.expected ? (
+                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">Esperado</span>
+                        ) : (
+                          <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">No esperado</span>
+                        )}
+                      </div>
+
+                      {/* Attended Checkbox */}
+                      <div className="flex items-center gap-2 mb-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 min-h-[44px]">
+                          {isReadOnly || !isFacilitator ? (
+                            attendee.attended === true ? (
+                              <Check className="w-5 h-5 text-green-600" />
+                            ) : attendee.attended === false ? (
+                              <X className="w-5 h-5 text-red-600" />
+                            ) : (
+                              <span className="text-gray-400">—</span>
+                            )
+                          ) : (
+                            <input
+                              type="checkbox"
+                              checked={attData?.attended || false}
+                              onChange={(e) =>
+                                handleAttendanceChange(attendee.user_id, 'attended', e.target.checked)
+                              }
+                              className="w-5 h-5"
+                            />
+                          )}
+                          <span>Asistió</span>
+                        </label>
+                      </div>
+
+                      {/* Arrival Status Dropdown */}
+                      <div className="mb-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Estado de llegada</label>
+                        {isReadOnly || !isFacilitator ? (
+                          <span className="text-sm text-gray-600 capitalize">
+                            {attendee.arrival_status?.replace(/_/g, ' ') || '—'}
+                          </span>
+                        ) : (
+                          <select
+                            value={attData?.arrival_status || ''}
+                            onChange={(e) =>
+                              handleAttendanceChange(
+                                attendee.user_id,
+                                'arrival_status',
+                                e.target.value || undefined
+                              )
+                            }
+                            className="w-full text-sm border border-gray-300 rounded px-3 py-2 min-h-[44px]"
+                          >
+                            <option value="">—</option>
+                            <option value="on_time">A tiempo</option>
+                            <option value="late">Tarde</option>
+                            <option value="left_early">Salió temprano</option>
+                          </select>
+                        )}
+                      </div>
+
+                      {/* Notes Input */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
+                        {isReadOnly || !isFacilitator ? (
+                          <span className="text-sm text-gray-600">{attendee.notes || '—'}</span>
+                        ) : (
+                          <input
+                            type="text"
+                            value={attData?.notes || ''}
+                            onChange={(e) =>
+                              handleAttendanceChange(attendee.user_id, 'notes', e.target.value || undefined)
+                            }
+                            placeholder="Notas opcionales"
+                            className="w-full text-sm border border-gray-300 rounded px-3 py-2 min-h-[44px]"
+                          />
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           </div>
         );
@@ -1082,7 +1181,7 @@ const SessionDetailPage: React.FC = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
+            <div className="flex flex-wrap gap-2">
               {/* Add to Calendar Button - for exportable statuses */}
               {(['programada', 'en_progreso', 'pendiente_informe'] as string[]).includes(session.status) && (
                 <a
@@ -1183,7 +1282,7 @@ const SessionDetailPage: React.FC = () => {
             <div className="flex items-center gap-2 text-gray-700">
               {session.schools && <><MapPin className="w-5 h-5" /> <span>{session.schools.name}</span></>}
             </div>
-            <div className="flex items-center gap-2 text-gray-700 col-span-2">
+            <div className="flex items-center gap-2 text-gray-700 md:col-span-2">
               {session.growth_communities && <><Users className="w-5 h-5" /> <span>{session.growth_communities.name}</span></>}
             </div>
           </div>
@@ -1275,14 +1374,14 @@ const SessionDetailPage: React.FC = () => {
         {/* Tabs */}
         <div className="bg-white rounded-lg border border-gray-200">
           <div className="border-b border-gray-200">
-            <div className="flex overflow-x-auto">
+            <div className="flex overflow-x-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`px-6 py-3 text-sm font-medium flex items-center gap-2 border-b-2 whitespace-nowrap ${
+                    className={`px-3 sm:px-6 py-3 text-sm font-medium flex items-center gap-2 border-b-2 whitespace-nowrap ${
                       activeTab === tab.id
                         ? 'border-brand_accent text-brand_accent'
                         : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'

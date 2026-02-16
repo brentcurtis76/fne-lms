@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
@@ -409,12 +409,14 @@ const SessionsPage: React.FC = () => {
   };
 
   // Compute series totals from loaded sessions (approximate when sessions span multiple pages)
-  const seriesTotals = sessions.reduce((acc, s) => {
-    if (s.recurrence_group_id) {
-      acc[s.recurrence_group_id] = (acc[s.recurrence_group_id] || 0) + 1;
-    }
-    return acc;
-  }, {} as Record<string, number>);
+  const seriesTotals = useMemo(() => {
+    return sessions.reduce((acc, s) => {
+      if (s.recurrence_group_id) {
+        acc[s.recurrence_group_id] = (acc[s.recurrence_group_id] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+  }, [sessions]);
 
   const getSeriesInfo = (session: SessionListItem): string | null => {
     if (!session.recurrence_group_id || !session.session_number) return null;
@@ -482,7 +484,7 @@ const SessionsPage: React.FC = () => {
 
         {/* Header with Actions */}
         <div className="bg-white rounded-lg shadow mb-6">
-          <div className="p-4 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+          <div className="p-4 border-b flex flex-wrap gap-2 items-center justify-between">
             {/* View Mode Tabs */}
             <div className="flex space-x-2">
               <button
@@ -851,8 +853,34 @@ const SessionsPage: React.FC = () => {
           </button>
         </div>
 
+        {/* Mobile Agenda */}
+        <div className="md:hidden space-y-3">
+          {sessions.length === 0 ? (
+            <div className="text-center py-6 text-gray-500">No hay sesiones este mes</div>
+          ) : (
+            sessions.map((session) => (
+              <div
+                key={session.id}
+                onClick={() => handleViewSession(session.id)}
+                className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 cursor-pointer"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-medium text-gray-900">{session.title}</span>
+                  {getStatusBadge(session.status)}
+                </div>
+                <div className="text-sm text-gray-600">
+                  {formatDateShort(session.session_date)} • {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                </div>
+                <div className="text-sm text-gray-500 mt-1">
+                  {session.schools?.name}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
         {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1">
+        <div className="hidden md:grid grid-cols-7 gap-1">
           {/* Day headers */}
           {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
             <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">
@@ -930,8 +958,56 @@ const SessionsPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Week View */}
-        <div className="space-y-6">
+        {/* Mobile Vertical Day-by-Day List */}
+        <div className="md:hidden space-y-4">
+          {weekDays.map((day) => {
+            const dateKey = format(day, 'yyyy-MM-dd');
+            const daySessions = sessionsByDate[dateKey] || [];
+
+            return (
+              <div key={dateKey}>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  {format(day, 'EEEE, dd MMMM', { locale: es })}
+                </h4>
+                {daySessions.length === 0 ? (
+                  <p className="text-sm text-gray-500 pl-4">No hay sesiones</p>
+                ) : (
+                  <div className="space-y-2">
+                    {daySessions.map((session) => (
+                      <div
+                        key={session.id}
+                        onClick={() => handleViewSession(session.id)}
+                        className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 cursor-pointer"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="font-medium text-gray-900">{session.title}</span>
+                              {session.recurrence_group_id && (
+                                <span className="flex items-center text-xs text-blue-600">
+                                  <Link2 size={14} className="mr-1" />
+                                  {getSeriesInfo(session)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-500 mt-1">
+                              {formatTime(session.start_time)} - {formatTime(session.end_time)}
+                              <span className="text-xs text-gray-500 ml-1">(Chile)</span> | {session.schools?.name}
+                            </div>
+                          </div>
+                          <div>{getStatusBadge(session.status)}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop Week View */}
+        <div className="hidden md:block space-y-6">
           {weekDays.map((day) => {
             const dateKey = format(day, 'yyyy-MM-dd');
             const daySessions = sessionsByDate[dateKey] || [];

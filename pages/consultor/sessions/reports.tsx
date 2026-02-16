@@ -518,7 +518,7 @@ const SessionReportsPage: React.FC = () => {
     return (
       <div className="space-y-4 mb-6">
         {/* Row 1: 4 cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           <KPICard
             title="Total Sesiones"
             value={kpis.total_sessions}
@@ -576,7 +576,7 @@ const SessionReportsPage: React.FC = () => {
   function renderCharts() {
     if (!analyticsData) return null;
 
-    const chartHeight = isMobile ? 250 : 300;
+    const chartHeight = isMobile ? 256 : 320;
 
     // Prepare sessions by month data with formatted labels
     const monthlyData = analyticsData.sessions_by_month.map((item) => ({
@@ -607,13 +607,13 @@ const SessionReportsPage: React.FC = () => {
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Chart 1: Sessions by Month */}
+        {/* Chart 1: Sessions by Month - Responsive */}
         <div className="bg-white rounded-lg shadow p-6" aria-label="Sesiones por Mes - Gráfico de barras">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Sesiones por Mes</h3>
           <ResponsiveContainer width="100%" height={chartHeight}>
             <BarChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+              <XAxis dataKey="label" tick={{ fontSize: 12 }} angle={isMobile ? -45 : 0} textAnchor={isMobile ? 'end' : 'middle'} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip content={<CustomChartTooltip />} />
               <Legend />
@@ -680,7 +680,7 @@ const SessionReportsPage: React.FC = () => {
           <ResponsiveContainer width="100%" height={chartHeight}>
             <AreaChart data={attendanceData}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+              <XAxis dataKey="label" tick={{ fontSize: 12 }} angle={isMobile ? -45 : 0} textAnchor={isMobile ? 'end' : 'middle'} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} unit="%" />
               <Tooltip content={<CustomChartTooltip />} />
               <Area

@@ -105,9 +105,10 @@ const SessionApprovalsPage: React.FC = () => {
 
       const result = await response.json();
       setEditRequests(result.data?.edit_requests || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error fetching edit requests:', error);
-      toast.error(error.message || 'Error al cargar solicitudes de cambio');
+      const errorMessage = error instanceof Error ? error.message : 'Error al cargar solicitudes de cambio';
+      toast.error(errorMessage);
     }
   };
 
@@ -153,9 +154,10 @@ const SessionApprovalsPage: React.FC = () => {
         return updated;
       });
       await fetchEditRequests();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error approving request:', error);
-      toast.error(error.message || 'Error al aprobar solicitud');
+      const errorMessage = error instanceof Error ? error.message : 'Error al aprobar solicitud';
+      toast.error(errorMessage);
     } finally {
       setActionInProgress(false);
     }
@@ -204,9 +206,10 @@ const SessionApprovalsPage: React.FC = () => {
         return updated;
       });
       await fetchEditRequests();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error rejecting request:', error);
-      toast.error(error.message || 'Error al rechazar solicitud');
+      const errorMessage = error instanceof Error ? error.message : 'Error al rechazar solicitud';
+      toast.error(errorMessage);
     } finally {
       setActionInProgress(false);
     }

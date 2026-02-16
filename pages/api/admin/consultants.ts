@@ -23,27 +23,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { school_id } = req.query;
 
-  if (!school_id || isNaN(Number(school_id))) {
-    return sendAuthError(res, 'school_id es requerido y debe ser un número', 400);
-  }
-
   try {
     const serviceClient = createServiceRoleClient();
 
-    const { data, error } = await serviceClient
+    let query = serviceClient
       .from('user_roles')
       .select('user_id, profiles(id, first_name, last_name, email)')
-      .eq('school_id', Number(school_id))
       .eq('role_type', 'consultor')
       .eq('is_active', true);
+
+    // If school_id is provided, filter by school; otherwise, return all consultants
+    if (school_id && !isNaN(Number(school_id))) {
+      query = query.eq('school_id', Number(school_id));
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching consultants:', error);
       return sendAuthError(res, 'Error al consultar facilitadores', 500, error.message);
     }
 
+    // Deduplicate by user_id (consultants may have roles at multiple schools)
+    const seenUserIds = new Set<string>();
     const consultants = (data || [])
-      .filter((item: any) => item.profiles)
+      .filter((item: any) => item.profiles && item.user_id)
+      .filter((item: any) => {
+        if (seenUserIds.has(item.user_id)) {
+          return false;
+        }
+        seenUserIds.add(item.user_id);
+        return true;
+      })
       .map((item: any) => ({
         id: item.profiles.id,
         first_name: item.profiles.first_name || '',

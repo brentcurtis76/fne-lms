@@ -331,6 +331,122 @@ describe('GET /api/sessions/ical', () => {
 
     expect(res._getStatusCode()).toBe(405);
   });
+
+  it('filters sessions by consultant_id using two-step pattern', async () => {
+    const CONSULTANT_ID = '77777777-7777-4777-8777-777777777777';
+
+    mockGetApiUser.mockResolvedValue({
+      user: { id: ADMIN_ID },
+      error: null,
+    });
+
+    mockGetUserRoles.mockResolvedValue([
+      { role_type: 'admin', community_id: null, school_id: null },
+    ]);
+    mockGetHighestRole.mockReturnValue('admin');
+
+    const mockClient = {
+      from: vi.fn((tableName: string) => {
+        if (tableName === 'session_facilitators') {
+          // First step: return session IDs for the consultant
+          return buildChainableQuery([
+            { session_id: SESSION_ID },
+          ]);
+        }
+        // Second step: return only that session
+        return buildChainableQuery([mockSession1]);
+      }),
+    };
+
+    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { consultant_id: CONSULTANT_ID },
+    });
+
+    await batchHandler(req, res);
+
+    expect(res._getStatusCode()).toBe(200);
+    const content = res._getData();
+    expect(typeof content).toBe('string');
+    expect(content).toContain('BEGIN:VCALENDAR');
+    expect(content).toContain(mockSession1.title);
+  });
+
+  it('returns empty calendar when consultant has no sessions', async () => {
+    const CONSULTANT_ID = '77777777-7777-4777-8777-777777777777';
+
+    mockGetApiUser.mockResolvedValue({
+      user: { id: ADMIN_ID },
+      error: null,
+    });
+
+    mockGetUserRoles.mockResolvedValue([
+      { role_type: 'admin', community_id: null, school_id: null },
+    ]);
+    mockGetHighestRole.mockReturnValue('admin');
+
+    const mockClient = {
+      from: vi.fn((tableName: string) => {
+        if (tableName === 'session_facilitators') {
+          return buildChainableQuery([]); // No sessions for this consultant
+        }
+        return buildChainableQuery([]);
+      }),
+    };
+
+    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { consultant_id: CONSULTANT_ID },
+    });
+
+    await batchHandler(req, res);
+
+    expect(res._getStatusCode()).toBe(200);
+    const content = res._getData();
+    expect(typeof content).toBe('string');
+    expect(content).toContain('BEGIN:VCALENDAR');
+    expect(content).toContain('END:VCALENDAR');
+  });
+
+  it('handles database error when filtering by consultant', async () => {
+    const CONSULTANT_ID = '77777777-7777-4777-8777-777777777777';
+
+    mockGetApiUser.mockResolvedValue({
+      user: { id: ADMIN_ID },
+      error: null,
+    });
+
+    mockGetUserRoles.mockResolvedValue([
+      { role_type: 'admin', community_id: null, school_id: null },
+    ]);
+    mockGetHighestRole.mockReturnValue('admin');
+
+    const mockClient = {
+      from: vi.fn((tableName: string) => {
+        if (tableName === 'session_facilitators') {
+          return buildChainableQuery(null, { message: 'Database error' });
+        }
+        return buildChainableQuery([]);
+      }),
+    };
+
+    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { consultant_id: CONSULTANT_ID },
+    });
+
+    await batchHandler(req, res);
+
+    expect(res._getStatusCode()).toBe(500);
+    const data = JSON.parse(res._getData());
+    expect(data.error).toContain('filtrar por consultor');
+  });
 });
 
 describe('GET /api/sessions/series/[groupId]/ical', () => {

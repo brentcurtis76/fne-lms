@@ -39,6 +39,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function handlePost(req: NextApiRequest, res: NextApiResponse) {
   const { isAdmin, user, error: authError } = await checkIsAdmin(req, res);
 
+  if (!user) {
+    return sendAuthError(res, 'No autenticado', 401);
+  }
   if (!isAdmin) {
     return sendAuthError(res, 'Solo administradores pueden crear sesiones', 403);
   }
@@ -302,6 +305,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
   const {
     school_id,
     growth_community_id,
+    consultant_id,
     status,
     date_from,
     date_to,
@@ -367,6 +371,30 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       query = query.in('growth_community_id', userCommunityIds);
       // Exclude drafts for non-admin/non-consultor
       query = query.neq('status', 'borrador');
+    }
+
+    // Consultant filter (two-step pattern: first get session IDs, then filter)
+    let sessionIdFilter: string[] | null = null;
+    if (consultant_id && Validators.isUUID(consultant_id as string)) {
+      const { data: consultantSessions, error: csError } = await serviceClient
+        .from('session_facilitators')
+        .select('session_id')
+        .eq('user_id', consultant_id as string);
+
+      if (csError) {
+        return sendAuthError(res, 'Error al filtrar por consultor', 500);
+      }
+
+      sessionIdFilter = (consultantSessions || []).map((f: { session_id: string }) => f.session_id);
+
+      if (sessionIdFilter.length === 0) {
+        return sendApiResponse(res, { sessions: [], total: 0, page: pageNum, limit: limitNum });
+      }
+    }
+
+    // Apply consultant ID filter first (if provided)
+    if (sessionIdFilter !== null) {
+      query = query.in('id', sessionIdFilter);
     }
 
     // Apply filters

@@ -34,7 +34,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return sendAuthError(res, 'Autenticación requerida', 401);
   }
 
-  const { school_id, growth_community_id, status, date_from, date_to } = req.query;
+  const { school_id, growth_community_id, consultant_id, status, date_from, date_to } = req.query;
 
   try {
     const serviceClient = createServiceRoleClient();
@@ -89,6 +89,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       query = query.in('growth_community_id', userCommunityIds);
       // Exclude drafts for non-admin/non-consultor
       query = query.neq('status', 'borrador');
+    }
+
+    // Consultant filter (two-step pattern: first get session IDs, then filter)
+    let sessionIdFilter: string[] | null = null;
+    if (consultant_id && Validators.isUUID(consultant_id as string)) {
+      const { data: consultantSessions, error: csError } = await serviceClient
+        .from('session_facilitators')
+        .select('session_id')
+        .eq('user_id', consultant_id as string);
+
+      if (csError) {
+        return sendAuthError(res, 'Error al filtrar por consultor', 500);
+      }
+
+      sessionIdFilter = (consultantSessions || []).map((f: { session_id: string }) => f.session_id);
+
+      if (sessionIdFilter.length === 0) {
+        // Empty result set - return empty calendar
+        const emptyCalendar = createSessionCalendar([]);
+        res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="sesiones-vacio.ics"');
+        return res.status(200).send(emptyCalendar.toString());
+      }
+    }
+
+    // Apply consultant ID filter first (if provided)
+    if (sessionIdFilter !== null) {
+      query = query.in('id', sessionIdFilter);
     }
 
     // Apply filters

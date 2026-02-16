@@ -6,7 +6,7 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
-import { Calendar, CheckCircle, XCircle, Link2, ChevronDown, ChevronUp, Eye, CalendarPlus } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Link2, ChevronDown, ChevronUp, Eye, CalendarPlus, Play } from 'lucide-react';
 import { SessionWithRelations, SessionStatus } from '../../../lib/types/consultor-sessions.types';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -219,6 +219,8 @@ const SessionDetailPage: React.FC = () => {
   const handleApprove = async () => {
     if (!session) return;
 
+    if (!window.confirm('¿Está seguro que desea aprobar esta sesión?')) return;
+
     setActionInProgress(true);
     try {
       const {
@@ -247,6 +249,45 @@ const SessionDetailPage: React.FC = () => {
     } catch (error: unknown) {
       console.error('Error approving session:', error);
       toast.error(error instanceof Error ? error.message : 'Error al aprobar sesión');
+    } finally {
+      setActionInProgress(false);
+    }
+  };
+
+  const handleStartSession = async () => {
+    if (!session) return;
+
+    if (!window.confirm('¿Está seguro que desea iniciar esta sesión?')) return;
+
+    setActionInProgress(true);
+    try {
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      if (!authSession?.access_token) {
+        toast.error('Error de autenticación');
+        return;
+      }
+
+      const response = await fetch(`/api/sessions/${id}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: 'en_progreso' }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al iniciar sesión');
+      }
+
+      toast.success('Sesión iniciada exitosamente');
+      fetchSession();
+    } catch (error: unknown) {
+      console.error('Error starting session:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al iniciar sesión');
     } finally {
       setActionInProgress(false);
     }
@@ -654,10 +695,21 @@ const SessionDetailPage: React.FC = () => {
                 <button
                   onClick={handleApprove}
                   disabled={actionInProgress}
-                  className="inline-flex items-center px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
+                  className="inline-flex items-center px-4 py-2 bg-brand_primary text-white hover:bg-brand_gray_dark rounded-lg transition-colors disabled:opacity-50"
                 >
                   <CheckCircle size={20} className="mr-2" />
                   Aprobar
+                </button>
+              )}
+
+              {session.status === 'programada' && (
+                <button
+                  onClick={handleStartSession}
+                  disabled={actionInProgress}
+                  className="inline-flex items-center px-4 py-2 bg-brand_accent text-brand_primary hover:bg-brand_accent_hover rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <Play size={20} className="mr-2" />
+                  Iniciar Sesión
                 </button>
               )}
 

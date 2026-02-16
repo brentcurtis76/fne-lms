@@ -37,6 +37,13 @@ interface GrowthCommunity {
   name: string;
 }
 
+interface Consultant {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+}
+
 interface SessionListItem {
   id: string;
   title: string;
@@ -73,6 +80,7 @@ const SessionsPage: React.FC = () => {
   const [totalSessions, setTotalSessions] = useState(0);
   const [schools, setSchools] = useState<School[]>([]);
   const [communities, setCommunities] = useState<GrowthCommunity[]>([]);
+  const [consultants, setConsultants] = useState<Consultant[]>([]);
 
   // Server-side stats (accurate across all pages)
   const [serverStats, setServerStats] = useState<{ total: number; by_status: Record<string, number> } | null>(null);
@@ -81,6 +89,7 @@ const SessionsPage: React.FC = () => {
   const [filters, setFilters] = useState({
     school_id: router.query.school_id as string || '',
     growth_community_id: router.query.growth_community_id as string || '',
+    consultant_id: router.query.consultant_id as string || '',
     status: router.query.status as string || '',
     date_from: router.query.date_from as string || '',
     date_to: router.query.date_to as string || '',
@@ -104,6 +113,7 @@ const SessionsPage: React.FC = () => {
     if (user && isAdmin) {
       fetchSchools();
       fetchCommunities();
+      fetchConsultants();
       fetchStats();
     }
   }, [user, isAdmin]);
@@ -124,6 +134,7 @@ const SessionsPage: React.FC = () => {
     const query: Record<string, string> = {};
     if (filters.school_id) query.school_id = filters.school_id;
     if (filters.growth_community_id) query.growth_community_id = filters.growth_community_id;
+    if (filters.consultant_id) query.consultant_id = filters.consultant_id;
     if (filters.status) query.status = filters.status;
     if (filters.date_from) query.date_from = filters.date_from;
     if (filters.date_to) query.date_to = filters.date_to;
@@ -186,6 +197,28 @@ const SessionsPage: React.FC = () => {
     }
   };
 
+  const fetchConsultants = async () => {
+    try {
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      if (!authSession?.access_token) return;
+
+      const response = await fetch('/api/admin/consultants', {
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+        },
+      });
+
+      if (!response.ok) return;
+
+      const result = await response.json();
+      setConsultants(result.data.consultants || []);
+    } catch (error) {
+      console.error('Error fetching consultants:', error);
+    }
+  };
+
   const fetchStats = async () => {
     try {
       const {
@@ -222,6 +255,7 @@ const SessionsPage: React.FC = () => {
       // Apply filters
       if (filters.school_id) queryParams.append('school_id', filters.school_id);
       if (filters.growth_community_id) queryParams.append('growth_community_id', filters.growth_community_id);
+      if (filters.consultant_id) queryParams.append('consultant_id', filters.consultant_id);
       if (filters.status) queryParams.append('status', filters.status);
 
       // For month/week views, set date range automatically
@@ -474,11 +508,11 @@ const SessionsPage: React.FC = () => {
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-500">Programadas</div>
-            <div className="text-2xl font-bold text-blue-600">{stats.programada}</div>
+            <div className="text-2xl font-bold text-gray-900">{stats.programada}</div>
           </div>
           <div className="bg-white rounded-lg shadow p-4">
             <div className="text-sm text-gray-500">Pendientes</div>
-            <div className="text-2xl font-bold text-orange-600">{stats.pendiente}</div>
+            <div className="text-2xl font-bold text-gray-900">{stats.pendiente}</div>
           </div>
         </div>
 
@@ -525,7 +559,7 @@ const SessionsPage: React.FC = () => {
             {/* Nueva Sesión Button */}
             <button
               onClick={() => router.push('/admin/sessions/create')}
-              className="inline-flex items-center px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-brand_primary text-white hover:bg-brand_gray_dark rounded-lg transition-colors"
             >
               <Plus size={20} className="mr-2" />
               Nueva Sesión
@@ -552,7 +586,7 @@ const SessionsPage: React.FC = () => {
                 </a>
               )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
               <select
                 value={filters.school_id}
                 onChange={(e) => handleFilterChange('school_id', e.target.value)}
@@ -575,6 +609,19 @@ const SessionsPage: React.FC = () => {
                 {communities.map((community) => (
                   <option key={community.id} value={community.id}>
                     {community.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={filters.consultant_id}
+                onChange={(e) => handleFilterChange('consultant_id', e.target.value)}
+                className="p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+              >
+                <option value="">Todos los consultores</option>
+                {consultants.map((consultant) => (
+                  <option key={consultant.id} value={consultant.id}>
+                    {consultant.first_name} {consultant.last_name}
                   </option>
                 ))}
               </select>
@@ -901,21 +948,37 @@ const SessionsPage: React.FC = () => {
                   isCurrentMonth ? 'bg-white' : 'bg-gray-50'
                 }`}
               >
-                <div className="text-xs text-gray-500 mb-1">{day.getDate()}</div>
+                <div className="text-xs text-gray-500 mb-1 font-semibold">{day.getDate()}</div>
                 <div className="space-y-1">
-                  {daySessions.map((session) => (
+                  {daySessions.slice(0, 2).map((session) => (
                     <button
                       key={session.id}
                       onClick={() => handleViewSession(session.id)}
-                      className="w-full text-left"
+                      className="w-full text-left p-1 rounded hover:bg-gray-100 transition-colors text-xs"
+                      title={session.title}
                     >
                       <div
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: getStatusColor(session.status) }}
-                        title={session.title}
-                      />
+                        className="pl-2 border-l-2 truncate"
+                        style={{ borderColor: getStatusColor(session.status) }}
+                      >
+                        <span className="font-medium">{formatTime(session.start_time)}</span>{' '}
+                        <span className="text-gray-600 truncate">{session.title}</span>
+                      </div>
                     </button>
                   ))}
+                  {daySessions.length > 2 && (
+                    <button
+                      onClick={() => {
+                        // Set filter to show only this day's sessions
+                        handleFilterChange('date_from', dateKey);
+                        handleFilterChange('date_to', dateKey);
+                        setViewMode('list');
+                      }}
+                      className="w-full text-left px-1 py-1 text-xs text-brand_accent hover:text-brand_accent_hover font-medium"
+                    >
+                      +{daySessions.length - 2} más
+                    </button>
+                  )}
                 </div>
               </div>
             );

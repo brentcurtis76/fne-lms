@@ -8,6 +8,10 @@ import { ResponsiveFunctionalPageHeader } from '../../../components/layout/Funct
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
 import { Calendar, CheckCircle, XCircle, Link2, ChevronDown, ChevronUp, Eye, CalendarPlus, Play } from 'lucide-react';
 import { SessionWithRelations, SessionStatus } from '../../../lib/types/consultor-sessions.types';
+import {
+  getStatusBadge as getStatusBadgeData,
+  getSeriesStatsPillClass,
+} from '../../../lib/utils/session-ui-helpers';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -45,6 +49,13 @@ const SessionDetailPage: React.FC = () => {
   const [showSeriesPanel, setShowSeriesPanel] = useState(false);
   const [showSeriesCancelModal, setShowSeriesCancelModal] = useState(false);
   const [seriesCancellationReason, setSeriesCancellationReason] = useState('');
+
+  // Facilitator editor state
+  const [editingFacilitators, setEditingFacilitators] = useState(false);
+  const [editFacilitators, setEditFacilitators] = useState<Array<{ user_id: string; facilitator_role: 'consultor_externo' | 'equipo_interno'; is_lead: boolean }>>([]);
+  const [availableConsultants, setAvailableConsultants] = useState<Array<{ id: string; first_name: string; last_name: string; email: string }>>([]);
+  const [loadingConsultants, setLoadingConsultants] = useState(false);
+  const [savingFacilitators, setSavingFacilitators] = useState(false);
 
   useEffect(() => {
     initializeAuth();
@@ -436,20 +447,7 @@ const SessionDetailPage: React.FC = () => {
   };
 
   const getStatusBadge = (status: SessionStatus) => {
-    const badges: Record<
-      SessionStatus,
-      { label: string; className: string }
-    > = {
-      borrador: { label: 'Borrador', className: 'bg-gray-100 text-gray-700' },
-      pendiente_aprobacion: { label: 'Pendiente Aprobación', className: 'bg-yellow-100 text-yellow-700' },
-      programada: { label: 'Programada', className: 'bg-blue-100 text-blue-700' },
-      en_progreso: { label: 'En Progreso', className: 'bg-amber-100 text-amber-700' },
-      pendiente_informe: { label: 'Pendiente Informe', className: 'bg-orange-100 text-orange-700' },
-      completada: { label: 'Completada', className: 'bg-green-100 text-green-700' },
-      cancelada: { label: 'Cancelada', className: 'bg-red-100 text-red-700' },
-    };
-
-    const badge = badges[status] || badges.borrador;
+    const badge = getStatusBadgeData(status);
     return (
       <span className={`px-3 py-1 rounded-full text-sm font-medium ${badge.className}`}>
         {badge.label}
@@ -469,6 +467,125 @@ const SessionDetailPage: React.FC = () => {
 
   const formatTime = (timeString: string) => {
     return timeString.substring(0, 5); // HH:MM
+  };
+
+  const handleStartEditFacilitators = async () => {
+    if (!session) return;
+    setEditingFacilitators(true);
+    setEditFacilitators(
+      session.facilitators.map((f) => ({
+        user_id: f.user_id,
+        facilitator_role: f.facilitator_role,
+        is_lead: f.is_lead,
+      }))
+    );
+    setLoadingConsultants(true);
+    try {
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      if (!authSession?.access_token) {
+        toast.error('Error de autenticación');
+        setEditingFacilitators(false);
+        return;
+      }
+
+      const response = await fetch(`/api/admin/consultants?school_id=${session.school_id}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Error al cargar consultores');
+      }
+
+      const data = await response.json();
+      setAvailableConsultants(data.consultants || []);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Error loading consultants:', error);
+        toast.error(error.message || 'Error al cargar consultores');
+      }
+    } finally {
+      setLoadingConsultants(false);
+    }
+  };
+
+  const handleCancelEditFacilitators = () => {
+    setEditingFacilitators(false);
+    setEditFacilitators([]);
+    setAvailableConsultants([]);
+  };
+
+  const handleAddEditFacilitator = (consultantId: string) => {
+    if (!editFacilitators.find((f) => f.user_id === consultantId)) {
+      setEditFacilitators([
+        ...editFacilitators,
+        {
+          user_id: consultantId,
+          facilitator_role: 'consultor_externo',
+          is_lead: false,
+        },
+      ]);
+    }
+  };
+
+  const handleRemoveEditFacilitator = (consultantId: string) => {
+    setEditFacilitators(editFacilitators.filter((f) => f.user_id !== consultantId));
+  };
+
+  const handleToggleEditFacilitatorLead = (consultantId: string) => {
+    setEditFacilitators(
+      editFacilitators.map((f) =>
+        f.user_id === consultantId ? { ...f, is_lead: !f.is_lead } : f
+      )
+    );
+  };
+
+  const handleSaveFacilitators = async () => {
+    if (!session || editFacilitators.length === 0) return;
+
+    setSavingFacilitators(true);
+    try {
+      const {
+        data: { session: authSession },
+      } = await supabase.auth.getSession();
+      if (!authSession?.access_token) {
+        toast.error('Error de autenticación');
+        return;
+      }
+
+      const response = await fetch(`/api/sessions/${session.id}/facilitators`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${authSession.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          facilitators: editFacilitators,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al guardar consultores');
+      }
+
+      toast.success('Consultores actualizados exitosamente');
+      setEditingFacilitators(false);
+      setEditFacilitators([]);
+      setAvailableConsultants([]);
+      await fetchSession();
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error('Error saving facilitators:', error);
+        toast.error(error.message || 'Error al guardar consultores');
+      }
+    } finally {
+      setSavingFacilitators(false);
+    }
   };
 
   if (loading) {
@@ -562,41 +679,20 @@ const SessionDetailPage: React.FC = () => {
                       {/* Stats Pills */}
                       {seriesStats && (
                         <div className="flex flex-wrap gap-2 mb-4">
-                          {seriesStats.programada > 0 && (
-                            <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                              {seriesStats.programada} Programada{seriesStats.programada > 1 ? 's' : ''}
-                            </span>
-                          )}
-                          {seriesStats.completada > 0 && (
-                            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                              {seriesStats.completada} Completada{seriesStats.completada > 1 ? 's' : ''}
-                            </span>
-                          )}
-                          {seriesStats.cancelada > 0 && (
-                            <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-medium">
-                              {seriesStats.cancelada} Cancelada{seriesStats.cancelada > 1 ? 's' : ''}
-                            </span>
-                          )}
-                          {seriesStats.borrador > 0 && (
-                            <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
-                              {seriesStats.borrador} {seriesStats.borrador > 1 ? 'Borradores' : 'Borrador'}
-                            </span>
-                          )}
-                          {seriesStats.pendiente_aprobacion > 0 && (
-                            <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">
-                              {seriesStats.pendiente_aprobacion} Pendiente Aprobación
-                            </span>
-                          )}
-                          {seriesStats.en_progreso > 0 && (
-                            <span className="px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-xs font-medium">
-                              {seriesStats.en_progreso} En Progreso
-                            </span>
-                          )}
-                          {seriesStats.pendiente_informe > 0 && (
-                            <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
-                              {seriesStats.pendiente_informe} Pendiente Informe
-                            </span>
-                          )}
+                          {(Object.entries(seriesStats) as [SessionStatus, number][])
+                            .filter(([, count]) => count > 0)
+                            .map(([status, count]) => {
+                              const badge = getStatusBadgeData(status);
+                              const pillClass = getSeriesStatsPillClass(status);
+                              const label = status === 'borrador' && count > 1
+                                ? 'Borradores'
+                                : badge.label + (count > 1 && !badge.label.endsWith('n') ? 's' : '');
+                              return (
+                                <span key={status} className={`px-3 py-1 ${pillClass} rounded-full text-xs font-medium`}>
+                                  {count} {label}
+                                </span>
+                              );
+                            })}
                         </div>
                       )}
 
@@ -765,7 +861,7 @@ const SessionDetailPage: React.FC = () => {
                   href={session.meeting_link}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
+                  className="text-brand_accent_hover hover:underline"
                 >
                   {session.meeting_provider || 'Enlace'}
                 </a>
@@ -794,37 +890,145 @@ const SessionDetailPage: React.FC = () => {
             )}
           </div>
 
-          {/* Facilitators */}
+          {/* Consultores */}
           {session.facilitators.length > 0 && (
             <div className="mt-6 pt-6 border-t">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Facilitadores</h3>
-              <div className="space-y-2">
-                {session.facilitators.map((facilitator) => {
-                  const profile = facilitator.profiles;
-                  const displayName = profile
-                    ? `${profile.first_name} ${profile.last_name}`.trim() || profile.email || facilitator.user_id
-                    : facilitator.user_id;
-
-                  return (
-                    <div
-                      key={facilitator.id}
-                      className="flex items-center justify-between bg-gray-50 p-3 rounded-lg"
-                    >
-                      <div>
-                        <span className="font-medium">{displayName}</span>
-                        {facilitator.is_lead && (
-                          <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                            Principal
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-sm text-gray-500 capitalize">
-                        {facilitator.facilitator_role.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                  );
-                })}
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Consultores</h3>
+                {session.status !== 'completada' && session.status !== 'cancelada' && !editingFacilitators && (
+                  <button
+                    onClick={() => handleStartEditFacilitators()}
+                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                  >
+                    Editar consultores
+                  </button>
+                )}
               </div>
+
+              {!editingFacilitators ? (
+                <div className="space-y-2">
+                  {session.facilitators.map((facilitator) => {
+                    const profile = facilitator.profiles;
+                    const displayName = profile
+                      ? `${profile.first_name} ${profile.last_name}`.trim() || profile.email || facilitator.user_id
+                      : facilitator.user_id;
+
+                    return (
+                      <div
+                        key={facilitator.id}
+                        className="flex items-center justify-between bg-gray-50 p-3 rounded-lg"
+                      >
+                        <div>
+                          <span className="font-medium">{displayName}</span>
+                          {facilitator.is_lead && (
+                            <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded">
+                              Consultor principal
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-sm text-gray-500 capitalize">
+                          {facilitator.facilitator_role.replace(/_/g, ' ')}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="border rounded-lg p-4 bg-blue-50">
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">Consultores actuales</h4>
+                    <div className="space-y-2">
+                      {editFacilitators.length > 0 ? (
+                        editFacilitators.map((facilitator) => {
+                          const consultant = availableConsultants.find((c) => c.id === facilitator.user_id);
+                          const displayName = consultant
+                            ? `${consultant.first_name} ${consultant.last_name}`
+                            : facilitator.user_id;
+
+                          return (
+                            <div
+                              key={facilitator.user_id}
+                              className="flex items-center justify-between bg-white p-3 rounded border border-gray-200"
+                            >
+                              <div className="flex-1">
+                                <div className="font-medium text-gray-900">{displayName}</div>
+                                {consultant && <div className="text-sm text-gray-500">{consultant.email}</div>}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <label className="flex items-center text-sm">
+                                  <input
+                                    type="checkbox"
+                                    checked={facilitator.is_lead}
+                                    onChange={() => handleToggleEditFacilitatorLead(facilitator.user_id)}
+                                    className="mr-1"
+                                  />
+                                  Consultor principal
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveEditFacilitator(facilitator.user_id)}
+                                  className="text-red-600 hover:text-red-800 text-sm"
+                                >
+                                  Quitar
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-sm text-gray-500">No hay consultores añadidos</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Añadir consultor</h4>
+                    {loadingConsultants ? (
+                      <div className="flex items-center p-3 bg-white rounded border border-gray-200">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                        <span className="text-sm text-gray-600">Cargando consultores...</span>
+                      </div>
+                    ) : (
+                      <select
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            handleAddEditFacilitator(e.target.value);
+                            e.target.value = '';
+                          }
+                        }}
+                        className="w-full p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-600 focus:border-transparent"
+                        disabled={availableConsultants.length === 0}
+                      >
+                        <option value="">Seleccionar consultor...</option>
+                        {availableConsultants
+                          .filter((c) => !editFacilitators.find((f) => f.user_id === c.id))
+                          .map((consultant) => (
+                            <option key={consultant.id} value={consultant.id}>
+                              {consultant.first_name} {consultant.last_name} ({consultant.email})
+                            </option>
+                          ))}
+                      </select>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end space-x-2">
+                    <button
+                      onClick={() => handleCancelEditFacilitators()}
+                      className="px-3 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
+                      disabled={savingFacilitators}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={() => handleSaveFacilitators()}
+                      className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                      disabled={savingFacilitators || editFacilitators.length === 0}
+                    >
+                      {savingFacilitators ? 'Guardando...' : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

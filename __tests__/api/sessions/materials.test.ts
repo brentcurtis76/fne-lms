@@ -86,8 +86,19 @@ describe('/api/sessions/[id]/materials', () => {
             select: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
                 single: vi.fn().mockResolvedValue({
-                  data: { id: 'session-123', status: 'completada' },
+                  data: { id: 'session-123', status: 'completada', school_id: 1, growth_community_id: 'gc-1' },
                   error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'session_facilitators') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'fac-1' }, error: null }),
                 }),
               }),
             }),
@@ -136,6 +147,17 @@ describe('/api/sessions/[id]/materials', () => {
                     school_id: 1,
                   },
                   error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'session_facilitators') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
                 }),
               }),
             }),

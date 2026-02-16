@@ -13,6 +13,7 @@ import {
   SessionActivityLogInsert,
   AttendanceUpdatePayload,
 } from '../../../../lib/types/consultor-sessions.types';
+import { canViewSession, canContributeToSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-attendees');
@@ -66,31 +67,20 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Usuario sin roles asignados', 403);
     }
 
-    // Role-based access check
-    let canAccess = false;
+    // Use session-policy helper to check view access
+    const accessContext: SessionAccessContext = {
+      highestRole,
+      userRoles,
+      session: {
+        school_id: session.school_id,
+        growth_community_id: session.growth_community_id,
+        status: 'programada', // Status not needed for view check
+      },
+      userId: user.id,
+      isFacilitator: false, // Not needed for view check
+    };
 
-    if (highestRole === 'admin') {
-      canAccess = true;
-    } else if (highestRole === 'consultor') {
-      // Check if consultant is at the same school
-      const consultantSchools = userRoles
-        .filter((r) => r.role_type === 'consultor' && r.school_id)
-        .map((r) => r.school_id);
-
-      if (consultantSchools.includes(session.school_id)) {
-        canAccess = true;
-      }
-    } else {
-      // GC members can also view attendees
-      const gcMemberships = userRoles.filter(
-        (r) => r.community_id === session.growth_community_id && r.is_active
-      );
-      if (gcMemberships.length > 0) {
-        canAccess = true;
-      }
-    }
-
-    if (!canAccess) {
+    if (!canViewSession(accessContext)) {
       return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
     }
 
@@ -157,11 +147,6 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Sesión no encontrada', 404);
     }
 
-    // Check if session is completada or cancelada (read-only)
-    if (session.status === 'completada' || session.status === 'cancelada') {
-      return sendAuthError(res, 'No se puede editar asistencia de sesiones completadas o canceladas', 403);
-    }
-
     // Determine user role
     const userRoles = await getUserRoles(serviceClient, user.id);
     const highestRole = getHighestRole(userRoles);
@@ -170,38 +155,33 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Usuario sin roles asignados', 403);
     }
 
-    // Auth check: facilitator OR GC leader
-    let canEdit = false;
+    // Check if user is a facilitator for this session (needed for access context)
+    const { data: facilitatorCheck } = await serviceClient
+      .from('session_facilitators')
+      .select('id')
+      .eq('session_id', sessionId)
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (highestRole === 'admin') {
-      canEdit = true;
-    } else {
-      // Check if user is a facilitator
-      const { data: facilitatorCheck } = await serviceClient
-        .from('session_facilitators')
-        .select('id')
-        .eq('session_id', sessionId)
-        .eq('user_id', user.id)
-        .single();
+    const isFacilitator = !!facilitatorCheck;
 
-      if (facilitatorCheck) {
-        canEdit = true;
-      } else {
-        // Check if user is a GC leader for this session's community
-        const isGcLeader = userRoles.some(
-          (r) =>
-            r.role_type === 'lider_comunidad' &&
-            r.community_id === session.growth_community_id &&
-            r.is_active
-        );
+    // Use session-policy helper to check contribute access (edit + status check)
+    const accessContext: SessionAccessContext = {
+      highestRole,
+      userRoles,
+      session: {
+        school_id: session.school_id,
+        growth_community_id: session.growth_community_id,
+        status: session.status,
+      },
+      userId: user.id,
+      isFacilitator,
+    };
 
-        if (isGcLeader) {
-          canEdit = true;
-        }
+    if (!canContributeToSession(accessContext)) {
+      if (session.status === 'completada' || session.status === 'cancelada') {
+        return sendAuthError(res, 'No se puede editar asistencia de sesiones completadas o canceladas', 403);
       }
-    }
-
-    if (!canEdit) {
       return sendAuthError(res, 'Solo facilitadores o líderes de comunidad pueden editar asistencia', 403);
     }
 

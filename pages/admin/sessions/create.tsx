@@ -49,6 +49,8 @@ const SessionCreatePage: React.FC = () => {
   const [schools, setSchools] = useState<School[]>([]);
   const [communities, setCommunities] = useState<GrowthCommunity[]>([]);
   const [consultants, setConsultants] = useState<Consultant[]>([]);
+  const [consultantsLoading, setConsultantsLoading] = useState(false);
+  const [consultantsError, setConsultantsError] = useState<string | null>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -93,6 +95,8 @@ const SessionCreatePage: React.FC = () => {
     } else {
       setCommunities([]);
       setConsultants([]);
+      setConsultantsLoading(false);
+      setConsultantsError(null);
     }
   }, [formData.school_id]);
 
@@ -183,12 +187,17 @@ const SessionCreatePage: React.FC = () => {
   };
 
   const fetchConsultants = async (schoolId: number) => {
+    setConsultantsLoading(true);
+    setConsultantsError(null);
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        toast.error('Error de autenticación');
+        const errorMsg = 'Error de autenticación';
+        setConsultantsError(errorMsg);
+        toast.error(errorMsg);
+        setConsultantsLoading(false);
         return;
       }
 
@@ -200,14 +209,23 @@ const SessionCreatePage: React.FC = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Error al cargar consultores');
+        const errorMsg = errorData.error || 'Error al cargar consultores';
+        setConsultantsError(errorMsg);
+        toast.error(errorMsg);
+        setConsultantsLoading(false);
+        return;
       }
 
       const result = await response.json();
       setConsultants(result.data?.consultants || []);
+      setConsultantsError(null);
     } catch (error) {
       console.error('Error fetching consultants:', error);
-      toast.error('Error al cargar consultores');
+      const errorMsg = 'Error al cargar consultores';
+      setConsultantsError(errorMsg);
+      toast.error(errorMsg);
+    } finally {
+      setConsultantsLoading(false);
     }
   };
 
@@ -661,6 +679,132 @@ const SessionCreatePage: React.FC = () => {
               </div>
             </div>
 
+            {/* Row 2 (Moved from Row 9): Consultants */}
+            {formData.school_id > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Consultor(es) asignados <span className="text-red-500">*</span>
+                </label>
+                <p className="text-xs text-gray-600 mb-3">
+                  Debe asignar al menos un consultor antes de crear la sesión.
+                </p>
+
+                {/* Loading state */}
+                {consultantsLoading && (
+                  <div className="flex items-center justify-center p-4 bg-gray-50 rounded-lg mb-4">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-brand_accent mr-2"></div>
+                    <span className="text-sm text-gray-700">Cargando consultores...</span>
+                  </div>
+                )}
+
+                {/* Error state */}
+                {consultantsError && (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium text-red-800">Error al cargar consultores</h4>
+                        <p className="text-sm text-red-700 mt-1">{consultantsError}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => fetchConsultants(formData.school_id)}
+                        className="ml-2 px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        Reintentar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {!consultantsLoading && !consultantsError && consultants.length === 0 && (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
+                    <p className="text-sm text-yellow-800">
+                      No hay consultores disponibles para este colegio. Verifique que existan usuarios con rol activo de consultor.
+                    </p>
+                  </div>
+                )}
+
+                {/* Current facilitators list */}
+                {facilitators.length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    {facilitators.map((facilitator) => {
+                      const consultant = consultants.find((c) => c.id === facilitator.user_id);
+                      if (!consultant) return null;
+
+                      return (
+                        <div
+                          key={facilitator.user_id}
+                          className="flex items-center justify-between bg-gray-50 p-3 rounded-lg"
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium text-gray-900">
+                              {consultant.first_name} {consultant.last_name}
+                            </div>
+                            <div className="text-sm text-gray-500">{consultant.email}</div>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleRole(facilitator.user_id)}
+                              className="px-2 py-1 text-xs rounded bg-gray-200 hover:bg-gray-300"
+                            >
+                              {facilitator.facilitator_role === 'consultor_externo'
+                                ? 'Externo'
+                                : 'Interno'}
+                            </button>
+
+                            <label className="flex items-center text-sm">
+                              <input
+                                type="checkbox"
+                                checked={facilitator.is_lead}
+                                onChange={() => handleToggleLead(facilitator.user_id)}
+                                className="mr-1"
+                              />
+                              Consultor principal
+                            </label>
+
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveFacilitator(facilitator.user_id)}
+                              aria-label={`Quitar consultor ${consultant.first_name} ${consultant.last_name}`}
+                              className="text-red-600 hover:text-red-800 text-sm"
+                            >
+                              Quitar
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Consultant selector */}
+                {!consultantsLoading && !consultantsError && (
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        handleAddFacilitator(e.target.value);
+                        e.target.value = '';
+                      }
+                    }}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    disabled={consultants.length === 0 && !consultantsError}
+                  >
+                    <option value="">Agregar consultor...</option>
+                    {consultants
+                      .filter((c) => !facilitators.find((f) => f.user_id === c.id))
+                      .map((consultant) => (
+                        <option key={consultant.id} value={consultant.id}>
+                          {consultant.first_name} {consultant.last_name} ({consultant.email})
+                        </option>
+                      ))}
+                  </select>
+                )}
+              </div>
+            )}
+
             {/* Row 2: Title */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -974,100 +1118,6 @@ const SessionCreatePage: React.FC = () => {
               </div>
             )}
 
-            {/* Row 9: Facilitators */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Facilitadores asignados <span className="text-red-500">*</span>
-              </label>
-
-              {formData.school_id === 0 && (
-                <p className="text-gray-500 text-sm mb-4">
-                  Seleccione un colegio para asignar facilitadores
-                </p>
-              )}
-
-              {formData.school_id > 0 && consultants.length === 0 && (
-                <p className="text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-3 text-sm mb-4">
-                  No hay facilitadores disponibles para este colegio. Verifique que existan usuarios con rol activo de consultor.
-                </p>
-              )}
-
-              {facilitators.length > 0 && (
-                <div className="mb-4 space-y-2">
-                  {facilitators.map((facilitator) => {
-                    const consultant = consultants.find((c) => c.id === facilitator.user_id);
-                    if (!consultant) return null;
-
-                    return (
-                      <div
-                        key={facilitator.user_id}
-                        className="flex items-center justify-between bg-gray-50 p-3 rounded-lg"
-                      >
-                        <div className="flex-1">
-                          <div className="font-medium text-gray-900">
-                            {consultant.first_name} {consultant.last_name}
-                          </div>
-                          <div className="text-sm text-gray-500">{consultant.email}</div>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleRole(facilitator.user_id)}
-                            className="px-2 py-1 text-xs rounded bg-gray-200 hover:bg-gray-300"
-                          >
-                            {facilitator.facilitator_role === 'consultor_externo'
-                              ? 'Externo'
-                              : 'Interno'}
-                          </button>
-
-                          <label className="flex items-center text-sm">
-                            <input
-                              type="checkbox"
-                              checked={facilitator.is_lead}
-                              onChange={() => handleToggleLead(facilitator.user_id)}
-                              className="mr-1"
-                            />
-                            Principal
-                          </label>
-
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveFacilitator(facilitator.user_id)}
-                            aria-label={`Quitar facilitador ${consultant.first_name} ${consultant.last_name}`}
-                            className="text-red-600 hover:text-red-800 text-sm"
-                          >
-                            Quitar
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {formData.school_id > 0 && consultants.length > 0 && (
-                <select
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      handleAddFacilitator(e.target.value);
-                      e.target.value = '';
-                    }
-                  }}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
-                  disabled={consultants.length === 0}
-                >
-                  <option value="">Agregar facilitador...</option>
-                  {consultants
-                    .filter((c) => !facilitators.find((f) => f.user_id === c.id))
-                    .map((consultant) => (
-                      <option key={consultant.id} value={consultant.id}>
-                        {consultant.first_name} {consultant.last_name} ({consultant.email})
-                      </option>
-                    ))}
-                </select>
-              )}
-            </div>
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row sm:justify-end space-y-2 sm:space-y-0 sm:space-x-4 pt-6 border-t">

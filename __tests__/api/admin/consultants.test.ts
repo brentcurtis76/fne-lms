@@ -43,20 +43,23 @@ function buildChainableQuery(data: unknown[] | null = [], error: unknown = null)
 
 /**
  * Build a mock service client that returns different data depending on which
- * table is queried. After Task 5.4, only user_roles is queried (strict source).
+ * table is queried. After Task 5.5, uses two-step pattern: user_roles → profiles.
  */
 function buildMultiTableClient(
   roleData: unknown[] | null = [],
-  facilitatorData: unknown[] | null = [], // Not used anymore (Source 2 removed)
+  profileData: unknown[] | null = [],
   roleError: unknown = null,
-  facilitatorError: unknown = null, // Not used anymore
+  profileError: unknown = null,
 ) {
   return {
     from: vi.fn((table: string) => {
       if (table === 'user_roles') {
         return buildChainableQuery(roleData, roleError);
       }
-      // All other tables return empty (Source 2 no longer queried)
+      if (table === 'profiles') {
+        return buildChainableQuery(profileData, profileError);
+      }
+      // All other tables return empty
       return buildChainableQuery([], null);
     }),
   };
@@ -92,20 +95,20 @@ describe('GET /api/admin/consultants', () => {
       error: null,
     });
 
+    // Two-step query: Step 1 returns user IDs, Step 2 returns profiles
     const mockServiceClient = buildMultiTableClient(
-      // Role-based consultants
+      // Step 1: user_roles query — returns user_id only
       [
-        {
-          user_id: CONSULTANT_ID_1,
-          profiles: { id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' },
-        },
-        {
-          user_id: CONSULTANT_ID_2,
-          profiles: { id: CONSULTANT_ID_2, first_name: 'María', last_name: 'García', email: 'maria@example.com' },
-        },
+        { user_id: CONSULTANT_ID_1 },
+        { user_id: CONSULTANT_ID_2 },
       ],
-      // Facilitator-based (empty — all covered by roles)
-      [],
+      // Step 2: profiles query — returns profile data
+      [
+        { id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' },
+        { id: CONSULTANT_ID_2, first_name: 'María', last_name: 'García', email: 'maria@example.com' },
+      ],
+      null,
+      null,
     );
 
     mockCreateServiceRoleClient.mockReturnValueOnce(mockServiceClient);
@@ -133,15 +136,12 @@ describe('GET /api/admin/consultants', () => {
     });
 
     const mockServiceClient = buildMultiTableClient(
-      // Role-based: one consultant with active consultor role
-      [
-        {
-          user_id: CONSULTANT_ID_1,
-          profiles: { id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' },
-        },
-      ],
-      // Facilitator-based: NOT queried anymore (Source 2 removed)
-      [],
+      // Step 1: user_roles returns one consultant
+      [{ user_id: CONSULTANT_ID_1 }],
+      // Step 2: profiles returns the profile data
+      [{ id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' }],
+      null,
+      null,
     );
 
     mockCreateServiceRoleClient.mockReturnValueOnce(mockServiceClient);
@@ -155,7 +155,7 @@ describe('GET /api/admin/consultants', () => {
 
     expect(res._getStatusCode()).toBe(200);
     const data = JSON.parse(res._getData());
-    // Should return ONLY the role-based consultant, NOT any facilitator-only users
+    // Should return ONLY the role-based consultant
     expect(data.data.consultants).toHaveLength(1);
     expect(data.data.consultants[0].last_name).toBe('Pérez');
   });
@@ -187,13 +187,12 @@ describe('GET /api/admin/consultants', () => {
     });
 
     const mockServiceClient = buildMultiTableClient(
-      [
-        {
-          user_id: CONSULTANT_ID_1,
-          profiles: { id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' },
-        },
-      ],
-      [], // No additional facilitators when school_id narrows results (consultor_sessions returns empty)
+      // Step 1: user_roles filtered by school_id
+      [{ user_id: CONSULTANT_ID_1 }],
+      // Step 2: profiles
+      [{ id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' }],
+      null,
+      null,
     );
 
     mockCreateServiceRoleClient.mockReturnValueOnce(mockServiceClient);
@@ -210,7 +209,7 @@ describe('GET /api/admin/consultants', () => {
     expect(data.data.consultants).toHaveLength(1);
   });
 
-  it('should deduplicate consultants by user_id across both sources', async () => {
+  it('should deduplicate consultants by user_id from roles query', async () => {
     mockCheckIsAdmin.mockResolvedValueOnce({
       isAdmin: true,
       user: { id: ADMIN_ID },
@@ -218,28 +217,19 @@ describe('GET /api/admin/consultants', () => {
     });
 
     const mockServiceClient = buildMultiTableClient(
-      // Role-based
+      // Step 1: user_roles may have duplicates (but we extract unique IDs)
       [
-        {
-          user_id: CONSULTANT_ID_1,
-          profiles: { id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' },
-        },
-        {
-          user_id: CONSULTANT_ID_1, // duplicate in roles
-          profiles: { id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' },
-        },
-        {
-          user_id: CONSULTANT_ID_2,
-          profiles: { id: CONSULTANT_ID_2, first_name: 'María', last_name: 'García', email: 'maria@example.com' },
-        },
+        { user_id: CONSULTANT_ID_1 },
+        { user_id: CONSULTANT_ID_1 }, // duplicate
+        { user_id: CONSULTANT_ID_2 },
       ],
-      // Facilitator-based: same user_id already in roles
+      // Step 2: profiles returns data for unique IDs
       [
-        {
-          user_id: CONSULTANT_ID_1,
-          profiles: { id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' },
-        },
+        { id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' },
+        { id: CONSULTANT_ID_2, first_name: 'María', last_name: 'García', email: 'maria@example.com' },
       ],
+      null,
+      null,
     );
 
     mockCreateServiceRoleClient.mockReturnValueOnce(mockServiceClient);
@@ -264,9 +254,9 @@ describe('GET /api/admin/consultants', () => {
     });
 
     const mockServiceClient = buildMultiTableClient(
-      null,
+      null, // roleData error
       [],
-      { message: 'Database error' },
+      { message: 'Database error' }, // roleError
       null,
     );
 
@@ -292,17 +282,17 @@ describe('GET /api/admin/consultants', () => {
     });
 
     const mockServiceClient = buildMultiTableClient(
+      // Step 1: user_roles returns both users
       [
-        {
-          user_id: CONSULTANT_ID_1,
-          profiles: { id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' },
-        },
-        {
-          user_id: CONSULTANT_ID_2,
-          profiles: null, // Missing profile
-        },
+        { user_id: CONSULTANT_ID_1 },
+        { user_id: CONSULTANT_ID_2 },
       ],
-      [],
+      // Step 2: profiles returns only one (missing profile for CONSULTANT_ID_2)
+      [
+        { id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' },
+      ],
+      null,
+      null,
     );
 
     mockCreateServiceRoleClient.mockReturnValueOnce(mockServiceClient);
@@ -327,21 +317,20 @@ describe('GET /api/admin/consultants', () => {
     });
 
     const mockServiceClient = buildMultiTableClient(
+      // Step 1: user_roles returns IDs (order doesn't matter)
       [
-        {
-          user_id: CONSULTANT_ID_2,
-          profiles: { id: CONSULTANT_ID_2, first_name: 'María', last_name: 'Zúñiga', email: 'z@example.com' },
-        },
-        {
-          user_id: CONSULTANT_ID_1,
-          profiles: { id: CONSULTANT_ID_1, first_name: 'Ana', last_name: 'Álvarez', email: 'a@example.com' },
-        },
-        {
-          user_id: CONSULTANT_ID_3,
-          profiles: { id: CONSULTANT_ID_3, first_name: 'Pedro', last_name: 'Álvarez', email: 'pa@example.com' },
-        },
+        { user_id: CONSULTANT_ID_2 },
+        { user_id: CONSULTANT_ID_1 },
+        { user_id: CONSULTANT_ID_3 },
       ],
-      [],
+      // Step 2: profiles returns profile data (will be sorted by endpoint)
+      [
+        { id: CONSULTANT_ID_2, first_name: 'María', last_name: 'Zúñiga', email: 'z@example.com' },
+        { id: CONSULTANT_ID_1, first_name: 'Ana', last_name: 'Álvarez', email: 'a@example.com' },
+        { id: CONSULTANT_ID_3, first_name: 'Pedro', last_name: 'Álvarez', email: 'pa@example.com' },
+      ],
+      null,
+      null,
     );
 
     mockCreateServiceRoleClient.mockReturnValueOnce(mockServiceClient);
@@ -360,5 +349,77 @@ describe('GET /api/admin/consultants', () => {
     expect(data.data.consultants[0].first_name).toBe('Ana');
     expect(data.data.consultants[1].first_name).toBe('Pedro');
     expect(data.data.consultants[2].first_name).toBe('María');
+  });
+
+  it('should include globally-scoped consultants when filtering by school_id', async () => {
+    mockCheckIsAdmin.mockResolvedValueOnce({
+      isAdmin: true,
+      user: { id: ADMIN_ID },
+      error: null,
+    });
+
+    const GLOBAL_CONSULTANT_ID = '55555555-5555-4555-8555-555555555555';
+
+    const mockServiceClient = buildMultiTableClient(
+      // Step 1: user_roles returns school-scoped + global-scoped (school_id IS NULL)
+      [
+        { user_id: CONSULTANT_ID_1 }, // school-scoped
+        { user_id: GLOBAL_CONSULTANT_ID }, // global-scoped (school_id is null in DB)
+      ],
+      // Step 2: profiles returns both
+      [
+        { id: CONSULTANT_ID_1, first_name: 'Juan', last_name: 'Pérez', email: 'juan@example.com' },
+        { id: GLOBAL_CONSULTANT_ID, first_name: 'Carlos', last_name: 'Rodríguez', email: 'carlos@example.com' },
+      ],
+      null,
+      null,
+    );
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(mockServiceClient);
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { school_id: SCHOOL_ID.toString() },
+    });
+
+    await handler(req, res);
+
+    expect(res._getStatusCode()).toBe(200);
+    const data = JSON.parse(res._getData());
+    // Should include both school-scoped and global consultants
+    expect(data.data.consultants).toHaveLength(2);
+    const lastNames = data.data.consultants.map((c: any) => c.last_name);
+    expect(lastNames).toContain('Pérez');
+    expect(lastNames).toContain('Rodríguez');
+  });
+
+  it('should return empty list when no consultants match', async () => {
+    mockCheckIsAdmin.mockResolvedValueOnce({
+      isAdmin: true,
+      user: { id: ADMIN_ID },
+      error: null,
+    });
+
+    const mockServiceClient = buildMultiTableClient(
+      // Step 1: user_roles returns empty
+      [],
+      // Step 2: profiles not called
+      [],
+      null,
+      null,
+    );
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(mockServiceClient);
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { school_id: '999' },
+    });
+
+    await handler(req, res);
+
+    expect(res._getStatusCode()).toBe(200);
+    const data = JSON.parse(res._getData());
+    expect(data.data.consultants).toHaveLength(0);
   });
 });

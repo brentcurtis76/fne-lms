@@ -146,6 +146,62 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, editRequestI
         sessionUpdate[key] = changes[key].new;
       });
 
+      // Fix 5: Revalidate facilitator integrity if school_id is changing
+      if (changes['school_id']) {
+        // Import validation function
+        const { validateFacilitatorIntegrity } = await import('../../../../lib/utils/facilitator-validation');
+
+        // Fetch current session_facilitators
+        const { data: facilitators, error: facilitatorError } = await serviceClient
+          .from('session_facilitators')
+          .select('user_id, is_lead, facilitator_role')
+          .eq('session_id', sessionId);
+
+        if (facilitatorError) {
+          console.error('Error fetching session facilitators:', facilitatorError);
+          return sendAuthError(
+            res,
+            'Error al validar consultores durante aprobación',
+            500,
+            facilitatorError.message
+          );
+        }
+
+        // Get the new school_id from changes
+        const newSchoolId = changes['school_id'].new as number;
+
+        // Run validation against NEW school_id with CURRENT facilitators
+        const validationResult = await validateFacilitatorIntegrity(
+          serviceClient,
+          facilitators || [],
+          newSchoolId
+        );
+
+        if (!validationResult.valid) {
+          // Log the blocked approval
+          const activityLogEntry: SessionActivityLogInsert = {
+            session_id: sessionId,
+            user_id: user!.id,
+            action: 'edit_approval_blocked',
+            details: {
+              edit_request_id: editRequestId,
+              reason: 'Facilitator integrity validation failed on school change',
+              errors: validationResult.errors,
+            },
+          };
+
+          await serviceClient
+            .from('session_activity_log')
+            .insert(activityLogEntry);
+
+          return sendAuthError(
+            res,
+            'No se puede aprobar: los consultores actuales no son válidos para el nuevo colegio. Remedie los consultores primero.',
+            409
+          );
+        }
+      }
+
       // Apply changes to session
       const { error: sessionUpdateError } = await serviceClient
         .from('consultor_sessions')

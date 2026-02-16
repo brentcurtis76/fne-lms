@@ -69,11 +69,15 @@ describe('/api/sessions/[id]/reports', () => {
 
   it('should return 403 on POST if session is cancelada', async () => {
     const { getApiUser, createServiceRoleClient } = await import('../../../lib/api-auth');
+    const { getUserRoles, getHighestRole } = await import('../../../utils/roleUtils');
 
     (getApiUser as any).mockResolvedValue({
       user: { id: 'user-123' },
       error: null,
     });
+
+    (getUserRoles as any).mockResolvedValue([{ role_type: 'consultor', school_id: '1', is_active: true }]);
+    (getHighestRole as any).mockReturnValue('consultor');
 
     const mockClient = {
       from: vi.fn((table: string) => {
@@ -82,8 +86,19 @@ describe('/api/sessions/[id]/reports', () => {
             select: vi.fn().mockReturnValue({
               eq: vi.fn().mockReturnValue({
                 single: vi.fn().mockResolvedValue({
-                  data: { id: 'session-123', status: 'cancelada' },
+                  data: { id: 'session-123', status: 'cancelada', school_id: 1, growth_community_id: 'gc-1' },
                   error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'session_facilitators') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: { id: 'fac-1' }, error: null }),
                 }),
               }),
             }),
@@ -109,7 +124,7 @@ describe('/api/sessions/[id]/reports', () => {
 
     expect(res._getStatusCode()).toBe(403);
     const data = JSON.parse(res._getData());
-    expect(data.error).toContain('completadas o canceladas');
+    expect(data.error).toContain('cancelada');
   });
 
   it('should return 400 on POST if content is empty', async () => {
@@ -157,6 +172,17 @@ describe('/api/sessions/[id]/reports', () => {
                     school_id: 1,
                   },
                   error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === 'session_facilitators') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                eq: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
                 }),
               }),
             }),

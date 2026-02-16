@@ -67,6 +67,8 @@ export type ActivityAction =
   | 'edit_requested'
   | 'edit_approved'
   | 'edit_rejected'
+  | 'edit_approval_blocked'
+  | 'facilitators_updated'
   | 'cancelled'
   | 'finalized';
 

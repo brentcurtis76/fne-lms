@@ -33,34 +33,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const serviceClient = createServiceRoleClient();
-    const seenUserIds = new Set<string>();
 
-    // Source 1: Users with consultor role assignment
+    // Step 1: Query user_roles to fetch active consultor user IDs
+    // Include global scope (school_id IS NULL) to match validation logic
     let roleQuery = serviceClient
       .from('user_roles')
-      .select('user_id, profiles(id, first_name, last_name, email)')
+      .select('user_id')
       .eq('role_type', 'consultor')
       .eq('is_active', true);
 
     if (school_id !== undefined) {
-      roleQuery = roleQuery.eq('school_id', Number(school_id));
+      const schoolIdNum = Number(school_id);
+      // Include both school-scoped AND globally-scoped consultants
+      roleQuery = roleQuery.or(`school_id.eq.${schoolIdNum},school_id.is.null`);
     }
 
     const { data: roleData, error: roleError } = await roleQuery;
 
     if (roleError) {
-      console.error('Error fetching consultants by role:', roleError);
+      console.error('Error fetching consultor user IDs from user_roles:', roleError);
       return sendAuthError(res, 'Error al consultar facilitadores', 500, roleError.message);
     }
 
+    if (!roleData || roleData.length === 0) {
+      // No consultants found, return empty list
+      return sendApiResponse(res, { consultants: [] });
+    }
+
+    // Extract unique user IDs from role data
+    const userIds = Array.from(new Set((roleData as any[]).map((row) => row.user_id)));
+
+    // Step 2: Query profiles to hydrate user details
+    const { data: profileData, error: profileError } = await serviceClient
+      .from('profiles')
+      .select('id, first_name, last_name, email')
+      .in('id', userIds);
+
+    if (profileError) {
+      console.error('Error fetching profiles for consultants:', profileError);
+      return sendAuthError(res, 'Error al consultar facilitadores', 500, profileError.message);
+    }
+
+    // Build consultant list with profile data
     const consultants: { id: string; first_name: string; last_name: string; email: string }[] = [];
 
-    // Add role-based consultants (Source 1: ONLY source of truth)
-    for (const item of roleData || []) {
-      const profile = (item as any).profiles;
-      if (!profile || !item.user_id) continue;
-      if (seenUserIds.has(item.user_id)) continue;
-      seenUserIds.add(item.user_id);
+    for (const profile of profileData || []) {
+      if (!profile.id) continue;
       consultants.push({
         id: profile.id,
         first_name: profile.first_name || '',

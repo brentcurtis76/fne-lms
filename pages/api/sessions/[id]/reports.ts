@@ -15,6 +15,7 @@ import {
   ReportVisibility,
   ReportType,
 } from '../../../../lib/types/consultor-sessions.types';
+import { canViewSession, canContributeToSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-reports');
@@ -68,47 +69,35 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'Usuario sin roles asignados', 403);
     }
 
-    // Role-based access check (mirrors attendees pattern)
-    let canAccess = false;
-    let isFacilitatorOrAdmin = false;
+    // Check if user is a facilitator for this session
+    const { data: facilitatorCheck } = await serviceClient
+      .from('session_facilitators')
+      .select('id')
+      .eq('session_id', sessionId)
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (highestRole === 'admin') {
-      canAccess = true;
-      isFacilitatorOrAdmin = true;
-    } else if (highestRole === 'consultor') {
-      const consultantSchools = userRoles
-        .filter((r) => r.role_type === 'consultor' && r.school_id)
-        .map((r) => r.school_id);
+    const isFacilitator = !!facilitatorCheck;
 
-      if (consultantSchools.includes(session.school_id)) {
-        canAccess = true;
-      }
+    // Use session-policy helper to check view access
+    const accessContext: SessionAccessContext = {
+      highestRole,
+      userRoles,
+      session: {
+        school_id: session.school_id,
+        growth_community_id: session.growth_community_id,
+        status: 'programada', // Status not needed for view check
+      },
+      userId: user.id,
+      isFacilitator,
+    };
 
-      // Check if facilitator
-      const { data: facilitatorCheck } = await serviceClient
-        .from('session_facilitators')
-        .select('id')
-        .eq('session_id', sessionId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (facilitatorCheck) {
-        isFacilitatorOrAdmin = true;
-        canAccess = true;
-      }
-    } else {
-      // GC members can also view reports
-      const gcMemberships = userRoles.filter(
-        (r) => r.community_id === session.growth_community_id && r.is_active
-      );
-      if (gcMemberships.length > 0) {
-        canAccess = true;
-      }
-    }
-
-    if (!canAccess) {
+    if (!canViewSession(accessContext)) {
       return sendAuthError(res, 'Acceso denegado a esta sesión', 403);
     }
+
+    // For visibility filtering, need to know if user can edit
+    const isFacilitatorOrAdmin = highestRole === 'admin' || isFacilitator;
 
     // Fetch reports
     const { data: reports, error: reportsError } = await serviceClient
@@ -168,10 +157,10 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, sessionId: 
   try {
     const serviceClient = createServiceRoleClient();
 
-    // Fetch session
+    // Fetch session (need school_id/growth_community_id for access context)
     const { data: session, error: sessionError } = await serviceClient
       .from('consultor_sessions')
-      .select('id, status')
+      .select('id, status, school_id, growth_community_id')
       .eq('id', sessionId)
       .single();
 
@@ -179,34 +168,34 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, sessionId: 
       return sendAuthError(res, 'Sesión no encontrada', 404);
     }
 
-    // Status check: reject completada/cancelada
-    if (session.status === 'completada' || session.status === 'cancelada') {
-      return sendAuthError(res, 'No se pueden crear informes en sesiones completadas o canceladas', 403);
-    }
-
-    // Auth check: facilitator only
+    // Auth check and status check: facilitator only
     const userRoles = await getUserRoles(serviceClient, user.id);
     const highestRole = getHighestRole(userRoles);
 
-    let canCreate = false;
-
-    if (highestRole === 'admin') {
-      canCreate = true;
-    } else {
-      const { data: facilitatorCheck } = await serviceClient
-        .from('session_facilitators')
-        .select('id')
-        .eq('session_id', sessionId)
-        .eq('user_id', user.id)
-        .single();
-
-      if (facilitatorCheck) {
-        canCreate = true;
-      }
+    if (!highestRole) {
+      return sendAuthError(res, 'Usuario sin roles asignados', 403);
     }
+
+    // Check if user is a facilitator
+    const { data: facilitatorCheck } = await serviceClient
+      .from('session_facilitators')
+      .select('id')
+      .eq('session_id', sessionId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const isFacilitator = !!facilitatorCheck;
+
+    // Reports creation is restricted to facilitators (not GC leaders)
+    const canCreate = highestRole === 'admin' || isFacilitator;
 
     if (!canCreate) {
       return sendAuthError(res, 'Solo facilitadores pueden crear informes', 403);
+    }
+
+    // Also check that session is not completada/cancelada
+    if (session.status === 'completada' || session.status === 'cancelada') {
+      return sendAuthError(res, 'No se pueden crear informes en sesiones completadas o canceladas', 403);
     }
 
     // Enforce uniqueness: only one session_report per session per author

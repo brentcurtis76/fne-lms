@@ -9,6 +9,7 @@ import {
 } from '../../../../lib/api-auth';
 import { Validators } from '../../../../lib/types/api-auth.types';
 import { SessionActivityLogInsert } from '../../../../lib/types/consultor-sessions.types';
+import { validateFacilitatorIntegrity } from '../../../../lib/utils/facilitator-validation';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-approve');
@@ -50,6 +51,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         `Solo se pueden aprobar sesiones en estado borrador o pendiente_aprobacion. Estado actual: ${session.status}`,
         400
       );
+    }
+
+    // Fetch facilitators for this session
+    const { data: sessionFacilitators, error: facilitatorError } = await serviceClient
+      .from('session_facilitators')
+      .select('*')
+      .eq('session_id', id);
+
+    if (facilitatorError) {
+      console.error('Error fetching session facilitators:', facilitatorError);
+      return sendAuthError(res, 'Error al verificar facilitadores de la sesión', 500, facilitatorError.message);
+    }
+
+    // Validate facilitator integrity
+    const facilitatorValidation = await validateFacilitatorIntegrity(
+      serviceClient,
+      (sessionFacilitators || []).map(f => ({
+        user_id: f.user_id,
+        is_lead: f.is_lead,
+        facilitator_role: f.facilitator_role,
+      })),
+      session.school_id
+    );
+
+    if (!facilitatorValidation.valid) {
+      return sendAuthError(res, `No se puede aprobar la sesión: ${facilitatorValidation.errors.join('; ')}`, 400);
     }
 
     const previousStatus = session.status;

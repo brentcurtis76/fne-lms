@@ -355,12 +355,17 @@ const SessionCreatePage: React.FC = () => {
       return false;
     }
 
-    if (facilitators.length > 0) {
-      const leadCount = facilitators.filter((f) => f.is_lead).length;
-      if (leadCount !== 1) {
-        toast.error('Debe haber exactamente un facilitador principal');
-        return false;
-      }
+    // Facilitators are required
+    if (facilitators.length === 0) {
+      toast.error('Debe asignar al menos un facilitador a la sesión');
+      return false;
+    }
+
+    // Exactly one lead facilitator
+    const leadCount = facilitators.filter((f) => f.is_lead).length;
+    if (leadCount !== 1) {
+      toast.error('Debe haber exactamente un facilitador principal');
+      return false;
     }
 
     // Validate recurrence if enabled
@@ -408,7 +413,7 @@ const SessionCreatePage: React.FC = () => {
         meeting_link: formData.meeting_link || null,
         meeting_provider: formData.meeting_provider || null,
         location: formData.location || null,
-        facilitators: facilitators.length > 0 ? facilitators : undefined,
+        facilitators,
       };
 
       // Add recurrence if enabled
@@ -492,7 +497,7 @@ const SessionCreatePage: React.FC = () => {
         meeting_link: formData.meeting_link || null,
         meeting_provider: formData.meeting_provider || null,
         location: formData.location || null,
-        facilitators: facilitators.length > 0 ? facilitators : undefined,
+        facilitators,
       };
 
       // Add recurrence if enabled
@@ -972,12 +977,18 @@ const SessionCreatePage: React.FC = () => {
             {/* Row 9: Facilitators */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Facilitadores asignados
+                Facilitadores asignados <span className="text-red-500">*</span>
               </label>
 
               {formData.school_id === 0 && (
                 <p className="text-gray-500 text-sm mb-4">
                   Seleccione un colegio para asignar facilitadores
+                </p>
+              )}
+
+              {formData.school_id > 0 && consultants.length === 0 && (
+                <p className="text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-3 text-sm mb-4">
+                  No hay facilitadores disponibles para este colegio. Verifique que existan usuarios con rol activo de consultor.
                 </p>
               )}
 

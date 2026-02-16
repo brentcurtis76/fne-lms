@@ -8,6 +8,7 @@ import {
   handleMethodNotAllowed,
 } from '../../../lib/api-auth';
 import { SessionActivityLogInsert } from '../../../lib/types/consultor-sessions.types';
+import { validateFacilitatorIntegrity } from '../../../lib/utils/facilitator-validation';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-bulk-approve');
@@ -18,6 +19,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { isAdmin, user, error: authError } = await checkIsAdmin(req, res);
 
+  if (!user) {
+    return sendAuthError(res, 'No autenticado', 401);
+  }
   if (!isAdmin) {
     return sendAuthError(res, 'Solo administradores pueden aprobar sesiones', 403);
   }
@@ -85,6 +89,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const sessionIds = sessionsToApprove.map((s) => s.id);
+
+    // Fetch all facilitators for these sessions in one query (performance optimization)
+    const { data: allFacilitators, error: facilitatorsFetchError } = await serviceClient
+      .from('session_facilitators')
+      .select('*')
+      .in('session_id', sessionIds);
+
+    if (facilitatorsFetchError) {
+      console.error('Error fetching session facilitators:', facilitatorsFetchError);
+      return sendAuthError(res, 'Error al verificar facilitadores de sesiones', 500, facilitatorsFetchError.message);
+    }
+
+    // Group facilitators by session_id for validation
+    const facilitatorsBySession = new Map<string, any[]>();
+    for (const fac of (allFacilitators || [])) {
+      if (!facilitatorsBySession.has(fac.session_id)) {
+        facilitatorsBySession.set(fac.session_id, []);
+      }
+      facilitatorsBySession.get(fac.session_id)!.push(fac);
+    }
+
+    // Validate facilitators for each session (atomic: if any fails, reject all)
+    const validationErrors: string[] = [];
+    for (const session of sessionsToApprove) {
+      const sessionFacilitators = facilitatorsBySession.get(session.id) || [];
+      const validation = await validateFacilitatorIntegrity(
+        serviceClient,
+        sessionFacilitators.map(f => ({
+          user_id: f.user_id,
+          is_lead: f.is_lead,
+          facilitator_role: f.facilitator_role,
+        })),
+        session.school_id
+      );
+
+      if (!validation.valid) {
+        validationErrors.push(`Sesión ${session.id}: ${validation.errors.join('; ')}`);
+      }
+    }
+
+    if (validationErrors.length > 0) {
+      return sendAuthError(
+        res,
+        `No se pueden aprobar las sesiones: ${validationErrors.join(' | ')}`,
+        400
+      );
+    }
+
     const now = new Date().toISOString();
 
     // Update all sessions to programada

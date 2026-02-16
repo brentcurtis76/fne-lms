@@ -18,6 +18,7 @@ import {
   RecurrencePattern,
 } from '../../../lib/types/consultor-sessions.types';
 import { generateRecurrenceDates, buildRRule } from '../../../lib/utils/recurrence';
+import { validateFacilitatorIntegrity } from '../../../lib/utils/facilitator-validation';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-index');
@@ -112,18 +113,6 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     finalMeetingProvider = detectMeetingProvider(meeting_link);
   }
 
-  // Validate facilitators if provided
-  if (facilitators && Array.isArray(facilitators)) {
-    const leadFacilitators = facilitators.filter((f) => f.is_lead);
-    if (leadFacilitators.length !== 1) {
-      return sendAuthError(
-        res,
-        'Debe haber exactamente un facilitador principal (is_lead: true)',
-        400
-      );
-    }
-  }
-
   // Validate and process recurrence if provided
   let sessionDates: string[] = [session_date];
   let recurrenceGroupId: string | null = null;
@@ -161,6 +150,17 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
 
   try {
     const serviceClient = createServiceRoleClient();
+
+    // Validate facilitators (hard-block)
+    const facilitatorValidation = await validateFacilitatorIntegrity(
+      serviceClient,
+      facilitators,
+      school_id
+    );
+
+    if (!facilitatorValidation.valid) {
+      return sendAuthError(res, facilitatorValidation.errors.join('; '), 400);
+    }
 
     // Verify growth community belongs to the specified school
     const { data: gcCheck, error: gcCheckError } = await serviceClient
@@ -338,7 +338,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
     // Build query
     let query = serviceClient
       .from('consultor_sessions')
-      .select('*, session_facilitators(*), schools(name), growth_communities(name)', {
+      .select('*, session_facilitators(*, profiles(first_name, last_name, email)), schools(name), growth_communities(name)', {
         count: 'exact',
       })
       .eq('is_active', true);

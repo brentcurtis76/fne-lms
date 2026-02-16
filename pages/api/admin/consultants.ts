@@ -23,44 +23,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { school_id } = req.query;
 
+  // Validate school_id if provided
+  if (school_id !== undefined) {
+    const schoolIdNum = Number(school_id);
+    if (Number.isNaN(schoolIdNum)) {
+      return sendAuthError(res, 'school_id debe ser un número válido', 400);
+    }
+  }
+
   try {
     const serviceClient = createServiceRoleClient();
+    const seenUserIds = new Set<string>();
 
-    let query = serviceClient
+    // Source 1: Users with consultor role assignment
+    let roleQuery = serviceClient
       .from('user_roles')
       .select('user_id, profiles(id, first_name, last_name, email)')
       .eq('role_type', 'consultor')
       .eq('is_active', true);
 
-    // If school_id is provided, filter by school; otherwise, return all consultants
-    if (school_id && !isNaN(Number(school_id))) {
-      query = query.eq('school_id', Number(school_id));
+    if (school_id !== undefined) {
+      roleQuery = roleQuery.eq('school_id', Number(school_id));
     }
 
-    const { data, error } = await query;
+    const { data: roleData, error: roleError } = await roleQuery;
 
-    if (error) {
-      console.error('Error fetching consultants:', error);
-      return sendAuthError(res, 'Error al consultar facilitadores', 500, error.message);
+    if (roleError) {
+      console.error('Error fetching consultants by role:', roleError);
+      return sendAuthError(res, 'Error al consultar facilitadores', 500, roleError.message);
     }
 
-    // Deduplicate by user_id (consultants may have roles at multiple schools)
-    const seenUserIds = new Set<string>();
-    const consultants = (data || [])
-      .filter((item: any) => item.profiles && item.user_id)
-      .filter((item: any) => {
-        if (seenUserIds.has(item.user_id)) {
-          return false;
-        }
-        seenUserIds.add(item.user_id);
-        return true;
-      })
-      .map((item: any) => ({
-        id: item.profiles.id,
-        first_name: item.profiles.first_name || '',
-        last_name: item.profiles.last_name || '',
-        email: item.profiles.email || '',
-      }));
+    const consultants: { id: string; first_name: string; last_name: string; email: string }[] = [];
+
+    // Add role-based consultants (Source 1: ONLY source of truth)
+    for (const item of roleData || []) {
+      const profile = (item as any).profiles;
+      if (!profile || !item.user_id) continue;
+      if (seenUserIds.has(item.user_id)) continue;
+      seenUserIds.add(item.user_id);
+      consultants.push({
+        id: profile.id,
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        email: profile.email || '',
+      });
+    }
+
+    // Stable alphabetical ordering: last name, then first name
+    consultants.sort((a, b) => {
+      const lastCmp = a.last_name.localeCompare(b.last_name, 'es');
+      if (lastCmp !== 0) return lastCmp;
+      return a.first_name.localeCompare(b.first_name, 'es');
+    });
 
     return sendApiResponse(res, { consultants });
   } catch (error: any) {

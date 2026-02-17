@@ -300,23 +300,25 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
     
     // Clear dependent fields when parent changes
     if (field === 'school_id') {
-      setFormData(prev => ({
-        ...prev,
-        [field]: value,
-        generation_id: '',
-        community_id: ''
-      }));
-      
-      // If the selected school doesn't have generations, clear generation_id
       const selectedSchool = schools.find(s => s.id === value);
-      if (selectedSchool && selectedSchool.has_generations === false) {
-        setFormData(prev => ({
+      const schoolHasGenerations = selectedSchool?.has_generations === true;
+
+      setFormData(prev => {
+        const updates: any = {
           ...prev,
-          generation_id: ''
-        }));
-      }
+          [field]: value,
+          generation_id: '',
+          community_id: ''
+        };
+        // If switching to a school without generations and scope is 'generation',
+        // reset to 'individual' to prevent invalid state
+        if (!schoolHasGenerations && prev.assignment_scope === 'generation') {
+          updates.assignment_scope = 'individual';
+        }
+        return updates;
+      });
       return;
-    } 
+    }
     
     if (field === 'generation_id') {
       setFormData(prev => ({
@@ -544,29 +546,35 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
         assignment_type: 'comprehensive' // Tipo: Completa - Todos los permisos
       };
 
-      // Set scope-specific fields
+      // Set scope-specific fields with explicit nulls for scope transitions
       switch (formData.assignment_scope) {
         case 'individual':
           payload.student_id = formData.student_id;
+          payload.assignment_scope = 'individual';
+          payload.school_id = null;
+          payload.generation_id = null;
+          payload.community_id = null;
           break;
         case 'school':
           payload.school_id = formData.school_id;
           payload.assignment_scope = 'school';
+          payload.student_id = null;
+          payload.generation_id = null;
+          payload.community_id = null;
           break;
         case 'generation':
           payload.school_id = formData.school_id;
           payload.generation_id = formData.generation_id;
           payload.assignment_scope = 'generation';
+          payload.student_id = null;
+          payload.community_id = null;
           break;
         case 'community':
           payload.school_id = formData.school_id;
-          payload.generation_id = formData.generation_id || null; // Send null if no generation
+          payload.generation_id = formData.generation_id || null;
           payload.community_id = formData.community_id;
           payload.assignment_scope = 'community';
-          // For individual assignment with community scope, include student_id
-          if (formData.student_id) {
-            payload.student_id = formData.student_id;
-          }
+          payload.student_id = null;
           break;
       }
 
@@ -719,7 +727,13 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                     />
                     <span className="text-sm">Comunidad</span>
                   </label>
-                  <label className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                  <label className={`flex items-center p-3 border rounded-lg ${
+                    formData.school_id && !shouldShowGenerationField()
+                      ? 'opacity-50 cursor-not-allowed'
+                      : 'cursor-pointer hover:bg-gray-50'
+                  }`}
+                    title={formData.school_id && !shouldShowGenerationField() ? 'La escuela seleccionada no tiene generaciones' : ''}
+                  >
                     <input
                       type="radio"
                       name="assignment_scope"
@@ -727,6 +741,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                       checked={formData.assignment_scope === 'generation'}
                       onChange={(e) => handleInputChange('assignment_scope', e.target.value)}
                       className="mr-2"
+                      disabled={!!formData.school_id && !shouldShowGenerationField()}
                     />
                     <span className="text-sm">Generación</span>
                   </label>

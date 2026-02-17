@@ -98,6 +98,9 @@ const SessionCreatePage: React.FC = () => {
       setConsultantsLoading(false);
       setConsultantsError(null);
     }
+    // Clear selected facilitators when school changes — old facilitator IDs
+    // may not exist in the new school's consultant list
+    setFacilitators([]);
   }, [formData.school_id]);
 
   useEffect(() => {

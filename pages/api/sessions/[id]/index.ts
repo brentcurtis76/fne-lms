@@ -48,23 +48,29 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
   try {
     const serviceClient = createServiceRoleClient();
 
-    // Fetch session with school and growth community names
-    const { data: session, error: sessionError } = await serviceClient
-      .from('consultor_sessions')
-      .select('*, schools(name), growth_communities(name)')
-      .eq('id', sessionId)
-      .single();
-
-    if (sessionError || !session) {
-      return sendAuthError(res, 'Sesión no encontrada', 404);
-    }
-
-    // Determine user role
+    // Determine user role first (needed for is_active bypass)
     const userRoles = await getUserRoles(serviceClient, user.id);
     const highestRole = getHighestRole(userRoles);
 
     if (!highestRole) {
       return sendAuthError(res, 'Usuario sin roles asignados', 403);
+    }
+
+    // Fetch session with school and growth community names
+    // Admins can access inactive sessions; all others require is_active = true
+    let sessionQuery = serviceClient
+      .from('consultor_sessions')
+      .select('*, schools(name), growth_communities(name)')
+      .eq('id', sessionId);
+
+    if (highestRole !== 'admin') {
+      sessionQuery = sessionQuery.eq('is_active', true);
+    }
+
+    const { data: session, error: sessionError } = await sessionQuery.single();
+
+    if (sessionError || !session) {
+      return sendAuthError(res, 'Sesión no encontrada', 404);
     }
 
     // Role-based visibility
@@ -168,23 +174,28 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
   try {
     const serviceClient = createServiceRoleClient();
 
-    // Fetch session
-    const { data: session, error: sessionError } = await serviceClient
-      .from('consultor_sessions')
-      .select('*')
-      .eq('id', sessionId)
-      .single();
-
-    if (sessionError || !session) {
-      return sendAuthError(res, 'Sesión no encontrada', 404);
-    }
-
-    // Determine user role
+    // Determine user role first (needed for is_active bypass)
     const userRoles = await getUserRoles(serviceClient, user.id);
     const highestRole = getHighestRole(userRoles);
 
     if (!highestRole) {
       return sendAuthError(res, 'Usuario sin roles asignados', 403);
+    }
+
+    // Fetch session — admins can update inactive sessions; others require is_active
+    let sessionQuery = serviceClient
+      .from('consultor_sessions')
+      .select('*')
+      .eq('id', sessionId);
+
+    if (highestRole !== 'admin') {
+      sessionQuery = sessionQuery.eq('is_active', true);
+    }
+
+    const { data: session, error: sessionError } = await sessionQuery.single();
+
+    if (sessionError || !session) {
+      return sendAuthError(res, 'Sesión no encontrada', 404);
     }
 
     let isAdmin = false;

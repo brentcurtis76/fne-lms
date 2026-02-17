@@ -341,6 +341,9 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
   const supabase = createServiceRoleClient();
   const {
     id,
+    consultant_id,
+    student_id,
+    assignment_scope,
     assignment_type,
     can_view_progress,
     can_assign_courses,
@@ -358,11 +361,19 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
     return sendAuthError(res, 'Assignment ID is required', 400);
   }
 
+  // Validate assignment_scope if provided
+  if (assignment_scope !== undefined) {
+    const validScopes = ['individual', 'school', 'generation', 'community'];
+    if (!validScopes.includes(assignment_scope)) {
+      return sendAuthError(res, 'Invalid assignment_scope', 400);
+    }
+  }
+
   try {
-    // Verify assignment exists
+    // Fetch full existing assignment (including assignment_data for safe merge)
     const { data: existingAssignment } = await supabase
       .from('consultant_assignments')
-      .select('id, consultant_id, student_id')
+      .select('*')
       .eq('id', id)
       .single();
 
@@ -370,20 +381,161 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse) {
       return sendAuthError(res, 'Assignment not found', 404);
     }
 
+    // Compute effective values (what the row will look like after update)
+    const effectiveConsultantId = consultant_id !== undefined ? consultant_id : existingAssignment.consultant_id;
+    const effectiveStudentId = student_id !== undefined ? student_id : existingAssignment.student_id;
+    const effectiveSchoolId = school_id !== undefined ? school_id : existingAssignment.school_id;
+    const effectiveGenerationId = generation_id !== undefined ? generation_id : existingAssignment.generation_id;
+    const effectiveCommunityId = community_id !== undefined ? community_id : existingAssignment.community_id;
+    const existingScope = existingAssignment.assignment_data?.assignment_scope || 'individual';
+    const effectiveScope = assignment_scope !== undefined ? assignment_scope : existingScope;
+
+    // Validate consultant_id if being changed
+    if (consultant_id !== undefined && consultant_id !== existingAssignment.consultant_id) {
+      const { data: consultantProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', consultant_id)
+        .single();
+
+      if (!consultantProfile) {
+        return sendAuthError(res, 'Consultant not found', 404);
+      }
+    }
+
+    // Validate student_id if being changed
+    if (student_id !== undefined && student_id !== existingAssignment.student_id) {
+      if (student_id !== null) {
+        const { data: studentProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', student_id)
+          .single();
+
+        if (!studentProfile) {
+          return sendAuthError(res, 'User not found', 404);
+        }
+      }
+    }
+
+    // Prevent self-assignment
+    if (effectiveConsultantId && effectiveStudentId && effectiveConsultantId === effectiveStudentId) {
+      return sendAuthError(res, 'Consultant cannot be assigned to themselves', 400);
+    }
+
+    // Validate scope-specific required fields using effective values
+    if (effectiveScope === 'individual' && !effectiveStudentId) {
+      return sendAuthError(res, 'student_id is required for individual assignments', 400);
+    }
+    if (effectiveScope === 'school' && !effectiveSchoolId) {
+      return sendAuthError(res, 'school_id is required for school-wide assignments', 400);
+    }
+    if (effectiveScope === 'generation' && (!effectiveSchoolId || !effectiveGenerationId)) {
+      return sendAuthError(res, 'school_id and generation_id are required for generation assignments', 400);
+    }
+    if (effectiveScope === 'community' && (!effectiveSchoolId || !effectiveCommunityId)) {
+      return sendAuthError(res, 'school_id and community_id are required for community assignments', 400);
+    }
+
+    // Duplicate-conflict check: ensure no other active assignment matches effective values
+    if (effectiveScope === 'individual') {
+      const { data: conflict } = await supabase
+        .from('consultant_assignments')
+        .select('id')
+        .eq('consultant_id', effectiveConsultantId)
+        .eq('student_id', effectiveStudentId)
+        .eq('is_active', true)
+        .neq('id', id)
+        .maybeSingle();
+
+      if (conflict) {
+        return sendAuthError(res, 'Active assignment already exists between this consultant and user', 409);
+      }
+    } else {
+      let conflictQuery = supabase
+        .from('consultant_assignments')
+        .select('id')
+        .eq('consultant_id', effectiveConsultantId)
+        .eq('is_active', true)
+        .is('student_id', null)
+        .neq('id', id);
+
+      if (effectiveScope === 'school') {
+        conflictQuery = conflictQuery.eq('school_id', effectiveSchoolId)
+          .is('generation_id', null)
+          .is('community_id', null);
+      } else if (effectiveScope === 'generation') {
+        conflictQuery = conflictQuery.eq('school_id', effectiveSchoolId)
+          .eq('generation_id', effectiveGenerationId)
+          .is('community_id', null);
+      } else if (effectiveScope === 'community') {
+        conflictQuery = conflictQuery.eq('school_id', effectiveSchoolId)
+          .eq('community_id', effectiveCommunityId);
+      }
+
+      const { data: conflict } = await conflictQuery.maybeSingle();
+
+      if (conflict) {
+        return sendAuthError(res, 'Active assignment already exists for this scope', 409);
+      }
+    }
+
     // Build update object with only provided fields
     const updateData: any = { updated_at: new Date().toISOString() };
-    
+
+    if (consultant_id !== undefined) updateData.consultant_id = consultant_id;
     if (assignment_type !== undefined) updateData.assignment_type = assignment_type;
     if (can_view_progress !== undefined) updateData.can_view_progress = can_view_progress;
     if (can_assign_courses !== undefined) updateData.can_assign_courses = can_assign_courses;
     if (can_message_student !== undefined) updateData.can_message_student = can_message_student;
-    if (school_id !== undefined) updateData.school_id = school_id;
-    if (generation_id !== undefined) updateData.generation_id = generation_id;
-    if (community_id !== undefined) updateData.community_id = community_id;
     if (starts_at !== undefined) updateData.starts_at = starts_at;
     if (ends_at !== undefined) updateData.ends_at = ends_at;
     if (is_active !== undefined) updateData.is_active = is_active;
-    if (assignment_data !== undefined) updateData.assignment_data = assignment_data;
+
+    // Scope-aware column normalization: explicitly null incompatible columns
+    if (assignment_scope !== undefined || student_id !== undefined || school_id !== undefined || generation_id !== undefined || community_id !== undefined) {
+      switch (effectiveScope) {
+        case 'individual':
+          updateData.student_id = effectiveStudentId;
+          updateData.school_id = null;
+          updateData.generation_id = null;
+          updateData.community_id = null;
+          break;
+        case 'school':
+          updateData.student_id = null;
+          updateData.school_id = effectiveSchoolId;
+          updateData.generation_id = null;
+          updateData.community_id = null;
+          break;
+        case 'generation':
+          updateData.student_id = null;
+          updateData.school_id = effectiveSchoolId;
+          updateData.generation_id = effectiveGenerationId;
+          updateData.community_id = null;
+          break;
+        case 'community':
+          updateData.student_id = null;
+          updateData.school_id = effectiveSchoolId;
+          updateData.generation_id = effectiveGenerationId || null;
+          updateData.community_id = effectiveCommunityId;
+          break;
+        default:
+          // No scope fields changed, apply individually
+          if (student_id !== undefined) updateData.student_id = student_id;
+          if (school_id !== undefined) updateData.school_id = school_id;
+          if (generation_id !== undefined) updateData.generation_id = generation_id;
+          if (community_id !== undefined) updateData.community_id = community_id;
+          break;
+      }
+    }
+
+    // Safe assignment_data merge: preserve existing keys, layer new ones, set scope
+    const mergedData = {
+      ...(existingAssignment.assignment_data || {}),
+      ...(assignment_data || {}),
+      assignment_scope: effectiveScope
+    };
+    updateData.assignment_data = mergedData;
 
     const { data: updatedAssignment, error } = await supabase
       .from('consultant_assignments')

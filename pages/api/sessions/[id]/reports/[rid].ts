@@ -92,12 +92,22 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
       canAccess = true;
       isFacilitatorOrAdmin = true;
     } else if (highestRole === 'consultor') {
-      const consultantSchools = userRoles
-        .filter((r) => r.role_type === 'consultor' && r.school_id)
-        .map((r) => r.school_id);
+      // Check for global consultor (school_id IS NULL)
+      const consultorRoles = userRoles.filter(
+        (r) => r.role_type === 'consultor' && r.is_active
+      );
+      const isGlobalConsultor = consultorRoles.some((r) => !r.school_id);
 
-      if (consultantSchools.includes(session.school_id)) {
+      if (isGlobalConsultor) {
         canAccess = true;
+      } else {
+        const consultantSchools = consultorRoles
+          .filter((r) => r.school_id)
+          .map((r) => r.school_id);
+
+        if (consultantSchools.includes(session.school_id)) {
+          canAccess = true;
+        }
       }
 
       // Check if facilitator

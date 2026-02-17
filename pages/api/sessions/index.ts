@@ -347,16 +347,24 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
     if (highestRole === 'admin') {
       // Admin sees all sessions
     } else if (highestRole === 'consultor') {
-      // Consultant sees sessions at their assigned schools
-      const consultantSchools = userRoles
-        .filter((r) => r.role_type === 'consultor' && r.school_id)
-        .map((r) => r.school_id);
+      // Consultant sees sessions at their assigned schools or all if global
+      const consultorRoles = userRoles.filter(
+        (r) => r.role_type === 'consultor' && r.is_active
+      );
+      const isGlobalConsultor = consultorRoles.some((r) => !r.school_id);
 
-      if (consultantSchools.length === 0) {
-        return sendApiResponse(res, { sessions: [], total: 0, page: pageNum, limit: limitNum });
+      if (!isGlobalConsultor) {
+        const consultantSchools = consultorRoles
+          .filter((r) => r.school_id)
+          .map((r) => r.school_id);
+
+        if (consultantSchools.length === 0) {
+          return sendApiResponse(res, { sessions: [], total: 0, page: pageNum, limit: limitNum });
+        }
+
+        query = query.in('school_id', consultantSchools);
       }
-
-      query = query.in('school_id', consultantSchools);
+      // If global consultor, no school filter applied - they see all sessions
     } else {
       // GC member: see sessions for their communities
       const userCommunityIds = userRoles

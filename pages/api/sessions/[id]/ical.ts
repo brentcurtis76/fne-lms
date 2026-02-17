@@ -58,13 +58,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (highestRole === 'admin') {
       canAccess = true;
     } else if (highestRole === 'consultor') {
-      // Check if consultant is at the same school
-      const consultantSchools = userRoles
-        .filter((r) => r.role_type === 'consultor' && r.school_id)
-        .map((r) => r.school_id);
+      // Check if consultant is at the same school or if they are global
+      const consultorRoles = userRoles.filter(
+        (r) => r.role_type === 'consultor' && r.is_active
+      );
+      const isGlobalConsultor = consultorRoles.some((r) => !r.school_id);
 
-      if (consultantSchools.includes(session.school_id)) {
+      if (isGlobalConsultor) {
         canAccess = true;
+      } else {
+        const consultantSchools = consultorRoles
+          .filter((r) => r.school_id)
+          .map((r) => r.school_id);
+
+        if (consultantSchools.includes(session.school_id)) {
+          canAccess = true;
+        }
       }
     } else {
       // GC member: can view sessions for communities they belong to

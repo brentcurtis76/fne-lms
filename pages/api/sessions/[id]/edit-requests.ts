@@ -177,14 +177,15 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, sessionId: 
     try {
       const NotificationService = (await import('../../../../lib/notificationService')).default;
 
-      // Get admin user IDs
-      const { data: adminUsers } = await serviceClient
-        .from('profiles')
-        .select('id')
-        .eq('role', 'admin')
+      // Get admin user IDs from user_roles table
+      const { data: adminRoles } = await serviceClient
+        .from('user_roles')
+        .select('user_id')
+        .eq('role_type', 'admin')
         .eq('is_active', true);
 
-      if (adminUsers && adminUsers.length > 0) {
+      if (adminRoles && adminRoles.length > 0) {
+        const adminUserIds = [...new Set(adminRoles.map((r: { user_id: string }) => r.user_id))];
         await NotificationService.triggerNotification('session_edit_request_submitted', {
           session: {
             id: sessionId,
@@ -196,7 +197,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, sessionId: 
           },
           requester_id: user.id,
           changed_fields: Object.keys(changes),
-          admin_user_ids: adminUsers.map((u: { id: string }) => u.id),
+          admin_user_ids: adminUserIds,
         });
       }
     } catch (notifError) {

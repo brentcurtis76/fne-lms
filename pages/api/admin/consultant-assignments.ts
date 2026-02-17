@@ -98,29 +98,17 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       }
     }
 
-    console.log('Found users:', users?.length);
-    console.log('Sample user:', users?.[0]);
-    
     // Enrich assignments with user data
     const enrichedAssignments = assignments.map(assignment => {
       const consultant = users?.find(u => u.id === assignment.consultant_id);
       const student = assignment.student_id ? users?.find(u => u.id === assignment.student_id) : null;
-      
-      if (!consultant && assignment.consultant_id) {
-        console.warn(`Consultant profile not found for ID: ${assignment.consultant_id}`);
-      }
-      
-      console.log(`Assignment ${assignment.id}: Consultant ID ${assignment.consultant_id} -> Found:`, consultant ? 'Yes' : 'No');
-      
+
       return {
         ...assignment,
         consultant: consultant || null,
         student: student || null
       };
     });
-
-    console.log('Returning enriched assignments:', enrichedAssignments.length);
-    console.log('First enriched assignment:', JSON.stringify(enrichedAssignments[0], null, 2));
 
     return sendApiResponse(res, { assignments: enrichedAssignments });
   } catch (error: any) {
@@ -194,16 +182,6 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: str
   }
 
   try {
-    console.log('Creating assignment with data:', {
-      consultant_id,
-      student_id,
-      assignment_scope,
-      school_id,
-      generation_id,
-      community_id,
-      user_id: userId
-    });
-
     // Verify consultant exists (no role restriction - any user can be a consultant)
     const { data: consultantProfile } = await supabase
       .from('profiles')
@@ -300,8 +278,6 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: str
       assignmentData.community_id = community_id || null;
     }
 
-    console.log('Final assignment data to insert:', JSON.stringify(assignmentData, null, 2));
-
     const { data: newAssignment, error } = await supabase
       .from('consultant_assignments')
       .insert(assignmentData)
@@ -310,13 +286,6 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, userId: str
 
     if (error) {
       console.error('Database error:', error);
-      console.error('Database error details:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-        assignmentData: assignmentData
-      });
       
       // Check for specific foreign key violations
       if (error.code === '23503') {

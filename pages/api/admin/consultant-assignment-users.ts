@@ -56,11 +56,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'Admin access required' });
     }
 
-    // Fetch consultants (users with consultor or admin role from user_roles table)
+    // Fetch consultants (users with consultor role from user_roles table)
     const { data: consultorRoles, error: consultorRolesError } = await supabase
       .from('user_roles')
       .select('user_id')
-      .in('role_type', ['consultor', 'admin'])
+      .eq('role_type', 'consultor')
       .eq('is_active', true);
 
     if (consultorRolesError) {
@@ -157,8 +157,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       `)
       .order('name', { ascending: true });
 
-    console.log('Communities query result:', { data: communities, error: communitiesError });
-
     if (communitiesError) {
       console.error('Error fetching communities:', communitiesError);
       return res.status(500).json({ error: 'Failed to fetch communities', details: communitiesError.message });
@@ -193,14 +191,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       return student;
     }));
-
-    console.log('Students with schools and communities:', studentsWithSchools.map((s: any) => ({ 
-      name: `${s.first_name} ${s.last_name}`, 
-      school_id: s.school_id,
-      school: s.school?.name,
-      community_id: s.community_id,
-      community: s.community?.name
-    })));
 
     return res.status(200).json({
       consultants: consultants || [],

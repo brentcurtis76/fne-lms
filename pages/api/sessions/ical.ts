@@ -57,20 +57,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (highestRole === 'admin') {
       // Admin sees all sessions
     } else if (highestRole === 'consultor') {
-      // Consultant sees sessions at their assigned schools
-      const consultantSchools = userRoles
-        .filter((r) => r.role_type === 'consultor' && r.school_id)
-        .map((r) => r.school_id);
+      // Consultant sees sessions at their assigned schools or all if global
+      const consultorRoles = userRoles.filter(
+        (r) => r.role_type === 'consultor' && r.is_active
+      );
+      const isGlobalConsultor = consultorRoles.some((r) => !r.school_id);
 
-      if (consultantSchools.length === 0) {
-        // Empty result set - return empty calendar
-        const emptyCalendar = createSessionCalendar([]);
-        res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-        res.setHeader('Content-Disposition', 'attachment; filename="sesiones-vacio.ics"');
-        return res.status(200).send(emptyCalendar.toString());
+      if (!isGlobalConsultor) {
+        const consultantSchools = consultorRoles
+          .filter((r) => r.school_id)
+          .map((r) => r.school_id);
+
+        if (consultantSchools.length === 0) {
+          // Empty result set - return empty calendar
+          const emptyCalendar = createSessionCalendar([]);
+          res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+          res.setHeader('Content-Disposition', 'attachment; filename="sesiones-vacio.ics"');
+          return res.status(200).send(emptyCalendar.toString());
+        }
+
+        query = query.in('school_id', consultantSchools);
       }
-
-      query = query.in('school_id', consultantSchools);
+      // If global consultor, no school filter applied - they see all sessions
     } else {
       // GC member: see sessions for their communities
       const userCommunityIds = userRoles

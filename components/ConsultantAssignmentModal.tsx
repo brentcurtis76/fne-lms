@@ -142,8 +142,15 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
         community_id: editingAssignment.community_id || '',
         can_assign_courses: editingAssignment.can_assign_courses ?? false,
         has_end_date: !!editingAssignment.ends_at,
-        ends_at: editingAssignment.ends_at ? 
-          new Date(editingAssignment.ends_at).toISOString().slice(0, 16) : ''
+        ends_at: editingAssignment.ends_at ? (() => {
+          const d = new Date(editingAssignment.ends_at);
+          const year = d.getFullYear();
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const day = String(d.getDate()).padStart(2, '0');
+          const hours = String(d.getHours()).padStart(2, '0');
+          const minutes = String(d.getMinutes()).padStart(2, '0');
+          return `${year}-${month}-${day}T${hours}:${minutes}`;
+        })() : ''
       });
       
       // If we have a user context, populate their school and community
@@ -564,12 +571,12 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
       }
 
       // Only add ID if we're truly editing an existing assignment
-      if (editingAssignment && editingAssignment.id && !editingAssignment.student) {
+      if (editingAssignment && editingAssignment.id) {
         payload.id = editingAssignment.id;
       }
 
       const url = '/api/admin/consultant-assignments';
-      const method = (editingAssignment && editingAssignment.id && !editingAssignment.student) ? 'PUT' : 'POST';
+      const method = (editingAssignment && editingAssignment.id) ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
         method,
@@ -600,7 +607,7 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
 
       // Show success message based on scope
       let successMessage = 'Asignación creada exitosamente';
-      if (editingAssignment && editingAssignment.id && !editingAssignment.student) {
+      if (editingAssignment && editingAssignment.id) {
         successMessage = 'Asignación actualizada exitosamente';
       } else if (formData.assignment_scope !== 'individual' && affectedCount > 0 && entityName) {
         successMessage = `Consultor asignado exitosamente a ${affectedCount} usuarios de ${entityName}`;
@@ -945,7 +952,15 @@ const ConsultantAssignmentModal: React.FC<ConsultantAssignmentModalProps> = ({
                       type="datetime-local"
                       value={formData.ends_at}
                       onChange={(e) => handleInputChange('ends_at', e.target.value)}
-                      min={new Date().toISOString().slice(0, 16)}
+                      min={(() => {
+                        const d = new Date();
+                        const year = d.getFullYear();
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const day = String(d.getDate()).padStart(2, '0');
+                        const hours = String(d.getHours()).padStart(2, '0');
+                        const minutes = String(d.getMinutes()).padStart(2, '0');
+                        return `${year}-${month}-${day}T${hours}:${minutes}`;
+                      })()}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                       required
                     />

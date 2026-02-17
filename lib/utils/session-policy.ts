@@ -10,6 +10,39 @@
 import { UserRole } from '../../types/roles';
 
 /**
+ * Consultor access metadata: indicates global scope and session school IDs they can access.
+ */
+export interface ConsultorAccess {
+  isGlobal: boolean;
+  schoolIds: (string | number)[];
+}
+
+/**
+ * Determine consultor access level based on their roles.
+ * If they have ANY active consultor role with school_id IS NULL, they are global.
+ * Otherwise, returns the specific schools they can access.
+ */
+export function getConsultorAccess(userRoles: UserRole[]): ConsultorAccess {
+  const consultorRoles = userRoles.filter(
+    (r) => r.role_type === 'consultor' && r.is_active
+  );
+
+  // Check if any consultor role is global (school_id IS NULL)
+  const isGlobal = consultorRoles.some((r) => !r.school_id);
+
+  if (isGlobal) {
+    return { isGlobal: true, schoolIds: [] };
+  }
+
+  // Otherwise, collect specific school IDs
+  const schoolIds = consultorRoles
+    .filter((r) => r.school_id)
+    .map((r) => String(r.school_id));
+
+  return { isGlobal: false, schoolIds };
+}
+
+/**
  * Context object passed to policy decision functions.
  * Contains all necessary information to make access decisions.
  */
@@ -51,7 +84,7 @@ export interface SessionAccessContext {
  *
  * Returns true if user is:
  * - Admin (full access)
- * - Consultor at the same school as the session (school-wide visibility)
+ * - Consultor at the same school as the session, OR global consultor (school_id IS NULL)
  * - Growth community member for this session's community
  *
  * This follows the "see all but edit only own" product model.
@@ -62,13 +95,17 @@ export function canViewSession(ctx: SessionAccessContext): boolean {
     return true;
   }
 
-  // Consultors can view sessions at their assigned schools
+  // Consultors can view sessions at their assigned schools or if they are global
   if (ctx.highestRole === 'consultor') {
-    const consultantSchoolIds = ctx.userRoles
-      .filter((r) => r.role_type === 'consultor' && r.school_id && r.is_active)
-      .map((r) => String(r.school_id));
+    const access = getConsultorAccess(ctx.userRoles);
 
-    if (consultantSchoolIds.includes(String(ctx.session.school_id))) {
+    // Global consultors can view all sessions
+    if (access.isGlobal) {
+      return true;
+    }
+
+    // School-specific consultors can view sessions at their schools
+    if (access.schoolIds.includes(String(ctx.session.school_id))) {
       return true;
     }
   }

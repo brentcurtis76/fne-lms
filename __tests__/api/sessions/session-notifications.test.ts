@@ -155,11 +155,11 @@ describe('Session Notifications', () => {
               insert: vi.fn().mockResolvedValue({ error: null }),
             };
           }
-          if (table === 'profiles') {
+          if (table === 'user_roles') {
             return {
               select: vi.fn().mockReturnValue({
                 eq: vi.fn().mockReturnValue({
-                  eq: vi.fn().mockResolvedValue({ data: mockAdmins, error: null }),
+                  eq: vi.fn().mockResolvedValue({ data: mockAdmins.map(a => ({ user_id: a.id })), error: null }),
                 }),
               }),
             };

@@ -22,6 +22,10 @@ import {
   CalendarPlus,
 } from 'lucide-react';
 import { SessionStatus } from '../../../lib/types/consultor-sessions.types';
+import {
+  getStatusBadge as getStatusBadgeData,
+  getStatusColor,
+} from '../../../lib/utils/session-ui-helpers';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, endOfWeek, addMonths, addWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -44,6 +48,12 @@ interface Consultant {
   email: string;
 }
 
+interface SessionFacilitatorItem {
+  user_id: string;
+  is_lead: boolean;
+  profiles: { first_name: string; last_name: string; email: string } | null;
+}
+
 interface SessionListItem {
   id: string;
   title: string;
@@ -59,7 +69,7 @@ interface SessionListItem {
   session_number: number | null;
   schools: { name: string } | null;
   growth_communities: { name: string } | null;
-  session_facilitators: { user_id: string }[];
+  session_facilitators: SessionFacilitatorItem[];
 }
 
 const SessionsPage: React.FC = () => {
@@ -393,35 +403,12 @@ const SessionsPage: React.FC = () => {
   };
 
   const getStatusBadge = (status: SessionStatus) => {
-    const badges: Record<SessionStatus, { label: string; className: string }> = {
-      borrador: { label: 'Borrador', className: 'bg-gray-100 text-gray-700' },
-      pendiente_aprobacion: { label: 'Pendiente Aprobación', className: 'bg-yellow-100 text-yellow-700' },
-      programada: { label: 'Programada', className: 'bg-blue-100 text-blue-700' },
-      en_progreso: { label: 'En Progreso', className: 'bg-amber-100 text-amber-700' },
-      pendiente_informe: { label: 'Pendiente Informe', className: 'bg-orange-100 text-orange-700' },
-      completada: { label: 'Completada', className: 'bg-green-100 text-green-700' },
-      cancelada: { label: 'Cancelada', className: 'bg-red-100 text-red-700' },
-    };
-
-    const badge = badges[status] || badges.borrador;
+    const badge = getStatusBadgeData(status);
     return (
       <span className={`px-2 py-1 rounded-full text-xs font-medium ${badge.className}`}>
         {badge.label}
       </span>
     );
-  };
-
-  const getStatusColor = (status: SessionStatus): string => {
-    const colors: Record<SessionStatus, string> = {
-      borrador: '#6B7280',
-      pendiente_aprobacion: '#EAB308',
-      programada: '#3B82F6',
-      en_progreso: '#F59E0B',
-      pendiente_informe: '#EA580C',
-      completada: '#10B981',
-      cancelada: '#EF4444',
-    };
-    return colors[status] || colors.borrador;
   };
 
   const formatDate = (dateString: string) => {
@@ -440,6 +427,21 @@ const SessionsPage: React.FC = () => {
   const formatDateShort = (dateString: string) => {
     const date = parseISO(dateString);
     return format(date, 'dd MMM', { locale: es });
+  };
+
+  const getFacilitatorNames = (facilitators: SessionFacilitatorItem[]): string => {
+    if (!facilitators || facilitators.length === 0) return '-';
+    // Sort lead first
+    const sorted = [...facilitators].sort((a, b) => (b.is_lead ? 1 : 0) - (a.is_lead ? 1 : 0));
+    return sorted
+      .map((f) => {
+        if (f.profiles) {
+          const name = `${f.profiles.first_name || ''} ${f.profiles.last_name || ''}`.trim();
+          return name || f.profiles.email || '-';
+        }
+        return '-';
+      })
+      .join(', ');
   };
 
   // Compute series totals from loaded sessions (approximate when sessions span multiple pages)
@@ -758,6 +760,7 @@ const SessionsPage: React.FC = () => {
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Título</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Colegio</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Comunidad</th>
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Consultor(es)</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
               <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Serie</th>
               <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
@@ -766,7 +769,7 @@ const SessionsPage: React.FC = () => {
           <tbody className="bg-white divide-y divide-gray-200">
             {sessions.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                   No se encontraron sesiones
                 </td>
               </tr>
@@ -793,12 +796,15 @@ const SessionsPage: React.FC = () => {
                   <td className="px-4 py-3 text-sm text-gray-500">
                     {session.growth_communities?.name || '-'}
                   </td>
+                  <td className="px-4 py-3 text-sm text-gray-500 max-w-[200px] truncate" title={getFacilitatorNames(session.session_facilitators)}>
+                    {getFacilitatorNames(session.session_facilitators)}
+                  </td>
                   <td className="px-4 py-3">
                     {getStatusBadge(session.status)}
                   </td>
                   <td className="px-4 py-3">
                     {session.recurrence_group_id && (
-                      <div className="flex items-center text-xs text-blue-600">
+                      <div className="flex items-center text-xs text-gray-600">
                         <Link2 size={14} className="mr-1" />
                         {getSeriesInfo(session)}
                       </div>
@@ -1047,7 +1053,7 @@ const SessionsPage: React.FC = () => {
                             <div className="flex items-center space-x-2">
                               <span className="font-medium text-gray-900">{session.title}</span>
                               {session.recurrence_group_id && (
-                                <span className="flex items-center text-xs text-blue-600">
+                                <span className="flex items-center text-xs text-gray-600">
                                   <Link2 size={14} className="mr-1" />
                                   {getSeriesInfo(session)}
                                 </span>
@@ -1095,7 +1101,7 @@ const SessionsPage: React.FC = () => {
                             <div className="flex items-center space-x-2">
                               <span className="font-medium text-gray-900">{session.title}</span>
                               {session.recurrence_group_id && (
-                                <span className="flex items-center text-xs text-blue-600">
+                                <span className="flex items-center text-xs text-gray-600">
                                   <Link2 size={14} className="mr-1" />
                                   {getSeriesInfo(session)}
                                 </span>

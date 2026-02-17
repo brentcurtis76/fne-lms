@@ -223,7 +223,7 @@ export default function LoginPage() {
             <div className="mb-12 transform hover:scale-105 transition-transform duration-300">
               <Link href="/">
                 <img
-                  src="/genera/logo-full-on-dark.svg"
+                  src="/genera/logo-full-transparent.svg"
                   alt="Genera - Hub de Transformación"
                   className="h-72 w-auto drop-shadow-2xl cursor-pointer"
                 />

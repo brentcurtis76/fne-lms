@@ -17,6 +17,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { isAdmin, user, error: authError } = await checkIsAdmin(req, res);
 
+  if (!user) {
+    return sendAuthError(res, 'No autenticado', 401);
+  }
   if (!isAdmin) {
     return sendAuthError(res, 'Solo administradores pueden listar todas las solicitudes de cambio', 403);
   }

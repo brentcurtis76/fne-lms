@@ -228,6 +228,45 @@ const SessionApprovalsPage: React.FC = () => {
     return labels[field] || field;
   };
 
+  /**
+   * Normalize `changes` to a plain object with { old, new } entries.
+   * Handles double-encoded JSON strings and guards invalid shapes.
+   */
+  const normalizeChangesPayload = (
+    raw: unknown
+  ): Record<string, { old: unknown; new: unknown }> => {
+    let parsed = raw;
+
+    // Unwrap up to 2 levels of string encoding
+    for (let i = 0; i < 2 && typeof parsed === 'string'; i++) {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch {
+        return {};
+      }
+    }
+
+    // Must be a non-null object (not array)
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return {};
+    }
+
+    // Validate each key has { old, new } shape
+    const result: Record<string, { old: unknown; new: unknown }> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        'old' in value &&
+        'new' in value
+      ) {
+        result[key] = value as { old: unknown; new: unknown };
+      }
+    }
+
+    return result;
+  };
+
   const formatValue = (field: string, value: unknown): string => {
     if (value === null || value === undefined) return 'No definido';
 
@@ -364,19 +403,27 @@ const SessionApprovalsPage: React.FC = () => {
                 <div className="bg-gray-50 rounded-lg p-4 mb-4">
                   <h4 className="text-sm font-semibold text-gray-900 mb-3">Cambios propuestos:</h4>
                   <div className="space-y-2">
-                    {Object.keys(request.changes).map((field) => {
-                      const change = request.changes[field];
-                      return (
-                        <div key={field} className="text-sm">
-                          <div className="font-medium text-gray-700">{formatFieldLabel(field)}:</div>
-                          <div className="flex items-center gap-2 ml-4">
-                            <span className="line-through text-red-600">{formatValue(field, change.old)}</span>
-                            <span className="text-gray-400">→</span>
-                            <span className="text-green-600 font-medium">{formatValue(field, change.new)}</span>
+                    {(() => {
+                      const parsedChanges = normalizeChangesPayload(request.changes);
+
+                      if (Object.keys(parsedChanges).length === 0) {
+                        return <p className="text-sm text-amber-700">Formato de cambios inválido</p>;
+                      }
+
+                      return Object.keys(parsedChanges).map((field) => {
+                        const change = parsedChanges[field];
+                        return (
+                          <div key={field} className="text-sm">
+                            <div className="font-medium text-gray-700">{formatFieldLabel(field)}:</div>
+                            <div className="flex items-center gap-2 ml-4">
+                              <span className="line-through text-red-600">{formatValue(field, change.old)}</span>
+                              <span className="text-gray-400">→</span>
+                              <span className="text-green-600 font-medium">{formatValue(field, change.new)}</span>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
 

@@ -25,6 +25,19 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
 });
 vi.mock('../../../utils/roleUtils');
 
+// Mock session-timezone so cron time-window checks are deterministic
+const { mockGetHoursUntilSession } = vi.hoisted(() => ({
+  mockGetHoursUntilSession: vi.fn().mockReturnValue(24),
+}));
+
+vi.mock('../../../lib/utils/session-timezone', async (importOriginal) => {
+  const actual = await importOriginal() as Record<string, unknown>;
+  return {
+    ...actual,
+    getHoursUntilSession: mockGetHoursUntilSession,
+  };
+});
+
 // Import handlers AFTER mocks are set up
 import editRequestsHandler from '../../../pages/api/sessions/[id]/edit-requests';
 import editRequestDetailHandler from '../../../pages/api/sessions/edit-requests/[eid]';
@@ -348,15 +361,15 @@ describe('Session Notifications', () => {
     it('should send 24h reminders for sessions 24h away', async () => {
       const { createServiceRoleClient } = await import('../../../lib/api-auth');
 
-      const now = new Date();
-      const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      // Mock getHoursUntilSession to return 24 (within 23-25 window)
+      mockGetHoursUntilSession.mockReturnValue(24);
 
       const mockSessions = [
         {
           id: SESSION_ID,
           title: 'Test Session',
-          session_date: in24h.toISOString().split('T')[0],
-          start_time: in24h.toTimeString().split(' ')[0],
+          session_date: '2026-02-18',
+          start_time: '10:00:00',
           end_time: '16:00:00',
           modality: 'online',
           meeting_link: 'https://zoom.us/j/123',
@@ -424,8 +437,8 @@ describe('Session Notifications', () => {
     it('should send 1h reminders for sessions 1h away', async () => {
       const { createServiceRoleClient } = await import('../../../lib/api-auth');
 
-      const now = new Date();
-      const in1h = new Date(now.getTime() + 60 * 60 * 1000);
+      // Mock getHoursUntilSession to return 1 (within 0.5-1.5 window)
+      mockGetHoursUntilSession.mockReturnValue(1);
 
       const SESSION_ID_2 = '77777777-7777-4777-8777-777777777777';
 
@@ -433,8 +446,8 @@ describe('Session Notifications', () => {
         {
           id: SESSION_ID_2,
           title: 'Urgent Session',
-          session_date: in1h.toISOString().split('T')[0],
-          start_time: in1h.toTimeString().split(' ')[0],
+          session_date: '2026-02-17',
+          start_time: '11:00:00',
           end_time: '16:00:00',
           modality: 'online',
           meeting_link: 'https://zoom.us/j/456',
@@ -502,8 +515,8 @@ describe('Session Notifications', () => {
     it('should not send duplicate reminders', async () => {
       const { createServiceRoleClient } = await import('../../../lib/api-auth');
 
-      const now = new Date();
-      const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      // Mock getHoursUntilSession to return 24 (within 23-25 window)
+      mockGetHoursUntilSession.mockReturnValue(24);
 
       const SESSION_ID_3 = '88888888-8888-4888-8888-888888888888';
 
@@ -511,8 +524,8 @@ describe('Session Notifications', () => {
         {
           id: SESSION_ID_3,
           title: 'Already Reminded',
-          session_date: in24h.toISOString().split('T')[0],
-          start_time: in24h.toTimeString().split(' ')[0],
+          session_date: '2026-02-18',
+          start_time: '10:00:00',
           end_time: '16:00:00',
           modality: 'online',
           meeting_link: null,

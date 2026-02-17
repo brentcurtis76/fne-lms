@@ -96,6 +96,17 @@ const FEATURE_FILE_MAP: Record<FeatureArea, string[]> = {
     'pages/docente/*',
     'pages/student/*',
   ],
+  consultor_sessions: [
+    'pages/admin/sessions/*',
+    'pages/consultor/sessions/*',
+    'pages/api/sessions/*',
+    'components/sessions/*',
+    'components/workspace/WorkspaceSessionsTab.tsx',
+    'lib/types/consultor-sessions.types.ts',
+    'lib/utils/session-ui-helpers.tsx',
+    'lib/utils/session-timezone.ts',
+    'lib/utils/recurrence.ts',
+  ],
 };
 
 /**

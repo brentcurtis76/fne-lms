@@ -329,6 +329,235 @@ describe('PUT /api/sessions/[id]/facilitators', () => {
     expect(data.data.facilitators).toBeDefined();
   });
 
+  it('should rollback facilitators when insert fails after delete', async () => {
+    mockCheckIsAdmin.mockResolvedValueOnce({
+      isAdmin: true,
+      user: { id: ADMIN_ID },
+      error: null,
+    });
+
+    // Track operations on session_facilitators to differentiate select/delete/insert
+    const facilitatorOps: string[] = [];
+    const existingSnapshot = [
+      { session_id: SESSION_ID, user_id: CONSULTANT_ID_1, facilitator_role: 'consultor_externo', is_lead: true, created_at: '2026-01-01T00:00:00Z' },
+    ];
+
+    const mockServiceClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'consultor_sessions') {
+          return buildChainableQuery(
+            { id: SESSION_ID, school_id: SCHOOL_ID, status: 'programada' },
+            null
+          );
+        }
+        if (table === 'session_facilitators') {
+          // Return a proxy that tracks which operation was called
+          const opHandler: ProxyHandler<Record<string, unknown>> = {
+            get(_target, prop) {
+              if (prop === 'select') {
+                facilitatorOps.push('select');
+                // Snapshot select — return existing facilitators
+                return vi.fn(() => {
+                  const eqHandler: ProxyHandler<Record<string, unknown>> = {
+                    get(_t, p) {
+                      if (p === 'then') return (resolve: (v: unknown) => void) => resolve({ data: existingSnapshot, error: null });
+                      return vi.fn(() => new Proxy({}, eqHandler));
+                    },
+                  };
+                  return new Proxy({}, eqHandler);
+                });
+              }
+              if (prop === 'delete') {
+                facilitatorOps.push('delete');
+                // Delete succeeds
+                return vi.fn(() => {
+                  const eqHandler: ProxyHandler<Record<string, unknown>> = {
+                    get(_t, p) {
+                      if (p === 'then') return (resolve: (v: unknown) => void) => resolve({ data: null, error: null });
+                      return vi.fn(() => new Proxy({}, eqHandler));
+                    },
+                  };
+                  return new Proxy({}, eqHandler);
+                });
+              }
+              if (prop === 'insert') {
+                facilitatorOps.push('insert');
+                // First insert call: new facilitators — FAIL
+                // Second insert call: rollback — SUCCEED
+                const insertCount = facilitatorOps.filter((o) => o === 'insert').length;
+                return vi.fn(() => {
+                  const selectHandler: ProxyHandler<Record<string, unknown>> = {
+                    get(_t, p) {
+                      if (p === 'then') {
+                        if (insertCount === 1) {
+                          // First insert fails
+                          return (resolve: (v: unknown) => void) => resolve({ data: null, error: { message: 'Insert constraint violation' } });
+                        }
+                        // Rollback insert succeeds
+                        return (resolve: (v: unknown) => void) => resolve({ data: existingSnapshot, error: null });
+                      }
+                      return vi.fn(() => new Proxy({}, selectHandler));
+                    },
+                  };
+                  return new Proxy({}, selectHandler);
+                });
+              }
+              if (prop === 'then') {
+                return (resolve: (v: unknown) => void) => resolve({ data: [], error: null });
+              }
+              return vi.fn(() => new Proxy({}, opHandler));
+            },
+          };
+          return new Proxy({}, opHandler);
+        }
+        if (table === 'session_activity_log') {
+          return buildChainableQuery([], null);
+        }
+        return buildChainableQuery([], null);
+      }),
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(mockServiceClient);
+
+    (validateFacilitatorIntegrity as any).mockResolvedValueOnce({
+      valid: true,
+      errors: [],
+    });
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { id: SESSION_ID },
+      body: {
+        facilitators: [
+          {
+            user_id: CONSULTANT_ID_2,
+            is_lead: true,
+            facilitator_role: 'consultor_externo',
+          },
+        ],
+      },
+    });
+
+    await handler(req, res);
+
+    // Should return 500 error
+    expect(res._getStatusCode()).toBe(500);
+    const data = JSON.parse(res._getData());
+    expect(data.error).toContain('restaurados');
+
+    // Verify rollback insert was attempted (2 inserts: failed new + rollback)
+    const insertOps = facilitatorOps.filter((o) => o === 'insert');
+    expect(insertOps.length).toBe(2);
+  });
+
+  it('should return critical error when rollback also fails', async () => {
+    mockCheckIsAdmin.mockResolvedValueOnce({
+      isAdmin: true,
+      user: { id: ADMIN_ID },
+      error: null,
+    });
+
+    const facilitatorOps: string[] = [];
+    const existingSnapshot = [
+      { session_id: SESSION_ID, user_id: CONSULTANT_ID_1, facilitator_role: 'consultor_externo', is_lead: true, created_at: '2026-01-01T00:00:00Z' },
+    ];
+
+    const mockServiceClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'consultor_sessions') {
+          return buildChainableQuery(
+            { id: SESSION_ID, school_id: SCHOOL_ID, status: 'programada' },
+            null
+          );
+        }
+        if (table === 'session_facilitators') {
+          const opHandler: ProxyHandler<Record<string, unknown>> = {
+            get(_target, prop) {
+              if (prop === 'select') {
+                facilitatorOps.push('select');
+                return vi.fn(() => {
+                  const eqHandler: ProxyHandler<Record<string, unknown>> = {
+                    get(_t, p) {
+                      if (p === 'then') return (resolve: (v: unknown) => void) => resolve({ data: existingSnapshot, error: null });
+                      return vi.fn(() => new Proxy({}, eqHandler));
+                    },
+                  };
+                  return new Proxy({}, eqHandler);
+                });
+              }
+              if (prop === 'delete') {
+                facilitatorOps.push('delete');
+                return vi.fn(() => {
+                  const eqHandler: ProxyHandler<Record<string, unknown>> = {
+                    get(_t, p) {
+                      if (p === 'then') return (resolve: (v: unknown) => void) => resolve({ data: null, error: null });
+                      return vi.fn(() => new Proxy({}, eqHandler));
+                    },
+                  };
+                  return new Proxy({}, eqHandler);
+                });
+              }
+              if (prop === 'insert') {
+                facilitatorOps.push('insert');
+                const insertCount = facilitatorOps.filter((o) => o === 'insert').length;
+                return vi.fn(() => {
+                  const selectHandler: ProxyHandler<Record<string, unknown>> = {
+                    get(_t, p) {
+                      if (p === 'then') {
+                        if (insertCount === 1) {
+                          // First insert (new facilitators) fails
+                          return (resolve: (v: unknown) => void) => resolve({ data: null, error: { message: 'Insert constraint violation' } });
+                        }
+                        // Rollback insert ALSO fails
+                        return (resolve: (v: unknown) => void) => resolve({ data: null, error: { message: 'Rollback constraint error' } });
+                      }
+                      return vi.fn(() => new Proxy({}, selectHandler));
+                    },
+                  };
+                  return new Proxy({}, selectHandler);
+                });
+              }
+              if (prop === 'then') {
+                return (resolve: (v: unknown) => void) => resolve({ data: [], error: null });
+              }
+              return vi.fn(() => new Proxy({}, opHandler));
+            },
+          };
+          return new Proxy({}, opHandler);
+        }
+        if (table === 'session_activity_log') {
+          return buildChainableQuery([], null);
+        }
+        return buildChainableQuery([], null);
+      }),
+    };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(mockServiceClient);
+
+    (validateFacilitatorIntegrity as any).mockResolvedValueOnce({
+      valid: true,
+      errors: [],
+    });
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { id: SESSION_ID },
+      body: {
+        facilitators: [
+          { user_id: CONSULTANT_ID_2, is_lead: true, facilitator_role: 'consultor_externo' },
+        ],
+      },
+    });
+
+    await handler(req, res);
+
+    expect(res._getStatusCode()).toBe(500);
+    const data = JSON.parse(res._getData());
+    // Must NOT claim successful restoration — should say CRITICAL
+    expect(data.error).toContain('CRÍTICO');
+    expect(data.error).not.toContain('fueron restaurados correctamente');
+  });
+
   it('should handle method not allowed', async () => {
     const { req, res } = createMocks({
       method: 'GET',

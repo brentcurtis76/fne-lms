@@ -99,6 +99,22 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
       );
     }
 
+    // Snapshot existing facilitators for rollback safety
+    const { data: existingFacilitators, error: snapshotError } = await serviceClient
+      .from('session_facilitators')
+      .select('session_id, user_id, facilitator_role, is_lead, created_at')
+      .eq('session_id', sessionId);
+
+    if (snapshotError) {
+      console.error('Error snapshotting existing facilitators:', snapshotError);
+      return sendAuthError(
+        res,
+        'Error al leer consultores existentes',
+        500,
+        snapshotError.message
+      );
+    }
+
     // Delete all existing session_facilitators for this session
     const { error: deleteError } = await serviceClient
       .from('session_facilitators')
@@ -131,11 +147,57 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
 
     if (insertError) {
       console.error('Error inserting new facilitators:', insertError);
-      // Critical: facilitators were deleted but insert failed
-      console.error('CRITICAL: Facilitators were deleted but insert failed. Session may have no facilitators.');
+
+      // Rollback: restore previous facilitator assignments
+      if (existingFacilitators && existingFacilitators.length > 0) {
+        const { data: rollbackData, error: rollbackError } = await serviceClient
+          .from('session_facilitators')
+          .insert(existingFacilitators)
+          .select('session_id, user_id');
+
+        if (rollbackError) {
+          console.error('CRITICAL: Rollback failed after insert error. Session may have no facilitators.', {
+            sessionId,
+            rollbackError: rollbackError.message,
+            originalError: insertError.message,
+          });
+          return sendAuthError(
+            res,
+            'ERROR CRÍTICO: No se pudieron insertar los nuevos consultores y la restauración de los anteriores también falló. La sesión puede no tener consultores asignados. Contacte al administrador.',
+            500,
+            `Insert: ${insertError.message}; Rollback: ${rollbackError.message}`
+          );
+        }
+
+        // Verify rollback count matches snapshot count
+        const restoredCount = rollbackData?.length ?? 0;
+        if (restoredCount !== existingFacilitators.length) {
+          console.error('CRITICAL: Rollback partial — restored count does not match snapshot.', {
+            sessionId,
+            expected: existingFacilitators.length,
+            restored: restoredCount,
+          });
+          return sendAuthError(
+            res,
+            `ERROR CRÍTICO: Restauración parcial — se esperaban ${existingFacilitators.length} consultores pero solo se restauraron ${restoredCount}. Contacte al administrador.`,
+            500,
+            insertError.message
+          );
+        }
+
+        console.log('Rollback verified: restored previous facilitators for session', sessionId);
+        return sendAuthError(
+          res,
+          'Error al insertar nuevos consultores. Se verificó que los consultores anteriores fueron restaurados correctamente.',
+          500,
+          insertError.message
+        );
+      }
+
+      // No previous facilitators to restore
       return sendAuthError(
         res,
-        'Error al insertar nuevos consultores',
+        'Error al insertar nuevos consultores. No había consultores previos para restaurar.',
         500,
         insertError.message
       );

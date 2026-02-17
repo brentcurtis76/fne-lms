@@ -274,8 +274,7 @@ const SessionReportsPage: React.FC = () => {
 
         const role = await getUserPrimaryRole(session.user.id);
         if (!role || !['admin', 'consultor'].includes(role)) {
-          setError('No tienes permisos para acceder a los reportes de sesiones');
-          setLoading(false);
+          router.push('/dashboard');
           return;
         }
 

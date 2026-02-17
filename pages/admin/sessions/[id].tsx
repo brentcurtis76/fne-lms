@@ -502,7 +502,8 @@ const SessionDetailPage: React.FC = () => {
       }
 
       const data = await response.json();
-      setAvailableConsultants(data.consultants || []);
+      const consultants = data?.data?.consultants ?? data?.consultants ?? [];
+      setAvailableConsultants(consultants);
     } catch (error: unknown) {
       if (error instanceof Error) {
         console.error('Error loading consultants:', error);
@@ -891,21 +892,21 @@ const SessionDetailPage: React.FC = () => {
           </div>
 
           {/* Consultores */}
-          {session.facilitators.length > 0 && (
-            <div className="mt-6 pt-6 border-t">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Consultores</h3>
-                {session.status !== 'completada' && session.status !== 'cancelada' && !editingFacilitators && (
-                  <button
-                    onClick={() => handleStartEditFacilitators()}
-                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                  >
-                    Editar consultores
-                  </button>
-                )}
-              </div>
+          <div className="mt-6 pt-6 border-t">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Consultores</h3>
+              {session.status !== 'completada' && session.status !== 'cancelada' && !editingFacilitators && (
+                <button
+                  onClick={() => handleStartEditFacilitators()}
+                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  Editar consultores
+                </button>
+              )}
+            </div>
 
-              {!editingFacilitators ? (
+            {!editingFacilitators ? (
+              session.facilitators.length > 0 ? (
                 <div className="space-y-2">
                   {session.facilitators.map((facilitator) => {
                     const profile = facilitator.profiles;
@@ -934,9 +935,12 @@ const SessionDetailPage: React.FC = () => {
                   })}
                 </div>
               ) : (
-                <div className="border rounded-lg p-4 bg-blue-50">
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-900 mb-3">Consultores actuales</h4>
+                <p className="text-sm text-gray-500 italic">Sin consultores asignados</p>
+              )
+            ) : (
+              <div className="border rounded-lg p-4 bg-blue-50">
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-gray-900 mb-3">Consultores actuales</h4>
                     <div className="space-y-2">
                       {editFacilitators.length > 0 ? (
                         editFacilitators.map((facilitator) => {
@@ -1030,9 +1034,8 @@ const SessionDetailPage: React.FC = () => {
                 </div>
               )}
             </div>
-          )}
+          </div>
         </div>
-      </div>
 
       {/* Cancel Modal */}
       {showCancelModal && (

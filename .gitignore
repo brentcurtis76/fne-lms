@@ -88,6 +88,9 @@ scripts/create-*.js
 scripts/delete-*.js
 scripts/prove-*.js
 scripts/simulate-*.js
+scripts/reseed-*.mjs
+scripts/simple-reseed.mjs
+scripts/test-parse-only.mjs
 APPLY_*.md
 
 # Backup files
@@ -122,3 +125,4 @@ run-*.mjs
 node_modules/canvas
 *.xlsx
 *.csv
+.env*.local

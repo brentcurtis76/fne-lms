@@ -19,12 +19,12 @@ export function getSupabaseClient() {
     // Server-side: Use auth-helpers for consistency
     return createPagesBrowserClient();
   }
-  
+
   // Client-side: Create singleton that matches _app.tsx
   if (!supabaseInstance) {
     supabaseInstance = createPagesBrowserClient();
   }
-  
+
   return supabaseInstance;
 }
 

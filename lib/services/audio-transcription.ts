@@ -119,7 +119,7 @@ export async function generateReportSummary(
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    const modelId = process.env.ANTHROPIC_MODEL_ID || 'claude-sonnet-4-20250514';
+    const modelId = process.env.ANTHROPIC_MODEL_ID || 'claude-sonnet-4-6';
 
     const systemPrompt = `Eres un asistente experto en resumir sesiones de consultoría educativa en Chile. Tu tarea es analizar la transcripción de una sesión y generar un informe estructurado en español profesional.
 

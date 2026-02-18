@@ -61,7 +61,7 @@ function getAnthropicApiKey(): string | null {
  * Get Anthropic Model ID with fallback to .env.local file
  */
 function getAnthropicModelId(): string {
-  return getEnvVar('ANTHROPIC_MODEL_ID') || 'claude-sonnet-4-20250514';
+  return getEnvVar('ANTHROPIC_MODEL_ID') || 'claude-sonnet-4-6';
 }
 
 export const config = {

@@ -151,13 +151,19 @@ const QAScenarioListPage: React.FC = () => {
       setTotalScenarios(data.total || 0);
       setAutomatedCount(data.automatedCount || 0);
 
-      // Fetch last run info for current page's scenarios only
+      // Read global completion counts from API response
+      setCompletedCount(data.completedTotal || 0);
+      setPendingCount(data.pendingTotal || 0);
+
+      // Fetch last run info for current page's scenarios only (for card status badges)
       const scenarioIds = data.scenarios?.map((s: QAScenario) => s.id) || [];
       if (scenarioIds.length > 0) {
+        // Exclude automated Playwright runs — only human executions count for card status
         const { data: runs } = await supabase
           .from('qa_test_runs')
           .select('scenario_id, overall_result, completed_at')
           .eq('tester_id', user.id)
+          .neq('environment', 'automated-playwright')
           .in('scenario_id', scenarioIds)
           .order('completed_at', { ascending: false });
 
@@ -168,20 +174,6 @@ const QAScenarioListPage: React.FC = () => {
           }
         });
         setLastRuns(runMap);
-
-        // Compute completion counts for current page
-        const completedOnPage = scenarioIds.filter((id) => {
-          const run = runMap.get(id);
-          return run && run.completed_at !== null;
-        }).length;
-        const pendingOnPage = scenarioIds.length - completedOnPage;
-
-        // Use these as approximate counts for the filter dropdown
-        setCompletedCount(completedOnPage);
-        setPendingCount(pendingOnPage);
-      } else {
-        setCompletedCount(0);
-        setPendingCount(0);
       }
     } catch (error: any) {
       console.error('Error fetching scenarios:', error);

@@ -8,7 +8,7 @@ import { persistTransformationInteraction } from '@/lib/transformation/interacti
 
 type ErrorResponse = { error: string };
 
-const MODEL_ID = process.env.ANTHROPIC_MODEL_ID ?? 'claude-haiku-4-5';
+const MODEL_ID = process.env.ANTHROPIC_MODEL_ID ?? 'claude-sonnet-4-6';
 const MAX_USER_MESSAGE_LENGTH = 2_000;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_MAX_REQUESTS = 10;

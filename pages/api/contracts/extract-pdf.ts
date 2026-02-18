@@ -144,7 +144,7 @@ Return ONLY valid JSON, no additional text or explanation.`;
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-5-20251101",
+      model: "claude-sonnet-4-6",
       max_tokens: 4000,
       temperature: 0, // Deterministic for consistent extraction
       system: "You are a contract analysis expert specializing in Chilean legal documents. Extract data accurately and provide confidence scores. Always return valid JSON.",

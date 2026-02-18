@@ -420,7 +420,7 @@ export class RubricEvaluator {
 
     this.area = area;
     // Use provided modelId, or fall back to env var, or default to Sonnet 4
-    this.modelId = modelId || process.env.ANTHROPIC_MODEL_ID || 'claude-sonnet-4-20250514';
+    this.modelId = modelId || process.env.ANTHROPIC_MODEL_ID || 'claude-sonnet-4-6';
     console.log('🤖 Model ID:', this.modelId);
 
     try {

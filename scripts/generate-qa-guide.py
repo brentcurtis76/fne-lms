@@ -10,6 +10,7 @@ Usage: python3 scripts/generate-qa-guide.py
 
 import os
 import sys
+import re
 import json
 from datetime import datetime
 from collections import defaultdict
@@ -81,25 +82,67 @@ CATEGORY_LABELS = {
     'RLS': ('Seguridad de Datos', 'Verificar que las políticas de seguridad filtran datos correctamente')
 }
 
-# Test Account Data
-TEST_ACCOUNTS = [
-    ('admin', 'admin.qa@fne.cl', 'Acceso global completo'),
-    ('docente', 'docente.qa@fne.cl', 'Cuenta principal docente'),
-    ('community_manager', 'community.manager.qa@fne.cl', 'Gestión de comunidad'),
-    ('equipo_directivo', 'directivo.qa@fne.cl', 'Equipo directivo escolar'),
-    ('lider_generacion', 'lider.generacion.qa@fne.cl', 'Líder de generación'),
-    ('consultor', 'consultor.qa@fne.cl', 'Consultor externo'),
-    ('supervisor_de_red', 'supervisor.qa@fne.cl', 'Supervisor de red'),
-    ('lider_comunidad', 'lider.qa@fne.cl', 'Líder de comunidad'),
-    ('docente_sin_escuela', 'docente-noschool.qa@fne.cl', 'Solo para EC-01'),
-    ('docente_multi_rol', 'docente-multirole.qa@fne.cl', 'Solo para EC-03'),
-    ('multi_1', 'estudiante1.qa@fne.cl', 'Tab 1 pruebas colaborativas'),
-    ('multi_2', 'estudiante2.qa@fne.cl', 'Tab 2 pruebas colaborativas'),
-    ('multi_3', 'estudiante3.qa@fne.cl', 'Tab 3 pruebas colaborativas'),
-    ('docente_comunidad', 'docente.comunidad.qa@fne.cl', 'Docente en espacio colaborativo')
-]
+# Account data is read from docs/qa-system/TEST_ACCOUNTS.md — do not hardcode here
 
-PASSWORD = 'QAtester2026!'
+def parse_test_accounts_md():
+    """Parse TEST_ACCOUNTS.md to extract account data and password.
+
+    Returns:
+        tuple: (accounts_list, password) where accounts_list is [(role, email, notes), ...]
+    """
+    md_path = os.path.join(os.path.dirname(__file__), '..', 'docs', 'qa-system', 'TEST_ACCOUNTS.md')
+
+    if not os.path.exists(md_path):
+        print(f'ERROR: TEST_ACCOUNTS.md not found at {md_path}')
+        print('This file is the single source of truth for QA test accounts.')
+        sys.exit(1)
+
+    try:
+        with open(md_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+    except Exception as e:
+        print(f'ERROR: Failed to read TEST_ACCOUNTS.md: {e}')
+        sys.exit(1)
+
+    # Extract password from line like: **All accounts use the same password:** `QAtester2026!`
+    pw_match = re.search(r'\*\*All accounts use the same password:\*\*\s*`([^`]+)`', content)
+    if not pw_match:
+        print('ERROR: Could not parse password from TEST_ACCOUNTS.md')
+        print('Expected format: **All accounts use the same password:** `<password>`')
+        sys.exit(1)
+    password = pw_match.group(1)
+
+    # Parse the markdown table (| Email | Role | School | Notes |)
+    accounts = []
+    in_table = False
+    for line in content.split('\n'):
+        line = line.strip()
+        if not line.startswith('|'):
+            if in_table:
+                break  # End of table
+            continue
+
+        # Skip header and separator rows
+        cells = [c.strip() for c in line.split('|')[1:-1]]  # Remove empty first/last from split
+        if len(cells) < 4:
+            continue
+        if cells[0] == 'Email' or set(cells[0]) <= {'-', ' '}:
+            in_table = True
+            continue
+
+        if in_table:
+            email, role, _school, notes = cells[0], cells[1], cells[2], cells[3]
+            accounts.append((role, email, notes))
+
+    if not accounts:
+        print('ERROR: No accounts parsed from TEST_ACCOUNTS.md table')
+        print('Expected table format: | Email | Role | School | Notes |')
+        sys.exit(1)
+
+    return accounts, password
+
+
+TEST_ACCOUNTS, PASSWORD = parse_test_accounts_md()
 
 
 def load_env():

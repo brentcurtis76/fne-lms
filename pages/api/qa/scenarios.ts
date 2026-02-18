@@ -83,32 +83,32 @@ async function handleGetScenarios(
     const search = (req.query.search as string)?.trim() || '';
     const offset = (page - 1) * pageSize;
 
-    // Step 1: Query qa_test_runs for completed scenario IDs (if filtering by completion status)
-    let completedIds: string[] = [];
-    if (completion_status !== 'all') {
-      let runsQuery = supabaseClient
-        .from('qa_test_runs')
-        .select('scenario_id')
-        .eq('status', 'completed');
+    // Step 1: Query qa_test_runs for completed scenario IDs
+    // Always compute for global counts; also used for completion_status filtering
+    // Exclude automated Playwright runs — only human executions count for completion status
+    let runsQuery = supabaseClient
+      .from('qa_test_runs')
+      .select('scenario_id')
+      .eq('status', 'completed')
+      .neq('environment', 'automated-playwright');
 
-      // Non-admin users only see their own completion status
-      if (!isAdmin) {
-        runsQuery = runsQuery.eq('tester_id', user.id);
-      }
-
-      const { data: runsData, error: runsError } = await runsQuery;
-
-      if (runsError) {
-        console.error('Error fetching test runs:', runsError);
-        return res.status(500).json({
-          error: 'Error al obtener datos de ejecución',
-          details: runsError.message,
-        });
-      }
-
-      // Extract unique scenario IDs
-      completedIds = [...new Set((runsData || []).map((r) => r.scenario_id))];
+    // Non-admin users only see their own completion status
+    if (!isAdmin) {
+      runsQuery = runsQuery.eq('tester_id', user.id);
     }
+
+    const { data: runsData, error: runsError } = await runsQuery;
+
+    if (runsError) {
+      console.error('Error fetching test runs:', runsError);
+      return res.status(500).json({
+        error: 'Error al obtener datos de ejecución',
+        details: runsError.message,
+      });
+    }
+
+    // Extract unique scenario IDs
+    const completedIds = [...new Set((runsData || []).map((r) => r.scenario_id))];
 
     // Step 2: Build main query with completion status filter
     let query = supabaseClient
@@ -120,17 +120,12 @@ async function handleGetScenarios(
     // Apply completion status filter
     if (completion_status === 'completed') {
       if (completedIds.length === 0) {
-        // No completed scenarios — return empty result
-        return res.status(200).json({
-          success: true,
-          scenarios: [],
-          total: 0,
-          page,
-          pageSize,
-          automatedCount: 0,
-        });
+        // No completed scenarios — use impossible filter to return 0 rows
+        // but let the rest of the handler run so global counts are computed correctly
+        query = query.eq('id', '00000000-0000-0000-0000-000000000000');
+      } else {
+        query = query.in('id', completedIds);
       }
-      query = query.in('id', completedIds);
     } else if (completion_status === 'pending') {
       if (completedIds.length > 0) {
         // Exclude completed scenarios
@@ -198,13 +193,55 @@ async function handleGetScenarios(
     // Count non-human scenarios (only if we're filtering them out for tester UI)
     let automatedCount = 0;
     if (include_automated === 'false') {
-      const { count } = await supabaseClient
+      const { count: autoCount } = await supabaseClient
         .from('qa_scenarios')
         .select('*', { count: 'exact', head: true })
         .eq('is_active', true)
         .neq('testing_channel', 'human');
-      automatedCount = count || 0;
+      automatedCount = autoCount || 0;
     }
+
+    // Compute global completion counts (all matching scenarios, ignoring pagination and completion filter)
+    // Build a count-only query with the same filters except completion_status
+    let globalCountQuery = supabaseClient
+      .from('qa_scenarios')
+      .select('id')
+      .order('priority', { ascending: true });
+
+    // Apply same filters as main query (except completion_status and pagination)
+    if (feature_area) {
+      globalCountQuery = globalCountQuery.eq('feature_area', feature_area as string);
+    }
+    if (role) {
+      globalCountQuery = globalCountQuery.eq('role_required', role as string);
+    }
+    if (is_active !== 'all') {
+      globalCountQuery = globalCountQuery.eq('is_active', is_active === 'true');
+    }
+    if (priority) {
+      globalCountQuery = globalCountQuery.eq('priority', parseInt(priority as string, 10));
+    }
+    if (automated_only === 'true') {
+      globalCountQuery = globalCountQuery.eq('automated_only', true);
+    } else if (automated_only === 'false') {
+      globalCountQuery = globalCountQuery.eq('automated_only', false);
+    }
+    if (testing_channel && testing_channel !== 'all') {
+      globalCountQuery = globalCountQuery.eq('testing_channel', testing_channel as string);
+    }
+    if (include_automated === 'false') {
+      globalCountQuery = globalCountQuery.eq('testing_channel', 'human');
+    }
+    if (search) {
+      const sanitized = search.replace(/%/g, '').toLowerCase();
+      globalCountQuery = globalCountQuery.or(`name.ilike.%${sanitized}%,description.ilike.%${sanitized}%`);
+    }
+
+    const { data: allMatchingIds } = await globalCountQuery;
+    const allIds = new Set((allMatchingIds || []).map((s) => s.id));
+    const completedIdsSet = new Set(completedIds);
+    const completedTotal = [...allIds].filter((id) => completedIdsSet.has(id)).length;
+    const pendingTotal = allIds.size - completedTotal;
 
     return res.status(200).json({
       success: true,
@@ -212,7 +249,9 @@ async function handleGetScenarios(
       total: count ?? 0,
       page,
       pageSize,
-      automatedCount, // Number of scenarios that require Playwright
+      automatedCount,
+      completedTotal,
+      pendingTotal,
     });
   } catch (err) {
     console.error('Unexpected error fetching scenarios:', err);

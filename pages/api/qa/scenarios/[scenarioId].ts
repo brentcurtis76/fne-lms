@@ -123,7 +123,11 @@ async function handleUpdateScenario(
       updateData.estimated_duration_minutes = body.estimated_duration_minutes;
     }
     if (body.is_active !== undefined) updateData.is_active = body.is_active;
-    if (body.automated_only !== undefined) updateData.automated_only = body.automated_only;
+    if (body.automated_only !== undefined) {
+      updateData.automated_only = body.automated_only;
+      // Source of truth: testing_channel. automated_only kept in sync for backward compatibility.
+      updateData.testing_channel = body.automated_only ? 'automation' : 'human';
+    }
 
     // Handle steps with proper indexing
     if (body.steps !== undefined) {

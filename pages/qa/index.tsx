@@ -57,6 +57,8 @@ const QAScenarioListPage: React.FC = () => {
   const [automatedCount, setAutomatedCount] = useState(0);
   const [assignedScenarios, setAssignedScenarios] = useState<AssignedScenario[]>([]);
   const [assignedLoading, setAssignedLoading] = useState(true);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -166,6 +168,20 @@ const QAScenarioListPage: React.FC = () => {
           }
         });
         setLastRuns(runMap);
+
+        // Compute completion counts for current page
+        const completedOnPage = scenarioIds.filter((id) => {
+          const run = runMap.get(id);
+          return run && run.completed_at !== null;
+        }).length;
+        const pendingOnPage = scenarioIds.length - completedOnPage;
+
+        // Use these as approximate counts for the filter dropdown
+        setCompletedCount(completedOnPage);
+        setPendingCount(pendingOnPage);
+      } else {
+        setCompletedCount(0);
+        setPendingCount(0);
       }
     } catch (error: any) {
       console.error('Error fetching scenarios:', error);
@@ -385,6 +401,7 @@ const QAScenarioListPage: React.FC = () => {
             <select
               value={featureAreaFilter}
               onChange={(e) => handleFeatureAreaChange(e.target.value)}
+              aria-label="Filtro de área funcional"
               className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_accent"
             >
               <option value="">Todas las áreas</option>
@@ -399,6 +416,7 @@ const QAScenarioListPage: React.FC = () => {
           <select
             value={roleFilter}
             onChange={(e) => handleRoleFilterChange(e.target.value)}
+            aria-label="Filtro de rol"
             className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_accent"
           >
             <option value="">Todos los roles</option>
@@ -417,6 +435,7 @@ const QAScenarioListPage: React.FC = () => {
           <select
             value={priorityFilter}
             onChange={(e) => handlePriorityFilterChange(e.target.value)}
+            aria-label="Filtro de prioridad"
             className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_accent"
           >
             <option value="">Todas las prioridades</option>
@@ -430,11 +449,12 @@ const QAScenarioListPage: React.FC = () => {
           <select
             value={completionFilter}
             onChange={(e) => handleCompletionFilterChange(e.target.value)}
+            aria-label="Filtro de estado de completación"
             className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_accent"
           >
             <option value="">Todos (Completación)</option>
-            <option value="completed">Completados</option>
-            <option value="pending">Pendientes</option>
+            <option value="completed">Completados ({completedCount})</option>
+            <option value="pending">Pendientes ({pendingCount})</option>
           </select>
 
           {isAdmin && (
@@ -448,7 +468,7 @@ const QAScenarioListPage: React.FC = () => {
         </div>
 
         {/* Assigned Scenarios Section */}
-        {!assignedLoading && assignedScenarios.length > 0 && (
+        {!assignedLoading && assignedScenarios.length > 0 && completionFilter !== 'completed' && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
               <UserCheck className="w-5 h-5 text-brand_accent" />
@@ -541,12 +561,12 @@ const QAScenarioListPage: React.FC = () => {
         )}
 
         {/* Manual Testing Info Banner */}
-        <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3">
+        <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-3" aria-live="polite">
           <ClipboardCheck className="w-5 h-5 text-blue-500 flex-shrink-0" />
           <p className="text-sm text-gray-700">
             Mostrando <span className="font-medium">{totalScenarios} escenario{totalScenarios !== 1 ? 's' : ''}</span> asignado{totalScenarios !== 1 ? 's' : ''} para testing manual.
             {automatedCount > 0 && (
-              <> Los escenarios verificados por automatizaci&oacute;n no se muestran aqu&iacute;.</>
+              <> Los escenarios verificados por automatización no se muestran aquí.</>
             )}
             {isAdmin && (
               <Link href="/admin/qa/scenarios" className="ml-2 text-brand_primary hover:underline">

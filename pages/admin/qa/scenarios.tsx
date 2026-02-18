@@ -203,7 +203,9 @@ const QAScenarioManagementPage: React.FC = () => {
 
       setScenarios((prev) =>
         prev.map((s) =>
-          s.id === scenario.id ? { ...s, automated_only: !s.automated_only } : s
+          s.id === scenario.id
+            ? { ...s, automated_only: !s.automated_only, testing_channel: (!s.automated_only ? 'automation' : 'human') as QAScenario['testing_channel'] }
+            : s
         )
       );
       toast.success(

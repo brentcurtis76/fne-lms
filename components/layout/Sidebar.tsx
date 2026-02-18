@@ -72,6 +72,7 @@ interface NavigationItem {
   permission?: string | string[]; // Required permission(s)
   requireAllPermissions?: boolean; // If true, require ALL permissions (AND logic)
   requiresCommunity?: boolean; // If true, only show for users with community_id
+  requiresQAAccess?: boolean; // If true, only show for users with can_run_qa_tests or admin
   children?: NavigationChild[];
   isExpanded?: boolean;
 }
@@ -384,7 +385,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'QA Testing',
     icon: ClipboardDocumentCheckIcon,
     description: 'Pruebas de calidad',
-    adminOnly: true,
+    requiresQAAccess: true,
     children: [
       {
         id: 'qa-run-tests',
@@ -832,6 +833,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const [superadminCheckDone, setSuperadminCheckDone] = useState(false);
   const [hasCommunity, setHasCommunity] = useState(false);
   const [communityCheckDone, setCommunityCheckDone] = useState(false);
+  const [canRunQATests, setCanRunQATests] = useState(false);
+  const [qaCheckDone, setQaCheckDone] = useState(false);
 
   const fetchNewFeedbackCount = useCallback(async () => {
     try {
@@ -923,6 +926,44 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     return () => { cancelled = true; };
   }, [userId, isAdmin, supabase]);
 
+  // Check if user can run QA tests
+  useEffect(() => {
+    if (!userId) {
+      setCanRunQATests(prev => prev === false ? prev : false);
+      setQaCheckDone(prev => prev === true ? prev : true);
+      return;
+    }
+
+    // Admins always have access to QA
+    if (isAdmin) {
+      setCanRunQATests(prev => prev === true ? prev : true);
+      setQaCheckDone(prev => prev === true ? prev : true);
+      return;
+    }
+
+    let cancelled = false;
+    const checkQAAccess = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('can_run_qa_tests')
+          .eq('id', userId)
+          .single();
+
+        if (!cancelled) {
+          setCanRunQATests(!error && !!data?.can_run_qa_tests);
+        }
+      } catch (error) {
+        if (!cancelled) setCanRunQATests(false);
+      } finally {
+        if (!cancelled) setQaCheckDone(true);
+      }
+    };
+
+    checkQAAccess();
+    return () => { cancelled = true; };
+  }, [userId, isAdmin, supabase]);
+
   // Fetch new feedback count for admins
   useEffect(() => {
     if (isAdmin) {
@@ -1009,6 +1050,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         if (!isSuperadmin) return false;
       }
 
+      if (item.requiresQAAccess) {
+        if (!qaCheckDone) return false;
+        if (!canRunQATests && !isAdmin) return false;
+      }
+
       if (item.adminOnly && !isAdmin) return false;
 
       if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
@@ -1046,7 +1092,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
       return true;
     });
-  }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone]);
+  }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone]);
 
   return (
     <>

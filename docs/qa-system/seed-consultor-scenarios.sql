@@ -3,7 +3,7 @@
 -- ============================================================================
 -- Database: FNE Learning Management System
 -- Role: consultor
--- Total Scenarios: 61
+-- Total Scenarios: 63
 -- Date Created: 2026-02-07
 -- Source: QA_SCENARIOS_CONSULTOR.md (audited 2026-02-07)
 --
@@ -50,7 +50,7 @@ INSERT INTO qa_scenarios (
 (
   'consultor',
   'PB-1: Consultor intenta crear un nuevo curso',
-  'Verificar que consultores no pueden crear cursos. El acceso debe ser denegado con error 403.',
+  'Verificar que consultores no pueden crear cursos. El acceso debe ser denegado con mensaje de acceso denegado.',
   'course_builder',
   '[{"type":"role","description":"Iniciar sesión como consultor"},{"type":"navigation","description":"El usuario consultor debe estar autenticado"},{"type":"custom","description":"El sidebar no debe mostrar el menú Cursos"}]'::jsonb,
   '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard del consultor"},{"index":2,"instruction":"Intentar acceder a la página de Creación de Curso","expectedOutcome":"Se muestra página de acceso denegado o se redirige al dashboard"},{"index":3,"instruction":"Intentar realizar la acción con datos de nuevo curso","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":4,"instruction":"Verificar que el menú Cursos NO aparece en la barra lateral","expectedOutcome":"El elemento Cursos no es visible en el sidebar"}]'::jsonb,
@@ -130,7 +130,7 @@ INSERT INTO qa_scenarios (
   'Verificar que consultores no pueden gestionar noticias.',
   'navigation',
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Noticias","expectedOutcome":"Se muestra página de acceso denegado"},{"index":3,"instruction":"Verificar que el menú Noticias NO aparece en la barra lateral","expectedOutcome":"El elemento Noticias no es visible (solo para community_manager)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Escribir en la barra de direcciones del navegador: /admin/community y presionar Enter","expectedOutcome":"Se muestra acceso denegado o se redirige al dashboard del consultor"},{"index":3,"instruction":"Verificar que el menú Noticias NO aparece en la barra lateral","expectedOutcome":"El elemento Noticias no es visible (solo para community_manager)"}]'::jsonb,
   2, 2, true, false, false
 ),
 
@@ -321,6 +321,7 @@ INSERT INTO qa_scenarios (
 ),
 
 -- CA-13: Consultor assigns a course to students
+-- DEACTIVATED 2026-02-18: No UI exists for course assignment by consultors. Feature may be built later.
 (
   'consultor',
   'CA-13: Consultor asigna un curso a estudiantes',
@@ -328,7 +329,7 @@ INSERT INTO qa_scenarios (
   'course_enrollment',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay cursos disponibles y estudiantes para asignar"}]'::jsonb,
   '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Navegar a pantalla de asignación de cursos","expectedOutcome":"Se muestra la interfaz de asignación"},{"index":3,"instruction":"Seleccionar un curso y asignarlo a estudiantes","expectedOutcome":"La asignación se realiza exitosamente"},{"index":4,"instruction":"Verificar que la acción funciona correctamente","expectedOutcome":"Los datos se muestran correctamente"}]'::jsonb,
-  2, 5, true, false, false
+  2, 5, false, false, false
 );
 
 -- ============================================================================
@@ -359,7 +360,7 @@ INSERT INTO qa_scenarios (
   'Verificar que la API rechaza consultas de datos de otras escuelas.',
   'reporting',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay otra escuela en el sistema diferente a la asignada"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Reportes Detallados","expectedOutcome":"La página se carga pero no muestra datos"},{"index":3,"instruction":"Verificar la respuesta de la API para la otra escuela","expectedOutcome":"La operación se completa correctamente o datos vacíos (validación server-side)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Reportes Detallados","expectedOutcome":"La página se carga pero no muestra datos"},{"index":3,"instruction":"Verificar que la página no muestra datos de escuelas a las que el consultor no está asignado","expectedOutcome":"No aparecen datos ni registros de la otra escuela en ninguna sección de la página"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -370,7 +371,7 @@ INSERT INTO qa_scenarios (
   'Verificar que acceso al contexto está restringido a escuela asignada.',
   'assessment_builder',
   '[{"type":"role","description":"Consultor autenticado"},{"type":"data","description":"Hay otra escuela en el sistema"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Intentar acceder a la página de Escuela/transversal-context?school_id=OTRA_ESCUELA","expectedOutcome":"Se muestra página de acceso denegado o se redirige"},{"index":3,"instruction":"Verificar que solo los datos de la escuela asignada son accesibles","expectedOutcome":"Solo la escuela asignada es visible"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Escribir en la barra de direcciones del navegador: /school/transversal-context?school_id=00000000-0000-0000-0000-000000000001 y presionar Enter (un ID de escuela diferente a la asignada)","expectedOutcome":"Se muestra acceso denegado o se redirige al dashboard del consultor"},{"index":3,"instruction":"Verificar que solo los datos de la escuela asignada son accesibles","expectedOutcome":"Solo la escuela asignada es visible"}]'::jsonb,
   2, 3, true, false, false
 ),
 
@@ -386,7 +387,7 @@ INSERT INTO qa_scenarios (
 );
 
 -- ============================================================================
--- SIDEBAR VISIBILITY - 25 SCENARIOS (SV-1 to SV-25)
+-- SIDEBAR VISIBILITY - 27 SCENARIOS (SV-1 to SV-27)
 -- Testing: Navigation menu visibility
 -- ============================================================================
 
@@ -674,6 +675,30 @@ INSERT INTO qa_scenarios (
   '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
   '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se accede al dashboard"},{"index":2,"instruction":"Observar la barra lateral completa","expectedOutcome":"Se ve la estructura del menú"},{"index":3,"instruction":"Contar cada elemento de menú visible","expectedOutcome":"Cada elemento aparece exactamente una vez (sin duplicados)"}]'::jsonb,
   3, 3, true, false, false
+),
+
+-- NEW TOP-LEVEL ITEMS: 2 scenarios (SV-26 to SV-27)
+
+-- SV-26: Consultor sees 'Mis Sesiones' as top-level sidebar item
+(
+  'consultor',
+  'SV-26: Consultor ve Mis Sesiones como ítem de nivel superior',
+  'Verificar que Mis Sesiones aparece como enlace de nivel superior en la barra lateral (consultantOnly: true).',
+  'navigation',
+  '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
+  '[{"index":1,"instruction":"Observar la barra lateral del sistema","expectedOutcome":"Se ve el ítem Mis Sesiones como enlace de nivel superior (no dentro de un grupo)"},{"index":2,"instruction":"Hacer clic en Mis Sesiones","expectedOutcome":"Se navega a la página /consultor/sessions con la lista de sesiones del consultor"}]'::jsonb,
+  2, 2, true, false, false
+),
+
+-- SV-27: Consultor sees 'Mis Reportes' as top-level sidebar item
+(
+  'consultor',
+  'SV-27: Consultor ve Mis Reportes como ítem de nivel superior',
+  'Verificar que Mis Reportes aparece como enlace de nivel superior en la barra lateral (consultantOnly: true).',
+  'navigation',
+  '[{"type":"role","description":"Consultor autenticado"}]'::jsonb,
+  '[{"index":1,"instruction":"Observar la barra lateral del sistema","expectedOutcome":"Se ve el ítem Mis Reportes como enlace de nivel superior (no dentro de un grupo)"},{"index":2,"instruction":"Hacer clic en Mis Reportes","expectedOutcome":"Se navega a la página /consultor/sessions/reports con las analíticas de sesiones del consultor"}]'::jsonb,
+  2, 2, true, false, false
 );
 
 -- ============================================================================
@@ -719,15 +744,15 @@ INSERT INTO qa_scenarios (
   3, 5, true, false, false
 ),
 
--- EC-4: Consultor accesses API endpoints directly via URL (bypass sidebar)
+-- EC-4: Consultor accesses restricted pages directly via URL (bypass sidebar)
 (
   'consultor',
-  'EC-4: Consultor accede a API directamente (bypass de UI)',
-  'Verificar que los controles de permiso server-side se aplican sin importar cómo se accede.',
+  'EC-4: Consultor accede a páginas restringidas directamente por URL',
+  'Verificar que los controles de permiso server-side se aplican cuando el consultor navega directamente a URLs restringidas.',
   'assessment_builder',
-  '[{"type":"role","description":"Consultor autenticado"},{"type":"navigation","description":"Se accede directamente a API sin UI"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesión como consultor.qa@fne.cl","expectedOutcome":"Se obtiene sesión válida"},{"index":2,"instruction":"Intentar realizar la acción directamente","expectedOutcome":"Aparece un mensaje de error indicando que no tiene permisos para realizar esta acción"},{"index":3,"instruction":"Intentar realizar la acción directamente","expectedOutcome":"Los datos se muestran correctamente"}]'::jsonb,
-  2, 3, true, false, false
+  '[{"type":"role","description":"Consultor autenticado"},{"type":"navigation","description":"Se accede directamente a URLs sin usar el sidebar"}]'::jsonb,
+  '[{"index":1,"instruction":"Escribir directamente en la barra de direcciones la URL /admin/courses y presionar Enter","expectedOutcome":"Se redirige al dashboard del consultor o se muestra una página de acceso denegado"},{"index":2,"instruction":"Escribir directamente la URL /admin/sessions y presionar Enter","expectedOutcome":"Se redirige al dashboard del consultor o se muestra acceso denegado"},{"index":3,"instruction":"Escribir directamente la URL /admin/users y presionar Enter","expectedOutcome":"Se redirige al dashboard del consultor o se muestra acceso denegado"}]'::jsonb,
+  1, 3, true, false, false
 ),
 
 -- EC-5: Consultor tries to access /admin/qa pages

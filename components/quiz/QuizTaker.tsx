@@ -101,14 +101,14 @@ export default function QuizTaker({
     setIsSubmitting(true);
     
     try {
-      // Format answers for submission
-      const formattedAnswers: Record<string, any> = {};
-      Object.entries(answers).forEach(([questionId, answer]) => {
+      // Format answers as array matching submit_quiz RPC expected format
+      const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => {
         if (answer.selectedOption) {
-          formattedAnswers[questionId] = { selectedOption: answer.selectedOption };
+          return { questionId, selectedOptionId: answer.selectedOption };
         } else if (answer.text) {
-          formattedAnswers[questionId] = { text: answer.text };
+          return { questionId, textAnswer: answer.text };
         }
+        return { questionId };
       });
       
       const { data, error } = await submitQuiz(

@@ -917,7 +917,7 @@ const scenarios = [
     preconditions: [PRECOND_DOCENTE, PRECOND_ENROLLED],
     steps: [
       step(1, 'Navegar a la lección "Materiales y Recursos" del curso', 'Lección carga con bloques visibles'),
-      step(2, 'Localizar el bloque de quiz "Reflexión sobre el Enfoque Pedagógico"', 'Quiz visible con botón "Comenzar Quiz" o similar'),
+      step(2, 'Localizar el bloque de quiz "Reflexión sobre el Enfoque Pedagógico"', 'Se muestra directamente la primera pregunta del quiz sin pantalla de inicio. El quiz comienza de inmediato al acceder al bloque de evaluación.'),
     ],
     priority: 1,
     estimated_duration_minutes: 2,
@@ -1031,14 +1031,14 @@ const scenarios = [
     role_required: 'docente',
     preconditions: [PRECOND_DOCENTE, PRECOND_ENROLLED],
     steps: [
-      step(1, 'Navegar a un quiz ya completado', 'Página de resultados muestra: puntaje, respuestas correctas/incorrectas (si permitido), feedback por pregunta'),
+      step(1, 'Navegar a un quiz ya completado', 'Se muestra el puntaje total obtenido. Las preguntas de opción múltiple muestran si fueron correctas o incorrectas. Las preguntas abiertas muestran un mensaje indicando que están pendientes de revisión por el docente. El feedback detallado por pregunta aparece después de que el docente califica.'),
     ],
     priority: 1,
     estimated_duration_minutes: 2,
   },
   {
     name: 'QT-11: Docente reintenta quiz (si múltiples intentos permitidos)',
-    description: 'Verificar el flujo de reintentar un quiz cuando se permiten múltiples intentos',
+    description: 'Verificar el flujo de reintentar un quiz cuando se permiten múltiples intentos. NOTA: Funcionalidad de reintento no implementada aún — escenario desactivado.',
     feature_area: 'quiz_submission',
     role_required: 'docente',
     preconditions: [PRECOND_DOCENTE, PRECOND_ENROLLED],
@@ -1048,6 +1048,7 @@ const scenarios = [
     ],
     priority: 1,
     estimated_duration_minutes: 3,
+    is_active: false,
   },
 
   // ============================================================

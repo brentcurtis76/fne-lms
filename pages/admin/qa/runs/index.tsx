@@ -7,7 +7,7 @@
 
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { User } from '@supabase/supabase-js';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
@@ -69,41 +69,42 @@ const QARunsListPage: React.FC = () => {
     checkAuth();
   }, [supabase, router]);
 
-  // Fetch all test runs
-  const fetchRuns = useCallback(async () => {
-    if (!user || hasPermission === false) return;
-
-    setLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('qa_test_runs')
-        .select(
-          `
-          *,
-          scenario:qa_scenarios(id, name, feature_area),
-          tester:profiles(email, first_name, last_name)
-        `
-        )
-        .order('started_at', { ascending: false })
-        .limit(100);
-
-      if (error) {
-        throw error;
-      }
-
-      setRuns(data || []);
-    } catch (err) {
-      toast.error('Error al cargar las ejecuciones');
-    } finally {
-      setLoading(false);
-    }
-  }, [user, hasPermission, supabase]);
+  // Fetch all test runs — guarded by hasFetched ref to prevent re-render loops
+  const hasFetched = useRef(false);
 
   useEffect(() => {
-    if (user && hasPermission === true) {
-      fetchRuns();
-    }
-  }, [user, hasPermission, fetchRuns]);
+    if (!user || hasPermission !== true || hasFetched.current) return;
+    hasFetched.current = true;
+
+    const fetchRuns = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('qa_test_runs')
+          .select(
+            `
+            *,
+            scenario:qa_scenarios(id, name, feature_area),
+            tester:profiles(email, first_name, last_name)
+          `
+          )
+          .order('started_at', { ascending: false })
+          .limit(100);
+
+        if (error) {
+          throw error;
+        }
+
+        setRuns(data || []);
+      } catch (err) {
+        toast.error('Error al cargar las ejecuciones');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRuns();
+  }, [user, hasPermission, supabase]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -294,7 +295,7 @@ const QARunsListPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {runs.map((run: any) => (
+                    {runs.map((run) => (
                       <tr
                         key={run.id}
                         className="hover:bg-gray-50 transition-colors"
@@ -343,7 +344,7 @@ const QARunsListPage: React.FC = () => {
 
               {/* Mobile card list */}
               <div className="md:hidden divide-y divide-gray-100">
-                {runs.map((run: any) => (
+                {runs.map((run) => (
                   <Link
                     key={run.id}
                     href={`/admin/qa/runs/${run.id}`}

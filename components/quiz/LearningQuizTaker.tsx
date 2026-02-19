@@ -139,14 +139,14 @@ export default function LearningQuizTaker({
     setIsSubmitting(true);
     
     try {
-      // Format answers as array matching submit_quiz RPC expected format
-      const formattedAnswers = Object.entries(answers).map(([questionId, answer]) => {
+      // Format answers for submission — RPC expects object keyed by questionId
+      const formattedAnswers: Record<string, any> = {};
+      Object.entries(answers).forEach(([questionId, answer]) => {
         if (answer.selectedOption) {
-          return { questionId, selectedOptionId: answer.selectedOption };
+          formattedAnswers[questionId] = { selectedOption: answer.selectedOption };
         } else if (answer.text) {
-          return { questionId, textAnswer: answer.text };
+          formattedAnswers[questionId] = { text: answer.text };
         }
-        return { questionId };
       });
       
       const { data, error } = await submitQuiz(
@@ -175,7 +175,7 @@ export default function LearningQuizTaker({
         toast.success('¡Excelente! Has completado el quiz correctamente.');
       }
     } catch (error) {
-      console.error('Error submitting quiz:', error);
+      console.error('Quiz submission failed:', error, { lessonId, blockId, studentId, courseId });
       toast.error('Error al enviar el quiz. Por favor intenta de nuevo.');
     } finally {
       setIsSubmitting(false);

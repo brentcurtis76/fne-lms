@@ -160,6 +160,7 @@ export function generateClaudeCodeExport(
   markdown += `
 ### Captured Context
 - **Role Used:** ${testRun.role_used}
+- **Current URL:** ${failedStep.current_url || 'Unknown'}
 - **Browser:** ${testRun.browser_info?.userAgent?.split(' ')[0] || 'Unknown'}
 - **Viewport:** ${testRun.browser_info?.viewport?.width || '?'}x${testRun.browser_info?.viewport?.height || '?'}
 `;
@@ -284,7 +285,7 @@ export function generateFailureReport(
       console_errors: consoleErrors,
       failed_requests: failedRequests,
       screenshot_url: failedStep.screenshot_url,
-      current_url: testRun.browser_info?.userAgent || 'Unknown',
+      current_url: failedStep.current_url || 'Unknown',
       role_used: testRun.role_used,
     },
     context: {

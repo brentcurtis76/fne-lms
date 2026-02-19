@@ -104,6 +104,7 @@ async function handleSaveStepResult(
           network_logs: body.network_logs || [],
           screenshot_url: body.screenshot_url || null,
           dom_snapshot: body.dom_snapshot || null,
+          current_url: body.current_url || null,
           time_spent_seconds: body.time_spent_seconds || null,
           active_seconds: activeSeconds || null,
           captured_at: new Date().toISOString(),
@@ -144,6 +145,7 @@ async function handleSaveStepResult(
       network_logs: body.network_logs || [],
       screenshot_url: body.screenshot_url || null,
       dom_snapshot: body.dom_snapshot || null,
+      current_url: body.current_url || null,
       time_spent_seconds: body.time_spent_seconds || null,
       active_seconds: activeSeconds || null,
     };
@@ -225,6 +227,7 @@ async function sendFailureNotification(
       network_logs: stepResult.network_logs || [],
       screenshot_url: stepResult.screenshot_url,
       dom_snapshot: stepResult.dom_snapshot,
+      current_url: stepResult.current_url ?? null,
       captured_at: stepResult.captured_at,
       time_spent_seconds: stepResult.time_spent_seconds,
     };

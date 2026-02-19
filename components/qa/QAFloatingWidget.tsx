@@ -93,6 +93,21 @@ const useWidgetCapture = () => {
     levels.forEach((level) => {
       const original = console[level];
       console[level] = (...args: unknown[]) => {
+        // R3: Capture stack traces from Error instances or error-like objects
+        const errorArg = args.find(
+          (arg) => arg instanceof Error || (arg && typeof arg === 'object' && 'stack' in (arg as object))
+        );
+        let stack: string | undefined;
+        try {
+          if (errorArg instanceof Error) {
+            stack = errorArg.stack;
+          } else if (errorArg && typeof errorArg === 'object' && 'stack' in (errorArg as object)) {
+            stack = (errorArg as { stack: unknown }).stack as string | undefined;
+          }
+        } catch {
+          // Ignore stack extraction errors
+        }
+
         const entry: ConsoleLogEntry = {
           level,
           message: args.map((arg) => {
@@ -104,6 +119,7 @@ const useWidgetCapture = () => {
             }
           }).join(' '),
           timestamp: new Date().toISOString(),
+          ...(stack ? { stack } : {}),
         };
         consoleLogsRef.current = [...consoleLogsRef.current.slice(-99), entry];
         original.apply(console, args);
@@ -117,8 +133,53 @@ const useWidgetCapture = () => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
       const method = init?.method || 'GET';
 
+      // R2: Capture request body before sending (skip auth endpoints for security)
+      const isAuthEndpoint = url.includes('/api/auth/') || url.includes('/login');
+      let requestBody: unknown;
+      try {
+        if (isAuthEndpoint) {
+          requestBody = '[Auth endpoint — body redacted]';
+        } else if (init?.body !== undefined && init.body !== null) {
+          if (typeof init.body === 'string') {
+            requestBody = init.body.substring(0, 4096);
+          } else if (init.body instanceof FormData) {
+            // FormData serializes to {} with JSON.stringify — iterate entries instead
+            requestBody = '[FormData]';
+          } else if (init.body instanceof URLSearchParams) {
+            requestBody = init.body.toString().substring(0, 4096);
+          } else if (
+            init.body instanceof Blob ||
+            init.body instanceof ArrayBuffer ||
+            ArrayBuffer.isView(init.body)
+          ) {
+            requestBody = '[Binary data]';
+          } else {
+            try {
+              requestBody = JSON.stringify(init.body).substring(0, 4096);
+            } catch {
+              requestBody = '[Unserializable body]';
+            }
+          }
+        }
+      } catch {
+        // Never break the original fetch due to body capture failure
+      }
+
       try {
         const response = await originalFetch.current!(input, init);
+
+        // R1: Capture response body for failed responses (status >= 400)
+        let responseBody: unknown;
+        if (response.status >= 400 && !isAuthEndpoint) {
+          try {
+            const cloned = response.clone();
+            const text = await cloned.text();
+            responseBody = text.substring(0, 4096);
+          } catch {
+            // Never break the original response due to body capture failure
+          }
+        }
+
         networkLogsRef.current = [...networkLogsRef.current.slice(-99), {
           method,
           url,
@@ -126,6 +187,8 @@ const useWidgetCapture = () => {
           statusText: response.statusText,
           duration: Date.now() - startTime,
           timestamp: new Date().toISOString(),
+          ...(requestBody !== undefined ? { requestBody } : {}),
+          ...(responseBody !== undefined ? { responseBody } : {}),
         }];
         return response;
       } catch (error) {
@@ -137,6 +200,7 @@ const useWidgetCapture = () => {
           duration: Date.now() - startTime,
           error: error instanceof Error ? error.message : String(error),
           timestamp: new Date().toISOString(),
+          ...(requestBody !== undefined ? { requestBody } : {}),
         }];
         throw error;
       }
@@ -470,6 +534,25 @@ const QAFloatingWidget: React.FC<QAFloatingWidgetProps> = ({ onClose }) => {
         }
       }
 
+      // R4: Capture current URL at the moment of step result save
+      let currentUrl: string | undefined;
+      try {
+        currentUrl = window.location.href;
+      } catch {
+        // Ignore if window is not available
+      }
+
+      // R5: Capture DOM snapshot on failure
+      let domSnapshot: string | undefined;
+      if (passed === false) {
+        try {
+          const rawHtml = document.body?.innerHTML || '';
+          domSnapshot = rawHtml.substring(0, 51200);
+        } catch {
+          // Never break step result save due to DOM capture failure
+        }
+      }
+
       const stepResultData: SaveStepResultRequest & { active_seconds?: number } = {
         test_run_id: testRunId,
         step_index: currentStepIndex + 1,
@@ -480,6 +563,8 @@ const QAFloatingWidget: React.FC<QAFloatingWidgetProps> = ({ onClose }) => {
         console_logs: consoleLogs,
         network_logs: networkLogs,
         screenshot_url: screenshotUrl || undefined,
+        current_url: currentUrl,
+        dom_snapshot: domSnapshot,
         time_spent_seconds: timeSpent,
         active_seconds: stepActiveSeconds,
       };

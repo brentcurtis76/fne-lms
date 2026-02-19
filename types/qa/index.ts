@@ -117,6 +117,7 @@ export interface QAStepResult {
   network_logs: NetworkLogEntry[];
   screenshot_url: string | null;
   dom_snapshot: string | null;
+  current_url: string | null;
   captured_at: string;
   time_spent_seconds: number | null;
 }
@@ -260,6 +261,7 @@ export interface SaveStepResultRequest {
   network_logs?: NetworkLogEntry[];
   screenshot_url?: string;
   dom_snapshot?: string;
+  current_url?: string;
   time_spent_seconds?: number;
 }
 

@@ -435,10 +435,13 @@ export async function getLicitacionDetail(
 
 /**
  * Valid state transitions for the licitacion lifecycle.
+ * Note: adjudicacion_pendiente has two possible targets (contrato_pendiente | adjudicada_externo)
+ * and is handled by confirmAdjudicacion() separately.
  */
 const VALID_TRANSITIONS: Partial<Record<LicitacionEstado, LicitacionEstado>> = {
   recepcion_bases_pendiente: 'propuestas_pendientes',
   propuestas_pendientes: 'evaluacion_pendiente',
+  evaluacion_pendiente: 'adjudicacion_pendiente',
 };
 
 /**
@@ -513,6 +516,24 @@ export async function advanceState(
     }
   }
 
+  if (currentEstado === 'evaluacion_pendiente') {
+    // Require at least one signed acta (evaluacion_firmada document)
+    const { count, error: countError } = await supabase
+      .from('licitacion_documentos')
+      .select('id', { count: 'exact', head: true })
+      .eq('licitacion_id', licitacionId)
+      .eq('tipo', 'evaluacion_firmada');
+
+    if (countError) {
+      throw new Error(`Error al verificar acta firmada: ${countError.message}`);
+    }
+    if (!count || count === 0) {
+      throw new Error(
+        'Para avanzar a Adjudicacion, debe subir el Acta de Reunion firmada (tipo: evaluacion_firmada).'
+      );
+    }
+  }
+
   // 4. Update estado
   const { data: updated, error: updateError } = await supabase
     .from('licitaciones')
@@ -529,6 +550,7 @@ export async function advanceState(
   const accionMap: Partial<Record<LicitacionEstado, string>> = {
     propuestas_pendientes: 'Avanzado a Recepcion de Propuestas',
     evaluacion_pendiente: 'Avanzado a Evaluacion Pendiente',
+    adjudicacion_pendiente: 'Avanzado a Adjudicacion Pendiente',
   };
 
   await supabase.from('licitacion_historial').insert({
@@ -595,6 +617,80 @@ export async function updateTimelineDates(
     estado_anterior: updated.estado,
     estado_nuevo: updated.estado,
     detalles: { fechas_modificadas: changedDates },
+    user_id: userId,
+  });
+
+  return updated as Licitacion;
+}
+
+// ============================================================
+// confirmAdjudicacion
+// ============================================================
+
+/**
+ * Confirms adjudicacion: transitions from adjudicacion_pendiente to either
+ * - contrato_pendiente (if FNE wins, esFne = true)
+ * - adjudicada_externo (if external, esFne = false)
+ * Creates historial entry.
+ */
+export async function confirmAdjudicacion(
+  supabase: SupabaseClient,
+  licitacionId: string,
+  esFne: boolean,
+  userId: string
+): Promise<Licitacion> {
+  // 1. Fetch current licitacion
+  const { data: existing, error: fetchError } = await supabase
+    .from('licitaciones')
+    .select('id, estado, ganador_ate_id')
+    .eq('id', licitacionId)
+    .single();
+
+  if (fetchError || !existing) {
+    throw new Error('Licitacion no encontrada');
+  }
+
+  if (existing.estado !== 'adjudicacion_pendiente') {
+    throw new Error(
+      `No se puede confirmar la adjudicacion: el estado actual es "${existing.estado}". Se requiere "adjudicacion_pendiente".`
+    );
+  }
+
+  if (!existing.ganador_ate_id) {
+    throw new Error(
+      'Debe seleccionar un ATE ganador antes de confirmar la adjudicacion.'
+    );
+  }
+
+  const newEstado: LicitacionEstado = esFne ? 'contrato_pendiente' : 'adjudicada_externo';
+
+  // 2. Update estado and ganador_es_fne
+  const { data: updated, error: updateError } = await supabase
+    .from('licitaciones')
+    .update({
+      estado: newEstado,
+      ganador_es_fne: esFne,
+      fecha_adjudicacion: dateToString(new Date()),
+    })
+    .eq('id', licitacionId)
+    .select('*')
+    .single();
+
+  if (updateError || !updated) {
+    throw new Error(`Error al confirmar adjudicacion: ${updateError?.message || 'Error desconocido'}`);
+  }
+
+  // 3. Create historial entry
+  const accion = esFne
+    ? 'Adjudicada a ATE FNE — avanzado a Contrato Pendiente'
+    : 'Adjudicada a proveedor externo';
+
+  await supabase.from('licitacion_historial').insert({
+    licitacion_id: licitacionId,
+    accion,
+    estado_anterior: 'adjudicacion_pendiente',
+    estado_nuevo: newEstado,
+    detalles: { es_fne: esFne },
     user_id: userId,
   });
 

@@ -87,6 +87,17 @@ export interface Licitacion {
   evaluacion_pdf_url?: string | null;
   carta_adjudicacion_url?: string | null;
   monto_adjudicado_uf?: number | null;
+  // Phase 4 fields (evaluation + adjudicacion)
+  ganador_ate_id?: string | null;
+  ganador_es_fne?: boolean | null;
+  condiciones_pago?: string | null;
+  contacto_coordinacion_nombre?: string | null;
+  contacto_coordinacion_email?: string | null;
+  contacto_coordinacion_telefono?: string | null;
+  hora_inicio_evaluacion?: string | null;
+  hora_fin_evaluacion?: string | null;
+  fecha_oferta_ganadora?: string | null;
+  contrato_id?: string | null;
   notas?: string | null;
   created_by?: string | null;
   created_at: string;
@@ -196,6 +207,10 @@ export interface LicitacionAte {
   monto_propuesto?: number | null;
   puntaje_tecnico?: number | null;
   puntaje_economico?: number | null;
+  // Phase 4 fields
+  puntaje_tecnico_ponderado?: number | null;
+  puntaje_economico_ponderado?: number | null;
+  puntaje_total?: number | null;
   es_ganador?: boolean | null;
   notas?: string | null;
   created_at: string;
@@ -311,6 +326,9 @@ export const AdvanceStateSchema = z.object({
   target_estado: z.enum([
     'propuestas_pendientes',
     'evaluacion_pendiente',
+    'adjudicacion_pendiente',
+    'contrato_pendiente',
+    'adjudicada_externo',
   ]),
 });
 
@@ -332,3 +350,103 @@ export interface LicitacionDocumento {
   uploaded_by?: string | null;
   created_at: string;
 }
+
+// ============================================================
+// EVALUATION TYPES (Phase 4)
+// ============================================================
+
+export interface EvaluacionCriterio {
+  id: string;
+  programa_id: string;
+  nombre_criterio: string;
+  puntaje_maximo: number;
+  descripcion?: string | null;
+  orden: number;
+  is_active: boolean;
+}
+
+export interface EvaluationScore {
+  ate_id: string;
+  criterio_id: string;
+  puntaje: number;
+  comentario?: string | null;
+}
+
+export interface CommitteeMember {
+  nombre: string;
+  rut?: string | null;
+  cargo?: string | null;
+  orden: number;
+}
+
+export interface AteCalculatedScore {
+  id: string;
+  nombre_ate: string;
+  rut_ate?: string | null;
+  monto_propuesto: number;
+  puntaje_tecnico: number;
+  puntaje_economico: number;
+  puntaje_tecnico_ponderado: number;
+  puntaje_economico_ponderado: number;
+  puntaje_total: number;
+  es_ganador: boolean;
+  rank: number;
+}
+
+// Zod schemas for Phase 4 API validation
+
+export const SaveEvaluationSchema = z.object({
+  committee: z.array(z.object({
+    nombre: z.string().min(1, 'Nombre requerido').max(255),
+    rut: z.string().max(20).optional().nullable(),
+    cargo: z.string().max(255).optional().nullable(),
+    orden: z.number().int().min(1).max(3),
+  })).min(1).max(3),
+  hora_inicio: z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM requerido').optional().nullable(),
+  hora_fin: z.string().regex(/^\d{2}:\d{2}$/, 'Formato HH:MM requerido').optional().nullable(),
+  fecha_evaluacion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD requerido').optional().nullable(),
+  scores: z.array(z.object({
+    ate_id: z.string().uuid('UUID invalido'),
+    criterio_id: z.string().uuid('UUID invalido'),
+    puntaje: z.number().min(0, 'Puntaje debe ser >= 0').max(100, 'Puntaje no puede exceder 100'),
+    comentario: z.string().max(2000).optional().nullable(),
+  })),
+  montos: z.array(z.object({
+    ate_id: z.string().uuid('UUID invalido'),
+    monto_propuesto: z.number().positive('Monto debe ser positivo').max(999999999999, 'Monto excede limite'),
+  })),
+});
+
+export type SaveEvaluationInput = z.infer<typeof SaveEvaluationSchema>;
+
+export const AdjudicacionSchema = z.object({
+  ganador_ate_id: z.string().uuid('UUID invalido'),
+  monto_adjudicado_uf: z.coerce.number().positive('Monto debe ser positivo').max(999999999, 'Monto excede limite').optional().nullable(),
+  condiciones_pago: z.string().max(3000).optional().nullable(),
+  fecha_oferta_ganadora: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  contacto_coordinacion_nombre: z.string().max(255).optional().nullable(),
+  contacto_coordinacion_email: z.string().email('Correo invalido').optional().nullable(),
+  contacto_coordinacion_telefono: z.string().max(50).optional().nullable(),
+});
+
+export type AdjudicacionInput = z.infer<typeof AdjudicacionSchema>;
+
+export const ConfirmarAdjudicacionSchema = z.object({
+  es_fne: z.boolean(),
+});
+
+export type ConfirmarAdjudicacionInput = z.infer<typeof ConfirmarAdjudicacionSchema>;
+
+export const CriterioSchema = z.object({
+  programa_id: z.string().min(1, 'Programa requerido'),
+  nombre_criterio: z.string().min(1, 'Nombre requerido').max(255),
+  puntaje_maximo: z.coerce.number().positive('Puntaje maximo debe ser positivo'),
+  descripcion: z.string().max(2000).optional().nullable(),
+  orden: z.coerce.number().int().min(0),
+  is_active: z.boolean().default(true),
+});
+
+export type CriterioInput = z.infer<typeof CriterioSchema>;
+
+export const UpdateCriterioSchema = CriterioSchema.partial().omit({ programa_id: true });
+export type UpdateCriterioInput = z.infer<typeof UpdateCriterioSchema>;

@@ -7,6 +7,7 @@ import { ArrowLeft, Copy, Check, Upload, Calendar, Lock } from 'lucide-react';
 import { LicitacionDetail, LicitacionEstado, ESTADO_DISPLAY, TimelineDates } from '@/types/licitaciones';
 import Step3Bases from '@/components/licitaciones/Step3Bases';
 import Step4Propuestas from '@/components/licitaciones/Step4Propuestas';
+import Step6Adjudicacion from '@/components/licitaciones/Step6Adjudicacion';
 
 // Pure client-side helper — no server imports needed
 function generatePublicacionText(
@@ -746,20 +747,96 @@ export default function LicitacionDetailPage() {
           );
         })()}
 
-        {/* Steps 5-7: Locked */}
-        {[5, 6, 7].map(stepNum => (
-          <div key={stepNum} className="bg-white rounded-lg shadow mb-4 opacity-50">
-            <div className="px-6 py-4">
-              <h2 className="font-semibold text-gray-500 flex items-center text-sm">
-                <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-400 text-xs flex items-center justify-center mr-2">
-                  <Lock size={10} />
-                </span>
-                Paso {stepNum}: {STEPS[stepNum - 1].label}
-                <span className="ml-2 text-xs text-gray-400">(Disponible en una fase futura)</span>
-              </h2>
+        {/* Step 5: Evaluacion */}
+        {(() => {
+          const isStep5Done = activeStep > 5;
+          const isStep5Active = activeStep === 5;
+          const isStep5Locked = activeStep < 5;
+          return (
+            <div className={`bg-white rounded-lg shadow mb-6 ${isStep5Locked ? 'opacity-50' : ''}`}>
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="font-semibold text-gray-900 flex items-center">
+                  <span className={`w-6 h-6 rounded-full text-xs flex items-center justify-center mr-2 ${isStep5Done ? 'bg-green-500 text-white' : isStep5Active ? 'bg-yellow-400 text-black' : 'bg-gray-200 text-gray-400'}`}>
+                    {isStep5Locked ? <Lock size={10} /> : 5}
+                  </span>
+                  Evaluacion
+                  {isStep5Done && <span className="ml-2 text-green-600 text-sm">(Completado)</span>}
+                  {isStep5Locked && <span className="ml-2 text-xs text-gray-400">(Disponible en Paso 4)</span>}
+                </h2>
+              </div>
+              {!isStep5Locked && (
+                <div className="p-6">
+                  {isStep5Active ? (
+                    <div>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Complete la evaluacion de propuestas de cada ATE usando la pagina de evaluacion.
+                      </p>
+                      <button
+                        onClick={() => router.push(`/licitaciones/${id}/evaluacion`)}
+                        className="px-6 py-3 bg-yellow-400 text-black rounded-lg font-medium hover:bg-yellow-500 transition-colors"
+                      >
+                        Ir a Evaluacion de Propuestas →
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-600">
+                      <p>La evaluacion fue completada. El Acta de Reunion fue firmada y subida.</p>
+                      <button
+                        onClick={() => router.push(`/licitaciones/${id}/evaluacion`)}
+                        className="mt-2 text-blue-600 hover:text-blue-800 underline text-sm"
+                      >
+                        Ver resumen de evaluacion
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+          );
+        })()}
+
+        {/* Step 6: Adjudicacion */}
+        {(() => {
+          const isStep6Done = activeStep > 6;
+          const isStep6Active = activeStep === 6;
+          const isStep6Locked = activeStep < 6;
+          return (
+            <div className={`bg-white rounded-lg shadow mb-6 ${isStep6Locked ? 'opacity-50' : ''}`}>
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="font-semibold text-gray-900 flex items-center">
+                  <span className={`w-6 h-6 rounded-full text-xs flex items-center justify-center mr-2 ${isStep6Done ? 'bg-green-500 text-white' : isStep6Active ? 'bg-yellow-400 text-black' : 'bg-gray-200 text-gray-400'}`}>
+                    {isStep6Locked ? <Lock size={10} /> : 6}
+                  </span>
+                  Adjudicacion
+                  {isStep6Done && <span className="ml-2 text-green-600 text-sm">(Completado)</span>}
+                  {isStep6Locked && <span className="ml-2 text-xs text-gray-400">(Disponible en Paso 5)</span>}
+                </h2>
+              </div>
+              {!isStep6Locked && (
+                <div className="p-6">
+                  <Step6Adjudicacion
+                    licitacion={licitacion}
+                    isAdmin={isAdmin}
+                    onRefresh={() => fetchLicitacion(id as string)}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Step 7: Contrato — locked for future phase */}
+        <div className="bg-white rounded-lg shadow mb-4 opacity-50">
+          <div className="px-6 py-4">
+            <h2 className="font-semibold text-gray-500 flex items-center text-sm">
+              <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-400 text-xs flex items-center justify-center mr-2">
+                <Lock size={10} />
+              </span>
+              Paso 7: Contrato
+              <span className="ml-2 text-xs text-gray-400">(Disponible en una fase futura)</span>
+            </h2>
           </div>
-        ))}
+        </div>
       </div>
     </MainLayout>
   );

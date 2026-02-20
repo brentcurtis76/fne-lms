@@ -109,6 +109,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "docx": "^9.5.3",
     "dompurify": "^3.3.1",
     "dotenv": "^16.6.1",
     "driver.js": "^1.4.0",

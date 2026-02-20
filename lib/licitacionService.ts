@@ -13,6 +13,7 @@ import {
   CreateLicitacionInput,
   PublicacionInput,
   TimelineDates,
+  LicitacionEstado,
 } from '@/types/licitaciones';
 
 // ============================================================
@@ -426,6 +427,120 @@ export async function getLicitacionDetail(
     cliente,
     programa,
   } as LicitacionDetail;
+}
+
+// ============================================================
+// advanceState
+// ============================================================
+
+/**
+ * Valid state transitions for the licitacion lifecycle.
+ */
+const VALID_TRANSITIONS: Partial<Record<LicitacionEstado, LicitacionEstado>> = {
+  recepcion_bases_pendiente: 'propuestas_pendientes',
+  propuestas_pendientes: 'evaluacion_pendiente',
+};
+
+/**
+ * Advances a licitacion to the next state after validating prerequisites.
+ * - recepcion_bases_pendiente -> propuestas_pendientes: requires at least 1 ATE with fecha_envio_bases set
+ * - propuestas_pendientes -> evaluacion_pendiente: requires at least 1 ATE with propuesta_url set
+ */
+export async function advanceState(
+  supabase: SupabaseClient,
+  licitacionId: string,
+  targetEstado: LicitacionEstado,
+  userId: string
+): Promise<Licitacion> {
+  // 1. Fetch current licitacion
+  const { data: existing, error: fetchError } = await supabase
+    .from('licitaciones')
+    .select('id, estado, numero_licitacion')
+    .eq('id', licitacionId)
+    .single();
+
+  if (fetchError || !existing) {
+    throw new Error('Licitacion no encontrada');
+  }
+
+  const currentEstado = existing.estado as LicitacionEstado;
+
+  // 2. Validate the transition is legal
+  const expectedTarget = VALID_TRANSITIONS[currentEstado];
+  if (!expectedTarget) {
+    throw new Error(
+      `No se puede avanzar desde el estado "${currentEstado}". No hay transicion valida definida.`
+    );
+  }
+  if (expectedTarget !== targetEstado) {
+    throw new Error(
+      `Transicion invalida: desde "${currentEstado}" solo se puede avanzar a "${expectedTarget}", no a "${targetEstado}".`
+    );
+  }
+
+  // 3. Check prerequisites
+  if (currentEstado === 'recepcion_bases_pendiente') {
+    const { count, error: countError } = await supabase
+      .from('licitacion_ates')
+      .select('id', { count: 'exact', head: true })
+      .eq('licitacion_id', licitacionId)
+      .not('fecha_envio_bases', 'is', null);
+
+    if (countError) {
+      throw new Error(`Error al verificar ATEs: ${countError.message}`);
+    }
+    if (!count || count === 0) {
+      throw new Error(
+        'Para avanzar a Recepcion de Propuestas, al menos una ATE debe tener las bases enviadas (fecha de envio registrada).'
+      );
+    }
+  }
+
+  if (currentEstado === 'propuestas_pendientes') {
+    const { count, error: countError } = await supabase
+      .from('licitacion_ates')
+      .select('id', { count: 'exact', head: true })
+      .eq('licitacion_id', licitacionId)
+      .not('propuesta_url', 'is', null);
+
+    if (countError) {
+      throw new Error(`Error al verificar propuestas: ${countError.message}`);
+    }
+    if (!count || count === 0) {
+      throw new Error(
+        'Para avanzar a Evaluacion, al menos una ATE debe tener una propuesta subida.'
+      );
+    }
+  }
+
+  // 4. Update estado
+  const { data: updated, error: updateError } = await supabase
+    .from('licitaciones')
+    .update({ estado: targetEstado })
+    .eq('id', licitacionId)
+    .select('*')
+    .single();
+
+  if (updateError || !updated) {
+    throw new Error(`Error al actualizar estado: ${updateError?.message || 'Error desconocido'}`);
+  }
+
+  // 5. Create historial entry
+  const accionMap: Partial<Record<LicitacionEstado, string>> = {
+    propuestas_pendientes: 'Avanzado a Recepcion de Propuestas',
+    evaluacion_pendiente: 'Avanzado a Evaluacion Pendiente',
+  };
+
+  await supabase.from('licitacion_historial').insert({
+    licitacion_id: licitacionId,
+    accion: accionMap[targetEstado] || `Estado cambiado a ${targetEstado}`,
+    estado_anterior: currentEstado,
+    estado_nuevo: targetEstado,
+    detalles: {},
+    user_id: userId,
+  });
+
+  return updated as Licitacion;
 }
 
 // ============================================================

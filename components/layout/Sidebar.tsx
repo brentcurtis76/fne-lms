@@ -8,7 +8,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
-import { BarChart3 } from 'lucide-react';
+import { BarChart3, Scale } from 'lucide-react';
 import {
   HomeIcon,
   BookOpenIcon,
@@ -371,6 +371,22 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         permission: 'manage_system_settings'
       }
     ]
+  },
+  {
+    id: 'licitaciones',
+    label: 'Licitaciones',
+    icon: Scale,
+    href: '/licitaciones',
+    description: 'Procesos de licitacion',
+    restrictedRoles: ['admin', 'encargado_licitacion'],
+  },
+  {
+    id: 'licitaciones-templates',
+    label: 'Plantillas Licitaciones',
+    icon: DocumentTextIcon,
+    href: '/admin/licitaciones/templates',
+    description: 'Gestion de plantillas de Bases',
+    adminOnly: true,
   },
   {
     id: 'reports',

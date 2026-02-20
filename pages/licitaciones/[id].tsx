@@ -5,6 +5,8 @@ import MainLayout from '@/components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
 import { ArrowLeft, Copy, Check, Upload, Calendar, Lock } from 'lucide-react';
 import { LicitacionDetail, LicitacionEstado, ESTADO_DISPLAY, TimelineDates } from '@/types/licitaciones';
+import Step3Bases from '@/components/licitaciones/Step3Bases';
+import Step4Propuestas from '@/components/licitaciones/Step4Propuestas';
 
 // Pure client-side helper — no server imports needed
 function generatePublicacionText(
@@ -682,8 +684,70 @@ export default function LicitacionDetailPage() {
           </div>
         </div>
 
-        {/* Steps 3-7: Locked */}
-        {[3, 4, 5, 6, 7].map(stepNum => (
+        {/* Step 3: Bases */}
+        {(() => {
+          const isStep3Done = activeStep > 3;
+          const isStep3Active = activeStep === 3;
+          const isStep3Locked = activeStep < 3;
+          return (
+            <div className={`bg-white rounded-lg shadow mb-6 ${isStep3Locked ? 'opacity-50' : ''}`}>
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="font-semibold text-gray-900 flex items-center">
+                  <span className={`w-6 h-6 rounded-full text-xs flex items-center justify-center mr-2 ${isStep3Done ? 'bg-green-500 text-white' : isStep3Active ? 'bg-yellow-400 text-black' : 'bg-gray-200 text-gray-400'}`}>
+                    {isStep3Locked ? <Lock size={10} /> : 3}
+                  </span>
+                  Bases
+                  {isStep3Done && <span className="ml-2 text-green-600 text-sm">(Completado)</span>}
+                  {isStep3Locked && <span className="ml-2 text-xs text-gray-400">(Disponible cuando la publicacion este confirmada)</span>}
+                </h2>
+              </div>
+              {!isStep3Locked && (
+                <div className="p-6">
+                  <Step3Bases
+                    licitacion={licitacion}
+                    isAdmin={isAdmin}
+                    onAdvance={() => {}}
+                    onRefresh={() => fetchLicitacion(id as string)}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Step 4: Propuestas */}
+        {(() => {
+          const isStep4Done = activeStep > 4;
+          const isStep4Active = activeStep === 4;
+          const isStep4Locked = activeStep < 4;
+          return (
+            <div className={`bg-white rounded-lg shadow mb-6 ${isStep4Locked ? 'opacity-50' : ''}`}>
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="font-semibold text-gray-900 flex items-center">
+                  <span className={`w-6 h-6 rounded-full text-xs flex items-center justify-center mr-2 ${isStep4Done ? 'bg-green-500 text-white' : isStep4Active ? 'bg-yellow-400 text-black' : 'bg-gray-200 text-gray-400'}`}>
+                    {isStep4Locked ? <Lock size={10} /> : 4}
+                  </span>
+                  Propuestas
+                  {isStep4Done && <span className="ml-2 text-green-600 text-sm">(Completado)</span>}
+                  {isStep4Locked && <span className="ml-2 text-xs text-gray-400">(Disponible en Paso 3)</span>}
+                </h2>
+              </div>
+              {!isStep4Locked && (
+                <div className="p-6">
+                  <Step4Propuestas
+                    licitacion={licitacion}
+                    isAdmin={isAdmin}
+                    onAdvance={() => {}}
+                    onRefresh={() => fetchLicitacion(id as string)}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Steps 5-7: Locked */}
+        {[5, 6, 7].map(stepNum => (
           <div key={stepNum} className="bg-white rounded-lg shadow mb-4 opacity-50">
             <div className="px-6 py-4">
               <h2 className="font-semibold text-gray-500 flex items-center text-sm">

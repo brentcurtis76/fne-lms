@@ -173,3 +173,162 @@ export const LicitacionFiltersSchema = z.object({
 });
 
 export type LicitacionFilters = z.infer<typeof LicitacionFiltersSchema>;
+
+// ============================================================
+// ATE (Asistencia Tecnica Educativa) TYPES
+// ============================================================
+
+export interface LicitacionAte {
+  id: string;
+  licitacion_id: string;
+  nombre_ate: string;
+  rut_ate?: string | null;
+  nombre_contacto?: string | null;
+  email?: string | null;
+  telefono?: string | null;
+  fecha_solicitud_bases?: string | null;
+  fecha_envio_bases?: string | null;
+  propuesta_url?: string | null;
+  propuesta_filename?: string | null;
+  propuesta_size?: number | null;
+  propuesta_mime_type?: string | null;
+  fecha_propuesta?: string | null;
+  monto_propuesto?: number | null;
+  puntaje_tecnico?: number | null;
+  puntaje_economico?: number | null;
+  es_ganador?: boolean | null;
+  notas?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const CreateAteSchema = z.object({
+  nombre_ate: z.string().min(1, 'Nombre ATE requerido').max(255, 'Nombre demasiado largo'),
+  rut_ate: z.string().max(20, 'RUT demasiado largo').optional().nullable(),
+  nombre_contacto: z.string().max(255, 'Nombre demasiado largo').optional().nullable(),
+  email: z.string().email('Correo electronico invalido').optional().nullable(),
+  telefono: z.string().max(50, 'Telefono demasiado largo').optional().nullable(),
+  fecha_solicitud_bases: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD').optional().nullable(),
+});
+
+export type CreateAteInput = z.infer<typeof CreateAteSchema>;
+
+export const UpdateAteSchema = z.object({
+  nombre_ate: z.string().min(1, 'Nombre ATE requerido').max(255).optional(),
+  rut_ate: z.string().max(20).optional().nullable(),
+  nombre_contacto: z.string().max(255).optional().nullable(),
+  email: z.string().email('Correo invalido').optional().nullable(),
+  telefono: z.string().max(50).optional().nullable(),
+  fecha_solicitud_bases: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  fecha_envio_bases: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+  notas: z.string().max(2000).optional().nullable(),
+  // Proposal metadata (updated via PATCH after upload)
+  propuesta_url: z.string().max(2048).optional().nullable(),
+  propuesta_filename: z.string().max(255).optional().nullable(),
+  propuesta_size: z.number().int().positive().optional().nullable(),
+  propuesta_mime_type: z.string().max(100).optional().nullable(),
+  fecha_propuesta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
+});
+
+export type UpdateAteInput = z.infer<typeof UpdateAteSchema>;
+
+// ============================================================
+// CONSULTA TYPES
+// ============================================================
+
+export interface LicitacionConsulta {
+  id: string;
+  licitacion_id: string;
+  ate_id?: string | null;
+  pregunta: string;
+  respuesta?: string | null;
+  fecha_pregunta?: string | null;
+  fecha_respuesta?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const CreateConsultaSchema = z.object({
+  pregunta: z.string().min(1, 'Pregunta requerida').max(2000, 'Pregunta demasiado larga'),
+  respuesta: z.string().max(2000, 'Respuesta demasiado larga').optional().nullable(),
+  fecha_pregunta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD').optional().nullable(),
+  fecha_respuesta: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD').optional().nullable(),
+  ate_id: z.string().uuid('UUID invalido').optional().nullable(),
+});
+
+export type CreateConsultaInput = z.infer<typeof CreateConsultaSchema>;
+
+// ============================================================
+// BASES TEMPLATE TYPES
+// ============================================================
+
+export interface ProgramaBasesTemplate {
+  id: string;
+  programa_id: string;
+  nombre_servicio: string;
+  objetivo: string;
+  objetivos_especificos: string[];
+  especificaciones_admin: {
+    frecuencia?: string;
+    lugar?: string;
+    contrapartes_tecnicas?: string;
+    condiciones_pago?: string;
+  };
+  resultados_esperados: string[];
+  requisitos_ate: string[];
+  documentos_adjuntar: string[];
+  condiciones_pago?: string | null;
+  version: number;
+  is_active: boolean;
+  created_by?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const BasesTemplateSchema = z.object({
+  nombre_servicio: z.string().min(1, 'Nombre del servicio requerido').max(500),
+  objetivo: z.string().min(1, 'Objetivo requerido').max(5000),
+  objetivos_especificos: z.array(z.string().min(1)).min(1, 'Al menos un objetivo especifico requerido'),
+  especificaciones_admin: z.object({
+    frecuencia: z.string().max(1000).optional(),
+    lugar: z.string().max(1000).optional(),
+    contrapartes_tecnicas: z.string().max(1000).optional(),
+    condiciones_pago: z.string().max(1000).optional(),
+  }),
+  resultados_esperados: z.array(z.string().min(1)).min(1, 'Al menos un resultado esperado requerido'),
+  requisitos_ate: z.array(z.string().min(1)).min(1, 'Al menos un requisito ATE requerido'),
+  documentos_adjuntar: z.array(z.string().min(1)).min(1, 'Al menos un documento requerido'),
+  condiciones_pago: z.string().max(3000).optional().nullable(),
+});
+
+export type BasesTemplateInput = z.infer<typeof BasesTemplateSchema>;
+
+// ============================================================
+// ADVANCE STATE TYPES
+// ============================================================
+
+export const AdvanceStateSchema = z.object({
+  target_estado: z.enum([
+    'propuestas_pendientes',
+    'evaluacion_pendiente',
+  ]),
+});
+
+export type AdvanceStateInput = z.infer<typeof AdvanceStateSchema>;
+
+// ============================================================
+// LICITACION DOCUMENTO TYPE
+// ============================================================
+
+export interface LicitacionDocumento {
+  id: string;
+  licitacion_id: string;
+  tipo: string;
+  nombre: string;
+  storage_path: string;
+  file_name: string;
+  file_size?: number | null;
+  mime_type?: string | null;
+  uploaded_by?: string | null;
+  created_at: string;
+}

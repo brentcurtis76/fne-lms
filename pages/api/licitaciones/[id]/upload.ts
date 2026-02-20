@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import formidable from 'formidable';
 import { readFileSync } from 'fs';
 import { randomUUID } from 'crypto';
+import { fromFile } from 'file-type';
 import {
   getApiUser,
   createServiceRoleClient,
@@ -101,13 +102,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, 'No se proporciono ningun archivo', 400);
     }
 
-    const mimeType = file.mimetype || 'application/octet-stream';
-    if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-      return sendAuthError(res, 'Tipo de archivo no permitido. Se aceptan PDF, Word e imagenes.', 400);
-    }
-
     if (file.size > MAX_FILE_SIZE) {
       return sendAuthError(res, 'El archivo excede el tamano maximo de 25 MB', 400);
+    }
+
+    // Validate MIME type from magic bytes (not user-controlled Content-Type header)
+    const detected = await fromFile(file.filepath);
+    // Use detected MIME if available; fall back to header MIME only if magic bytes
+    // can't identify the file (e.g., plain text, CSV) AND the header value is allowed
+    const mimeType = detected?.mime || file.mimetype || 'application/octet-stream';
+    if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+      return sendAuthError(res, 'Tipo de archivo no permitido. Se aceptan PDF, Word e imagenes.', 400);
     }
 
     // Read file buffer

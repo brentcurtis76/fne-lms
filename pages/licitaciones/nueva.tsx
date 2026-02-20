@@ -487,12 +487,13 @@ export default function NuevaLicitacionPage() {
 
               {/* Peso evaluacion */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="field-peso_evaluacion_tecnica" className="block text-sm font-medium text-gray-700 mb-1">
                   Peso Evaluacion Tecnica <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center space-x-4">
                   <div className="flex-1">
                     <input
+                      id="field-peso_evaluacion_tecnica"
                       type="range"
                       min="1"
                       max="99"

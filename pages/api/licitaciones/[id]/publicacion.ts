@@ -11,6 +11,7 @@ import { getUserRoles } from '@/utils/roleUtils';
 import { PublicacionSchema } from '@/types/licitaciones';
 import { confirmPublicacion } from '@/lib/licitacionService';
 import { uuidSchema } from '@/lib/validation/schemas';
+import notificationService from '@/lib/notificationService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-publicacion');
@@ -73,6 +74,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       parseResult.data,
       user.id
     );
+
+    // Fire-and-forget notification
+    Promise.resolve(
+      serviceClient
+        .from('schools')
+        .select('name')
+        .eq('id', updated.school_id)
+        .single()
+    ).then(({ data: school }) => {
+        return notificationService.triggerNotification('licitacion_published', {
+          licitacion_id: updated.id,
+          numero_licitacion: updated.numero_licitacion,
+          school_id: updated.school_id,
+          school_name: school?.name || '',
+          fecha_publicacion: updated.fecha_publicacion || '',
+        });
+      })
+      .catch(err => console.error('Notification trigger failed (licitacion_published):', err));
 
     return sendApiResponse(res, { licitacion: updated });
   } catch (err) {

@@ -34,10 +34,23 @@ export const ESTADO_DISPLAY: Record<LicitacionEstado, StatusDisplayInfo> = {
   propuestas_pendientes: { label: 'Propuestas Pendientes', color: 'text-blue-800', bg: 'bg-blue-100' },
   evaluacion_pendiente: { label: 'Evaluación Pendiente', color: 'text-orange-800', bg: 'bg-orange-100' },
   adjudicacion_pendiente: { label: 'Adjudicación Pendiente', color: 'text-orange-800', bg: 'bg-orange-100' },
-  contrato_pendiente: { label: 'Contrato Pendiente', color: 'text-purple-800', bg: 'bg-purple-100' },
+  contrato_pendiente: { label: 'Contrato Pendiente', color: 'text-gray-700', bg: 'bg-gray-100' },
   contrato_generado: { label: 'Contrato Generado', color: 'text-green-800', bg: 'bg-green-100' },
-  adjudicada_externo: { label: 'Adjudicada (Externa)', color: 'text-teal-800', bg: 'bg-teal-100' },
+  adjudicada_externo: { label: 'Adjudicada (Externa)', color: 'text-green-800', bg: 'bg-green-100' },
   cerrada: { label: 'Cerrada', color: 'text-gray-800', bg: 'bg-gray-200' },
+};
+
+// ============================================================
+// NEXT ACTION MAP
+// ============================================================
+
+export const NEXT_ACTION: Partial<Record<LicitacionEstado, string>> = {
+  publicacion_pendiente: 'Registrar publicación',
+  recepcion_bases_pendiente: 'Registrar ATEs y enviar bases',
+  propuestas_pendientes: 'Subir propuestas de ATEs',
+  evaluacion_pendiente: 'Completar evaluación',
+  adjudicacion_pendiente: 'Confirmar adjudicación',
+  contrato_pendiente: 'Generar contrato',
 };
 
 // ============================================================
@@ -181,6 +194,7 @@ export const LicitacionFiltersSchema = z.object({
   estado: z.string().optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(20),
+  export: z.enum(['true', 'false']).optional(),
 });
 
 export type LicitacionFilters = z.infer<typeof LicitacionFiltersSchema>;

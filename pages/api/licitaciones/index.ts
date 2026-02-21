@@ -11,6 +11,7 @@ import {
 import { getUserRoles } from '@/utils/roleUtils';
 import { CreateLicitacionSchema, LicitacionFiltersSchema } from '@/types/licitaciones';
 import { createLicitacion } from '@/lib/licitacionService';
+import notificationService from '@/lib/notificationService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-index');
@@ -70,8 +71,14 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       query = query.eq('estado', filters.estado);
     }
 
-    const offset = (filters.page - 1) * filters.limit;
-    query = query.range(offset, offset + filters.limit - 1);
+    // Export mode: admin only, bypasses 50-record limit cap
+    const isExport = filters.export === 'true' && isAdmin;
+    if (isExport) {
+      query = query.limit(10000);
+    } else {
+      const offset = (filters.page - 1) * filters.limit;
+      query = query.range(offset, offset + filters.limit - 1);
+    }
 
     const { data, error, count } = await query;
 
@@ -117,6 +124,24 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     }
 
     const licitacion = await createLicitacion(serviceClient, parseResult.data, user.id);
+
+    // Fire-and-forget notification — fetch school name for the notification body
+    Promise.resolve(
+      serviceClient
+        .from('schools')
+        .select('name')
+        .eq('id', licitacion.school_id)
+        .single()
+    ).then(({ data: school }) => {
+        return notificationService.triggerNotification('licitacion_created', {
+          licitacion_id: licitacion.id,
+          numero_licitacion: licitacion.numero_licitacion,
+          school_id: licitacion.school_id,
+          school_name: school?.name || '',
+        });
+      })
+      .catch(err => console.error('Notification trigger failed (licitacion_created):', err));
+
     return sendApiResponse(res, { licitacion }, 201);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error inesperado';

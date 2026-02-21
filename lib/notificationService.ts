@@ -98,6 +98,57 @@ try {
   throw error;
 }
 
+/**
+ * Helper: resolve notification recipients for licitacion events.
+ * Queries encargados for the given school. If includeAdmins is true,
+ * also includes all admin users. schoolId=0 means admins only.
+ */
+async function getLicitacionRecipients(
+  supabase: SupabaseClient,
+  schoolId: number,
+  includeAdmins: boolean
+): Promise<Array<{ id: string }>> {
+  const recipients: Array<{ id: string }> = [];
+  const seen = new Set<string>();
+
+  // Fetch school encargados (skip if schoolId=0, meaning admins-only)
+  if (schoolId > 0) {
+    const { data: encargados } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role_type', 'encargado_licitacion')
+      .eq('school_id', schoolId);
+
+    if (encargados) {
+      for (const row of encargados) {
+        if (row.user_id && !seen.has(row.user_id)) {
+          seen.add(row.user_id);
+          recipients.push({ id: row.user_id });
+        }
+      }
+    }
+  }
+
+  // Fetch admin users if requested
+  if (includeAdmins) {
+    const { data: adminRoles } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('role_type', 'admin');
+
+    if (adminRoles) {
+      for (const row of adminRoles) {
+        if (row.user_id && !seen.has(row.user_id)) {
+          seen.add(row.user_id);
+          recipients.push({ id: row.user_id });
+        }
+      }
+    }
+  }
+
+  return recipients;
+}
+
 class NotificationService {
   
   /**
@@ -261,6 +312,22 @@ class NotificationService {
               case 'session_reminder_24h':
               case 'session_reminder_1h':
                 finalRelatedUrl = '/consultor/sessions';
+                break;
+              case 'licitacion_created':
+              case 'licitacion_published':
+              case 'licitacion_bases_deadline_1d':
+              case 'licitacion_bases_deadline':
+              case 'licitacion_consultas_deadline_1d':
+              case 'licitacion_consultas_deadline':
+              case 'licitacion_propuestas_open':
+              case 'licitacion_propuestas_deadline_1d':
+              case 'licitacion_propuestas_deadline':
+              case 'licitacion_evaluacion_start':
+              case 'licitacion_evaluacion_deadline_1d':
+              case 'licitacion_evaluacion_complete':
+              case 'licitacion_adjudicada':
+              case 'licitacion_contrato_generado':
+                finalRelatedUrl = '/licitaciones';
                 break;
               default:
                 finalRelatedUrl = '/dashboard';
@@ -455,6 +522,63 @@ class NotificationService {
           }
           break;
 
+        // ── LICITACION EVENTS ──────────────────────────────────────────────
+        case 'licitacion_created':
+        case 'licitacion_published':
+        case 'licitacion_bases_deadline_1d':
+        case 'licitacion_bases_deadline':
+        case 'licitacion_consultas_deadline_1d':
+        case 'licitacion_consultas_deadline':
+        case 'licitacion_propuestas_open':
+        case 'licitacion_propuestas_deadline_1d':
+        case 'licitacion_propuestas_deadline':
+        case 'licitacion_evaluacion_start':
+        case 'licitacion_evaluacion_deadline_1d': {
+          // Recipients: school encargados only
+          const schoolId = typeof eventData.school_id === 'number' ? eventData.school_id : null;
+          if (schoolId !== null) {
+            const licitacionRecipients = await getLicitacionRecipients(
+              supabaseServiceRole,
+              schoolId,
+              false
+            );
+            for (const r of licitacionRecipients) {
+              recipients.push(r);
+            }
+          }
+          break;
+        }
+
+        case 'licitacion_evaluacion_complete':
+        case 'licitacion_adjudicada': {
+          // Recipients: school encargados + admins
+          const schoolId = typeof eventData.school_id === 'number' ? eventData.school_id : null;
+          if (schoolId !== null) {
+            const licitacionRecipients = await getLicitacionRecipients(
+              supabaseServiceRole,
+              schoolId,
+              true
+            );
+            for (const r of licitacionRecipients) {
+              recipients.push(r);
+            }
+          }
+          break;
+        }
+
+        case 'licitacion_contrato_generado': {
+          // Recipients: admins only
+          const adminRecipients = await getLicitacionRecipients(
+            supabaseServiceRole,
+            0,
+            true
+          );
+          for (const r of adminRecipients) {
+            recipients.push(r);
+          }
+          break;
+        }
+
         default:
           console.warn(`⚠️ Unknown event type for recipient determination: ${eventType}`);
       }
@@ -590,6 +714,39 @@ class NotificationService {
         break;
       case 'module_completed':
         eventId = `${eventData.module_id}-${eventData.student_id}`;
+        break;
+      // Licitacion deadline reminders use daily granularity to prevent duplicate firings per page load
+      case 'licitacion_bases_deadline_1d':
+      case 'licitacion_bases_deadline':
+      case 'licitacion_consultas_deadline_1d':
+      case 'licitacion_consultas_deadline':
+      case 'licitacion_propuestas_deadline_1d':
+      case 'licitacion_propuestas_deadline':
+      case 'licitacion_evaluacion_deadline_1d': {
+        const licitId = eventData.licitacion_id || '';
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        return `licitacion_deadline_${licitId}_${eventType}_${today}_${userId}`;
+      }
+      case 'licitacion_created':
+        eventId = (eventData.licitacion_id as string) || '';
+        break;
+      case 'licitacion_published':
+        eventId = `${eventData.licitacion_id || ''}-published`;
+        break;
+      case 'licitacion_propuestas_open':
+        eventId = `${eventData.licitacion_id || ''}-propuestas-open`;
+        break;
+      case 'licitacion_evaluacion_start':
+        eventId = `${eventData.licitacion_id || ''}-evaluacion-start`;
+        break;
+      case 'licitacion_evaluacion_complete':
+        eventId = `${eventData.licitacion_id || ''}-evaluacion-complete`;
+        break;
+      case 'licitacion_adjudicada':
+        eventId = `${eventData.licitacion_id || ''}-adjudicada`;
+        break;
+      case 'licitacion_contrato_generado':
+        eventId = `${eventData.licitacion_id || ''}-contrato`;
         break;
       default:
         // For unknown event types, create a hash of the event data

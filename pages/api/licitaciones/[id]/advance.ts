@@ -11,6 +11,7 @@ import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { AdvanceStateSchema } from '@/types/licitaciones';
 import { advanceState } from '@/lib/licitacionService';
+import notificationService from '@/lib/notificationService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-advance');
@@ -73,6 +74,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Execute state transition (validates prerequisites in service layer)
     const updated = await advanceState(serviceClient, licitacionId, target_estado, user.id);
+
+    // Fire-and-forget notification based on target estado
+    const advanceNotificationMap: Record<string, string> = {
+      propuestas_pendientes: 'licitacion_propuestas_open',
+      evaluacion_pendiente: 'licitacion_evaluacion_start',
+    };
+    const notifEventType = advanceNotificationMap[target_estado];
+    if (notifEventType) {
+      Promise.resolve(
+        serviceClient
+          .from('schools')
+          .select('name')
+          .eq('id', updated.school_id)
+          .single()
+      ).then(({ data: school }) => {
+          return notificationService.triggerNotification(notifEventType, {
+            licitacion_id: updated.id,
+            numero_licitacion: updated.numero_licitacion,
+            school_id: updated.school_id,
+            school_name: school?.name || '',
+          });
+        })
+        .catch(err => console.error(`Notification trigger failed (${notifEventType}):`, err));
+    }
 
     return sendApiResponse(res, { licitacion: updated });
   } catch (err) {

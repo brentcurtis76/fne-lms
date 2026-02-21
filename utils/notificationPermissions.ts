@@ -34,7 +34,8 @@ export const getRequiredRole = (url: string): string | null => {
     '/reportes': ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'],
     '/cursos/': ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'docente'],
     '/tareas': ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'docente'],
-    '/espacio-colaborativo': ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'docente']
+    '/espacio-colaborativo': ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'docente'],
+    '/licitaciones': ['admin', 'encargado_licitacion'],
   };
   
   // Find the first matching route
@@ -67,14 +68,15 @@ export const checkUserAccess = async (url: string, userId: string): Promise<bool
     
     // Check if URL requires admin access
     if (isAdminOnlyRoute(url)) return false;
-    
+
     // Check specific role requirements
     const roleRoutes: Record<string, string[]> = {
       '/reportes': ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'],
       '/cursos/': ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'docente'],
       '/tareas': ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'docente'],
       '/espacio-colaborativo': ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'docente'],
-      '/consultorias': ['admin', 'consultor']
+      '/consultorias': ['admin', 'consultor'],
+      '/licitaciones': ['admin', 'encargado_licitacion'],
     };
     
     // Check if user's role is allowed for this route

@@ -125,4 +125,79 @@ INSERT INTO qa_scenarios (
   2, 6, true, false, false
 );
 
+-- ============================================================================
+-- PHASE 6: NOTIFICATIONS + DASHBOARD POLISH
+-- ============================================================================
+
+INSERT INTO qa_scenarios (
+  role_required, name, description, feature_area, preconditions, steps,
+  priority, estimated_duration_minutes, is_active, automated_only, is_multi_user
+) VALUES
+
+-- LIC-CA-20: Admin ve notificaciones de licitaciones
+(
+  'admin',
+  'LIC-CA-20: Admin recibe notificacion al crear una licitacion',
+  'Verificar que el administrador recibe una notificacion en la campana al crear una nueva licitacion.',
+  'licitaciones',
+  '[{"type":"role","description":"Iniciar sesion como admin"},{"type":"data","description":"Debe existir una escuela con cliente vinculado y al menos un programa activo"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesion como administrador y navegar a Licitaciones","expectedOutcome":"Se muestra el listado de licitaciones"},{"index":2,"instruction":"Hacer clic en \"Nueva Licitacion\" y completar el formulario con los datos requeridos","expectedOutcome":"La licitacion se crea exitosamente y aparece en el listado"},{"index":3,"instruction":"Verificar el icono de campana en la barra superior y hacer clic sobre el","expectedOutcome":"Se muestra una notificacion con el texto que incluye el numero de la licitacion recien creada"},{"index":4,"instruction":"Verificar que la notificacion indica el nombre de la escuela","expectedOutcome":"La notificacion muestra el nombre de la escuela correctamente"}]'::jsonb,
+  2, 5, true, false, false
+),
+
+-- LIC-CA-21: Admin exporta licitaciones a Excel
+(
+  'admin',
+  'LIC-CA-21: Admin exporta el listado de licitaciones a Excel',
+  'Verificar que el boton Exportar a Excel descarga un archivo .xlsx con todas las licitaciones visibles.',
+  'licitaciones',
+  '[{"type":"role","description":"Iniciar sesion como admin"},{"type":"data","description":"Deben existir al menos 3 licitaciones en el sistema"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la pagina de Licitaciones como administrador","expectedOutcome":"Se muestra el listado con el boton \"Exportar a Excel\" en la parte superior"},{"index":2,"instruction":"Hacer clic en el boton \"Exportar a Excel\"","expectedOutcome":"El navegador descarga automaticamente un archivo con extension .xlsx"},{"index":3,"instruction":"Abrir el archivo descargado con Excel u otro programa compatible","expectedOutcome":"El archivo contiene una hoja llamada Licitaciones con 19 columnas de encabezado y una fila por cada licitacion"},{"index":4,"instruction":"Verificar que las columnas incluyen: Numero, Escuela, Programa, Nombre, Estado y Ano","expectedOutcome":"Las 19 columnas aparecen con los encabezados correctos en espanol"}]'::jsonb,
+  2, 6, true, false, false
+),
+
+-- LIC-SV-2: Panel de proximos vencimientos visible en dashboard
+(
+  'admin',
+  'LIC-SV-2: Dashboard muestra panel de proximos vencimientos',
+  'Verificar que el panel de alertas de plazos proximos aparece en el listado cuando hay licitaciones con fechas limite en los proximos 3 dias habiles.',
+  'licitaciones',
+  '[{"type":"role","description":"Iniciar sesion como admin"},{"type":"data","description":"Debe existir al menos una licitacion con una fecha limite dentro de los proximos 3 dias"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la pagina de Licitaciones como administrador","expectedOutcome":"Si hay licitaciones con plazos proximos, aparece un recuadro amarillo encima de la tabla con el titulo \"Proximos Vencimientos\""},{"index":2,"instruction":"Verificar el contenido del recuadro amarillo","expectedOutcome":"Se muestran hasta 5 licitaciones con numero, nombre de escuela, tipo de plazo y fecha exacta"},{"index":3,"instruction":"Verificar que las licitaciones que vencen hoy muestran la etiqueta HOY en rojo","expectedOutcome":"Las licitaciones con vencimiento hoy tienen la etiqueta HOY resaltada en rojo"}]'::jsonb,
+  2, 5, true, false, false
+),
+
+-- LIC-SV-3: Columna Accion Requerida en tabla
+(
+  'admin',
+  'LIC-SV-3: Tabla muestra columna de Accion Requerida',
+  'Verificar que la tabla de licitaciones incluye la columna \"Accion Requerida\" con el texto de accion correspondiente al estado de cada licitacion.',
+  'licitaciones',
+  '[{"type":"role","description":"Iniciar sesion como admin"},{"type":"data","description":"Deben existir licitaciones en distintos estados"}]'::jsonb,
+  '[{"index":1,"instruction":"Navegar a la pagina de Licitaciones como administrador","expectedOutcome":"La tabla muestra la columna \"Accion Requerida\" entre Estado y Ano"},{"index":2,"instruction":"Verificar las licitaciones con estado \"Publicacion Pendiente\"","expectedOutcome":"La columna muestra el texto \"Registrar publicacion\" en azul"},{"index":3,"instruction":"Verificar las licitaciones con estado \"Evaluacion Pendiente\"","expectedOutcome":"La columna muestra el texto \"Completar evaluacion\" en azul"},{"index":4,"instruction":"Verificar las licitaciones con estado \"Cerrada\" o \"Contrato Generado\"","expectedOutcome":"La columna muestra un guion (—) indicando que no hay accion requerida"}]'::jsonb,
+  2, 4, true, false, false
+),
+
+-- LIC-SV-4: Encargado ve subtitulo con nombre de escuela
+(
+  'encargado_licitacion',
+  'LIC-SV-4: Encargado ve subtitulo con nombre de su escuela',
+  'Verificar que el encargado de licitacion ve el subtitulo \"Licitaciones de {nombre_escuela}\" en el listado.',
+  'licitaciones',
+  '[{"type":"role","description":"Iniciar sesion como encargado_licitacion asignado a una escuela"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesion como encargado_licitacion","expectedOutcome":"El sistema muestra el panel principal"},{"index":2,"instruction":"Hacer clic en Licitaciones en el menu lateral","expectedOutcome":"Se abre la pagina con el titulo \"Mis Licitaciones\" y debajo aparece el subtitulo \"Licitaciones de {nombre de la escuela}\""},{"index":3,"instruction":"Verificar que NO aparece el filtro de Escuela en los filtros","expectedOutcome":"El encargado solo ve los filtros de Estado, Ano y Programa (no el filtro de Escuela)"}]'::jsonb,
+  2, 4, true, false, false
+),
+
+-- LIC-WF-6: Panel de accion requerida para encargado
+(
+  'encargado_licitacion',
+  'LIC-WF-6: Encargado ve tarjeta de acciones requeridas',
+  'Verificar que el encargado ve una tarjeta azul con las licitaciones que requieren su atencion.',
+  'licitaciones',
+  '[{"type":"role","description":"Iniciar sesion como encargado_licitacion"},{"type":"data","description":"Debe existir al menos una licitacion en estado que requiere accion (por ejemplo Propuestas Pendientes o Evaluacion Pendiente)"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesion como encargado_licitacion y navegar a Licitaciones","expectedOutcome":"Aparece una tarjeta azul con el titulo \"Acciones Requeridas\" encima de la tabla"},{"index":2,"instruction":"Verificar el contenido de la tarjeta azul","expectedOutcome":"Se muestra una lista con el numero de licitacion y la accion pendiente para cada una"},{"index":3,"instruction":"Hacer clic en una de las licitaciones listadas en la tarjeta","expectedOutcome":"El sistema navega al detalle de esa licitacion"}]'::jsonb,
+  2, 5, true, false, false
+);
+
 COMMIT;

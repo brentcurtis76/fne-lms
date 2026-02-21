@@ -25,6 +25,7 @@ import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { GenerateContractSchema } from '@/types/licitaciones';
 import { linkContractToLicitacion } from '@/lib/licitacionService';
+import notificationService from '@/lib/notificationService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-generate-contract');
@@ -78,6 +79,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       contratoIdParse.data,
       user.id
     );
+
+    // Fire-and-forget notification (admins only)
+    notificationService.triggerNotification('licitacion_contrato_generado', {
+      licitacion_id: updated.id,
+      numero_licitacion: updated.numero_licitacion,
+      school_id: updated.school_id,
+    }).catch(err => console.error('Notification trigger failed (licitacion_contrato_generado):', err));
 
     return sendApiResponse(res, { licitacion: updated });
   } catch (err) {

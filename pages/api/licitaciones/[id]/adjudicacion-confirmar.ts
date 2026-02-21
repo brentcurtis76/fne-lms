@@ -20,6 +20,7 @@ import { getUserRoles } from '@/utils/roleUtils';
 import { uuidSchema } from '@/lib/validation/schemas';
 import { ConfirmarAdjudicacionSchema } from '@/types/licitaciones';
 import { confirmAdjudicacion } from '@/lib/licitacionService';
+import notificationService from '@/lib/notificationService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-adjudicacion-confirmar');
@@ -82,6 +83,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Execute confirmation (handles state transition + historial)
     const updated = await confirmAdjudicacion(serviceClient, licitacionId, es_fne, user.id);
+
+    // Fire-and-forget notification (async IIFE to allow sequential fetches)
+    (async () => {
+      try {
+        const { data: school } = await serviceClient
+          .from('schools')
+          .select('name')
+          .eq('id', updated.school_id)
+          .single();
+
+        let ganadorNombre = '';
+        if (updated.ganador_ate_id) {
+          const { data: ateRow } = await serviceClient
+            .from('licitacion_ates')
+            .select('nombre_ate')
+            .eq('id', updated.ganador_ate_id)
+            .single();
+          ganadorNombre = ateRow?.nombre_ate || '';
+        }
+
+        await notificationService.triggerNotification('licitacion_adjudicada', {
+          licitacion_id: updated.id,
+          numero_licitacion: updated.numero_licitacion,
+          school_id: updated.school_id,
+          school_name: school?.name || '',
+          ganador_nombre: ganadorNombre,
+        });
+      } catch (err) {
+        console.error('Notification trigger failed (licitacion_adjudicada):', err);
+      }
+    })();
 
     return sendApiResponse(res, { licitacion: updated });
   } catch (err) {

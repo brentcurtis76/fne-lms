@@ -177,6 +177,13 @@ export default function LicitacionDetailPage() {
     }
   }, [authReady, id]);
 
+  // Fire deadline check on load (fire-and-forget)
+  useEffect(() => {
+    if (!authReady) return;
+    fetch('/api/licitaciones/check-deadlines', { method: 'POST' })
+      .catch(() => { /* intentionally silent */ });
+  }, [authReady]);
+
   const checkAuth = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();

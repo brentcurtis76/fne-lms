@@ -13,7 +13,8 @@ const ROLE_PRIORITY = [
   'lider_comunidad',
   'supervisor_de_red',
   'community_manager',
-  'docente'
+  'docente',
+  'encargado_licitacion'
 ];
 
 /**

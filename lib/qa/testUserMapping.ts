@@ -66,6 +66,12 @@ export const ROLE_TO_QA_TEST_USER: Record<string, QATestUser> = {
     role: 'community_manager',
     displayName: 'Community Manager QA',
   },
+  encargado_licitacion: {
+    email: 'encargado.licitacion.qa@fne.cl',
+    userId: '', // Test user not yet created - will be set up in Phase 2
+    role: 'encargado_licitacion',
+    displayName: 'Encargado Licitación QA',
+  },
 };
 
 /**

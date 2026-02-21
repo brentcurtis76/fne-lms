@@ -20,7 +20,8 @@ async function getServiceRolePrimaryRole(userId: string): Promise<string> {
 
     const roleOrder = [
       'admin', 'consultor', 'equipo_directivo', 'lider_generacion',
-      'lider_comunidad', 'supervisor_de_red', 'community_manager', 'docente'
+      'lider_comunidad', 'supervisor_de_red', 'community_manager', 'docente',
+      'encargado_licitacion'
     ];
 
     for (const roleType of roleOrder) {
@@ -152,7 +153,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         if (schoolUserRoles) {
           const roleOrder = [
             'admin', 'consultor', 'equipo_directivo', 'lider_generacion',
-            'lider_comunidad', 'supervisor_de_red', 'community_manager', 'docente'
+            'lider_comunidad', 'supervisor_de_red', 'community_manager', 'docente',
+            'encargado_licitacion'
           ];
           for (const ur of schoolUserRoles) {
             const existing = userRoleMap.get(ur.user_id);

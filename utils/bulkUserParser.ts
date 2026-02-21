@@ -158,7 +158,7 @@ function parseUserRow(
 
   const roleForValidation = rawRole.trim().toLowerCase();
   const finalRole = roleForValidation || options.defaultRole;
-  const validRoles = ['admin', 'docente', 'inspirador', 'socio_comunitario', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'];
+  const validRoles = ['admin', 'docente', 'inspirador', 'socio_comunitario', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'encargado_licitacion'];
   if (roleForValidation && DANGEROUS_CHARS.includes(roleForValidation.charAt(0))) {
     errors.push(`Rol '${roleForValidation}' inválido`);
   } else if (roleForValidation && !validRoles.includes(roleForValidation)) {

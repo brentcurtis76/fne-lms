@@ -482,7 +482,7 @@ export default function CriteriosAdminPage() {
                                     <button
                                       onClick={() => handleSaveCriterio(c.id)}
                                       disabled={saving[c.id]}
-                                      className="text-green-600 hover:text-green-800 p-1"
+                                      className="text-brand_accent hover:text-brand_accent_hover p-1"
                                       title="Guardar"
                                       aria-label="Guardar criterio"
                                     >
@@ -655,7 +655,7 @@ export default function CriteriosAdminPage() {
 
         {/* Validation warning */}
         {selectedProgramaId && Math.abs(totalActivePuntaje - 100) > 0.01 && criterios.length > 0 && (
-          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-800">
+          <div className="mt-4 bg-yellow-50 border border-yellow-300 rounded-lg px-4 py-3 text-sm text-gray-800">
             ⚠ La suma de puntajes maximos de criterios activos es {totalActivePuntaje.toFixed(1)}, no 100. Ajuste los criterios.
           </div>
         )}

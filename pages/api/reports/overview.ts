@@ -20,7 +20,8 @@ async function getServiceRolePrimaryRole(userId: string): Promise<string> {
 
     const roleOrder = [
       'admin', 'consultor', 'equipo_directivo', 'lider_generacion',
-      'lider_comunidad', 'supervisor_de_red', 'community_manager', 'docente'
+      'lider_comunidad', 'supervisor_de_red', 'community_manager', 'docente',
+      'encargado_licitacion'
     ];
 
     for (const roleType of roleOrder) {

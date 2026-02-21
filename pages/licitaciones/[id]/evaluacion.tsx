@@ -683,7 +683,7 @@ export default function EvaluacionPage() {
 
         {/* Read-only notice if not in editable state */}
         {!isEditable && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 mb-6 text-sm text-blue-800 flex items-center gap-2">
+          <div className="bg-gray-100 border border-gray-300 rounded-lg px-4 py-3 mb-6 text-sm text-gray-700 flex items-center gap-2">
             <AlertTriangle size={16} className="flex-shrink-0" />
             <span>
               {licitacion.estado === 'adjudicacion_pendiente' || ['contrato_pendiente', 'contrato_generado', 'adjudicada_externo', 'cerrada'].includes(licitacion.estado)
@@ -820,7 +820,7 @@ export default function EvaluacionPage() {
 
             {/* Per-ATE Scoring */}
             {ates.length === 0 ? (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center text-sm text-amber-800">
+              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-6 text-center text-sm text-gray-800">
                 No hay ATEs con propuestas registradas para evaluar.
               </div>
             ) : (
@@ -950,7 +950,7 @@ export default function EvaluacionPage() {
                       })}
 
                       {/* Technical subtotal */}
-                      <div className="bg-blue-50 rounded-lg px-4 py-2 text-sm font-medium text-blue-800">
+                      <div className="bg-gray-100 rounded-lg px-4 py-2 text-sm font-medium text-gray-800">
                         Puntaje Tecnico:{' '}
                         {criterios.reduce((sum, c) => {
                           const val = parseFloat(scores[ate.id]?.[c.id]?.puntaje || '0');
@@ -992,7 +992,7 @@ export default function EvaluacionPage() {
                         </div>
                         <div className="w-40 bg-white rounded-lg border border-gray-200 px-3 py-2 text-center">
                           <p className="text-xs text-gray-500 mb-1">Puntaje Economico</p>
-                          <p className="text-lg font-bold text-blue-700">
+                          <p className="text-lg font-bold text-gray-900">
                             {(() => {
                               const row = liveRanking.find(r => r.id === ate.id);
                               return row ? row.puntaje_economico : '-';

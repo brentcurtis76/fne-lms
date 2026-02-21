@@ -54,7 +54,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
 
     let query = supabaseClient
       .from('licitaciones')
-      .select('*, schools(id, name, code)', { count: 'exact' })
+      .select('*, schools(id, name)', { count: 'exact' })
       .order('created_at', { ascending: false });
 
     if (filters.school_id) {

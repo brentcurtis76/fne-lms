@@ -325,7 +325,7 @@ export default function Step6Adjudicacion({
                 <div className="flex items-center gap-2">
                   <span className="font-medium text-sm">{ate.nombre_ate}</span>
                   {idx === 0 && (
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-brand_accent_light text-brand_primary px-2 py-0.5 rounded-full">
                       Mayor puntaje
                     </span>
                   )}
@@ -339,7 +339,7 @@ export default function Step6Adjudicacion({
             </label>
           ))}
           {ates.length === 0 && (
-            <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+            <p className="text-sm text-gray-800 bg-yellow-50 rounded-lg px-3 py-2">
               No hay ATEs evaluadas. Complete el Paso 5 primero.
             </p>
           )}
@@ -527,7 +527,7 @@ export default function Step6Adjudicacion({
           <button
             onClick={() => handleConfirm(false)}
             disabled={confirming || !selectedAteId}
-            className="px-5 py-3 bg-gray-700 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            className="px-5 py-3 bg-brand_primary text-white rounded-lg font-medium hover:bg-brand_gray_dark transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {confirming ? 'Procesando...' : 'No — Proveedor Externo (cerrar proceso)'}
           </button>

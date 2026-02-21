@@ -4,15 +4,16 @@
  */
 
 // Role types enum matching database - Spanish names for consistency
-export type UserRoleType = 
-  | 'admin'               // FNE staff with full platform control (global admin)
-  | 'consultor'           // FNE consultants assigned to specific schools
-  | 'equipo_directivo'    // School-level administrators  
-  | 'lider_generacion'    // Leaders of Tractor/Innova generations
-  | 'lider_comunidad'     // Leaders of Growth Communities (2-16 teachers)
-  | 'supervisor_de_red'   // Network supervisors with limited reporting access
-  | 'community_manager'   // Community managers with access to content and reports
-  | 'docente';            // Regular teachers/course participants
+export type UserRoleType =
+  | 'admin'                   // FNE staff with full platform control (global admin)
+  | 'consultor'               // FNE consultants assigned to specific schools
+  | 'equipo_directivo'        // School-level administrators
+  | 'lider_generacion'        // Leaders of Tractor/Innova generations
+  | 'lider_comunidad'         // Leaders of Growth Communities (2-16 teachers)
+  | 'supervisor_de_red'       // Network supervisors with limited reporting access
+  | 'community_manager'       // Community managers with access to content and reports
+  | 'docente'                 // Regular teachers/course participants
+  | 'encargado_licitacion';   // Procurement managers for school ATE contracting under Ley SEP
 
 // Organizational entities
 export interface School {
@@ -263,6 +264,21 @@ export const ROLE_HIERARCHY: Record<UserRoleType, RolePermissions> = {
     can_manage_communities: false,
     reporting_scope: 'individual',
     feedback_scope: 'individual'
+  },
+  encargado_licitacion: {
+    can_create_courses: false,
+    can_edit_all_courses: false,
+    can_delete_courses: false,
+    can_assign_courses: false,
+    can_create_users: false,
+    can_edit_users: false,
+    can_delete_users: false,
+    can_assign_roles: false,
+    can_manage_schools: false,
+    can_manage_generations: false,
+    can_manage_communities: false,
+    reporting_scope: 'school',
+    feedback_scope: 'school'
   }
 };
 
@@ -275,7 +291,8 @@ export const ROLE_NAMES: Record<UserRoleType, string> = {
   lider_comunidad: 'Líder de Comunidad',
   supervisor_de_red: 'Supervisor de Red',
   community_manager: 'Community Manager',
-  docente: 'Docente'
+  docente: 'Docente',
+  encargado_licitacion: 'Encargado de Licitacion'
 };
 
 // Role descriptions
@@ -287,7 +304,8 @@ export const ROLE_DESCRIPTIONS: Record<UserRoleType, string> = {
   lider_comunidad: 'Líderes de Comunidades de Crecimiento (2-16 miembros). Crean automáticamente su propia comunidad.',
   supervisor_de_red: 'Supervisores con acceso limitado a reportes de una red específica de colegios. Pueden inscribirse en cursos como estudiantes.',
   community_manager: 'Gestores de comunidad con acceso a panel, perfil, aprendizaje, cursos y rendición de gastos.',
-  docente: 'Docentes participantes en cursos. Pueden pertenecer a comunidades para colaboración.'
+  docente: 'Docentes participantes en cursos. Pueden pertenecer a comunidades para colaboración.',
+  encargado_licitacion: 'Encargados de procesos de licitacion en establecimientos educacionales. Gestionan el proceso de contratacion de ATEs bajo Ley SEP.'
 };
 
 // Utility type for permission checking
@@ -350,6 +368,12 @@ export const ROLE_ORGANIZATIONAL_REQUIREMENTS: Record<UserRoleType, RoleOrganiza
     requiresGeneration: false,
     requiresCommunity: false,
     description: 'Must be assigned to a specific school'
+  },
+  encargado_licitacion: {
+    requiresSchool: true,
+    requiresGeneration: false,
+    requiresCommunity: false,
+    description: 'Must be assigned to a specific school for procurement management'
   }
 };
 

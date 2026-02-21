@@ -178,7 +178,8 @@ export type FeatureArea =
   | 'collaborative_space'
   | 'navigation'
   | 'docente_experience'
-  | 'consultor_sessions';
+  | 'consultor_sessions'
+  | 'licitaciones';
 
 export const FEATURE_AREA_LABELS: Record<FeatureArea, string> = {
   authentication: 'Autenticación',
@@ -198,6 +199,7 @@ export const FEATURE_AREA_LABELS: Record<FeatureArea, string> = {
   navigation: 'Navegación / Sidebar',
   docente_experience: 'Experiencia Docente',
   consultor_sessions: 'Consultorías',
+  licitaciones: 'Licitaciones',
 };
 
 export const PRIORITY_LABELS: Record<number, string> = {

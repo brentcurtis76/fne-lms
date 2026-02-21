@@ -137,7 +137,7 @@ export interface LicitacionDetail extends Licitacion {
   } | null;
   programa?: {
     id: string;
-    name: string;
+    nombre: string;
   } | null;
 }
 

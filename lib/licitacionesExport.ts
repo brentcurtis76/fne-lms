@@ -28,7 +28,7 @@ export interface LicitacionExportRow {
   monto_adjudicado_uf?: number | null;
   contrato_id?: string | null;
   schools?: { name: string } | null;
-  programa?: { name: string } | null;
+  programa?: { nombre: string } | null;
   ganador_ate?: { nombre_ate: string } | null;
 }
 
@@ -80,7 +80,7 @@ export class LicitacionesExport {
       rows.push([
         lic.numero_licitacion,
         lic.schools?.name || '',
-        lic.programa?.name || '',
+        lic.programa?.nombre || '',
         lic.nombre_licitacion,
         estadoLabel,
         lic.year,

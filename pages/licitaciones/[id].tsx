@@ -459,7 +459,7 @@ export default function LicitacionDetailPage() {
               <div>
                 <h3 className="text-sm font-semibold text-gray-700 mb-3">Informacion General</h3>
                 <InfoRow label="Numero" value={licitacion.numero_licitacion} />
-                <InfoRow label="Programa" value={licitacion.programa?.name || licitacion.programa_id} />
+                <InfoRow label="Programa" value={licitacion.programa?.nombre || licitacion.programa_id} />
                 <InfoRow label="Ano" value={licitacion.year} />
                 <InfoRow label="Correo licitacion" value={licitacion.email_licitacion} />
               </div>

@@ -27,7 +27,7 @@ interface Cliente {
 
 interface Programa {
   id: string;
-  name: string;
+  nombre: string;
 }
 
 interface FormData {
@@ -127,8 +127,8 @@ export default function NuevaLicitacionPage() {
   const fetchProgramas = async () => {
     const { data, error } = await supabase
       .from('programas')
-      .select('id, name')
-      .order('name');
+      .select('id, nombre')
+      .order('nombre');
     if (!error) setProgramas(data || []);
   };
 
@@ -388,7 +388,7 @@ export default function NuevaLicitacionPage() {
               >
                 <option value="">Seleccione un programa...</option>
                 {programas.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
                 ))}
               </select>
             </Field>

@@ -200,7 +200,7 @@ export async function createLicitacion(
   // 4. Validate programa exists
   const { data: programa, error: programaError } = await supabase
     .from('programas')
-    .select('id, name')
+    .select('id, nombre')
     .eq('id', data.programa_id)
     .single();
 
@@ -415,7 +415,7 @@ export async function getLicitacionDetail(
   if (licitacion.programa_id) {
     const { data: programaData } = await supabase
       .from('programas')
-      .select('id, name')
+      .select('id, nombre')
       .eq('id', licitacion.programa_id)
       .single();
     programa = programaData;

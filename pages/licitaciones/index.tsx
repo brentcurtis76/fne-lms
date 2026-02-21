@@ -30,7 +30,7 @@ interface LicitacionRow {
   school_id?: number;
   programa_id?: string;
   schools?: { id: number; name: string } | null;
-  programa?: { id: string; name: string } | null;
+  programa?: { id: string; nombre: string } | null;
   ganador_ate?: { nombre_ate: string } | null;
 }
 
@@ -41,7 +41,7 @@ interface SchoolOption {
 
 interface ProgramaOption {
   id: string;
-  name: string;
+  nombre: string;
 }
 
 interface DeadlineItem {
@@ -226,7 +226,7 @@ export default function LicitacionesPage() {
     try {
       const [schoolsResult, programasResult] = await Promise.all([
         supabase.from('schools').select('id, name').order('name'),
-        supabase.from('programas').select('id, name').order('name'),
+        supabase.from('programas').select('id, nombre').order('nombre'),
       ]);
       if (!schoolsResult.error) {
         setSchools(schoolsResult.data || []);
@@ -243,8 +243,8 @@ export default function LicitacionesPage() {
     try {
       const { data, error } = await supabase
         .from('programas')
-        .select('id, name')
-        .order('name');
+        .select('id, nombre')
+        .order('nombre');
       if (!error) {
         setProgramas(data || []);
       }
@@ -496,7 +496,7 @@ export default function LicitacionesPage() {
                 >
                   <option value="">Todos los programas</option>
                   {programas.map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
                   ))}
                 </select>
               </div>

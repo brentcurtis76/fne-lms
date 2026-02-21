@@ -8,7 +8,6 @@ import { ArrowLeft, Building, Info } from 'lucide-react';
 interface School {
   id: number;
   name: string;
-  code?: string | null;
   cliente_id?: string | null;
 }
 
@@ -119,7 +118,7 @@ export default function NuevaLicitacionPage() {
   const fetchSchools = async () => {
     const { data, error } = await supabase
       .from('schools')
-      .select('id, name, code, cliente_id')
+      .select('id, name, cliente_id')
       .order('name');
     if (!error) setSchools(data || []);
   };
@@ -326,7 +325,7 @@ export default function NuevaLicitacionPage() {
                   <option value="">Seleccione una escuela...</option>
                   {schools.map(s => (
                     <option key={s.id} value={String(s.id)}>
-                      {s.name} {s.code ? `(${s.code})` : ''}
+                      {s.name}
                     </option>
                   ))}
                 </select>

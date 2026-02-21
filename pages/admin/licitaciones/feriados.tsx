@@ -61,20 +61,31 @@ export default function FeriadosAdminPage() {
   const [addingSaving, setAddingSaving] = useState(false);
 
   // ============================================================
+  // Data loading
+  // ============================================================
+
+  const loadFeriados = useCallback(async (year: number) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/licitaciones/feriados?year=${year}`);
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Error al cargar feriados');
+      }
+      const json = await res.json();
+      setFeriados(json.data?.feriados || []);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al cargar feriados');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // ============================================================
   // Auth check
   // ============================================================
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
-
-  useEffect(() => {
-    if (authReady) {
-      loadFeriados(selectedYear);
-    }
-  }, [authReady, selectedYear]);
-
-  const checkAuth = async () => {
+  const checkAuth = useCallback(async () => {
     try {
       const {
         data: { user },
@@ -104,28 +115,17 @@ export default function FeriadosAdminPage() {
     } catch {
       router.push('/login');
     }
-  };
+  }, [supabase, router]);
 
-  // ============================================================
-  // Data loading
-  // ============================================================
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
-  const loadFeriados = useCallback(async (year: number) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/licitaciones/feriados?year=${year}`);
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Error al cargar feriados');
-      }
-      const json = await res.json();
-      setFeriados(json.data?.feriados || []);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Error al cargar feriados');
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (authReady) {
+      loadFeriados(selectedYear);
     }
-  }, []);
+  }, [authReady, selectedYear, loadFeriados]);
 
   // ============================================================
   // Add feriado

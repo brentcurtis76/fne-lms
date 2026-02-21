@@ -128,12 +128,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const zipRootFolder = licitacion.numero_licitacion || licitacionId;
 
     let totalBytesProcessed = 0;
+    const skippedFiles: string[] = [];
 
     for (const doc of documentos as LicitacionDocumento[]) {
       // Validate storage_path to prevent path traversal
       const storagePath = doc.storage_path;
       if (!storagePath || storagePath.includes('..') || storagePath.startsWith('/')) {
-        // Skip invalid paths
+        skippedFiles.push(doc.file_name || doc.id);
         continue;
       }
 
@@ -143,7 +144,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .download(storagePath);
 
       if (downloadError || !fileData) {
-        // Log and skip missing files rather than failing the whole ZIP
+        // Log and track missing files rather than failing the whole ZIP
+        skippedFiles.push(doc.file_name || doc.id);
         continue;
       }
 
@@ -164,6 +166,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Add file to ZIP with folder structure
       zip.folder(`${zipRootFolder}/${folder}`)?.file(fileName, fileBuffer);
+    }
+
+    // Include manifest of skipped files if any
+    if (skippedFiles.length > 0) {
+      zip.folder(zipRootFolder)?.file(
+        '_archivos_faltantes.txt',
+        `Los siguientes archivos no pudieron ser incluidos en el ZIP:\n${skippedFiles.join('\n')}`
+      );
     }
 
     // Generate ZIP buffer

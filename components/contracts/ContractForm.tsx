@@ -705,7 +705,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       }
       
       alert('✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.');
-      onSuccess();
+      onSuccess(contractId);
     } catch (error: any) {
       console.error('Error saving draft:', error);
       alert(error.message || 'Error al guardar el borrador. Por favor intente nuevamente.');

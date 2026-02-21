@@ -218,7 +218,7 @@ export default function Step7Contrato({
               </div>
             </div>
             <a
-              href={`/contracts`}
+              href={`/contracts?contrato_id=${contrato_id}`}
               className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
             >
               <ExternalLink size={14} />
@@ -375,7 +375,7 @@ export default function Step7Contrato({
           {contrato_id && (
             <div className="col-span-2">
               <a
-                href="/contracts"
+                href={`/contracts?contrato_id=${contrato_id}`}
                 className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-sm font-medium"
               >
                 <ExternalLink size={14} />

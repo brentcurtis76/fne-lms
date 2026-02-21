@@ -176,8 +176,18 @@ export default function ContractsPage() {
           loadClientes()
         ]);
         
-        // Check if coming from schools page with pre-selected client
-        const { cliente_id, school_name, tab, licitacion_id } = router.query;
+        // Check if coming from licitacion with a specific contract to view
+        const { cliente_id, school_name, tab, licitacion_id, contrato_id } = router.query;
+        if (contrato_id && typeof contrato_id === 'string') {
+          const { data: targetContrato } = await supabase
+            .from('contratos')
+            .select(`*, clientes(*), programas(*), cuotas(*)`)
+            .eq('id', contrato_id)
+            .single();
+          if (targetContrato) {
+            setSelectedContrato(targetContrato);
+          }
+        }
         if (cliente_id && typeof cliente_id === 'string') {
           setActiveTab('nuevo');
           setPreSelectedClientId(cliente_id);

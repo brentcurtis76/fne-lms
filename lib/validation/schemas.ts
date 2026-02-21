@@ -148,6 +148,7 @@ export const roleTypeSchema = z.enum([
   'community_manager',
   'docente',
   'supervisor_de_red',
+  'encargado_licitacion',
 ]);
 
 /**

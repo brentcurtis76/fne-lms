@@ -63,7 +63,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Validate role type
-    const validRoles: UserRoleType[] = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'community_manager', 'docente'];
+    const validRoles: UserRoleType[] = ['admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'community_manager', 'docente', 'supervisor_de_red', 'encargado_licitacion'];
     if (!validRoles.includes(roleType)) {
       return res.status(400).json({ error: 'Invalid role type' });
     }
@@ -265,7 +265,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Update user's profile school_id if assigning a school-level role
-    if (schoolId && ['equipo_directivo', 'lider_generacion', 'lider_comunidad', 'docente', 'community_manager'].includes(roleType)) {
+    if (schoolId && ['equipo_directivo', 'lider_generacion', 'lider_comunidad', 'docente', 'community_manager', 'encargado_licitacion'].includes(roleType)) {
       console.log('[assign-role API] Updating profile school_id:', { targetUserId, schoolId });
 
       // Get school name for backward compatibility with profile.school field

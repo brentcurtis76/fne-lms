@@ -216,13 +216,14 @@ export function getHighestRole(roles: UserRole[]): UserRoleType | null {
 
   const roleOrder: UserRoleType[] = [
     'admin',
-    'consultor', 
+    'consultor',
     'equipo_directivo',
     'lider_generacion',
     'lider_comunidad',
     'supervisor_de_red',
     'community_manager',
-    'docente'
+    'docente',
+    'encargado_licitacion'
   ];
 
   for (const roleType of roleOrder) {
@@ -780,7 +781,8 @@ export async function getCommunityMembersByRole(supabase: SupabaseClient, commun
       lider_comunidad: [],
       supervisor_de_red: [],
       community_manager: [],
-      docente: []
+      docente: [],
+      encargado_licitacion: []
     };
 
     members.forEach(member => {
@@ -801,7 +803,8 @@ export async function getCommunityMembersByRole(supabase: SupabaseClient, commun
       lider_comunidad: [],
       supervisor_de_red: [],
       community_manager: [],
-      docente: []
+      docente: [],
+      encargado_licitacion: []
     };
   }
 }

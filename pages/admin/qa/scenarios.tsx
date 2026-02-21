@@ -430,6 +430,7 @@ const QAScenarioManagementPage: React.FC = () => {
               <option value="estudiante">estudiante</option>
               <option value="apoderado">apoderado</option>
               <option value="consultor">consultor</option>
+              <option value="encargado_licitacion">encargado_licitacion</option>
             </select>
 
             <select

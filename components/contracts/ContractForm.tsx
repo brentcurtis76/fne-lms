@@ -84,17 +84,30 @@ interface ContractFormState {
   cliente_id?: string;
 }
 
+interface LicitacionFormData {
+  cliente_id: string;
+  programa_id: string;
+  precio_total_uf?: number | null;
+  tipo_moneda?: 'UF' | 'CLP';
+  fecha_adjudicacion?: string | null;
+  condiciones_pago?: string | null;
+  monto_minimo?: number;
+  monto_maximo?: number;
+}
+
 interface ContractFormProps {
   programas: Programa[];
   clientes: Cliente[];
   editingContract?: any; // Contract being edited
   preSelectedClientId?: string;
   extractedData?: any; // Data extracted from PDF
-  onSuccess: () => void;
+  licitacionId?: string; // Phase 5: link from licitacion
+  licitacionData?: LicitacionFormData; // Phase 5: pre-populated data from licitacion
+  onSuccess: (contratoId?: string) => void; // Phase 5: passes new contratoId
   onCancel: () => void;
 }
 
-export default function ContractForm({ programas, clientes, editingContract, preSelectedClientId, extractedData, onSuccess, onCancel }: ContractFormProps) {
+export default function ContractForm({ programas, clientes, editingContract, preSelectedClientId, extractedData, licitacionId, licitacionData, onSuccess, onCancel }: ContractFormProps) {
   const supabase = useSupabaseClient();
   // Form states
   const [loading, setLoading] = useState(false);
@@ -330,6 +343,65 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       }
     }
   }, [editingContract]);
+
+  // Populate form from licitacion data (Phase 5)
+  useEffect(() => {
+    if (!licitacionData || editingContract) return;
+
+    // Pre-populate contract form fields from licitacion
+    setContractForm(prev => ({
+      ...prev,
+      precio_total_uf: licitacionData.precio_total_uf ?? prev.precio_total_uf,
+      tipo_moneda: licitacionData.tipo_moneda ?? prev.tipo_moneda,
+      fecha_contrato: licitacionData.fecha_adjudicacion ?? prev.fecha_contrato,
+      programa_id: licitacionData.programa_id ?? prev.programa_id,
+    }));
+
+    // Pre-select client (non-editable when from licitacion)
+    if (licitacionData.cliente_id) {
+      const selectedCliente = clientes.find(c => c.id === licitacionData.cliente_id);
+      if (selectedCliente) {
+        setSelectedClienteId(licitacionData.cliente_id);
+        setSelectedSchoolId(selectedCliente.school_id || '');
+        setClienteForm({
+          nombre_legal: selectedCliente.nombre_legal || '',
+          nombre_fantasia: selectedCliente.nombre_fantasia || '',
+          rut: selectedCliente.rut || '',
+          direccion: selectedCliente.direccion || '',
+          comuna: selectedCliente.comuna || '',
+          ciudad: selectedCliente.ciudad || '',
+          nombre_representante: selectedCliente.nombre_representante || '',
+          rut_representante: selectedCliente.rut_representante || '',
+          fecha_escritura: selectedCliente.fecha_escritura || '',
+          nombre_notario: selectedCliente.nombre_notario || '',
+          comuna_notaria: selectedCliente.comuna_notaria || '',
+          nombre_encargado_proyecto: selectedCliente.nombre_encargado_proyecto || '',
+          telefono_encargado_proyecto: selectedCliente.telefono_encargado_proyecto || '',
+          email_encargado_proyecto: selectedCliente.email_encargado_proyecto || '',
+          nombre_contacto_administrativo: selectedCliente.nombre_contacto_administrativo || '',
+          telefono_contacto_administrativo: selectedCliente.telefono_contacto_administrativo || '',
+          email_contacto_administrativo: selectedCliente.email_contacto_administrativo || '',
+        });
+      }
+    }
+
+    // Price warning: if precio_total_uf is outside monto_minimo/monto_maximo range
+    if (
+      licitacionData.precio_total_uf != null &&
+      licitacionData.monto_minimo != null &&
+      licitacionData.monto_maximo != null
+    ) {
+      const precio = licitacionData.precio_total_uf;
+      const min = licitacionData.monto_minimo;
+      const max = licitacionData.monto_maximo;
+      if (precio < min || precio > max) {
+        toast(
+          `Advertencia: el precio adjudicado (${precio} ${licitacionData.tipo_moneda || 'UF'}) esta fuera del rango de la licitacion (${min}–${max} ${licitacionData.tipo_moneda || 'UF'})`,
+          { icon: '⚠️', duration: 6000 }
+        );
+      }
+    }
+  }, [licitacionData, clientes, editingContract]);
 
   // Generate contract number automatically
   useEffect(() => {
@@ -633,7 +705,7 @@ export default function ContractForm({ programas, clientes, editingContract, pre
       }
       
       alert('✅ Contrato guardado como borrador. Puede continuar editándolo más tarde desde la lista de contratos.');
-      onSuccess();
+      onSuccess(contractId);
     } catch (error: any) {
       console.error('Error saving draft:', error);
       alert(error.message || 'Error al guardar el borrador. Por favor intente nuevamente.');
@@ -817,22 +889,25 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           throw new Error('Error: No se pudo determinar el ID del cliente. Por favor, seleccione o cree un cliente válido.');
         }
 
-        console.log('Creating contract with clienteId:', clienteId); // Debug log
-
         // Save contract (ensure empty date strings become null)
+        const newContratoPayload: Record<string, unknown> = {
+          numero_contrato: contractForm.numero_contrato,
+          fecha_contrato: contractForm.fecha_contrato || null,
+          fecha_fin: contractForm.fecha_fin || null,
+          cliente_id: clienteId,
+          programa_id: esManual ? null : contractForm.programa_id, // NULL for manual contracts
+          precio_total_uf: contractForm.precio_total_uf,
+          tipo_moneda: contractForm.tipo_moneda,
+          es_manual: esManual,
+          descripcion_manual: esManual ? contractForm.descripcion_manual : null,
+        };
+        // Phase 5: include licitacion_id if creating from licitacion
+        if (licitacionId) {
+          newContratoPayload.licitacion_id = licitacionId;
+        }
         const { data: newContrato, error: contratoError } = await supabase
           .from('contratos')
-          .insert([{
-            numero_contrato: contractForm.numero_contrato,
-            fecha_contrato: contractForm.fecha_contrato || null,
-            fecha_fin: contractForm.fecha_fin || null,
-            cliente_id: clienteId,
-            programa_id: esManual ? null : contractForm.programa_id, // NULL for manual contracts
-            precio_total_uf: contractForm.precio_total_uf,
-            tipo_moneda: contractForm.tipo_moneda,
-            es_manual: esManual,
-            descripcion_manual: esManual ? contractForm.descripcion_manual : null
-          }])
+          .insert([newContratoPayload])
           .select()
           .single();
 
@@ -858,6 +933,10 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           .insert(cuotasData);
 
         if (cuotasError) throw cuotasError;
+
+        // Phase 5: pass the new contrato ID to parent
+        onSuccess(newContrato?.id);
+        return; // Early return to avoid double-calling onSuccess below
       }
 
       onSuccess();
@@ -1270,8 +1349,25 @@ export default function ContractForm({ programas, clientes, editingContract, pre
     }
   };
 
+  // Determine if we should show the condiciones_pago side panel
+  const showCondicionesPago = !!(licitacionId && licitacionData?.condiciones_pago);
+
   return (
-    <div className="bg-white rounded-lg shadow-md">
+    <div className={`flex gap-4 ${showCondicionesPago ? 'items-start' : ''}`}>
+    {/* Main form */}
+    <div className={`bg-white rounded-lg shadow-md ${showCondicionesPago ? 'flex-1' : 'w-full'}`}>
+      {/* Show notification if licitacion data pre-populated */}
+      {licitacionId && !extractedData && (
+        <div className="bg-blue-50 border-b border-blue-200 px-6 py-3">
+          <div className="flex items-center gap-2">
+            <FileText className="text-blue-600 shrink-0" size={16} />
+            <p className="text-blue-800 text-sm">
+              <strong>Datos pre-cargados desde licitacion.</strong> El cliente, programa y monto
+              han sido completados automaticamente. Revise y complete los campos restantes.
+            </p>
+          </div>
+        </div>
+      )}
       {/* Show notification if data was imported from PDF */}
       {extractedData && (
         <div className="bg-amber-50 border-b border-amber-200 px-6 py-3">
@@ -1383,12 +1479,13 @@ export default function ContractForm({ programas, clientes, editingContract, pre
             {/* Existing Client Selection */}
             <div className="bg-brand_beige border border-brand_accent rounded-lg p-4">
               <label className="block text-sm font-medium text-brand_primary mb-2">
-                Seleccionar Cliente Existente (Opcional)
+                Seleccionar Cliente Existente {licitacionId ? '(Pre-seleccionado desde licitacion)' : '(Opcional)'}
               </label>
               <select
                 value={selectedClienteId}
-                onChange={(e) => handleClienteSelection(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                onChange={(e) => !licitacionId && handleClienteSelection(e.target.value)}
+                disabled={!!licitacionId}
+                className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${licitacionId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
               >
                 <option value="">-- Crear nuevo cliente --</option>
                 {clientes.map(cliente => (
@@ -1397,6 +1494,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   </option>
                 ))}
               </select>
+              {licitacionId && (
+                <p className="text-xs text-blue-600 mt-1">
+                  Cliente fijado por la licitacion. No se puede cambiar.
+                </p>
+              )}
             </div>
 
             {/* School Selection */}
@@ -1860,8 +1962,9 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                   </label>
                   <select
                     value={contractForm.programa_id}
-                    onChange={(e) => setContractForm({ ...contractForm, programa_id: e.target.value })}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    onChange={(e) => !licitacionId && setContractForm({ ...contractForm, programa_id: e.target.value })}
+                    disabled={!!licitacionId}
+                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent ${licitacionId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                   >
                     <option value="">-- Seleccionar programa --</option>
                     {programas.map(programa => (
@@ -1870,6 +1973,11 @@ export default function ContractForm({ programas, clientes, editingContract, pre
                       </option>
                     ))}
                   </select>
+                  {licitacionId && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Programa fijado por la licitacion. No se puede cambiar.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -2124,6 +2232,20 @@ export default function ContractForm({ programas, clientes, editingContract, pre
           </div>
         </div>
       </div>
+    </div>
+    {/* Condiciones de Pago side panel (Phase 5: only when from licitacion) */}
+    {showCondicionesPago && (
+      <div className="w-72 shrink-0">
+        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 sticky top-4">
+          <h4 className="font-semibold text-blue-900 text-sm mb-2">
+            Condiciones de Pago (Licitacion)
+          </h4>
+          <p className="text-blue-800 text-xs leading-relaxed whitespace-pre-wrap">
+            {licitacionData?.condiciones_pago}
+          </p>
+        </div>
+      </div>
+    )}
     </div>
   );
 }

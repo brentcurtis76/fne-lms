@@ -88,7 +88,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (roles && roles.length > 0) {
       const roleOrder = [
         'admin', 'consultor', 'equipo_directivo', 'lider_generacion',
-        'lider_comunidad', 'supervisor_de_red', 'community_manager', 'docente'
+        'lider_comunidad', 'supervisor_de_red', 'community_manager', 'docente',
+        'encargado_licitacion'
       ];
       for (const rt of roleOrder) {
         if (roles.some(r => r.role_type === rt)) { userRole = rt; break; }

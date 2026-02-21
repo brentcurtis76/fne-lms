@@ -490,6 +490,182 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventConfig> = {
   },
 
   // ============================================
+  // LICITACION EVENTS
+  // ============================================
+
+  licitacion_created: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Nueva licitacion: ${d.numero_licitacion}`
+        : 'Nueva licitacion creada',
+    defaultDescription: (d) =>
+      `Se ha creado la licitacion ${d.numero_licitacion || ''} para ${d.school_name || 'una escuela'}.`,
+    defaultUrl: '/licitaciones',
+    importance: 'normal',
+    category: 'licitaciones',
+  },
+
+  licitacion_published: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Publicacion registrada: ${d.numero_licitacion}`
+        : 'Publicacion registrada',
+    defaultDescription: (d) =>
+      `La licitacion ${d.numero_licitacion || ''} ha sido publicada el ${d.fecha_publicacion || ''}.`,
+    defaultUrl: '/licitaciones',
+    importance: 'normal',
+    category: 'licitaciones',
+  },
+
+  licitacion_bases_deadline_1d: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Manana vence plazo de bases: ${d.numero_licitacion}`
+        : 'Manana vence plazo de solicitud de bases',
+    defaultDescription: (d) =>
+      `El plazo de solicitud de bases para la licitacion ${d.numero_licitacion || ''} vence manana.`,
+    defaultUrl: '/licitaciones',
+    importance: 'high',
+    category: 'licitaciones',
+  },
+
+  licitacion_bases_deadline: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Hoy vence plazo de bases: ${d.numero_licitacion}`
+        : 'Hoy vence plazo de solicitud de bases',
+    defaultDescription: (d) =>
+      `El plazo de solicitud de bases para la licitacion ${d.numero_licitacion || ''} vence hoy.`,
+    defaultUrl: '/licitaciones',
+    importance: 'high',
+    category: 'licitaciones',
+  },
+
+  licitacion_consultas_deadline_1d: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Manana vence plazo de consultas: ${d.numero_licitacion}`
+        : 'Manana vence plazo de consultas',
+    defaultDescription: (d) =>
+      `El plazo de consultas para la licitacion ${d.numero_licitacion || ''} vence manana.`,
+    defaultUrl: '/licitaciones',
+    importance: 'high',
+    category: 'licitaciones',
+  },
+
+  licitacion_consultas_deadline: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Hoy vence plazo de consultas: ${d.numero_licitacion}`
+        : 'Hoy vence plazo de consultas',
+    defaultDescription: (d) =>
+      `El plazo de consultas para la licitacion ${d.numero_licitacion || ''} vence hoy.`,
+    defaultUrl: '/licitaciones',
+    importance: 'high',
+    category: 'licitaciones',
+  },
+
+  licitacion_propuestas_open: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Ventana de propuestas abierta: ${d.numero_licitacion}`
+        : 'Ventana de propuestas abierta',
+    defaultDescription: (d) =>
+      `La ventana de recepcion de propuestas para la licitacion ${d.numero_licitacion || ''} ya esta abierta.`,
+    defaultUrl: '/licitaciones',
+    importance: 'normal',
+    category: 'licitaciones',
+  },
+
+  licitacion_propuestas_deadline_1d: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Manana vence plazo de propuestas: ${d.numero_licitacion}`
+        : 'Manana vence plazo de propuestas',
+    defaultDescription: (d) =>
+      `El plazo de recepcion de propuestas para la licitacion ${d.numero_licitacion || ''} vence manana.`,
+    defaultUrl: '/licitaciones',
+    importance: 'high',
+    category: 'licitaciones',
+  },
+
+  licitacion_propuestas_deadline: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Hoy vence plazo de propuestas: ${d.numero_licitacion}`
+        : 'Hoy vence plazo de propuestas',
+    defaultDescription: (d) =>
+      `El plazo de recepcion de propuestas para la licitacion ${d.numero_licitacion || ''} vence hoy.`,
+    defaultUrl: '/licitaciones',
+    importance: 'high',
+    category: 'licitaciones',
+  },
+
+  licitacion_evaluacion_start: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Evaluacion iniciada: ${d.numero_licitacion}`
+        : 'Periodo de evaluacion iniciado',
+    defaultDescription: (d) =>
+      `El periodo de evaluacion para la licitacion ${d.numero_licitacion || ''} ha comenzado.`,
+    defaultUrl: '/licitaciones',
+    importance: 'normal',
+    category: 'licitaciones',
+  },
+
+  licitacion_evaluacion_deadline_1d: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Manana vence plazo de evaluacion: ${d.numero_licitacion}`
+        : 'Manana vence plazo de evaluacion',
+    defaultDescription: (d) =>
+      `El plazo de evaluacion para la licitacion ${d.numero_licitacion || ''} vence manana.`,
+    defaultUrl: '/licitaciones',
+    importance: 'high',
+    category: 'licitaciones',
+  },
+
+  licitacion_evaluacion_complete: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Evaluacion completada: ${d.numero_licitacion}`
+        : 'Evaluacion completada',
+    defaultDescription: (d) => {
+      const winner = d.ganador_nombre ? ` ATE ganadora: ${d.ganador_nombre}.` : '';
+      return `La evaluacion de la licitacion ${d.numero_licitacion || ''} ha sido completada.${winner}`;
+    },
+    defaultUrl: '/licitaciones',
+    importance: 'normal',
+    category: 'licitaciones',
+  },
+
+  licitacion_adjudicada: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Licitacion adjudicada: ${d.numero_licitacion}`
+        : 'Licitacion adjudicada',
+    defaultDescription: (d) => {
+      const winner = d.ganador_nombre ? ` ATE seleccionada: ${d.ganador_nombre}.` : '';
+      return `La licitacion ${d.numero_licitacion || ''} ha sido adjudicada.${winner}`;
+    },
+    defaultUrl: '/licitaciones',
+    importance: 'high',
+    category: 'licitaciones',
+  },
+
+  licitacion_contrato_generado: {
+    defaultTitle: (d) =>
+      d.numero_licitacion
+        ? `Contrato generado: ${d.numero_licitacion}`
+        : 'Contrato generado',
+    defaultDescription: (d) =>
+      `Se ha generado el contrato para la licitacion ${d.numero_licitacion || ''}.`,
+    defaultUrl: '/licitaciones',
+    importance: 'normal',
+    category: 'licitaciones',
+  },
+
+  // ============================================
   // SYSTEM EVENTS
   // ============================================
 

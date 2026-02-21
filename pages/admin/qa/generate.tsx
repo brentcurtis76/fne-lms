@@ -56,6 +56,7 @@ const ROLE_OPTIONS = [
   { value: 'consultor', label: 'Consultor' },
   { value: 'community_manager', label: 'Community Manager' },
   { value: 'equipo_directivo', label: 'Equipo Directivo' },
+  { value: 'encargado_licitacion', label: 'Encargado de Licitación' },
   { value: 'lider_generacion', label: 'Líder de Generación' },
   { value: 'lider_comunidad', label: 'Líder de Comunidad' },
   { value: 'supervisor_de_red', label: 'Supervisor de Red' }

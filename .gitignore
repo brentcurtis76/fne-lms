@@ -107,6 +107,7 @@ run-*.mjs
 # Reports and Analysis
 *.md
 !CLAUDE.md  # Project instructions for Claude Code
+!.claude/skills/*.md  # Pipeline agent skill files
 !Progresión/  # Transformation rubric files folder (exception must come AFTER wildcard)
 !Progresión/*.md  # Markdown files in Progresión folder
 !docs/qa/*.md  # QA testing documentation

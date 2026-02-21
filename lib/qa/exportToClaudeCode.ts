@@ -107,6 +107,13 @@ const FEATURE_FILE_MAP: Record<FeatureArea, string[]> = {
     'lib/utils/session-timezone.ts',
     'lib/utils/recurrence.ts',
   ],
+  licitaciones: [
+    'pages/licitaciones/*',
+    'pages/api/licitaciones/*',
+    'lib/licitacionService.ts',
+    'types/licitaciones.ts',
+    'lib/businessDays.ts',
+  ],
 };
 
 /**

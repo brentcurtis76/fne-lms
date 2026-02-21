@@ -169,7 +169,7 @@ export async function createLicitacion(
   // 1. Validate school exists
   const { data: school, error: schoolError } = await supabase
     .from('schools')
-    .select('id, name, code, cliente_id')
+    .select('id, name, cliente_id')
     .eq('id', data.school_id)
     .single();
 
@@ -215,7 +215,7 @@ export async function createLicitacion(
   }
 
   // 6. Generate numero_licitacion with race-condition retry
-  const schoolCode = school.code || String(data.school_id);
+  const schoolCode = String(data.school_id);
   let numeroLicitacion: string;
   let insertError: Error | null = null;
   let attempt = 0;
@@ -393,7 +393,7 @@ export async function getLicitacionDetail(
   if (licitacion.school_id) {
     const { data: schoolData } = await supabase
       .from('schools')
-      .select('id, name, code, cliente_id')
+      .select('id, name, cliente_id')
       .eq('id', licitacion.school_id)
       .single();
     school = schoolData;

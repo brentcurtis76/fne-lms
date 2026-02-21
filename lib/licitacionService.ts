@@ -696,3 +696,149 @@ export async function confirmAdjudicacion(
 
   return updated as Licitacion;
 }
+
+// ============================================================
+// linkContractToLicitacion (Phase 5)
+// ============================================================
+
+/**
+ * Links a newly created contract to a licitacion.
+ * Validates preconditions server-side, updates licitacion with contrato_id,
+ * transitions estado to 'contrato_generado', creates historial entry.
+ * Idempotent: if called again with same contrato_id, succeeds without error.
+ */
+export async function linkContractToLicitacion(
+  supabase: SupabaseClient,
+  licitacionId: string,
+  contratoId: string,
+  userId: string
+): Promise<Licitacion> {
+  // 1. Fetch current licitacion
+  const { data: existing, error: fetchError } = await supabase
+    .from('licitaciones')
+    .select('id, estado, ganador_es_fne, contrato_id, carta_adjudicacion_url')
+    .eq('id', licitacionId)
+    .single();
+
+  if (fetchError || !existing) {
+    throw new Error('Licitacion no encontrada');
+  }
+
+  // Idempotent: if already linked to this contract, return current state
+  if (existing.contrato_id === contratoId) {
+    const { data: current } = await supabase
+      .from('licitaciones')
+      .select('*')
+      .eq('id', licitacionId)
+      .single();
+    return current as Licitacion;
+  }
+
+  // 2. Validate preconditions
+  if (existing.estado !== 'contrato_pendiente') {
+    throw new Error(
+      `No se puede generar contrato: el estado actual es "${existing.estado}". Se requiere "contrato_pendiente".`
+    );
+  }
+
+  if (!existing.ganador_es_fne) {
+    throw new Error(
+      'No se puede generar contrato: esta licitacion fue adjudicada a un proveedor externo.'
+    );
+  }
+
+  if (existing.contrato_id && existing.contrato_id !== contratoId) {
+    throw new Error(
+      'Esta licitacion ya tiene un contrato asociado. No se puede vincular otro contrato.'
+    );
+  }
+
+  if (!existing.carta_adjudicacion_url) {
+    throw new Error(
+      'No se puede generar contrato: falta la carta de adjudicacion firmada.'
+    );
+  }
+
+  // 3. Update licitacion
+  const { data: updated, error: updateError } = await supabase
+    .from('licitaciones')
+    .update({
+      contrato_id: contratoId,
+      estado: 'contrato_generado' as LicitacionEstado,
+    })
+    .eq('id', licitacionId)
+    .select('*')
+    .single();
+
+  if (updateError || !updated) {
+    throw new Error(`Error al vincular contrato: ${updateError?.message || 'Error desconocido'}`);
+  }
+
+  // 4. Create historial entry
+  await supabase.from('licitacion_historial').insert({
+    licitacion_id: licitacionId,
+    accion: 'Contrato generado y vinculado',
+    estado_anterior: 'contrato_pendiente',
+    estado_nuevo: 'contrato_generado',
+    detalles: { contrato_id: contratoId },
+    user_id: userId,
+  });
+
+  return updated as Licitacion;
+}
+
+// ============================================================
+// closeLicitacion (Phase 5)
+// ============================================================
+
+/**
+ * Closes a licitacion that was adjudicada to an external provider.
+ * Validates estado is 'adjudicada_externo', transitions to 'cerrada',
+ * creates historial entry.
+ */
+export async function closeLicitacion(
+  supabase: SupabaseClient,
+  licitacionId: string,
+  userId: string
+): Promise<Licitacion> {
+  // 1. Fetch current licitacion
+  const { data: existing, error: fetchError } = await supabase
+    .from('licitaciones')
+    .select('id, estado')
+    .eq('id', licitacionId)
+    .single();
+
+  if (fetchError || !existing) {
+    throw new Error('Licitacion no encontrada');
+  }
+
+  if (existing.estado !== 'adjudicada_externo') {
+    throw new Error(
+      `No se puede cerrar la licitacion: el estado actual es "${existing.estado}". Se requiere "adjudicada_externo".`
+    );
+  }
+
+  // 2. Update estado to cerrada
+  const { data: updated, error: updateError } = await supabase
+    .from('licitaciones')
+    .update({ estado: 'cerrada' as LicitacionEstado })
+    .eq('id', licitacionId)
+    .select('*')
+    .single();
+
+  if (updateError || !updated) {
+    throw new Error(`Error al cerrar licitacion: ${updateError?.message || 'Error desconocido'}`);
+  }
+
+  // 3. Create historial entry
+  await supabase.from('licitacion_historial').insert({
+    licitacion_id: licitacionId,
+    accion: 'Licitacion cerrada (proveedor externo)',
+    estado_anterior: 'adjudicada_externo',
+    estado_nuevo: 'cerrada',
+    detalles: {},
+    user_id: userId,
+  });
+
+  return updated as Licitacion;
+}

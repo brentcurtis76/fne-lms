@@ -450,3 +450,45 @@ export type CriterioInput = z.infer<typeof CriterioSchema>;
 
 export const UpdateCriterioSchema = CriterioSchema.partial().omit({ programa_id: true });
 export type UpdateCriterioInput = z.infer<typeof UpdateCriterioSchema>;
+
+// ============================================================
+// PHASE 5: CONTRACT INTEGRATION + CLOSURE
+// ============================================================
+
+export const GenerateContractSchema = z.object({
+  contrato_id: z.string().uuid('UUID de contrato invalido'),
+});
+
+export type GenerateContractInput = z.infer<typeof GenerateContractSchema>;
+
+export const CloseLicitacionSchema = z.object({
+  // No body fields required — closing just transitions estado
+  confirmar: z.literal(true, {
+    errorMap: () => ({ message: 'Debe confirmar el cierre de la licitacion' }),
+  }),
+});
+
+export type CloseLicitacionInput = z.infer<typeof CloseLicitacionSchema>;
+
+// Feriado type for holiday management
+export interface FeriadoChile {
+  id: number;
+  fecha: string; // YYYY-MM-DD
+  nombre: string;
+  year: number;
+}
+
+export const FeriadoSchema = z.object({
+  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha invalido. Use YYYY-MM-DD'),
+  nombre: z.string().min(1, 'Nombre requerido').max(255, 'Nombre demasiado largo'),
+});
+
+export type FeriadoInput = z.infer<typeof FeriadoSchema>;
+
+export const UpdateFeriadoSchema = z.object({
+  id: z.number().int().positive('ID invalido'),
+  fecha: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha invalido. Use YYYY-MM-DD').optional(),
+  nombre: z.string().min(1, 'Nombre requerido').max(255, 'Nombre demasiado largo').optional(),
+});
+
+export type UpdateFeriadoInput = z.infer<typeof UpdateFeriadoSchema>;

@@ -7,7 +7,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import MainLayout from '../components/layout/MainLayout';
-import { ArrowLeft, FileText, Plus, Calendar, DollarSign, Users, Eye, Download, Trash2, CheckSquare, Square, Upload, TrendingUp, Edit, FileUp } from 'lucide-react';
+import { ArrowLeft, FileText, Plus, Calendar, DollarSign, Users, Eye, Download, Trash2, CheckSquare, Square, Upload, TrendingUp, Edit, FileUp, ExternalLink } from 'lucide-react';
 import ContractForm from '../components/contracts/ContractForm';
 import AnnexForm from '../components/contracts/AnnexForm';
 import CashFlowView from '../components/contracts/CashFlowView';
@@ -67,6 +67,7 @@ interface Contrato {
   nombre_ciclo?: 'Primer Ciclo' | 'Segundo Ciclo' | 'Tercer Ciclo' | 'Equipo Directivo';
   es_manual?: boolean; // New field for manual contracts
   descripcion_manual?: string; // New field for manual contract description
+  licitacion_id?: string | null; // Phase 5: link to licitacion
   clientes: Cliente;
   programas: Programa;
   cuotas?: Cuota[];
@@ -113,6 +114,18 @@ export default function ContractsPage() {
   const [uploadingContrato, setUploadingContrato] = useState<string | null>(null);
   const [showPDFImporter, setShowPDFImporter] = useState(false);
   const [extractedContractData, setExtractedContractData] = useState<any>(null);
+  // Phase 5: licitacion integration
+  const [activeLicitacionId, setActiveLicitacionId] = useState<string | null>(null);
+  const [activeLicitacionData, setActiveLicitacionData] = useState<{
+    cliente_id: string;
+    programa_id: string;
+    precio_total_uf?: number | null;
+    tipo_moneda?: 'UF' | 'CLP';
+    fecha_adjudicacion?: string | null;
+    condiciones_pago?: string | null;
+    monto_minimo?: number;
+    monto_maximo?: number;
+  } | null>(null);
 
   // Listen for PDF import event from contract form
   useEffect(() => {
@@ -164,12 +177,41 @@ export default function ContractsPage() {
         ]);
         
         // Check if coming from schools page with pre-selected client
-        const { cliente_id, school_name } = router.query;
+        const { cliente_id, school_name, tab, licitacion_id } = router.query;
         if (cliente_id && typeof cliente_id === 'string') {
           setActiveTab('nuevo');
           setPreSelectedClientId(cliente_id);
           if (school_name && typeof school_name === 'string') {
             toast.success(`Creando contrato para: ${decodeURIComponent(school_name)}`);
+          }
+        }
+
+        // Phase 5: Check if coming from a licitacion with pre-populated data
+        if (tab === 'nuevo' && licitacion_id && typeof licitacion_id === 'string') {
+          setActiveTab('nuevo');
+          setActiveLicitacionId(licitacion_id);
+          // Fetch licitacion data to pre-populate the form
+          try {
+            const licRes = await fetch(`/api/licitaciones/${licitacion_id}`);
+            if (licRes.ok) {
+              const licJson = await licRes.json();
+              const lic = licJson.data?.licitacion;
+              if (lic) {
+                setActiveLicitacionData({
+                  cliente_id: lic.cliente_id,
+                  programa_id: lic.programa_id,
+                  precio_total_uf: lic.monto_adjudicado_uf ?? null,
+                  tipo_moneda: lic.tipo_moneda ?? 'UF',
+                  fecha_adjudicacion: lic.fecha_adjudicacion ?? null,
+                  condiciones_pago: lic.condiciones_pago ?? null,
+                  monto_minimo: lic.monto_minimo,
+                  monto_maximo: lic.monto_maximo,
+                });
+                toast.success('Datos de la licitacion cargados. Complete los campos del contrato.');
+              }
+            }
+          } catch {
+            toast.error('No se pudo cargar datos de la licitacion');
           }
         }
         
@@ -350,24 +392,17 @@ export default function ContractsPage() {
 
   const handleToggleCashFlow = async (contrato: Contrato) => {
     try {
-      console.log('Toggling cash flow for contract:', contrato.numero_contrato);
-      console.log('Current incluir_en_flujo status:', contrato.incluir_en_flujo);
-      
       const newCashFlowStatus = !contrato.incluir_en_flujo;
-      console.log('New status will be:', newCashFlowStatus);
-      
-      const { data, error } = await supabase
+
+      const { error } = await supabase
         .from('contratos')
         .update({ incluir_en_flujo: newCashFlowStatus })
         .eq('id', contrato.id)
         .select();
 
       if (error) {
-        console.error('Database error:', error);
         throw error;
       }
-
-      console.log('Update successful, updated data:', data);
 
       // Refresh the contracts list
       await loadContratos();
@@ -456,7 +491,6 @@ export default function ContractsPage() {
 
   const handleTogglePaymentStatus = async (cuotaId: string, currentStatus: boolean) => {
     try {
-      console.log(`Toggling payment status for cuota ${cuotaId}: ${currentStatus} -> ${!currentStatus}`);
       
       const { error } = await supabase
         .from('cuotas')
@@ -815,6 +849,16 @@ export default function ContractsPage() {
                                 >
                                   <Eye size={16} />
                                 </button>
+                                {/* Phase 5: Ver Licitacion link */}
+                                {contrato.licitacion_id && (
+                                  <Link
+                                    href={`/licitaciones/${contrato.licitacion_id}`}
+                                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                    title="Ver Licitacion"
+                                  >
+                                    <ExternalLink size={16} />
+                                  </Link>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -845,16 +889,43 @@ export default function ContractsPage() {
                 clientes={clientes}
                 preSelectedClientId={preSelectedClientId}
                 extractedData={extractedContractData}
-                onSuccess={() => {
+                licitacionId={activeLicitacionId || undefined}
+                licitacionData={activeLicitacionData || undefined}
+                onSuccess={async (contratoId?: string) => {
+                  // Phase 5: if created from a licitacion, call generate-contract API to link back
+                  if (activeLicitacionId && contratoId) {
+                    try {
+                      const linkRes = await fetch(
+                        `/api/licitaciones/${activeLicitacionId}/generate-contract`,
+                        {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ contrato_id: contratoId }),
+                        }
+                      );
+                      if (!linkRes.ok) {
+                        const err = await linkRes.json();
+                        toast.error(`Contrato creado pero error al vincular con licitacion: ${err.error || 'Error desconocido'}. Contacte al administrador.`);
+                      } else {
+                        toast.success('Contrato generado y vinculado a la licitacion exitosamente');
+                      }
+                    } catch {
+                      toast.error('Contrato creado pero no se pudo vincular con la licitacion. Contacte al administrador.');
+                    }
+                  }
                   setActiveTab('lista');
                   setPreSelectedClientId(null);
                   setExtractedContractData(null);
+                  setActiveLicitacionId(null);
+                  setActiveLicitacionData(null);
                   loadContratos();
                 }}
                 onCancel={() => {
                   setActiveTab('lista');
                   setPreSelectedClientId(null);
                   setExtractedContractData(null);
+                  setActiveLicitacionId(null);
+                  setActiveLicitacionData(null);
                 }}
               />
             )}

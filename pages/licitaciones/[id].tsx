@@ -8,6 +8,8 @@ import { LicitacionDetail, LicitacionEstado, ESTADO_DISPLAY, TimelineDates } fro
 import Step3Bases from '@/components/licitaciones/Step3Bases';
 import Step4Propuestas from '@/components/licitaciones/Step4Propuestas';
 import Step6Adjudicacion from '@/components/licitaciones/Step6Adjudicacion';
+import Step7Contrato from '@/components/licitaciones/Step7Contrato';
+import DocumentCenter from '@/components/licitaciones/DocumentCenter';
 
 // Pure client-side helper — no server imports needed
 function generatePublicacionText(
@@ -825,18 +827,43 @@ export default function LicitacionDetailPage() {
           );
         })()}
 
-        {/* Step 7: Contrato — locked for future phase */}
-        <div className="bg-white rounded-lg shadow mb-4 opacity-50">
-          <div className="px-6 py-4">
-            <h2 className="font-semibold text-gray-500 flex items-center text-sm">
-              <span className="w-6 h-6 rounded-full bg-gray-200 text-gray-400 text-xs flex items-center justify-center mr-2">
-                <Lock size={10} />
-              </span>
-              Paso 7: Contrato
-              <span className="ml-2 text-xs text-gray-400">(Disponible en una fase futura)</span>
-            </h2>
-          </div>
-        </div>
+        {/* Step 7: Contrato */}
+        {(() => {
+          const isStep7Done = licitacion.estado === 'cerrada' || licitacion.estado === 'contrato_generado';
+          const isStep7Active = activeStep === 7;
+          const isStep7Locked = activeStep < 7;
+          return (
+            <div className={`bg-white rounded-lg shadow mb-6 ${isStep7Locked ? 'opacity-50' : ''}`}>
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="font-semibold text-gray-900 flex items-center">
+                  <span className={`w-6 h-6 rounded-full text-xs flex items-center justify-center mr-2 ${isStep7Done ? 'bg-green-500 text-white' : isStep7Active ? 'bg-yellow-400 text-black' : 'bg-gray-200 text-gray-400'}`}>
+                    {isStep7Locked ? <Lock size={10} /> : 7}
+                  </span>
+                  Contrato
+                  {isStep7Done && <span className="ml-2 text-green-600 text-sm">(Completado)</span>}
+                  {isStep7Locked && <span className="ml-2 text-xs text-gray-400">(Disponible en Paso 6)</span>}
+                </h2>
+              </div>
+              {!isStep7Locked && (
+                <div className="p-6">
+                  <Step7Contrato
+                    licitacion={licitacion}
+                    isAdmin={isAdmin}
+                    onRefresh={() => fetchLicitacion(id as string)}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Document Center — visible for all non-locked states */}
+        {activeStep >= 2 && (
+          <DocumentCenter
+            licitacionId={licitacion.id}
+            numeroLicitacion={licitacion.numero_licitacion}
+          />
+        )}
       </div>
     </MainLayout>
   );

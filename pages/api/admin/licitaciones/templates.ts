@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // ============================================================
-    // GET — List all programs with their active templates
+    // GET — List all programs with all their template versions
     // ============================================================
     if (req.method === 'GET') {
       // Fetch all active programs
@@ -49,24 +49,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return sendAuthError(res, 'Error al obtener programas', 500, programasError.message);
       }
 
-      // Fetch active templates for each program
+      // Fetch ALL templates (active + inactive) sorted by version DESC
       const { data: templates, error: templatesError } = await serviceClient
         .from('programa_bases_templates')
         .select('*')
-        .eq('is_active', true);
+        .order('version', { ascending: false });
 
       if (templatesError) {
         return sendAuthError(res, 'Error al obtener plantillas', 500, templatesError.message);
       }
 
-      const templatesByPrograma = new Map<string, Record<string, unknown>>();
+      const templatesByPrograma = new Map<string, Record<string, unknown>[]>();
       for (const t of (templates || [])) {
-        templatesByPrograma.set(String(t.programa_id), t as Record<string, unknown>);
+        const pid = String(t.programa_id);
+        if (!templatesByPrograma.has(pid)) {
+          templatesByPrograma.set(pid, []);
+        }
+        templatesByPrograma.get(pid)!.push(t as Record<string, unknown>);
       }
 
       const result = (programas || []).map(p => ({
         programa: { id: String(p.id), nombre: String(p.nombre) },
-        template: templatesByPrograma.get(String(p.id)) || null,
+        templates: templatesByPrograma.get(String(p.id)) || [],
       }));
 
       return sendApiResponse(res, { programas: result });

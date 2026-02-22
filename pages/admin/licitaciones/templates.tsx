@@ -3,12 +3,12 @@ import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
-import { ArrowLeft, Edit, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, ChevronDown, ChevronUp, Plus, Trash2, Clock, RotateCcw } from 'lucide-react';
 import { ProgramaBasesTemplate, BasesTemplateInput } from '@/types/licitaciones';
 
-interface ProgramaWithTemplate {
+interface ProgramaWithTemplates {
   programa: { id: string; nombre: string };
-  template: ProgramaBasesTemplate | null;
+  templates: ProgramaBasesTemplate[];
 }
 
 // AC-5: added focus:ring-offset-2
@@ -187,7 +187,7 @@ export default function LicitacionesTemplatesPage() {
   const [userRole, setUserRole] = useState<string>('');
   const [authReady, setAuthReady] = useState(false);
 
-  const [programas, setProgramas] = useState<ProgramaWithTemplate[]>([]);
+  const [programas, setProgramas] = useState<ProgramaWithTemplates[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filter state — REQ-2: programa filter dropdown
@@ -195,6 +195,9 @@ export default function LicitacionesTemplatesPage() {
 
   // Toggle loading per template id
   const [togglingTemplateId, setTogglingTemplateId] = useState<string | null>(null);
+
+  // Expanded version history per programa id
+  const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
 
   // Edit state
   const [editingProgramaId, setEditingProgramaId] = useState<string | null>(null);
@@ -288,16 +291,8 @@ export default function LicitacionesTemplatesPage() {
         return;
       }
       toast.success(newValue ? 'Plantilla activada' : 'Plantilla desactivada');
-      // Optimistically update local state
-      setProgramas(prev => prev.map(item => {
-        if (item.template?.id === templateId) {
-          return {
-            ...item,
-            template: { ...item.template, is_active: newValue },
-          };
-        }
-        return item;
-      }));
+      // Re-fetch to get correct state for all versions (activating one deactivates siblings)
+      await fetchTemplates();
     } catch {
       toast.error('Error al actualizar estado de la plantilla');
     } finally {
@@ -305,9 +300,22 @@ export default function LicitacionesTemplatesPage() {
     }
   };
 
-  const startEditing = (item: ProgramaWithTemplate) => {
+  // Toggle version history visibility for a programa
+  const toggleHistory = (programaId: string) => {
+    setExpandedHistory(prev => {
+      const next = new Set(prev);
+      if (next.has(programaId)) {
+        next.delete(programaId);
+      } else {
+        next.add(programaId);
+      }
+      return next;
+    });
+  };
+
+  const startEditing = (item: ProgramaWithTemplates) => {
     setEditingProgramaId(item.programa.id);
-    const t = item.template;
+    const t = item.templates.find(t => t.is_active) || item.templates[0] || null;
     if (t) {
       setEditForm({
         nombre_servicio: t.nombre_servicio,
@@ -462,37 +470,42 @@ export default function LicitacionesTemplatesPage() {
         </div>
 
         <div className="space-y-4">
-          {filteredProgramas.map(item => (
+          {filteredProgramas.map(item => {
+            const activeTemplate = item.templates.find(t => t.is_active) || null;
+            const inactiveTemplates = item.templates.filter(t => !t.is_active);
+            const historyExpanded = expandedHistory.has(item.programa.id);
+
+            return (
             <div key={item.programa.id} className="bg-white rounded-lg shadow border border-gray-200">
               {/* Program header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                 <div className="flex items-center gap-4">
                   {/* REQ-1: is_active toggle */}
-                  {item.template && (
+                  {activeTemplate && (
                     <div className="flex items-center gap-2">
                       <ToggleSwitch
-                        checked={item.template.is_active}
-                        onChange={val => handleToggleActive(item.template!.id, val)}
-                        disabled={togglingTemplateId === item.template.id}
-                        label={item.template.is_active ? 'Desactivar plantilla' : 'Activar plantilla'}
+                        checked={activeTemplate.is_active}
+                        onChange={val => handleToggleActive(activeTemplate.id, val)}
+                        disabled={togglingTemplateId === activeTemplate.id}
+                        label={activeTemplate.is_active ? 'Desactivar plantilla' : 'Activar plantilla'}
                       />
                       <span className="text-xs text-gray-500">
-                        {item.template.is_active ? 'Activa' : 'Inactiva'}
+                        Activa
                       </span>
                     </div>
                   )}
                   <div>
                     <h2 className="font-semibold text-gray-900">{item.programa.nombre}</h2>
-                    {item.template ? (
+                    {activeTemplate ? (
                       <p className="text-xs text-gray-500 mt-0.5">
-                        Version {item.template.version}{item.template.is_active ? ' activa' : ' (inactiva)'}
+                        Version {activeTemplate.version} activa
+                        {activeTemplate.nombre_servicio && ` — ${activeTemplate.nombre_servicio}`}
                       </p>
                     ) : (
                       <p className="text-xs text-amber-600 mt-0.5">Sin plantilla activa</p>
                     )}
                   </div>
                 </div>
-                {/* BC-3: changed from text-blue-600 hover:text-blue-800 */}
                 <button
                   onClick={() => {
                     if (editingProgramaId === item.programa.id) {
@@ -507,6 +520,61 @@ export default function LicitacionesTemplatesPage() {
                   {editingProgramaId === item.programa.id ? 'Cerrar editor' : 'Editar plantilla'}
                 </button>
               </div>
+
+              {/* Version history section */}
+              {inactiveTemplates.length > 0 && (
+                <div className="border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => toggleHistory(item.programa.id)}
+                    className="w-full flex items-center justify-between px-6 py-3 text-sm text-gray-600 hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-inset"
+                    aria-expanded={historyExpanded}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Clock size={14} aria-hidden="true" />
+                      Historial de versiones ({inactiveTemplates.length})
+                    </span>
+                    {historyExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                  {historyExpanded && (
+                    <div className="px-6 pb-4">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-xs text-gray-500 border-b border-gray-200">
+                            <th scope="col" className="pb-2 font-medium">Version</th>
+                            <th scope="col" className="pb-2 font-medium">Nombre del servicio</th>
+                            <th scope="col" className="pb-2 font-medium">Fecha</th>
+                            <th scope="col" className="pb-2 font-medium text-right">Accion</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {inactiveTemplates.map(t => (
+                            <tr key={t.id} className="text-gray-700">
+                              <td className="py-2">v{t.version}</td>
+                              <td className="py-2 max-w-xs truncate">{t.nombre_servicio || '—'}</td>
+                              <td className="py-2 text-gray-500">
+                                {t.updated_at ? new Date(t.updated_at).toLocaleDateString('es-CL') : '—'}
+                              </td>
+                              <td className="py-2 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleActive(t.id, true)}
+                                  disabled={togglingTemplateId === t.id}
+                                  className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-900 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 rounded px-2 py-1"
+                                  aria-label={`Reactivar version ${t.version}`}
+                                >
+                                  <RotateCcw size={12} />
+                                  {togglingTemplateId === t.id ? 'Activando...' : 'Reactivar'}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Edit form */}
               {editingProgramaId === item.programa.id && (
@@ -668,7 +736,8 @@ export default function LicitacionesTemplatesPage() {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {filteredProgramas.length === 0 && (

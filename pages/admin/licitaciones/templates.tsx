@@ -13,8 +13,8 @@ interface ProgramaWithTemplate {
 
 // AC-5: added focus:ring-offset-2
 const INPUT_CLASS = 'border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:outline-none w-full';
-const BTN_PRIMARY = 'px-4 py-2 bg-yellow-400 text-black rounded-lg font-medium hover:bg-yellow-500 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed';
-const BTN_SECONDARY = 'px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm';
+const BTN_PRIMARY = 'px-4 py-2 bg-yellow-400 text-black rounded-lg font-medium hover:bg-yellow-500 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2';
+const BTN_SECONDARY = 'px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2';
 
 // Array editor for JSONB string arrays
 function ArrayEditor({
@@ -145,6 +145,39 @@ function TemplatePreview({ template }: { template: BasesTemplateInput }) {
   );
 }
 
+// Inline toggle switch
+function ToggleSwitch({
+  checked,
+  onChange,
+  disabled,
+  label,
+}: {
+  checked: boolean;
+  onChange: (val: boolean) => void;
+  disabled?: boolean;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 ${
+        checked ? 'bg-green-500' : 'bg-gray-300'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+    >
+      <span
+        className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+          checked ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  );
+}
+
 export default function LicitacionesTemplatesPage() {
   const supabase = useSupabaseClient();
   const router = useRouter();
@@ -156,6 +189,12 @@ export default function LicitacionesTemplatesPage() {
 
   const [programas, setProgramas] = useState<ProgramaWithTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Filter state — REQ-2: programa filter dropdown
+  const [filterProgramaId, setFilterProgramaId] = useState<string>('');
+
+  // Toggle loading per template id
+  const [togglingTemplateId, setTogglingTemplateId] = useState<string | null>(null);
 
   // Edit state
   const [editingProgramaId, setEditingProgramaId] = useState<string | null>(null);
@@ -231,6 +270,38 @@ export default function LicitacionesTemplatesPage() {
       toast.error('Error al cargar plantillas');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // REQ-1: Toggle is_active on a template
+  const handleToggleActive = async (templateId: string, newValue: boolean) => {
+    setTogglingTemplateId(templateId);
+    try {
+      const res = await fetch('/api/admin/licitaciones/templates', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_id: templateId, is_active: newValue }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'Error al actualizar estado');
+        return;
+      }
+      toast.success(newValue ? 'Plantilla activada' : 'Plantilla desactivada');
+      // Optimistically update local state
+      setProgramas(prev => prev.map(item => {
+        if (item.template?.id === templateId) {
+          return {
+            ...item,
+            template: { ...item.template, is_active: newValue },
+          };
+        }
+        return item;
+      }));
+    } catch {
+      toast.error('Error al actualizar estado de la plantilla');
+    } finally {
+      setTogglingTemplateId(null);
     }
   };
 
@@ -316,6 +387,11 @@ export default function LicitacionesTemplatesPage() {
     }
   };
 
+  // REQ-2: Client-side filter by programa
+  const filteredProgramas = filterProgramaId
+    ? programas.filter(item => item.programa.id === filterProgramaId)
+    : programas;
+
   if (!authReady || loading) {
     return (
       <MainLayout
@@ -356,20 +432,65 @@ export default function LicitacionesTemplatesPage() {
           </p>
         </div>
 
+        {/* REQ-2: Programa filter dropdown */}
+        <div className="mb-4 flex items-center gap-3">
+          <label htmlFor="filter-programa" className="text-sm font-medium text-gray-700 whitespace-nowrap">
+            Filtrar por programa:
+          </label>
+          <select
+            id="filter-programa"
+            value={filterProgramaId}
+            onChange={e => setFilterProgramaId(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:outline-none"
+          >
+            <option value="">Todos los programas</option>
+            {programas.map(item => (
+              <option key={item.programa.id} value={item.programa.id}>
+                {item.programa.nombre}
+              </option>
+            ))}
+          </select>
+          {filterProgramaId && (
+            <button
+              type="button"
+              onClick={() => setFilterProgramaId('')}
+              className="text-xs text-gray-500 hover:text-gray-800 underline"
+            >
+              Limpiar filtro
+            </button>
+          )}
+        </div>
+
         <div className="space-y-4">
-          {programas.map(item => (
+          {filteredProgramas.map(item => (
             <div key={item.programa.id} className="bg-white rounded-lg shadow border border-gray-200">
               {/* Program header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                <div>
-                  <h2 className="font-semibold text-gray-900">{item.programa.nombre}</h2>
-                  {item.template ? (
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Version {item.template.version} activa
-                    </p>
-                  ) : (
-                    <p className="text-xs text-amber-600 mt-0.5">Sin plantilla activa</p>
+                <div className="flex items-center gap-4">
+                  {/* REQ-1: is_active toggle */}
+                  {item.template && (
+                    <div className="flex items-center gap-2">
+                      <ToggleSwitch
+                        checked={item.template.is_active}
+                        onChange={val => handleToggleActive(item.template!.id, val)}
+                        disabled={togglingTemplateId === item.template.id}
+                        label={item.template.is_active ? 'Desactivar plantilla' : 'Activar plantilla'}
+                      />
+                      <span className="text-xs text-gray-500">
+                        {item.template.is_active ? 'Activa' : 'Inactiva'}
+                      </span>
+                    </div>
                   )}
+                  <div>
+                    <h2 className="font-semibold text-gray-900">{item.programa.nombre}</h2>
+                    {item.template ? (
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Version {item.template.version}{item.template.is_active ? ' activa' : ' (inactiva)'}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-amber-600 mt-0.5">Sin plantilla activa</p>
+                    )}
+                  </div>
                 </div>
                 {/* BC-3: changed from text-blue-600 hover:text-blue-800 */}
                 <button
@@ -550,9 +671,11 @@ export default function LicitacionesTemplatesPage() {
           ))}
         </div>
 
-        {programas.length === 0 && (
+        {filteredProgramas.length === 0 && (
           <div className="text-center py-12 text-gray-500">
-            No se encontraron programas activos.
+            {filterProgramaId
+              ? 'No se encontro el programa seleccionado.'
+              : 'No se encontraron programas activos.'}
           </div>
         )}
       </div>

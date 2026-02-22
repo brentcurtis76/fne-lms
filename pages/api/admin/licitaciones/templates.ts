@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { z } from 'zod';
 import {
   getApiUser,
   createServiceRoleClient,
@@ -13,8 +14,8 @@ import { BasesTemplateSchema } from '@/types/licitaciones';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'admin-licitaciones-templates');
 
-  if (req.method !== 'GET' && req.method !== 'POST') {
-    return handleMethodNotAllowed(res, ['GET', 'POST']);
+  if (!['GET', 'POST', 'PATCH'].includes(req.method || '')) {
+    return handleMethodNotAllowed(res, ['GET', 'POST', 'PATCH']);
   }
 
   const { user, error: authError } = await getApiUser(req, res);
@@ -152,6 +153,62 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       return sendApiResponse(res, { template: newTemplate }, 201);
+    }
+
+    // ============================================================
+    // PATCH — Toggle is_active on a specific template by ID
+    // ============================================================
+    if (req.method === 'PATCH') {
+      const PatchSchema = z.object({
+        template_id: z.string().uuid('template_id debe ser un UUID valido'),
+        is_active: z.boolean(),
+      });
+
+      const parseResult = PatchSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        const errors = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
+        return sendAuthError(res, `Datos invalidos: ${errors}`, 400);
+      }
+
+      const { template_id, is_active } = parseResult.data;
+
+      // Fetch the target template to get programa_id
+      const { data: targetTemplate, error: fetchError } = await serviceClient
+        .from('programa_bases_templates')
+        .select('id, programa_id, is_active')
+        .eq('id', template_id)
+        .single();
+
+      if (fetchError || !targetTemplate) {
+        return sendAuthError(res, 'Plantilla no encontrada', 404);
+      }
+
+      if (is_active) {
+        // Deactivate all other templates for the same programa_id first
+        const { error: deactivateError } = await serviceClient
+          .from('programa_bases_templates')
+          .update({ is_active: false })
+          .eq('programa_id', targetTemplate.programa_id)
+          .neq('id', template_id);
+
+        if (deactivateError) {
+          return sendAuthError(res, 'Error al desactivar otras plantillas', 500, deactivateError.message);
+        }
+      }
+
+      // Update the target template
+      const { data: updatedTemplate, error: updateError } = await serviceClient
+        .from('programa_bases_templates')
+        .update({ is_active })
+        .eq('id', template_id)
+        .select('*')
+        .single();
+
+      if (updateError || !updatedTemplate) {
+        return sendAuthError(res, 'Error al actualizar plantilla', 500, updateError?.message);
+      }
+
+      return sendApiResponse(res, { template: updatedTemplate });
     }
 
     return sendAuthError(res, 'Metodo no permitido', 405);

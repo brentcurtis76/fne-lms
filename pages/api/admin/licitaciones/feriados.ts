@@ -18,6 +18,7 @@ import {
 import { getUserRoles } from '@/utils/roleUtils';
 import { FeriadoSchema, UpdateFeriadoSchema } from '@/types/licitaciones';
 import { z } from 'zod';
+import { getChileanHolidays } from '@/lib/chileanHolidays';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'admin-licitaciones-feriados');
@@ -66,6 +67,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       case 'POST': {
+        // Check for bulk_seed action before regular single-create validation
+        if (req.body?.action === 'bulk_seed') {
+          const BulkSeedSchema = z.object({
+            action: z.literal('bulk_seed'),
+            year: z.coerce.number().int().min(2020, 'Año minimo 2020').max(2035, 'Año maximo 2035'),
+          });
+
+          const bulkParseResult = BulkSeedSchema.safeParse(req.body);
+          if (!bulkParseResult.success) {
+            const errors = bulkParseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
+            return sendAuthError(res, `Datos invalidos: ${errors}`, 400);
+          }
+
+          const { year } = bulkParseResult.data;
+
+          // Get all holidays for the year
+          const holidays = getChileanHolidays(year);
+
+          // Fetch existing fechas for the year to skip duplicates
+          const { data: existingFeriados, error: fetchError } = await serviceClient
+            .from('feriados_chile')
+            .select('fecha')
+            .eq('year', year);
+
+          if (fetchError) {
+            return sendAuthError(res, 'Error al verificar feriados existentes', 500, fetchError.message);
+          }
+
+          const existingFechas = new Set((existingFeriados || []).map(f => String(f.fecha)));
+
+          // Filter out already-existing holidays
+          const toInsert = holidays
+            .filter(h => !existingFechas.has(h.fecha))
+            .map(h => ({ fecha: h.fecha, nombre: h.nombre, year }));
+
+          if (toInsert.length === 0) {
+            return sendApiResponse(res, { inserted: 0, message: `Todos los feriados de ${year} ya existen` });
+          }
+
+          const { error: insertError } = await serviceClient
+            .from('feriados_chile')
+            .insert(toInsert);
+
+          if (insertError) {
+            return sendAuthError(res, 'Error al insertar feriados', 500, insertError.message);
+          }
+
+          return sendApiResponse(res, { inserted: toInsert.length }, 201);
+        }
+
+        // Regular single-feriado creation
         const parseResult = FeriadoSchema.safeParse(req.body);
         if (!parseResult.success) {
           const errors = parseResult.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');

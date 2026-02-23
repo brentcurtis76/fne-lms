@@ -687,7 +687,7 @@ export default function ProgramasPage() {
                 </svg>
               </button>
               <iframe 
-                src="https://heyzine.com/flip-book/92bf9eb5ee.html" 
+                src="https://heyzine.com/flip-book/d87d80f309.html" 
                 width="100%" 
                 height="100%" 
                 frameBorder="0"

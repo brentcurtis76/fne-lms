@@ -1155,7 +1155,7 @@ export default function HomePage() {
                     height: '100%',
                     borderRadius: '0 0 0.5rem 0.5rem'
                   }}
-                  src="https://heyzine.com/flip-book/92bf9eb5ee.html"
+                  src="https://heyzine.com/flip-book/d87d80f309.html"
                 />
               </div>
               

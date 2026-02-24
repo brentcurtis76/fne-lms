@@ -19,9 +19,9 @@
 -- Seed: 9 hour type reference rows
 --
 -- Schema notes from live DB verification (2026-02-24):
---   - contratos.id is TEXT (UUIDs stored as text strings, not native UUID type)
---   - contratos.programa_id is TEXT; programas.id is TEXT — no cast needed in JOIN
---   - programas.horas_totales EXISTS and is DECIMAL/NUMERIC (nullable)
+--   - contratos.id is UUID (not TEXT — corrected during deploy)
+--   - contratos.programa_id is UUID; programas.id is UUID — no cast needed in JOIN
+--   - programas.horas_totales EXISTS and is INTEGER (nullable)
 --   - clientes.school_id EXISTS (confirmed via app code + FK clientes_school_id_fkey)
 --   - consultor_sessions.cancelled_at ALREADY EXISTS (from 20260212000000) — NOT re-added
 --   - session_facilitators uses user_id (not facilitator_id) — confirmed
@@ -73,7 +73,7 @@ COMMENT ON TABLE hour_types IS 'Reference table for the 9 standard service hour 
 
 CREATE TABLE contract_hour_allocations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  contrato_id TEXT NOT NULL REFERENCES contratos(id),
+  contrato_id UUID NOT NULL REFERENCES contratos(id),
   hour_type_id UUID NOT NULL REFERENCES hour_types(id),
   allocated_hours DECIMAL(8,2) NOT NULL CHECK (allocated_hours >= 0),
   is_fixed_allocation BOOLEAN NOT NULL DEFAULT false,
@@ -195,7 +195,7 @@ COMMENT ON TABLE fx_rates IS 'Exchange rate cache. Append-only. Latest rate per 
 
 CREATE TABLE contract_hour_reallocation_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  contrato_id TEXT NOT NULL REFERENCES contratos(id),
+  contrato_id UUID NOT NULL REFERENCES contratos(id),
   from_hour_type_id UUID NOT NULL REFERENCES hour_types(id),
   to_hour_type_id UUID NOT NULL REFERENCES hour_types(id),
   hours DECIMAL(6,2) NOT NULL CHECK (hours > 0),
@@ -219,7 +219,7 @@ ALTER TABLE consultor_sessions
   ADD CONSTRAINT fk_session_hour_type FOREIGN KEY (hour_type_key) REFERENCES hour_types(key);
 
 ALTER TABLE consultor_sessions
-  ADD COLUMN contrato_id TEXT;
+  ADD COLUMN contrato_id UUID;
 
 ALTER TABLE consultor_sessions
   ADD CONSTRAINT fk_session_contrato FOREIGN KEY (contrato_id) REFERENCES contratos(id);
@@ -483,7 +483,7 @@ CREATE POLICY "chrl_equipo_directivo_select" ON contract_hour_reallocation_log
 -- via adds_to_allocation_id are included in the totals.
 -- ------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION get_bucket_summary(p_contrato_id TEXT)
+CREATE OR REPLACE FUNCTION get_bucket_summary(p_contrato_id UUID)
 RETURNS TABLE (
   hour_type_key TEXT,
   display_name TEXT,
@@ -528,7 +528,7 @@ RETURNS TABLE (
   ORDER BY ht.sort_order;
 $$ LANGUAGE sql STABLE;
 
-COMMENT ON FUNCTION get_bucket_summary(TEXT) IS 'Returns hour bucket summary for a contract: allocated, reserved, consumed, available. Includes annex allocations. Used for the admin and equipo_directivo hour tracking dashboard.';
+COMMENT ON FUNCTION get_bucket_summary(UUID) IS 'Returns hour bucket summary for a contract: allocated, reserved, consumed, available. Includes annex allocations. Used for the admin and equipo_directivo hour tracking dashboard.';
 
 -- ------------------------------------------------------------
 -- 12.2 get_consultant_earnings(p_consultant_id UUID, p_from DATE, p_to DATE)

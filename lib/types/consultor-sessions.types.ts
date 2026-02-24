@@ -114,6 +114,10 @@ export interface ConsultorSession {
   cancelled_by: string | null;
   cancelled_at: string | null;
   cancellation_reason: string | null;
+  // Hour tracking fields (Phase 2) — nullable for backward compatibility with legacy sessions
+  hour_type_key: string | null;
+  contrato_id: string | null; // UUID
+  cancelled_notice_hours: number | null;
   created_at: string;
   updated_at: string;
   is_active: boolean;
@@ -299,6 +303,9 @@ export type ConsultorSessionInsert = Omit<
   | 'cancelled_by'
   | 'cancelled_at'
   | 'is_active'
+  | 'cancelled_notice_hours'
+  | 'hour_type_key'
+  | 'contrato_id'
 > & {
   description?: string | null;
   objectives?: string | null;
@@ -312,6 +319,9 @@ export type ConsultorSessionInsert = Omit<
   meeting_transcript?: string | null;
   program_enrollment_id?: string | null;
   cancellation_reason?: string | null;
+  // Hour tracking fields — optional for backward compatibility with legacy sessions
+  hour_type_key?: string | null;
+  contrato_id?: string | null;
 };
 
 /**

@@ -63,6 +63,8 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     program_enrollment_id,
     facilitators,
     recurrence,
+    hour_type_key,
+    contrato_id,
   } = req.body;
 
   // Validate required fields
@@ -194,6 +196,9 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
       meeting_transcript: null,
       cancellation_reason: null,
       actual_duration_minutes: null,
+      // Hour tracking fields (optional — null for legacy sessions)
+      hour_type_key: (typeof hour_type_key === 'string' && hour_type_key) ? hour_type_key : null,
+      contrato_id: (typeof contrato_id === 'string' && Validators.isUUID(contrato_id)) ? contrato_id : null,
     };
 
     // Build session insert array (one per date)

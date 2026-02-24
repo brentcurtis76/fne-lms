@@ -9,6 +9,7 @@ import {
 } from '../../../lib/api-auth';
 import { SessionActivityLogInsert } from '../../../lib/types/consultor-sessions.types';
 import { validateFacilitatorIntegrity } from '../../../lib/utils/facilitator-validation';
+import { createReservation } from '../../../lib/services/hour-tracking';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-bulk-approve');
@@ -133,6 +134,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(
         res,
         `No se pueden aprobar las sesiones: ${validationErrors.join(' | ')}`,
+        400
+      );
+    }
+
+    // Hour tracking: create reservation ledger entries for each session (atomic: if any fails, reject all)
+    const reservationErrors: string[] = [];
+    for (const session of sessionsToApprove) {
+      const reservationResult = await createReservation(serviceClient, session, user!.id);
+      if (!reservationResult.skipped && reservationResult.error) {
+        reservationErrors.push(`Sesión ${session.id}: ${reservationResult.error}`);
+      }
+    }
+
+    if (reservationErrors.length > 0) {
+      return sendAuthError(
+        res,
+        `No se pueden aprobar las sesiones: ${reservationErrors.join(' | ')}`,
         400
       );
     }

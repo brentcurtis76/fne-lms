@@ -36,6 +36,19 @@ interface Facilitator {
   is_lead: boolean;
 }
 
+interface HourType {
+  id: string;
+  key: string;
+  display_name: string;
+  modality: string;
+  sort_order: number;
+}
+
+interface Contrato {
+  id: string;
+  nombre: string;
+}
+
 const SessionCreatePage: React.FC = () => {
   const router = useRouter();
   const supabase = useSupabaseClient();
@@ -51,6 +64,16 @@ const SessionCreatePage: React.FC = () => {
   const [consultants, setConsultants] = useState<Consultant[]>([]);
   const [consultantsLoading, setConsultantsLoading] = useState(false);
   const [consultantsError, setConsultantsError] = useState<string | null>(null);
+
+  // Hour tracking state
+  const [hourTypes, setHourTypes] = useState<HourType[]>([]);
+  const [hourTypesLoading, setHourTypesLoading] = useState(false);
+  const [hourTypesError, setHourTypesError] = useState(false);
+  const [contratos, setContratos] = useState<Contrato[]>([]);
+  const [selectedHourTypeKey, setSelectedHourTypeKey] = useState('');
+  const [selectedContratoId, setSelectedContratoId] = useState('');
+  const [availableHours, setAvailableHours] = useState<number | null>(null);
+  const [availableHoursLoading, setAvailableHoursLoading] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -85,6 +108,7 @@ const SessionCreatePage: React.FC = () => {
   useEffect(() => {
     if (user && isAdmin) {
       fetchSchools();
+      fetchHourTypes();
     }
   }, [user, isAdmin]);
 
@@ -92,16 +116,29 @@ const SessionCreatePage: React.FC = () => {
     if (formData.school_id > 0) {
       fetchCommunities(formData.school_id);
       fetchConsultants(formData.school_id);
+      fetchContratos(formData.school_id);
+      setSelectedContratoId(''); // Reset contract selection when school changes
     } else {
       setCommunities([]);
       setConsultants([]);
       setConsultantsLoading(false);
       setConsultantsError(null);
+      setContratos([]);
+      setSelectedContratoId('');
     }
     // Clear selected facilitators when school changes — old facilitator IDs
     // may not exist in the new school's consultant list
     setFacilitators([]);
   }, [formData.school_id]);
+
+  // Fetch available hours when both hour type and contract are selected
+  useEffect(() => {
+    if (selectedHourTypeKey && selectedContratoId) {
+      fetchAvailableHours(selectedContratoId, selectedHourTypeKey);
+    } else {
+      setAvailableHours(null);
+    }
+  }, [selectedHourTypeKey, selectedContratoId]);
 
   useEffect(() => {
     if (formData.meeting_link && !formData.meeting_provider) {
@@ -229,6 +266,79 @@ const SessionCreatePage: React.FC = () => {
       toast.error(errorMsg);
     } finally {
       setConsultantsLoading(false);
+    }
+  };
+
+  const fetchHourTypes = async () => {
+    setHourTypesLoading(true);
+    setHourTypesError(false);
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setHourTypesLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/hour-types', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!response.ok) {
+        setHourTypesError(true);
+        setHourTypesLoading(false);
+        return;
+      }
+      const result = await response.json();
+      // Exclude online_learning (session-only hour types)
+      const sessionTypes = (result.data?.hour_types || []).filter(
+        (ht: HourType) => ht.key !== 'online_learning'
+      );
+      setHourTypes(sessionTypes);
+    } catch {
+      setHourTypesError(true);
+    } finally {
+      setHourTypesLoading(false);
+    }
+  };
+
+  const fetchContratos = async (schoolId: number) => {
+    try {
+      const { data, error } = await supabase
+        .from('contratos')
+        .select('id, nombre, clientes!inner(school_id)')
+        .eq('clientes.school_id', schoolId)
+        .eq('is_active', true)
+        .order('nombre');
+
+      if (error) throw error;
+      setContratos(
+        (data || []).map((c: { id: string; nombre: string }) => ({
+          id: c.id,
+          nombre: c.nombre,
+        }))
+      );
+    } catch {
+      setContratos([]);
+    }
+  };
+
+  const fetchAvailableHours = async (contratoId: string, hourTypeKey: string) => {
+    setAvailableHoursLoading(true);
+    try {
+      const { data, error } = await supabase
+        .rpc('get_bucket_summary', { p_contrato_id: contratoId });
+
+      if (error) throw error;
+
+      const bucket = (data || []).find(
+        (b: { hour_type_key: string; available_hours: number }) => b.hour_type_key === hourTypeKey
+      );
+      setAvailableHours(bucket ? bucket.available_hours : null);
+    } catch {
+      setAvailableHours(null);
+    } finally {
+      setAvailableHoursLoading(false);
     }
   };
 
@@ -435,6 +545,8 @@ const SessionCreatePage: React.FC = () => {
         meeting_provider: formData.meeting_provider || null,
         location: formData.location || null,
         facilitators,
+        hour_type_key: selectedHourTypeKey || null,
+        contrato_id: selectedContratoId || null,
       };
 
       // Add recurrence if enabled
@@ -519,6 +631,8 @@ const SessionCreatePage: React.FC = () => {
         meeting_provider: formData.meeting_provider || null,
         location: formData.location || null,
         facilitators,
+        hour_type_key: selectedHourTypeKey || null,
+        contrato_id: selectedContratoId || null,
       };
 
       // Add recurrence if enabled
@@ -681,6 +795,90 @@ const SessionCreatePage: React.FC = () => {
                 </select>
               </div>
             </div>
+
+            {/* Row 1b: Tipo de Hora + Contrato (Hour Tracking) */}
+            {hourTypesLoading && (
+              <p className="text-sm text-gray-500">Cargando tipos de hora...</p>
+            )}
+            {hourTypesError && !hourTypesLoading && (
+              <p className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+                No se pudieron cargar los tipos de hora. La sesión puede crearse sin seguimiento de horas.
+              </p>
+            )}
+            {hourTypes.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="hour-type-select" className="block text-sm font-medium text-gray-700 mb-2">
+                    Tipo de Hora
+                  </label>
+                  <select
+                    id="hour-type-select"
+                    value={selectedHourTypeKey}
+                    onChange={(e) => setSelectedHourTypeKey(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                  >
+                    <option value="">Seleccione tipo de hora</option>
+                    {hourTypes.map((ht) => (
+                      <option key={ht.key} value={ht.key}>
+                        {ht.display_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="contrato-select" className="block text-sm font-medium text-gray-700 mb-2">
+                    Contrato
+                  </label>
+                  <select
+                    id="contrato-select"
+                    value={selectedContratoId}
+                    onChange={(e) => setSelectedContratoId(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent"
+                    disabled={formData.school_id === 0}
+                  >
+                    <option value="">Seleccione un contrato</option>
+                    {contratos.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                  </select>
+                  {formData.school_id > 0 && contratos.length === 0 && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      No hay contratos activos para este colegio.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Available hours badge */}
+            {selectedHourTypeKey && selectedContratoId && (
+              <div className="flex items-center gap-2">
+                {availableHoursLoading ? (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-600">
+                    Cargando horas disponibles...
+                  </span>
+                ) : availableHours !== null ? (
+                  <span
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                      availableHours > 0
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}
+                  >
+                    {availableHours > 0
+                      ? `${availableHours.toFixed(1)} horas disponibles en este tipo`
+                      : 'Sin horas disponibles en este tipo (se registrará como sobrepresupuesto)'}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
+                    No hay asignación de horas para este tipo en el contrato seleccionado
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Row 2 (Moved from Row 9): Consultants */}
             {formData.school_id > 0 && (
@@ -912,7 +1110,7 @@ const SessionCreatePage: React.FC = () => {
                     type="radio"
                     checked={!isRecurring}
                     onChange={() => setIsRecurring(false)}
-                    className="mr-2"
+                    className="w-4 h-4 text-brand_accent border-gray-300 focus:ring-brand_accent mr-2"
                   />
                   <span>Sesión única</span>
                 </label>
@@ -921,7 +1119,7 @@ const SessionCreatePage: React.FC = () => {
                     type="radio"
                     checked={isRecurring}
                     onChange={() => setIsRecurring(true)}
-                    className="mr-2"
+                    className="w-4 h-4 text-brand_accent border-gray-300 focus:ring-brand_accent mr-2"
                   />
                   <span>Serie recurrente</span>
                 </label>
@@ -1059,7 +1257,7 @@ const SessionCreatePage: React.FC = () => {
                       value={mod}
                       checked={formData.modality === mod}
                       onChange={() => handleModalityChange(mod)}
-                      className="mr-2"
+                      className="w-4 h-4 text-brand_accent border-gray-300 focus:ring-brand_accent mr-2"
                     />
                     <span className="capitalize">{mod}</span>
                   </label>
@@ -1138,7 +1336,7 @@ const SessionCreatePage: React.FC = () => {
               <button
                 onClick={handleScheduleSession}
                 disabled={submitting}
-                className="inline-flex items-center justify-center px-4 py-2 bg-brand_primary text-white hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
+                className="inline-flex items-center justify-center px-4 py-2 bg-brand_accent text-brand_primary font-semibold hover:bg-brand_accent_hover rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send size={20} className="mr-2" />
                 {isRecurring && previewDates.length > 0

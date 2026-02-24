@@ -10,6 +10,7 @@ import {
 import { Validators } from '../../../../lib/types/api-auth.types';
 import { SessionActivityLogInsert } from '../../../../lib/types/consultor-sessions.types';
 import { validateFacilitatorIntegrity } from '../../../../lib/utils/facilitator-validation';
+import { createReservation } from '../../../../lib/services/hour-tracking';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-approve');
@@ -80,6 +81,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const previousStatus = session.status;
+
+    // Hour tracking: create reservation ledger entry before status update
+    const reservationResult = await createReservation(serviceClient, session, user!.id);
+
+    if (!reservationResult.skipped && reservationResult.error) {
+      return sendAuthError(res, reservationResult.error, 400);
+    }
 
     // Update session to programada
     const { data: updatedSession, error: updateError } = await serviceClient

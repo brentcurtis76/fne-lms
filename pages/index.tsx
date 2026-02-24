@@ -302,12 +302,12 @@ export default function HomePage() {
                     <h3 className="text-2xl font-bold mb-4">Próximas Expediciones</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="bg-white/10 backdrop-blur rounded-lg p-4 border border-white/20">
-                        <p className="text-sm opacity-80">Primera Cohorte</p>
-                        <p className="text-xl font-bold">Noviembre 2025</p>
+                        <p className="text-sm opacity-80">Primer Cohorte</p>
+                        <p className="text-xl font-bold">Abril 2026</p>
                       </div>
                       <div className="bg-white/10 backdrop-blur rounded-lg p-4 border border-white/20">
-                        <p className="text-sm opacity-80">Segunda Cohorte</p>
-                        <p className="text-xl font-bold">Enero 2026</p>
+                        <p className="text-sm opacity-80">Segundo Cohorte</p>
+                        <p className="text-xl font-bold">Noviembre 2026</p>
                       </div>
                     </div>
                   </div>
@@ -1080,7 +1080,7 @@ export default function HomePage() {
             <div className="bg-white rounded-lg w-full max-w-6xl h-[85vh] relative">
               {/* Modal Header */}
               <div className="absolute top-0 left-0 right-0 bg-white rounded-t-lg border-b border-gray-200 p-4 flex items-center justify-between z-10">
-                <h3 className="text-lg font-bold">Programa de Pasantías Barcelona 2025-2026</h3>
+                <h3 className="text-lg font-bold">Programa de Pasantías Barcelona Abril 2026</h3>
                 <button 
                   onClick={() => setShowFlipbook(false)}
                   className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"
@@ -1130,7 +1130,7 @@ export default function HomePage() {
             <div className="bg-white rounded-lg w-full max-w-6xl h-[85vh] relative">
               {/* Modal Header */}
               <div className="absolute top-0 left-0 right-0 bg-white rounded-t-lg border-b border-gray-200 p-4 flex items-center justify-between z-10">
-                <h3 className="text-lg font-bold">Programa Estratégico para Directivos</h3>
+                <h3 className="text-lg font-bold">Programa Estratégico Para Directivos - Abril 2026</h3>
                 <button 
                   onClick={() => setShowDirectivesFlipbook(false)}
                   className="w-10 h-10 rounded-full hover:bg-gray-100 flex items-center justify-center transition-colors"

@@ -134,15 +134,15 @@ INSERT INTO qa_scenarios (
   priority, estimated_duration_minutes, is_active, automated_only, is_multi_user
 ) VALUES
 
--- LIC-CA-20: Admin ve notificaciones de licitaciones
+-- LIC-CA-20: Encargado recibe notificacion cuando admin crea licitacion
 (
   'admin',
-  'LIC-CA-20: Admin recibe notificacion al crear una licitacion',
-  'Verificar que el administrador recibe una notificacion en la campana al crear una nueva licitacion.',
+  'LIC-CA-20: Encargado recibe notificacion al crearse una licitacion para su escuela',
+  'Verificar que el encargado_licitacion de una escuela recibe una notificacion cuando el admin crea una licitacion para esa escuela. El admin NO recibe notificacion (ya sabe que la creo).',
   'licitaciones',
-  '[{"type":"role","description":"Iniciar sesion como admin"},{"type":"data","description":"Debe existir una escuela con cliente vinculado y al menos un programa activo"}]'::jsonb,
-  '[{"index":1,"instruction":"Iniciar sesion como administrador y navegar a Licitaciones","expectedOutcome":"Se muestra el listado de licitaciones"},{"index":2,"instruction":"Hacer clic en \"Nueva Licitacion\" y completar el formulario con los datos requeridos","expectedOutcome":"La licitacion se crea exitosamente y aparece en el listado"},{"index":3,"instruction":"Verificar el icono de campana en la barra superior y hacer clic sobre el","expectedOutcome":"Se muestra una notificacion con el texto que incluye el numero de la licitacion recien creada"},{"index":4,"instruction":"Verificar que la notificacion indica el nombre de la escuela","expectedOutcome":"La notificacion muestra el nombre de la escuela correctamente"}]'::jsonb,
-  2, 5, true, false, false
+  '[{"type":"role","description":"Iniciar sesion como admin"},{"type":"data","description":"Debe existir una escuela con cliente vinculado, al menos un programa activo, y la escuela debe tener un encargado_licitacion asignado (por ejemplo QA Test School con encargado.licitacion.qa@fne.cl)"},{"type":"role","description":"Se necesita una segunda sesion como encargado_licitacion para verificar la notificacion"}]'::jsonb,
+  '[{"index":1,"instruction":"Iniciar sesion como administrador (bcurtis@nuevaeducacion.org) y navegar a Licitaciones","expectedOutcome":"Se muestra el listado de licitaciones"},{"index":2,"instruction":"Hacer clic en \"Nueva Licitacion\" y seleccionar QA Test School (que tiene encargado asignado). Completar el formulario con los datos requeridos","expectedOutcome":"La licitacion se crea exitosamente y aparece en el listado"},{"index":3,"instruction":"Cerrar sesion del admin. Iniciar sesion como encargado_licitacion (encargado.licitacion.qa@fne.cl / QAtester2026!)","expectedOutcome":"El sistema muestra el panel del encargado"},{"index":4,"instruction":"Verificar el icono de campana en la barra superior y hacer clic sobre el","expectedOutcome":"Se muestra una notificacion con el texto que incluye el numero de la licitacion recien creada y el nombre de la escuela"}]'::jsonb,
+  2, 8, true, false, true
 ),
 
 -- LIC-CA-21: Admin exporta licitaciones a Excel

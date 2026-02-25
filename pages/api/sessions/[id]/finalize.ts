@@ -10,6 +10,7 @@ import {
 import { Validators } from '../../../../lib/types/api-auth.types';
 import { getUserRoles, getHighestRole } from '../../../../utils/roleUtils';
 import { SessionActivityLogInsert } from '../../../../lib/types/consultor-sessions.types';
+import { completeReservation } from '../../../../lib/services/hour-tracking';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-finalize');
@@ -86,6 +87,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Compute actual_duration_minutes if null
     const actualDuration = session.actual_duration_minutes ?? session.scheduled_duration_minutes;
+
+    // Hour tracking: mark ledger entry as consumida (non-blocking — legacy sessions will skip)
+    await completeReservation(serviceClient, id, user.id);
 
     // Update session to completada
     const { data: updatedSession, error: updateError } = await serviceClient

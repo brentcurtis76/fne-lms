@@ -6,7 +6,7 @@ import { es } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { CommunityWorkspace, WorkspaceAccess } from '../../utils/workspaceUtils';
 import { SessionStatus } from '../../lib/types/consultor-sessions.types';
-import { getStatusBadge, formatTime, getModalityIcon } from '../../lib/utils/session-ui-helpers';
+import { getStatusBadge, formatTime, getModalityIcon, getCancellationSubBadge } from '../../lib/utils/session-ui-helpers';
 import { supabase } from '../../lib/supabase';
 
 interface WorkspaceSessionsTabProps {
@@ -39,6 +39,10 @@ const WorkspaceSessionsTab: React.FC<WorkspaceSessionsTabProps> = ({
   const [sessions, setSessions] = useState<SessionListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Cancellation sub-badge data: session_id → { status, admin_override }
+  const [cancellationMap, setCancellationMap] = useState<
+    Map<string, { status: 'penalizada' | 'devuelta'; admin_override: boolean }>
+  >(new Map());
 
   const fetchSessions = useCallback(async () => {
     if (!workspace || !user) {
@@ -83,6 +87,36 @@ const WorkspaceSessionsTab: React.FC<WorkspaceSessionsTabProps> = ({
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
+
+  // Batch-fetch cancellation ledger data for all cancelled sessions
+  useEffect(() => {
+    const cancelledIds = sessions
+      .filter((s) => s.status === 'cancelada')
+      .map((s) => s.id);
+
+    if (cancelledIds.length === 0) {
+      setCancellationMap(new Map());
+      return;
+    }
+
+    supabase
+      .from('contract_hours_ledger')
+      .select('session_id, status, admin_override')
+      .in('session_id', cancelledIds)
+      .then(({ data }) => {
+        if (!data) return;
+        const map = new Map<string, { status: 'penalizada' | 'devuelta'; admin_override: boolean }>();
+        for (const entry of data as { session_id: string; status: string; admin_override: boolean }[]) {
+          if (entry.session_id && (entry.status === 'penalizada' || entry.status === 'devuelta')) {
+            map.set(entry.session_id, {
+              status: entry.status as 'penalizada' | 'devuelta',
+              admin_override: entry.admin_override ?? false,
+            });
+          }
+        }
+        setCancellationMap(map);
+      });
+  }, [sessions]);
 
   const handleRefresh = useCallback(() => {
     fetchSessions();
@@ -184,11 +218,18 @@ const WorkspaceSessionsTab: React.FC<WorkspaceSessionsTabProps> = ({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 ml-2">
+          <div className="flex items-center gap-2 ml-2 flex-wrap">
             {getModalityIcon(session.modality)}
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>
               {badge.label}
             </span>
+            {session.status === 'cancelada' && (() => {
+              const ledger = cancellationMap.get(session.id);
+              return getCancellationSubBadge(
+                ledger?.status ?? null,
+                ledger?.admin_override ?? false
+              );
+            })()}
           </div>
         </div>
 

@@ -25,6 +25,7 @@ import { SessionStatus } from '../../../lib/types/consultor-sessions.types';
 import {
   getStatusBadge as getStatusBadgeData,
   getStatusColor,
+  getCancellationSubBadge,
 } from '../../../lib/utils/session-ui-helpers';
 import { format, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, getDay, startOfWeek, endOfWeek, addMonths, addWeeks } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -724,6 +725,40 @@ const SessionsPage: React.FC = () => {
   // Sub-components for different views
   function ListView({ sessions }: { sessions: SessionListItem[] }) {
     const [dropdownOpen, setDropdownOpen] = useState<string | null>(null);
+    // Map from session_id → { ledger_status, admin_override }
+    const [cancellationMap, setCancellationMap] = useState<
+      Map<string, { status: 'penalizada' | 'devuelta'; admin_override: boolean }>
+    >(new Map());
+
+    // Batch-fetch ledger data for all cancelled sessions (one query, not per-session)
+    useEffect(() => {
+      const cancelledIds = sessions
+        .filter((s) => s.status === 'cancelada')
+        .map((s) => s.id);
+
+      if (cancelledIds.length === 0) {
+        setCancellationMap(new Map());
+        return;
+      }
+
+      supabase
+        .from('contract_hours_ledger')
+        .select('session_id, status, admin_override')
+        .in('session_id', cancelledIds)
+        .then(({ data }) => {
+          if (!data) return;
+          const map = new Map<string, { status: 'penalizada' | 'devuelta'; admin_override: boolean }>();
+          for (const entry of data as { session_id: string; status: string; admin_override: boolean }[]) {
+            if (entry.session_id && (entry.status === 'penalizada' || entry.status === 'devuelta')) {
+              map.set(entry.session_id, {
+                status: entry.status as 'penalizada' | 'devuelta',
+                admin_override: entry.admin_override ?? false,
+              });
+            }
+          }
+          setCancellationMap(map);
+        });
+    }, [sessions]);
 
     // Close dropdown on outside click and Escape key
     useEffect(() => {
@@ -800,7 +835,16 @@ const SessionsPage: React.FC = () => {
                     {getFacilitatorNames(session.session_facilitators)}
                   </td>
                   <td className="px-4 py-3">
-                    {getStatusBadge(session.status)}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {getStatusBadge(session.status)}
+                      {session.status === 'cancelada' && (() => {
+                        const ledger = cancellationMap.get(session.id);
+                        return getCancellationSubBadge(
+                          ledger?.status ?? null,
+                          ledger?.admin_override ?? false
+                        );
+                      })()}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     {session.recurrence_group_id && (

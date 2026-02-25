@@ -18,11 +18,11 @@ import { FeriadoChile } from '@/types/licitaciones';
 const INPUT_CLASS =
   'border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:outline-none w-full';
 const BTN_PRIMARY =
-  'px-4 py-2 bg-yellow-400 text-black rounded-lg font-medium hover:bg-yellow-500 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed';
+  'px-4 py-2 bg-yellow-400 text-black rounded-lg font-medium hover:bg-yellow-500 transition-colors text-sm disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2';
 const BTN_SECONDARY =
-  'px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm disabled:opacity-60';
+  'px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2';
 const BTN_DANGER =
-  'text-red-600 hover:text-red-800 text-sm transition-colors p-1';
+  'text-red-600 hover:text-red-800 text-sm transition-colors p-1 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 rounded';
 
 interface FeriadoEditState {
   fecha: string;
@@ -59,6 +59,9 @@ export default function FeriadosAdminPage() {
     nombre: '',
   });
   const [addingSaving, setAddingSaving] = useState(false);
+
+  // Bulk seed state
+  const [bulkSeeding, setBulkSeeding] = useState(false);
 
   // ============================================================
   // Data loading
@@ -234,6 +237,38 @@ export default function FeriadosAdminPage() {
   };
 
   // ============================================================
+  // Bulk seed Chilean holidays
+  // ============================================================
+
+  const handleBulkSeed = async () => {
+    setBulkSeeding(true);
+    try {
+      const res = await fetch('/api/admin/licitaciones/feriados', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'bulk_seed', year: selectedYear }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || 'Error al cargar feriados');
+      }
+
+      const inserted: number = json.data?.inserted ?? 0;
+      if (inserted === 0) {
+        toast.success(`Todos los feriados de ${selectedYear} ya estaban registrados`);
+      } else {
+        toast.success(`${inserted} feriado${inserted !== 1 ? 's' : ''} agregado${inserted !== 1 ? 's' : ''} para ${selectedYear}`);
+      }
+      await loadFeriados(selectedYear);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al cargar feriados');
+    } finally {
+      setBulkSeeding(false);
+    }
+  };
+
+  // ============================================================
   // Format date
   // ============================================================
 
@@ -264,7 +299,7 @@ export default function FeriadosAdminPage() {
   return (
     <MainLayout
       user={currentUser as Parameters<typeof MainLayout>[0]['user']}
-      currentPage="admin"
+      currentPage="licitaciones-feriados"
       pageTitle="Feriados Chile"
       isAdmin={isAdmin}
       userRole="admin"
@@ -277,15 +312,15 @@ export default function FeriadosAdminPage() {
             className="flex items-center gap-1 text-gray-600 hover:text-gray-900 text-sm"
           >
             <ArrowLeft size={16} />
-            Volver
+            Volver a Licitaciones
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-              <Calendar size={24} />
+              <Calendar size={24} aria-hidden="true" />
               Feriados Chile
             </h1>
             <p className="text-gray-500 text-sm mt-1">
-              Gestione los feriados nacionales utilizados en el calculo del cronograma de licitaciones
+              Gestione los feriados nacionales utilizados en el cálculo del cronograma de licitaciones
             </p>
           </div>
         </div>
@@ -293,12 +328,12 @@ export default function FeriadosAdminPage() {
         {/* Controls */}
         <div className="bg-white rounded-lg shadow mb-4 p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-gray-700">Filtrar por ano:</label>
+            <label htmlFor="year-filter" className="text-sm font-medium text-gray-700">Filtrar por año:</label>
             <select
+              id="year-filter"
               value={selectedYear}
               onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}
-              className={INPUT_CLASS}
-              style={{ width: 'auto' }}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 focus:outline-none w-auto"
             >
               {yearOptions.map(y => (
                 <option key={y} value={y}>{y}</option>
@@ -308,16 +343,27 @@ export default function FeriadosAdminPage() {
               {feriados.length} feriado{feriados.length !== 1 ? 's' : ''}
             </span>
           </div>
-          <button
-            onClick={() => {
-              setShowAddForm(!showAddForm);
-              setNewFeriado({ fecha: `${selectedYear}-01-01`, nombre: '' });
-            }}
-            className={BTN_PRIMARY}
-          >
-            <Plus size={16} className="inline mr-1" />
-            Agregar Feriado
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleBulkSeed}
+              disabled={bulkSeeding}
+              className={BTN_SECONDARY}
+              title={`Agregar automaticamente todos los feriados de Chile para ${selectedYear}`}
+            >
+              <Calendar size={16} className="inline mr-1" />
+              {bulkSeeding ? 'Cargando...' : `Cargar feriados ${selectedYear}`}
+            </button>
+            <button
+              onClick={() => {
+                setShowAddForm(!showAddForm);
+                setNewFeriado({ fecha: `${selectedYear}-01-01`, nombre: '' });
+              }}
+              className={BTN_PRIMARY}
+            >
+              <Plus size={16} className="inline mr-1" />
+              Agregar Feriado
+            </button>
+          </div>
         </div>
 
         {/* Add form */}
@@ -326,8 +372,9 @@ export default function FeriadosAdminPage() {
             <h3 className="font-medium text-gray-900 mb-3 text-sm">Nuevo Feriado</h3>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Fecha</label>
+                <label htmlFor="new-feriado-fecha" className="block text-xs text-gray-600 mb-1">Fecha</label>
                 <input
+                  id="new-feriado-fecha"
                   type="date"
                   value={newFeriado.fecha}
                   onChange={(e) => setNewFeriado(prev => ({ ...prev, fecha: e.target.value }))}
@@ -335,12 +382,13 @@ export default function FeriadosAdminPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Nombre del Feriado</label>
+                <label htmlFor="new-feriado-nombre" className="block text-xs text-gray-600 mb-1">Nombre del Feriado</label>
                 <input
+                  id="new-feriado-nombre"
                   type="text"
                   value={newFeriado.nombre}
                   onChange={(e) => setNewFeriado(prev => ({ ...prev, nombre: e.target.value }))}
-                  placeholder="Ej: Ano Nuevo"
+                  placeholder="Ej: Año Nuevo"
                   className={INPUT_CLASS}
                 />
               </div>
@@ -366,19 +414,21 @@ export default function FeriadosAdminPage() {
         {/* Table */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           {loading ? (
-            <div className="p-8 text-center text-gray-400 text-sm">Cargando...</div>
+            <div className="p-8 flex justify-center items-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400" />
+            </div>
           ) : feriados.length === 0 ? (
             <div className="p-8 text-center text-gray-400 text-sm">
-              No hay feriados registrados para el ano {selectedYear}.
+              No hay feriados registrados para el año {selectedYear}.
             </div>
           ) : (
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-700">Fecha</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-700">Nombre</th>
-                  <th className="text-left px-4 py-3 text-sm font-medium text-gray-700">Ano</th>
-                  <th className="px-4 py-3"></th>
+                  <th scope="col" className="text-left px-4 py-3 text-sm font-medium text-gray-700">Fecha</th>
+                  <th scope="col" className="text-left px-4 py-3 text-sm font-medium text-gray-700">Nombre</th>
+                  <th scope="col" className="text-left px-4 py-3 text-sm font-medium text-gray-700">Año</th>
+                  <th scope="col" className="px-4 py-3 sr-only">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -393,6 +443,7 @@ export default function FeriadosAdminPage() {
                             onChange={(e) =>
                               setEditForm(prev => ({ ...prev, fecha: e.target.value }))
                             }
+                            aria-label="Fecha del feriado"
                             className={INPUT_CLASS}
                           />
                         </td>
@@ -403,6 +454,7 @@ export default function FeriadosAdminPage() {
                             onChange={(e) =>
                               setEditForm(prev => ({ ...prev, nombre: e.target.value }))
                             }
+                            aria-label="Nombre del feriado"
                             className={INPUT_CLASS}
                           />
                         </td>
@@ -436,8 +488,8 @@ export default function FeriadosAdminPage() {
                           <div className="flex items-center gap-1">
                             <button
                               onClick={() => startEdit(feriado)}
-                              className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors"
-                              title="Editar"
+                              className="p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
+                              aria-label={`Editar ${feriado.nombre}`}
                             >
                               <Edit2 size={14} />
                             </button>
@@ -461,7 +513,7 @@ export default function FeriadosAdminPage() {
                               <button
                                 onClick={() => setConfirmDeleteId(feriado.id)}
                                 className={BTN_DANGER}
-                                title="Eliminar"
+                                aria-label={`Eliminar ${feriado.nombre}`}
                               >
                                 <Trash2 size={14} />
                               </button>

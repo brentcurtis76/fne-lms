@@ -66,6 +66,11 @@
     "seed:validate": "node -e \"console.log('Data validation would run here')\"",
     "seed:report": "node -e \"console.log('Report generation would run here')\"",
     "seed:test-security": "node scripts/data-seeding/test-security.js",
+    "seed:assessments": "node scripts/seed-assessment-builder-qa-data.mjs",
+    "test:assessments": "cross-env NODE_OPTIONS=--require=./tests/mocks/register-canvas.js vitest run __tests__/lib/services/assessment-builder/scoringService.test.ts lib/__tests__/assessment-permissions.test.ts",
+    "test:assessments:api": "cross-env NODE_OPTIONS=--require=./tests/mocks/register-canvas.js vitest run __tests__/api/assessment-builder/",
+    "e2e:assessments": "playwright test tests/e2e/assessment-builder/",
+    "e2e:assessments:headed": "playwright test tests/e2e/assessment-builder/ --headed",
     "demo:seed": "node -r dotenv/config --loader tsx scripts/demo-data/seed-demo.ts dotenv_config_path=.env.local",
     "demo:cleanup": "node -r dotenv/config --loader tsx scripts/demo-data/cleanup-demo.ts dotenv_config_path=.env.local"
   },

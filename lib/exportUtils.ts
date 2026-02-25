@@ -19,6 +19,18 @@ declare module 'jspdf' {
   }
 }
 
+/**
+ * Escape a value for CSV output.
+ * Wraps in double-quotes if the value contains commas, quotes, or newlines.
+ * Doubles any embedded double-quotes per RFC 4180.
+ */
+export function csvEscape(val: string): string {
+  if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+    return `"${val.replace(/"/g, '""')}"`;
+  }
+  return val;
+}
+
 export class ReportExporter {
   static exportToCSV(exportData: ExportData) {
     const { filename, headers, data } = exportData;

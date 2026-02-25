@@ -457,7 +457,7 @@ const AssessmentBuilderIndex: React.FC = () => {
 
           {activeTab === 'active' && isAdmin && (
             <Link href="/admin/assessment-builder/create" legacyBehavior>
-              <a className="inline-flex items-center justify-center px-4 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-brand_blue/90 transition-colors text-sm font-medium">
+              <a data-testid="create-template-btn" className="inline-flex items-center justify-center px-4 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-brand_blue/90 transition-colors text-sm font-medium">
                 <Plus className="w-4 h-4 mr-2" />
                 Nuevo Template
               </a>
@@ -560,7 +560,7 @@ const AssessmentBuilderIndex: React.FC = () => {
                         <span className="text-sm text-gray-500">{template.version}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusStyle.bgColor} ${statusStyle.textColor}`}>
+                        <span data-testid="template-status-badge" className={`px-2 py-1 text-xs font-medium rounded-full ${statusStyle.bgColor} ${statusStyle.textColor}`}>
                           {statusStyle.label}
                         </span>
                       </td>

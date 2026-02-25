@@ -10,7 +10,7 @@ import { Calendar, MapPin, Clock, Filter as FilterIcon, X, Link2, Users, Calenda
 import { SessionStatus } from '../../../lib/types/consultor-sessions.types';
 import { format, parseISO, differenceInDays, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { getStatusBadge, formatTime, getModalityIcon } from '../../../lib/utils/session-ui-helpers';
+import { getStatusBadge, formatTime, getModalityIcon, getCancellationSubBadge } from '../../../lib/utils/session-ui-helpers';
 import { getSessionDateTime, getHoursUntilSession } from '../../../lib/utils/session-timezone';
 
 interface SessionListItem {
@@ -64,6 +64,11 @@ const ConsultorSessionsPage: React.FC = () => {
   // Cached school list for filter dropdown (populated on initial unfiltered load)
   const [allSchools, setAllSchools] = useState<{id: number; name: string}[]>([]);
 
+  // Cancellation sub-badge data: session_id → { status, admin_override }
+  const [cancellationMap, setCancellationMap] = useState<
+    Map<string, { status: 'penalizada' | 'devuelta'; admin_override: boolean }>
+  >(new Map());
+
   useEffect(() => {
     if (router.isReady) {
       initializeAuth();
@@ -75,6 +80,36 @@ const ConsultorSessionsPage: React.FC = () => {
       fetchSessions();
     }
   }, [user, isConsultorOrAdmin, filters, page]);
+
+  // Batch-fetch cancellation ledger data for all cancelled sessions
+  useEffect(() => {
+    const cancelledIds = sessions
+      .filter((s) => s.status === 'cancelada')
+      .map((s) => s.id);
+
+    if (cancelledIds.length === 0) {
+      setCancellationMap(new Map());
+      return;
+    }
+
+    supabase
+      .from('contract_hours_ledger')
+      .select('session_id, status, admin_override')
+      .in('session_id', cancelledIds)
+      .then(({ data }) => {
+        if (!data) return;
+        const map = new Map<string, { status: 'penalizada' | 'devuelta'; admin_override: boolean }>();
+        for (const entry of data as { session_id: string; status: string; admin_override: boolean }[]) {
+          if (entry.session_id && (entry.status === 'penalizada' || entry.status === 'devuelta')) {
+            map.set(entry.session_id, {
+              status: entry.status as 'penalizada' | 'devuelta',
+              admin_override: entry.admin_override ?? false,
+            });
+          }
+        }
+        setCancellationMap(map);
+      });
+  }, [sessions]);
 
   // Update URL when filters change (skip initial mount)
   const isInitialMount = useRef(true);
@@ -313,9 +348,18 @@ const ConsultorSessionsPage: React.FC = () => {
               </div>
             </div>
           </div>
-          <span className={`px-3 py-1 rounded-full text-xs font-medium ${badge.className}`}>
-            {badge.label}
-          </span>
+          <div className="flex items-center gap-1 flex-wrap">
+            <span className={`px-3 py-1 rounded-full text-xs font-medium ${badge.className}`}>
+              {badge.label}
+            </span>
+            {session.status === 'cancelada' && (() => {
+              const ledger = cancellationMap.get(session.id);
+              return getCancellationSubBadge(
+                ledger?.status ?? null,
+                ledger?.admin_override ?? false
+              );
+            })()}
+          </div>
         </div>
         <div className="text-sm text-gray-600 space-y-1">
           {session.schools && <div className="flex items-center gap-1"><MapPin className="w-3 h-3 flex-shrink-0" /> {session.schools.name}</div>}

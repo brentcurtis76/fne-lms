@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, FileText, Calendar, DollarSign, MapPin, User, Building, CreditCard, Download, Upload, TrendingUp, Edit, Trash2, Check, Eye } from 'lucide-react';
+import HourAllocationPanel from './HourAllocationPanel';
 
 interface Programa {
   id: string;
@@ -62,6 +63,7 @@ interface Contrato {
   contrato_url?: string;
   es_manual?: boolean;
   descripcion_manual?: string;
+  horas_contratadas?: number;
   clientes: Cliente;
   programas: Programa;
   cuotas?: Cuota[];
@@ -79,6 +81,7 @@ interface ContractDetailsModalProps {
   onUploadInvoice?: (cuotaId: string, file: File) => Promise<void>;
   onTogglePaymentStatus?: (cuotaId: string, currentStatus: boolean) => Promise<void>;
   onDeleteInvoice?: (cuotaId: string) => Promise<void>;
+  isAdmin?: boolean;
 }
 
 export default function ContractDetailsModal({
@@ -92,7 +95,8 @@ export default function ContractDetailsModal({
   onGeneratePDF,
   onUploadInvoice,
   onTogglePaymentStatus,
-  onDeleteInvoice
+  onDeleteInvoice,
+  isAdmin = false,
 }: ContractDetailsModalProps) {
   const [uploadingContract, setUploadingContract] = useState(false);
   const [uploadingInvoice, setUploadingInvoice] = useState<string | null>(null);
@@ -572,6 +576,15 @@ export default function ContractDetailsModal({
               </div>
             </div>
           ) : null}
+
+          {/* Hour Allocation Panel */}
+          {contrato.estado === 'activo' && contrato.horas_contratadas != null && contrato.horas_contratadas > 0 && (
+            <HourAllocationPanel
+              contratoId={contrato.id}
+              horasContratadas={contrato.horas_contratadas}
+              isAdmin={isAdmin}
+            />
+          )}
 
           {/* Payment Schedule */}
           {contrato.cuotas && contrato.cuotas.length > 0 && (

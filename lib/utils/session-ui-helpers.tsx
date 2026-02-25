@@ -69,6 +69,40 @@ export function getSeriesStatsPillClass(status: SessionStatus): string {
   return classes[status] || classes.borrador;
 }
 
+/**
+ * getCancellationSubBadge — Returns a secondary badge for cancelled sessions
+ * showing the ledger outcome (Penalizada / Devuelta) and admin override indicator.
+ *
+ * @param ledgerStatus  - 'penalizada' | 'devuelta' | null (null = no ledger entry yet)
+ * @param adminOverride - true when an admin manually set the status
+ * @returns React.ReactNode badge or null
+ */
+export function getCancellationSubBadge(
+  ledgerStatus: 'penalizada' | 'devuelta' | null,
+  adminOverride: boolean = false
+): React.ReactNode {
+  if (!ledgerStatus) return null;
+
+  const isPenalizada = ledgerStatus === 'penalizada';
+  const badgeClass = isPenalizada
+    ? 'bg-red-100 text-red-700'
+    : 'bg-green-50 text-green-700 border border-green-200';
+  const label = isPenalizada ? 'Penalizada' : 'Devuelta';
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${badgeClass}`}>
+        {label}
+      </span>
+      {adminOverride && (
+        <span className="inline-flex px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-600">
+          Admin
+        </span>
+      )}
+    </span>
+  );
+}
+
 export function formatTime(timeString: string): string {
   return timeString.substring(0, 5);
 }

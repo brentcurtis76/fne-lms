@@ -122,7 +122,7 @@ export default function FeaturePage({ data }) {
 7. **UX Reviewer** checks UI (if applicable) → `ux-report.md` (PASS → 8, BLOCK → fix loop back to 4)
 8. **Architect — Automated Gate**: reads upstream verdicts (Code Review, Security, UX). All must be PASS. Writes `gate-blocked.md` on block.
 9. **Architect — Deploy**: on gate PASS, pushes migrations, deploys to staging → `staging-url.txt`
-10. **QA** tests staging in a real browser via Playwright MCP → `qa-report.md`
+10. **QA** runs Playwright E2E tests against localhost + tests staging via browser → `qa-report.md`
 11. **PM — Final Review**: reads ALL reports, all review agents must be PASS, decides SHIP IT / ITERATE / ESCALATE → `pm-final-verdict.md`
 
 **Key design**: Every review agent (Code Review, Security, UX) that finds ANY issue sends the pipeline back to the Developer to fix it. The review re-runs to verify. No issues are deferred to backlogs or follow-up tasks. The pipeline ships clean or it doesn't ship.
@@ -145,5 +145,6 @@ Additional QA reference: `docs/qa-system/GUIA_QA_TESTER.docx` (Spanish-language 
 - `npm run lint` — ESLint
 - `npm test` — Vitest (14 existing test files)
 - `npm run build` — Next.js production build
+- `npx playwright test --reporter=list` — Playwright E2E tests (runs against localhost via webServer config)
 
-ALL four must pass before ANY task is reported complete.
+ALL four quality commands must pass before ANY task is reported complete. Playwright E2E tests are mandatory for the QA agent (see `pipeline-qa.md` Step 2) — pre-existing failures in unrelated specs don't block, but feature-related failures do.

@@ -68,6 +68,7 @@ interface Contrato {
   es_manual?: boolean; // New field for manual contracts
   descripcion_manual?: string; // New field for manual contract description
   licitacion_id?: string | null; // Phase 5: link to licitacion
+  horas_contratadas?: number; // Hour tracking Phase 3
   clientes: Cliente;
   programas: Programa;
   cuotas?: Cuota[];
@@ -1052,6 +1053,7 @@ export default function ContractsPage() {
               onUploadInvoice={handleInvoiceUpload}
               onTogglePaymentStatus={handleTogglePaymentStatus}
               onDeleteInvoice={handleInvoiceDelete}
+              isAdmin={isAdmin}
             />
 
             {/* PDF Importer Modal */}

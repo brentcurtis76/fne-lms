@@ -50,10 +50,11 @@ export interface ContractHourAllocation {
   contrato_id: string; // UUID
   hour_type_id: string;
   allocated_hours: number;
+  is_fixed_allocation: boolean;
   adds_to_allocation_id: string | null;
-  notes: string | null;
   created_at: string;
-  updated_at: string;
+  updated_at: string | null;
+  created_by: string;
 }
 
 /**
@@ -85,11 +86,12 @@ export interface ContractHoursLedger {
 export interface ConsultantRate {
   id: string;
   consultant_id: string;
+  hour_type_id: string; // FK to hour_types
   rate_eur: number; // DECIMAL(10,2)
   effective_from: string; // DATE
   effective_to: string | null; // DATE — exclusive upper bound (half-open interval)
-  notes: string | null;
   created_at: string;
+  updated_at: string; // DEFAULT NOW()
   created_by: string;
 }
 
@@ -113,9 +115,9 @@ export interface FxRate {
 export interface ContractHourReallocationLog {
   id: string;
   contrato_id: string; // UUID
-  from_allocation_id: string;
-  to_allocation_id: string;
-  hours_transferred: number;
+  from_hour_type_id: string;
+  to_hour_type_id: string;
+  hours: number;
   reason: string | null;
   created_by: string;
   created_at: string;
@@ -130,13 +132,14 @@ export interface ContractHourReallocationLog {
  * Column names use full names (not short names)
  */
 export interface BucketSummary {
-  hour_type_id: string;
   hour_type_key: string;
   display_name: string;
   allocated_hours: number;
   reserved_hours: number;
   consumed_hours: number;
   available_hours: number;
+  is_fixed_allocation: boolean;
+  annex_hours: number;
 }
 
 // ============================================================

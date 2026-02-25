@@ -8,7 +8,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
-import { BarChart3, Scale } from 'lucide-react';
+import { BarChart3, Scale, DollarSign, TrendingUp, Clock } from 'lucide-react';
 import {
   HomeIcon,
   BookOpenIcon,
@@ -156,6 +156,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: BarChart3,
     href: '/consultor/sessions/reports',
     description: 'Estadísticas de mis sesiones',
+    consultantOnly: true
+  },
+  {
+    id: 'mis-horas',
+    label: 'Mis Horas',
+    icon: Clock,
+    href: '/mis-horas',
+    description: 'Ver mis ganancias y horas',
     consultantOnly: true
   },
   {
@@ -311,6 +319,22 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/consultor/sessions/reports',
         description: 'Estadísticas de sesiones de consultoría',
         icon: BarChart3,
+        adminOnly: true
+      },
+      {
+        id: 'consultant-rates',
+        label: 'Tarifas',
+        href: '/admin/consultant-rates',
+        description: 'Gestionar tarifas de consultores',
+        icon: DollarSign,
+        adminOnly: true
+      },
+      {
+        id: 'consultant-earnings',
+        label: 'Ganancias',
+        href: '/admin/consultant-earnings',
+        description: 'Ver ganancias de consultores',
+        icon: TrendingUp,
         adminOnly: true
       }
     ]

@@ -133,6 +133,8 @@ const BulkTagSessionsPage: React.FC = () => {
 
   const fetchSchools = useCallback(async () => {
     try {
+      // Direct Supabase query for school dropdown — read-only, admin-only page.
+      // A dedicated /api/admin/schools endpoint does not exist yet.
       const { data, error } = await supabase
         .from('schools')
         .select('id, name')
@@ -141,7 +143,7 @@ const BulkTagSessionsPage: React.FC = () => {
         setSchools(data as Array<{ id: number; name: string }>);
       }
     } catch {
-      // Silently fail
+      // Silently fail — school filter is optional
     }
   }, [supabase]);
 
@@ -399,7 +401,7 @@ const BulkTagSessionsPage: React.FC = () => {
               </span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  onClick={() => { setSelectedIds(new Set()); setPage((p) => Math.max(1, p - 1)); }}
                   disabled={page === 1}
                   className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Página anterior"
@@ -407,7 +409,7 @@ const BulkTagSessionsPage: React.FC = () => {
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => { setSelectedIds(new Set()); setPage((p) => Math.min(totalPages, p + 1)); }}
                   disabled={page === totalPages}
                   className="p-2 rounded-md border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Página siguiente"

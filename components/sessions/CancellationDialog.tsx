@@ -12,6 +12,7 @@ import { ConsultorSession } from '../../lib/types/consultor-sessions.types';
 
 interface CancellationDialogProps {
   session: ConsultorSession;
+  hourTypeModality?: 'online' | 'presencial';
   onClose: () => void;
   onConfirm: (params: {
     cancellation_reason: string;
@@ -25,6 +26,7 @@ interface CancellationDialogProps {
 
 const CancellationDialog: React.FC<CancellationDialogProps> = ({
   session,
+  hourTypeModality,
   onClose,
   onConfirm,
   submitting,
@@ -90,13 +92,16 @@ const CancellationDialog: React.FC<CancellationDialogProps> = ({
     const effectiveCancelledBy: CancelledByParty =
       cancelledBy === 'force_majeure' ? 'force_majeure' : cancelledBy;
 
+    // Use hour type modality (from DB) when available, fall back to session modality
+    const effectiveModality = hourTypeModality || session.modality;
+
     const result = evaluateCancellationClause(
-      session.modality,
+      effectiveModality,
       effectiveCancelledBy,
       noticeHours
     );
     setClauseResult(result);
-  }, [cancelledBy, session, hasHourTracking]);
+  }, [cancelledBy, session, hasHourTracking, hourTypeModality]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

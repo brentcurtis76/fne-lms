@@ -99,6 +99,17 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, consultantId
       }
     }
 
+    // Fetch consultant name for response
+    const { data: consultantProfile } = await serviceClient
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('id', consultantId)
+      .single();
+
+    const consultantName = consultantProfile
+      ? `${consultantProfile.first_name ?? ''} ${consultantProfile.last_name ?? ''}`.trim()
+      : null;
+
     // Validate required date params
     const { from, to } = req.query;
 
@@ -243,6 +254,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, consultantId
 
     return sendApiResponse(res, {
       consultant_id: consultantId,
+      consultant_name: consultantName,
       period: { from, to },
       fx_rate: {
         rate_clp_per_eur: fxRate.rate_clp_per_eur,
@@ -250,7 +262,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, consultantId
         is_stale: fxRate.is_stale,
         source: fxRate.source,
       },
-      rows,
+      by_hour_type: rows,
       totals: {
         total_hours: grandTotalHours,
         total_eur: grandTotalEur,

@@ -616,7 +616,7 @@ export async function fetchFxRateFromApi(
       to_currency: 'CLP',
       rate: clpRate,
       fetched_at: fetchedAt,
-      source: FX_API_URL,
+      source: 'api',
     });
 
   if (insertError) {
@@ -627,6 +627,6 @@ export async function fetchFxRateFromApi(
     rate_clp_per_eur: clpRate,
     fetched_at: fetchedAt,
     is_stale: false,
-    source: FX_API_URL,
+    source: 'api',
   };
 }

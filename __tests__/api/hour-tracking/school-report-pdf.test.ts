@@ -48,6 +48,11 @@ vi.mock('../../../utils/roleUtils', () => ({
   getHighestRole: mockGetHighestRole,
 }));
 
+// Mock the shared service
+vi.mock('../../../lib/services/school-hours-report', () => ({
+  fetchSchoolReportData: vi.fn(),
+}));
+
 // Mock jsPDF and jspdf-autotable to avoid canvas/browser dependencies in Node tests
 vi.mock('jspdf', () => {
   const mockDoc = {
@@ -83,48 +88,22 @@ vi.mock('fs', () => {
 });
 
 import handler from '../../../pages/api/school-hours-report/[school_id]/pdf';
+import { fetchSchoolReportData } from '../../../lib/services/school-hours-report';
+const mockFetchSchoolReportData = fetchSchoolReportData as ReturnType<typeof vi.fn>;
 
 // ============================================================
-// Chain helpers
+// Helpers
 // ============================================================
 
-function makeChain(result: unknown) {
-  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
-  const methods = ['select', 'eq', 'in', 'order', 'limit'];
-  for (const m of methods) {
-    chain[m] = vi.fn().mockReturnValue(chain);
-  }
-  chain.single = vi.fn().mockResolvedValue(result);
-  return chain;
+function setupAuth(userId: string, roleType: string, schoolId: number | null = null) {
+  mockGetApiUser.mockResolvedValue({ user: { id: userId }, error: null });
+  mockGetUserRoles.mockResolvedValue([{ role_type: roleType, school_id: schoolId }]);
+  mockGetHighestRole.mockReturnValue(roleType);
+  mockCreateServiceRoleClient.mockReturnValue({});
 }
 
-function makeEmptySchoolClient(schoolId = SCHOOL_ID, schoolName = 'Escuela Test') {
-  return {
-    from: vi.fn((table: string) => {
-      if (table === 'schools') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: { id: schoolId, name: schoolName }, error: null }),
-        };
-      }
-      if (table === 'clientes') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
-        };
-      }
-      if (table === 'contratos') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
-        };
-      }
-      return makeChain({ data: null, error: null });
-    }),
-    rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
-  };
+function makeSchoolReport(schoolId: number, schoolName: string, programs: unknown[] = []) {
+  return { school_id: schoolId, school_name: schoolName, programs };
 }
 
 // ============================================================
@@ -149,12 +128,7 @@ describe('GET /api/school-hours-report/[school_id]/pdf', () => {
   });
 
   it('returns 403 when equipo_directivo requests another school PDF', async () => {
-    mockGetApiUser.mockResolvedValue({ user: { id: DIRECTIVO_UUID }, error: null });
-    mockGetUserRoles.mockResolvedValue([{ role_type: 'equipo_directivo', school_id: SCHOOL_ID }]);
-    mockGetHighestRole.mockReturnValue('equipo_directivo');
-
-    const mockClient = makeEmptySchoolClient(OTHER_SCHOOL_ID);
-    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+    setupAuth(DIRECTIVO_UUID, 'equipo_directivo', SCHOOL_ID);
 
     const { req, res } = createMocks({
       method: 'GET',
@@ -166,12 +140,8 @@ describe('GET /api/school-hours-report/[school_id]/pdf', () => {
   });
 
   it('returns 200 with application/pdf for equipo_directivo on own school', async () => {
-    mockGetApiUser.mockResolvedValue({ user: { id: DIRECTIVO_UUID }, error: null });
-    mockGetUserRoles.mockResolvedValue([{ role_type: 'equipo_directivo', school_id: SCHOOL_ID }]);
-    mockGetHighestRole.mockReturnValue('equipo_directivo');
-
-    const mockClient = makeEmptySchoolClient(SCHOOL_ID);
-    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+    setupAuth(DIRECTIVO_UUID, 'equipo_directivo', SCHOOL_ID);
+    mockFetchSchoolReportData.mockResolvedValue(makeSchoolReport(SCHOOL_ID, 'Escuela Test'));
 
     const { req, res } = createMocks({
       method: 'GET',
@@ -188,12 +158,8 @@ describe('GET /api/school-hours-report/[school_id]/pdf', () => {
   });
 
   it('returns application/pdf for admin on any school', async () => {
-    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
-    mockGetUserRoles.mockResolvedValue([{ role_type: 'admin', school_id: null }]);
-    mockGetHighestRole.mockReturnValue('admin');
-
-    const mockClient = makeEmptySchoolClient(OTHER_SCHOOL_ID, 'Otra Escuela');
-    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+    setupAuth(ADMIN_UUID, 'admin');
+    mockFetchSchoolReportData.mockResolvedValue(makeSchoolReport(OTHER_SCHOOL_ID, 'Otra Escuela'));
 
     const { req, res } = createMocks({
       method: 'GET',

@@ -286,6 +286,7 @@ const CreateTemplate: React.FC = () => {
               <input
                 type="text"
                 id="name"
+                data-testid="template-name-input"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Ej: Evaluación de Personalización 2026"

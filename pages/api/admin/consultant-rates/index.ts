@@ -9,6 +9,7 @@ import {
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
 import { getUserRoles, getHighestRole } from '../../../../utils/roleUtils';
+import { Validators } from '../../../../lib/types/api-auth.types';
 
 // ============================================================
 // Zod schemas
@@ -98,12 +99,15 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
         updated_at,
         created_by,
         profiles:consultant_id ( id, first_name, last_name, email ),
-        hour_types:hour_type_id ( id, key, display_name )
+        hour_types:hour_type_id ( id, key, display_name, modality )
       `
       )
       .order('effective_from', { ascending: false });
 
     if (consultant_id && typeof consultant_id === 'string') {
+      if (!Validators.isUUID(consultant_id)) {
+        return sendAuthError(res, 'consultant_id debe ser un UUID válido', 400);
+      }
       query = query.eq('consultant_id', consultant_id);
     }
 

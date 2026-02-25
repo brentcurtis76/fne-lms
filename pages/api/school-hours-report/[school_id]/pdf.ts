@@ -19,7 +19,7 @@ import {
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
 import { getUserRoles, getHighestRole } from '../../../../utils/roleUtils';
-import type { SchoolReportData, BucketWithSessions, ContractSummary } from '../../../../lib/types/hour-tracking.types';
+import { fetchSchoolReportData } from '../../../../lib/services/school-hours-report';
 
 // Brand colours
 const NAVY = '#003A5B';
@@ -29,153 +29,6 @@ const STATUS_COLORS: Record<string, string> = {
   penalizada: '#dc2626',
   devuelta: '#ea580c',
 };
-
-// ============================================================
-// Helper: fetch report data (re-uses same logic as index.ts)
-// ============================================================
-
-type BucketRow = {
-  hour_type_key: string;
-  display_name: string;
-  allocated_hours: number;
-  reserved_hours: number;
-  consumed_hours: number;
-  available_hours: number;
-  is_fixed_allocation: boolean;
-  annex_hours: number;
-};
-
-type SessionRow = {
-  id: string;
-  title: string;
-  scheduled_date: string | null;
-  actual_duration_minutes: number | null;
-  planned_duration_minutes: number | null;
-  status: string;
-  hour_type_key: string | null;
-  session_facilitators: Array<{ profiles: { first_name: string | null; last_name: string | null } | null }> | null;
-};
-
-type ContratoRow = {
-  id: string;
-  numero_contrato: string | null;
-  is_annexo: boolean | null;
-  horas_contratadas: number | null;
-  programa_id: string | null;
-  programas: { id: string; nombre: string } | null;
-};
-
-const MAX_SESSIONS_PER_BUCKET = 500;
-
-async function fetchReportData(serviceClient: ReturnType<typeof createServiceRoleClient>, schoolId: number): Promise<SchoolReportData | null> {
-  const { data: schoolData } = await serviceClient
-    .from('schools')
-    .select('id, name')
-    .eq('id', schoolId)
-    .single();
-
-  if (!schoolData) return null;
-
-  // Step 1: Get cliente_ids for this school
-  const { data: clientesData } = await serviceClient
-    .from('clientes')
-    .select('id')
-    .eq('school_id', schoolId);
-
-  const clienteIds = (clientesData ?? []).map((c: { id: string }) => c.id);
-  if (clienteIds.length === 0) {
-    return { school_id: schoolId, school_name: schoolData.name, programs: [] };
-  }
-
-  // Step 2: Fetch active contracts
-  const { data: contratos } = await serviceClient
-    .from('contratos')
-    .select(`
-      id,
-      numero_contrato,
-      is_annexo,
-      horas_contratadas,
-      programa_id,
-      programas(id, nombre)
-    `)
-    .in('cliente_id', clienteIds)
-    .eq('estado', 'activo');
-
-  const contratoList = (contratos ?? []) as unknown as ContratoRow[];
-
-  const programaMap = new Map<string, { programa_id: string; programa_name: string; contracts: ContractSummary[] }>();
-
-  for (const contrato of contratoList) {
-    const programaId = contrato.programa_id ?? 'sin_programa';
-    const programaName = contrato.programas?.nombre ?? 'Sin Programa';
-
-    if (!programaMap.has(programaId)) {
-      programaMap.set(programaId, { programa_id: programaId, programa_name: programaName, contracts: [] });
-    }
-
-    const { data: bucketRows } = await serviceClient.rpc('get_bucket_summary', { p_contrato_id: contrato.id });
-
-    const bucketsWithSessions: BucketWithSessions[] = [];
-
-    for (const bucket of (bucketRows ?? []) as BucketRow[]) {
-      const { data: sessionRows } = await serviceClient
-        .from('consultor_sessions')
-        .select(`id, title, scheduled_date, actual_duration_minutes, planned_duration_minutes, status, hour_type_key, session_facilitators(profiles(first_name, last_name))`)
-        .eq('contrato_id', contrato.id)
-        .eq('hour_type_key', bucket.hour_type_key)
-        .order('scheduled_date', { ascending: false })
-        .limit(MAX_SESSIONS_PER_BUCKET);
-
-      const sessions = ((sessionRows ?? []) as unknown as SessionRow[]).map((s) => {
-        const facilitator = s.session_facilitators?.[0]?.profiles;
-        const consultantName = facilitator ? `${facilitator.first_name ?? ''} ${facilitator.last_name ?? ''}`.trim() : 'Sin asignar';
-        const durationMinutes = s.actual_duration_minutes ?? s.planned_duration_minutes ?? 0;
-        const hours = durationMinutes / 60;
-        const statusMap: Record<string, 'reservada' | 'consumida' | 'penalizada' | 'devuelta'> = {
-          completada: 'consumida', cancelada: 'penalizada', aprobada: 'consumida', reservada: 'reservada', en_curso: 'reservada',
-        };
-        return {
-          session_id: s.id,
-          title: s.title ?? 'Sin título',
-          date: s.scheduled_date ?? '',
-          consultant_name: consultantName,
-          hours,
-          status: statusMap[s.status] ?? 'reservada' as 'reservada' | 'consumida' | 'penalizada' | 'devuelta',
-          attendance: null,
-        };
-      });
-
-      bucketsWithSessions.push({
-        hour_type_key: bucket.hour_type_key,
-        display_name: bucket.display_name,
-        allocated: bucket.allocated_hours,
-        reserved: bucket.reserved_hours,
-        consumed: bucket.consumed_hours,
-        available: bucket.available_hours,
-        is_fixed: bucket.is_fixed_allocation,
-        annex_hours: bucket.annex_hours,
-        sessions,
-      });
-    }
-
-    programaMap.get(programaId)!.contracts.push({
-      contrato_id: contrato.id,
-      numero_contrato: contrato.numero_contrato ?? contrato.id,
-      is_annexo: contrato.is_annexo ?? false,
-      total_contracted_hours: contrato.horas_contratadas ?? 0,
-      total_reserved: bucketsWithSessions.reduce((s, b) => s + b.reserved, 0),
-      total_consumed: bucketsWithSessions.reduce((s, b) => s + b.consumed, 0),
-      total_available: bucketsWithSessions.reduce((s, b) => s + b.available, 0),
-      buckets: bucketsWithSessions,
-    });
-  }
-
-  return {
-    school_id: schoolId,
-    school_name: schoolData.name,
-    programs: Array.from(programaMap.values()),
-  };
-}
 
 // ============================================================
 // Helper: hex to [r, g, b]
@@ -233,8 +86,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, 'Acceso denegado', 403);
     }
 
-    // Fetch report data
-    const reportData = await fetchReportData(serviceClient, parsedSchoolId);
+    // Fetch report data via shared service
+    const reportData = await fetchSchoolReportData(serviceClient, parsedSchoolId);
     if (!reportData) {
       return sendAuthError(res, 'Escuela no encontrada', 404);
     }

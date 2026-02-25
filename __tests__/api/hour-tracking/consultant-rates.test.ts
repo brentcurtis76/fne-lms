@@ -405,13 +405,12 @@ describe('PATCH /api/admin/consultant-rates/[id]', () => {
     vi.clearAllMocks();
   });
 
-  it('returns 409 when ledger entries exist for this hour_type', async () => {
+  it('returns 409 when ledger entries exist for this consultant + hour_type', async () => {
     mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
     mockGetUserRoles.mockResolvedValue([{ role_type: 'admin' }]);
     mockGetHighestRole.mockReturnValue('admin');
 
     let ratesCallCount = 0;
-    let ledgerCallCount = 0;
 
     const mockClient = {
       from: vi.fn((table: string) => {
@@ -434,8 +433,7 @@ describe('PATCH /api/admin/consultant-rates/[id]', () => {
           return makeChain({ data: null, error: null });
         }
         if (table === 'contract_hours_ledger') {
-          ledgerCallCount++;
-          // Both ledger checks return entries → triggers 409
+          // Single scoped query returns entries → triggers 409
           const chain = makeChain({ data: null, error: null });
           chain.limit = vi.fn().mockResolvedValue({ data: [{ id: 'ledger-1' }], error: null });
           return chain;

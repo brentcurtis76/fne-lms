@@ -70,6 +70,15 @@ function makeChain(result: unknown) {
 function makeEarningsClient(earningsRows: unknown[], ledgerRows: unknown[]) {
   return {
     from: vi.fn((table: string) => {
+      if (table === 'profiles') {
+        // Consultant name lookup: select → eq → single
+        const chain = makeChain({ data: null, error: null });
+        chain.single = vi.fn().mockResolvedValue({
+          data: { first_name: 'Test', last_name: 'Consultant' },
+          error: null,
+        });
+        return chain;
+      }
       if (table === 'contract_hours_ledger') {
         // The handler chains: select → in → gte → lte → eq (final resolves)
         const chain = makeChain({ data: null, error: null });
@@ -160,7 +169,7 @@ describe('GET /api/consultant-earnings/[consultant_id] — auth', () => {
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(200);
     const body = res._getJSONData();
-    expect(body.data.rows).toHaveLength(1);
+    expect(body.data.by_hour_type).toHaveLength(1);
     expect(body.data.totals.total_eur).toBe(360);
   });
 
@@ -273,7 +282,7 @@ describe('GET /api/consultant-earnings/[consultant_id] — business logic', () =
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(200);
     const body = res._getJSONData();
-    expect(body.data.rows).toHaveLength(0);
+    expect(body.data.by_hour_type).toHaveLength(0);
     expect(body.data.totals.total_hours).toBe(0);
     expect(body.data.totals.total_eur).toBe(0);
   });
@@ -308,7 +317,7 @@ describe('GET /api/consultant-earnings/[consultant_id] — business logic', () =
     // 90 EUR * 1050 = 94500 CLP
     expect(body.data.fx_rate.rate_clp_per_eur).toBe(1050);
     expect(body.data.totals.total_clp).toBe(94500);
-    expect(body.data.rows[0].total_clp).toBe(94500);
+    expect(body.data.by_hour_type[0].total_clp).toBe(94500);
   });
 
   it('includes penalized hours in totals breakdown', async () => {
@@ -351,9 +360,9 @@ describe('GET /api/consultant-earnings/[consultant_id] — business logic', () =
     expect(res._getStatusCode()).toBe(200);
     const body = res._getJSONData();
 
-    expect(body.data.rows[0].total_hours).toBe(5);
-    expect(body.data.rows[0].executed_hours).toBe(3);
-    expect(body.data.rows[0].penalized_hours).toBe(2);
+    expect(body.data.by_hour_type[0].total_hours).toBe(5);
+    expect(body.data.by_hour_type[0].executed_hours).toBe(3);
+    expect(body.data.by_hour_type[0].penalized_hours).toBe(2);
     expect(body.data.totals.total_eur).toBe(225);
   });
 });

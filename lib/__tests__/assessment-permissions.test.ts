@@ -144,3 +144,37 @@ describe('hasAssessmentWritePermission', () => {
     expect(mockEq2).toHaveBeenCalledWith('is_active', true);
   });
 });
+
+describe('hasAssessmentWritePermission — additional roles', () => {
+  it('returns false for docente role', async () => {
+    const client = createMockClient([{ role_type: 'docente' }]);
+    expect(await hasAssessmentWritePermission(client, 'user-1')).toBe(false);
+  });
+
+  it('returns false for director role', async () => {
+    const client = createMockClient([{ role_type: 'equipo_directivo' }]);
+    expect(await hasAssessmentWritePermission(client, 'user-1')).toBe(false);
+  });
+
+  it('returns false for apoderado role', async () => {
+    const client = createMockClient([{ role_type: 'apoderado' }]);
+    expect(await hasAssessmentWritePermission(client, 'user-1')).toBe(false);
+  });
+});
+
+describe('hasAssessmentReadPermission — additional roles', () => {
+  it('returns false for docente role', async () => {
+    const client = createMockClient([{ role_type: 'docente' }]);
+    expect(await hasAssessmentReadPermission(client, 'user-1')).toBe(false);
+  });
+
+  it('returns false for director role', async () => {
+    const client = createMockClient([{ role_type: 'equipo_directivo' }]);
+    expect(await hasAssessmentReadPermission(client, 'user-1')).toBe(false);
+  });
+
+  it('returns false for apoderado role', async () => {
+    const client = createMockClient([{ role_type: 'apoderado' }]);
+    expect(await hasAssessmentReadPermission(client, 'user-1')).toBe(false);
+  });
+});

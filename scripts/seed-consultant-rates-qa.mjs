@@ -28,14 +28,28 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 async function main() {
   console.log('Starting QA seed for consultant_rates...\n');
 
-  // Step 1: Fetch existing consultants
+  // Step 1: Fetch users with consultor role only
+  const { data: consultantRoles, error: rolesError } = await supabase
+    .from('user_roles')
+    .select('user_id, role_types!inner(name)')
+    .eq('role_types.name', 'consultor')
+    .eq('is_active', true)
+    .limit(5);
+
+  if (rolesError || !consultantRoles || consultantRoles.length === 0) {
+    console.error('No users with consultor role found:', rolesError?.message);
+    process.exit(1);
+  }
+
+  const consultantIds = consultantRoles.map(r => r.user_id);
+
   const { data: consultants, error: profilesError } = await supabase
     .from('profiles')
     .select('id, first_name, last_name, email')
-    .limit(5);
+    .in('id', consultantIds);
 
   if (profilesError || !consultants || consultants.length === 0) {
-    console.error('No consultants found in profiles table:', profilesError?.message);
+    console.error('No consultant profiles found:', profilesError?.message);
     process.exit(1);
   }
 
@@ -54,14 +68,15 @@ async function main() {
   console.log(`Found ${consultants.length} consultants and ${hourTypes.length} hour types.`);
   console.log('Hour types:', hourTypes.map((ht) => ht.key).join(', '));
 
-  // Step 3: Find or use a known admin user as created_by
-  const { data: adminProfile } = await supabase
-    .from('profiles')
-    .select('id')
-    .limit(1)
-    .single();
+  // Step 3: Find an admin user as created_by
+  const { data: adminRoles } = await supabase
+    .from('user_roles')
+    .select('user_id, role_types!inner(name)')
+    .eq('role_types.name', 'admin')
+    .eq('is_active', true)
+    .limit(1);
 
-  const adminId = adminProfile?.id ?? consultants[0].id;
+  const adminId = adminRoles?.[0]?.user_id ?? consultants[0].id;
 
   // Step 4: Create sample rates for first 2 consultants
   const ratesToSeed = [];
@@ -186,7 +201,7 @@ async function main() {
 
   console.log('\n========================================');
   console.log(`Seed complete: ${successCount} inserted, ${skipCount} skipped.`);
-  console.log(`Consultants seeded: ${consultant1.first_name} ${consultant1.last_name}${consultant2.id !== consultant1.id ? `, ${consultant2.first_name} ${consultant2.last_name}` : ''}`);
+  console.log(`Consultants seeded: ${consultant1.id.slice(0, 8)}...${consultant2.id !== consultant1.id ? `, ${consultant2.id.slice(0, 8)}...` : ''}`);
   console.log('========================================\n');
 }
 

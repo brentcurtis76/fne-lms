@@ -74,7 +74,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, contratoId: 
       }
 
       const { data: sessionContrato } = await serviceClient
-        .from('sessions')
+        .from('consultor_sessions')
         .select('id')
         .eq('contrato_id', contratoId)
         .in('id', sessionIds)
@@ -119,6 +119,53 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, contratoId: 
       annex_hours: number;
     };
 
+    // Build sources array for annex support
+    const { data: contractAllocs } = await serviceClient
+      .from('contract_hour_allocations')
+      .select('id, contrato_id, hour_type_id, allocated_hours, adds_to_allocation_id')
+      .eq('contrato_id', contratoId);
+
+    const contractAllocIds = (contractAllocs || []).map((a: { id: string }) => a.id);
+
+    let annexAllocs: Array<{ id: string; contrato_id: string; hour_type_id: string; allocated_hours: number; adds_to_allocation_id: string }> = [];
+    if (contractAllocIds.length > 0) {
+      const { data: annexData } = await serviceClient
+        .from('contract_hour_allocations')
+        .select('id, contrato_id, hour_type_id, allocated_hours, adds_to_allocation_id')
+        .in('adds_to_allocation_id', contractAllocIds);
+      annexAllocs = (annexData || []) as typeof annexAllocs;
+    }
+
+    // Fetch hour_types to map hour_type_id -> key
+    const { data: allHourTypes } = await serviceClient
+      .from('hour_types')
+      .select('id, key');
+    const htIdToKey = new Map((allHourTypes || []).map((ht: { id: string; key: string }) => [ht.id, ht.key]));
+
+    // Group sources by hour_type_key
+    const sourcesByKey = new Map<string, Array<{ contrato_id: string; hours: number; is_annex: boolean }>>();
+    for (const alloc of (contractAllocs || [])) {
+      const key = htIdToKey.get(alloc.hour_type_id);
+      if (!key) continue;
+      if (!sourcesByKey.has(key)) sourcesByKey.set(key, []);
+      sourcesByKey.get(key)!.push({
+        contrato_id: alloc.contrato_id,
+        hours: alloc.allocated_hours,
+        is_annex: false,
+      });
+    }
+    for (const alloc of annexAllocs) {
+      const parentAlloc = (contractAllocs || []).find((a: { id: string }) => a.id === alloc.adds_to_allocation_id);
+      const key = parentAlloc ? htIdToKey.get(parentAlloc.hour_type_id) : null;
+      if (!key) continue;
+      if (!sourcesByKey.has(key)) sourcesByKey.set(key, []);
+      sourcesByKey.get(key)!.push({
+        contrato_id: alloc.contrato_id,
+        hours: alloc.allocated_hours,
+        is_annex: true,
+      });
+    }
+
     const buckets = (bucketRows || []).map((row: BucketRow) => ({
       hour_type_key: row.hour_type_key,
       display_name: row.display_name,
@@ -128,6 +175,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, contratoId: 
       available: row.available_hours,
       is_fixed: row.is_fixed_allocation,
       annex_hours: row.annex_hours,
+      sources: sourcesByKey.get(row.hour_type_key) || [],
     }));
 
     return sendApiResponse(res, {

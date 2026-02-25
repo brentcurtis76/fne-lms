@@ -14,7 +14,7 @@ import { getUserRoles, getHighestRole } from '../../../../../../utils/roleUtils'
 
 const ManualLedgerEntrySchema = z.object({
   allocation_id: z.string().uuid('allocation_id debe ser un UUID válido'),
-  hours: z.number().positive('Las horas deben ser un número positivo'),
+  hours: z.number().positive('Las horas deben ser un número positivo').max(100, 'Las horas no pueden exceder 100'),
   status: z.enum(['reservada', 'consumida', 'devuelta', 'penalizada']),
   session_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'La fecha debe tener formato YYYY-MM-DD'),
   notes: z.string().max(1000).optional().nullable(),
@@ -53,6 +53,45 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, contratoId: 
     const userRoles = await getUserRoles(serviceClient, user.id);
     const highestRole = getHighestRole(userRoles);
 
+    // RBAC checks
+    if (highestRole === 'equipo_directivo') {
+      const { data: contrato } = await serviceClient
+        .from('contratos')
+        .select('clientes!inner(school_id)')
+        .eq('id', contratoId)
+        .single();
+
+      const contractSchoolId = Array.isArray(contrato?.clientes)
+        ? (contrato?.clientes as { school_id: number }[])[0]?.school_id
+        : (contrato?.clientes as { school_id: number } | null)?.school_id;
+
+      const userSchoolIds = userRoles
+        .filter((r) => r.school_id !== undefined && r.school_id !== null)
+        .map((r) => String(r.school_id));
+
+      if (!contractSchoolId || !userSchoolIds.includes(String(contractSchoolId))) {
+        return sendAuthError(res, 'Acceso denegado: este contrato no pertenece a su institución', 403);
+      }
+    } else if (highestRole !== 'admin' && highestRole !== 'consultor') {
+      return sendAuthError(res, 'Acceso denegado', 403);
+    }
+
+    // Step 1: Get allocation IDs for this contract
+    const { data: allocations, error: allocError } = await serviceClient
+      .from('contract_hour_allocations')
+      .select('id')
+      .eq('contrato_id', contratoId);
+
+    if (allocError) {
+      return sendAuthError(res, 'Error al obtener asignaciones del contrato', 500, allocError.message);
+    }
+
+    const allocationIds = (allocations || []).map((a: { id: string }) => a.id);
+
+    if (allocationIds.length === 0) {
+      return sendApiResponse(res, { ledger: [], total: 0, page: 1, page_size: 50 });
+    }
+
     // Parse query parameters
     const {
       consultant_id,
@@ -67,6 +106,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, contratoId: 
     const pageSizeNum = Math.min(200, Math.max(1, parseInt(String(page_size), 10) || 50));
     const offset = (pageNum - 1) * pageSizeNum;
 
+    // Step 2: Query ledger entries filtered by allocation IDs
     let query = serviceClient
       .from('contract_hours_ledger')
       .select(
@@ -81,40 +121,14 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, contratoId: 
       `,
         { count: 'exact' }
       )
-      .eq('allocation.contrato_id', contratoId);
+      .in('allocation_id', allocationIds);
 
-    // Role-based access control
-    if (highestRole === 'admin') {
-      // Admin: access all ledger entries for this contract
-    } else if (highestRole === 'equipo_directivo') {
-      // Equipo directivo: only for sessions at their school
-      // Resolve school from contract
-      const { data: contrato } = await serviceClient
-        .from('contratos')
-        .select('clientes!inner(school_id)')
-        .eq('id', contratoId)
-        .single();
-
-      const contractSchoolId = (contrato?.clientes as { school_id: number } | null | { school_id: number }[])
-        ? Array.isArray(contrato?.clientes)
-          ? (contrato?.clientes as { school_id: number }[])[0]?.school_id
-          : (contrato?.clientes as { school_id: number } | null)?.school_id
-        : undefined;
-
-      const userSchoolIds = userRoles
-        .filter((r) => r.school_id !== undefined && r.school_id !== null)
-        .map((r) => String(r.school_id));
-
-      if (!contractSchoolId || !userSchoolIds.includes(String(contractSchoolId))) {
-        return sendAuthError(res, 'Acceso denegado: este contrato no pertenece a su institución', 403);
-      }
-    } else if (highestRole === 'consultor') {
-      // Consultor: only sessions they facilitated
+    // Consultor: only sessions they facilitated
+    if (highestRole === 'consultor') {
       if (consultant_id && consultant_id !== user.id) {
         return sendAuthError(res, 'Acceso denegado: solo puede ver sus propias entradas', 403);
       }
       query = query.not('session_id', 'is', null);
-      // Filter by sessions where this consultant is a facilitator
       const { data: facilitatedSessionIds } = await serviceClient
         .from('session_facilitators')
         .select('session_id')
@@ -125,17 +139,12 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, contratoId: 
         return sendApiResponse(res, { ledger: [], total: 0, page: pageNum, page_size: pageSizeNum });
       }
       query = query.in('session_id', sessionIds);
-    } else {
-      return sendAuthError(res, 'Acceso denegado', 403);
     }
 
     // Optional filters
     if (status && typeof status === 'string') {
       query = query.eq('status', status);
     }
-
-    // Note: hour_type_key filtering is handled post-query since deep nested
-    // column filters are not reliably supported in all Supabase versions.
 
     // Sorting
     const ascending = sort === 'date_asc';

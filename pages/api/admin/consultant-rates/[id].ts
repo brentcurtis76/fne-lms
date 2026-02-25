@@ -109,7 +109,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, consultantId
         created_at,
         updated_at,
         created_by,
-        hour_types:hour_type_id ( id, key, display_name )
+        hour_types:hour_type_id ( id, key, display_name, modality )
       `
       )
       .eq('consultant_id', consultantId)
@@ -169,44 +169,70 @@ async function handlePatch(req: NextApiRequest, res: NextApiResponse, rateId: st
       return sendAuthError(res, 'Tarifa no encontrada', 404);
     }
 
-    // Block modification if there are ledger entries for this rate
-    // Ledger entries link to allocations, which link to hour_type+consultant
-    // We check via: ledger → allocation → hour_type for this consultant in this period
+    // Check if ledger entries exist for this consultant + hour_type in this rate's date range
+    // Join path: ledger → allocation (hour_type) + ledger → session → facilitators (consultant)
     const { data: ledgerCheck, error: ledgerError } = await serviceClient
       .from('contract_hours_ledger')
-      .select('id')
+      .select(`
+        id,
+        contract_hour_allocations!inner(hour_type_id),
+        consultor_sessions!inner(
+          id,
+          session_facilitators!inner(user_id)
+        )
+      `)
+      .eq('contract_hour_allocations.hour_type_id', existingRate.hour_type_id)
+      .eq('consultor_sessions.session_facilitators.user_id', existingRate.consultant_id)
       .in('status', ['consumida', 'penalizada'])
       .gte('session_date', existingRate.effective_from)
       .limit(1);
 
     if (ledgerError) {
-      return sendAuthError(res, 'Error al verificar registros del libro de horas', 500, ledgerError.message);
-    }
+      // Fallback: two-step query — both scoped to the consultant
+      // Step 1: Get session IDs for this consultant
+      const { data: facilitatorSessions, error: sessError } = await serviceClient
+        .from('session_facilitators')
+        .select('session_id')
+        .eq('user_id', existingRate.consultant_id);
 
-    // If any ledger entries exist, check specifically for this rate's hour_type
-    if (ledgerCheck && ledgerCheck.length > 0) {
-      // Verify ledger entries tied to this rate's hour_type
-      const { data: sessionCheck, error: sessionCheckError } = await serviceClient
-        .from('contract_hours_ledger')
-        .select(`
-          id,
-          contract_hour_allocations!inner(hour_type_id)
-        `)
-        .eq('contract_hour_allocations.hour_type_id', existingRate.hour_type_id)
-        .in('status', ['consumida', 'penalizada'])
-        .limit(1);
-
-      if (sessionCheckError) {
-        return sendAuthError(res, 'Error al verificar registros vinculados', 500, sessionCheckError.message);
+      if (sessError) {
+        return sendAuthError(res, 'Error al verificar registros del libro de horas', 500, sessError.message);
       }
 
-      if (sessionCheck && sessionCheck.length > 0) {
-        return sendAuthError(
-          res,
-          'No se puede modificar esta tarifa porque ya existen horas consumidas o penalizadas asociadas a ella. Para cambiar la tarifa, cree una nueva entrada con las fechas vigentes correctas.',
-          409
-        );
+      const sessionIds = (facilitatorSessions ?? []).map((r: { session_id: string }) => r.session_id);
+
+      if (sessionIds.length > 0) {
+        // Step 2: Check ledger entries scoped to consultant's sessions AND hour_type
+        const { data: fallbackCheck, error: fallbackError } = await serviceClient
+          .from('contract_hours_ledger')
+          .select(`
+            id,
+            contract_hour_allocations!inner(hour_type_id)
+          `)
+          .eq('contract_hour_allocations.hour_type_id', existingRate.hour_type_id)
+          .in('session_id', sessionIds)
+          .in('status', ['consumida', 'penalizada'])
+          .gte('session_date', existingRate.effective_from)
+          .limit(1);
+
+        if (fallbackError) {
+          return sendAuthError(res, 'Error al verificar registros del libro de horas', 500, fallbackError.message);
+        }
+
+        if (fallbackCheck && fallbackCheck.length > 0) {
+          return sendAuthError(
+            res,
+            'No se puede modificar esta tarifa porque ya existen horas consumidas o penalizadas asociadas a ella. Para cambiar la tarifa, cree una nueva entrada con las fechas vigentes correctas.',
+            409
+          );
+        }
       }
+    } else if (ledgerCheck && ledgerCheck.length > 0) {
+      return sendAuthError(
+        res,
+        'No se puede modificar esta tarifa porque ya existen horas consumidas o penalizadas asociadas a ella. Para cambiar la tarifa, cree una nueva entrada con las fechas vigentes correctas.',
+        409
+      );
     }
 
     // Build update payload

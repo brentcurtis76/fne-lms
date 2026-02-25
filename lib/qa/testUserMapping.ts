@@ -68,7 +68,7 @@ export const ROLE_TO_QA_TEST_USER: Record<string, QATestUser> = {
   },
   encargado_licitacion: {
     email: 'encargado.licitacion.qa@fne.cl',
-    userId: '', // Test user not yet created - will be set up in Phase 2
+    userId: '770400d5-05cb-43f8-a9ba-5d6220ec69a0',
     role: 'encargado_licitacion',
     displayName: 'Encargado Licitación QA',
   },

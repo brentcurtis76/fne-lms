@@ -74,7 +74,7 @@ describe('createReservation — backward compatibility', () => {
     const mockClient = {} as any;
     const session = {
       id: 'session-2',
-      hour_type_key: 'coaching_individual',
+      hour_type_key: 'asesoria_tecnica_presencial',
       contrato_id: null,
       session_date: '2026-03-01',
       start_time: '09:00:00',
@@ -123,7 +123,7 @@ describe('createReservation — with hour tracking', () => {
 
     const session = {
       id: 'session-3',
-      hour_type_key: 'coaching_individual',
+      hour_type_key: 'asesoria_tecnica_presencial',
       contrato_id: '550e8400-e29b-41d4-a716-446655440000',
       session_date: '2026-03-01',
       start_time: '09:00:00',
@@ -171,7 +171,7 @@ describe('createReservation — with hour tracking', () => {
       rpc: vi.fn().mockResolvedValue({
         data: [
           {
-            hour_type_key: 'coaching_individual',
+            hour_type_key: 'asesoria_tecnica_presencial',
             available_hours: 50,
             allocated_hours: 100,
             reserved_hours: 50,
@@ -184,7 +184,7 @@ describe('createReservation — with hour tracking', () => {
 
     const session = {
       id: 'session-4',
-      hour_type_key: 'coaching_individual',
+      hour_type_key: 'asesoria_tecnica_presencial',
       contrato_id: '550e8400-e29b-41d4-a716-446655440000',
       session_date: '2026-03-01',
       start_time: '09:00:00',
@@ -236,7 +236,7 @@ describe('createReservation — with hour tracking', () => {
       rpc: vi.fn().mockResolvedValue({
         data: [
           {
-            hour_type_key: 'coaching_individual',
+            hour_type_key: 'asesoria_tecnica_presencial',
             available_hours: 0.5,
             allocated_hours: 100,
             reserved_hours: 99.5,
@@ -249,7 +249,7 @@ describe('createReservation — with hour tracking', () => {
 
     const session = {
       id: 'session-5',
-      hour_type_key: 'coaching_individual',
+      hour_type_key: 'asesoria_tecnica_presencial',
       contrato_id: '550e8400-e29b-41d4-a716-446655440000',
       session_date: '2026-03-01',
       start_time: '09:00:00',

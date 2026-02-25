@@ -58,15 +58,15 @@ function makeServiceClient(tableMap: Record<string, unknown>) {
 }
 
 const validAllocations = [
-  { hour_type_key: 'coaching_individual', hours: 10, is_fixed: false },
-  { hour_type_key: 'coaching_grupal', hours: 10, is_fixed: false },
-  { hour_type_key: 'talleres_presenciales', hours: 10, is_fixed: false },
-  { hour_type_key: 'talleres_online', hours: 10, is_fixed: false },
-  { hour_type_key: 'visitas_aula', hours: 10, is_fixed: false },
-  { hour_type_key: 'reunion_equipo', hours: 10, is_fixed: false },
-  { hour_type_key: 'seguimiento_directivo', hours: 10, is_fixed: false },
-  { hour_type_key: 'planificacion', hours: 10, is_fixed: false },
   { hour_type_key: 'online_learning', hours: 10, is_fixed: false },
+  { hour_type_key: 'asesoria_tecnica_online', hours: 10, is_fixed: false },
+  { hour_type_key: 'asesoria_tecnica_presencial', hours: 10, is_fixed: false },
+  { hour_type_key: 'asesoria_directiva_online', hours: 10, is_fixed: false },
+  { hour_type_key: 'asesoria_directiva_presencial', hours: 10, is_fixed: false },
+  { hour_type_key: 'gestion_cambio_online', hours: 10, is_fixed: false },
+  { hour_type_key: 'gestion_cambio_presencial', hours: 10, is_fixed: false },
+  { hour_type_key: 'talleres_presenciales', hours: 10, is_fixed: false },
+  { hour_type_key: 'encuentro_lideres', hours: 10, is_fixed: false },
 ];
 // Total = 90 hours, matches horas_contratadas=90
 
@@ -210,14 +210,14 @@ describe('POST /api/contracts/[id]/hours/allocate', () => {
     };
     mockCreateServiceRoleClient.mockReturnValue(mockClient);
 
-    // Duplicate key: coaching_individual appears twice
+    // Duplicate key: asesoria_tecnica_presencial appears twice
     const { req, res } = createMocks({
       method: 'POST',
       query: { id: CONTRACT_UUID },
       body: {
         allocations: [
-          { hour_type_key: 'coaching_individual', hours: 10, is_fixed: false },
-          { hour_type_key: 'coaching_individual', hours: 10, is_fixed: false },
+          { hour_type_key: 'asesoria_tecnica_presencial', hours: 10, is_fixed: false },
+          { hour_type_key: 'asesoria_tecnica_presencial', hours: 10, is_fixed: false },
         ],
       },
     });
@@ -297,7 +297,7 @@ describe('POST /api/contracts/[id]/hours/allocate', () => {
     mockCheckIsAdmin.mockResolvedValue({ isAdmin: true, user: { id: ADMIN_UUID }, error: null });
 
     const hourTypeRows = [
-      { id: 'ht-coaching_individual', key: 'coaching_individual', is_active: true },
+      { id: 'ht-asesoria_tecnica_presencial', key: 'asesoria_tecnica_presencial', is_active: true },
     ];
 
     const mockClient = {
@@ -332,7 +332,7 @@ describe('POST /api/contracts/[id]/hours/allocate', () => {
       query: { id: CONTRACT_UUID },
       body: {
         allocations: [
-          { hour_type_key: 'coaching_individual', hours: 10, is_fixed: true }, // is_fixed invalid here
+          { hour_type_key: 'asesoria_tecnica_presencial', hours: 10, is_fixed: true }, // is_fixed invalid here
         ],
       },
     });

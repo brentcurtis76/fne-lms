@@ -1095,6 +1095,7 @@ const TemplateEditor: React.FC = () => {
                   </Link>
                   {isAdmin && (
                     <button
+                      data-testid="publish-btn"
                       onClick={handlePublish}
                       disabled={isPublishing || modules.length === 0}
                       className="inline-flex items-center px-4 py-2 bg-brand_accent text-white rounded-lg shadow hover:bg-amber-400 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1195,6 +1196,7 @@ const TemplateEditor: React.FC = () => {
             </div>
             {canEdit && (
               <button
+                data-testid="add-module-btn"
                 onClick={() => openModuleModal()}
                 className="inline-flex items-center px-3 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-brand_blue/90 transition-colors text-sm font-medium"
               >
@@ -1224,7 +1226,7 @@ const TemplateEditor: React.FC = () => {
           ) : (
             <div className="divide-y divide-gray-200">
               {modules.map((module, index) => (
-                <div key={module.id} className="p-4 hover:bg-gray-50">
+                <div key={module.id} data-testid="module-card" className="p-4 hover:bg-gray-50">
                   <div className="flex items-center gap-3">
                     <div className="flex-shrink-0 text-gray-400">
                       <GripVertical className="w-5 h-5" />
@@ -1290,6 +1292,7 @@ const TemplateEditor: React.FC = () => {
                           {canEdit && (
                             <button
                               onClick={() => openIndicatorModal(module.id)}
+                              data-testid="add-indicator-btn"
                               className="inline-flex items-center px-2 py-1 text-xs bg-brand_blue text-white rounded hover:bg-brand_blue/90"
                             >
                               <Plus className="w-3 h-3 mr-1" />
@@ -1309,6 +1312,7 @@ const TemplateEditor: React.FC = () => {
                             {(module.indicators || []).map((indicator, indIndex) => (
                               <div
                                 key={indicator.id}
+                                data-testid="indicator-row"
                                 className="flex items-start justify-between p-3 bg-white rounded-lg border border-gray-200"
                               >
                                 <div className="flex-1 min-w-0">

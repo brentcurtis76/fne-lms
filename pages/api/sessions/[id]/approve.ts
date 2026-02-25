@@ -103,6 +103,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (updateError) {
       console.error('Database error approving session:', updateError);
+
+      // Compensating action: remove orphaned ledger entry
+      if (!reservationResult.skipped && reservationResult.ledger_entry_id) {
+        await serviceClient
+          .from('contract_hours_ledger')
+          .delete()
+          .eq('id', reservationResult.ledger_entry_id);
+      }
+
       return sendAuthError(res, 'Error al aprobar sesión', 500, updateError.message);
     }
 

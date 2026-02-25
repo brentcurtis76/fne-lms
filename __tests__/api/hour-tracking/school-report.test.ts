@@ -1,6 +1,8 @@
 // @vitest-environment node
 /**
  * Unit tests for GET /api/school-hours-report/[school_id]
+ *
+ * The handler does RBAC then delegates to fetchSchoolReportData (mocked here).
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -11,7 +13,6 @@ const DIRECTIVO_UUID = '550e8400-e29b-41d4-a716-446655440002';
 const OTHER_UUID = '550e8400-e29b-41d4-a716-446655440003';
 const SCHOOL_ID = 42;
 const OTHER_SCHOOL_ID = 99;
-const CLIENTE_UUID = '550e8400-e29b-41d4-a716-446655440030';
 
 // Hoisted mocks
 const { mockGetApiUser, mockCreateServiceRoleClient, mockGetUserRoles, mockGetHighestRole } =
@@ -48,56 +49,28 @@ vi.mock('../../../utils/roleUtils', () => ({
   getHighestRole: mockGetHighestRole,
 }));
 
+// Mock the shared service
+vi.mock('../../../lib/services/school-hours-report', () => ({
+  fetchSchoolReportData: vi.fn(),
+}));
+
 import handler from '../../../pages/api/school-hours-report/[school_id]/index';
+import { fetchSchoolReportData } from '../../../lib/services/school-hours-report';
+const mockFetchSchoolReportData = fetchSchoolReportData as ReturnType<typeof vi.fn>;
 
 // ============================================================
-// Chain helpers
+// Helpers
 // ============================================================
 
-function makeChain(result: unknown) {
-  const chain: Record<string, ReturnType<typeof vi.fn>> = {};
-  const methods = ['select', 'eq', 'in', 'order', 'limit'];
-  for (const m of methods) {
-    chain[m] = vi.fn().mockReturnValue(chain);
-  }
-  chain.single = vi.fn().mockResolvedValue(result);
-  chain.maybeSingle = vi.fn().mockResolvedValue(result);
-  return chain;
+function setupAuth(userId: string, roleType: string, schoolId: number | null = null) {
+  mockGetApiUser.mockResolvedValue({ user: { id: userId }, error: null });
+  mockGetUserRoles.mockResolvedValue([{ role_type: roleType, school_id: schoolId }]);
+  mockGetHighestRole.mockReturnValue(roleType);
+  mockCreateServiceRoleClient.mockReturnValue({});
 }
 
-/**
- * Build a mock client that:
- * - schools: returns { id: schoolId, name: schoolName }
- * - clientes: returns empty (no clients → returns empty programs)
- * - contratos: not reached
- */
-function makeEmptySchoolClient(schoolId = SCHOOL_ID, schoolName = 'Escuela Test') {
-  return {
-    from: vi.fn((table: string) => {
-      if (table === 'schools') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: { id: schoolId, name: schoolName }, error: null }),
-        };
-      }
-      if (table === 'clientes') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
-        };
-      }
-      if (table === 'contratos') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          in: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockResolvedValue({ data: [], error: null }),
-        };
-      }
-      return makeChain({ data: null, error: null });
-    }),
-    rpc: vi.fn().mockResolvedValue({ data: [], error: null }),
-  };
+function makeSchoolReport(schoolId: number, schoolName: string, programs: unknown[] = []) {
+  return { school_id: schoolId, school_name: schoolName, programs };
 }
 
 // ============================================================
@@ -122,10 +95,6 @@ describe('GET /api/school-hours-report/[school_id]', () => {
   });
 
   it('returns 400 for non-numeric school_id', async () => {
-    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
-    mockGetUserRoles.mockResolvedValue([{ role_type: 'admin', school_id: null }]);
-    mockGetHighestRole.mockReturnValue('admin');
-
     const { req, res } = createMocks({
       method: 'GET',
       query: { school_id: 'not-a-number' },
@@ -148,12 +117,7 @@ describe('GET /api/school-hours-report/[school_id]', () => {
   });
 
   it('returns 403 for unauthorized roles (docente)', async () => {
-    mockGetApiUser.mockResolvedValue({ user: { id: OTHER_UUID }, error: null });
-    mockGetUserRoles.mockResolvedValue([{ role_type: 'docente', school_id: SCHOOL_ID }]);
-    mockGetHighestRole.mockReturnValue('docente');
-
-    const mockClient = makeEmptySchoolClient();
-    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+    setupAuth(OTHER_UUID, 'docente', SCHOOL_ID);
 
     const { req, res } = createMocks({
       method: 'GET',
@@ -167,13 +131,7 @@ describe('GET /api/school-hours-report/[school_id]', () => {
   });
 
   it('returns 403 when equipo_directivo tries to view another school', async () => {
-    mockGetApiUser.mockResolvedValue({ user: { id: DIRECTIVO_UUID }, error: null });
-    // User is directivo of school 42, not school 99
-    mockGetUserRoles.mockResolvedValue([{ role_type: 'equipo_directivo', school_id: SCHOOL_ID }]);
-    mockGetHighestRole.mockReturnValue('equipo_directivo');
-
-    const mockClient = makeEmptySchoolClient(OTHER_SCHOOL_ID);
-    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+    setupAuth(DIRECTIVO_UUID, 'equipo_directivo', SCHOOL_ID);
 
     const { req, res } = createMocks({
       method: 'GET',
@@ -187,12 +145,8 @@ describe('GET /api/school-hours-report/[school_id]', () => {
   });
 
   it('returns 200 when equipo_directivo views their own school', async () => {
-    mockGetApiUser.mockResolvedValue({ user: { id: DIRECTIVO_UUID }, error: null });
-    mockGetUserRoles.mockResolvedValue([{ role_type: 'equipo_directivo', school_id: SCHOOL_ID }]);
-    mockGetHighestRole.mockReturnValue('equipo_directivo');
-
-    const mockClient = makeEmptySchoolClient(SCHOOL_ID, 'Escuela Test');
-    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+    setupAuth(DIRECTIVO_UUID, 'equipo_directivo', SCHOOL_ID);
+    mockFetchSchoolReportData.mockResolvedValue(makeSchoolReport(SCHOOL_ID, 'Escuela Test'));
 
     const { req, res } = createMocks({
       method: 'GET',
@@ -209,12 +163,8 @@ describe('GET /api/school-hours-report/[school_id]', () => {
   });
 
   it('returns 200 when admin views any school', async () => {
-    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
-    mockGetUserRoles.mockResolvedValue([{ role_type: 'admin', school_id: null }]);
-    mockGetHighestRole.mockReturnValue('admin');
-
-    const mockClient = makeEmptySchoolClient(OTHER_SCHOOL_ID, 'Otra Escuela');
-    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+    setupAuth(ADMIN_UUID, 'admin');
+    mockFetchSchoolReportData.mockResolvedValue(makeSchoolReport(OTHER_SCHOOL_ID, 'Otra Escuela'));
 
     const { req, res } = createMocks({
       method: 'GET',
@@ -228,12 +178,8 @@ describe('GET /api/school-hours-report/[school_id]', () => {
   });
 
   it('returns empty programs array when school has no active contracts', async () => {
-    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
-    mockGetUserRoles.mockResolvedValue([{ role_type: 'admin', school_id: null }]);
-    mockGetHighestRole.mockReturnValue('admin');
-
-    const mockClient = makeEmptySchoolClient(SCHOOL_ID, 'Escuela Sin Contratos');
-    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+    setupAuth(ADMIN_UUID, 'admin');
+    mockFetchSchoolReportData.mockResolvedValue(makeSchoolReport(SCHOOL_ID, 'Escuela Sin Contratos'));
 
     const { req, res } = createMocks({
       method: 'GET',
@@ -247,81 +193,50 @@ describe('GET /api/school-hours-report/[school_id]', () => {
   });
 
   it('groups contracts by programa_id correctly', async () => {
-    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
-    mockGetUserRoles.mockResolvedValue([{ role_type: 'admin', school_id: null }]);
-    mockGetHighestRole.mockReturnValue('admin');
+    setupAuth(ADMIN_UUID, 'admin');
 
     const CONTRACT_UUID_1 = '550e8400-e29b-41d4-a716-446655440010';
     const CONTRACT_UUID_2 = '550e8400-e29b-41d4-a716-446655440011';
     const PROGRAMA_UUID = '550e8400-e29b-41d4-a716-446655440020';
 
-    const mockContratos = [
+    mockFetchSchoolReportData.mockResolvedValue(makeSchoolReport(SCHOOL_ID, 'Escuela Test', [
       {
-        id: CONTRACT_UUID_1,
-        numero_contrato: 'CT-001',
-        is_annexo: false,
-        horas_contratadas: 100,
         programa_id: PROGRAMA_UUID,
-        programas: { id: PROGRAMA_UUID, nombre: 'Programa Alpha' },
+        programa_name: 'Programa Alpha',
+        contracts: [
+          {
+            contrato_id: CONTRACT_UUID_1,
+            numero_contrato: 'CT-001',
+            is_annexo: false,
+            total_contracted_hours: 100,
+            total_reserved: 10,
+            total_consumed: 30,
+            total_available: 20,
+            buckets: [{
+              hour_type_key: 'asesoria_tecnica_presencial',
+              display_name: 'Asesoría Técnica Presencial',
+              allocated: 50,
+              reserved: 10,
+              consumed: 30,
+              available: 20,
+              is_fixed: false,
+              annex_hours: 0,
+              sessions: [],
+            }],
+          },
+          {
+            contrato_id: CONTRACT_UUID_2,
+            numero_contrato: 'CT-002',
+            is_annexo: true,
+            total_contracted_hours: 20,
+            total_reserved: 0,
+            total_consumed: 0,
+            total_available: 0,
+            buckets: [],
+          },
+        ],
       },
-      {
-        id: CONTRACT_UUID_2,
-        numero_contrato: 'CT-002',
-        is_annexo: true,
-        horas_contratadas: 20,
-        programa_id: PROGRAMA_UUID,
-        programas: { id: PROGRAMA_UUID, nombre: 'Programa Alpha' },
-      },
-    ];
-
-    const mockBuckets = [
-      {
-        hour_type_key: 'asesoria_tecnica_presencial',
-        display_name: 'Asesoría Técnica Presencial',
-        allocated_hours: 50,
-        reserved_hours: 10,
-        consumed_hours: 30,
-        available_hours: 20,
-        is_fixed_allocation: false,
-        annex_hours: 0,
-      },
-    ];
-
-    const mockClient = {
-      from: vi.fn((table: string) => {
-        if (table === 'schools') {
-          return {
-            select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            single: vi.fn().mockResolvedValue({ data: { id: SCHOOL_ID, name: 'Escuela Test' }, error: null }),
-          };
-        }
-        if (table === 'clientes') {
-          return {
-            select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockResolvedValue({ data: [{ id: CLIENTE_UUID }], error: null }),
-          };
-        }
-        if (table === 'contratos') {
-          return {
-            select: vi.fn().mockReturnThis(),
-            in: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockResolvedValue({ data: mockContratos, error: null }),
-          };
-        }
-        if (table === 'consultor_sessions') {
-          return {
-            select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            order: vi.fn().mockReturnThis(),
-            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-          };
-        }
-        return makeChain({ data: null, error: null });
-      }),
-      rpc: vi.fn().mockResolvedValue({ data: mockBuckets, error: null }),
-    };
-    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+    ]));
 
     const { req, res } = createMocks({
       method: 'GET',
@@ -337,72 +252,36 @@ describe('GET /api/school-hours-report/[school_id]', () => {
   });
 
   it('bucket summaries include correct consumed/reserved/available', async () => {
-    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
-    mockGetUserRoles.mockResolvedValue([{ role_type: 'admin', school_id: null }]);
-    mockGetHighestRole.mockReturnValue('admin');
+    setupAuth(ADMIN_UUID, 'admin');
 
-    const CONTRACT_UUID = '550e8400-e29b-41d4-a716-446655440010';
     const PROGRAMA_UUID = '550e8400-e29b-41d4-a716-446655440020';
 
-    const mockContratos = [
+    mockFetchSchoolReportData.mockResolvedValue(makeSchoolReport(SCHOOL_ID, 'Escuela Test', [
       {
-        id: CONTRACT_UUID,
-        numero_contrato: 'CT-001',
-        is_annexo: false,
-        horas_contratadas: 100,
         programa_id: PROGRAMA_UUID,
-        programas: { id: PROGRAMA_UUID, nombre: 'Programa Beta' },
+        programa_name: 'Programa Beta',
+        contracts: [{
+          contrato_id: '550e8400-e29b-41d4-a716-446655440010',
+          numero_contrato: 'CT-001',
+          is_annexo: false,
+          total_contracted_hours: 100,
+          total_reserved: 20,
+          total_consumed: 50,
+          total_available: 30,
+          buckets: [{
+            hour_type_key: 'talleres_presenciales',
+            display_name: 'Talleres Presenciales',
+            allocated: 100,
+            reserved: 20,
+            consumed: 50,
+            available: 30,
+            is_fixed: false,
+            annex_hours: 0,
+            sessions: [],
+          }],
+        }],
       },
-    ];
-
-    const mockBuckets = [
-      {
-        hour_type_key: 'talleres_presenciales',
-        display_name: 'Talleres Presenciales',
-        allocated_hours: 100,
-        reserved_hours: 20,
-        consumed_hours: 50,
-        available_hours: 30,
-        is_fixed_allocation: false,
-        annex_hours: 0,
-      },
-    ];
-
-    const mockClient = {
-      from: vi.fn((table: string) => {
-        if (table === 'schools') {
-          return {
-            select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            single: vi.fn().mockResolvedValue({ data: { id: SCHOOL_ID, name: 'Escuela Test' }, error: null }),
-          };
-        }
-        if (table === 'clientes') {
-          return {
-            select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockResolvedValue({ data: [{ id: CLIENTE_UUID }], error: null }),
-          };
-        }
-        if (table === 'contratos') {
-          return {
-            select: vi.fn().mockReturnThis(),
-            in: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockResolvedValue({ data: mockContratos, error: null }),
-          };
-        }
-        if (table === 'consultor_sessions') {
-          return {
-            select: vi.fn().mockReturnThis(),
-            eq: vi.fn().mockReturnThis(),
-            order: vi.fn().mockReturnThis(),
-            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-          };
-        }
-        return makeChain({ data: null, error: null });
-      }),
-      rpc: vi.fn().mockResolvedValue({ data: mockBuckets, error: null }),
-    };
-    mockCreateServiceRoleClient.mockReturnValue(mockClient);
+    ]));
 
     const { req, res } = createMocks({
       method: 'GET',
@@ -417,5 +296,18 @@ describe('GET /api/school-hours-report/[school_id]', () => {
     expect(contract.buckets[0].consumed).toBe(50);
     expect(contract.buckets[0].reserved).toBe(20);
     expect(contract.buckets[0].available).toBe(30);
+  });
+
+  it('returns 404 when fetchSchoolReportData returns null', async () => {
+    setupAuth(ADMIN_UUID, 'admin');
+    mockFetchSchoolReportData.mockResolvedValue(null);
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { school_id: String(SCHOOL_ID) },
+    });
+
+    await handler(req as never, res as never);
+    expect(res._getStatusCode()).toBe(404);
   });
 });

@@ -32,20 +32,20 @@ vi.mock('../../../lib/api-auth', () => ({
 import handler from '../../../pages/api/contracts/[id]/hours/reallocate';
 
 const HOUR_TYPES = [
-  { id: 'ht-coaching_individual', key: 'coaching_individual' },
-  { id: 'ht-coaching_grupal', key: 'coaching_grupal' },
+  { id: 'ht-asesoria_tecnica_presencial', key: 'asesoria_tecnica_presencial' },
+  { id: 'ht-asesoria_directiva_presencial', key: 'asesoria_directiva_presencial' },
   { id: 'ht-online_learning', key: 'online_learning' },
 ];
 
 const ALLOCATIONS = [
-  { id: 'alloc-ci', hour_type_id: 'ht-coaching_individual', allocated_hours: 20 },
-  { id: 'alloc-cg', hour_type_id: 'ht-coaching_grupal', allocated_hours: 10 },
+  { id: 'alloc-ci', hour_type_id: 'ht-asesoria_tecnica_presencial', allocated_hours: 20 },
+  { id: 'alloc-cg', hour_type_id: 'ht-asesoria_directiva_presencial', allocated_hours: 10 },
 ];
 
 const BUCKET_SUMMARY = [
   {
-    hour_type_key: 'coaching_individual',
-    display_name: 'Coaching Individual',
+    hour_type_key: 'asesoria_tecnica_presencial',
+    display_name: 'Asesoría Técnica Presencial',
     allocated_hours: 20,
     reserved_hours: 0,
     consumed_hours: 0,
@@ -54,8 +54,8 @@ const BUCKET_SUMMARY = [
     annex_hours: 0,
   },
   {
-    hour_type_key: 'coaching_grupal',
-    display_name: 'Coaching Grupal',
+    hour_type_key: 'asesoria_directiva_presencial',
+    display_name: 'Asesoría Directiva Presencial',
     allocated_hours: 10,
     reserved_hours: 0,
     consumed_hours: 0,
@@ -127,8 +127,8 @@ describe('PATCH /api/contracts/[id]/hours/reallocate', () => {
       method: 'PATCH',
       query: { id: CONTRACT_UUID },
       body: {
-        from_hour_type_key: 'coaching_individual',
-        to_hour_type_key: 'coaching_grupal',
+        from_hour_type_key: 'asesoria_tecnica_presencial',
+        to_hour_type_key: 'asesoria_directiva_presencial',
         hours: 5,
         reason: 'Ajuste por necesidades del programa',
       },
@@ -146,8 +146,8 @@ describe('PATCH /api/contracts/[id]/hours/reallocate', () => {
       method: 'PATCH',
       query: { id: CONTRACT_UUID },
       body: {
-        from_hour_type_key: 'coaching_individual',
-        to_hour_type_key: 'coaching_grupal',
+        from_hour_type_key: 'asesoria_tecnica_presencial',
+        to_hour_type_key: 'asesoria_directiva_presencial',
         hours: 5,
         reason: 'Ajuste por necesidades del programa',
       },
@@ -173,8 +173,8 @@ describe('PATCH /api/contracts/[id]/hours/reallocate', () => {
       method: 'PATCH',
       query: { id: CONTRACT_UUID },
       body: {
-        from_hour_type_key: 'coaching_individual',
-        to_hour_type_key: 'coaching_grupal',
+        from_hour_type_key: 'asesoria_tecnica_presencial',
+        to_hour_type_key: 'asesoria_directiva_presencial',
         hours: 5, // requesting 5 but only 2 available
         reason: 'Ajuste por necesidades del programa',
       },
@@ -195,7 +195,7 @@ describe('PATCH /api/contracts/[id]/hours/reallocate', () => {
       query: { id: CONTRACT_UUID },
       body: {
         from_hour_type_key: 'online_learning',
-        to_hour_type_key: 'coaching_individual',
+        to_hour_type_key: 'asesoria_tecnica_presencial',
         hours: 5,
         reason: 'Ajuste por necesidades del programa',
       },
@@ -215,8 +215,8 @@ describe('PATCH /api/contracts/[id]/hours/reallocate', () => {
       method: 'PATCH',
       query: { id: CONTRACT_UUID },
       body: {
-        from_hour_type_key: 'coaching_individual',
-        to_hour_type_key: 'coaching_individual',
+        from_hour_type_key: 'asesoria_tecnica_presencial',
+        to_hour_type_key: 'asesoria_tecnica_presencial',
         hours: 5,
         reason: 'Ajuste por necesidades del programa',
       },
@@ -270,8 +270,8 @@ describe('PATCH /api/contracts/[id]/hours/reallocate', () => {
       method: 'PATCH',
       query: { id: CONTRACT_UUID },
       body: {
-        from_hour_type_key: 'coaching_individual',
-        to_hour_type_key: 'coaching_grupal',
+        from_hour_type_key: 'asesoria_tecnica_presencial',
+        to_hour_type_key: 'asesoria_directiva_presencial',
         hours: 5,
         reason: 'Ajuste por necesidades del programa educativo',
       },
@@ -283,8 +283,8 @@ describe('PATCH /api/contracts/[id]/hours/reallocate', () => {
     expect(logInsertMock).toHaveBeenCalledWith(
       expect.objectContaining({
         contrato_id: CONTRACT_UUID,
-        from_hour_type_id: 'ht-coaching_individual',
-        to_hour_type_id: 'ht-coaching_grupal',
+        from_hour_type_id: 'ht-asesoria_tecnica_presencial',
+        to_hour_type_id: 'ht-asesoria_directiva_presencial',
         hours: 5,
         reason: 'Ajuste por necesidades del programa educativo',
         created_by: ADMIN_UUID,

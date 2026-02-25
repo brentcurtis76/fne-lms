@@ -82,9 +82,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, 'Sesión no encontrada', 404);
     }
 
-    // Validate current status
+    // Validate current status — only programada and pendiente_aprobacion can be cancelled
     if (session.status === 'completada') {
-      return sendAuthError(res, 'No se puede cancelar una sesion ya completada', 400);
+      return sendAuthError(res, 'No se puede cancelar una sesión ya completada', 400);
+    }
+
+    if (session.status === 'cancelada') {
+      return sendAuthError(res, 'La sesión ya está cancelada', 400);
+    }
+
+    // For hour tracking cancellation with clause evaluation, session must be programada
+    if (cancelled_by && session.hour_type_key && session.contrato_id && session.status !== 'programada') {
+      return sendAuthError(
+        res,
+        'Las cláusulas de cancelación solo aplican a sesiones en estado programada',
+        400
+      );
     }
 
     const previousStatus = session.status;

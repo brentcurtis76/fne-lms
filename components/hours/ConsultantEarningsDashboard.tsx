@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Clock, TrendingUp, Banknote, AlertTriangle, Download, RefreshCw } from 'lucide-react';
+import { Clock, TrendingUp, Banknote, AlertTriangle, Download, RefreshCw, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format, startOfQuarter, endOfQuarter } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -46,9 +46,10 @@ interface EarningsTotals {
 
 interface EarningsData {
   consultant_id: string;
+  consultant_name: string | null;
   period: { from: string; to: string };
   fx_rate: FxRateInfo;
-  rows: EarningsRow[];
+  by_hour_type: EarningsRow[];
   totals: EarningsTotals;
 }
 
@@ -169,16 +170,18 @@ export default function ConsultantEarningsDashboard({
     }
   }, [consultantId, from, to]);
 
+  // Only fetch on mount (initial load with default dates) and when consultant changes
   useEffect(() => {
     loadEarnings();
-  }, [loadEarnings]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consultantId]);
 
   // ============================================================
   // CSV export
   // ============================================================
 
   function handleExportCSV() {
-    if (!data || data.rows.length === 0) {
+    if (!data || data.by_hour_type.length === 0) {
       toast.error('No hay datos para exportar.');
       return;
     }
@@ -186,7 +189,7 @@ export default function ConsultantEarningsDashboard({
     const periodLabel = `${formatDate(data.period.from)}_${formatDate(data.period.to)}`;
     const filename = `ganancias_${consultantName?.replace(/\s+/g, '_') ?? consultantId}_${periodLabel}`;
 
-    const exportRows = data.rows.map((row) => ({
+    const exportRows = data.by_hour_type.map((row) => ({
       'Tipo de Hora': row.display_name,
       'Horas Totales': row.total_hours.toFixed(2),
       'Horas Ejecutadas': row.executed_hours.toFixed(2),
@@ -222,7 +225,7 @@ export default function ConsultantEarningsDashboard({
       data: exportRows,
       metadata: {
         dateRange: `${formatDate(data.period.from)} — ${formatDate(data.period.to)}`,
-        totalRecords: data.rows.length,
+        totalRecords: data.by_hour_type.length,
       },
     });
 
@@ -268,14 +271,28 @@ export default function ConsultantEarningsDashboard({
             Actualizar
           </button>
 
-          {data && data.rows.length > 0 && (
-            <button
-              onClick={handleExportCSV}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors ml-auto"
-            >
-              <Download className="h-4 w-4" />
-              Exportar CSV
-            </button>
+          {data && data.by_hour_type.length > 0 && (
+            <div className="flex gap-2 ml-auto">
+              <button
+                onClick={handleExportCSV}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+                Exportar CSV
+              </button>
+              <button
+                onClick={() => {
+                  window.open(
+                    `/api/consultant-earnings/${consultantId}/pdf?from=${from}&to=${to}`,
+                    '_blank'
+                  );
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-brand_accent text-brand_primary rounded-md text-sm font-semibold hover:bg-brand_accent_hover transition-colors"
+              >
+                <FileText className="h-4 w-4" aria-hidden="true" />
+                Descargar PDF
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -351,7 +368,7 @@ export default function ConsultantEarningsDashboard({
           </div>
 
           {/* Earnings table */}
-          {data.rows.length === 0 ? (
+          {data.by_hour_type.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
               No hay horas consumidas o penalizadas en el período seleccionado.
             </div>
@@ -366,31 +383,31 @@ export default function ConsultantEarningsDashboard({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="text-left px-4 py-3 font-medium text-gray-700">
+                      <th scope="col" className="text-left px-4 py-3 font-medium text-gray-700">
                         Tipo de Hora
                       </th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-700">
+                      <th scope="col" className="text-right px-4 py-3 font-medium text-gray-700">
                         Hs. Ejecutadas
                       </th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-700">
+                      <th scope="col" className="text-right px-4 py-3 font-medium text-gray-700">
                         Hs. Penalizadas
                       </th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-700">
+                      <th scope="col" className="text-right px-4 py-3 font-medium text-gray-700">
                         Total Horas
                       </th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-700">
+                      <th scope="col" className="text-right px-4 py-3 font-medium text-gray-700">
                         Tarifa EUR/h
                       </th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-700">
+                      <th scope="col" className="text-right px-4 py-3 font-medium text-gray-700">
                         Total EUR
                       </th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-700">
+                      <th scope="col" className="text-right px-4 py-3 font-medium text-gray-700">
                         Total CLP
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {data.rows.map((row) => (
+                    {data.by_hour_type.map((row) => (
                       <tr key={row.hour_type_key} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 font-medium text-gray-900">
                           {row.display_name}
@@ -423,12 +440,12 @@ export default function ConsultantEarningsDashboard({
                     <tr className="bg-gray-50 border-t-2 border-gray-200 font-semibold">
                       <td className="px-4 py-3 text-gray-900">Total</td>
                       <td className="px-4 py-3 text-right text-green-700">
-                        {data.rows
+                        {data.by_hour_type
                           .reduce((s, r) => s + r.executed_hours, 0)
                           .toFixed(2)}
                       </td>
                       <td className="px-4 py-3 text-right text-orange-600">
-                        {data.rows
+                        {data.by_hour_type
                           .reduce((s, r) => s + r.penalized_hours, 0)
                           .toFixed(2)}
                       </td>

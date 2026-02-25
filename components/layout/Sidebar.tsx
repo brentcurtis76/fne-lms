@@ -167,6 +167,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     consultantOnly: true
   },
   {
+    id: 'reporte-horas',
+    label: 'Reporte de Horas',
+    icon: BarChart3,
+    href: '/reporte-horas',
+    description: 'Reporte de horas de la escuela',
+    restrictedRoles: ['admin', 'equipo_directivo'],
+  },
+  {
     id: 'courses',
     label: 'Cursos',
     icon: BookOpenIcon,

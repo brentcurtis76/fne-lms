@@ -222,3 +222,69 @@ export interface CancelSessionRequest {
   admin_override_status?: 'devuelta' | 'penalizada';
   admin_override_reason?: string;
 }
+
+// ============================================================
+// SCHOOL HOURS REPORT TYPES (Phase 5)
+// ============================================================
+
+/**
+ * SessionDetail — Individual session within a bucket (school report)
+ * attendance is null — session_attendance table does not exist yet (reserved for future)
+ */
+export interface SessionDetail {
+  session_id: string;
+  title: string;
+  date: string;
+  consultant_name: string;
+  hours: number;
+  status: 'reservada' | 'consumida' | 'penalizada' | 'devuelta';
+  /** Reserved for future attendance tracking. session_attendance table does not exist yet. */
+  attendance: { expected: number; attended: number } | null;
+}
+
+/**
+ * BucketWithSessions — Bucket summary enriched with session drill-down
+ */
+export interface BucketWithSessions {
+  hour_type_key: string;
+  display_name: string;
+  allocated: number;
+  reserved: number;
+  consumed: number;
+  available: number;
+  is_fixed: boolean;
+  annex_hours: number;
+  sessions: SessionDetail[];
+}
+
+/**
+ * ContractSummary — Contract with bucket breakdown for school report
+ */
+export interface ContractSummary {
+  contrato_id: string;
+  numero_contrato: string;
+  is_annexo: boolean;
+  total_contracted_hours: number;
+  total_reserved: number;
+  total_consumed: number;
+  total_available: number;
+  buckets: BucketWithSessions[];
+}
+
+/**
+ * ProgramGroup — Contracts grouped by program for school report
+ */
+export interface ProgramGroup {
+  programa_id: string;
+  programa_name: string;
+  contracts: ContractSummary[];
+}
+
+/**
+ * SchoolReportData — Full response data shape for GET /api/school-hours-report/[school_id]
+ */
+export interface SchoolReportData {
+  school_id: number;
+  school_name: string;
+  programs: ProgramGroup[];
+}

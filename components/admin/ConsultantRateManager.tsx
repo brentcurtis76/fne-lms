@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Edit2, X, DollarSign, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, X, DollarSign, AlertCircle, Monitor, Building, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -22,6 +22,7 @@ interface HourType {
   id: string;
   key: string;
   display_name: string;
+  modality?: string;
 }
 
 interface ConsultantProfile {
@@ -98,7 +99,7 @@ export default function ConsultantRateManager() {
   // Filter state
   const [filterConsultant, setFilterConsultant] = useState('');
   const [filterHourType, setFilterHourType] = useState('');
-  const [filterActiveOnly, setFilterActiveOnly] = useState(false);
+  const [filterActiveOnly, setFilterActiveOnly] = useState(true);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
@@ -366,6 +367,16 @@ export default function ConsultantRateManager() {
           {/* Spacer */}
           <div className="flex-1" />
 
+          {/* CSV Export button */}
+          <a
+            href="/api/admin/consultant-rates/csv"
+            download
+            className="flex items-center gap-2 border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors"
+          >
+            <Download className="h-4 w-4" />
+            Exportar CSV
+          </a>
+
           {/* Add button */}
           <button
             onClick={openAddModal}
@@ -410,7 +421,14 @@ export default function ConsultantRateManager() {
                           : '—'}
                       </td>
                       <td className="px-4 py-3 text-gray-600">
-                        {rate.hour_types?.display_name ?? '—'}
+                        <span className="flex items-center gap-1.5">
+                          {rate.hour_types?.modality === 'online' ? (
+                            <Monitor className="h-3.5 w-3.5 text-blue-500" />
+                          ) : (
+                            <Building className="h-3.5 w-3.5 text-amber-600" />
+                          )}
+                          {rate.hour_types?.display_name ?? '—'}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-right font-mono font-medium">
                         {formatEur(rate.rate_eur)}

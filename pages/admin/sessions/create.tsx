@@ -73,6 +73,7 @@ const SessionCreatePage: React.FC = () => {
   const [selectedHourTypeKey, setSelectedHourTypeKey] = useState('');
   const [selectedContratoId, setSelectedContratoId] = useState('');
   const [availableHours, setAvailableHours] = useState<number | null>(null);
+  const [allocatedHours, setAllocatedHours] = useState<number | null>(null);
   const [availableHoursLoading, setAvailableHoursLoading] = useState(false);
 
   // Form state
@@ -137,6 +138,7 @@ const SessionCreatePage: React.FC = () => {
       fetchAvailableHours(selectedContratoId, selectedHourTypeKey);
     } else {
       setAvailableHours(null);
+      setAllocatedHours(null);
     }
   }, [selectedHourTypeKey, selectedContratoId]);
 
@@ -332,11 +334,13 @@ const SessionCreatePage: React.FC = () => {
       if (error) throw error;
 
       const bucket = (data || []).find(
-        (b: { hour_type_key: string; available_hours: number }) => b.hour_type_key === hourTypeKey
+        (b: { hour_type_key: string; available_hours: number; allocated_hours: number }) => b.hour_type_key === hourTypeKey
       );
       setAvailableHours(bucket ? bucket.available_hours : null);
+      setAllocatedHours(bucket ? bucket.allocated_hours : null);
     } catch {
       setAvailableHours(null);
+      setAllocatedHours(null);
     } finally {
       setAvailableHoursLoading(false);
     }
@@ -853,26 +857,36 @@ const SessionCreatePage: React.FC = () => {
               </div>
             )}
 
-            {/* Available hours badge */}
+            {/* Available hours badge — three-state: green (healthy), yellow (<25%), red (0) */}
             {selectedHourTypeKey && selectedContratoId && (
               <div className="flex items-center gap-2">
                 {availableHoursLoading ? (
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-600">
                     Cargando horas disponibles...
                   </span>
-                ) : availableHours !== null ? (
-                  <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                      availableHours > 0
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
-                  >
-                    {availableHours > 0
-                      ? `${availableHours.toFixed(1)} horas disponibles en este tipo`
-                      : 'Sin horas disponibles en este tipo (se registrará como sobrepresupuesto)'}
-                  </span>
-                ) : (
+                ) : availableHours !== null ? (() => {
+                  const pctRemaining =
+                    allocatedHours && allocatedHours > 0
+                      ? (availableHours / allocatedHours) * 100
+                      : availableHours > 0 ? 100 : 0;
+                  const isExhausted = availableHours <= 0;
+                  const isWarning = !isExhausted && pctRemaining < 25;
+                  const badgeClass = isExhausted
+                    ? 'bg-red-100 text-red-800'
+                    : isWarning
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-green-100 text-green-800';
+                  const badgeText = isExhausted
+                    ? 'Sin horas disponibles en este tipo (se registrará como sobrepresupuesto)'
+                    : isWarning
+                    ? `${availableHours.toFixed(1)} horas disponibles en este tipo — ¡Quedan menos del 25%!`
+                    : `${availableHours.toFixed(1)} horas disponibles en este tipo`;
+                  return (
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${badgeClass}`}>
+                      {badgeText}
+                    </span>
+                  );
+                })() : (
                   <span className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-yellow-100 text-yellow-800">
                     No hay asignación de horas para este tipo en el contrato seleccionado
                   </span>

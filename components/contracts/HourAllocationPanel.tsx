@@ -1,7 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Clock, ArrowLeftRight, Trash2 } from 'lucide-react';
+import { Clock, ArrowLeftRight, Trash2, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ReallocationModal from './ReallocationModal';
+
+// ============================================================
+// Warning level helper (shared threshold: <25% = warning, 0 = exhausted)
+// ============================================================
+function getWarningLevel(available: number, allocated: number): 'healthy' | 'warning' | 'exhausted' {
+  if (available <= 0) return 'exhausted';
+  if (allocated > 0 && (available / allocated) * 100 < 25) return 'warning';
+  return 'healthy';
+}
 
 interface Bucket {
   hour_type_key: string;
@@ -30,15 +39,15 @@ interface HourAllocationPanelProps {
 
 // Default 9 service categories (display_name shown to user)
 const DEFAULT_HOUR_TYPES: Omit<AllocationRow, 'hours' | 'is_fixed'>[] = [
-  { hour_type_key: 'coaching_individual', display_name: 'Coaching Individual', modality: 'presencial' },
-  { hour_type_key: 'coaching_grupal', display_name: 'Coaching Grupal', modality: 'presencial' },
-  { hour_type_key: 'talleres_presenciales', display_name: 'Talleres Presenciales', modality: 'presencial' },
-  { hour_type_key: 'talleres_online', display_name: 'Talleres Online', modality: 'online' },
-  { hour_type_key: 'visitas_aula', display_name: 'Visitas de Aula', modality: 'presencial' },
-  { hour_type_key: 'reunion_equipo', display_name: 'Reunión de Equipo', modality: 'presencial' },
-  { hour_type_key: 'seguimiento_directivo', display_name: 'Seguimiento Directivo', modality: 'presencial' },
-  { hour_type_key: 'planificacion', display_name: 'Planificación', modality: 'presencial' },
   { hour_type_key: 'online_learning', display_name: 'Cursos Online (LMS)', modality: 'online' },
+  { hour_type_key: 'asesoria_tecnica_online', display_name: 'Asesoría Técnica Online', modality: 'online' },
+  { hour_type_key: 'asesoria_tecnica_presencial', display_name: 'Asesoría Técnica Presencial', modality: 'presencial' },
+  { hour_type_key: 'asesoria_directiva_online', display_name: 'Asesoría Directiva Online', modality: 'online' },
+  { hour_type_key: 'asesoria_directiva_presencial', display_name: 'Asesoría Directiva Presencial', modality: 'presencial' },
+  { hour_type_key: 'gestion_cambio_online', display_name: 'Gestión del Cambio Online', modality: 'online' },
+  { hour_type_key: 'gestion_cambio_presencial', display_name: 'Gestión del Cambio Presencial', modality: 'presencial' },
+  { hour_type_key: 'talleres_presenciales', display_name: 'Talleres Presenciales', modality: 'presencial' },
+  { hour_type_key: 'encuentro_lideres', display_name: 'Encuentro de Líderes', modality: 'presencial' },
 ];
 
 export default function HourAllocationPanel({
@@ -321,6 +330,23 @@ export default function HourAllocationPanel({
             const consumedPct = total > 0 ? (bucket.consumed / total) * 100 : 0;
             const reservedPct = total > 0 ? (bucket.reserved / total) * 100 : 0;
             const availablePct = total > 0 ? (bucket.available / total) * 100 : 0;
+            const warningLevel = getWarningLevel(bucket.available, total);
+
+            // Available segment color: healthy=gray-300, warning=yellow-100, exhausted=red-100
+            const availableBarClass =
+              warningLevel === 'exhausted'
+                ? 'bg-red-100'
+                : warningLevel === 'warning'
+                ? 'bg-yellow-100'
+                : 'bg-gray-300';
+
+            // "Disponibles" legend text color
+            const availableLegendClass =
+              warningLevel === 'exhausted'
+                ? 'text-red-600'
+                : warningLevel === 'warning'
+                ? 'text-yellow-600'
+                : 'text-gray-500';
 
             return (
               <div key={bucket.hour_type_key} className="bg-gray-50 rounded-lg p-3">
@@ -328,10 +354,7 @@ export default function HourAllocationPanel({
                   <div className="flex items-center space-x-2">
                     {/* ACC-6: aria-hidden on modality emoji */}
                     <span aria-hidden="true" className="text-sm">
-                      {bucket.hour_type_key === 'online_learning' ||
-                      bucket.hour_type_key === 'talleres_online'
-                        ? '🖥️'
-                        : '🏫'}
+                      {bucket.hour_type_key.includes('online') ? '🖥️' : '🏫'}
                     </span>
                     <span className="text-sm font-medium text-gray-800">{bucket.display_name}</span>
                     {/* BC-4: brand_accent badge; GENERA-4: brackets format */}
@@ -340,9 +363,14 @@ export default function HourAllocationPanel({
                         [+{bucket.annex_hours} del Anexo]
                       </span>
                     )}
+                    {warningLevel === 'exhausted' && (
+                      <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
+                        Agotado
+                      </span>
+                    )}
                   </div>
                   <div className="text-right">
-                    <span className="text-sm font-semibold text-brand_primary">
+                    <span className={`text-sm font-semibold ${warningLevel === 'exhausted' ? 'text-red-600' : warningLevel === 'warning' ? 'text-yellow-600' : 'text-brand_primary'}`}>
                       {bucket.available.toFixed(1)}
                     </span>
                     <span className="text-xs text-gray-500"> / {total.toFixed(1)} h disponibles</span>
@@ -370,7 +398,7 @@ export default function HourAllocationPanel({
                   )}
                   {availablePct > 0 && (
                     <div
-                      className="h-full bg-gray-300"
+                      className={`h-full ${availableBarClass}`}
                       style={{ width: `${availablePct}%` }}
                       title={`Disponibles: ${bucket.available.toFixed(1)} h`}
                     />
@@ -385,8 +413,8 @@ export default function HourAllocationPanel({
                     <span className="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
                     <span>Reservadas {bucket.reserved.toFixed(1)} h</span>
                   </span>
-                  <span className="flex items-center space-x-1 text-xs text-gray-500">
-                    <span className="inline-block w-2 h-2 rounded-full bg-gray-300"></span>
+                  <span className={`flex items-center space-x-1 text-xs ${availableLegendClass}`}>
+                    <span className={`inline-block w-2 h-2 rounded-full ${availableBarClass}`}></span>
                     <span>Disponibles {bucket.available.toFixed(1)} h</span>
                   </span>
                 </div>
@@ -397,6 +425,15 @@ export default function HourAllocationPanel({
           {/* Admin action buttons — RD-2: flex-wrap for mobile */}
           {isAdmin && (
             <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t">
+              {/* CSV Export button */}
+              <a
+                href={`/api/contracts/${contratoId}/hours/ledger/csv`}
+                download
+                className="flex items-center space-x-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                <Download size={16} />
+                <span>Exportar CSV</span>
+              </a>
               {/* BC-1: brand_accent; BC-5: rounded-md */}
               <button
                 onClick={() => setShowReallocationModal(true)}

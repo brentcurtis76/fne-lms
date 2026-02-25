@@ -238,6 +238,8 @@ export interface SessionDetail {
   consultant_name: string;
   hours: number;
   status: 'reservada' | 'consumida' | 'penalizada' | 'devuelta';
+  /** True when the ledger entry was recorded over the budget (is_over_budget=true in contract_hours_ledger) */
+  is_over_budget?: boolean;
   /** Reserved for future attendance tracking. session_attendance table does not exist yet. */
   attendance: { expected: number; attended: number } | null;
 }

@@ -17,13 +17,15 @@ import type { SchoolReportData, ProgramGroup, ContractSummary, BucketWithSession
 
 // ============================================================
 // Lazy-load Recharts (avoids SSR issues)
+// next/dynamic doesn't support generic typing for named exports from recharts.
+// Using 'any' cast is the established pattern — see consultor/sessions/reports.tsx
 // ============================================================
-type DynAny = any; // eslint-disable-line
-const PieChart = dynamic(() => import('recharts').then((mod) => ({ default: mod.PieChart })) as DynAny, { ssr: false }) as DynAny;
-const Pie = dynamic(() => import('recharts').then((mod) => ({ default: mod.Pie })) as DynAny, { ssr: false }) as DynAny;
-const Cell = dynamic(() => import('recharts').then((mod) => ({ default: mod.Cell })) as DynAny, { ssr: false }) as DynAny;
-const Tooltip = dynamic(() => import('recharts').then((mod) => ({ default: mod.Tooltip })) as DynAny, { ssr: false }) as DynAny;
-const ResponsiveContainer = dynamic(() => import('recharts').then((mod) => ({ default: mod.ResponsiveContainer })) as DynAny, { ssr: false }) as DynAny;
+type RechartsComponent = React.ComponentType<any>; // eslint-disable-line
+const PieChart = dynamic(() => import('recharts').then((mod) => ({ default: mod.PieChart })) as Promise<{ default: RechartsComponent }>, { ssr: false }) as unknown as RechartsComponent;
+const Pie = dynamic(() => import('recharts').then((mod) => ({ default: mod.Pie })) as Promise<{ default: RechartsComponent }>, { ssr: false }) as unknown as RechartsComponent;
+const Cell = dynamic(() => import('recharts').then((mod) => ({ default: mod.Cell })) as Promise<{ default: RechartsComponent }>, { ssr: false }) as unknown as RechartsComponent;
+const Tooltip = dynamic(() => import('recharts').then((mod) => ({ default: mod.Tooltip })) as Promise<{ default: RechartsComponent }>, { ssr: false }) as unknown as RechartsComponent;
+const ResponsiveContainer = dynamic(() => import('recharts').then((mod) => ({ default: mod.ResponsiveContainer })) as Promise<{ default: RechartsComponent }>, { ssr: false }) as unknown as RechartsComponent;
 
 // ============================================================
 // Constants
@@ -32,12 +34,23 @@ const ResponsiveContainer = dynamic(() => import('recharts').then((mod) => ({ de
 const COLOR_CONSUMED = '#003A5B';
 const COLOR_RESERVED = '#0066A4';
 const COLOR_AVAILABLE = '#E0F0FF';
+const COLOR_AVAILABLE_WARNING = '#FEF3C7'; // yellow-100
+const COLOR_AVAILABLE_EXHAUSTED = '#FEE2E2'; // red-100
+
+// ============================================================
+// Warning level helper (shared threshold: <25% = warning, 0 = exhausted)
+// ============================================================
+function getWarningLevel(available: number, allocated: number): 'healthy' | 'warning' | 'exhausted' {
+  if (available <= 0) return 'exhausted';
+  if (allocated > 0 && (available / allocated) * 100 < 25) return 'warning';
+  return 'healthy';
+}
 
 const STATUS_BADGE: Record<string, { label: string; className: string }> = {
   consumida: { label: 'Consumida', className: 'bg-green-100 text-green-800' },
-  reservada: { label: 'Reservada', className: 'bg-blue-100 text-blue-800' },
+  reservada: { label: 'Reservada', className: 'bg-gray-200 text-gray-700' },
   penalizada: { label: 'Penalizada', className: 'bg-red-100 text-red-800' },
-  devuelta: { label: 'Devuelta', className: 'bg-orange-100 text-orange-800' },
+  devuelta: { label: 'Devuelta', className: 'bg-green-50 text-green-700' },
 };
 
 // ============================================================
@@ -103,13 +116,30 @@ function RingChart({ consumed, reserved, available }: { consumed: number; reserv
 // Progress bar — three-state horizontal
 // ============================================================
 
-function ProgressBar({ allocated, consumed, reserved }: { allocated: number; consumed: number; reserved: number }) {
+function ProgressBar({
+  allocated,
+  consumed,
+  reserved,
+  warningLevel,
+}: {
+  allocated: number;
+  consumed: number;
+  reserved: number;
+  warningLevel: 'healthy' | 'warning' | 'exhausted';
+}) {
   if (allocated <= 0) return null;
   const consumedPct = Math.min((consumed / allocated) * 100, 100);
   const reservedPct = Math.min((reserved / allocated) * 100, 100 - consumedPct);
 
+  const bgColor =
+    warningLevel === 'exhausted'
+      ? COLOR_AVAILABLE_EXHAUSTED
+      : warningLevel === 'warning'
+      ? COLOR_AVAILABLE_WARNING
+      : COLOR_AVAILABLE;
+
   return (
-    <div className="w-full h-2 rounded-full bg-[#E0F0FF] overflow-hidden">
+    <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: bgColor }}>
       <div className="h-full flex">
         <div className="h-full rounded-l-full" style={{ width: `${consumedPct}%`, backgroundColor: COLOR_CONSUMED }} />
         <div className="h-full" style={{ width: `${reservedPct}%`, backgroundColor: COLOR_RESERVED }} />
@@ -124,12 +154,27 @@ function ProgressBar({ allocated, consumed, reserved }: { allocated: number; con
 
 function BucketCard({ bucket }: { bucket: BucketWithSessions }) {
   const [expanded, setExpanded] = useState(false);
+  const warningLevel = getWarningLevel(bucket.available, bucket.allocated);
+
+  const availableTextClass =
+    warningLevel === 'exhausted'
+      ? 'text-red-600'
+      : warningLevel === 'warning'
+      ? 'text-yellow-600'
+      : 'text-green-700';
 
   return (
     <div className="bg-white rounded-lg shadow border border-gray-100 p-4">
       <div className="flex items-start justify-between mb-2">
         <div className="flex-1 min-w-0">
-          <h4 className="text-sm font-semibold text-gray-900 truncate">{bucket.display_name}</h4>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h4 className="text-sm font-semibold text-gray-900 truncate">{bucket.display_name}</h4>
+            {warningLevel === 'exhausted' && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
+                Agotado
+              </span>
+            )}
+          </div>
           {bucket.annex_hours > 0 && (
             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
               +{bucket.annex_hours.toFixed(1)} h Anexo
@@ -143,6 +188,7 @@ function BucketCard({ bucket }: { bucket: BucketWithSessions }) {
           allocated={bucket.allocated}
           consumed={bucket.consumed}
           reserved={bucket.reserved}
+          warningLevel={warningLevel}
         />
       </div>
 
@@ -156,7 +202,7 @@ function BucketCard({ bucket }: { bucket: BucketWithSessions }) {
           <div className="text-gray-500">Reservadas</div>
         </div>
         <div>
-          <div className="font-semibold text-green-700">{bucket.available.toFixed(1)}</div>
+          <div className={`font-semibold ${availableTextClass}`}>{bucket.available.toFixed(1)}</div>
           <div className="text-gray-500">Disponibles</div>
         </div>
       </div>
@@ -202,9 +248,16 @@ function BucketCard({ bucket }: { bucket: BucketWithSessions }) {
                     <td className="py-1 pr-2 text-gray-600 max-w-[100px] truncate">{session.title}</td>
                     <td className="py-1 pr-2 text-right font-mono text-gray-700">{session.hours.toFixed(2)}</td>
                     <td className="py-1">
-                      <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${badge.className}`}>
-                        {badge.label}
-                      </span>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium ${badge.className}`}>
+                          {badge.label}
+                        </span>
+                        {session.is_over_budget && (
+                          <span className="inline-flex px-1.5 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                            Sobre presupuesto
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-1 text-right text-gray-500">
                       {session.attendance
@@ -402,6 +455,7 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
               Consultor: '',
               Horas: '',
               Estado: '',
+              'Sobre Presupuesto': '',
               'Asistencia Esperada': '',
               'Asistencia Real': '',
             });
@@ -416,6 +470,7 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
                 Consultor: session.consultant_name,
                 Horas: session.hours.toFixed(2),
                 Estado: session.status,
+                'Sobre Presupuesto': session.is_over_budget ? 'Sí' : 'No',
                 'Asistencia Esperada': session.attendance ? String(session.attendance.expected) : '',
                 'Asistencia Real': session.attendance ? String(session.attendance.attended) : '',
               });
@@ -431,7 +486,7 @@ export default function SchoolHoursReport({ schoolId, isAdmin, schoolName: initi
     ReportExporter.exportToCSV({
       filename: `reporte-horas-${safeSchoolName}-${dateStr}`,
       title: `Reporte de Horas — ${data.school_name} (${dateStr})`,
-      headers: ['Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado', 'Asistencia Esperada', 'Asistencia Real'],
+      headers: ['Programa', 'Contrato', 'Categoría', 'Fecha', 'Título', 'Consultor', 'Horas', 'Estado', 'Sobre Presupuesto', 'Asistencia Esperada', 'Asistencia Real'],
       data: rows,
       metadata: { totalRecords: rows.length },
     });

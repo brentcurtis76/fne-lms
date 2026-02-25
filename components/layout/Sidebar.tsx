@@ -8,7 +8,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
-import { BarChart3, Scale, DollarSign, TrendingUp, Clock } from 'lucide-react';
+import { BarChart3, Scale, DollarSign, TrendingUp, Clock, Tag } from 'lucide-react';
 import {
   HomeIcon,
   BookOpenIcon,
@@ -343,6 +343,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         href: '/admin/consultant-earnings',
         description: 'Ver ganancias de consultores',
         icon: TrendingUp,
+        adminOnly: true
+      },
+      {
+        id: 'bulk-tag-sessions',
+        label: 'Clasificar Sesiones',
+        href: '/admin/bulk-tag-sessions',
+        description: 'Asignar tipo de hora a sesiones históricas sin clasificar',
+        icon: Tag,
         adminOnly: true
       }
     ]

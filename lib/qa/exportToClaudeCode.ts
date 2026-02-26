@@ -114,6 +114,18 @@ const FEATURE_FILE_MAP: Record<FeatureArea, string[]> = {
     'types/licitaciones.ts',
     'lib/businessDays.ts',
   ],
+  hour_tracking: [
+    'pages/admin/contract-hours/*',
+    'pages/admin/consultant-rates/*',
+    'pages/admin/consultant-earnings/*',
+    'pages/admin/bulk-tag-sessions/*',
+    'pages/api/contracts/*/hours/*',
+    'pages/api/admin/consultant-rates/*',
+    'pages/api/consultant-earnings/*',
+    'pages/api/school-hours-report/*',
+    'lib/services/hour-tracking.ts',
+    'lib/exportUtils.ts',
+  ],
 };
 
 /**

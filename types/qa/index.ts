@@ -179,7 +179,8 @@ export type FeatureArea =
   | 'navigation'
   | 'docente_experience'
   | 'consultor_sessions'
-  | 'licitaciones';
+  | 'licitaciones'
+  | 'hour_tracking';
 
 export const FEATURE_AREA_LABELS: Record<FeatureArea, string> = {
   authentication: 'Autenticación',
@@ -200,6 +201,7 @@ export const FEATURE_AREA_LABELS: Record<FeatureArea, string> = {
   docente_experience: 'Experiencia Docente',
   consultor_sessions: 'Consultorías',
   licitaciones: 'Licitaciones',
+  hour_tracking: 'Control de Horas',
 };
 
 export const PRIORITY_LABELS: Record<number, string> = {

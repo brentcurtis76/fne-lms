@@ -209,14 +209,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const { error: newExpectationError } = await supabaseClient
             .from('assessment_year_expectations')
             .insert({
+              template_id: newTemplate.id,
               indicator_id: newIndicatorId,
-              year_number: sourceExpectation.year_number,
-              expected_coverage: sourceExpectation.expected_coverage,
-              expected_frequency_min: sourceExpectation.expected_frequency_min,
-              expected_frequency_max: sourceExpectation.expected_frequency_max,
-              expected_frequency_unit: sourceExpectation.expected_frequency_unit,
-              expected_profundity_level: sourceExpectation.expected_profundity_level,
-              notes: sourceExpectation.notes,
+              generation_type: sourceExpectation.generation_type,
+              year_1_expected: sourceExpectation.year_1_expected,
+              year_1_expected_unit: sourceExpectation.year_1_expected_unit,
+              year_2_expected: sourceExpectation.year_2_expected,
+              year_2_expected_unit: sourceExpectation.year_2_expected_unit,
+              year_3_expected: sourceExpectation.year_3_expected,
+              year_3_expected_unit: sourceExpectation.year_3_expected_unit,
+              year_4_expected: sourceExpectation.year_4_expected,
+              year_4_expected_unit: sourceExpectation.year_4_expected_unit,
+              year_5_expected: sourceExpectation.year_5_expected,
+              year_5_expected_unit: sourceExpectation.year_5_expected_unit,
+              tolerance: sourceExpectation.tolerance,
             });
 
           if (newExpectationError) {

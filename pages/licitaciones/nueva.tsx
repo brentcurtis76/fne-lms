@@ -46,6 +46,30 @@ interface FormData {
   notas: string;
 }
 
+const Field = ({
+  label,
+  name,
+  required = false,
+  errors,
+  children,
+}: {
+  label: string;
+  name: string;
+  required?: boolean;
+  errors: Record<string, string>;
+  children: React.ReactNode;
+}) => (
+  <div>
+    <label htmlFor={`field-${name}`} className="block text-sm font-medium text-gray-700 mb-1">
+      {label} {required && <span className="text-red-500">*</span>}
+    </label>
+    {children}
+    {errors[name] && (
+      <p className="mt-1 text-sm text-red-600">{errors[name]}</p>
+    )}
+  </div>
+);
+
 const currentYear = new Date().getFullYear();
 const DEFAULT_FORM: FormData = {
   school_id: '',
@@ -243,28 +267,6 @@ export default function NuevaLicitacionPage() {
     }
   };
 
-  const Field = ({
-    label,
-    name,
-    required = false,
-    children,
-  }: {
-    label: string;
-    name: string;
-    required?: boolean;
-    children: React.ReactNode;
-  }) => (
-    <div>
-      <label htmlFor={`field-${name}`} className="block text-sm font-medium text-gray-700 mb-1">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      {children}
-      {errors[name] && (
-        <p className="mt-1 text-sm text-red-600">{errors[name]}</p>
-      )}
-    </div>
-  );
-
   const inputClass = "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-sm";
 
   if (authLoading) {
@@ -315,7 +317,7 @@ export default function NuevaLicitacionPage() {
               Escuela
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Escuela" name="school_id" required>
+              <Field label="Escuela" name="school_id" required errors={errors}>
                 <select
                   id="field-school_id"
                   value={form.school_id}
@@ -331,7 +333,7 @@ export default function NuevaLicitacionPage() {
                 </select>
               </Field>
 
-              <Field label="Ano de Licitacion" name="year" required>
+              <Field label="Ano de Licitacion" name="year" required errors={errors}>
                 <select
                   id="field-year"
                   value={form.year}
@@ -378,7 +380,7 @@ export default function NuevaLicitacionPage() {
           {/* Section 2: Programa */}
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Programa</h2>
-            <Field label="Programa FNE" name="programa_id" required>
+            <Field label="Programa FNE" name="programa_id" required errors={errors}>
               <select
                 id="field-programa_id"
                 value={form.programa_id}
@@ -397,7 +399,7 @@ export default function NuevaLicitacionPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Datos de la Licitacion</h2>
             <div className="space-y-4">
-              <Field label="Nombre de la Licitacion" name="nombre_licitacion" required>
+              <Field label="Nombre de la Licitacion" name="nombre_licitacion" required errors={errors}>
                 <input
                   id="field-nombre_licitacion"
                   type="text"
@@ -409,7 +411,7 @@ export default function NuevaLicitacionPage() {
                 />
               </Field>
 
-              <Field label="Correo electronico de contacto para la licitacion" name="email_licitacion" required>
+              <Field label="Correo electronico de contacto para la licitacion" name="email_licitacion" required errors={errors}>
                 <input
                   id="field-email_licitacion"
                   type="email"
@@ -421,7 +423,7 @@ export default function NuevaLicitacionPage() {
               </Field>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Field label="Moneda" name="tipo_moneda" required>
+                <Field label="Moneda" name="tipo_moneda" required errors={errors}>
                   <select
                     id="field-tipo_moneda"
                     value={form.tipo_moneda}
@@ -433,7 +435,7 @@ export default function NuevaLicitacionPage() {
                   </select>
                 </Field>
 
-                <Field label={`Monto minimo (${form.tipo_moneda})`} name="monto_minimo" required>
+                <Field label={`Monto minimo (${form.tipo_moneda})`} name="monto_minimo" required errors={errors}>
                   <input
                     id="field-monto_minimo"
                     type="number"
@@ -446,7 +448,7 @@ export default function NuevaLicitacionPage() {
                   />
                 </Field>
 
-                <Field label={`Monto maximo (${form.tipo_moneda})`} name="monto_maximo" required>
+                <Field label={`Monto maximo (${form.tipo_moneda})`} name="monto_maximo" required errors={errors}>
                   <input
                     id="field-monto_maximo"
                     type="number"
@@ -461,7 +463,7 @@ export default function NuevaLicitacionPage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Field label="Duracion minima del servicio" name="duracion_minima" required>
+                <Field label="Duracion minima del servicio" name="duracion_minima" required errors={errors}>
                   <input
                     id="field-duracion_minima"
                     type="text"
@@ -472,7 +474,7 @@ export default function NuevaLicitacionPage() {
                   />
                 </Field>
 
-                <Field label="Duracion maxima del servicio" name="duracion_maxima" required>
+                <Field label="Duracion maxima del servicio" name="duracion_maxima" required errors={errors}>
                   <input
                     id="field-duracion_maxima"
                     type="text"
@@ -517,7 +519,7 @@ export default function NuevaLicitacionPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Campos Opcionales</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Field label="Participantes estimados" name="participantes_estimados">
+              <Field label="Participantes estimados" name="participantes_estimados" errors={errors}>
                 <input
                   id="field-participantes_estimados"
                   type="number"
@@ -529,7 +531,7 @@ export default function NuevaLicitacionPage() {
                 />
               </Field>
 
-              <Field label="Modalidad preferida" name="modalidad_preferida">
+              <Field label="Modalidad preferida" name="modalidad_preferida" errors={errors}>
                 <select
                   id="field-modalidad_preferida"
                   value={form.modalidad_preferida}
@@ -544,7 +546,7 @@ export default function NuevaLicitacionPage() {
               </Field>
 
               <div className="col-span-2">
-                <Field label="Notas adicionales" name="notas">
+                <Field label="Notas adicionales" name="notas" errors={errors}>
                   <textarea
                     id="field-notas"
                     value={form.notas}

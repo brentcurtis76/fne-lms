@@ -64,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch school
     const { data: school } = await serviceClient
       .from('schools')
-      .select('id, name, code')
+      .select('id, name')
       .eq('id', licitacion.school_id)
       .single();
 
@@ -175,7 +175,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
       school: {
         name: school.name,
-        code: school.code,
       },
       cliente: {
         nombre_legal: cliente.nombre_legal,

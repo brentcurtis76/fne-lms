@@ -177,14 +177,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const isGlobalAdmin = await hasAdminPrivileges(supabase, session.user.id);
         const highestRole = getHighestRole(userRoles);
 
-        // Get avatar URL
-        let avatarUrl = '';
-        if (profileData.avatar_url) {
-          const { data: { publicUrl } } = supabase.storage
-            .from('avatars')
-            .getPublicUrl(profileData.avatar_url);
-          avatarUrl = publicUrl;
-        }
+        // Get avatar URL — stored as a full public URL, use directly
+        let avatarUrl = profileData.avatar_url || '';
 
         // Update auth state
         setAuthState({

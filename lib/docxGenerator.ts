@@ -148,28 +148,31 @@ function divider(): Paragraph {
   });
 }
 
+// Page content width ~9360 twips (6.5 inches). Use DXA for reliable rendering.
+const PAGE_WIDTH_TWIPS = 9360;
+
 function makeHeaderCell(text: string): TableCell {
   return new TableCell({
     children: [new Paragraph({
       children: [new TextRun({ text, bold: true, size: 20 })],
     })],
     shading: { type: ShadingType.SOLID, color: 'F5F5F5' },
-    width: { size: 30, type: WidthType.PERCENTAGE },
+    width: { size: Math.round(PAGE_WIDTH_TWIPS * 0.30), type: WidthType.DXA },
   });
 }
 
-function makeDataCell(text: string, widthPercent = 70): TableCell {
+function makeDataCell(text: string): TableCell {
   return new TableCell({
     children: [new Paragraph({
       children: [new TextRun({ text, size: 20 })],
     })],
-    width: { size: widthPercent, type: WidthType.PERCENTAGE },
+    width: { size: Math.round(PAGE_WIDTH_TWIPS * 0.70), type: WidthType.DXA },
   });
 }
 
 function twoColTable(rows: Array<[string, string]>): Table {
   return new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
+    width: { size: PAGE_WIDTH_TWIPS, type: WidthType.DXA },
     rows: rows.map(([label, value]) =>
       new TableRow({
         children: [makeHeaderCell(label), makeDataCell(value)],
@@ -201,23 +204,27 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
     cliente.comuna ? `, ${cliente.comuna}` : '',
   ].join(' | ');
 
-  // Build criteria table rows
+  // Build criteria table rows — use DXA widths (55/15/30 split)
+  const critCol1 = Math.round(PAGE_WIDTH_TWIPS * 0.55);
+  const critCol2 = Math.round(PAGE_WIDTH_TWIPS * 0.15);
+  const critCol3 = Math.round(PAGE_WIDTH_TWIPS * 0.30);
+
   const criteriaHeaderRow = new TableRow({
     children: [
       new TableCell({
         children: [new Paragraph({ children: [new TextRun({ text: 'Criterio', bold: true, size: 20 })] })],
         shading: { type: ShadingType.SOLID, color: 'F5F5F5' },
-        width: { size: 55, type: WidthType.PERCENTAGE },
+        width: { size: critCol1, type: WidthType.DXA },
       }),
       new TableCell({
         children: [new Paragraph({ children: [new TextRun({ text: 'Puntaje Max.', bold: true, size: 20 })] })],
         shading: { type: ShadingType.SOLID, color: 'F5F5F5' },
-        width: { size: 15, type: WidthType.PERCENTAGE },
+        width: { size: critCol2, type: WidthType.DXA },
       }),
       new TableCell({
         children: [new Paragraph({ children: [new TextRun({ text: 'Descripcion', bold: true, size: 20 })] })],
         shading: { type: ShadingType.SOLID, color: 'F5F5F5' },
-        width: { size: 30, type: WidthType.PERCENTAGE },
+        width: { size: critCol3, type: WidthType.DXA },
       }),
     ],
   });
@@ -229,15 +236,15 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
         children: [
           new TableCell({
             children: [new Paragraph({ children: [new TextRun({ text: c.nombre_criterio, size: 20 })] })],
-            width: { size: 55, type: WidthType.PERCENTAGE },
+            width: { size: critCol1, type: WidthType.DXA },
           }),
           new TableCell({
             children: [new Paragraph({ children: [new TextRun({ text: String(c.puntaje_maximo), size: 20 })] })],
-            width: { size: 15, type: WidthType.PERCENTAGE },
+            width: { size: critCol2, type: WidthType.DXA },
           }),
           new TableCell({
             children: [new Paragraph({ children: [new TextRun({ text: c.descripcion || '-', size: 20 })] })],
-            width: { size: 30, type: WidthType.PERCENTAGE },
+            width: { size: critCol3, type: WidthType.DXA },
           }),
         ],
       })
@@ -248,17 +255,17 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
       new TableCell({
         children: [new Paragraph({ children: [new TextRun({ text: 'TOTAL', bold: true, size: 20 })] })],
         shading: { type: ShadingType.SOLID, color: 'F0F0F0' },
-        width: { size: 55, type: WidthType.PERCENTAGE },
+        width: { size: critCol1, type: WidthType.DXA },
       }),
       new TableCell({
         children: [new Paragraph({ children: [new TextRun({ text: String(totalPuntaje), bold: true, size: 20 })] })],
         shading: { type: ShadingType.SOLID, color: 'F0F0F0' },
-        width: { size: 15, type: WidthType.PERCENTAGE },
+        width: { size: critCol2, type: WidthType.DXA },
       }),
       new TableCell({
         children: [new Paragraph({ text: '' })],
         shading: { type: ShadingType.SOLID, color: 'F0F0F0' },
-        width: { size: 30, type: WidthType.PERCENTAGE },
+        width: { size: critCol3, type: WidthType.DXA },
       }),
     ],
   });
@@ -443,7 +450,7 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           ),
           heading2('10.1 Criterios de Evaluacion Tecnica'),
           new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
+            width: { size: PAGE_WIDTH_TWIPS, type: WidthType.DXA },
             rows: [criteriaHeaderRow, ...criteriaDataRows, criteriaTotalRow],
           }),
 

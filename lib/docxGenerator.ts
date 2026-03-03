@@ -149,14 +149,14 @@ function heading2(text: string): Paragraph {
 function bodyParagraph(text: string): Paragraph {
   return new Paragraph({
     children: [new TextRun({ text, size: 24, color: '000000', font: 'Arial' })],
-    spacing: { after: 120 },
+    spacing: { before: 240, after: 120 },
   });
 }
 
 function bulletItem(text: string): Paragraph {
   return new Paragraph({
     children: [new TextRun({ text: `\u2022  ${text}`, size: 24, color: '000000', font: 'Arial' })],
-    spacing: { after: 80 },
+    spacing: { before: 120, after: 80 },
     indent: { left: 360 },
   });
 }
@@ -200,6 +200,7 @@ function timelineTable(rows: Array<[string, string]>): Table {
   const col2 = 4510;
   return new Table({
     width: { size: PAGE_WIDTH, type: WidthType.DXA },
+    columnWidths: [col1, col2],
     borders: TABLE_BORDERS,
     rows: rows.map(([label, value], idx) =>
       new TableRow({
@@ -241,6 +242,7 @@ interface AnnexoTableSpec {
 function annexoTable({ col1Width, col2Width, rows }: AnnexoTableSpec): Table {
   return new Table({
     width: { size: col1Width + col2Width, type: WidthType.DXA },
+    columnWidths: [col1Width, col2Width],
     borders: TABLE_BORDERS,
     rows: rows.map(([label, value]) =>
       new TableRow({
@@ -537,6 +539,7 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           heading2('10.1 Criterios de Evaluacion Tecnica'),
           new Table({
             width: { size: critCol1 + critCol2 + critCol3, type: WidthType.DXA },
+            columnWidths: [critCol1, critCol2, critCol3],
             borders: TABLE_BORDERS,
             rows: [criteriaHeaderRow, ...criteriaDataRows, criteriaTotalRow],
           }),

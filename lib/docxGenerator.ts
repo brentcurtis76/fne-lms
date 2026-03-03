@@ -11,7 +11,6 @@ import {
   Packer,
   Paragraph,
   TextRun,
-  HeadingLevel,
   AlignmentType,
   Table,
   TableRow,
@@ -107,75 +106,162 @@ function formatDate(dateStr?: string | null): string {
   return `${day} de ${month} de ${parts[0]}`;
 }
 
+// Page content width = 9020 twips
+const PAGE_WIDTH = 9020;
+
+// White borders shared constant
+const WHITE_BORDER = { style: BorderStyle.SINGLE, size: 8, color: 'FFFFFF' };
+
+// Table-level borders (ITableBordersOptions) — controls outer + inner grid lines
+const TABLE_BORDERS = {
+  top: WHITE_BORDER,
+  left: WHITE_BORDER,
+  bottom: WHITE_BORDER,
+  right: WHITE_BORDER,
+  insideHorizontal: WHITE_BORDER,
+  insideVertical: WHITE_BORDER,
+};
+
+// Cell-level borders (ITableCellBorders) — overrides borders on individual cells
+const CELL_BORDERS = {
+  top: WHITE_BORDER,
+  left: WHITE_BORDER,
+  bottom: WHITE_BORDER,
+  right: WHITE_BORDER,
+};
+
+// ---- Paragraph helpers ----
+
 function heading1(text: string): Paragraph {
   return new Paragraph({
-    text,
-    heading: HeadingLevel.HEADING_1,
+    children: [new TextRun({ text, bold: true, size: 24, color: '2E74B5', font: 'Arial' })],
     spacing: { before: 240, after: 120 },
   });
 }
 
 function heading2(text: string): Paragraph {
   return new Paragraph({
-    text,
-    heading: HeadingLevel.HEADING_2,
+    children: [new TextRun({ text, size: 24, color: '2E74B5', font: 'Arial' })],
     spacing: { before: 180, after: 80 },
   });
 }
 
 function bodyParagraph(text: string): Paragraph {
   return new Paragraph({
-    children: [new TextRun({ text, size: 22 })],
+    children: [new TextRun({ text, size: 24, color: '000000', font: 'Arial' })],
     spacing: { after: 120 },
   });
 }
 
 function bulletItem(text: string): Paragraph {
   return new Paragraph({
-    children: [new TextRun({ text: `\u2022  ${text}`, size: 22 })],
+    children: [new TextRun({ text: `\u2022  ${text}`, size: 24, color: '000000', font: 'Arial' })],
     spacing: { after: 80 },
     indent: { left: 360 },
   });
 }
 
-function divider(): Paragraph {
-  return new Paragraph({
-    border: {
-      bottom: { style: BorderStyle.SINGLE, size: 6, color: 'CCCCCC' },
-    },
-    spacing: { before: 120, after: 120 },
-    text: '',
-  });
-}
+// ---- Table cell helpers ----
 
-// Page content width ~9360 twips (6.5 inches). Use DXA for reliable rendering.
-const PAGE_WIDTH_TWIPS = 9360;
-
-function makeHeaderCell(text: string): TableCell {
+/**
+ * Creates a table header cell with #CED7E7 shading and bold Arial 10pt text.
+ */
+function makeThCell(text: string, width: number): TableCell {
   return new TableCell({
     children: [new Paragraph({
-      children: [new TextRun({ text, bold: true, size: 20 })],
+      children: [new TextRun({ text, bold: true, size: 20, font: 'Arial' })],
     })],
-    shading: { type: ShadingType.SOLID, color: 'F5F5F5' },
-    width: { size: Math.round(PAGE_WIDTH_TWIPS * 0.30), type: WidthType.DXA },
+    shading: { type: ShadingType.SOLID, color: 'CED7E7' },
+    width: { size: width, type: WidthType.DXA },
+    borders: CELL_BORDERS,
   });
 }
 
-function makeDataCell(text: string): TableCell {
+/**
+ * Creates a table data cell with optional alternate-row shading (#F5F5F5 or auto).
+ */
+function makeTdCell(text: string, width: number, isOddRow: boolean): TableCell {
   return new TableCell({
     children: [new Paragraph({
-      children: [new TextRun({ text, size: 20 })],
+      children: [new TextRun({ text, size: 20, font: 'Arial' })],
     })],
-    width: { size: Math.round(PAGE_WIDTH_TWIPS * 0.70), type: WidthType.DXA },
+    shading: isOddRow
+      ? { type: ShadingType.SOLID, color: 'F5F5F5' }
+      : { type: ShadingType.CLEAR, color: 'auto' },
+    width: { size: width, type: WidthType.DXA },
+    borders: CELL_BORDERS,
   });
 }
 
-function twoColTable(rows: Array<[string, string]>): Table {
+// ---- Timeline table (section 8): 2 cols, 4510 each ----
+
+function timelineTable(rows: Array<[string, string]>): Table {
+  const col1 = 4510;
+  const col2 = 4510;
   return new Table({
-    width: { size: PAGE_WIDTH_TWIPS, type: WidthType.DXA },
+    width: { size: PAGE_WIDTH, type: WidthType.DXA },
+    borders: TABLE_BORDERS,
+    rows: rows.map(([label, value], idx) =>
+      new TableRow({
+        children: [
+          new TableCell({
+            children: [new Paragraph({
+              children: [new TextRun({ text: label, bold: true, size: 20, font: 'Arial' })],
+            })],
+            shading: idx % 2 === 0
+              ? { type: ShadingType.SOLID, color: 'F5F5F5' }
+              : { type: ShadingType.CLEAR, color: 'auto' },
+            width: { size: col1, type: WidthType.DXA },
+            borders: CELL_BORDERS,
+          }),
+          new TableCell({
+            children: [new Paragraph({
+              children: [new TextRun({ text: value, size: 20, font: 'Arial' })],
+            })],
+            shading: idx % 2 === 0
+              ? { type: ShadingType.SOLID, color: 'F5F5F5' }
+              : { type: ShadingType.CLEAR, color: 'auto' },
+            width: { size: col2, type: WidthType.DXA },
+            borders: CELL_BORDERS,
+          }),
+        ],
+      })
+    ),
+  });
+}
+
+// ---- Annexo 2-column tables with header shading on col 1 ----
+
+interface AnnexoTableSpec {
+  col1Width: number;
+  col2Width: number;
+  rows: Array<[string, string]>;
+}
+
+function annexoTable({ col1Width, col2Width, rows }: AnnexoTableSpec): Table {
+  return new Table({
+    width: { size: col1Width + col2Width, type: WidthType.DXA },
+    borders: TABLE_BORDERS,
     rows: rows.map(([label, value]) =>
       new TableRow({
-        children: [makeHeaderCell(label), makeDataCell(value)],
+        children: [
+          new TableCell({
+            children: [new Paragraph({
+              children: [new TextRun({ text: label, bold: true, size: 20, font: 'Arial' })],
+            })],
+            shading: { type: ShadingType.SOLID, color: 'CED7E7' },
+            width: { size: col1Width, type: WidthType.DXA },
+            borders: CELL_BORDERS,
+          }),
+          new TableCell({
+            children: [new Paragraph({
+              children: [new TextRun({ text: value, size: 20, font: 'Arial' })],
+            })],
+            shading: { type: ShadingType.SOLID, color: 'F5F5F5' },
+            width: { size: col2Width, type: WidthType.DXA },
+            borders: CELL_BORDERS,
+          }),
+        ],
       })
     ),
   });
@@ -196,56 +282,32 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
   const pesoEco = licitacion.peso_evaluacion_economica;
   const totalPuntaje = criterios.reduce((s, c) => s + Number(c.puntaje_maximo), 0);
 
-  const headerAddress = [
-    cliente.nombre_legal,
-    `RUT: ${cliente.rut}`,
-    `RBD: ${school.code || '-'}`,
-    cliente.direccion || '',
-    cliente.comuna ? `, ${cliente.comuna}` : '',
-  ].join(' | ');
+  const headerAddress =
+    `${cliente.nombre_legal} | RUT: ${cliente.rut} | RBD: ${school.code || '-'} | ` +
+    `${cliente.direccion}` +
+    `${cliente.comuna ? ', ' + cliente.comuna : ''}`;
 
-  // Build criteria table rows — use DXA widths (55/15/30 split)
-  const critCol1 = Math.round(PAGE_WIDTH_TWIPS * 0.55);
-  const critCol2 = Math.round(PAGE_WIDTH_TWIPS * 0.15);
-  const critCol3 = Math.round(PAGE_WIDTH_TWIPS * 0.30);
+  // ---- Criteria table (section 10): 3 cols — 2966, 1571, 4365 ----
+  const critCol1 = 2966;
+  const critCol2 = 1571;
+  const critCol3 = 4365;
 
   const criteriaHeaderRow = new TableRow({
     children: [
-      new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: 'Criterio', bold: true, size: 20 })] })],
-        shading: { type: ShadingType.SOLID, color: 'F5F5F5' },
-        width: { size: critCol1, type: WidthType.DXA },
-      }),
-      new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: 'Puntaje Max.', bold: true, size: 20 })] })],
-        shading: { type: ShadingType.SOLID, color: 'F5F5F5' },
-        width: { size: critCol2, type: WidthType.DXA },
-      }),
-      new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: 'Descripcion', bold: true, size: 20 })] })],
-        shading: { type: ShadingType.SOLID, color: 'F5F5F5' },
-        width: { size: critCol3, type: WidthType.DXA },
-      }),
+      makeThCell('Criterio', critCol1),
+      makeThCell('Puntaje Max.', critCol2),
+      makeThCell('Descripcion', critCol3),
     ],
   });
 
   const criteriaDataRows = criterios
     .sort((a, b) => a.orden - b.orden)
-    .map(c =>
+    .map((c, idx) =>
       new TableRow({
         children: [
-          new TableCell({
-            children: [new Paragraph({ children: [new TextRun({ text: c.nombre_criterio, size: 20 })] })],
-            width: { size: critCol1, type: WidthType.DXA },
-          }),
-          new TableCell({
-            children: [new Paragraph({ children: [new TextRun({ text: String(c.puntaje_maximo), size: 20 })] })],
-            width: { size: critCol2, type: WidthType.DXA },
-          }),
-          new TableCell({
-            children: [new Paragraph({ children: [new TextRun({ text: c.descripcion || '-', size: 20 })] })],
-            width: { size: critCol3, type: WidthType.DXA },
-          }),
+          makeTdCell(c.nombre_criterio, critCol1, idx % 2 === 0),
+          makeTdCell(String(c.puntaje_maximo), critCol2, idx % 2 === 0),
+          makeTdCell(c.descripcion || '-', critCol3, idx % 2 === 0),
         ],
       })
     );
@@ -253,22 +315,38 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
   const criteriaTotalRow = new TableRow({
     children: [
       new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: 'TOTAL', bold: true, size: 20 })] })],
+        children: [new Paragraph({
+          children: [new TextRun({ text: 'TOTAL', bold: true, size: 20, font: 'Arial' })],
+        })],
         shading: { type: ShadingType.SOLID, color: 'F0F0F0' },
         width: { size: critCol1, type: WidthType.DXA },
+        borders: CELL_BORDERS,
       }),
       new TableCell({
-        children: [new Paragraph({ children: [new TextRun({ text: String(totalPuntaje), bold: true, size: 20 })] })],
+        children: [new Paragraph({
+          children: [new TextRun({ text: String(totalPuntaje), bold: true, size: 20, font: 'Arial' })],
+        })],
         shading: { type: ShadingType.SOLID, color: 'F0F0F0' },
         width: { size: critCol2, type: WidthType.DXA },
+        borders: CELL_BORDERS,
       }),
       new TableCell({
-        children: [new Paragraph({ text: '' })],
+        children: [new Paragraph({ children: [new TextRun({ text: '', size: 20, font: 'Arial' })] })],
         shading: { type: ShadingType.SOLID, color: 'F0F0F0' },
         width: { size: critCol3, type: WidthType.DXA },
+        borders: CELL_BORDERS,
       }),
     ],
   });
+
+  // ---- Section 5.2 Numero de Participantes body text ----
+  const participantesText = licitacion.participantes_estimados
+    ? `El numero de participantes sera definido en coordinacion con el establecimiento. Se estima ${licitacion.participantes_estimados} participantes.`
+    : 'El numero de participantes sera definido en coordinacion con el establecimiento.';
+
+  // ---- Section 7 condiciones de pago ----
+  const condPagoText =
+    template.especificaciones_admin.condiciones_pago || template.condiciones_pago || '';
 
   const doc = new Document({
     sections: [
@@ -282,6 +360,7 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
                     text: headerAddress,
                     size: 18,
                     color: '666666',
+                    font: 'Helvetica Neue',
                   }),
                 ],
                 alignment: AlignmentType.CENTER,
@@ -291,61 +370,72 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           }),
         },
         children: [
+
           // =====================================
-          // Title
+          // Title block (centered)
           // =====================================
           new Paragraph({
-            children: [new TextRun({ text: 'BASES DE LICITACION', bold: true, size: 40, color: '1A1A1A' })],
+            children: [new TextRun({ text: 'BASES DE LICITACION', bold: true, size: 24, font: 'Arial' })],
             alignment: AlignmentType.CENTER,
-            spacing: { before: 480, after: 240 },
+            spacing: { before: 240, after: 120 },
           }),
           new Paragraph({
-            children: [new TextRun({ text: licitacion.nombre_licitacion, bold: true, size: 28, color: '333333' })],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 240 },
-          }),
-          new Paragraph({
-            children: [new TextRun({ text: `${schoolDisplayName} — Ano ${licitacion.year}`, size: 24, color: '555555' })],
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 480 },
-          }),
-          new Paragraph({
-            children: [new TextRun({ text: `N\u00b0 Licitacion: ${licitacion.numero_licitacion}`, size: 22, color: '666666' })],
+            children: [new TextRun({ text: licitacion.nombre_licitacion, bold: true, size: 24, font: 'Arial' })],
             alignment: AlignmentType.CENTER,
             spacing: { after: 120 },
           }),
-
-          divider(),
+          new Paragraph({
+            children: [new TextRun({ text: `${schoolDisplayName} \u2014 Ano ${licitacion.year}`, size: 24, font: 'Arial' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 120 },
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: `N\u00b0 Licitacion: ${licitacion.numero_licitacion}`, size: 24, font: 'Arial' })],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 240 },
+          }),
 
           // =====================================
           // 1. Introduccion
           // =====================================
           heading1('1. Introduccion'),
           bodyParagraph(
-            `El establecimiento educacional ${cliente.nombre_legal}, ubicado en la comuna de ${cliente.comuna || '[comuna]'}, ` +
-            `en el marco del Programa "${programa.nombre}", convoca a las Asistencias Tecnicas Educativas (ATE) ` +
-            `inscritas en el registro del Ministerio de Educacion a postular al proceso de licitacion denominado: ` +
+            `El establecimiento educacional ${cliente.nombre_legal}, ubicado en la comuna de ` +
+            `${cliente.comuna || '[comuna]'}, en el marco del Programa "${programa.nombre}", ` +
+            `convoca a las Asistencias Tecnicas Educativas (ATE) inscritas en el registro del ` +
+            `Ministerio de Educacion a postular al proceso de licitacion denominado: ` +
             `"${licitacion.nombre_licitacion}".`
+          ),
+          bodyParagraph(
+            'Esta licitacion busca contar con una asesoria solidamente fundamentada en el Modelo de ' +
+            'Educacion Relacional, ejecutada por relatores con trayectoria comprobada en dicho modelo, ' +
+            'idealmente con publicaciones academicas, libros o certificaciones especializadas en el area. ' +
+            'Asimismo, se valorara especialmente que los postulantes acrediten contacto directo y experiencia ' +
+            'de trabajo con escuelas de vanguardia a nivel mundial que implementen el modelo relacional, de ' +
+            'modo que la asesoria este nutrida por las mejores practicas y evidencias internacionales ' +
+            'disponibles en innovacion educativa.'
           ),
           bodyParagraph(`Las consultas sobre estas Bases deben enviarse al correo: ${licitacion.email_licitacion}`),
 
-          divider(),
-
           // =====================================
-          // 2. Nombre del Servicio
+          // 2. Nombre del Servicio Requerido
           // =====================================
           heading1('2. Nombre del Servicio Requerido'),
           bodyParagraph(template.nombre_servicio),
-
-          divider(),
 
           // =====================================
           // 3. Objetivo
           // =====================================
           heading1('3. Objetivo'),
-          bodyParagraph(template.objetivo),
-
-          divider(),
+          bodyParagraph(
+            template.objetivo +
+            ' La asesoria debera estar profundamente anclada en el Modelo de Educacion Relacional ' +
+            '\u2014con respaldo teorico y practico validado internacionalmente\u2014 y conducida por ' +
+            'profesionales que acrediten experiencia directa en este modelo, con publicaciones, libros o ' +
+            'certificaciones que den cuenta de su especializacion. Se priorizara a quienes demuestren ' +
+            'vinculos o experiencias concretas con escuelas de vanguardia del mundo que ya transitan por ' +
+            'esta transformacion cultural.'
+          ),
 
           // =====================================
           // 4. Objetivos Especificos
@@ -356,8 +446,6 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
             : [bodyParagraph('[Por definir en la plantilla]')]
           ),
 
-          divider(),
-
           // =====================================
           // 5. Especificaciones Administrativas
           // =====================================
@@ -365,16 +453,12 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
 
           heading2('5.1 Duracion del Servicio'),
           bodyParagraph(
-            `La duracion minima del servicio es de ${licitacion.duracion_minima} ` +
-            `y la duracion maxima es de ${licitacion.duracion_maxima}.`
+            `La duracion minima del servicio es de ${licitacion.duracion_minima} meses ` +
+            `y la duracion maxima es de ${licitacion.duracion_maxima} meses.`
           ),
 
           heading2('5.2 Numero de Participantes'),
-          bodyParagraph(
-            licitacion.participantes_estimados
-              ? `El servicio contempla la participacion de aproximadamente ${licitacion.participantes_estimados} participantes.`
-              : 'El numero de participantes sera definido en coordinacion con el establecimiento.'
-          ),
+          bodyParagraph(participantesText),
 
           heading2('5.3 Frecuencia de Sesiones'),
           bodyParagraph(template.especificaciones_admin.frecuencia || '[Por definir]'),
@@ -386,9 +470,18 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           bodyParagraph(template.especificaciones_admin.contrapartes_tecnicas || '[Por definir]'),
 
           heading2('5.6 Condiciones de Pago'),
-          bodyParagraph(template.especificaciones_admin.condiciones_pago || template.condiciones_pago || '[Por definir]'),
+          bodyParagraph(
+            template.especificaciones_admin.condiciones_pago || template.condiciones_pago || '[Por definir]'
+          ),
 
-          divider(),
+          heading2('5.7 Plataforma Online de Gestion'),
+          bodyParagraph(
+            'La ATE debera proporcionar una plataforma online para la gestion integral del proceso de ' +
+            'cambio cultural, que incluya: capacitacion asincronica (videos, recursos y materiales de ' +
+            'formacion disponibles para la comunidad educativa), organizacion y seguimiento de los equipos ' +
+            'de trabajo, registro de avances y acuerdos de cada sesion, y comunicacion fluida entre el ' +
+            'equipo asesor y las contrapartes del establecimiento.'
+          ),
 
           // =====================================
           // 6. Resultados Esperados
@@ -399,25 +492,22 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
             : [bodyParagraph('[Por definir en la plantilla]')]
           ),
 
-          divider(),
-
           // =====================================
-          // 7. Valor, Financiamiento y Pago
+          // 7. Valor, Financiamiento y Forma de Pago
           // =====================================
           heading1('7. Valor, Financiamiento y Forma de Pago'),
           bodyParagraph(
-            `El presupuesto disponible para este servicio es de un minimo de ${licitacion.monto_minimo} ${licitacion.tipo_moneda} ` +
-            `y un maximo de ${licitacion.monto_maximo} ${licitacion.tipo_moneda}, valores que incluyen todos los impuestos.`
+            `El presupuesto disponible para este servicio es de un minimo de ${licitacion.monto_minimo} ` +
+            `${licitacion.tipo_moneda} y un maximo de ${licitacion.monto_maximo} ${licitacion.tipo_moneda}, ` +
+            `valores que incluyen todos los impuestos.`
           ),
-          bodyParagraph(template.condiciones_pago || '[Condiciones de pago por definir en la plantilla]'),
-
-          divider(),
+          ...(condPagoText ? [bodyParagraph(condPagoText)] : []),
 
           // =====================================
-          // 8. Etapas del Proceso
+          // 8. Etapas del Proceso de Licitacion
           // =====================================
           heading1('8. Etapas del Proceso de Licitacion'),
-          twoColTable([
+          timelineTable([
             ['Publicacion de Bases', formatDate(licitacion.fecha_publicacion)],
             ['Limite solicitud de Bases', formatDate(licitacion.fecha_limite_solicitud_bases)],
             ['Limite de Consultas', formatDate(licitacion.fecha_limite_consultas)],
@@ -426,10 +516,8 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
             ['Limite Evaluacion', formatDate(licitacion.fecha_limite_evaluacion)],
           ]),
 
-          divider(),
-
           // =====================================
-          // 9. Requisitos ATE
+          // 9. Requisitos del ATE Postulante
           // =====================================
           heading1('9. Requisitos del ATE Postulante'),
           ...(template.requisitos_ate.length > 0
@@ -437,10 +525,8 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
             : [bodyParagraph('[Por definir en la plantilla]')]
           ),
 
-          divider(),
-
           // =====================================
-          // 10. Pauta de Evaluacion
+          // 10. Pauta de Evaluacion y Adjudicacion
           // =====================================
           heading1('10. Pauta de Evaluacion y Adjudicacion'),
           bodyParagraph(
@@ -450,85 +536,113 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           ),
           heading2('10.1 Criterios de Evaluacion Tecnica'),
           new Table({
-            width: { size: PAGE_WIDTH_TWIPS, type: WidthType.DXA },
+            width: { size: critCol1 + critCol2 + critCol3, type: WidthType.DXA },
+            borders: TABLE_BORDERS,
             rows: [criteriaHeaderRow, ...criteriaDataRows, criteriaTotalRow],
           }),
-
-          divider(),
 
           // =====================================
           // 11. Documentos a Adjuntar
           // =====================================
-          heading1('11. Documentos a Adjuntar en la Propuesta'),
+          heading1('11. Documentos a Adjuntar en la Propuesta (pueden venir todos en un solo documento)'),
           ...(template.documentos_adjuntar.length > 0
             ? template.documentos_adjuntar.map(d => bulletItem(d))
             : [bodyParagraph('[Por definir en la plantilla]')]
           ),
 
-          divider(),
-
           // =====================================
           // ANEXO: Formulario Ficha Tecnica
           // =====================================
           new Paragraph({
-            children: [new TextRun({ text: 'ANEXO: FORMULARIO FICHA TECNICA', bold: true, size: 32 })],
+            children: [new TextRun({ text: 'ANEXO: FORMULARIO FICHA TECNICA', bold: true, size: 32, font: 'Arial' })],
             spacing: { before: 480, after: 240 },
             pageBreakBefore: true,
           }),
 
+          // Tabla 1: Antecedentes del ATE Postulante — col1: 5467, col2: 3553
           heading2('Tabla 1: Antecedentes del ATE Postulante'),
-          twoColTable([
-            ['Nombre / Razon Social', ''],
-            ['RUT', ''],
-            ['Numero de Registro ATE (Mineduc)', ''],
-            ['Representante Legal', ''],
-            ['RUT Representante Legal', ''],
-            ['Direccion', ''],
-            ['Correo Electronico de Contacto', ''],
-            ['Telefono de Contacto', ''],
-          ]),
+          annexoTable({
+            col1Width: 5467,
+            col2Width: 3553,
+            rows: [
+              ['Nombre / Razon Social', ''],
+              ['RUT', ''],
+              ['Numero de Registro ATE (Mineduc)', ''],
+              ['Representante Legal', ''],
+              ['RUT Representante Legal', ''],
+              ['Direccion', ''],
+              ['Correo Electronico de Contacto', ''],
+              ['Telefono de Contacto', ''],
+            ],
+          }),
 
-          new Paragraph({ text: '', spacing: { after: 240 } }),
+          new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 240 } }),
 
+          // Tabla 2: Descripcion del Oferente — col1: 4060, col2: 4504
           heading2('Tabla 2: Descripcion del Oferente'),
-          twoColTable([
-            ['Anos de experiencia en el sector educacional', ''],
-            ['N\u00b0 de establecimientos atendidos en los ultimos 5 anos', ''],
-            ['Programas o areas de especializacion', ''],
-            ['Referencias verificables (nombre establecimiento, contacto)', ''],
-          ]),
+          annexoTable({
+            col1Width: 4060,
+            col2Width: 4504,
+            rows: [
+              ['Anos de experiencia en el sector educacional', ''],
+              ['N\u00b0 de establecimientos atendidos en los ultimos 5 anos', ''],
+              ['Programas o areas de especializacion', ''],
+              ['Referencias verificables (nombre establecimiento, contacto)', ''],
+            ],
+          }),
 
-          new Paragraph({ text: '', spacing: { after: 240 } }),
+          new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 240 } }),
 
+          // Tabla 3: Propuesta Tecnica — col1: 4000, col2: 4504
           heading2('Tabla 3: Propuesta Tecnica'),
-          twoColTable([
-            ['Objetivo de la propuesta', ''],
-            ['Metodologia de trabajo', ''],
-            ['Cronograma de actividades (resumen)', ''],
-            ['N\u00b0 de sesiones propuestas', ''],
-            ['Formato de sesiones (presencial/virtual/hibrido)', ''],
-            ['Equipo profesional asignado (nombre, cargo, formacion)', ''],
-            ['Resultados e indicadores de exito propuestos', ''],
-          ]),
+          annexoTable({
+            col1Width: 4000,
+            col2Width: 4504,
+            rows: [
+              ['Objetivo de la propuesta', ''],
+              ['Metodologia de trabajo', ''],
+              ['Cronograma de actividades (resumen)', ''],
+              ['N\u00b0 de sesiones propuestas', ''],
+              ['Formato de sesiones (presencial/virtual/hibrido)', ''],
+              ['Equipo profesional asignado (nombre, cargo, formacion)', ''],
+              ['Resultados e indicadores de exito propuestos', ''],
+            ],
+          }),
 
-          new Paragraph({ text: '', spacing: { after: 240 } }),
+          new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 240 } }),
 
+          // Tabla 4: Propuesta Economica — col1: 3340, col2: 4504
           heading2('Tabla 4: Propuesta Economica'),
-          twoColTable([
-            [`Valor total del servicio (${licitacion.tipo_moneda})`, ''],
-            ['Detalle por etapa o periodo', ''],
-            ['Condiciones de pago propuestas', ''],
-            ['Incluye IVA (si/no)', ''],
-          ]),
+          annexoTable({
+            col1Width: 3340,
+            col2Width: 4504,
+            rows: [
+              [`Valor total del servicio (${licitacion.tipo_moneda})`, ''],
+              ['Detalle por etapa o periodo', ''],
+              ['Condiciones de pago propuestas', ''],
+              ['Incluye IVA (si/no)', ''],
+            ],
+          }),
 
+          // Signature block
           new Paragraph({
             children: [
-              new TextRun({ text: `Firma Representante Legal: ____________________________    RUT: ________________`, size: 20 }),
+              new TextRun({
+                text: 'Firma Representante Legal: ____________________________    RUT: ________________',
+                size: 24,
+                font: 'Arial',
+              }),
             ],
             spacing: { before: 480, after: 120 },
           }),
           new Paragraph({
-            children: [new TextRun({ text: `Lugar y Fecha: ____________________________`, size: 20 })],
+            children: [
+              new TextRun({
+                text: 'Lugar y Fecha: ____________________________',
+                size: 24,
+                font: 'Arial',
+              }),
+            ],
           }),
         ],
       },

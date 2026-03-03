@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
-import { ArrowLeft, Copy, Check, Upload, Calendar, Lock } from 'lucide-react';
+import { ArrowLeft, Copy, Check, Upload, Calendar, Lock, Trash2 } from 'lucide-react';
 import { LicitacionDetail, LicitacionEstado, ESTADO_DISPLAY, TimelineDates } from '@/types/licitaciones';
 import Step3Bases from '@/components/licitaciones/Step3Bases';
 import Step4Propuestas from '@/components/licitaciones/Step4Propuestas';
@@ -166,6 +166,9 @@ export default function LicitacionDetailPage() {
   const [editingTimeline, setEditingTimeline] = useState(false);
   const [editedDates, setEditedDates] = useState<Partial<TimelineDates>>({});
   const [savingDates, setSavingDates] = useState(false);
+
+  // Delete licitacion
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -368,6 +371,25 @@ export default function LicitacionDetailPage() {
     }
   };
 
+  const handleDeleteLicitacion = async () => {
+    if (!id) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/licitaciones/${id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error || 'Error al eliminar licitacion');
+        return;
+      }
+      toast.success('Licitacion eliminada exitosamente');
+      router.push('/licitaciones');
+    } catch {
+      toast.error('Error al eliminar licitacion');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return '-';
     const parts = dateStr.split('-');
@@ -439,7 +461,27 @@ export default function LicitacionDetailPage() {
               {licitacion.school?.name} — {licitacion.year}
             </p>
           </div>
-          <EstadoBadge estado={licitacion.estado} />
+          <div className="flex items-center gap-3">
+            <EstadoBadge estado={licitacion.estado} />
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  if (window.confirm(
+                    `¿Eliminar la licitacion "${licitacion.numero_licitacion}"?\n\n` +
+                    'Se eliminaran permanentemente todos los datos asociados: ATEs, documentos, evaluaciones, historial, etc.\n\n' +
+                    'Esta accion no se puede deshacer.'
+                  )) {
+                    handleDeleteLicitacion();
+                  }
+                }}
+                disabled={deleting}
+                className="flex items-center gap-1.5 px-3 py-1.5 border border-red-300 text-red-600 rounded-lg text-xs font-medium hover:bg-red-50 transition-colors disabled:opacity-60"
+              >
+                <Trash2 size={14} />
+                {deleting ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Stepper */}
@@ -869,6 +911,7 @@ export default function LicitacionDetailPage() {
           <DocumentCenter
             licitacionId={licitacion.id}
             numeroLicitacion={licitacion.numero_licitacion}
+            isAdmin={isAdmin}
           />
         )}
       </div>

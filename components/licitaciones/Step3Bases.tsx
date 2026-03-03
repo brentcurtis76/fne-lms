@@ -51,11 +51,12 @@ const EMPTY_CONSULTA_FORM: ConsultaFormData = {
   ate_id: '',
 };
 
-export default function Step3Bases({ licitacion, onAdvance, onRefresh }: Step3BasesProps) {
+export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }: Step3BasesProps) {
   const [ates, setAtes] = useState<LicitacionAte[]>([]);
   const [consultas, setConsultas] = useState<LicitacionConsulta[]>([]);
   const [basesDocumentos, setBasesDocumentos] = useState<LicitacionDocumento[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   // ATE form state
   const [ateForm, setAteForm] = useState<AteFormData>(EMPTY_ATE_FORM);
@@ -345,6 +346,33 @@ export default function Step3Bases({ licitacion, onAdvance, onRefresh }: Step3Ba
     }
   };
 
+  // ============================================================
+  // Delete bases document
+  // ============================================================
+
+  const handleDeleteBasesDoc = async (doc: LicitacionDocumento) => {
+    if (!window.confirm(`¿Eliminar "${doc.file_name}"? Esta accion no se puede deshacer.`)) {
+      return;
+    }
+    setDeletingDocId(doc.id);
+    try {
+      const res = await fetch(
+        `/api/licitaciones/${licitacionId}/documentos?doc_id=${doc.id}`,
+        { method: 'DELETE' }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || 'Error al eliminar documento');
+      }
+      toast.success('Documento eliminado');
+      loadData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar documento');
+    } finally {
+      setDeletingDocId(null);
+    }
+  };
+
   const atesWithBasesSent = ates.filter(a => a.fecha_envio_bases);
   const canAdvance = atesWithBasesSent.length > 0;
 
@@ -630,6 +658,20 @@ export default function Step3Bases({ licitacion, onAdvance, onRefresh }: Step3Ba
                   <span className="text-gray-400">
                     {new Date(doc.created_at).toLocaleDateString('es-CL')}
                   </span>
+                  {isAdmin && (
+                    <button
+                      onClick={() => handleDeleteBasesDoc(doc)}
+                      disabled={deletingDocId === doc.id}
+                      className="ml-1 text-red-400 hover:text-red-600 transition-colors disabled:opacity-60"
+                      title="Eliminar documento"
+                    >
+                      {deletingDocId === doc.id ? (
+                        <span className="animate-spin">⌛</span>
+                      ) : (
+                        <Trash2 size={10} />
+                      )}
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

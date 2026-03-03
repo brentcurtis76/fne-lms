@@ -29,8 +29,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return await handleGet(req, res, licitacionId);
     case 'PATCH':
       return await handlePatch(req, res, licitacionId);
+    case 'DELETE':
+      return await handleDelete(req, res, licitacionId);
     default:
-      return handleMethodNotAllowed(res, ['GET', 'PATCH']);
+      return handleMethodNotAllowed(res, ['GET', 'PATCH', 'DELETE']);
   }
 }
 
@@ -146,5 +148,64 @@ async function handlePatch(req: NextApiRequest, res: NextApiResponse, licitacion
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error inesperado';
     return sendAuthError(res, 'Error al actualizar licitacion', 500, message);
+  }
+}
+
+async function handleDelete(req: NextApiRequest, res: NextApiResponse, licitacionId: string) {
+  const { user, error: authError } = await getApiUser(req, res);
+  if (authError || !user) {
+    return sendAuthError(res, 'No autorizado', 401);
+  }
+
+  try {
+    const serviceClient = createServiceRoleClient();
+    const userRoles = await getUserRoles(serviceClient, user.id);
+    const roleTypes = userRoles.map(r => r.role_type);
+    const isAdmin = roleTypes.includes('admin');
+
+    if (!isAdmin) {
+      return sendAuthError(res, 'Solo administradores pueden eliminar licitaciones', 403);
+    }
+
+    // Verify licitacion exists
+    const { data: licitacion, error: licitError } = await serviceClient
+      .from('licitaciones')
+      .select('id, numero_licitacion')
+      .eq('id', licitacionId)
+      .single();
+
+    if (licitError || !licitacion) {
+      return sendAuthError(res, 'Licitacion no encontrada', 404);
+    }
+
+    // Fetch all document storage paths before deletion
+    const { data: documentos } = await serviceClient
+      .from('licitacion_documentos')
+      .select('storage_path')
+      .eq('licitacion_id', licitacionId);
+
+    // Delete files from Supabase Storage
+    const storagePaths = (documentos || [])
+      .map(d => d.storage_path)
+      .filter((p): p is string => !!p);
+
+    if (storagePaths.length > 0) {
+      await serviceClient.storage.from('licitaciones').remove(storagePaths);
+    }
+
+    // Delete the licitacion — CASCADE handles all child tables
+    const { error: deleteError } = await serviceClient
+      .from('licitaciones')
+      .delete()
+      .eq('id', licitacionId);
+
+    if (deleteError) {
+      return sendAuthError(res, 'Error al eliminar licitacion', 500, deleteError.message);
+    }
+
+    return sendApiResponse(res, { success: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Error inesperado';
+    return sendAuthError(res, 'Error al eliminar licitacion', 500, message);
   }
 }

@@ -13,12 +13,14 @@ import {
   Folder,
   ChevronDown,
   ChevronRight,
+  Trash2,
 } from 'lucide-react';
 import { LicitacionDocumento } from '@/types/licitaciones';
 
 interface DocumentCenterProps {
   licitacionId: string;
   numeroLicitacion?: string;
+  isAdmin?: boolean;
 }
 
 // Document tipo -> folder display info
@@ -86,10 +88,12 @@ function formatDate(dateStr: string): string {
 export default function DocumentCenter({
   licitacionId,
   numeroLicitacion,
+  isAdmin = false,
 }: DocumentCenterProps) {
   const [documentos, setDocumentos] = useState<LicitacionDocumento[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingZip, setDownloadingZip] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({
     '01-publicacion': true,
@@ -200,6 +204,30 @@ export default function DocumentCenter({
   };
 
   // ============================================================
+  // Delete single document (admin only)
+  // ============================================================
+
+  const handleDeleteDoc = async (doc: LicitacionDocumento) => {
+    setDeletingId(doc.id);
+    try {
+      const res = await fetch(
+        `/api/licitaciones/${licitacionId}/documentos?doc_id=${doc.id}`,
+        { method: 'DELETE' }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error || 'Error al eliminar documento');
+      }
+      toast.success('Documento eliminado');
+      loadDocumentos();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al eliminar documento');
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  // ============================================================
   // Toggle folder expand
   // ============================================================
 
@@ -296,20 +324,40 @@ export default function DocumentCenter({
                               {doc.created_at && ` · ${formatDate(doc.created_at)}`}
                             </p>
                           </div>
-                          <button
-                            onClick={() => handleDownload(doc)}
-                            disabled={downloadingId === doc.id}
-                            className={BTN_SECONDARY}
-                            title="Descargar"
-                          >
-                            {downloadingId === doc.id ? (
-                              <span className="flex items-center gap-1">
-                                <span className="animate-spin">⌛</span>
-                              </span>
-                            ) : (
-                              <Download size={12} className="inline" />
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handleDownload(doc)}
+                              disabled={downloadingId === doc.id}
+                              className={BTN_SECONDARY}
+                              title="Descargar"
+                            >
+                              {downloadingId === doc.id ? (
+                                <span className="flex items-center gap-1">
+                                  <span className="animate-spin">⌛</span>
+                                </span>
+                              ) : (
+                                <Download size={12} className="inline" />
+                              )}
+                            </button>
+                            {isAdmin && (
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`¿Eliminar "${doc.nombre}"? Esta accion no se puede deshacer.`)) {
+                                    handleDeleteDoc(doc);
+                                  }
+                                }}
+                                disabled={deletingId === doc.id}
+                                className="px-2 py-1.5 border border-red-200 text-red-500 rounded-lg hover:bg-red-50 transition-colors text-xs disabled:opacity-60"
+                                title="Eliminar documento"
+                              >
+                                {deletingId === doc.id ? (
+                                  <span className="animate-spin">⌛</span>
+                                ) : (
+                                  <Trash2 size={12} className="inline" />
+                                )}
+                              </button>
                             )}
-                          </button>
+                          </div>
                         </div>
                       ))}
                     </div>

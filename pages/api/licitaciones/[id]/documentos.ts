@@ -13,8 +13,9 @@ import { uuidSchema } from '@/lib/validation/schemas';
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'licitaciones-documentos');
 
-  if (req.method !== 'GET') {
-    return handleMethodNotAllowed(res, ['GET']);
+  const allowedMethods = ['GET', 'DELETE'];
+  if (!allowedMethods.includes(req.method || '')) {
+    return handleMethodNotAllowed(res, allowedMethods);
   }
 
   const { id } = req.query;
@@ -43,7 +44,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch licitacion for school scoping
     const { data: licitacion, error: licitError } = await serviceClient
       .from('licitaciones')
-      .select('id, school_id')
+      .select('id, school_id, estado')
       .eq('id', licitacionId)
       .single();
 
@@ -60,6 +61,63 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // ============================================================
+    // DELETE — Remove a single document
+    // ============================================================
+    if (req.method === 'DELETE') {
+      if (!isAdmin) {
+        return sendAuthError(res, 'Solo administradores pueden eliminar documentos', 403);
+      }
+
+      const { doc_id } = req.query;
+      const docIdParse = uuidSchema.safeParse(doc_id);
+      if (!docIdParse.success) {
+        return sendAuthError(res, 'doc_id requerido como query parameter', 400);
+      }
+
+      // Fetch the document record
+      const { data: doc, error: docError } = await serviceClient
+        .from('licitacion_documentos')
+        .select('id, storage_path, nombre, licitacion_id')
+        .eq('id', docIdParse.data)
+        .eq('licitacion_id', licitacionId)
+        .single();
+
+      if (docError || !doc) {
+        return sendAuthError(res, 'Documento no encontrado', 404);
+      }
+
+      // Delete from storage
+      if (doc.storage_path) {
+        await serviceClient.storage.from('licitaciones').remove([doc.storage_path]);
+      }
+
+      // Delete DB record
+      const { error: deleteError } = await serviceClient
+        .from('licitacion_documentos')
+        .delete()
+        .eq('id', docIdParse.data);
+
+      if (deleteError) {
+        return sendAuthError(res, 'Error al eliminar documento', 500, deleteError.message);
+      }
+
+      // Log to historial
+      await serviceClient.from('licitacion_historial').insert({
+        licitacion_id: licitacionId,
+        accion: `Documento eliminado: ${doc.nombre}`,
+        estado_anterior: licitacion.estado,
+        estado_nuevo: licitacion.estado,
+        detalles: { doc_id: doc.id, nombre: doc.nombre, storage_path: doc.storage_path },
+        user_id: user.id,
+      });
+
+      return sendApiResponse(res, { success: true });
+    }
+
+    // ============================================================
+    // GET — List all documents
+    // ============================================================
     const { data: documentos, error: listError } = await serviceClient
       .from('licitacion_documentos')
       .select('*')

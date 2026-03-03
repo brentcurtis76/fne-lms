@@ -298,7 +298,7 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
     children: [
       makeThCell('Criterio', critCol1),
       makeThCell('Puntaje Max.', critCol2),
-      makeThCell('Descripcion', critCol3),
+      makeThCell('Descripción', critCol3),
     ],
   });
 
@@ -343,8 +343,8 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
 
   // ---- Section 5.2 Numero de Participantes body text ----
   const participantesText = licitacion.participantes_estimados
-    ? `El numero de participantes sera definido en coordinacion con el establecimiento. Se estima ${licitacion.participantes_estimados} participantes.`
-    : 'El numero de participantes sera definido en coordinacion con el establecimiento.';
+    ? `El número de participantes será definido en coordinación con el establecimiento. Se estima ${licitacion.participantes_estimados} participantes.`
+    : 'El número de participantes será definido en coordinación con el establecimiento.';
 
   // ---- Section 7 condiciones de pago ----
   const condPagoText =
@@ -377,7 +377,7 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           // Title block (centered)
           // =====================================
           new Paragraph({
-            children: [new TextRun({ text: 'BASES DE LICITACION', bold: true, size: 24, font: 'Arial' })],
+            children: [new TextRun({ text: 'BASES DE LICITACIÓN', bold: true, size: 24, font: 'Arial' })],
             alignment: AlignmentType.CENTER,
             spacing: { before: 240, after: 120 },
           }),
@@ -387,12 +387,12 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
             spacing: { after: 120 },
           }),
           new Paragraph({
-            children: [new TextRun({ text: `${schoolDisplayName} \u2014 Ano ${licitacion.year}`, size: 24, font: 'Arial' })],
+            children: [new TextRun({ text: `${schoolDisplayName} \u2014 Año ${licitacion.year}`, size: 24, font: 'Arial' })],
             alignment: AlignmentType.CENTER,
             spacing: { after: 120 },
           }),
           new Paragraph({
-            children: [new TextRun({ text: `N\u00b0 Licitacion: ${licitacion.numero_licitacion}`, size: 24, font: 'Arial' })],
+            children: [new TextRun({ text: `N\u00b0 Licitación: ${licitacion.numero_licitacion}`, size: 24, font: 'Arial' })],
             alignment: AlignmentType.CENTER,
             spacing: { after: 240 },
           }),
@@ -400,22 +400,22 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           // =====================================
           // 1. Introduccion
           // =====================================
-          heading1('1. Introduccion'),
+          heading1('1. Introducción'),
           bodyParagraph(
             `El establecimiento educacional ${cliente.nombre_legal}, ubicado en la comuna de ` +
             `${cliente.comuna || '[comuna]'}, en el marco del Programa "${programa.nombre}", ` +
-            `convoca a las Asistencias Tecnicas Educativas (ATE) inscritas en el registro del ` +
-            `Ministerio de Educacion a postular al proceso de licitacion denominado: ` +
+            `convoca a las Asistencias Técnicas Educativas (ATE) inscritas en el registro del ` +
+            `Ministerio de Educación a postular al proceso de licitación denominado: ` +
             `"${licitacion.nombre_licitacion}".`
           ),
           bodyParagraph(
-            'Esta licitacion busca contar con una asesoria solidamente fundamentada en el Modelo de ' +
-            'Educacion Relacional, ejecutada por relatores con trayectoria comprobada en dicho modelo, ' +
-            'idealmente con publicaciones academicas, libros o certificaciones especializadas en el area. ' +
-            'Asimismo, se valorara especialmente que los postulantes acrediten contacto directo y experiencia ' +
+            'Esta licitación busca contar con una asesoría sólidamente fundamentada en el Modelo de ' +
+            'Educación Relacional, ejecutada por relatores con trayectoria comprobada en dicho modelo, ' +
+            'idealmente con publicaciones académicas, libros o certificaciones especializadas en el área. ' +
+            'Asimismo, se valorará especialmente que los postulantes acrediten contacto directo y experiencia ' +
             'de trabajo con escuelas de vanguardia a nivel mundial que implementen el modelo relacional, de ' +
-            'modo que la asesoria este nutrida por las mejores practicas y evidencias internacionales ' +
-            'disponibles en innovacion educativa.'
+            'modo que la asesoría esté nutrida por las mejores prácticas y evidencias internacionales ' +
+            'disponibles en innovación educativa.'
           ),
           bodyParagraph(`Las consultas sobre estas Bases deben enviarse al correo: ${licitacion.email_licitacion}`),
 
@@ -431,18 +431,18 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           heading1('3. Objetivo'),
           bodyParagraph(
             template.objetivo +
-            ' La asesoria debera estar profundamente anclada en el Modelo de Educacion Relacional ' +
-            '\u2014con respaldo teorico y practico validado internacionalmente\u2014 y conducida por ' +
+            ' La asesoría deberá estar profundamente anclada en el Modelo de Educación Relacional ' +
+            '\u2014con respaldo teórico y práctico validado internacionalmente\u2014 y conducida por ' +
             'profesionales que acrediten experiencia directa en este modelo, con publicaciones, libros o ' +
-            'certificaciones que den cuenta de su especializacion. Se priorizara a quienes demuestren ' +
-            'vinculos o experiencias concretas con escuelas de vanguardia del mundo que ya transitan por ' +
-            'esta transformacion cultural.'
+            'certificaciones que den cuenta de su especialización. Se priorizará a quienes demuestren ' +
+            'vínculos o experiencias concretas con escuelas de vanguardia del mundo que ya transitan por ' +
+            'esta transformación cultural.'
           ),
 
           // =====================================
           // 4. Objetivos Especificos
           // =====================================
-          heading1('4. Objetivos Especificos'),
+          heading1('4. Objetivos Específicos'),
           ...(template.objetivos_especificos.length > 0
             ? template.objetivos_especificos.map(obj => bulletItem(obj))
             : [bodyParagraph('[Por definir en la plantilla]')]
@@ -453,22 +453,22 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           // =====================================
           heading1('5. Especificaciones Administrativas'),
 
-          heading2('5.1 Duracion del Servicio'),
+          heading2('5.1 Duración del Servicio'),
           bodyParagraph(
-            `La duracion minima del servicio es de ${licitacion.duracion_minima} meses ` +
-            `y la duracion maxima es de ${licitacion.duracion_maxima} meses.`
+            `La duración mínima del servicio es de ${licitacion.duracion_minima} meses ` +
+            `y la duración máxima es de ${licitacion.duracion_maxima} meses.`
           ),
 
-          heading2('5.2 Numero de Participantes'),
+          heading2('5.2 Número de Participantes'),
           bodyParagraph(participantesText),
 
           heading2('5.3 Frecuencia de Sesiones'),
           bodyParagraph(template.especificaciones_admin.frecuencia || '[Por definir]'),
 
-          heading2('5.4 Lugar de Realizacion'),
+          heading2('5.4 Lugar de Realización'),
           bodyParagraph(template.especificaciones_admin.lugar || '[Por definir]'),
 
-          heading2('5.5 Contrapartes Tecnicas'),
+          heading2('5.5 Contrapartes Técnicas'),
           bodyParagraph(template.especificaciones_admin.contrapartes_tecnicas || '[Por definir]'),
 
           heading2('5.6 Condiciones de Pago'),
@@ -476,12 +476,12 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
             template.especificaciones_admin.condiciones_pago || template.condiciones_pago || '[Por definir]'
           ),
 
-          heading2('5.7 Plataforma Online de Gestion'),
+          heading2('5.7 Plataforma Online de Gestión'),
           bodyParagraph(
-            'La ATE debera proporcionar una plataforma online para la gestion integral del proceso de ' +
-            'cambio cultural, que incluya: capacitacion asincronica (videos, recursos y materiales de ' +
-            'formacion disponibles para la comunidad educativa), organizacion y seguimiento de los equipos ' +
-            'de trabajo, registro de avances y acuerdos de cada sesion, y comunicacion fluida entre el ' +
+            'La ATE deberá proporcionar una plataforma online para la gestión integral del proceso de ' +
+            'cambio cultural, que incluya: capacitación asincrónica (videos, recursos y materiales de ' +
+            'formación disponibles para la comunidad educativa), organización y seguimiento de los equipos ' +
+            'de trabajo, registro de avances y acuerdos de cada sesión, y comunicación fluida entre el ' +
             'equipo asesor y las contrapartes del establecimiento.'
           ),
 
@@ -499,8 +499,8 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           // =====================================
           heading1('7. Valor, Financiamiento y Forma de Pago'),
           bodyParagraph(
-            `El presupuesto disponible para este servicio es de un minimo de ${licitacion.monto_minimo} ` +
-            `${licitacion.tipo_moneda} y un maximo de ${licitacion.monto_maximo} ${licitacion.tipo_moneda}, ` +
+            `El presupuesto disponible para este servicio es de un mínimo de ${licitacion.monto_minimo} ` +
+            `${licitacion.tipo_moneda} y un máximo de ${licitacion.monto_maximo} ${licitacion.tipo_moneda}, ` +
             `valores que incluyen todos los impuestos.`
           ),
           ...(condPagoText ? [bodyParagraph(condPagoText)] : []),
@@ -508,14 +508,14 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           // =====================================
           // 8. Etapas del Proceso de Licitacion
           // =====================================
-          heading1('8. Etapas del Proceso de Licitacion'),
+          heading1('8. Etapas del Proceso de Licitación'),
           timelineTable([
-            ['Publicacion de Bases', formatDate(licitacion.fecha_publicacion)],
-            ['Limite solicitud de Bases', formatDate(licitacion.fecha_limite_solicitud_bases)],
-            ['Limite de Consultas', formatDate(licitacion.fecha_limite_consultas)],
-            ['Inicio recepcion de Propuestas', formatDate(licitacion.fecha_inicio_propuestas)],
-            ['Limite recepcion de Propuestas', formatDate(licitacion.fecha_limite_propuestas)],
-            ['Limite Evaluacion', formatDate(licitacion.fecha_limite_evaluacion)],
+            ['Publicación de Bases', formatDate(licitacion.fecha_publicacion)],
+            ['Límite solicitud de Bases', formatDate(licitacion.fecha_limite_solicitud_bases)],
+            ['Límite de Consultas', formatDate(licitacion.fecha_limite_consultas)],
+            ['Inicio recepción de Propuestas', formatDate(licitacion.fecha_inicio_propuestas)],
+            ['Límite recepción de Propuestas', formatDate(licitacion.fecha_limite_propuestas)],
+            ['Límite Evaluación', formatDate(licitacion.fecha_limite_evaluacion)],
           ]),
 
           // =====================================
@@ -530,13 +530,13 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           // =====================================
           // 10. Pauta de Evaluacion y Adjudicacion
           // =====================================
-          heading1('10. Pauta de Evaluacion y Adjudicacion'),
+          heading1('10. Pauta de Evaluación y Adjudicación'),
           bodyParagraph(
-            `La evaluacion de las propuestas se realizara considerando una ponderacion del ` +
-            `${licitacion.peso_evaluacion_tecnica}% para la Evaluacion Tecnica y del ` +
-            `${pesoEco}% para la Evaluacion Economica.`
+            `La evaluación de las propuestas se realizará considerando una ponderación del ` +
+            `${licitacion.peso_evaluacion_tecnica}% para la Evaluación Técnica y del ` +
+            `${pesoEco}% para la Evaluación Económica.`
           ),
-          heading2('10.1 Criterios de Evaluacion Tecnica'),
+          heading2('10.1 Criterios de Evaluación Técnica'),
           new Table({
             width: { size: critCol1 + critCol2 + critCol3, type: WidthType.DXA },
             columnWidths: [critCol1, critCol2, critCol3],
@@ -557,7 +557,7 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           // ANEXO: Formulario Ficha Tecnica
           // =====================================
           new Paragraph({
-            children: [new TextRun({ text: 'ANEXO: FORMULARIO FICHA TECNICA', bold: true, size: 32, font: 'Arial' })],
+            children: [new TextRun({ text: 'ANEXO: FORMULARIO FICHA TÉCNICA', bold: true, size: 32, font: 'Arial' })],
             spacing: { before: 480, after: 240 },
             pageBreakBefore: true,
           }),
@@ -568,28 +568,28 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
             col1Width: 5467,
             col2Width: 3553,
             rows: [
-              ['Nombre / Razon Social', ''],
+              ['Nombre / Razón Social', ''],
               ['RUT', ''],
-              ['Numero de Registro ATE (Mineduc)', ''],
+              ['Número de Registro ATE (Mineduc)', ''],
               ['Representante Legal', ''],
               ['RUT Representante Legal', ''],
-              ['Direccion', ''],
-              ['Correo Electronico de Contacto', ''],
-              ['Telefono de Contacto', ''],
+              ['Dirección', ''],
+              ['Correo Electrónico de Contacto', ''],
+              ['Teléfono de Contacto', ''],
             ],
           }),
 
           new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 240 } }),
 
           // Tabla 2: Descripcion del Oferente — col1: 4060, col2: 4504
-          heading2('Tabla 2: Descripcion del Oferente'),
+          heading2('Tabla 2: Descripción del Oferente'),
           annexoTable({
             col1Width: 4060,
             col2Width: 4504,
             rows: [
-              ['Anos de experiencia en el sector educacional', ''],
-              ['N\u00b0 de establecimientos atendidos en los ultimos 5 anos', ''],
-              ['Programas o areas de especializacion', ''],
+              ['Años de experiencia en el sector educacional', ''],
+              ['N\u00b0 de establecimientos atendidos en los últimos 5 años', ''],
+              ['Programas o áreas de especialización', ''],
               ['Referencias verificables (nombre establecimiento, contacto)', ''],
             ],
           }),
@@ -597,25 +597,25 @@ export async function generateBasesDocument(data: BasesDocumentData): Promise<Bu
           new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 240 } }),
 
           // Tabla 3: Propuesta Tecnica — col1: 4000, col2: 4504
-          heading2('Tabla 3: Propuesta Tecnica'),
+          heading2('Tabla 3: Propuesta Técnica'),
           annexoTable({
             col1Width: 4000,
             col2Width: 4504,
             rows: [
               ['Objetivo de la propuesta', ''],
-              ['Metodologia de trabajo', ''],
+              ['Metodología de trabajo', ''],
               ['Cronograma de actividades (resumen)', ''],
               ['N\u00b0 de sesiones propuestas', ''],
-              ['Formato de sesiones (presencial/virtual/hibrido)', ''],
-              ['Equipo profesional asignado (nombre, cargo, formacion)', ''],
-              ['Resultados e indicadores de exito propuestos', ''],
+              ['Formato de sesiones (presencial/virtual/híbrido)', ''],
+              ['Equipo profesional asignado (nombre, cargo, formación)', ''],
+              ['Resultados e indicadores de éxito propuestos', ''],
             ],
           }),
 
           new Paragraph({ children: [new TextRun({ text: '' })], spacing: { after: 240 } }),
 
           // Tabla 4: Propuesta Economica — col1: 3340, col2: 4504
-          heading2('Tabla 4: Propuesta Economica'),
+          heading2('Tabla 4: Propuesta Económica'),
           annexoTable({
             col1Width: 3340,
             col2Width: 4504,

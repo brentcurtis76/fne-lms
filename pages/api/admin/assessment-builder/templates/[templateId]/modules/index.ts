@@ -146,8 +146,31 @@ async function handlePost(
     const { name, description, instructions, weight, objective_id } = req.body as CreateModuleRequest;
 
     // Validation
-    if (!name) {
+    if (!name || (typeof name === 'string' && !name.trim())) {
       return res.status(400).json({ error: 'El nombre del módulo es requerido' });
+    }
+
+    if (weight !== undefined) {
+      if (typeof weight !== 'number' || !isFinite(weight) || weight <= 0 || weight > 100) {
+        return res.status(400).json({ error: 'El peso debe ser un número entre 0.01 y 100' });
+      }
+    }
+
+    // objective_id is required — every module must belong to an objective
+    if (!objective_id) {
+      return res.status(400).json({ error: 'Se requiere un objetivo (objective_id) para crear una acción' });
+    }
+
+    // Validate objective exists and belongs to this template
+    const { data: objective, error: objError } = await supabaseClient
+      .from('assessment_objectives')
+      .select('id')
+      .eq('id', objective_id)
+      .eq('template_id', templateId)
+      .single();
+
+    if (objError || !objective) {
+      return res.status(400).json({ error: 'El objetivo especificado no existe o no pertenece a este template' });
     }
 
     // Get next display order
@@ -158,12 +181,12 @@ async function handlePost(
       .from('assessment_modules')
       .insert({
         template_id: templateId,
-        name,
+        name: (typeof name === 'string' ? name.trim() : name),
         description: description || null,
         instructions: instructions || null,
         weight: weight ?? 1.0,
         display_order: displayOrder,
-        objective_id: objective_id || null,
+        objective_id,
       })
       .select()
       .single();

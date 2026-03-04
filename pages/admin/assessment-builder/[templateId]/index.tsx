@@ -1794,70 +1794,7 @@ const TemplateEditor: React.FC = () => {
           )}
         </div>
 
-        {/* Unassigned Acciones Section — modules with no objective */}
-        {modules.filter(m => !m.objective_id).length > 0 && (
-          <div className="bg-white shadow-md rounded-lg overflow-hidden">
-            <div className="p-4 border-b border-gray-200 bg-amber-50">
-              <h3 className="text-sm font-semibold text-amber-800">
-                {ENTITY_LABELS.modules} sin objetivo ({modules.filter(m => !m.objective_id).length})
-              </h3>
-              <p className="text-xs text-amber-700 mt-0.5">
-                Estas acciones no están asignadas a ningún objetivo
-              </p>
-            </div>
-            <div className="divide-y divide-gray-200">
-              {modules.filter(m => !m.objective_id).map((module, index) => (
-                <div key={module.id} data-testid="module-card" className="p-4 hover:bg-gray-50">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">#{index + 1}</span>
-                        <span className="font-medium text-gray-900 text-sm">{module.name}</span>
-                      </div>
-                    </div>
-                    {canEdit && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => openModuleModal(undefined, module)}
-                          aria-label={`Editar acción: ${module.name}`}
-                          className="p-2 text-gray-500 hover:text-brand_primary hover:bg-gray-100 rounded-lg transition-colors"
-                          title={`Editar ${ENTITY_LABELS.module.toLowerCase()}`}
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        {pendingConfirm?.key === `delete-module-${module.id}` ? (
-                          <span className="flex items-center gap-1">
-                            <button
-                              onClick={executeConfirm}
-                              className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                            >
-                              ¿Eliminar?
-                            </button>
-                            <button
-                              onClick={cancelConfirm}
-                              className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900"
-                            >
-                              Cancelar
-                            </button>
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => confirmDeleteModule(module)}
-                            aria-label={`Eliminar acción: ${module.name}`}
-                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title={`Eliminar ${ENTITY_LABELS.module.toLowerCase()}`}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Note: All modules must belong to an objective. No "unassigned" section needed. */}
       </div>
 
       {/* Objective Modal */}

@@ -146,6 +146,12 @@ async function handlePost(
       return res.status(400).json({ error: 'El nombre del objetivo es requerido' });
     }
 
+    if (weight !== undefined) {
+      if (typeof weight !== 'number' || !isFinite(weight) || weight <= 0 || weight > 100) {
+        return res.status(400).json({ error: 'El peso debe ser un número entre 0.01 y 100' });
+      }
+    }
+
     // Get next display order
     const displayOrder = await getNextDisplayOrder(supabaseClient, templateId);
 

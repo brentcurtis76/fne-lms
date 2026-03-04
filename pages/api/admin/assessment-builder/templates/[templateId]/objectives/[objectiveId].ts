@@ -149,6 +149,18 @@ async function handlePut(
   try {
     const { name, description, weight } = req.body as UpdateObjectiveRequest;
 
+    // Validate name if provided
+    if (name !== undefined && (!name || !name.trim())) {
+      return res.status(400).json({ error: 'El nombre del objetivo no puede estar vacío' });
+    }
+
+    // Validate weight if provided
+    if (weight !== undefined) {
+      if (typeof weight !== 'number' || !isFinite(weight) || weight <= 0 || weight > 100) {
+        return res.status(400).json({ error: 'El peso debe ser un número entre 0.01 y 100' });
+      }
+    }
+
     // Build update object
     const updateData: Record<string, unknown> = {};
     if (name !== undefined) updateData.name = name.trim();

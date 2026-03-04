@@ -513,9 +513,7 @@ export async function calculateAndSaveScores(
       instance_id: instanceId,
       total_score: summary.totalScore,
       overall_level: summary.overallLevel,
-      module_scores: summary.objectiveScores
-        ? summary.objectiveScores // Store objective scores (includes module scores nested)
-        : summary.moduleScores,
+      module_scores: summary.moduleScores,
       expected_level: summary.expectedLevel,
       meets_expectations: summary.overallLevel >= summary.expectedLevel,
       calculated_at: new Date().toISOString(),

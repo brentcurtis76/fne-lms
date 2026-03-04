@@ -94,6 +94,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    // Validate all modules have an objective_id
+    const unassignedModules = modules.filter((m: any) => !m.objective_id);
+    if (unassignedModules.length > 0) {
+      const names = unassignedModules.map((m: any) => m.name).join(', ');
+      return res.status(400).json({
+        error: `Todas las acciones deben pertenecer a un objetivo. Acciones sin objetivo: ${names}`,
+      });
+    }
+
     // Get all indicators for all modules
     const moduleIds = modules.map(m => m.id);
     const { data: allIndicators, error: indicatorsError } = await supabaseClient

@@ -102,6 +102,76 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get gap analysis data
     const gapAnalysis = await fetchInstanceGapAnalysis(supabaseClient, instanceId);
 
+    // Helper to build module result with gap analysis
+    const buildModuleResult = (m: typeof summary.moduleScores[0]) => {
+      const moduleGap = gapAnalysis?.modules.find((mg) => mg.moduleId === m.moduleId);
+      return {
+        moduleId: m.moduleId,
+        moduleName: m.moduleName,
+        moduleScore: m.moduleScore,
+        moduleWeight: m.moduleWeight,
+        level: Math.round(m.moduleScore / 25),
+        gapStats: moduleGap
+          ? {
+              ahead: moduleGap.stats.ahead,
+              onTrack: moduleGap.stats.onTrack,
+              behind: moduleGap.stats.behind,
+              critical: moduleGap.stats.critical,
+              avgGap: moduleGap.avgGap,
+            }
+          : null,
+        indicators: m.indicators.map((i) => {
+          const indicatorGap = moduleGap?.indicators.find(
+            (ig) => ig.indicatorId === i.indicatorId
+          );
+          return {
+            indicatorId: i.indicatorId,
+            indicatorName: i.indicatorName,
+            category: i.category,
+            rawValue: i.rawValue,
+            normalizedScore: i.normalizedScore,
+            weight: i.weight,
+            isAboveExpectation: i.isAboveExpectation,
+            gap: indicatorGap
+              ? {
+                  actualLevel: indicatorGap.actualLevel,
+                  expectedLevel: indicatorGap.expectedLevel,
+                  gap: indicatorGap.gap,
+                  classification: indicatorGap.classification,
+                  tolerance: indicatorGap.tolerance,
+                }
+              : null,
+          };
+        }),
+      };
+    };
+
+    // Build objective-grouped results from snapshot objectives + module scores
+    const snapshotObjectives = snapshotData?.objectives || [];
+    const moduleScoreMap = new Map(summary.moduleScores.map((m) => [m.moduleId, m]));
+
+    const objectiveResults = snapshotObjectives.length > 0
+      ? snapshotObjectives.map((obj: { id: string; name: string; weight: number; modules: { id: string }[] }) => {
+          const objModuleScores = (obj.modules || [])
+            .map((sm: { id: string }) => moduleScoreMap.get(sm.id))
+            .filter(Boolean) as typeof summary.moduleScores;
+
+          // Calculate objective-level score as weighted average of its modules
+          const totalWeight = objModuleScores.reduce((s, m) => s + m.moduleWeight, 0);
+          const objScore = totalWeight > 0
+            ? objModuleScores.reduce((s, m) => s + m.moduleScore * m.moduleWeight, 0) / totalWeight
+            : 0;
+
+          return {
+            objectiveId: obj.id,
+            objectiveName: obj.name,
+            objectiveScore: objScore,
+            objectiveWeight: obj.weight,
+            modules: objModuleScores.map(buildModuleResult),
+          };
+        })
+      : null;
+
     // Format response with rich data for UI
     const response = {
       success: true,
@@ -126,53 +196,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         expectedLevel: summary.expectedLevel,
         expectedLevelLabel: getMaturityLevelLabel(summary.expectedLevel),
         meetsExpectations: summary.overallLevel >= summary.expectedLevel,
-        moduleScores: summary.moduleScores.map((m) => {
-          // Find gap analysis for this module
-          const moduleGap = gapAnalysis?.modules.find((mg) => mg.moduleId === m.moduleId);
-
-          return {
-            moduleId: m.moduleId,
-            moduleName: m.moduleName,
-            moduleScore: m.moduleScore,
-            moduleWeight: m.moduleWeight,
-            level: Math.round(m.moduleScore / 25), // Approximate level from score
-            gapStats: moduleGap
-              ? {
-                  ahead: moduleGap.stats.ahead,
-                  onTrack: moduleGap.stats.onTrack,
-                  behind: moduleGap.stats.behind,
-                  critical: moduleGap.stats.critical,
-                  avgGap: moduleGap.avgGap,
-                }
-              : null,
-            indicators: m.indicators.map((i) => {
-              // Find gap analysis for this indicator
-              const indicatorGap = moduleGap?.indicators.find(
-                (ig) => ig.indicatorId === i.indicatorId
-              );
-
-              return {
-                indicatorId: i.indicatorId,
-                indicatorName: i.indicatorName,
-                category: i.category,
-                rawValue: i.rawValue,
-                normalizedScore: i.normalizedScore,
-                weight: i.weight,
-                isAboveExpectation: i.isAboveExpectation,
-                // Gap analysis fields
-                gap: indicatorGap
-                  ? {
-                      actualLevel: indicatorGap.actualLevel,
-                      expectedLevel: indicatorGap.expectedLevel,
-                      gap: indicatorGap.gap,
-                      classification: indicatorGap.classification,
-                      tolerance: indicatorGap.tolerance,
-                    }
-                  : null,
-              };
-            }),
-          };
-        }),
+        // Objective-grouped results (null for legacy snapshots without objectives)
+        objectiveScores: objectiveResults,
+        // Flat module scores (always present for backward compat)
+        moduleScores: summary.moduleScores.map(buildModuleResult),
       },
       // Summary stats for quick display
       stats: {

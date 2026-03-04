@@ -667,7 +667,7 @@ export interface CreateModuleRequest {
   description?: string;
   instructions?: string;
   weight?: number;
-  objective_id?: string;
+  objective_id: string; // Required — every module must belong to an objective
 }
 
 export interface UpdateModuleRequest {

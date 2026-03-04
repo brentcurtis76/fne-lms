@@ -21,6 +21,7 @@ import {
   AREA_LABELS,
   MATURITY_LEVELS,
   CATEGORY_LABELS,
+  ENTITY_LABELS,
   TransformationArea,
   IndicatorCategory,
   GenerationType,
@@ -127,6 +128,13 @@ interface ResultsData {
     expectedLevel: number;
     expectedLevelLabel: string;
     meetsExpectations: boolean;
+    objectiveScores?: {
+      objectiveId: string;
+      objectiveName: string;
+      objectiveScore: number;
+      objectiveWeight: number;
+      modules: ModuleResult[];
+    }[] | null;
     moduleScores: ModuleResult[];
   };
   stats: {
@@ -239,7 +247,7 @@ const AssessmentResults: React.FC = () => {
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-brand_beige flex justify-center items-center">
-        <p className="text-xl text-brand_blue">Cargando...</p>
+        <p className="text-xl text-brand_primary">Cargando...</p>
       </div>
     );
   }
@@ -269,6 +277,132 @@ const AssessmentResults: React.FC = () => {
     fullMark: 100,
   }));
 
+  // Render a single module card (reused in both objective-grouped and flat views)
+  const renderModuleCard = (module: ModuleResult) => {
+    const moduleLevel = Math.round(module.moduleScore / 25);
+    const moduleLevelInfo = MATURITY_LEVELS[moduleLevel] || MATURITY_LEVELS[0];
+
+    return (
+      <div key={module.moduleId} className="bg-white shadow-md rounded-lg overflow-hidden">
+        <button
+          onClick={() => toggleModule(module.moduleId)}
+          className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50"
+        >
+          <div className="flex items-center gap-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-brand_primary">
+                {Math.round(module.moduleScore)}%
+              </div>
+              <div
+                className={`text-xs px-2 py-0.5 rounded ${moduleLevelInfo.bgColor} ${moduleLevelInfo.textColor}`}
+              >
+                {moduleLevelInfo.label}
+              </div>
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold text-gray-800">{module.moduleName}</h4>
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <span>{module.indicators.length} indicador{module.indicators.length !== 1 ? 'es' : ''}</span>
+                {module.gapStats && (
+                  <span className="flex items-center gap-1.5 ml-2">
+                    {module.gapStats.ahead > 0 && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">
+                        ↑{module.gapStats.ahead}
+                      </span>
+                    )}
+                    {module.gapStats.onTrack > 0 && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
+                        →{module.gapStats.onTrack}
+                      </span>
+                    )}
+                    {module.gapStats.behind > 0 && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-yellow-100 text-yellow-700">
+                        ↓{module.gapStats.behind}
+                      </span>
+                    )}
+                    {module.gapStats.critical > 0 && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-700">
+                        ⚠{module.gapStats.critical}
+                      </span>
+                    )}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          {expandedModules.has(module.moduleId) ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </button>
+
+        {expandedModules.has(module.moduleId) && (
+          <div className="border-t border-gray-200">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Indicador</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Respuesta</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Puntuación</th>
+                  <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {module.indicators.map((indicator) => {
+                  const gapStyle = indicator.gap?.classification
+                    ? GAP_STYLES[indicator.gap.classification]
+                    : null;
+                  return (
+                    <tr key={indicator.indicatorId} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900">{indicator.indicatorName}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+                          {CATEGORY_LABELS[indicator.category]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center text-sm">
+                        {formatRawValue(indicator.rawValue, indicator.category)}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className={`inline-flex items-center justify-center w-12 h-8 rounded font-medium text-sm ${
+                            indicator.normalizedScore >= 75
+                              ? 'bg-green-100 text-green-700'
+                              : indicator.normalizedScore >= 50
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : indicator.normalizedScore >= 25
+                              ? 'bg-orange-100 text-orange-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {Math.round(indicator.normalizedScore)}%
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {gapStyle && indicator.gap?.expectedLevel !== null ? (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${gapStyle.bg} ${gapStyle.text}`}
+                            title={`Actual: ${indicator.gap?.actualLevel}, Esperado: ${indicator.gap?.expectedLevel}`}
+                          >
+                            {gapStyle.icon} {gapStyle.label}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <MainLayout
       user={user}
@@ -288,7 +422,7 @@ const AssessmentResults: React.FC = () => {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Back button */}
         <Link href="/docente/assessments" legacyBehavior>
-          <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_blue mb-6">
+          <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_primary mb-6">
             <ArrowLeft className="w-4 h-4 mr-1" />
             Volver a evaluaciones
           </a>
@@ -302,7 +436,7 @@ const AssessmentResults: React.FC = () => {
               <span className="text-sm text-gray-500">Puntuación Total</span>
               <Award className={`w-5 h-5 ${maturityLevel?.textColor || 'text-gray-500'}`} />
             </div>
-            <div className="text-3xl font-bold text-brand_blue mb-2">
+            <div className="text-3xl font-bold text-brand_primary mb-2">
               {Math.round(res.totalScore)}%
             </div>
             <div
@@ -353,7 +487,7 @@ const AssessmentResults: React.FC = () => {
               <span className="text-sm text-gray-500">Indicadores</span>
               <BarChart3 className="w-5 h-5 text-gray-500" />
             </div>
-            <div className="text-3xl font-bold text-brand_blue mb-2">
+            <div className="text-3xl font-bold text-brand_primary mb-2">
               {stats.indicatorsAboveExpectation}/{stats.totalIndicators}
             </div>
             <p className="text-sm text-gray-500">
@@ -388,7 +522,7 @@ const AssessmentResults: React.FC = () => {
         {results.gapAnalysis && (
           <div className="bg-white shadow-md rounded-lg p-6 mb-8">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <Target className="w-5 h-5 text-brand_blue" />
+              <Target className="w-5 h-5 text-brand_primary" />
               Análisis de Brechas - Año {results.instance.transformationYear}
               <span
                 className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -476,7 +610,7 @@ const AssessmentResults: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Bar chart */}
           <div className="bg-white shadow-md rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Puntuación por Módulo</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Puntuación por {ENTITY_LABELS.module}</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={moduleChartData} layout="vertical">
@@ -490,7 +624,7 @@ const AssessmentResults: React.FC = () => {
                       return item?.fullName || label;
                     }}
                   />
-                  <Bar dataKey="score" fill="#2563eb" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="score" fill="#fbbf24" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -509,8 +643,8 @@ const AssessmentResults: React.FC = () => {
                     <Radar
                       name="Puntuación"
                       dataKey="score"
-                      stroke="#2563eb"
-                      fill="#2563eb"
+                      stroke="#f59e0b"
+                      fill="#fbbf24"
                       fillOpacity={0.3}
                     />
                     <Legend />
@@ -521,148 +655,54 @@ const AssessmentResults: React.FC = () => {
           )}
         </div>
 
-        {/* Detailed module results */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800">Detalle por Módulo</h3>
-          {res.moduleScores.map((module) => {
-            const moduleLevel = Math.round(module.moduleScore / 25); // 0-4 scale
-            const moduleLevelInfo = MATURITY_LEVELS[moduleLevel] || MATURITY_LEVELS[0];
+        {/* Detailed results */}
+        <div className="space-y-6">
+          {res.objectiveScores && res.objectiveScores.length > 0 ? (
+            /* Objective-grouped view */
+            <>
+              <h3 className="text-lg font-semibold text-gray-800">Detalle por {ENTITY_LABELS.objective}</h3>
+              {res.objectiveScores.map((objective) => {
+                const objLevel = Math.round(objective.objectiveScore / 25);
+                const objLevelInfo = MATURITY_LEVELS[objLevel] || MATURITY_LEVELS[0];
 
-            return (
-              <div key={module.moduleId} className="bg-white shadow-md rounded-lg overflow-hidden">
-                {/* Module header */}
-                <button
-                  onClick={() => toggleModule(module.moduleId)}
-                  className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-brand_blue">
-                        {Math.round(module.moduleScore)}%
+                return (
+                  <div key={objective.objectiveId} className="space-y-3">
+                    {/* Objective header */}
+                    <div className="bg-brand_primary/5 border border-brand_primary/20 rounded-lg p-4 flex items-center justify-between">
+                      <div>
+                        <h4 className="text-base font-semibold text-gray-800">{objective.objectiveName}</h4>
+                        <p className="text-sm text-gray-500">
+                          {objective.modules.length} {objective.modules.length === 1 ? ENTITY_LABELS.module.toLowerCase() : ENTITY_LABELS.modules.toLowerCase()}
+                          {' · Peso: '}{objective.objectiveWeight}%
+                        </p>
                       </div>
-                      <div
-                        className={`text-xs px-2 py-0.5 rounded ${moduleLevelInfo.bgColor} ${moduleLevelInfo.textColor}`}
-                      >
-                        {moduleLevelInfo.label}
-                      </div>
-                    </div>
-                    <div>
-                      <h4 className="text-lg font-semibold text-gray-800">{module.moduleName}</h4>
-                      <div className="flex items-center gap-2 text-sm text-gray-500">
-                        <span>{module.indicators.length} indicador{module.indicators.length !== 1 ? 'es' : ''}</span>
-                        {module.gapStats && (
-                          <span className="flex items-center gap-1.5 ml-2">
-                            {module.gapStats.ahead > 0 && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-green-100 text-green-700">
-                                ↑{module.gapStats.ahead}
-                              </span>
-                            )}
-                            {module.gapStats.onTrack > 0 && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-blue-100 text-blue-700">
-                                →{module.gapStats.onTrack}
-                              </span>
-                            )}
-                            {module.gapStats.behind > 0 && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-yellow-100 text-yellow-700">
-                                ↓{module.gapStats.behind}
-                              </span>
-                            )}
-                            {module.gapStats.critical > 0 && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs bg-red-100 text-red-700">
-                                ⚠{module.gapStats.critical}
-                              </span>
-                            )}
-                          </span>
-                        )}
+                      <div className="text-center">
+                        <div className="text-xl font-bold text-brand_primary">
+                          {Math.round(objective.objectiveScore)}%
+                        </div>
+                        <div className={`text-xs px-2 py-0.5 rounded ${objLevelInfo.bgColor} ${objLevelInfo.textColor}`}>
+                          {objLevelInfo.label}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  {expandedModules.has(module.moduleId) ? (
-                    <ChevronUp className="w-5 h-5 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
-                  )}
-                </button>
 
-                {/* Indicators detail */}
-                {expandedModules.has(module.moduleId) && (
-                  <div className="border-t border-gray-200">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                            Indicador
-                          </th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                            Categoría
-                          </th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                            Respuesta
-                          </th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                            Puntuación
-                          </th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">
-                            Estado
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {module.indicators.map((indicator) => {
-                          const gapStyle = indicator.gap?.classification
-                            ? GAP_STYLES[indicator.gap.classification]
-                            : null;
-
-                          return (
-                          <tr key={indicator.indicatorId} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-900">
-                              {indicator.indicatorName}
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-                                {CATEGORY_LABELS[indicator.category]}
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center text-sm">
-                              {formatRawValue(indicator.rawValue, indicator.category)}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span
-                                className={`inline-flex items-center justify-center w-12 h-8 rounded font-medium text-sm ${
-                                  indicator.normalizedScore >= 75
-                                    ? 'bg-green-100 text-green-700'
-                                    : indicator.normalizedScore >= 50
-                                    ? 'bg-yellow-100 text-yellow-700'
-                                    : indicator.normalizedScore >= 25
-                                    ? 'bg-orange-100 text-orange-700'
-                                    : 'bg-red-100 text-red-700'
-                                }`}
-                              >
-                                {Math.round(indicator.normalizedScore)}%
-                              </span>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              {gapStyle && indicator.gap?.expectedLevel !== null ? (
-                                <span
-                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium ${gapStyle.bg} ${gapStyle.text}`}
-                                  title={`Actual: ${indicator.gap?.actualLevel}, Esperado: ${indicator.gap?.expectedLevel}`}
-                                >
-                                  {gapStyle.icon} {gapStyle.label}
-                                </span>
-                              ) : (
-                                <span className="text-xs text-gray-400">-</span>
-                              )}
-                            </td>
-                          </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+                    {/* Module cards under this objective */}
+                    <div className="space-y-3 ml-4">
+                      {objective.modules.map((module) => renderModuleCard(module))}
+                    </div>
                   </div>
-                )}
+                );
+              })}
+            </>
+          ) : (
+            /* Flat fallback for legacy snapshots */
+            <>
+              <h3 className="text-lg font-semibold text-gray-800">Detalle por {ENTITY_LABELS.module}</h3>
+              <div className="space-y-4">
+                {res.moduleScores.map((module) => renderModuleCard(module))}
               </div>
-            );
-          })}
+            </>
+          )}
         </div>
 
         {/* Completion info */}

@@ -224,7 +224,7 @@ describe('AC-5: INPUT_CLASS focus:ring-offset-2', () => {
 describe('AC-6: Table header scope="col" in Step3Bases', () => {
   it('all table headers use scope="col"', () => {
     // Count th elements without scope="col"
-    const thWithoutScope = step3.match(/<th(?![^>]*scope)/g) || [];
+    const thWithoutScope = step3.match(/<th(?!ead)(?![^>]*scope)/g) || [];
     expect(thWithoutScope).toHaveLength(0);
   });
 });

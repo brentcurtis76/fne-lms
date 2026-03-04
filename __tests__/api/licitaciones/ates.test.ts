@@ -123,10 +123,10 @@ describe('RUT validation for ATE registration', () => {
     expect(validateRut('123456785')).toBe(true);
   });
 
-  it('rejects the known-invalid all-same-digit RUT (11.111.111-1)', () => {
-    // 11111111 with verifier 1 — let's verify via calculation
-    // This is used as a common test for invalid RUTs in Chile
-    expect(validateRut('11111111-1')).toBe(false);
+  it('accepts 11111111-1 (mathematically valid checksum)', () => {
+    // 11111111 body: sum=1*2+1*3+1*4+1*5+1*6+1*7+1*2+1*3=32, 32%11=10, 11-10=1
+    // Verifier digit 1 is correct per mod-11 algorithm
+    expect(validateRut('11111111-1')).toBe(true);
   });
 
   it('rejects empty string', () => {

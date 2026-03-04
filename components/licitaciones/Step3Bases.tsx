@@ -400,7 +400,6 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
       <div className="bg-white rounded-lg border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-gray-900 flex items-center">
-            {/* BC-1: changed from bg-blue-100 text-blue-800 to bg-gray-100 text-gray-700 */}
             <span className="bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded mr-2">
               {ates.length} ATE{ates.length !== 1 ? 's' : ''}
             </span>
@@ -824,7 +823,6 @@ export default function Step3Bases({ licitacion, isAdmin, onAdvance, onRefresh }
               {atesWithBasesSent.length} ATE{atesWithBasesSent.length !== 1 ? 's tienen' : ' tiene'} las bases enviadas.
               Puede avanzar al siguiente paso.
             </p>
-            {/* ID-1: changed from bg-green-600 to bg-yellow-400 text-black */}
             <button
               onClick={handleAdvance}
               disabled={advancing}

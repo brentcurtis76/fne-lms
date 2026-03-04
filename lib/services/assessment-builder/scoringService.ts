@@ -19,6 +19,7 @@ import type {
   ScoringConfig,
   ModuleScore,
   IndicatorScore,
+  ObjectiveScore,
   AssessmentSummary,
   IndicatorCategory,
   FrequencyConfig,
@@ -187,33 +188,122 @@ export function calculateModuleScore(
 // FULL ASSESSMENT CALCULATION
 // ============================================================
 
+interface ModuleInput {
+  id: string;
+  name: string;
+  weight: number;
+  indicators: Array<{
+    id: string;
+    name: string;
+    category: IndicatorCategory;
+    weight: number;
+    frequency_config?: FrequencyConfig;
+  }>;
+}
+
+interface ObjectiveInput {
+  id: string;
+  name: string;
+  weight: number;
+  modules: ModuleInput[];
+}
+
 export interface CalculateScoresInput {
   instanceId: string;
   transformationYear: 1 | 2 | 3 | 4 | 5;
   area: TransformationArea;
   scoringConfig?: ScoringConfig;
-  modules: Array<{
-    id: string;
-    name: string;
-    weight: number;
-    indicators: Array<{
-      id: string;
-      name: string;
-      category: IndicatorCategory;
-      weight: number;
-      frequency_config?: FrequencyConfig;
-    }>;
-  }>;
+  /** Flat modules list (2-level: modules → indicators). Used for legacy snapshots. */
+  modules: ModuleInput[];
+  /** Objectives hierarchy (3-level: objectives → modules → indicators). Takes precedence over flat modules. */
+  objectives?: ObjectiveInput[];
   responses: AssessmentResponse[];
   yearExpectations?: Map<string, number>; // indicatorId -> expected level
 }
 
 /**
- * Calculate complete assessment scores including all modules and overall score
+ * Calculate objective score from its child module scores
+ */
+export function calculateObjectiveScore(
+  objectiveId: string,
+  objectiveName: string,
+  objectiveWeight: number,
+  moduleScores: ModuleScore[]
+): ObjectiveScore {
+  const objectiveScore = calculateWeightedAverage(
+    moduleScores.map((m) => ({ score: m.moduleScore, weight: m.moduleWeight }))
+  );
+
+  return {
+    objectiveId,
+    objectiveName,
+    objectiveScore,
+    objectiveWeight,
+    modules: moduleScores,
+  };
+}
+
+/**
+ * Calculate complete assessment scores including all modules and overall score.
+ * Supports both 3-level (objectives → modules → indicators) and 2-level (modules → indicators) hierarchies.
  */
 export function calculateAssessmentScores(input: CalculateScoresInput): AssessmentSummary {
   const responseMap = new Map(input.responses.map((r) => [r.indicator_id, r]));
 
+  // Determine if we use 3-level hierarchy (objectives) or 2-level (flat modules)
+  const hasObjectives = input.objectives && input.objectives.length > 0;
+
+  if (hasObjectives && input.objectives) {
+    // 3-level scoring: objectives → modules → indicators
+    const objectiveScores: ObjectiveScore[] = input.objectives.map((objective) => {
+      const moduleScores: ModuleScore[] = objective.modules.map((module) => {
+        const indicatorsWithExpectations = module.indicators.map((ind) => ({
+          ...ind,
+          expectedLevel: input.yearExpectations?.get(ind.id),
+        }));
+
+        const score = calculateModuleScore(
+          indicatorsWithExpectations,
+          responseMap,
+          module.name,
+          module.weight
+        );
+        score.moduleId = module.id;
+        return score;
+      });
+
+      return calculateObjectiveScore(
+        objective.id,
+        objective.name,
+        objective.weight,
+        moduleScores
+      );
+    });
+
+    // Overall score: weighted average of objective scores
+    const totalScore = calculateWeightedAverage(
+      objectiveScores.map((o) => ({ score: o.objectiveScore, weight: o.objectiveWeight }))
+    );
+
+    // Flatten module scores for backward compatibility
+    const allModuleScores: ModuleScore[] = objectiveScores.flatMap((o) => o.modules);
+
+    const overallLevel = scoreToLevel(totalScore, input.scoringConfig);
+    const expectedLevel = getExpectedLevelByYear(input.transformationYear);
+
+    return {
+      instanceId: input.instanceId,
+      area: input.area,
+      totalScore,
+      moduleScores: allModuleScores,
+      objectiveScores,
+      overallLevel,
+      expectedLevel,
+      transformationYear: input.transformationYear,
+    };
+  }
+
+  // 2-level scoring: flat modules → indicators (legacy path)
   const moduleScores: ModuleScore[] = input.modules.map((module) => {
     const indicatorsWithExpectations = module.indicators.map((ind) => ({
       ...ind,
@@ -273,6 +363,23 @@ export interface InstanceDataForScoring {
       frequency_config?: FrequencyConfig;
     }>;
   }>;
+  objectives?: Array<{
+    id: string;
+    name: string;
+    weight: number;
+    modules: Array<{
+      id: string;
+      name: string;
+      weight: number;
+      indicators: Array<{
+        id: string;
+        name: string;
+        category: IndicatorCategory;
+        weight: number;
+        frequency_config?: FrequencyConfig;
+      }>;
+    }>;
+  }>;
   responses: AssessmentResponse[];
 }
 
@@ -323,20 +430,39 @@ export async function fetchInstanceDataForScoring(
   }
 
   const template = snapshotData.template;
+
+  // Dual-path: use objectives hierarchy if present, fall back to flat modules
+  const snapshotObjectives = snapshotData.objectives || [];
   const snapshotModules = snapshotData.modules || [];
 
-  const modules = snapshotModules.map((m: any) => ({
+  const mapIndicator = (ind: any) => ({
+    id: ind.id,
+    name: ind.name,
+    category: ind.category as IndicatorCategory,
+    weight: ind.weight ?? 1,
+    frequency_config: ind.frequency_config,
+  });
+
+  const mapModule = (m: any) => ({
     id: m.id,
     name: m.name,
     weight: m.weight ?? 1,
-    indicators: (m.indicators || []).map((ind: any) => ({
-      id: ind.id,
-      name: ind.name,
-      category: ind.category as IndicatorCategory,
-      weight: ind.weight ?? 1,
-      frequency_config: ind.frequency_config,
-    })),
-  }));
+    indicators: (m.indicators || []).map(mapIndicator),
+  });
+
+  // Build flat modules list (always needed for backward compat)
+  const modules = snapshotModules.map(mapModule);
+
+  // Build objectives hierarchy if present
+  let objectives: InstanceDataForScoring['objectives'] | undefined;
+  if (snapshotObjectives.length > 0) {
+    objectives = snapshotObjectives.map((o: any) => ({
+      id: o.id,
+      name: o.name,
+      weight: o.weight ?? 1,
+      modules: (o.modules || []).map(mapModule),
+    }));
+  }
 
   return {
     instanceId: instance.id,
@@ -344,6 +470,7 @@ export async function fetchInstanceDataForScoring(
     area: template.area as TransformationArea,
     scoringConfig: template.scoring_config,
     modules,
+    objectives,
     responses: responses || [],
   };
 }
@@ -364,13 +491,14 @@ export async function calculateAndSaveScores(
       return { success: false, error: 'No se pudo cargar los datos de la instancia' };
     }
 
-    // Calculate scores
+    // Calculate scores (3-level if objectives present, 2-level otherwise)
     const summary = calculateAssessmentScores({
       instanceId: instanceData.instanceId,
       transformationYear: instanceData.transformationYear,
       area: instanceData.area,
       scoringConfig: instanceData.scoringConfig,
       modules: instanceData.modules,
+      objectives: instanceData.objectives,
       responses: instanceData.responses,
     });
 

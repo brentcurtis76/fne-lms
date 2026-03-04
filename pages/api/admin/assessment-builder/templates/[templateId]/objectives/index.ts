@@ -1,13 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
-import type { CreateModuleRequest } from '@/types/assessment-builder';
+import type { CreateObjectiveRequest } from '@/types/assessment-builder';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 
-// Get next display order for a module in a template
-async function getNextDisplayOrder(supabaseClient: any, templateId: string): Promise<number> {
+// Get next display order for an objective in a template
+async function getNextDisplayOrder(supabaseClient: ReturnType<typeof Object.create>, templateId: string): Promise<number> {
   const { data: existing } = await supabaseClient
-    .from('assessment_modules')
+    .from('assessment_objectives')
     .select('display_order')
     .eq('template_id', templateId)
     .order('display_order', { ascending: false })
@@ -58,7 +58,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     case 'POST': {
       const canWrite = await hasAssessmentWritePermission(supabaseClient, user.id);
       if (!canWrite) {
-        return res.status(403).json({ error: 'Solo administradores pueden crear módulos' });
+        return res.status(403).json({ error: 'Solo administradores pueden crear objetivos' });
       }
       if (template.is_archived) {
         return res.status(400).json({ error: 'Los templates archivados no pueden ser modificados' });
@@ -70,22 +70,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-// GET /api/admin/assessment-builder/templates/[templateId]/modules
+// GET /api/admin/assessment-builder/templates/[templateId]/objectives
 async function handleGet(
   req: NextApiRequest,
   res: NextApiResponse,
-  supabaseClient: any,
+  supabaseClient: ReturnType<typeof Object.create>,
   templateId: string
 ) {
   try {
-    const { data: modules, error } = await supabaseClient
-      .from('assessment_modules')
+    const { data: objectives, error } = await supabaseClient
+      .from('assessment_objectives')
       .select(`
         id,
-        objective_id,
         name,
         description,
-        instructions,
         display_order,
         weight,
         created_at,
@@ -95,59 +93,57 @@ async function handleGet(
       .order('display_order', { ascending: true });
 
     if (error) {
-      console.error('Error fetching modules:', error);
-      return res.status(500).json({ error: 'Error al obtener los módulos' });
+      return res.status(500).json({ error: 'Error al obtener los objetivos' });
     }
 
-    // Get indicator counts for each module
-    const moduleIds = modules?.map((m: any) => m.id) || [];
-    let indicatorCounts: Record<string, number> = {};
+    // Get module counts for each objective
+    const objectiveIds = (objectives || []).map((o: { id: string }) => o.id);
+    let moduleCounts: Record<string, number> = {};
 
-    if (moduleIds.length > 0) {
-      const { data: indicators } = await supabaseClient
-        .from('assessment_indicators')
-        .select('module_id')
-        .in('module_id', moduleIds);
+    if (objectiveIds.length > 0) {
+      const { data: modules } = await supabaseClient
+        .from('assessment_modules')
+        .select('objective_id')
+        .in('objective_id', objectiveIds);
 
-      if (indicators) {
-        indicatorCounts = indicators.reduce((acc: Record<string, number>, ind: any) => {
-          acc[ind.module_id] = (acc[ind.module_id] || 0) + 1;
+      if (modules) {
+        moduleCounts = modules.reduce((acc: Record<string, number>, mod: { objective_id: string }) => {
+          acc[mod.objective_id] = (acc[mod.objective_id] || 0) + 1;
           return acc;
         }, {});
       }
     }
 
-    // Add indicator count to each module
-    const modulesWithCounts = modules?.map((m: any) => ({
-      ...m,
-      indicator_count: indicatorCounts[m.id] || 0
-    })) || [];
+    // Add module count to each objective
+    const objectivesWithCounts = (objectives || []).map((o: { id: string }) => ({
+      ...o,
+      module_count: moduleCounts[o.id] || 0,
+    }));
 
     return res.status(200).json({
       success: true,
-      modules: modulesWithCounts
+      objectives: objectivesWithCounts,
     });
-
-  } catch (err: any) {
-    console.error('Unexpected error fetching modules:', err);
-    return res.status(500).json({ error: err.message || 'Error al obtener módulos' });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Error al obtener objetivos';
+    return res.status(500).json({ error: message });
   }
 }
 
-// POST /api/admin/assessment-builder/templates/[templateId]/modules
+// POST /api/admin/assessment-builder/templates/[templateId]/objectives
 async function handlePost(
   req: NextApiRequest,
   res: NextApiResponse,
-  supabaseClient: any,
+  supabaseClient: ReturnType<typeof Object.create>,
   templateId: string,
   userId: string
 ) {
   try {
-    const { name, description, instructions, weight, objective_id } = req.body as CreateModuleRequest;
+    const { name, description, weight } = req.body as CreateObjectiveRequest;
 
     // Validation
-    if (!name || (typeof name === 'string' && !name.trim())) {
-      return res.status(400).json({ error: 'El nombre del módulo es requerido' });
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'El nombre del objetivo es requerido' });
     }
 
     if (weight !== undefined) {
@@ -156,60 +152,39 @@ async function handlePost(
       }
     }
 
-    // objective_id is required — every module must belong to an objective
-    if (!objective_id) {
-      return res.status(400).json({ error: 'Se requiere un objetivo (objective_id) para crear una acción' });
-    }
-
-    // Validate objective exists and belongs to this template
-    const { data: objective, error: objError } = await supabaseClient
-      .from('assessment_objectives')
-      .select('id')
-      .eq('id', objective_id)
-      .eq('template_id', templateId)
-      .single();
-
-    if (objError || !objective) {
-      return res.status(400).json({ error: 'El objetivo especificado no existe o no pertenece a este template' });
-    }
-
     // Get next display order
     const displayOrder = await getNextDisplayOrder(supabaseClient, templateId);
 
-    // Create module
-    const { data: module, error } = await supabaseClient
-      .from('assessment_modules')
+    // Create objective
+    const { data: objective, error } = await supabaseClient
+      .from('assessment_objectives')
       .insert({
         template_id: templateId,
-        name: (typeof name === 'string' ? name.trim() : name),
+        name: name.trim(),
         description: description || null,
-        instructions: instructions || null,
         weight: weight ?? 1.0,
         display_order: displayOrder,
-        objective_id,
       })
       .select()
       .single();
 
     if (error) {
-      console.error('Error creating module:', error);
-      return res.status(500).json({ error: 'Error al crear el módulo' });
+      return res.status(500).json({ error: 'Error al crear el objetivo' });
     }
 
     // Update the snapshot for published templates
     const snapshotResult = await updatePublishedTemplateSnapshot(templateId, userId);
     if (!snapshotResult.success) {
-      console.error('Failed to update snapshot:', snapshotResult.error);
+      // Non-fatal: log but don't fail the request
     }
 
     return res.status(201).json({
       success: true,
-      module,
+      objective,
       snapshotUpdated: snapshotResult.success,
     });
-
-  } catch (err: any) {
-    console.error('Unexpected error creating module:', err);
-    return res.status(500).json({ error: err.message || 'Error al crear módulo' });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Error al crear objetivo';
+    return res.status(500).json({ error: message });
   }
 }

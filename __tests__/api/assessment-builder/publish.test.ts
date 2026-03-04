@@ -102,6 +102,73 @@ describe('POST /api/.../templates/[id]/publish', () => {
     expect(res._getStatusCode()).toBe(400);
   });
 
+  it('returns 400 when modules have no objective_id', async () => {
+    const template = {
+      id: TEMPLATE_DRAFT_1, area: 'evaluacion', status: 'draft', is_archived: false,
+      grade_id: 7, grade: { id: 7, name: '1° Básico', is_always_gt: true },
+    };
+    const objective = { id: OBJECTIVE_A, name: 'Objetivo A', display_order: 1, weight: 1.0 };
+    const moduleNoObj = { id: MODULE_A, name: 'Módulo sin objetivo', display_order: 1, weight: 1.0, objective_id: null };
+
+    const mockClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'assessment_templates') return buildChainableQuery(template);
+        if (table === 'assessment_objectives') return buildChainableQuery([objective]);
+        if (table === 'assessment_modules') return buildChainableQuery([moduleNoObj]);
+        return buildChainableQuery([]);
+      }),
+    };
+
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockCreateApiSupabaseClient.mockResolvedValue(mockClient);
+    mockHasReadPerm.mockResolvedValue(true);
+    mockHasWritePerm.mockResolvedValue(true);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { templateId: TEMPLATE_DRAFT_1 },
+    });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const body = JSON.parse(res._getData());
+    expect(body.error).toContain('sin objetivo');
+  });
+
+  it('returns 400 when modules reference objectives from another template', async () => {
+    const template = {
+      id: TEMPLATE_DRAFT_1, area: 'evaluacion', status: 'draft', is_archived: false,
+      grade_id: 7, grade: { id: 7, name: '1° Básico', is_always_gt: true },
+    };
+    const objective = { id: OBJECTIVE_A, name: 'Objetivo A', display_order: 1, weight: 1.0 };
+    // Module references an objective NOT in the template's objective list
+    const moduleBadRef = { id: MODULE_A, name: 'Módulo con ref inválida', display_order: 1, weight: 1.0, objective_id: 'foreign-objective-id' };
+
+    const mockClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'assessment_templates') return buildChainableQuery(template);
+        if (table === 'assessment_objectives') return buildChainableQuery([objective]);
+        if (table === 'assessment_modules') return buildChainableQuery([moduleBadRef]);
+        return buildChainableQuery([]);
+      }),
+    };
+
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockCreateApiSupabaseClient.mockResolvedValue(mockClient);
+    mockHasReadPerm.mockResolvedValue(true);
+    mockHasWritePerm.mockResolvedValue(true);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { templateId: TEMPLATE_DRAFT_1 },
+    });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const body = JSON.parse(res._getData());
+    expect(body.error).toContain('no pertenecen a este template');
+  });
+
   it('snapshot includes objectives hierarchy when template has objectives', async () => {
     const template = {
       id: TEMPLATE_DRAFT_1,

@@ -214,6 +214,69 @@ describe('POST /api/admin/assessment-builder/templates/[id]/objectives', () => {
     expect(res._getStatusCode()).toBe(400);
   });
 
+  it('returns 400 when weight is not a number', async () => {
+    const draftTemplate = { id: TEMPLATE_DRAFT_1, status: 'draft', is_archived: false };
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockCreateApiSupabaseClient.mockResolvedValue({
+      from: vi.fn(() => buildChainableQuery(draftTemplate)),
+    });
+    mockHasReadPerm.mockResolvedValue(true);
+    mockHasWritePerm.mockResolvedValue(true);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { templateId: TEMPLATE_DRAFT_1 },
+      body: { name: 'Nuevo Objetivo', weight: 'abc' },
+    });
+    await indexHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const body = JSON.parse(res._getData());
+    expect(body.error).toContain('peso');
+  });
+
+  it('returns 400 when weight is zero', async () => {
+    const draftTemplate = { id: TEMPLATE_DRAFT_1, status: 'draft', is_archived: false };
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockCreateApiSupabaseClient.mockResolvedValue({
+      from: vi.fn(() => buildChainableQuery(draftTemplate)),
+    });
+    mockHasReadPerm.mockResolvedValue(true);
+    mockHasWritePerm.mockResolvedValue(true);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { templateId: TEMPLATE_DRAFT_1 },
+      body: { name: 'Nuevo Objetivo', weight: 0 },
+    });
+    await indexHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const body = JSON.parse(res._getData());
+    expect(body.error).toContain('peso');
+  });
+
+  it('returns 400 when weight exceeds 100', async () => {
+    const draftTemplate = { id: TEMPLATE_DRAFT_1, status: 'draft', is_archived: false };
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockCreateApiSupabaseClient.mockResolvedValue({
+      from: vi.fn(() => buildChainableQuery(draftTemplate)),
+    });
+    mockHasReadPerm.mockResolvedValue(true);
+    mockHasWritePerm.mockResolvedValue(true);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { templateId: TEMPLATE_DRAFT_1 },
+      body: { name: 'Nuevo Objetivo', weight: 150 },
+    });
+    await indexHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const body = JSON.parse(res._getData());
+    expect(body.error).toContain('peso');
+  });
+
   it('returns 201 when objective is created successfully', async () => {
     const draftTemplate = { id: TEMPLATE_DRAFT_1, status: 'draft', is_archived: false };
     const newObjective = { id: OBJECTIVE_A, name: 'Nuevo Objetivo', template_id: TEMPLATE_DRAFT_1, display_order: 1, weight: 1.0 };
@@ -323,6 +386,35 @@ describe('PUT /api/admin/assessment-builder/templates/[id]/objectives/[objective
     await objectiveHandler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(400);
+  });
+
+  it('returns 400 when weight is invalid on update', async () => {
+    const draftTemplate = { id: TEMPLATE_DRAFT_1, status: 'draft', is_archived: false };
+    const objective = { id: OBJECTIVE_A, template_id: TEMPLATE_DRAFT_1 };
+
+    const mockClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'assessment_templates') return buildChainableQuery(draftTemplate);
+        if (table === 'assessment_objectives') return buildChainableQuery(objective);
+        return buildChainableQuery([]);
+      }),
+    };
+
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockCreateApiSupabaseClient.mockResolvedValue(mockClient);
+    mockHasReadPerm.mockResolvedValue(true);
+    mockHasWritePerm.mockResolvedValue(true);
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1, objectiveId: OBJECTIVE_A },
+      body: { weight: -5 },
+    });
+    await objectiveHandler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(400);
+    const body = JSON.parse(res._getData());
+    expect(body.error).toContain('peso');
   });
 
   it('returns 200 when objective updated successfully', async () => {

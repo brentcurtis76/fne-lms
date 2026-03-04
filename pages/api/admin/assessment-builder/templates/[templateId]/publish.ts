@@ -103,6 +103,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    // Validate all modules reference objectives that belong to this template
+    const validObjectiveIds = new Set((objectives || []).map((o: any) => o.id));
+    const invalidRelationModules = modules.filter((m: any) => !validObjectiveIds.has(m.objective_id));
+    if (invalidRelationModules.length > 0) {
+      const names = invalidRelationModules.map((m: any) => m.name).join(', ');
+      return res.status(400).json({
+        error: `Las siguientes acciones referencian objetivos que no pertenecen a este template: ${names}`,
+      });
+    }
+
     // Get all indicators for all modules
     const moduleIds = modules.map(m => m.id);
     const { data: allIndicators, error: indicatorsError } = await supabaseClient

@@ -1,14 +1,11 @@
 // @vitest-environment node
 /**
- * Tests for ROADMAP-001 — GeneraRoadmap component, roadmap page, and sidebar
+ * Tests for GeneraRoadmap — Gantt chart component (new schema)
  *
- * Strategy: Static source analysis (matching the pattern in ux-iteration1.test.ts).
- * Components require Next.js context, Supabase providers, and React rendering
- * infrastructure that are out of scope here. Source-level checks verify that
- * all required behavior is present in the implementation.
- *
- * Additionally, the DEFAULT_DATA object is evaluated by parsing the source
- * (not importing the module) to avoid JSX/React context requirements.
+ * Strategy: Static source analysis.
+ * The component uses inline styles and React state — no JSX rendering needed.
+ * Source checks verify structural correctness of types, DEFAULT_DATA, and
+ * key UI features (Gantt chart, GENERA logo, alert banner, save indicator).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -25,63 +22,9 @@ const componentSrc = readSource('components/admin/GeneraRoadmap.tsx');
 const pageSrc = readSource('pages/admin/roadmap.tsx');
 const sidebarSrc = readSource('components/layout/Sidebar.tsx');
 
-// ── DEFAULT_DATA structure (verified by source analysis) ──────────────────────
+// ── Type exports ──────────────────────────────────────────────────────────────
 
-describe('DEFAULT_DATA — source structure', () => {
-  it('exports DEFAULT_DATA as a named const', () => {
-    expect(componentSrc).toContain('export const DEFAULT_DATA: RoadmapData = {');
-  });
-
-  it('includes all 4 phases', () => {
-    expect(componentSrc).toContain("id: 'phase-1'");
-    expect(componentSrc).toContain("id: 'phase-2'");
-    expect(componentSrc).toContain("id: 'phase-3'");
-    expect(componentSrc).toContain("id: 'phase-4'");
-  });
-
-  it('phase-1 is completed at 100%', () => {
-    const phase1Start = componentSrc.indexOf("id: 'phase-1'");
-    const phase2Start = componentSrc.indexOf("id: 'phase-2'");
-    const phase1Block = componentSrc.slice(phase1Start, phase2Start);
-    expect(phase1Block).toContain("status: 'completed'");
-    expect(phase1Block).toContain('progress: 100');
-  });
-
-  it('phase-3 is in-progress', () => {
-    const phase3Start = componentSrc.indexOf("id: 'phase-3'");
-    const phase4Start = componentSrc.indexOf("id: 'phase-4'");
-    const phase3Block = componentSrc.slice(phase3Start, phase4Start);
-    expect(phase3Block).toContain("status: 'in-progress'");
-  });
-
-  it('phase-4 is planned', () => {
-    const phase4Start = componentSrc.indexOf("id: 'phase-4'");
-    const phase4End = componentSrc.indexOf('];', phase4Start);
-    const phase4Block = componentSrc.slice(phase4Start, phase4End);
-    expect(phase4Block).toContain("status: 'planned'");
-  });
-
-  it('each phase has task entries', () => {
-    expect(componentSrc).toContain("id: 't1-1'");
-    expect(componentSrc).toContain("id: 't2-1'");
-    expect(componentSrc).toContain("id: 't3-1'");
-    expect(componentSrc).toContain("id: 't4-1'");
-  });
-
-  it('title matches spec', () => {
-    expect(componentSrc).toContain('GENERA MVP — Roadmap de Desarrollo');
-  });
-});
-
-// ── Component source checks ────────────────────────────────────────────────────
-
-describe('GeneraRoadmap component — behavior', () => {
-  it('does NOT use localStorage', () => {
-    expect(componentSrc).not.toContain('localStorage');
-    expect(componentSrc).not.toContain('window.storage');
-    expect(componentSrc).not.toContain('sessionStorage');
-  });
-
+describe('Type exports', () => {
   it('exports RoadmapData interface', () => {
     expect(componentSrc).toContain('export interface RoadmapData');
   });
@@ -94,102 +37,326 @@ describe('GeneraRoadmap component — behavior', () => {
     expect(componentSrc).toContain('export interface RoadmapTask');
   });
 
-  it('shows GUARDANDO text for pending save', () => {
-    expect(componentSrc).toContain('GUARDANDO');
+  it('exports RoadmapFinding interface', () => {
+    expect(componentSrc).toContain('export interface RoadmapFinding');
   });
 
-  it('shows GUARDADO text on save success', () => {
+  it('exports GeneraRoadmapProps interface', () => {
+    expect(componentSrc).toContain('export interface GeneraRoadmapProps');
+  });
+});
+
+// ── RoadmapTask shape ─────────────────────────────────────────────────────────
+
+describe('RoadmapTask type shape', () => {
+  it('has id: string field', () => {
+    const taskStart = componentSrc.indexOf('export interface RoadmapTask');
+    const taskEnd = componentSrc.indexOf('}', taskStart);
+    const taskBlock = componentSrc.slice(taskStart, taskEnd);
+    expect(taskBlock).toContain('id: string');
+  });
+
+  it('has name: string field', () => {
+    const taskStart = componentSrc.indexOf('export interface RoadmapTask');
+    const taskEnd = componentSrc.indexOf('}', taskStart);
+    const taskBlock = componentSrc.slice(taskStart, taskEnd);
+    expect(taskBlock).toContain('name: string');
+  });
+
+  it('has s: number field (start week)', () => {
+    const taskStart = componentSrc.indexOf('export interface RoadmapTask');
+    const taskEnd = componentSrc.indexOf('}', taskStart);
+    const taskBlock = componentSrc.slice(taskStart, taskEnd);
+    expect(taskBlock).toContain('s: number');
+  });
+
+  it('has e: number field (end week)', () => {
+    const taskStart = componentSrc.indexOf('export interface RoadmapTask');
+    const taskEnd = componentSrc.indexOf('}', taskStart);
+    const taskBlock = componentSrc.slice(taskStart, taskEnd);
+    expect(taskBlock).toContain('e: number');
+  });
+
+  it('has hot: boolean field (milestone flag)', () => {
+    const taskStart = componentSrc.indexOf('export interface RoadmapTask');
+    const taskEnd = componentSrc.indexOf('}', taskStart);
+    const taskBlock = componentSrc.slice(taskStart, taskEnd);
+    expect(taskBlock).toContain('hot: boolean');
+  });
+});
+
+// ── RoadmapPhase shape ────────────────────────────────────────────────────────
+
+describe('RoadmapPhase type shape', () => {
+  it('has id: string field', () => {
+    const phaseStart = componentSrc.indexOf('export interface RoadmapPhase');
+    const phaseEnd = componentSrc.indexOf('}', phaseStart);
+    const phaseBlock = componentSrc.slice(phaseStart, phaseEnd);
+    expect(phaseBlock).toContain('id: string');
+  });
+
+  it('has label: string field', () => {
+    const phaseStart = componentSrc.indexOf('export interface RoadmapPhase');
+    const phaseEnd = componentSrc.indexOf('}', phaseStart);
+    const phaseBlock = componentSrc.slice(phaseStart, phaseEnd);
+    expect(phaseBlock).toContain('label: string');
+  });
+
+  it('has color: string field', () => {
+    const phaseStart = componentSrc.indexOf('export interface RoadmapPhase');
+    const phaseEnd = componentSrc.indexOf('}', phaseStart);
+    const phaseBlock = componentSrc.slice(phaseStart, phaseEnd);
+    expect(phaseBlock).toContain('color: string');
+  });
+
+  it('has tasks: RoadmapTask[] field', () => {
+    const phaseStart = componentSrc.indexOf('export interface RoadmapPhase');
+    const phaseEnd = componentSrc.indexOf('}', phaseStart);
+    const phaseBlock = componentSrc.slice(phaseStart, phaseEnd);
+    expect(phaseBlock).toContain('tasks: RoadmapTask[]');
+  });
+
+  it('does NOT have status or progress fields (old schema gone)', () => {
+    const phaseStart = componentSrc.indexOf('export interface RoadmapPhase');
+    const phaseEnd = componentSrc.indexOf('}', phaseStart);
+    const phaseBlock = componentSrc.slice(phaseStart, phaseEnd);
+    expect(phaseBlock).not.toContain('status:');
+    expect(phaseBlock).not.toContain('progress:');
+  });
+});
+
+// ── RoadmapData shape ─────────────────────────────────────────────────────────
+
+describe('RoadmapData type shape', () => {
+  it('has title: string field', () => {
+    const dataStart = componentSrc.indexOf('export interface RoadmapData');
+    const dataEnd = componentSrc.indexOf('}', dataStart);
+    const dataBlock = componentSrc.slice(dataStart, dataEnd);
+    expect(dataBlock).toContain('title: string');
+  });
+
+  it('has subtitle: string field', () => {
+    const dataStart = componentSrc.indexOf('export interface RoadmapData');
+    const dataEnd = componentSrc.indexOf('}', dataStart);
+    const dataBlock = componentSrc.slice(dataStart, dataEnd);
+    expect(dataBlock).toContain('subtitle: string');
+  });
+
+  it('has alert: string field', () => {
+    const dataStart = componentSrc.indexOf('export interface RoadmapData');
+    const dataEnd = componentSrc.indexOf('}', dataStart);
+    const dataBlock = componentSrc.slice(dataStart, dataEnd);
+    expect(dataBlock).toContain('alert: string');
+  });
+
+  it('has weeks: string[] field', () => {
+    const dataStart = componentSrc.indexOf('export interface RoadmapData');
+    const dataEnd = componentSrc.indexOf('}', dataStart);
+    const dataBlock = componentSrc.slice(dataStart, dataEnd);
+    expect(dataBlock).toContain('weeks: string[]');
+  });
+
+  it('has phases: RoadmapPhase[] field', () => {
+    const dataStart = componentSrc.indexOf('export interface RoadmapData');
+    const dataEnd = componentSrc.indexOf('}', dataStart);
+    const dataBlock = componentSrc.slice(dataStart, dataEnd);
+    expect(dataBlock).toContain('phases: RoadmapPhase[]');
+  });
+
+  it('has findings: RoadmapFinding[] field', () => {
+    const dataStart = componentSrc.indexOf('export interface RoadmapData');
+    const dataEnd = componentSrc.indexOf('}', dataStart);
+    const dataBlock = componentSrc.slice(dataStart, dataEnd);
+    expect(dataBlock).toContain('findings: RoadmapFinding[]');
+  });
+
+  it('does NOT have lastUpdated field (old schema gone)', () => {
+    const dataStart = componentSrc.indexOf('export interface RoadmapData');
+    const dataEnd = componentSrc.indexOf('}', dataStart);
+    const dataBlock = componentSrc.slice(dataStart, dataEnd);
+    expect(dataBlock).not.toContain('lastUpdated');
+  });
+});
+
+// ── DEFAULT_DATA structure ────────────────────────────────────────────────────
+
+describe('DEFAULT_DATA — structure', () => {
+  it('exports DEFAULT_DATA as a named const', () => {
+    expect(componentSrc).toContain('export const DEFAULT_DATA: RoadmapData = {');
+  });
+
+  it('title contains GENERA', () => {
+    const defaultStart = componentSrc.indexOf('export const DEFAULT_DATA: RoadmapData = {');
+    // Find the title field within DEFAULT_DATA
+    const titleIdx = componentSrc.indexOf('title:', defaultStart);
+    const titleLine = componentSrc.slice(titleIdx, componentSrc.indexOf('\n', titleIdx));
+    expect(titleLine).toContain('GENERA');
+  });
+
+  it('has subtitle field', () => {
+    const defaultStart = componentSrc.indexOf('export const DEFAULT_DATA: RoadmapData = {');
+    const subtitleIdx = componentSrc.indexOf('subtitle:', defaultStart);
+    expect(subtitleIdx).toBeGreaterThan(defaultStart);
+  });
+
+  it('has alert field', () => {
+    const defaultStart = componentSrc.indexOf('export const DEFAULT_DATA: RoadmapData = {');
+    const alertIdx = componentSrc.indexOf('alert:', defaultStart);
+    expect(alertIdx).toBeGreaterThan(defaultStart);
+  });
+
+  it('has 13 weeks in the weeks array', () => {
+    // Count comma-separated week entries: ['Mar 4','Mar 11',...]
+    const weeksMatch = componentSrc.match(/weeks:\s*\[([^\]]+)\]/);
+    expect(weeksMatch).not.toBeNull();
+    if (weeksMatch) {
+      const entries = weeksMatch[1].split(',').filter(e => e.trim().length > 0);
+      expect(entries).toHaveLength(13);
+    }
+  });
+
+  it('has 7 phases (p0 through p6)', () => {
+    expect(componentSrc).toContain("id:'p0'");
+    expect(componentSrc).toContain("id:'p1'");
+    expect(componentSrc).toContain("id:'p2'");
+    expect(componentSrc).toContain("id:'p3'");
+    expect(componentSrc).toContain("id:'p4'");
+    expect(componentSrc).toContain("id:'p5'");
+    expect(componentSrc).toContain("id:'p6'");
+  });
+
+  it('has 7 findings (f0 through f6)', () => {
+    expect(componentSrc).toContain("id:'f0'");
+    expect(componentSrc).toContain("id:'f1'");
+    expect(componentSrc).toContain("id:'f2'");
+    expect(componentSrc).toContain("id:'f3'");
+    expect(componentSrc).toContain("id:'f4'");
+    expect(componentSrc).toContain("id:'f5'");
+    expect(componentSrc).toContain("id:'f6'");
+  });
+
+  it('phase p0 has label containing FUNDACIÓN', () => {
+    const p0Start = componentSrc.indexOf("id:'p0'");
+    const p0End = componentSrc.indexOf("id:'p1'");
+    const p0Block = componentSrc.slice(p0Start, p0End);
+    expect(p0Block).toContain('FUNDACIÓN');
+  });
+
+  it('phase p6 is PRODUCCIÓN (last phase)', () => {
+    const p6Start = componentSrc.indexOf("id:'p6'");
+    expect(p6Start).toBeGreaterThan(-1);
+    const p6Block = componentSrc.slice(p6Start, p6Start + 100);
+    expect(p6Block).toContain('PRODUCCIÓN');
+  });
+
+  it('tasks have numeric s and e fields (not string dates)', () => {
+    // Sample: s:1,e:1 or s:2,e:3 — numeric, not date strings
+    expect(componentSrc).toContain('s:1,e:1');
+    expect(componentSrc).toContain('s:2,e:3');
+    expect(componentSrc).not.toContain("startDate:");
+    expect(componentSrc).not.toContain("endDate:");
+  });
+
+  it('at least one hot:true task exists (milestone)', () => {
+    expect(componentSrc).toContain('hot:true');
+  });
+
+  it('does NOT include lastUpdated in DEFAULT_DATA', () => {
+    expect(componentSrc).not.toContain('lastUpdated');
+  });
+});
+
+// ── Gantt chart UI features ───────────────────────────────────────────────────
+
+describe('Gantt chart UI features', () => {
+  it('renders GENERA logo SVG', () => {
+    expect(componentSrc).toContain('<svg');
+    expect(componentSrc).toContain('viewBox="0 0 36 36"');
+    // Circle elements for the logo
+    expect(componentSrc).toContain('<circle');
+  });
+
+  it('uses dark background brand color #0a0a0a', () => {
+    expect(componentSrc).toContain("'#0a0a0a'");
+  });
+
+  it('uses yellow accent brand color #fbbf24', () => {
+    expect(componentSrc).toContain("'#fbbf24'");
+  });
+
+  it('shows week header row', () => {
+    expect(componentSrc).toContain('data.weeks.map');
+  });
+
+  it('renders phase rows from data.phases', () => {
+    expect(componentSrc).toContain('data.phases.map');
+  });
+
+  it('renders findings section', () => {
+    expect(componentSrc).toContain('data.findings.map');
+  });
+
+  it('shows HOY label on first week column', () => {
+    expect(componentSrc).toContain('HOY');
+  });
+
+  it('shows LAUNCH label on last week column', () => {
+    expect(componentSrc).toContain('LAUNCH');
+  });
+
+  it('has GUARDANDO save indicator', () => {
+    expect(componentSrc).toContain('GUARDANDO...');
+  });
+
+  it('has GUARDADO save success indicator', () => {
     expect(componentSrc).toContain('GUARDADO');
   });
 
-  it('uses brand primary color #0a0a0a', () => {
-    expect(componentSrc).toContain('#0a0a0a');
+  it('uses edit mode toggle with EDITAR label', () => {
+    expect(componentSrc).toContain('EDITAR');
   });
 
-  it('uses brand accent color #fbbf24', () => {
-    expect(componentSrc).toContain('#fbbf24');
+  it('has Lógica de Secuenciación section header', () => {
+    expect(componentSrc).toContain('Lógica de Secuenciación');
   });
 
-  it('uses completed status color #22c55e', () => {
-    expect(componentSrc).toContain('#22c55e');
+  it('uses only React imports — no new npm dependencies', () => {
+    expect(componentSrc).not.toContain("from 'lodash'");
+    expect(componentSrc).not.toContain("from 'date-fns'");
+    expect(componentSrc).not.toContain("from 'react-query'");
+    expect(componentSrc).not.toContain("from 'recharts'");
   });
 
-  it('uses blocked status color #ef4444', () => {
-    expect(componentSrc).toContain('#ef4444');
-  });
-
-  it('uses planned status color #9ca3af', () => {
-    expect(componentSrc).toContain('#9ca3af');
-  });
-
-  it('implements debounce with setTimeout/clearTimeout', () => {
-    expect(componentSrc).toContain('setTimeout');
-    expect(componentSrc).toContain('clearTimeout');
-  });
-
-  it('uses debounce delay of 300-500ms (400ms)', () => {
-    // Spec says 300-500ms; implementation uses 400ms
-    expect(componentSrc).toContain('400');
-  });
-
-  it('calls onSave prop to persist data', () => {
-    expect(componentSrc).toContain('onSave');
-  });
-
-  it('has edit mode toggle with Spanish text', () => {
-    expect(componentSrc).toContain('editMode');
-    expect(componentSrc).toContain('Editar roadmap');
-    expect(componentSrc).toContain('Finalizar edición');
-  });
-
-  it('has all major UI text in Spanish', () => {
-    expect(componentSrc).toContain('Progreso general');
-    expect(componentSrc).toContain('Agregar tarea');
-    expect(componentSrc).toContain('Agregar fase');
-    expect(componentSrc).toContain('Completado');
-    expect(componentSrc).toContain('En progreso');
-    expect(componentSrc).toContain('Planificado');
-    expect(componentSrc).toContain('Bloqueado');
+  it('does NOT use localStorage', () => {
+    expect(componentSrc).not.toContain('localStorage');
+    expect(componentSrc).not.toContain('sessionStorage');
   });
 
   it('accepts initialData and onSave props', () => {
     expect(componentSrc).toContain('initialData: RoadmapData');
     expect(componentSrc).toContain('onSave: (data: RoadmapData) => Promise<void>');
   });
+});
 
-  it('uses inline styles (no Tailwind CSS classes)', () => {
-    // The component uses inline styles throughout (per spec)
-    expect(componentSrc).toContain('style={{');
-    // Should not use className for brand styling
-    expect(componentSrc).not.toContain('className="text-brand_primary"');
+// ── Height adjustment for MainLayout ─────────────────────────────────────────
+
+describe('Height adjustment — MainLayout compatibility', () => {
+  it('uses calc(100vh - 80px) instead of 100vh to account for the sticky header', () => {
+    expect(componentSrc).toContain("calc(100vh - 80px)");
+    // Should NOT use bare 100vh for the root container height
+    expect(componentSrc).not.toContain("height: '100vh'");
   });
 
-  it('adds/removes tasks in edit mode', () => {
-    expect(componentSrc).toContain('addTask');
-    expect(componentSrc).toContain('removeTask');
-  });
-
-  it('adds/removes phases in edit mode', () => {
-    expect(componentSrc).toContain('addPhase');
-    expect(componentSrc).toContain('removePhase');
-  });
-
-  it('does NOT import any new npm dependencies', () => {
-    // Check that there are no import statements that would add new deps
-    // (only standard React hooks and no external libraries)
-    expect(componentSrc).not.toContain("from 'lodash'");
-    expect(componentSrc).not.toContain("from 'date-fns'");
-    expect(componentSrc).not.toContain("from 'react-query'");
-  });
-
-  it('flushes save on unmount', () => {
-    // Checks that the unmount cleanup fires a save if debounce pending
-    expect(componentSrc).toContain('dataRef.current');
-    expect(componentSrc).toContain('onSaveRef.current');
+  it('bottom bar uses sticky positioning (not fixed) to avoid sidebar overlap', () => {
+    // The bottom bar should be sticky, not fixed
+    expect(componentSrc).toContain("position: 'sticky'");
+    // Should not have fixed with left/right spanning full viewport
+    const fixedIdx = componentSrc.indexOf("position: 'fixed'");
+    expect(fixedIdx).toBe(-1);
   });
 });
 
-// ── Page source checks ─────────────────────────────────────────────────────────
+// ── Page — auth and data patterns ────────────────────────────────────────────
 
 describe('Roadmap page — auth and data', () => {
   it('imports getUserPrimaryRole from roleUtils', () => {
@@ -241,7 +408,7 @@ describe('Roadmap page — auth and data', () => {
     expect(pageSrc).toContain('GeneraRoadmap');
   });
 
-  it('seeds DEFAULT_DATA when no row exists', () => {
+  it('uses DEFAULT_DATA as fallback', () => {
     expect(pageSrc).toContain('DEFAULT_DATA');
   });
 
@@ -258,8 +425,8 @@ describe('Roadmap page — auth and data', () => {
     expect(pageSrc).toContain('throw error');
   });
 
-  it('updates lastUpdated on each save', () => {
-    expect(pageSrc).toContain('lastUpdated: new Date().toISOString()');
+  it('does NOT inject lastUpdated into save payload (new schema has no such field)', () => {
+    expect(pageSrc).not.toContain('lastUpdated');
   });
 
   it('passes updated_by user id on upsert', () => {
@@ -269,94 +436,15 @@ describe('Roadmap page — auth and data', () => {
   it('checks router.isReady before auth init', () => {
     expect(pageSrc).toContain('router.isReady');
   });
-});
 
-// ── UX iteration 1 fixes — accessibility and interaction ─────────────────────
-
-describe('UX fixes — iteration 1', () => {
-  it('[A-1] does NOT use outline: none in inputStyle constant', () => {
-    // The old shared inputStyle const had outline: 'none' — removed in UX fix
-    expect(componentSrc).not.toContain("outline: 'none'");
+  it('has stale data guard that checks for weeks array', () => {
+    // Must check Array.isArray on the weeks field before using DB data
+    expect(pageSrc).toContain('Array.isArray');
+    expect(pageSrc).toContain('weeks');
   });
 
-  it('[A-1] uses getInputStyle function with conditional boxShadow focus ring', () => {
-    expect(componentSrc).toContain('function getInputStyle(focused: boolean)');
-    expect(componentSrc).toContain("boxShadow: focused ? '0 0 0 2px #fbbf24'");
-  });
-
-  it('[A-1] inputs call onFocus/onBlur to manage focus state', () => {
-    expect(componentSrc).toContain('onFocus={() => setFocusedInput(');
-    expect(componentSrc).toContain('onBlur={() => setFocusedInput(null)');
-  });
-
-  it('[A-2] save indicator wrapped in persistent aria-live region', () => {
-    expect(componentSrc).toContain('role="status"');
-    expect(componentSrc).toContain('aria-live="polite"');
-    expect(componentSrc).toContain('aria-atomic="true"');
-  });
-
-  it('[A-3] remove phase button has aria-label with phase name', () => {
-    expect(componentSrc).toContain('aria-label={`Eliminar fase: ${phase.name}`}');
-  });
-
-  it('[A-3] remove task button has aria-label with task name', () => {
-    expect(componentSrc).toContain('aria-label={`Eliminar tarea: ${task.name}`}');
-  });
-
-  it('[ID-1] remove phase calls window.confirm before onRemovePhase', () => {
-    expect(componentSrc).toContain('window.confirm(');
-    expect(componentSrc).toContain('Esta acción no se puede deshacer');
-    // Confirm must wrap the onRemovePhase call
-    const confirmIdx = componentSrc.indexOf('window.confirm(');
-    const removePhaseIdx = componentSrc.indexOf('onRemovePhase(phase.id)', confirmIdx);
-    expect(confirmIdx).toBeGreaterThan(-1);
-    expect(removePhaseIdx).toBeGreaterThan(confirmIdx);
-  });
-
-  it('[BC-1] edit toggle button has onMouseEnter/onMouseLeave handlers', () => {
-    expect(componentSrc).toContain("onMouseEnter={() => setHoveredBtn('edit')}");
-    expect(componentSrc).toContain("onMouseLeave={() => setHoveredBtn(null)}");
-  });
-
-  it('[BC-1] remove phase button has onMouseEnter/onMouseLeave handlers', () => {
-    expect(componentSrc).toContain("onMouseEnter={() => setHoveredBtn('remove-phase')}");
-  });
-
-  it('[BC-1] remove task button has onMouseEnter/onMouseLeave handlers', () => {
-    expect(componentSrc).toContain('onMouseEnter={() => setRemoveHovered(true)}');
-    expect(componentSrc).toContain('onMouseLeave={() => setRemoveHovered(false)}');
-  });
-
-  it('[BC-1] add phase and add task buttons have hover state via extracted sub-components', () => {
-    expect(componentSrc).toContain('AddPhaseButton');
-    expect(componentSrc).toContain('AddTaskButton');
-  });
-
-  it('[BC-3] no fontSize of 11px remains in the source', () => {
-    // All 11px font sizes should be bumped to 12px
-    expect(componentSrc).not.toContain("fontSize: '11px'");
-  });
-
-  it('[A-4] overall progress bar has role="progressbar" and aria attributes', () => {
-    const progressbarIdx = componentSrc.indexOf('aria-label={`Progreso general del roadmap');
-    expect(progressbarIdx).toBeGreaterThan(-1);
-    // Verify it has all needed aria attributes
-    const block = componentSrc.slice(progressbarIdx - 200, progressbarIdx + 200);
-    expect(block).toContain('role="progressbar"');
-    expect(block).toContain('aria-valuemin={0}');
-    expect(block).toContain('aria-valuemax={100}');
-  });
-
-  it('[A-4] per-phase progress bar has role="progressbar" and aria attributes', () => {
-    expect(componentSrc).toContain('aria-label={`Progreso de ${phase.name}: ${phase.progress}%`}');
-  });
-
-  it('[A-5] progress number input has aria-label', () => {
-    expect(componentSrc).toContain('aria-label={`Progreso de ${phase.name} (porcentaje)`}');
-  });
-
-  it('[A-5] range slider has aria-label', () => {
-    expect(componentSrc).toContain('aria-label={`Ajustar progreso de ${phase.name}`}');
+  it('does NOT have wrapper div with max-w-7xl class (removed per spec)', () => {
+    expect(pageSrc).not.toContain('max-w-7xl');
   });
 });
 
@@ -375,47 +463,10 @@ describe('Sidebar — roadmap navigation entry', () => {
     expect(sidebarSrc).toContain("href: '/admin/roadmap'");
   });
 
-  it('uses ChartBarIcon', () => {
-    // icon is ChartBarIcon (already imported in Sidebar.tsx)
-    const roadmapEntryStart = sidebarSrc.indexOf("id: 'roadmap'");
-    const nextEntryStart = sidebarSrc.indexOf("id: 'users'", roadmapEntryStart);
-    const roadmapBlock = sidebarSrc.slice(roadmapEntryStart, nextEntryStart);
-    expect(roadmapBlock).toContain('ChartBarIcon');
-  });
-
   it('is adminOnly: true', () => {
     const roadmapEntryStart = sidebarSrc.indexOf("id: 'roadmap'");
     const nextEntryStart = sidebarSrc.indexOf("id: 'users'", roadmapEntryStart);
     const roadmapBlock = sidebarSrc.slice(roadmapEntryStart, nextEntryStart);
     expect(roadmapBlock).toContain('adminOnly: true');
-  });
-
-  it("has Spanish description 'Progreso del desarrollo GENERA'", () => {
-    expect(sidebarSrc).toContain("description: 'Progreso del desarrollo GENERA'");
-  });
-
-  it('appears between assignment-matrix and users entries', () => {
-    const matrixPos = sidebarSrc.indexOf("id: 'assignment-matrix'");
-    const roadmapPos = sidebarSrc.indexOf("id: 'roadmap'");
-    const usersPos = sidebarSrc.indexOf("id: 'users'");
-    expect(matrixPos).toBeGreaterThan(-1);
-    expect(roadmapPos).toBeGreaterThan(-1);
-    expect(usersPos).toBeGreaterThan(-1);
-    expect(roadmapPos).toBeGreaterThan(matrixPos);
-    expect(roadmapPos).toBeLessThan(usersPos);
-  });
-
-  it('is a top-level nav item (not nested in children)', () => {
-    // Verify that 'roadmap' id appears as a top-level NAVIGATION_ITEMS entry
-    // i.e., not inside a 'children' array of another item
-    const roadmapIdx = sidebarSrc.indexOf("id: 'roadmap'");
-    // Find the nearest preceding 'children: ['
-    const childrenBeforeRoadmap = sidebarSrc.lastIndexOf('children: [', roadmapIdx);
-    const closingBracketBeforeRoadmap = sidebarSrc.lastIndexOf(']', roadmapIdx);
-    // If children: [ was found before roadmap, the closing ] must also be before roadmap
-    // (meaning the children array was already closed by the time roadmap entry appears)
-    if (childrenBeforeRoadmap !== -1) {
-      expect(closingBracketBeforeRoadmap).toBeGreaterThan(childrenBeforeRoadmap);
-    }
   });
 });

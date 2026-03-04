@@ -77,33 +77,31 @@ const RoadmapPage: React.FC = () => {
       return;
     }
 
-    if (data?.value) {
+    if (data?.value && Array.isArray((data.value as { weeks?: unknown }).weeks)) {
+      // Valid new-schema data with weeks array
       setRoadmapData(data.value as unknown as RoadmapData);
     } else {
-      // No row yet — seed with default data
-      const seedData: RoadmapData = { ...DEFAULT_DATA, lastUpdated: new Date().toISOString() };
+      // No row yet, or old-schema data without weeks array — seed fresh with DEFAULT_DATA
       await supabase.from('roadmap_data').upsert(
         {
           key: ROADMAP_KEY,
-          value: seedData,
+          value: DEFAULT_DATA,
           updated_at: new Date().toISOString(),
           updated_by: userId,
         },
         { onConflict: 'key' }
       );
-      setRoadmapData(seedData);
+      setRoadmapData(DEFAULT_DATA);
     }
   };
 
   const handleSave = async (data: RoadmapData): Promise<void> => {
     if (!user) return;
 
-    const payload = { ...data, lastUpdated: new Date().toISOString() };
-
     const { error } = await supabase.from('roadmap_data').upsert(
       {
         key: ROADMAP_KEY,
-        value: payload,
+        value: data,
         updated_at: new Date().toISOString(),
         updated_by: user.id,
       },
@@ -114,7 +112,7 @@ const RoadmapPage: React.FC = () => {
       throw error;
     }
 
-    setRoadmapData(payload);
+    setRoadmapData(data);
   };
 
   if (loading) {
@@ -136,15 +134,13 @@ const RoadmapPage: React.FC = () => {
       isAdmin={isAdmin}
       avatarUrl={avatarUrl}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {roadmapData ? (
-          <GeneraRoadmap initialData={roadmapData} onSave={handleSave} />
-        ) : (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-gray-500">Cargando roadmap...</div>
-          </div>
-        )}
-      </div>
+      {roadmapData ? (
+        <GeneraRoadmap initialData={roadmapData} onSave={handleSave} />
+      ) : (
+        <div className="flex items-center justify-center py-20">
+          <div className="text-gray-500">Cargando roadmap...</div>
+        </div>
+      )}
     </MainLayout>
   );
 };

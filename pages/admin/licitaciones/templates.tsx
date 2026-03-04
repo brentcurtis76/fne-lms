@@ -60,7 +60,6 @@ function ArrayEditor({
             </button>
           </div>
         ))}
-        {/* BC-3: changed from text-blue-600 hover:text-blue-800 */}
         <button
           type="button"
           onClick={addItem}

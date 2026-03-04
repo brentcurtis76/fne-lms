@@ -282,7 +282,6 @@ export default function Step4Propuestas({ licitacion, onAdvance, onRefresh }: St
 
   return (
     <div className="space-y-6">
-      {/* BC-4: changed from bg-blue-50 to bg-gray-50, text-blue-800 to text-gray-700, added border */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 flex items-center gap-2">
         <span className="text-sm text-gray-700">
           {atesWithProposal.length} de {ates.length} ATEs con propuesta recibida.
@@ -546,7 +545,6 @@ export default function Step4Propuestas({ licitacion, onAdvance, onRefresh }: St
               {atesWithProposal.length} ATE{atesWithProposal.length !== 1 ? 's tienen' : ' tiene'} propuesta
               recibida. Puede avanzar al siguiente paso.
             </p>
-            {/* ID-1: changed from bg-green-600 to bg-yellow-400 text-black */}
             <button
               onClick={handleAdvance}
               disabled={advancing}

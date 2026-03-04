@@ -676,6 +676,17 @@ export async function updatePublishedTemplateSnapshot(
       return { success: false, error: 'No snapshot found for published template' };
     }
 
+    // Get all objectives for this template
+    const { data: objectives, error: objectivesError } = await supabaseAdmin
+      .from('assessment_objectives')
+      .select('*')
+      .eq('template_id', templateId)
+      .order('display_order', { ascending: true });
+
+    if (objectivesError) {
+      return { success: false, error: 'Error loading objectives' };
+    }
+
     // Get all modules for this template
     const { data: modules, error: modulesError } = await supabaseAdmin
       .from('assessment_modules')
@@ -728,6 +739,52 @@ export async function updatePublishedTemplateSnapshot(
       });
     });
 
+    // Helper to build indicator snapshot data
+    const buildIndicatorSnapshot = (indicator: any) => ({
+      id: indicator.id,
+      code: indicator.code,
+      name: indicator.name,
+      description: indicator.description,
+      category: indicator.category,
+      frequency_config: indicator.frequency_config,
+      frequency_unit_options: indicator.frequency_unit_options,
+      level_0_descriptor: indicator.level_0_descriptor,
+      level_1_descriptor: indicator.level_1_descriptor,
+      level_2_descriptor: indicator.level_2_descriptor,
+      level_3_descriptor: indicator.level_3_descriptor,
+      level_4_descriptor: indicator.level_4_descriptor,
+      display_order: indicator.display_order,
+      weight: indicator.weight,
+      sub_questions: indicator.sub_questions,
+      expectations: expectationsMap.get(indicator.id) || null,
+    });
+
+    // Helper to build module snapshot data
+    const buildModuleSnapshot = (module: any) => ({
+      id: module.id,
+      name: module.name,
+      description: module.description,
+      instructions: module.instructions,
+      display_order: module.display_order,
+      weight: module.weight,
+      objective_id: module.objective_id || null,
+      indicators: allIndicators
+        .filter(ind => ind.module_id === module.id)
+        .map(buildIndicatorSnapshot),
+    });
+
+    // Build objectives hierarchy (new format)
+    const objectivesSnapshot = (objectives || []).map((objective: any) => ({
+      id: objective.id,
+      name: objective.name,
+      description: objective.description,
+      display_order: objective.display_order,
+      weight: objective.weight,
+      modules: (modules || [])
+        .filter((m: any) => m.objective_id === objective.id)
+        .map(buildModuleSnapshot),
+    }));
+
     // Build the updated snapshot data structure
     const snapshotData = {
       template: {
@@ -738,34 +795,10 @@ export async function updatePublishedTemplateSnapshot(
         scoring_config: template.scoring_config,
         created_at: template.created_at,
       },
-      modules: (modules || []).map(module => ({
-        id: module.id,
-        name: module.name,
-        description: module.description,
-        instructions: module.instructions,
-        display_order: module.display_order,
-        weight: module.weight,
-        indicators: allIndicators
-          .filter(ind => ind.module_id === module.id)
-          .map(indicator => ({
-            id: indicator.id,
-            code: indicator.code,
-            name: indicator.name,
-            description: indicator.description,
-            category: indicator.category,
-            frequency_config: indicator.frequency_config,
-            frequency_unit_options: indicator.frequency_unit_options,
-            level_0_descriptor: indicator.level_0_descriptor,
-            level_1_descriptor: indicator.level_1_descriptor,
-            level_2_descriptor: indicator.level_2_descriptor,
-            level_3_descriptor: indicator.level_3_descriptor,
-            level_4_descriptor: indicator.level_4_descriptor,
-            display_order: indicator.display_order,
-            weight: indicator.weight,
-            sub_questions: indicator.sub_questions,
-            expectations: expectationsMap.get(indicator.id) || null,
-          })),
-      })),
+      // New hierarchy: objectives → modules → indicators
+      objectives: objectivesSnapshot,
+      // Legacy flat list for backward compatibility
+      modules: (modules || []).map(buildModuleSnapshot),
       published_at: new Date().toISOString(),
       published_by: updatedBy,
       last_updated_at: new Date().toISOString(),

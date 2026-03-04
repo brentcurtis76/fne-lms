@@ -98,6 +98,17 @@ export const CATEGORY_DESCRIPTIONS: Record<IndicatorCategory, string> = {
   profundidad: 'Nivel de rúbrica (0-4)',
 };
 
+// UI labels for assessment hierarchy entities
+// DB tables and code use "module" internally; UI shows "Acción"
+export const ENTITY_LABELS = {
+  objective: 'Objetivo',
+  objectives: 'Objetivos',
+  module: 'Acción',
+  modules: 'Acciones',
+  indicator: 'Indicador',
+  indicators: 'Indicadores',
+} as const;
+
 // Frequency unit options and labels
 export type FrequencyUnit = 'dia' | 'semana' | 'mes' | 'trimestre' | 'semestre' | 'año';
 
@@ -179,6 +190,7 @@ export interface ScoringConfig {
     emerging: number; // Default: 12.5
   };
   default_weights: {
+    objective: number; // Default: 1.0
     module: number; // Default: 1.0
     indicator: number; // Default: 1.0
   };
@@ -349,6 +361,7 @@ export interface AssessmentTemplate {
   archived_at?: string;
   archived_by?: string;
   // Relaciones (cuando se cargan)
+  objectives?: AssessmentObjective[];
   modules?: AssessmentModule[];
   context_questions?: AssessmentContextQuestion[];
 }
@@ -369,9 +382,23 @@ export interface AssessmentContextQuestion {
   updated_at: string;
 }
 
+export interface AssessmentObjective {
+  id: string;
+  template_id: string;
+  name: string;
+  description?: string;
+  display_order: number;
+  weight: number;
+  created_at: string;
+  updated_at: string;
+  // Relaciones (cuando se cargan)
+  modules?: AssessmentModule[];
+}
+
 export interface AssessmentModule {
   id: string;
   template_id: string;
+  objective_id?: string;
   name: string;
   description?: string;
   instructions?: string;
@@ -458,15 +485,31 @@ export interface AssessmentTemplateSnapshot {
   created_by?: string;
 }
 
+/** Nested indicator type used within snapshots */
+export type SnapshotIndicator = AssessmentIndicator & {
+  sub_questions: AssessmentSubQuestion[];
+  expectations?: AssessmentYearExpectation;
+  expectations_gt?: AssessmentYearExpectation | null;
+  expectations_gi?: AssessmentYearExpectation | null;
+};
+
+/** Nested module type used within snapshots */
+export type SnapshotModule = AssessmentModule & {
+  indicators: SnapshotIndicator[];
+};
+
+/** Nested objective type used within snapshots */
+export type SnapshotObjective = AssessmentObjective & {
+  modules: SnapshotModule[];
+};
+
 export interface TemplateSnapshotData {
-  template: Omit<AssessmentTemplate, 'modules' | 'context_questions'>;
+  template: Omit<AssessmentTemplate, 'modules' | 'objectives' | 'context_questions'>;
   context_questions: AssessmentContextQuestion[];
-  modules: (AssessmentModule & {
-    indicators: (AssessmentIndicator & {
-      sub_questions: AssessmentSubQuestion[];
-      expectations?: AssessmentYearExpectation;
-    })[];
-  })[];
+  /** New hierarchy: objectives → modules → indicators */
+  objectives: SnapshotObjective[];
+  /** @deprecated Kept for backward compatibility with old snapshots. New snapshots use objectives[].modules[] */
+  modules?: SnapshotModule[];
 }
 
 // ============================================================
@@ -564,11 +607,20 @@ export interface IndicatorScore {
   isAboveExpectation: boolean;
 }
 
+export interface ObjectiveScore {
+  objectiveId: string;
+  objectiveName: string;
+  objectiveScore: number; // 0-100 weighted average of module scores
+  objectiveWeight: number;
+  modules: ModuleScore[];
+}
+
 export interface AssessmentSummary {
   instanceId: string;
   area: TransformationArea;
   totalScore: number; // 0-100
   moduleScores: ModuleScore[];
+  objectiveScores?: ObjectiveScore[]; // 3-level scoring (objectives → modules → indicators)
   overallLevel: number; // 0-4
   expectedLevel: number; // 0-4 based on year
   transformationYear: 1 | 2 | 3 | 4 | 5;
@@ -594,6 +646,20 @@ export interface UpdateTemplateRequest {
   grade_id?: number;
 }
 
+// Objective CRUD
+export interface CreateObjectiveRequest {
+  template_id: string;
+  name: string;
+  description?: string;
+  weight?: number;
+}
+
+export interface UpdateObjectiveRequest {
+  name?: string;
+  description?: string;
+  weight?: number;
+}
+
 // Module CRUD
 export interface CreateModuleRequest {
   template_id: string;
@@ -601,6 +667,7 @@ export interface CreateModuleRequest {
   description?: string;
   instructions?: string;
   weight?: number;
+  objective_id?: string;
 }
 
 export interface UpdateModuleRequest {
@@ -608,6 +675,7 @@ export interface UpdateModuleRequest {
   description?: string;
   instructions?: string;
   weight?: number;
+  objective_id?: string;
 }
 
 export interface ReorderModulesRequest {

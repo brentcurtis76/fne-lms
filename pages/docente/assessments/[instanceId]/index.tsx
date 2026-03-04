@@ -19,6 +19,7 @@ import {
   AREA_LABELS,
   MATURITY_LEVELS,
   CATEGORY_LABELS,
+  ENTITY_LABELS,
   FREQUENCY_UNIT_LABELS,
   TransformationArea,
   IndicatorCategory,
@@ -55,7 +56,17 @@ interface ModuleData {
   instructions?: string;
   displayOrder: number;
   weight: number;
+  objectiveId?: string;
   indicators: IndicatorData[];
+}
+
+interface ObjectiveData {
+  id: string;
+  name: string;
+  description?: string;
+  displayOrder: number;
+  weight: number;
+  modules: ModuleData[];
 }
 
 interface ResponseData {
@@ -83,6 +94,7 @@ const AssessmentResponseForm: React.FC = () => {
   const [instance, setInstance] = useState<any>(null);
   const [template, setTemplate] = useState<any>(null);
   const [modules, setModules] = useState<ModuleData[]>([]);
+  const [objectives, setObjectives] = useState<ObjectiveData[]>([]);
   const [responses, setResponses] = useState<Record<string, ResponseData>>({});
   const [progress, setProgress] = useState({ total: 0, answered: 0, percentage: 0 });
   const [assignee, setAssignee] = useState<any>(null);
@@ -134,12 +146,15 @@ const AssessmentResponseForm: React.FC = () => {
       setInstance(data.instance);
       setTemplate(data.template);
       setModules(data.modules || []);
+      setObjectives(data.objectives || []);
       setResponses(data.responses || {});
       setProgress(data.progress || { total: 0, answered: 0, percentage: 0 });
       setAssignee(data.assignee);
 
-      // Expand first module by default
-      if (data.modules?.length > 0) {
+      // Expand first module or first objective by default
+      if (data.objectives?.length > 0 && data.objectives[0].modules?.length > 0) {
+        setExpandedModules(new Set([data.objectives[0].modules[0].id]));
+      } else if (data.modules?.length > 0) {
         setExpandedModules(new Set([data.modules[0].id]));
       }
     } catch (error: any) {
@@ -157,14 +172,23 @@ const AssessmentResponseForm: React.FC = () => {
     }
   }, [user, instanceId, fetchAssessment]);
 
+  // Compute all modules (from objectives hierarchy or flat list)
+  const allModules: ModuleData[] = objectives.length > 0
+    ? objectives.flatMap((o) => o.modules)
+    : modules;
+
   // Update progress whenever responses change
   useEffect(() => {
-    if (modules.length > 0) {
+    const modulesToCheck = objectives.length > 0
+      ? objectives.flatMap((o) => o.modules)
+      : modules;
+
+    if (modulesToCheck.length > 0) {
       // Recalculate progress based on current responses
       let total = 0;
       let answered = 0;
 
-      modules.forEach(module => {
+      modulesToCheck.forEach(module => {
         module.indicators.forEach(indicator => {
           total++;
           const resp = responses[indicator.id];
@@ -184,7 +208,7 @@ const AssessmentResponseForm: React.FC = () => {
         percentage: total > 0 ? Math.round((answered / total) * 100) : 0,
       });
     }
-  }, [responses, modules]);
+  }, [responses, modules, objectives]);
 
   // Toggle module expansion
   const toggleModule = (moduleId: string) => {
@@ -200,7 +224,7 @@ const AssessmentResponseForm: React.FC = () => {
   };
 
   // Handle response change
-  const handleResponseChange = (indicatorId: string, field: keyof ResponseData, value: any) => {
+  const handleResponseChange = (indicatorId: string, field: keyof ResponseData, value: ResponseData[keyof ResponseData]) => {
     setResponses(prev => ({
       ...prev,
       [indicatorId]: {
@@ -277,7 +301,7 @@ const AssessmentResponseForm: React.FC = () => {
     let total = 0;
     let answered = 0;
 
-    modules.forEach(module => {
+    allModules.forEach(module => {
       module.indicators.forEach(indicator => {
         total++;
         const resp = currentResponses[indicator.id];
@@ -342,7 +366,7 @@ const AssessmentResponseForm: React.FC = () => {
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-brand_beige flex justify-center items-center">
-        <p className="text-xl text-brand_blue">Cargando...</p>
+        <p className="text-xl text-brand_primary">Cargando...</p>
       </div>
     );
   }
@@ -370,7 +394,7 @@ const AssessmentResponseForm: React.FC = () => {
         {/* Back button and actions */}
         <div className="flex items-center justify-between mb-6">
           <Link href="/docente/assessments" legacyBehavior>
-            <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_blue">
+            <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_primary">
               <ArrowLeft className="w-4 h-4 mr-1" />
               Volver a evaluaciones
             </a>
@@ -396,7 +420,7 @@ const AssessmentResponseForm: React.FC = () => {
                 <button
                   onClick={handleSubmit}
                   disabled={submitting || progress.percentage < 100}
-                  className="inline-flex items-center px-4 py-1.5 text-sm bg-brand_blue text-white rounded-lg hover:bg-brand_blue/90 disabled:opacity-50"
+                  className="inline-flex items-center px-4 py-1.5 text-sm bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 disabled:opacity-50"
                 >
                   {submitting ? (
                     <>
@@ -426,7 +450,7 @@ const AssessmentResponseForm: React.FC = () => {
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className={`h-2 rounded-full transition-all ${
-                progress.percentage === 100 ? 'bg-green-500' : 'bg-brand_blue'
+                progress.percentage === 100 ? 'bg-green-500' : 'bg-brand_primary'
               }`}
               style={{ width: `${progress.percentage}%` }}
             />
@@ -439,66 +463,136 @@ const AssessmentResponseForm: React.FC = () => {
           )}
         </div>
 
-        {/* Modules */}
-        <div className="space-y-4">
-          {modules.map((module) => (
-            <div key={module.id} className="bg-white shadow-md rounded-lg overflow-hidden">
-              {/* Module header */}
-              <button
-                onClick={() => toggleModule(module.id)}
-                className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50"
-              >
-                <div>
-                  <h3 className="text-lg font-semibold text-brand_blue">{module.name}</h3>
-                  {module.description && (
-                    <p className="text-sm text-gray-500 mt-1">{module.description}</p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">
-                    {module.indicators.length} indicador{module.indicators.length !== 1 ? 'es' : ''}
-                  </p>
+        {/* 3-level hierarchy: Objectives → Acciones → Indicators */}
+        {objectives.length > 0 ? (
+          <div className="space-y-6">
+            {objectives.map((objective) => (
+              <div key={objective.id} className="space-y-3">
+                {/* Objective header */}
+                <div className="flex items-center gap-3 px-1">
+                  <div className="h-px flex-1 bg-gray-200" />
+                  <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">
+                    {ENTITY_LABELS.objective}: {objective.name}
+                  </h3>
+                  <div className="h-px flex-1 bg-gray-200" />
                 </div>
-                {expandedModules.has(module.id) ? (
-                  <ChevronUp className="w-5 h-5 text-gray-400" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                {objective.description && (
+                  <p className="text-sm text-gray-500 px-1">{objective.description}</p>
                 )}
-              </button>
 
-              {/* Module instructions */}
-              {expandedModules.has(module.id) && module.instructions && (
-                <div className="px-4 pb-4 pt-0">
-                  <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
-                    {module.instructions}
-                  </div>
-                </div>
-              )}
-
-              {/* Indicators */}
-              {expandedModules.has(module.id) && (
-                <div className="border-t border-gray-200 divide-y divide-gray-100">
-                  {module.indicators.map((indicator) => (
-                    <IndicatorInput
-                      key={indicator.id}
-                      indicator={indicator}
-                      response={responses[indicator.id] || {}}
-                      onChange={(field, value) => handleResponseChange(indicator.id, field, value)}
-                      disabled={!canEdit}
+                {/* Acciones within this objective */}
+                <div className="space-y-3">
+                  {objective.modules.map((module) => (
+                    <ModuleCard
+                      key={module.id}
+                      module={module}
+                      responses={responses}
+                      expanded={expandedModules.has(module.id)}
+                      onToggle={() => toggleModule(module.id)}
+                      onResponseChange={handleResponseChange}
+                      canEdit={canEdit}
                     />
                   ))}
+                  {objective.modules.length === 0 && (
+                    <p className="text-sm text-gray-400 italic px-2">
+                      Sin {ENTITY_LABELS.modules.toLowerCase()} en este {ENTITY_LABELS.objective.toLowerCase()}
+                    </p>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Flat modules fallback (backward compat) */
+          <div className="space-y-4">
+            {modules.map((module) => (
+              <ModuleCard
+                key={module.id}
+                module={module}
+                responses={responses}
+                expanded={expandedModules.has(module.id)}
+                onToggle={() => toggleModule(module.id)}
+                onResponseChange={handleResponseChange}
+                canEdit={canEdit}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </MainLayout>
   );
 };
 
+// Module card component (reusable for both flat and objectives hierarchy)
+interface ModuleCardProps {
+  module: ModuleData;
+  responses: Record<string, ResponseData>;
+  expanded: boolean;
+  onToggle: () => void;
+  onResponseChange: (indicatorId: string, field: keyof ResponseData, value: ResponseData[keyof ResponseData]) => void;
+  canEdit: boolean | undefined;
+}
+
+const ModuleCard: React.FC<ModuleCardProps> = ({
+  module,
+  responses,
+  expanded,
+  onToggle,
+  onResponseChange,
+  canEdit,
+}) => (
+  <div className="bg-white shadow-md rounded-lg overflow-hidden">
+    {/* Module header */}
+    <button
+      onClick={onToggle}
+      className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50"
+    >
+      <div>
+        <h3 className="text-lg font-semibold text-brand_primary">{module.name}</h3>
+        {module.description && (
+          <p className="text-sm text-gray-500 mt-1">{module.description}</p>
+        )}
+        <p className="text-xs text-gray-400 mt-1">
+          {module.indicators.length} indicador{module.indicators.length !== 1 ? 'es' : ''}
+        </p>
+      </div>
+      {expanded ? (
+        <ChevronUp className="w-5 h-5 text-gray-400" />
+      ) : (
+        <ChevronDown className="w-5 h-5 text-gray-400" />
+      )}
+    </button>
+
+    {/* Module instructions */}
+    {expanded && module.instructions && (
+      <div className="px-4 pb-4 pt-0">
+        <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
+          {module.instructions}
+        </div>
+      </div>
+    )}
+
+    {/* Indicators */}
+    {expanded && (
+      <div className="border-t border-gray-200 divide-y divide-gray-100">
+        {module.indicators.map((indicator) => (
+          <IndicatorInput
+            key={indicator.id}
+            indicator={indicator}
+            response={responses[indicator.id] || {}}
+            onChange={(field, value) => onResponseChange(indicator.id, field, value)}
+            disabled={!canEdit}
+          />
+        ))}
+      </div>
+    )}
+  </div>
+);
+
 interface IndicatorInputProps {
   indicator: IndicatorData;
   response: ResponseData;
-  onChange: (field: keyof ResponseData, value: any) => void;
+  onChange: (field: keyof ResponseData, value: ResponseData[keyof ResponseData]) => void;
   disabled?: boolean;
 }
 
@@ -544,6 +638,7 @@ const IndicatorInput: React.FC<IndicatorInputProps> = ({
             value={response.coverageValue}
             onChange={(v) => onChange('coverageValue', v)}
             disabled={disabled}
+            indicatorName={indicator.name}
           />
         )}
 
@@ -583,12 +678,14 @@ const CoberturaInput: React.FC<{
   value?: boolean;
   onChange: (value: boolean) => void;
   disabled?: boolean;
-}> = ({ value, onChange, disabled }) => (
+  indicatorName?: string;
+}> = ({ value, onChange, disabled, indicatorName }) => (
   <div className="flex gap-3">
     <button
       type="button"
       onClick={() => onChange(true)}
       disabled={disabled}
+      aria-label={indicatorName ? `Sí: ${indicatorName}` : 'Sí'}
       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
         value === true
           ? 'bg-green-500 text-white'
@@ -601,6 +698,7 @@ const CoberturaInput: React.FC<{
       type="button"
       onClick={() => onChange(false)}
       disabled={disabled}
+      aria-label={indicatorName ? `No: ${indicatorName}` : 'No'}
       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
         value === false
           ? 'bg-red-500 text-white'
@@ -643,7 +741,7 @@ const FrecuenciaInput: React.FC<{
         max={config?.max}
         step={config?.step ?? 1}
         disabled={disabled}
-        className={`w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_blue ${
+        className={`w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_primary ${
           disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
         }`}
         placeholder="0"
@@ -653,7 +751,7 @@ const FrecuenciaInput: React.FC<{
         value={unit || availableUnits[0]}
         onChange={(e) => onUnitChange(e.target.value as FrequencyUnit)}
         disabled={disabled}
-        className={`px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_blue ${
+        className={`px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_primary ${
           disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
         }`}
       >

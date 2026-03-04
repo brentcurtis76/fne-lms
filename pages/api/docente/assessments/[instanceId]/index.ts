@@ -108,28 +108,79 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const snapshot = instance.assessment_template_snapshots as any;
     const snapshotData = snapshot?.snapshot_data || {};
 
-    // Count total indicators and answered indicators
+    // Helper to count indicator progress
+    const countProgress = (indicator: any) => {
+      const resp = responseMap[indicator.id];
+      if (resp) {
+        return (
+          (resp.coverageValue !== null && resp.coverageValue !== undefined) ||
+          (resp.frequencyValue !== null && resp.frequencyValue !== undefined) ||
+          (resp.profundityLevel !== null && resp.profundityLevel !== undefined)
+        );
+      }
+      return false;
+    };
+
+    // Count total indicators and answered indicators (dual-path: objectives or flat modules)
     let totalIndicators = 0;
     let answeredIndicators = 0;
 
-    const modules = snapshotData.modules || [];
-    modules.forEach((module: any) => {
-      const indicators = module.indicators || [];
-      indicators.forEach((indicator: any) => {
+    const snapshotObjectives = snapshotData.objectives || [];
+    const flatModules = snapshotData.modules || [];
+
+    // Use objectives hierarchy if present, else flat modules
+    const modulesToCount = snapshotObjectives.length > 0
+      ? snapshotObjectives.flatMap((o: any) => o.modules || [])
+      : flatModules;
+
+    modulesToCount.forEach((module: any) => {
+      (module.indicators || []).forEach((indicator: any) => {
         totalIndicators++;
-        if (responseMap[indicator.id]) {
-          const resp = responseMap[indicator.id];
-          // Check if the indicator has a meaningful response
-          const hasResponse =
-            resp.coverageValue !== null && resp.coverageValue !== undefined ||
-            resp.frequencyValue !== null && resp.frequencyValue !== undefined ||
-            resp.profundityLevel !== null && resp.profundityLevel !== undefined;
-          if (hasResponse) {
-            answeredIndicators++;
-          }
-        }
+        if (countProgress(indicator)) answeredIndicators++;
       });
     });
+
+    // Build modules array for the frontend (flat list from objectives or direct flat)
+    const modules = flatModules;
+
+    // Helper to map module data to frontend shape
+    const mapModule = (module: any) => ({
+      id: module.id,
+      name: module.name,
+      description: module.description,
+      instructions: module.instructions,
+      displayOrder: module.display_order,
+      weight: module.weight,
+      objectiveId: module.objective_id || null,
+      indicators: (module.indicators || []).map((indicator: any) => ({
+        id: indicator.id,
+        code: indicator.code,
+        name: indicator.name,
+        description: indicator.description,
+        category: indicator.category,
+        frequencyConfig: indicator.frequency_config,
+        frequencyUnitOptions: indicator.frequency_unit_options,
+        level0Descriptor: indicator.level_0_descriptor,
+        level1Descriptor: indicator.level_1_descriptor,
+        level2Descriptor: indicator.level_2_descriptor,
+        level3Descriptor: indicator.level_3_descriptor,
+        level4Descriptor: indicator.level_4_descriptor,
+        displayOrder: indicator.display_order,
+        weight: indicator.weight,
+        subQuestions: indicator.sub_questions || [],
+        expectations: indicator.expectations,
+      })),
+    });
+
+    // Build objectives for 3-level rendering
+    const objectives = snapshotObjectives.map((obj: any) => ({
+      id: obj.id,
+      name: obj.name,
+      description: obj.description,
+      displayOrder: obj.display_order,
+      weight: obj.weight,
+      modules: (obj.modules || []).map(mapModule),
+    }));
 
     return res.status(200).json({
       success: true,
@@ -160,32 +211,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         description: snapshotData.template?.description,
         scoringConfig: snapshotData.template?.scoring_config,
       },
-      modules: modules.map((module: any) => ({
-        id: module.id,
-        name: module.name,
-        description: module.description,
-        instructions: module.instructions,
-        displayOrder: module.display_order,
-        weight: module.weight,
-        indicators: (module.indicators || []).map((indicator: any) => ({
-          id: indicator.id,
-          code: indicator.code,
-          name: indicator.name,
-          description: indicator.description,
-          category: indicator.category,
-          frequencyConfig: indicator.frequency_config,
-          frequencyUnitOptions: indicator.frequency_unit_options,
-          level0Descriptor: indicator.level_0_descriptor,
-          level1Descriptor: indicator.level_1_descriptor,
-          level2Descriptor: indicator.level_2_descriptor,
-          level3Descriptor: indicator.level_3_descriptor,
-          level4Descriptor: indicator.level_4_descriptor,
-          displayOrder: indicator.display_order,
-          weight: indicator.weight,
-          subQuestions: indicator.sub_questions || [],
-          expectations: indicator.expectations,
-        })),
-      })),
+      // Objectives hierarchy (new 3-level format)
+      objectives,
+      // Flat modules for backward compatibility
+      modules: modules.map(mapModule),
       responses: responseMap,
       progress: {
         total: totalIndicators,

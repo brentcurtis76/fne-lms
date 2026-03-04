@@ -93,6 +93,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al crear nuevo template' });
     }
 
+    // Get all objectives from source and copy them first
+    const { data: sourceObjectives, error: objectivesError } = await supabaseClient
+      .from('assessment_objectives')
+      .select('*')
+      .eq('template_id', templateId)
+      .order('display_order', { ascending: true });
+
+    if (objectivesError) {
+      console.error('Error fetching source objectives:', objectivesError);
+      await supabaseClient.from('assessment_templates').delete().eq('id', newTemplate.id);
+      return res.status(500).json({ error: 'Error al cargar objetivos' });
+    }
+
+    // Copy objectives and track ID mapping (old objective ID -> new objective ID)
+    const objectiveIdMap: Record<string, string> = {};
+
+    for (const sourceObjective of sourceObjectives || []) {
+      const { data: newObjective, error: newObjectiveError } = await supabaseClient
+        .from('assessment_objectives')
+        .insert({
+          template_id: newTemplate.id,
+          name: sourceObjective.name,
+          description: sourceObjective.description,
+          display_order: sourceObjective.display_order,
+          weight: sourceObjective.weight,
+        })
+        .select()
+        .single();
+
+      if (newObjectiveError) {
+        console.error('Error copying objective:', newObjectiveError);
+        await supabaseClient.from('assessment_objectives').delete().eq('template_id', newTemplate.id);
+        await supabaseClient.from('assessment_templates').delete().eq('id', newTemplate.id);
+        return res.status(500).json({ error: 'Error al copiar objetivos' });
+      }
+
+      objectiveIdMap[sourceObjective.id] = newObjective.id;
+    }
+
     // Get all modules from source
     const { data: sourceModules, error: modulesError } = await supabaseClient
       .from('assessment_modules')
@@ -103,14 +142,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (modulesError) {
       console.error('Error fetching source modules:', modulesError);
       // Cleanup: delete the new template
+      await supabaseClient.from('assessment_objectives').delete().eq('template_id', newTemplate.id);
       await supabaseClient.from('assessment_templates').delete().eq('id', newTemplate.id);
       return res.status(500).json({ error: 'Error al cargar módulos' });
     }
 
-    // Copy modules and track ID mapping
+    // Copy modules and track ID mapping (with remapped objective_id)
     const moduleIdMap: Record<string, string> = {};
 
     for (const sourceModule of sourceModules || []) {
+      // Remap objective_id to the new objective's ID
+      const newObjectiveId = sourceModule.objective_id
+        ? objectiveIdMap[sourceModule.objective_id] || null
+        : null;
+
       const { data: newModule, error: newModuleError } = await supabaseClient
         .from('assessment_modules')
         .insert({
@@ -120,6 +165,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           instructions: sourceModule.instructions,
           display_order: sourceModule.display_order,
           weight: sourceModule.weight,
+          objective_id: newObjectiveId,
         })
         .select()
         .single();
@@ -128,6 +174,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.error('Error copying module:', newModuleError);
         // Cleanup: delete everything we created
         await supabaseClient.from('assessment_modules').delete().eq('template_id', newTemplate.id);
+        await supabaseClient.from('assessment_objectives').delete().eq('template_id', newTemplate.id);
         await supabaseClient.from('assessment_templates').delete().eq('id', newTemplate.id);
         return res.status(500).json({ error: 'Error al copiar módulos' });
       }
@@ -235,7 +282,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Count modules and indicators in new template
+    // Count objectives, modules and indicators in new template
+    const { count: objectiveCount } = await supabaseClient
+      .from('assessment_objectives')
+      .select('*', { count: 'exact', head: true })
+      .eq('template_id', newTemplate.id);
+
     const { count: moduleCount } = await supabaseClient
       .from('assessment_modules')
       .select('*', { count: 'exact', head: true })
@@ -264,6 +316,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         grade: newTemplate.grade,
       },
       stats: {
+        objectives: objectiveCount || 0,
         modules: moduleCount || 0,
         indicators: indicatorCount,
         expectations: expectationCount,

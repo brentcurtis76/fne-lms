@@ -21,6 +21,7 @@ import {
   AREA_LABELS,
   MATURITY_LEVELS,
   CATEGORY_LABELS,
+  ENTITY_LABELS,
   TransformationArea,
   IndicatorCategory,
   GenerationType,
@@ -239,7 +240,7 @@ const AssessmentResults: React.FC = () => {
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-brand_beige flex justify-center items-center">
-        <p className="text-xl text-brand_blue">Cargando...</p>
+        <p className="text-xl text-brand_primary">Cargando...</p>
       </div>
     );
   }
@@ -288,7 +289,7 @@ const AssessmentResults: React.FC = () => {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Back button */}
         <Link href="/docente/assessments" legacyBehavior>
-          <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_blue mb-6">
+          <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_primary mb-6">
             <ArrowLeft className="w-4 h-4 mr-1" />
             Volver a evaluaciones
           </a>
@@ -302,7 +303,7 @@ const AssessmentResults: React.FC = () => {
               <span className="text-sm text-gray-500">Puntuación Total</span>
               <Award className={`w-5 h-5 ${maturityLevel?.textColor || 'text-gray-500'}`} />
             </div>
-            <div className="text-3xl font-bold text-brand_blue mb-2">
+            <div className="text-3xl font-bold text-brand_primary mb-2">
               {Math.round(res.totalScore)}%
             </div>
             <div
@@ -353,7 +354,7 @@ const AssessmentResults: React.FC = () => {
               <span className="text-sm text-gray-500">Indicadores</span>
               <BarChart3 className="w-5 h-5 text-gray-500" />
             </div>
-            <div className="text-3xl font-bold text-brand_blue mb-2">
+            <div className="text-3xl font-bold text-brand_primary mb-2">
               {stats.indicatorsAboveExpectation}/{stats.totalIndicators}
             </div>
             <p className="text-sm text-gray-500">
@@ -388,7 +389,7 @@ const AssessmentResults: React.FC = () => {
         {results.gapAnalysis && (
           <div className="bg-white shadow-md rounded-lg p-6 mb-8">
             <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <Target className="w-5 h-5 text-brand_blue" />
+              <Target className="w-5 h-5 text-brand_primary" />
               Análisis de Brechas - Año {results.instance.transformationYear}
               <span
                 className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
@@ -476,7 +477,7 @@ const AssessmentResults: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Bar chart */}
           <div className="bg-white shadow-md rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Puntuación por Módulo</h3>
+            <h3 className="text-lg font-semibold text-gray-800 mb-4">Puntuación por {ENTITY_LABELS.module}</h3>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={moduleChartData} layout="vertical">
@@ -490,7 +491,7 @@ const AssessmentResults: React.FC = () => {
                       return item?.fullName || label;
                     }}
                   />
-                  <Bar dataKey="score" fill="#2563eb" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="score" fill="#fbbf24" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -509,8 +510,8 @@ const AssessmentResults: React.FC = () => {
                     <Radar
                       name="Puntuación"
                       dataKey="score"
-                      stroke="#2563eb"
-                      fill="#2563eb"
+                      stroke="#f59e0b"
+                      fill="#fbbf24"
                       fillOpacity={0.3}
                     />
                     <Legend />
@@ -523,7 +524,7 @@ const AssessmentResults: React.FC = () => {
 
         {/* Detailed module results */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-800">Detalle por Módulo</h3>
+          <h3 className="text-lg font-semibold text-gray-800">Detalle por {ENTITY_LABELS.module}</h3>
           {res.moduleScores.map((module) => {
             const moduleLevel = Math.round(module.moduleScore / 25); // 0-4 scale
             const moduleLevelInfo = MATURITY_LEVELS[moduleLevel] || MATURITY_LEVELS[0];
@@ -537,7 +538,7 @@ const AssessmentResults: React.FC = () => {
                 >
                   <div className="flex items-center gap-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-brand_blue">
+                      <div className="text-2xl font-bold text-brand_primary">
                         {Math.round(module.moduleScore)}%
                       </div>
                       <div

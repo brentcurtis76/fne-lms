@@ -7,24 +7,37 @@ import type {
 } from '@/types/assessment-builder';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 
-// Generate next version number for an area
-async function getNextVersion(supabaseClient: any, area: TransformationArea): Promise<string> {
+// Generate next version number for an area + grade combination
+async function getNextVersion(supabaseClient: any, area: TransformationArea, gradeId: number): Promise<string> {
   const { data: existing } = await supabaseClient
     .from('assessment_templates')
     .select('version')
     .eq('area', area)
-    .order('version', { ascending: false })
-    .limit(1);
+    .eq('grade_id', gradeId)
+    .order('created_at', { ascending: false })
+    .limit(10);
 
   if (!existing || existing.length === 0) {
     return '1.0.0';
   }
 
-  // Parse version and increment
-  const currentVersion = existing[0].version;
-  const parts = currentVersion.split('.').map(Number);
-  parts[2] = (parts[2] || 0) + 1; // Increment patch version
-  return parts.join('.');
+  // Find the highest valid semver version
+  let maxMajor = 0, maxMinor = 0, maxPatch = 0;
+  for (const row of existing) {
+    const parts = row.version.split('.').map(Number);
+    if (parts.length >= 3 && parts.every((p: number) => !isNaN(p))) {
+      if (parts[0] > maxMajor ||
+          (parts[0] === maxMajor && parts[1] > maxMinor) ||
+          (parts[0] === maxMajor && parts[1] === maxMinor && parts[2] > maxPatch)) {
+        maxMajor = parts[0];
+        maxMinor = parts[1];
+        maxPatch = parts[2];
+      }
+    }
+  }
+
+  // Increment patch version
+  return `${maxMajor}.${maxMinor}.${maxPatch + 1}`;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -182,8 +195,8 @@ async function handlePost(
       return res.status(400).json({ error: 'Área de transformación inválida' });
     }
 
-    // Generate version
-    const version = await getNextVersion(supabaseClient, area);
+    // Generate version (scoped to area + grade)
+    const version = await getNextVersion(supabaseClient, area, grade_id);
 
     // Create template
     const { data: template, error } = await supabaseClient

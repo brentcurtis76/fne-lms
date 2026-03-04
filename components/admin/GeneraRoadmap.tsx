@@ -185,7 +185,7 @@ function calcOverallProgress(phases: RoadmapPhase[]): number {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-type SaveState = 'idle' | 'saving' | 'saved';
+type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 const GeneraRoadmap: React.FC<GeneraRoadmapProps> = ({ initialData, onSave }) => {
   const [data, setData] = useState<RoadmapData>(() => mergeWithDefaults(initialData));
@@ -204,8 +204,71 @@ const GeneraRoadmap: React.FC<GeneraRoadmapProps> = ({ initialData, onSave }) =>
     dataRef.current = data;
   }, [data]);
 
-  // Debounce timer ref
+  // ── Serialized autosave ─────────────────────────────────────────────────────
+  //
+  // Invariant: at most one save request is in-flight at any time.
+  //
+  // saveChainRef holds the promise of the current save chain. Every caller
+  // (debounce, flush, unmount) appends to this chain so they serialize
+  // naturally and callers can await the full chain settling.
+  //
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dirtyRef = useRef(false);
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve());
+  const unmountedRef = useRef(false);
+
+  // Core save: drains dirty flag in a loop. Always appended to saveChainRef
+  // so only one instance runs at a time. Resolves to true if all data was saved,
+  // false if a save failed (dirty remains true).
+  const enqueueSave = useCallback((): Promise<boolean> => {
+    let resolveResult: (ok: boolean) => void;
+    const resultPromise = new Promise<boolean>((r) => { resolveResult = r; });
+
+    const work = async () => {
+      let failed = false;
+      while (dirtyRef.current) {
+        dirtyRef.current = false;
+        const snapshot = dataRef.current;
+        try {
+          await onSaveRef.current(snapshot);
+        } catch {
+          dirtyRef.current = true;
+          failed = true;
+          break;
+        }
+      }
+      // Update indicator (skip if component unmounted)
+      if (!unmountedRef.current) {
+        if (failed) {
+          setSaveState('error');
+        } else {
+          if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+          setSaveState('saved');
+          savedTimerRef.current = setTimeout(() => setSaveState('idle'), 2000);
+        }
+      }
+      resolveResult(!failed);
+    };
+    // Chain: waits for any in-flight save to finish, then runs ours
+    saveChainRef.current = saveChainRef.current.then(work, work);
+    return resultPromise;
+  }, []);
+
+  // Flush: cancel debounce timer + drain the save chain. Returns true if
+  // all data was saved, false if save failed (data still dirty).
+  const flushSave = useCallback(async (): Promise<boolean> => {
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    if (!dirtyRef.current) {
+      // Nothing pending, but wait for any in-flight save to finish
+      await saveChainRef.current;
+      return !dirtyRef.current; // in-flight save may have failed
+    }
+    return enqueueSave();
+  }, [enqueueSave]);
 
   // Trigger debounced save whenever data changes (only in edit mode after first render)
   const isFirstRender = useRef(true);
@@ -216,31 +279,34 @@ const GeneraRoadmap: React.FC<GeneraRoadmapProps> = ({ initialData, onSave }) =>
     }
     if (!editMode) return;
 
+    dirtyRef.current = true;
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
 
     setSaveState('saving');
-    debounceRef.current = setTimeout(async () => {
-      try {
-        await onSaveRef.current(data);
-        setSaveState('saved');
-        setTimeout(() => setSaveState('idle'), 2000);
-      } catch {
-        setSaveState('idle');
-      }
+    debounceRef.current = setTimeout(() => {
+      debounceRef.current = null;
+      enqueueSave();
     }, 400);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [data, editMode]);
+  }, [data, editMode, enqueueSave]);
 
-  // Flush on unmount to avoid losing the last edit
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-        // Fire immediately on unmount if there was a pending save (use ref to get latest data)
-        onSaveRef.current(dataRef.current).catch(() => { /* best effort */ });
+      unmountedRef.current = true;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      if (dirtyRef.current) {
+        // Enqueue onto the chain so it waits for any in-flight save to finish first.
+        // Cannot await in cleanup, but the chain ensures serialization.
+        saveChainRef.current = saveChainRef.current.then(
+          () => onSaveRef.current(dataRef.current).catch(() => { /* best effort */ }),
+          () => onSaveRef.current(dataRef.current).catch(() => { /* best effort */ }),
+        );
       }
     };
   }, []);
@@ -377,11 +443,23 @@ const GeneraRoadmap: React.FC<GeneraRoadmapProps> = ({ initialData, onSave }) =>
                 ✓ GUARDADO
               </span>
             )}
+            {saveState === 'error' && (
+              <span style={{ color: COLORS.blocked, fontSize: '13px', fontWeight: 600 }}>
+                ERROR AL GUARDAR
+              </span>
+            )}
           </div>
 
           {/* FIX [BC-1]: Edit toggle button with hover state */}
           <button
-            onClick={() => setEditMode((prev) => !prev)}
+            onClick={async () => {
+              if (editMode) {
+                // Await flush — stay in edit mode if save fails
+                const ok = await flushSave();
+                if (!ok) return;
+              }
+              setEditMode((prev) => !prev);
+            }}
             onMouseEnter={() => setHoveredBtn('edit')}
             onMouseLeave={() => setHoveredBtn(null)}
             style={{

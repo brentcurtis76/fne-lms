@@ -276,12 +276,12 @@ describe('Gantt chart UI features', () => {
     expect(componentSrc).toContain('<circle');
   });
 
-  it('uses dark background brand color #0a0a0a', () => {
-    expect(componentSrc).toContain("'#0a0a0a'");
+  it('uses light background for platform coherence', () => {
+    expect(componentSrc).toContain("bg:       '#ffffff'");
   });
 
-  it('uses yellow accent brand color #fbbf24', () => {
-    expect(componentSrc).toContain("'#fbbf24'");
+  it('uses yellow accent brand color #f59e0b', () => {
+    expect(componentSrc).toContain("'#f59e0b'");
   });
 
   it('shows week header row', () => {
@@ -347,9 +347,10 @@ describe('Height adjustment — MainLayout compatibility', () => {
     expect(componentSrc).not.toContain("height: '100vh'");
   });
 
-  it('bottom bar uses sticky positioning (not fixed) to avoid sidebar overlap', () => {
-    // The bottom bar should be sticky, not fixed
-    expect(componentSrc).toContain("position: 'sticky'");
+  it('bottom bar uses flexShrink layout (not fixed positioning) to avoid sidebar overlap', () => {
+    // The bottom bar should be a flex child with flexShrink: 0 in a column layout
+    expect(componentSrc).toContain("flexShrink: 0");
+    expect(componentSrc).toContain("flexDirection: 'column'");
     // Should not have fixed with left/right spanning full viewport
     const fixedIdx = componentSrc.indexOf("position: 'fixed'");
     expect(fixedIdx).toBe(-1);

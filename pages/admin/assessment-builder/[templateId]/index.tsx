@@ -196,6 +196,7 @@ const TemplateEditor: React.FC = () => {
   // Preview modal state
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewModule, setPreviewModule] = useState<ModuleWithIndicators | null>(null);
+  const [previewCoberturaAnswer, setPreviewCoberturaAnswer] = useState<boolean | null>(null);
 
   // Inline confirmation state (replaces window.confirm)
   const [pendingConfirm, setPendingConfirm] = useState<{
@@ -1073,6 +1074,7 @@ const TemplateEditor: React.FC = () => {
       }
     }
     setPreviewModule(moduleToPreview);
+    setPreviewCoberturaAnswer(null);
     setIsPreviewOpen(true);
   };
 
@@ -2468,83 +2470,122 @@ const TemplateEditor: React.FC = () => {
                   ) : (previewModule.indicators || []).length === 0 ? (
                     <p className="text-sm text-gray-500 italic">Esta práctica aún no tiene indicadores.</p>
                   ) : (
-                    [...(previewModule.indicators || [])]
-                      .sort((a, b) => a.displayOrder - b.displayOrder)
-                      .map((indicator) => (
-                        <div key={indicator.id} className="border border-gray-200 rounded-lg p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              indicator.category === 'cobertura' ? 'bg-gray-100 text-brand_gray_dark' :
-                              indicator.category === 'frecuencia' ? 'bg-amber-100 text-amber-700' :
-                              indicator.category === 'traspaso' ? 'bg-purple-100 text-purple-700' :
-                              'bg-blue-100 text-blue-700'
-                            }`}>
-                              {CATEGORY_LABELS[indicator.category]}
-                            </span>
-                            {indicator.code && (
-                              <span className="text-xs font-mono bg-gray-100 px-1 rounded">{indicator.code}</span>
-                            )}
-                          </div>
-                          <h5 className="font-medium text-gray-900">{indicator.name}</h5>
-                          {indicator.description && (
-                            <p className="text-sm text-gray-500 mt-1">{indicator.description}</p>
-                          )}
+                    (() => {
+                      const sorted = [...(previewModule.indicators || [])].sort((a, b) => a.displayOrder - b.displayOrder);
+                      return (
+                        <>
+                          {sorted.map((indicator, idx) => {
+                            const isFirstIndicator = idx === 0;
 
-                          {/* Simulated response UI per category */}
-                          <div className="mt-3">
-                            {indicator.category === 'cobertura' && (
-                              <div className="flex gap-4">
-                                <label className="flex items-center gap-2 text-sm text-gray-600">
-                                  <input type="radio" disabled name={`preview-${indicator.id}`} /> Sí
-                                </label>
-                                <label className="flex items-center gap-2 text-sm text-gray-600">
-                                  <input type="radio" disabled name={`preview-${indicator.id}`} /> No
-                                </label>
-                              </div>
-                            )}
-                            {indicator.category === 'frecuencia' && (
-                              <input type="number" disabled placeholder="Valor" className="w-24 px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" />
-                            )}
-                            {indicator.category === 'profundidad' && (
-                              <div className="space-y-2">
-                                {([0, 1, 2, 3, 4] as const).map(level => {
-                                  const descriptorKey = `level${level}Descriptor` as keyof IndicatorData;
-                                  const desc = indicator[descriptorKey] as string | undefined;
-                                  return desc ? (
-                                    <label key={level} className="flex items-start gap-2 text-sm">
-                                      <input type="radio" disabled name={`preview-prof-${indicator.id}`} className="mt-1" />
-                                      <span><strong>{level}:</strong> {desc}</span>
-                                    </label>
-                                  ) : null;
-                                })}
-                              </div>
-                            )}
-                            {indicator.category === 'traspaso' && (
-                              <div className="space-y-3">
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                                    Adjunte link a carpeta con evidencia de sus respuestas
-                                  </label>
-                                  <input type="url" disabled placeholder="https://..." className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" />
-                                  <p className="text-xs text-gray-400 mt-0.5">El archivo enlazado debe ser accesible para cualquier persona con el link</p>
+                            // Gate logic: non-first indicators only show if cobertura = Sí
+                            if (!isFirstIndicator) {
+                              if (previewCoberturaAnswer === null) return null;
+                              if (previewCoberturaAnswer === false) return null;
+                            }
+
+                            return (
+                              <div key={indicator.id} className="border border-gray-200 rounded-lg p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                    indicator.category === 'cobertura' ? 'bg-gray-100 text-brand_gray_dark' :
+                                    indicator.category === 'frecuencia' ? 'bg-amber-100 text-amber-700' :
+                                    indicator.category === 'traspaso' ? 'bg-purple-100 text-purple-700' :
+                                    'bg-blue-100 text-blue-700'
+                                  }`}>
+                                    {CATEGORY_LABELS[indicator.category]}
+                                  </span>
+                                  {indicator.code && (
+                                    <span className="text-xs font-mono bg-gray-100 px-1 rounded">{indicator.code}</span>
+                                  )}
                                 </div>
-                                <div>
-                                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                                    Mejoras sugeridas
-                                  </label>
-                                  <textarea disabled placeholder="¿Con la experiencia adquirida, qué mejoras sugieres...?" className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" rows={3} />
+                                <h5 className="font-medium text-gray-900">{indicator.name}</h5>
+                                {indicator.description && (
+                                  <p className="text-sm text-gray-500 mt-1">{indicator.description}</p>
+                                )}
+
+                                {/* Simulated response UI per category */}
+                                <div className="mt-3">
+                                  {indicator.category === 'cobertura' && (
+                                    <div className="flex gap-4">
+                                      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                                        <input
+                                          type="radio"
+                                          name={`preview-${indicator.id}`}
+                                          checked={previewCoberturaAnswer === true}
+                                          onChange={() => setPreviewCoberturaAnswer(true)}
+                                        /> Sí
+                                      </label>
+                                      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                                        <input
+                                          type="radio"
+                                          name={`preview-${indicator.id}`}
+                                          checked={previewCoberturaAnswer === false}
+                                          onChange={() => setPreviewCoberturaAnswer(false)}
+                                        /> No
+                                      </label>
+                                    </div>
+                                  )}
+                                  {indicator.category === 'frecuencia' && (
+                                    <input type="number" disabled placeholder="Valor" className="w-24 px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" />
+                                  )}
+                                  {indicator.category === 'profundidad' && (
+                                    <div className="space-y-2">
+                                      {([0, 1, 2, 3, 4] as const).map(level => {
+                                        const descriptorKey = `level${level}Descriptor` as keyof IndicatorData;
+                                        const desc = indicator[descriptorKey] as string | undefined;
+                                        return desc ? (
+                                          <label key={level} className="flex items-start gap-2 text-sm">
+                                            <input type="radio" disabled name={`preview-prof-${indicator.id}`} className="mt-1" />
+                                            <span><strong>{level}:</strong> {desc}</span>
+                                          </label>
+                                        ) : null;
+                                      })}
+                                    </div>
+                                  )}
+                                  {indicator.category === 'traspaso' && (
+                                    <div className="space-y-3">
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">
+                                          Adjunte link a carpeta con evidencia de sus respuestas
+                                        </label>
+                                        <input type="url" disabled placeholder="https://..." className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" />
+                                        <p className="text-xs text-gray-400 mt-0.5">El archivo enlazado debe ser accesible para cualquier persona con el link</p>
+                                      </div>
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">
+                                          Mejoras sugeridas
+                                        </label>
+                                        <textarea disabled placeholder="¿Con la experiencia adquirida, qué mejoras sugieres...?" className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" rows={3} />
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                            )}
-                          </div>
-                        </div>
-                      ))
+                            );
+                          })}
+
+                          {/* Gate messages after cobertura indicator */}
+                          {previewCoberturaAnswer === null && sorted.length > 1 && (
+                            <div className="text-sm text-gray-400 italic text-center py-3">
+                              Seleccione Sí o No para ver cómo se comporta la evaluación
+                            </div>
+                          )}
+                          {previewCoberturaAnswer === false && (
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                              <p className="text-sm text-gray-500">Esta práctica no se implementa en este establecimiento</p>
+                              <p className="text-xs text-gray-400 mt-1">Los demás indicadores no se mostrarán al evaluador</p>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()
                   )}
                 </div>
 
                 {/* Note about cobertura gate */}
-                <div className="mt-4 bg-yellow-50 p-3 rounded-lg text-xs text-yellow-700">
-                  <strong>Nota:</strong> El primer indicador (Cobertura) actúa como filtro. Si el evaluador responde &quot;No&quot;, los demás indicadores no se mostrarán.
+                <div className="mt-4 bg-blue-50 p-3 rounded-lg text-xs text-blue-700">
+                  <strong>Comportamiento real:</strong> El primer indicador (Cobertura) actúa como filtro.
+                  Pruebe seleccionando Sí o No arriba para ver cómo cambia la vista del evaluador.
                 </div>
               </div>
             </div>

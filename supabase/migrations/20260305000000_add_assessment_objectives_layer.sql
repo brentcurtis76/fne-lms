@@ -3,14 +3,26 @@
 --
 -- New hierarchy: Evaluación → Objetivo → Acciones (Módulos) → Indicadores
 --
+-- The table name assessment_objectives was previously used by an orphaned
+-- transformation-rubric table (Dec 2025) with a different schema (area_id,
+-- objective_number, title). That table had 1 seed row, no FK references,
+-- and no application code. We DROP it here and recreate with the correct
+-- Assessment Builder schema.
+--
 -- Changes:
---   1. Create assessment_objectives table
---   2. Add objective_id FK to assessment_modules
---   3. RLS policies for assessment_objectives
+--   1. Drop old assessment_objectives table
+--   2. Create assessment_objectives with correct schema
+--   3. Add objective_id FK to assessment_modules
+--   4. RLS policies for assessment_objectives
+--   5. Updated_at trigger
 -- ============================================================
 
+-- 0. Drop old orphaned table and its policy
+DROP POLICY IF EXISTS "admin_full_access_assessment_objectives" ON assessment_objectives;
+DROP TABLE IF EXISTS assessment_objectives CASCADE;
+
 -- 1. Create assessment_objectives table
-CREATE TABLE IF NOT EXISTS assessment_objectives (
+CREATE TABLE assessment_objectives (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   template_id UUID NOT NULL REFERENCES assessment_templates(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -22,9 +34,9 @@ CREATE TABLE IF NOT EXISTS assessment_objectives (
 );
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_assessment_objectives_template_id
+CREATE INDEX idx_assessment_objectives_template_id
   ON assessment_objectives(template_id);
-CREATE INDEX IF NOT EXISTS idx_assessment_objectives_display_order
+CREATE INDEX idx_assessment_objectives_display_order
   ON assessment_objectives(template_id, display_order);
 
 -- 2. Add objective_id to assessment_modules
@@ -38,21 +50,18 @@ CREATE INDEX IF NOT EXISTS idx_assessment_modules_objective_id
 ALTER TABLE assessment_objectives ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (mirror assessment_modules policies)
--- Allow all authenticated users to SELECT (app-level permission check handles fine-grained access)
 CREATE POLICY "assessment_objectives_select_authenticated"
   ON assessment_objectives
   FOR SELECT
   TO authenticated
   USING (true);
 
--- Allow INSERT for authenticated users (app checks admin/consultor permission)
 CREATE POLICY "assessment_objectives_insert_authenticated"
   ON assessment_objectives
   FOR INSERT
   TO authenticated
   WITH CHECK (true);
 
--- Allow UPDATE for authenticated users (app checks admin permission)
 CREATE POLICY "assessment_objectives_update_authenticated"
   ON assessment_objectives
   FOR UPDATE
@@ -60,7 +69,6 @@ CREATE POLICY "assessment_objectives_update_authenticated"
   USING (true)
   WITH CHECK (true);
 
--- Allow DELETE for authenticated users (app checks admin permission)
 CREATE POLICY "assessment_objectives_delete_authenticated"
   ON assessment_objectives
   FOR DELETE

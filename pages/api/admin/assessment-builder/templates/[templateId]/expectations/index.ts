@@ -88,7 +88,12 @@ async function handleGet(
           name,
           category,
           display_order,
-          frequency_unit_options
+          frequency_unit_options,
+          level_0_descriptor,
+          level_1_descriptor,
+          level_2_descriptor,
+          level_3_descriptor,
+          level_4_descriptor
         )
       `)
       .eq('template_id', templateId)
@@ -155,6 +160,13 @@ async function handleGet(
             indicatorCategory: indicator.category,
             frequencyUnitOptions: indicator.frequency_unit_options,
             displayOrder: indicator.display_order,
+            levelDescriptors: indicator.category === 'profundidad' ? {
+              level0: indicator.level_0_descriptor,
+              level1: indicator.level_1_descriptor,
+              level2: indicator.level_2_descriptor,
+              level3: indicator.level_3_descriptor,
+              level4: indicator.level_4_descriptor,
+            } : undefined,
             // For always_gt templates: only GT expectations
             // For non-always_gt templates: both GT and GI expectations
             expectationsGT: formatExpectation(gtExp),

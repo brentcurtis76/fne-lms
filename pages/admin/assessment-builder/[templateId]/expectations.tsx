@@ -43,6 +43,13 @@ interface IndicatorExpectation {
   indicatorName: string;
   indicatorCategory: IndicatorCategory;
   frequencyUnitOptions?: FrequencyUnit[];
+  levelDescriptors?: {
+    level0?: string;
+    level1?: string;
+    level2?: string;
+    level3?: string;
+    level4?: string;
+  };
   expectationsGT: ExpectationData;
   expectationsGI: ExpectationData | null; // null if template is always_gt
   isDirtyGT: boolean;
@@ -85,6 +92,9 @@ const ExpectationsEditor: React.FC = () => {
   // Expectations data
   const [moduleExpectations, setModuleExpectations] = useState<ModuleExpectations[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Expanded level descriptors state (indicatorId or null)
+  const [expandedDescriptors, setExpandedDescriptors] = useState<string | null>(null);
 
   // Check auth and permissions
   useEffect(() => {
@@ -213,6 +223,7 @@ const ExpectationsEditor: React.FC = () => {
             indicatorName: ind.indicatorName,
             indicatorCategory: ind.indicatorCategory,
             frequencyUnitOptions: ind.frequencyUnitOptions,
+            levelDescriptors: ind.levelDescriptors,
             expectationsGT: gtData,
             expectationsGI: giData,
             isDirtyGT: false,
@@ -402,7 +413,7 @@ const ExpectationsEditor: React.FC = () => {
             checked={value === 1}
             onChange={(e) => updateExpectation(moduleId, indicator.indicatorId, generationType, yearKey, e.target.checked ? 1 : null)}
             disabled={disabled}
-            className="h-4 w-4 text-brand_blue focus:ring-brand_blue border-gray-300 rounded disabled:opacity-50"
+            className="h-4 w-4 text-brand_primary focus:ring-brand_accent border-gray-300 rounded disabled:opacity-50"
           />
         </td>
       );
@@ -448,6 +459,21 @@ const ExpectationsEditor: React.FC = () => {
               ))}
             </select>
           </div>
+        </td>
+      );
+    }
+
+    // For traspaso indicators, show checkbox (same as cobertura — expected yes/no per year)
+    if (indicator.indicatorCategory === 'traspaso') {
+      return (
+        <td key={`${yearKey}-${generationType}`} className="px-2 py-2 text-center border-r border-gray-200">
+          <input
+            type="checkbox"
+            checked={value === 1}
+            onChange={(e) => updateExpectation(moduleId, indicator.indicatorId, generationType, yearKey, e.target.checked ? 1 : null)}
+            disabled={disabled}
+            className="h-4 w-4 text-brand_primary focus:ring-brand_accent border-gray-300 rounded disabled:opacity-50"
+          />
         </td>
       );
     }
@@ -631,6 +657,7 @@ const ExpectationsEditor: React.FC = () => {
                 <li><strong>Profundidad (0-4):</strong> Selecciona el nivel de madurez esperado para cada año de transformación</li>
                 <li><strong>Cobertura:</strong> Marca si se espera que el indicador esté implementado en ese año</li>
                 <li><strong>Frecuencia:</strong> Ingresa el valor mínimo esperado (ej: 4 veces por semestre)</li>
+                <li><strong>Traspaso:</strong> Marca si se espera que el evaluador adjunte evidencia y sugerencias de mejora ese año</li>
                 <li><strong>Tolerancia:</strong> Define cuántos niveles por debajo de lo esperado se considera &quot;en camino&quot; (0-2)</li>
                 <li>Deja en blanco (-) si no hay expectativa definida para ese año</li>
               </ul>
@@ -747,14 +774,37 @@ const ExpectationsEditor: React.FC = () => {
                                   <span className="w-2 h-2 bg-yellow-500 rounded-full flex-shrink-0" title="Cambios sin guardar" />
                                 )}
                                 <div className="min-w-0">
-                                  <div className="text-sm font-medium text-gray-900 truncate">
+                                  <div className="flex items-center gap-1 text-sm font-medium text-gray-900">
                                     {indicator.indicatorCode && (
-                                      <span className="font-mono text-xs bg-gray-100 px-1 rounded mr-2">
+                                      <span className="font-mono text-xs bg-gray-100 px-1 rounded mr-1">
                                         {indicator.indicatorCode}
                                       </span>
                                     )}
-                                    {indicator.indicatorName}
+                                    <span className="truncate">{indicator.indicatorName}</span>
+                                    {indicator.indicatorCategory === 'profundidad' && indicator.levelDescriptors && (
+                                      <button
+                                        onClick={() => setExpandedDescriptors(prev => prev === indicator.indicatorId ? null : indicator.indicatorId)}
+                                        className="ml-1 text-gray-400 hover:text-brand_primary flex-shrink-0"
+                                        aria-label={`Ver descriptores de nivel para ${indicator.indicatorName}`}
+                                        aria-expanded={expandedDescriptors === indicator.indicatorId}
+                                      >
+                                        <Info className="w-3.5 h-3.5" />
+                                      </button>
+                                    )}
                                   </div>
+                                  {expandedDescriptors === indicator.indicatorId && indicator.levelDescriptors && (
+                                    <div className="mt-2 text-xs bg-blue-50 p-2 rounded space-y-1">
+                                      {(['level0', 'level1', 'level2', 'level3', 'level4'] as const).map((key, level) => {
+                                        const desc = indicator.levelDescriptors?.[key];
+                                        return desc ? (
+                                          <div key={key} className="flex gap-2">
+                                            <span className="font-semibold text-brand_primary w-4">{level}</span>
+                                            <span className="text-gray-700">{desc}</span>
+                                          </div>
+                                        ) : null;
+                                      })}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -769,10 +819,13 @@ const ExpectationsEditor: React.FC = () => {
                                     ? 'bg-brand_beige text-brand_primary'
                                     : indicator.indicatorCategory === 'frecuencia'
                                     ? 'bg-amber-100 text-amber-700'
+                                    : indicator.indicatorCategory === 'traspaso'
+                                    ? 'bg-purple-100 text-purple-700'
                                     : 'bg-amber-100 text-amber-700'
                                 }`}>
                                   {indicator.indicatorCategory === 'cobertura' ? 'Cob' :
-                                   indicator.indicatorCategory === 'frecuencia' ? 'Frec' : 'Prof'}
+                                   indicator.indicatorCategory === 'frecuencia' ? 'Frec' :
+                                   indicator.indicatorCategory === 'traspaso' ? 'Tras' : 'Prof'}
                                 </span>
                               )}
                             </td>
@@ -890,6 +943,10 @@ const ExpectationsEditor: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs">Prof</span>
                 <span className="text-gray-600">Profundidad (niveles 0-4)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs">Tras</span>
+                <span className="text-gray-600">Traspaso (¿Se espera evidencia y mejoras ese año?)</span>
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-gray-200">

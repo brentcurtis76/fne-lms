@@ -20,6 +20,7 @@ import {
   History,
   Lock,
   Eye,
+  X,
   Target,
   Archive,
   RotateCcw,
@@ -192,6 +193,10 @@ const TemplateEditor: React.FC = () => {
     counts?: { instances: number; responses: number; snapshots: number; modules: number };
   } | null>(null);
 
+  // Preview modal state
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewModule, setPreviewModule] = useState<ModuleWithIndicators | null>(null);
+
   // Inline confirmation state (replaces window.confirm)
   const [pendingConfirm, setPendingConfirm] = useState<{
     key: string;
@@ -221,6 +226,7 @@ const TemplateEditor: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      if (isPreviewOpen) { setIsPreviewOpen(false); return; }
       if (isObjectiveModalOpen) { setIsObjectiveModalOpen(false); return; }
       if (isModuleModalOpen) { setIsModuleModalOpen(false); return; }
       if (isIndicatorModalOpen) { setIsIndicatorModalOpen(false); return; }
@@ -230,7 +236,7 @@ const TemplateEditor: React.FC = () => {
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isObjectiveModalOpen, isModuleModalOpen, isIndicatorModalOpen, isVersionHistoryOpen, publishStep, pendingConfirm]);
+  }, [isPreviewOpen, isObjectiveModalOpen, isModuleModalOpen, isIndicatorModalOpen, isVersionHistoryOpen, publishStep, pendingConfirm]);
 
   // Check auth and permissions
   useEffect(() => {
@@ -1049,6 +1055,27 @@ const TemplateEditor: React.FC = () => {
     );
   };
 
+  // Open preview modal for a module — fetches indicators first if not yet loaded
+  const openModulePreview = async (module: ModuleWithIndicators) => {
+    let moduleToPreview = module;
+    if (!module.indicatorsLoaded && template) {
+      try {
+        const response = await fetch(
+          `/api/admin/assessment-builder/templates/${template.id}/modules/${module.id}/indicators`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          moduleToPreview = { ...module, indicators: data.indicators || [], indicatorsLoaded: true };
+          setModules(prev => prev.map(m => m.id === module.id ? moduleToPreview : m));
+        }
+      } catch (error) {
+        console.error('Error fetching indicators for preview:', error);
+      }
+    }
+    setPreviewModule(moduleToPreview);
+    setIsPreviewOpen(true);
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem('rememberMe');
@@ -1676,6 +1703,14 @@ const TemplateEditor: React.FC = () => {
                                       </div>
                                     </button>
                                   </div>
+                                  <button
+                                    onClick={() => openModulePreview(module)}
+                                    aria-label={`Vista previa del evaluador: ${module.name}`}
+                                    className="p-2.5 text-gray-500 hover:text-brand_primary hover:bg-gray-100 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-1"
+                                    title="Vista previa del evaluador"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
                                   {canEdit && (
                                     <div className="flex items-center gap-1">
                                       <button
@@ -2377,6 +2412,140 @@ const TemplateEditor: React.FC = () => {
                 >
                   Cerrar
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal — shows the module as the evaluator would see it */}
+      {isPreviewOpen && previewModule && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setIsPreviewOpen(false)} />
+
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="preview-modal-title"
+              className="relative inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg max-h-[85vh] overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50 rounded-t-lg">
+                <div>
+                  <h3 id="preview-modal-title" className="text-lg font-semibold text-brand_primary">Vista Previa del Evaluador</h3>
+                  <p className="text-xs text-gray-500">Así verá esta práctica quien complete la evaluación</p>
+                </div>
+                <button
+                  onClick={() => setIsPreviewOpen(false)}
+                  aria-label="Cerrar vista previa"
+                  autoFocus
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Preview content */}
+              <div className="p-6">
+                {/* Module name + description */}
+                <h4 className="text-lg font-semibold text-brand_primary">{previewModule.name}</h4>
+                {previewModule.description && (
+                  <p className="text-sm text-gray-500 mt-1">{previewModule.description}</p>
+                )}
+
+                {/* Instructions in blue box */}
+                {previewModule.instructions && (
+                  <div className="mt-3 bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
+                    {previewModule.instructions}
+                  </div>
+                )}
+
+                {/* Indicators */}
+                <div className="mt-4 space-y-4">
+                  {!previewModule.indicatorsLoaded ? (
+                    <p className="text-sm text-gray-500 italic">Cargando indicadores...</p>
+                  ) : (previewModule.indicators || []).length === 0 ? (
+                    <p className="text-sm text-gray-500 italic">Esta práctica aún no tiene indicadores.</p>
+                  ) : (
+                    [...(previewModule.indicators || [])]
+                      .sort((a, b) => a.displayOrder - b.displayOrder)
+                      .map((indicator) => (
+                        <div key={indicator.id} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                              indicator.category === 'cobertura' ? 'bg-gray-100 text-brand_gray_dark' :
+                              indicator.category === 'frecuencia' ? 'bg-amber-100 text-amber-700' :
+                              indicator.category === 'traspaso' ? 'bg-purple-100 text-purple-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>
+                              {CATEGORY_LABELS[indicator.category]}
+                            </span>
+                            {indicator.code && (
+                              <span className="text-xs font-mono bg-gray-100 px-1 rounded">{indicator.code}</span>
+                            )}
+                          </div>
+                          <h5 className="font-medium text-gray-900">{indicator.name}</h5>
+                          {indicator.description && (
+                            <p className="text-sm text-gray-500 mt-1">{indicator.description}</p>
+                          )}
+
+                          {/* Simulated response UI per category */}
+                          <div className="mt-3">
+                            {indicator.category === 'cobertura' && (
+                              <div className="flex gap-4">
+                                <label className="flex items-center gap-2 text-sm text-gray-600">
+                                  <input type="radio" disabled name={`preview-${indicator.id}`} /> Sí
+                                </label>
+                                <label className="flex items-center gap-2 text-sm text-gray-600">
+                                  <input type="radio" disabled name={`preview-${indicator.id}`} /> No
+                                </label>
+                              </div>
+                            )}
+                            {indicator.category === 'frecuencia' && (
+                              <input type="number" disabled placeholder="Valor" className="w-24 px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" />
+                            )}
+                            {indicator.category === 'profundidad' && (
+                              <div className="space-y-2">
+                                {([0, 1, 2, 3, 4] as const).map(level => {
+                                  const descriptorKey = `level${level}Descriptor` as keyof IndicatorData;
+                                  const desc = indicator[descriptorKey] as string | undefined;
+                                  return desc ? (
+                                    <label key={level} className="flex items-start gap-2 text-sm">
+                                      <input type="radio" disabled name={`preview-prof-${indicator.id}`} className="mt-1" />
+                                      <span><strong>{level}:</strong> {desc}</span>
+                                    </label>
+                                  ) : null;
+                                })}
+                              </div>
+                            )}
+                            {indicator.category === 'traspaso' && (
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                                    Adjunte link a carpeta con evidencia de sus respuestas
+                                  </label>
+                                  <input type="url" disabled placeholder="https://..." className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" />
+                                  <p className="text-xs text-gray-400 mt-0.5">El archivo enlazado debe ser accesible para cualquier persona con el link</p>
+                                </div>
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                                    Mejoras sugeridas
+                                  </label>
+                                  <textarea disabled placeholder="¿Con la experiencia adquirida, qué mejoras sugieres...?" className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" rows={3} />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                  )}
+                </div>
+
+                {/* Note about cobertura gate */}
+                <div className="mt-4 bg-yellow-50 p-3 rounded-lg text-xs text-yellow-700">
+                  <strong>Nota:</strong> El primer indicador (Cobertura) actúa como filtro. Si el evaluador responde &quot;No&quot;, los demás indicadores no se mostrarán.
+                </div>
               </div>
             </div>
           </div>

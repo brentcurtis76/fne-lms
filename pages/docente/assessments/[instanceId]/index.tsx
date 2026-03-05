@@ -77,6 +77,7 @@ interface ResponseData {
   profundityLevel?: number;
   rationale?: string;
   evidenceNotes?: string;
+  subResponses?: Record<string, unknown>;
 }
 
 const AssessmentResponseForm: React.FC = () => {
@@ -177,6 +178,19 @@ const AssessmentResponseForm: React.FC = () => {
     ? objectives.flatMap((o) => o.modules)
     : modules;
 
+  // Check if an indicator response is "answered"
+  const isIndicatorAnswered = (indicator: IndicatorData, resp: ResponseData | undefined): boolean => {
+    if (!resp) return false;
+    if (indicator.category === 'cobertura') return resp.coverageValue !== undefined && resp.coverageValue !== null;
+    if (indicator.category === 'frecuencia') return resp.frequencyValue !== undefined && resp.frequencyValue !== null;
+    if (indicator.category === 'profundidad') return resp.profundityLevel !== undefined && resp.profundityLevel !== null;
+    if (indicator.category === 'traspaso') {
+      const sub = resp.subResponses as Record<string, unknown> | undefined;
+      return !!(sub?.evidence_link || sub?.improvement_suggestions);
+    }
+    return false;
+  };
+
   // Update progress whenever responses change
   useEffect(() => {
     const modulesToCheck = objectives.length > 0
@@ -189,17 +203,34 @@ const AssessmentResponseForm: React.FC = () => {
       let answered = 0;
 
       modulesToCheck.forEach(module => {
-        module.indicators.forEach(indicator => {
+        const sortedIndicators = [...module.indicators].sort((a, b) => a.displayOrder - b.displayOrder);
+        const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
+
+        if (hasCoberturaGate) {
+          const coberturaResp = responses[sortedIndicators[0].id];
+          const coberturaValue = coberturaResp?.coverageValue;
+
+          // Always count the cobertura indicator
           total++;
-          const resp = responses[indicator.id];
-          if (resp) {
-            const hasValue =
-              (indicator.category === 'cobertura' && resp.coverageValue !== undefined && resp.coverageValue !== null) ||
-              (indicator.category === 'frecuencia' && resp.frequencyValue !== undefined && resp.frequencyValue !== null) ||
-              (indicator.category === 'profundidad' && resp.profundityLevel !== undefined && resp.profundityLevel !== null);
-            if (hasValue) answered++;
+          if (isIndicatorAnswered(sortedIndicators[0], coberturaResp)) answered++;
+
+          if (coberturaValue === false) {
+            // Gate closed: hidden indicators don't count
+          } else if (coberturaValue === true) {
+            // Gate open: count remaining indicators
+            sortedIndicators.slice(1).forEach(indicator => {
+              total++;
+              if (isIndicatorAnswered(indicator, responses[indicator.id])) answered++;
+            });
           }
-        });
+          // coberturaValue undefined: only show cobertura indicator (already counted above)
+        } else {
+          // Legacy: no cobertura gate, count all
+          module.indicators.forEach(indicator => {
+            total++;
+            if (isIndicatorAnswered(indicator, responses[indicator.id])) answered++;
+          });
+        }
       });
 
       setProgress({
@@ -208,6 +239,7 @@ const AssessmentResponseForm: React.FC = () => {
         percentage: total > 0 ? Math.round((answered / total) * 100) : 0,
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [responses, modules, objectives]);
 
   // Toggle module expansion
@@ -265,6 +297,7 @@ const AssessmentResponseForm: React.FC = () => {
         profundity_level: currentResponses[id].profundityLevel,
         rationale: currentResponses[id].rationale,
         evidence_notes: currentResponses[id].evidenceNotes,
+        sub_responses: currentResponses[id].subResponses,
       }));
 
     if (responsesToSave.length === 0) return;
@@ -302,17 +335,28 @@ const AssessmentResponseForm: React.FC = () => {
     let answered = 0;
 
     allModules.forEach(module => {
-      module.indicators.forEach(indicator => {
+      const sortedIndicators = [...module.indicators].sort((a, b) => a.displayOrder - b.displayOrder);
+      const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
+
+      if (hasCoberturaGate) {
+        const coberturaResp = currentResponses[sortedIndicators[0].id];
+        const coberturaValue = coberturaResp?.coverageValue;
+
         total++;
-        const resp = currentResponses[indicator.id];
-        if (resp) {
-          const hasValue =
-            (indicator.category === 'cobertura' && resp.coverageValue !== undefined && resp.coverageValue !== null) ||
-            (indicator.category === 'frecuencia' && resp.frequencyValue !== undefined && resp.frequencyValue !== null) ||
-            (indicator.category === 'profundidad' && resp.profundityLevel !== undefined && resp.profundityLevel !== null);
-          if (hasValue) answered++;
+        if (isIndicatorAnswered(sortedIndicators[0], coberturaResp)) answered++;
+
+        if (coberturaValue === true) {
+          sortedIndicators.slice(1).forEach(indicator => {
+            total++;
+            if (isIndicatorAnswered(indicator, currentResponses[indicator.id])) answered++;
+          });
         }
-      });
+      } else {
+        module.indicators.forEach(indicator => {
+          total++;
+          if (isIndicatorAnswered(indicator, currentResponses[indicator.id])) answered++;
+        });
+      }
     });
 
     setProgress({
@@ -365,7 +409,7 @@ const AssessmentResponseForm: React.FC = () => {
   // Loading state
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-brand_beige flex justify-center items-center">
+      <div className="min-h-screen bg-brand_light flex justify-center items-center">
         <p className="text-xl text-brand_primary">Cargando...</p>
       </div>
     );
@@ -540,15 +584,54 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
   onToggle,
   onResponseChange,
   canEdit,
-}) => (
+}) => {
+  // Sort indicators by display order
+  const sortedIndicators = [...module.indicators].sort((a, b) => a.displayOrder - b.displayOrder);
+
+  // Cobertura gate logic
+  const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
+  const coberturaResponse = hasCoberturaGate ? responses[sortedIndicators[0].id] : undefined;
+  const coberturaValue = coberturaResponse?.coverageValue;
+
+  // Determine which indicators to show
+  let visibleIndicators: IndicatorData[];
+  let showGateMessage = false;
+
+  if (hasCoberturaGate) {
+    if (coberturaValue === true) {
+      // Gate open: show all indicators
+      visibleIndicators = sortedIndicators;
+    } else if (coberturaValue === false) {
+      // Gate closed: show only cobertura + message
+      visibleIndicators = [sortedIndicators[0]];
+      showGateMessage = true;
+    } else {
+      // Not answered yet: show only cobertura
+      visibleIndicators = [sortedIndicators[0]];
+    }
+  } else {
+    // Legacy: no gate, show all
+    visibleIndicators = sortedIndicators;
+  }
+
+  return (
   <div className="bg-white shadow-md rounded-lg overflow-hidden">
     {/* Module header */}
     <button
       onClick={onToggle}
+      aria-expanded={expanded}
+      aria-label={`${expanded ? 'Contraer' : 'Expandir'} ${module.name}`}
       className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50"
     >
       <div>
-        <h3 className="text-lg font-semibold text-brand_primary">{module.name}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-brand_primary">{module.name}</h3>
+          {hasCoberturaGate && coberturaValue === false && (
+            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+              No implementada
+            </span>
+          )}
+        </div>
         {module.description && (
           <p className="text-sm text-gray-500 mt-1">{module.description}</p>
         )}
@@ -575,7 +658,7 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
     {/* Indicators */}
     {expanded && (
       <div className="border-t border-gray-200 divide-y divide-gray-100">
-        {module.indicators.map((indicator) => (
+        {visibleIndicators.map((indicator) => (
           <IndicatorInput
             key={indicator.id}
             indicator={indicator}
@@ -584,10 +667,16 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
             disabled={!canEdit}
           />
         ))}
+        {showGateMessage && (
+          <div className="p-4 bg-gray-50 text-sm text-gray-500 italic">
+            Esta práctica no se implementa en este establecimiento
+          </div>
+        )}
       </div>
     )}
   </div>
-);
+  );
+};
 
 interface IndicatorInputProps {
   indicator: IndicatorData;
@@ -602,10 +691,12 @@ const IndicatorInput: React.FC<IndicatorInputProps> = ({
   onChange,
   disabled,
 }) => {
+  const subResp = response.subResponses as Record<string, unknown> | undefined;
   const hasResponse =
     (indicator.category === 'cobertura' && response.coverageValue !== undefined && response.coverageValue !== null) ||
     (indicator.category === 'frecuencia' && response.frequencyValue !== undefined && response.frequencyValue !== null) ||
-    (indicator.category === 'profundidad' && response.profundityLevel !== undefined && response.profundityLevel !== null);
+    (indicator.category === 'profundidad' && response.profundityLevel !== undefined && response.profundityLevel !== null) ||
+    (indicator.category === 'traspaso' && !!(subResp?.evidence_link || subResp?.improvement_suggestions));
 
   return (
     <div className={`p-4 ${hasResponse ? 'bg-green-50/50' : ''}`}>
@@ -665,6 +756,15 @@ const IndicatorInput: React.FC<IndicatorInputProps> = ({
               4: indicator.level4Descriptor,
             }}
             onChange={(v) => onChange('profundityLevel', v)}
+            disabled={disabled}
+          />
+        )}
+
+        {indicator.category === 'traspaso' && (
+          <TraspasoInput
+            indicatorId={indicator.id}
+            value={response.subResponses as { evidence_link?: string; improvement_suggestions?: string } | undefined}
+            onChange={(v) => onChange('subResponses', v)}
             disabled={disabled}
           />
         )}
@@ -741,6 +841,7 @@ const FrecuenciaInput: React.FC<{
         max={config?.max}
         step={config?.step ?? 1}
         disabled={disabled}
+        aria-label="Cantidad de frecuencia"
         className={`w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_primary ${
           disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
         }`}
@@ -751,6 +852,7 @@ const FrecuenciaInput: React.FC<{
         value={unit || availableUnits[0]}
         onChange={(e) => onUnitChange(e.target.value as FrequencyUnit)}
         disabled={disabled}
+        aria-label="Unidad de frecuencia"
         className={`px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_primary ${
           disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
         }`}
@@ -803,6 +905,52 @@ const ProfundidadInput: React.FC<{
         </button>
       );
     })}
+  </div>
+);
+
+// Traspaso input (evidence link URL + improvement suggestions textarea)
+const TraspasoInput: React.FC<{
+  indicatorId: string;
+  value?: { evidence_link?: string; improvement_suggestions?: string };
+  onChange: (value: { evidence_link?: string; improvement_suggestions?: string }) => void;
+  disabled?: boolean;
+}> = ({ indicatorId, value, onChange, disabled }) => (
+  <div className="space-y-3">
+    <div>
+      <label htmlFor={`evidence-link-${indicatorId}`} className="block text-sm font-medium text-gray-700 mb-1">
+        Adjunte link a carpeta con evidencia de sus respuestas
+      </label>
+      <input
+        id={`evidence-link-${indicatorId}`}
+        type="url"
+        value={value?.evidence_link || ''}
+        onChange={(e) => onChange({ ...(value || {}), evidence_link: e.target.value })}
+        disabled={disabled}
+        placeholder="https://..."
+        className={`block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_primary text-sm ${
+          disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
+        }`}
+      />
+      <p className="mt-1 text-xs text-gray-500">
+        El archivo o carpeta enlazada debe ser accesible para cualquier persona con el link (permisos de lectura pública o compartido con el equipo evaluador)
+      </p>
+    </div>
+    <div>
+      <label htmlFor={`improvement-${indicatorId}`} className="block text-sm font-medium text-gray-700 mb-1">
+        Mejoras sugeridas
+      </label>
+      <textarea
+        id={`improvement-${indicatorId}`}
+        value={value?.improvement_suggestions || ''}
+        onChange={(e) => onChange({ ...(value || {}), improvement_suggestions: e.target.value })}
+        disabled={disabled}
+        rows={3}
+        placeholder="¿Con la experiencia adquirida, qué mejoras sugieres para la implementación de esta práctica?"
+        className={`block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_primary text-sm ${
+          disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
+        }`}
+      />
+    </div>
   </div>
 );
 

@@ -77,7 +77,34 @@ async function handleGet(
   supabaseClient: any
 ) {
   try {
-    const { area, status, archived } = req.query;
+    const { area, status, archived, count_only, grade_id } = req.query;
+
+    // count_only mode: return just the count for a given area + grade_id
+    if (count_only === 'true') {
+      const validAreas: TransformationArea[] = [
+        'personalizacion', 'aprendizaje', 'evaluacion',
+        'proposito', 'familias', 'trabajo_docente', 'liderazgo'
+      ];
+
+      let countQuery = supabaseClient
+        .from('assessment_templates')
+        .select('id', { count: 'exact', head: true });
+
+      if (area && typeof area === 'string' && validAreas.includes(area as TransformationArea)) {
+        countQuery = countQuery.eq('area', area);
+      }
+      if (grade_id && typeof grade_id === 'string') {
+        countQuery = countQuery.eq('grade_id', grade_id);
+      }
+
+      const { count, error: countError } = await countQuery;
+
+      if (countError) {
+        return res.status(500).json({ error: 'Error al contar templates' });
+      }
+
+      return res.status(200).json({ success: true, count: count ?? 0 });
+    }
 
     let query = supabaseClient
       .from('assessment_templates')

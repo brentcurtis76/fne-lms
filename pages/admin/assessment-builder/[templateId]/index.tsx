@@ -39,6 +39,7 @@ import type {
 } from '@/types/assessment-builder';
 import {
   AREA_LABELS,
+  AREA_CODES,
   CATEGORY_LABELS,
   ENTITY_LABELS,
   FREQUENCY_UNIT_OPTIONS,
@@ -137,6 +138,8 @@ const TemplateEditor: React.FC = () => {
   const [isIndicatorModalOpen, setIsIndicatorModalOpen] = useState(false);
   const [indicatorModuleId, setIndicatorModuleId] = useState<string | null>(null);
   const [editingIndicator, setEditingIndicator] = useState<IndicatorData | null>(null);
+  // Whether the first indicator (cobertura-locked) is being created/edited
+  const [isFirstIndicatorLocked, setIsFirstIndicatorLocked] = useState(false);
   const [indicatorForm, setIndicatorForm] = useState<{
     code: string;
     name: string;
@@ -560,10 +563,38 @@ const TemplateEditor: React.FC = () => {
     }
   };
 
+  // Generate indicator code from area + objective order + module order + indicator order
+  const generateIndicatorCode = (moduleId: string, existingCount: number): string => {
+    if (!template) return '';
+    const areaCode = AREA_CODES[template.area] || '';
+    const module = modules.find((m) => m.id === moduleId);
+    if (!module) return '';
+
+    // Find objective order
+    const objective = objectives.find((o) => o.id === module.objective_id);
+    const objOrder = objective ? objectives.indexOf(objective) + 1 : 1;
+
+    // Find module order within its objective
+    const objectiveModules = modules.filter((m) => m.objective_id === module.objective_id);
+    const modOrder = objectiveModules.indexOf(module) + 1;
+
+    // Next indicator order
+    const indOrder = existingCount + 1;
+
+    return `${areaCode}${objOrder}.${modOrder}.${indOrder}`;
+  };
+
   // Indicator CRUD
   const openIndicatorModal = (moduleId: string, indicator?: IndicatorData) => {
     setIndicatorModuleId(moduleId);
+
+    const module = modules.find((m) => m.id === moduleId);
+    const currentIndicators = module?.indicators || [];
+
     if (indicator) {
+      // Editing: first indicator (display_order === 1) is locked to cobertura
+      const isFirst = indicator.displayOrder === 1 && currentIndicators.length > 0;
+      setIsFirstIndicatorLocked(isFirst);
       setEditingIndicator(indicator);
       setIndicatorForm({
         code: indicator.code || '',
@@ -580,9 +611,16 @@ const TemplateEditor: React.FC = () => {
         weight: indicator.weight,
       });
     } else {
+      // Creating new: first indicator of module must be cobertura
+      const isFirst = currentIndicators.length === 0;
+      setIsFirstIndicatorLocked(isFirst);
       setEditingIndicator(null);
+
+      // Auto-generate code
+      const autoCode = generateIndicatorCode(moduleId, currentIndicators.length);
+
       setIndicatorForm({
-        code: '',
+        code: autoCode,
         name: '',
         description: '',
         category: 'cobertura',
@@ -1041,7 +1079,7 @@ const TemplateEditor: React.FC = () => {
   // Loading state
   if (loading || hasPermission === null) {
     return (
-      <div className="min-h-screen bg-brand_beige flex justify-center items-center">
+      <div className="min-h-screen bg-brand_light flex justify-center items-center">
         <p className="text-xl text-brand_primary">Cargando...</p>
       </div>
     );
@@ -1208,7 +1246,7 @@ const TemplateEditor: React.FC = () => {
                       <p className="text-sm text-gray-600 mb-2">{template.description}</p>
                     )}
                     <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span>Área: {AREA_LABELS[template.area]}</span>
+                      <span>Vía de Evolución: {AREA_LABELS[template.area]}</span>
                       <span>Versión: {template.version}</span>
                     </div>
                   </>
@@ -1711,7 +1749,9 @@ const TemplateEditor: React.FC = () => {
                                         </p>
                                       ) : (
                                         <div className="space-y-1">
-                                          {(module.indicators || []).map((indicator, indIndex) => (
+                                          {(module.indicators || []).map((indicator, indIndex) => {
+                                            const isLockedCobertura = indicator.displayOrder === 1 && indicator.category === 'cobertura';
+                                            return (
                                             <div
                                               key={indicator.id}
                                               data-testid="indicator-row"
@@ -1720,6 +1760,9 @@ const TemplateEditor: React.FC = () => {
                                               <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-0.5">
                                                   <span className="text-xs text-gray-400">#{indIndex + 1}</span>
+                                                  {isLockedCobertura && (
+                                                    <span title="Indicador de cobertura bloqueado (primer indicador)"><Lock className="w-3 h-3 text-amber-500" /></span>
+                                                  )}
                                                   {indicator.code && (
                                                     <span className="text-xs font-mono bg-gray-100 px-1 rounded">
                                                       {indicator.code}
@@ -1731,6 +1774,8 @@ const TemplateEditor: React.FC = () => {
                                                   <span className={`text-xs px-1.5 py-0.5 rounded-full ${
                                                     indicator.category === 'cobertura'
                                                       ? 'bg-brand_beige text-brand_primary'
+                                                      : indicator.category === 'traspaso'
+                                                      ? 'bg-purple-100 text-purple-700'
                                                       : 'bg-amber-100 text-amber-700'
                                                   }`}>
                                                     {CATEGORY_LABELS[indicator.category]}
@@ -1747,35 +1792,38 @@ const TemplateEditor: React.FC = () => {
                                                   >
                                                     <Edit2 className="w-3 h-3" />
                                                   </button>
-                                                  {pendingConfirm?.key === `delete-indicator-${indicator.id}` ? (
-                                                    <span className="flex items-center gap-1">
+                                                  {!isLockedCobertura && (
+                                                    pendingConfirm?.key === `delete-indicator-${indicator.id}` ? (
+                                                      <span className="flex items-center gap-1">
+                                                        <button
+                                                          onClick={executeConfirm}
+                                                          className="px-1.5 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                                        >
+                                                          ¿Eliminar?
+                                                        </button>
+                                                        <button
+                                                          onClick={cancelConfirm}
+                                                          className="px-1.5 py-0.5 text-xs text-gray-600 hover:text-gray-900"
+                                                        >
+                                                          Cancelar
+                                                        </button>
+                                                      </span>
+                                                    ) : (
                                                       <button
-                                                        onClick={executeConfirm}
-                                                        className="px-1.5 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                                        onClick={() => confirmDeleteIndicator(module.id, indicator)}
+                                                        aria-label={`Eliminar indicador: ${indicator.name}`}
+                                                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                                        title="Eliminar indicador"
                                                       >
-                                                        ¿Eliminar?
+                                                        <Trash2 className="w-3 h-3" />
                                                       </button>
-                                                      <button
-                                                        onClick={cancelConfirm}
-                                                        className="px-1.5 py-0.5 text-xs text-gray-600 hover:text-gray-900"
-                                                      >
-                                                        Cancelar
-                                                      </button>
-                                                    </span>
-                                                  ) : (
-                                                    <button
-                                                      onClick={() => confirmDeleteIndicator(module.id, indicator)}
-                                                      aria-label={`Eliminar indicador: ${indicator.name}`}
-                                                      className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                                                      title="Eliminar indicador"
-                                                    >
-                                                      <Trash2 className="w-3 h-3" />
-                                                    </button>
+                                                    )
                                                   )}
                                                 </div>
                                               )}
                                             </div>
-                                          ))}
+                                            );
+                                          })}
                                         </div>
                                       )}
                                     </div>
@@ -1918,6 +1966,9 @@ const TemplateEditor: React.FC = () => {
                     placeholder={`Descripción de la ${ENTITY_LABELS.module.toLowerCase()}...`}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Esta descripción será visible para los docentes/evaluadores al completar la evaluación
+                  </p>
                 </div>
 
                 <div>
@@ -1930,6 +1981,9 @@ const TemplateEditor: React.FC = () => {
                     placeholder={`Instrucciones para completar esta ${ENTITY_LABELS.module.toLowerCase()}...`}
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Estas instrucciones aparecerán como guía para los docentes/evaluadores al responder los indicadores de esta práctica
+                  </p>
                 </div>
 
                 <div>
@@ -2025,6 +2079,9 @@ const TemplateEditor: React.FC = () => {
                     placeholder="Descripción del indicador..."
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Esta descripción será visible para los docentes/evaluadores junto al indicador
+                  </p>
                 </div>
 
                 {/* Category and weight row */}
@@ -2037,12 +2094,19 @@ const TemplateEditor: React.FC = () => {
                       id="indicator-category"
                       value={indicatorForm.category}
                       onChange={(e) => setIndicatorForm({ ...indicatorForm, category: e.target.value as IndicatorCategory })}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
+                      disabled={isFirstIndicatorLocked}
+                      className={`block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary ${isFirstIndicatorLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     >
                       <option value="cobertura">Cobertura (Sí/No)</option>
                       <option value="frecuencia">Frecuencia (Número)</option>
                       <option value="profundidad">Profundidad (Niveles 0-4)</option>
+                      <option value="traspaso">Traspaso (Evidencia + Sugerencias)</option>
                     </select>
+                    {isFirstIndicatorLocked && (
+                      <p className="mt-1 text-xs text-amber-600">
+                        El primer indicador de cada práctica siempre es de tipo Cobertura
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label htmlFor="indicator-weight" className="block text-sm font-medium text-gray-700 mb-1">Peso</label>
@@ -2102,6 +2166,40 @@ const TemplateEditor: React.FC = () => {
                         Debes seleccionar al menos un período
                       </p>
                     )}
+                  </div>
+                )}
+
+                {/* Traspaso preview */}
+                {indicatorForm.category === 'traspaso' && (
+                  <div className="border-t pt-4">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Vista previa de campos Traspaso</p>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Los docentes verán estos dos campos al responder este indicador
+                    </p>
+                    <div className="space-y-3 bg-gray-50 p-3 rounded-lg">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Enlace de Evidencia (URL)
+                        </label>
+                        <input
+                          type="text"
+                          disabled
+                          placeholder="https://..."
+                          className="block w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-white text-gray-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Sugerencias de Mejora
+                        </label>
+                        <textarea
+                          disabled
+                          rows={2}
+                          placeholder="Describe las sugerencias de mejora..."
+                          className="block w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-white text-gray-400"
+                        />
+                      </div>
+                    </div>
                   </div>
                 )}
 

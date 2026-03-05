@@ -152,10 +152,10 @@ async function handlePost(
       return res.status(400).json({ error: 'El nombre del indicador es requerido' });
     }
 
-    const validCategories: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad'];
+    const validCategories: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad', 'traspaso'];
     if (!category || !validCategories.includes(category)) {
       return res.status(400).json({
-        error: 'Categoría inválida. Debe ser: cobertura, frecuencia, o profundidad',
+        error: 'Categoría inválida. Debe ser: cobertura, frecuencia, profundidad, o traspaso',
       });
     }
 
@@ -192,6 +192,10 @@ async function handlePost(
     // Insert indicator
     // Note: expectations are in assessment_year_expectations table
     // Note: sub_questions are in assessment_sub_questions table
+    // traspaso and cobertura don't use frequency or level fields
+    const isQuantitative = category === 'frecuencia';
+    const isRubric = category === 'profundidad';
+
     const { data: indicator, error } = await supabaseClient
       .from('assessment_indicators')
       .insert({
@@ -200,13 +204,13 @@ async function handlePost(
         name: name.trim(),
         description: description?.trim() || null,
         category,
-        frequency_config: category === 'frecuencia' ? (frequencyConfig || { unit: 'veces' }) : null,
-        frequency_unit_options: category === 'frecuencia' ? (frequencyUnitOptions || ['dia', 'semana', 'mes', 'trimestre', 'semestre', 'año']) : null,
-        level_0_descriptor: category === 'profundidad' ? (level0Descriptor?.trim() || null) : null,
-        level_1_descriptor: category === 'profundidad' ? (level1Descriptor?.trim() || null) : null,
-        level_2_descriptor: category === 'profundidad' ? (level2Descriptor?.trim() || null) : null,
-        level_3_descriptor: category === 'profundidad' ? (level3Descriptor?.trim() || null) : null,
-        level_4_descriptor: category === 'profundidad' ? (level4Descriptor?.trim() || null) : null,
+        frequency_config: isQuantitative ? (frequencyConfig || { unit: 'veces' }) : null,
+        frequency_unit_options: isQuantitative ? (frequencyUnitOptions || ['dia', 'semana', 'mes', 'trimestre', 'semestre', 'año']) : null,
+        level_0_descriptor: isRubric ? (level0Descriptor?.trim() || null) : null,
+        level_1_descriptor: isRubric ? (level1Descriptor?.trim() || null) : null,
+        level_2_descriptor: isRubric ? (level2Descriptor?.trim() || null) : null,
+        level_3_descriptor: isRubric ? (level3Descriptor?.trim() || null) : null,
+        level_4_descriptor: isRubric ? (level4Descriptor?.trim() || null) : null,
         display_order: nextOrder,
         weight: weight || 1.0,
       })

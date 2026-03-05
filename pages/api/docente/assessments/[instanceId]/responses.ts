@@ -84,12 +84,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener plantilla' });
     }
 
-    // Build set of valid indicator IDs from snapshot
+    // Build set of valid indicator IDs from snapshot (supports both flat modules and objectives hierarchy)
     const validIndicatorIds = new Set<string>();
     const indicatorCategories = new Map<string, string>();
 
-    const modules = (snapshot.snapshot_data as any)?.modules || [];
-    modules.forEach((module: any) => {
+    const snapshotData = snapshot.snapshot_data as any;
+    const flatModules = snapshotData?.modules || [];
+    const objectives = snapshotData?.objectives || [];
+
+    // Collect all modules (from objectives hierarchy or flat)
+    const allModules = [
+      ...flatModules,
+      ...objectives.flatMap((obj: any) => obj.modules || []),
+    ];
+
+    allModules.forEach((module: any) => {
       (module.indicators || []).forEach((indicator: any) => {
         validIndicatorIds.add(indicator.id);
         indicatorCategories.set(indicator.id, indicator.category);
@@ -129,6 +138,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             response.profundity_level > 4) {
           errors.push(`Indicador ${response.indicator_id}: nivel debe ser 0-4`);
           continue;
+        }
+      }
+
+      // Validate traspaso sub_responses
+      if (category === 'traspaso' && response.sub_responses) {
+        const subResp = response.sub_responses as Record<string, unknown>;
+
+        // Validate evidence_link URL if provided
+        if (subResp.evidence_link !== undefined && subResp.evidence_link !== null && subResp.evidence_link !== '') {
+          const linkStr = String(subResp.evidence_link);
+          try {
+            const parsed = new URL(linkStr);
+            if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+              errors.push(`Indicador ${response.indicator_id}: enlace de evidencia debe usar https:// o http://`);
+              continue;
+            }
+          } catch {
+            errors.push(`Indicador ${response.indicator_id}: enlace de evidencia debe ser una URL válida`);
+            continue;
+          }
+        }
+
+        // Validate improvement_suggestions length
+        if (subResp.improvement_suggestions !== undefined && subResp.improvement_suggestions !== null) {
+          const suggestions = String(subResp.improvement_suggestions);
+          if (suggestions.length > 5000) {
+            errors.push(`Indicador ${response.indicator_id}: sugerencias de mejora no pueden exceder 5000 caracteres`);
+            continue;
+          }
         }
       }
 

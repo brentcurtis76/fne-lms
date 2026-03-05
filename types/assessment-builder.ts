@@ -20,7 +20,7 @@ export type TransformationArea =
 
 export type TemplateStatus = 'draft' | 'published' | 'archived';
 
-export type IndicatorCategory = 'cobertura' | 'frecuencia' | 'profundidad';
+export type IndicatorCategory = 'cobertura' | 'frecuencia' | 'profundidad' | 'traspaso';
 
 export type QuestionType =
   | 'text'
@@ -67,13 +67,23 @@ export const MATURITY_LEVELS = [
 ] as const;
 
 export const AREA_LABELS: Record<TransformationArea, string> = {
-  personalizacion: 'Personalización',
+  personalizacion: 'Crecimiento',
   aprendizaje: 'Aprendizaje',
   evaluacion: 'Evaluación',
   proposito: 'Propósito',
   familias: 'Familias',
   trabajo_docente: 'Trabajo Docente',
   liderazgo: 'Liderazgo',
+};
+
+export const AREA_CODES: Record<TransformationArea, string> = {
+  personalizacion: 'CRE',
+  aprendizaje: 'APR',
+  evaluacion: 'EVA',
+  proposito: 'PRO',
+  familias: 'FAM',
+  trabajo_docente: 'TDO',
+  liderazgo: 'LID',
 };
 
 export const AREA_STATUS: Record<TransformationArea, 'available' | 'coming_soon'> = {
@@ -90,21 +100,23 @@ export const CATEGORY_LABELS: Record<IndicatorCategory, string> = {
   cobertura: 'Cobertura',
   frecuencia: 'Frecuencia',
   profundidad: 'Profundidad',
+  traspaso: 'Traspaso',
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<IndicatorCategory, string> = {
   cobertura: 'Respuesta binaria (Sí/No)',
   frecuencia: 'Valor cuantitativo (número, porcentaje)',
   profundidad: 'Nivel de rúbrica (0-4)',
+  traspaso: 'Evidencia y sugerencias de mejora',
 };
 
 // UI labels for assessment hierarchy entities
-// DB tables and code use "module" internally; UI shows "Acción"
+// DB tables and code use "module" internally; UI shows "Práctica Generativa"
 export const ENTITY_LABELS = {
-  objective: 'Objetivo',
-  objectives: 'Objetivos',
-  module: 'Acción',
-  modules: 'Acciones',
+  objective: 'Proceso Generativo',
+  objectives: 'Procesos Generativos',
+  module: 'Práctica Generativa',
+  modules: 'Prácticas Generativas',
   indicator: 'Indicador',
   indicators: 'Indicadores',
 } as const;

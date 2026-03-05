@@ -2,6 +2,9 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
+import type { IndicatorCategory } from '@/types/assessment-builder';
+
+const VALID_CATEGORIES: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad', 'traspaso'];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { templateId, moduleId, indicatorId } = req.query;
@@ -168,8 +171,15 @@ async function handlePut(
       visibility_condition
     } = req.body;
 
+    // Validate category if provided
+    if (category !== undefined && !VALID_CATEGORIES.includes(category)) {
+      return res.status(400).json({
+        error: 'Categoría inválida. Debe ser: cobertura, frecuencia, profundidad, o traspaso',
+      });
+    }
+
     // Build update object
-    const updateData: Record<string, any> = {};
+    const updateData: Record<string, unknown> = {};
     if (code !== undefined) updateData.code = code;
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;

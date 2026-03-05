@@ -89,7 +89,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Los templates archivados no pueden ser modificados' });
       }
       if (req.method === 'PUT') {
-        return handlePut(req, res, supabaseClient, templateId, indicatorId, user.id);
+        return handlePut(req, res, supabaseClient, templateId, moduleId, indicatorId, user.id);
       }
       return handleDelete(req, res, supabaseClient, indicatorId, moduleId, templateId, user.id);
     }
@@ -152,6 +152,7 @@ async function handlePut(
   res: NextApiResponse,
   supabaseClient: any,
   templateId: string,
+  moduleId: string,
   indicatorId: string,
   userId: string
 ) {
@@ -176,6 +177,22 @@ async function handlePut(
       return res.status(400).json({
         error: 'Categoría inválida. Debe ser: cobertura, frecuencia, profundidad, o traspaso',
       });
+    }
+
+    // Enforce cobertura lock: first indicator in a module must stay cobertura
+    if (category && category !== 'cobertura') {
+      const { data: indicators } = await supabaseClient
+        .from('assessment_indicators')
+        .select('id, display_order')
+        .eq('module_id', moduleId)
+        .order('display_order', { ascending: true })
+        .limit(1);
+
+      if (indicators?.[0]?.id === indicatorId) {
+        return res.status(400).json({
+          error: 'El primer indicador de cada práctica generativa debe ser de tipo Cobertura y no puede ser modificado'
+        });
+      }
     }
 
     // Build update object

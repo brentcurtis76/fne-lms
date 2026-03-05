@@ -780,6 +780,7 @@ const TemplateEditor: React.FC = () => {
         )
       );
       toast.success('Indicador eliminado');
+      toast('Los códigos de indicadores pueden no coincidir con el orden actual', { icon: '\u26A0\uFE0F', duration: 4000 });
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Error al eliminar el indicador';
       toast.error(msg);
@@ -1761,7 +1762,7 @@ const TemplateEditor: React.FC = () => {
                                                 <div className="flex items-center gap-2 mb-0.5">
                                                   <span className="text-xs text-gray-400">#{indIndex + 1}</span>
                                                   {isLockedCobertura && (
-                                                    <span title="Indicador de cobertura bloqueado (primer indicador)"><Lock className="w-3 h-3 text-amber-500" /></span>
+                                                    <span title={`${ENTITY_LABELS.indicator} de cobertura bloqueado (primer ${ENTITY_LABELS.indicator.toLowerCase()})`}><Lock className="w-3 h-3 text-amber-500" /></span>
                                                   )}
                                                   {indicator.code && (
                                                     <span className="text-xs font-mono bg-gray-100 px-1 rounded">
@@ -1963,11 +1964,11 @@ const TemplateEditor: React.FC = () => {
                     value={moduleForm.description}
                     onChange={(e) => setModuleForm({ ...moduleForm, description: e.target.value })}
                     rows={2}
-                    placeholder={`Descripción de la ${ENTITY_LABELS.module.toLowerCase()}...`}
+                    placeholder="Ej: Práctica centrada en conocer el contexto de cada estudiante"
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Esta descripción será visible para los docentes/evaluadores al completar la evaluación
+                    Breve resumen de esta práctica. Aparece como subtítulo bajo el nombre — siempre visible para el evaluador. (1-2 oraciones)
                   </p>
                 </div>
 
@@ -1978,11 +1979,11 @@ const TemplateEditor: React.FC = () => {
                     value={moduleForm.instructions}
                     onChange={(e) => setModuleForm({ ...moduleForm, instructions: e.target.value })}
                     rows={2}
-                    placeholder={`Instrucciones para completar esta ${ENTITY_LABELS.module.toLowerCase()}...`}
+                    placeholder="Ej: Para evaluar esta práctica, revise los registros de entrevistas individuales y compare con el plan de acompañamiento..."
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Estas instrucciones aparecerán como guía para los docentes/evaluadores al responder los indicadores de esta práctica
+                    Guía detallada para el evaluador. Aparece en un recuadro azul al expandir la sección. Explica qué evidencia buscar y cómo evaluar los indicadores.
                   </p>
                 </div>
 
@@ -2037,7 +2038,7 @@ const TemplateEditor: React.FC = () => {
               className="relative inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg max-h-[90vh] overflow-y-auto"
             >
               <h3 id="indicator-modal-title" className="text-lg font-semibold text-brand_primary mb-4">
-                {editingIndicator ? 'Editar Indicador' : 'Nuevo Indicador'}
+                {editingIndicator ? `Editar ${ENTITY_LABELS.indicator}` : `Nuevo ${ENTITY_LABELS.indicator}`}
               </h3>
 
               <div className="space-y-4">
@@ -2080,7 +2081,7 @@ const TemplateEditor: React.FC = () => {
                     className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Esta descripción será visible para los docentes/evaluadores junto al indicador
+                    Aparece como texto de ayuda junto al indicador cuando el evaluador lo completa. Aclara qué se está midiendo.
                   </p>
                 </div>
 

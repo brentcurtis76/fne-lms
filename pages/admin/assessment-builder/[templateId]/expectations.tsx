@@ -814,14 +814,14 @@ const ExpectationsEditor: React.FC = () => {
                                   GT
                                 </span>
                               ) : (
-                                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                                   indicator.indicatorCategory === 'cobertura'
-                                    ? 'bg-brand_beige text-brand_primary'
+                                    ? 'bg-gray-100 text-brand_gray_dark'
                                     : indicator.indicatorCategory === 'frecuencia'
                                     ? 'bg-amber-100 text-amber-700'
                                     : indicator.indicatorCategory === 'traspaso'
                                     ? 'bg-purple-100 text-purple-700'
-                                    : 'bg-amber-100 text-amber-700'
+                                    : 'bg-brand_primary text-white'
                                 }`}>
                                   {indicator.indicatorCategory === 'cobertura' ? 'Cob' :
                                    indicator.indicatorCategory === 'frecuencia' ? 'Frec' :
@@ -933,19 +933,19 @@ const ExpectationsEditor: React.FC = () => {
             <p className="text-xs text-gray-500 uppercase font-medium mb-2">Tipos de indicador:</p>
             <div className="flex flex-wrap gap-4 text-sm">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-brand_beige text-brand_primary text-xs">Cob</span>
+                <span className="px-2 py-0.5 rounded-full bg-gray-100 text-brand_gray_dark text-xs font-medium">Cob</span>
                 <span className="text-gray-600">Cobertura (Sí/No implementado)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs">Frec</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">Frec</span>
                 <span className="text-gray-600">Frecuencia (mínimo esperado por período)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs">Prof</span>
+                <span className="px-2 py-0.5 rounded-full bg-brand_primary text-white text-xs font-medium">Prof</span>
                 <span className="text-gray-600">Profundidad (niveles 0-4)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs">Tras</span>
+                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Tras</span>
                 <span className="text-gray-600">Traspaso (¿Se espera evidencia y mejoras ese año?)</span>
               </div>
             </div>

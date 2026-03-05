@@ -1529,7 +1529,7 @@ const TemplateEditor: React.FC = () => {
               <ClipboardList className="mx-auto h-12 w-12 text-gray-300" />
               <h4 className="mt-4 text-lg font-medium text-gray-900">Sin {ENTITY_LABELS.objectives.toLowerCase()}</h4>
               <p className="mt-2 text-sm text-gray-500">
-                Agrega objetivos para organizar las acciones e indicadores de evaluación
+                Agrega {ENTITY_LABELS.objectives.toLowerCase()} para organizar las {ENTITY_LABELS.modules.toLowerCase()} e indicadores de evaluación
               </p>
               {canEdit && (
                 <button
@@ -1560,7 +1560,7 @@ const TemplateEditor: React.FC = () => {
                             prev.map(o => o.id === objective.id ? { ...o, isExpanded: !o.isExpanded } : o)
                           )}
                           aria-expanded={objective.isExpanded ?? false}
-                          aria-label={`${objective.isExpanded ? 'Contraer' : 'Expandir'} objetivo: ${objective.name}`}
+                          aria-label={`${objective.isExpanded ? 'Contraer' : 'Expandir'} ${ENTITY_LABELS.objective.toLowerCase()}: ${objective.name}`}
                           className="flex items-center gap-2 text-left w-full"
                         >
                           {objective.isExpanded ? (
@@ -1587,7 +1587,7 @@ const TemplateEditor: React.FC = () => {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => openObjectiveModal(objective)}
-                            aria-label={`Editar objetivo: ${objective.name}`}
+                            aria-label={`Editar ${ENTITY_LABELS.objective.toLowerCase()}: ${objective.name}`}
                             className="p-2 text-gray-500 hover:text-brand_primary hover:bg-gray-100 rounded-lg transition-colors"
                             title={`Editar ${ENTITY_LABELS.objective.toLowerCase()}`}
                           >
@@ -1611,7 +1611,7 @@ const TemplateEditor: React.FC = () => {
                           ) : (
                             <button
                               onClick={() => confirmDeleteObjective(objective)}
-                              aria-label={`Eliminar objetivo: ${objective.name}`}
+                              aria-label={`Eliminar ${ENTITY_LABELS.objective.toLowerCase()}: ${objective.name}`}
                               className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title={`Eliminar ${ENTITY_LABELS.objective.toLowerCase()}`}
                             >
@@ -1679,7 +1679,7 @@ const TemplateEditor: React.FC = () => {
                                     <div className="flex items-center gap-1">
                                       <button
                                         onClick={() => openModuleModal(objective.id, module)}
-                                        aria-label={`Editar acción: ${module.name}`}
+                                        aria-label={`Editar ${ENTITY_LABELS.module.toLowerCase()}: ${module.name}`}
                                         className="p-1.5 text-gray-500 hover:text-brand_primary hover:bg-gray-100 rounded transition-colors"
                                         title={`Editar ${ENTITY_LABELS.module.toLowerCase()}`}
                                       >
@@ -1703,7 +1703,7 @@ const TemplateEditor: React.FC = () => {
                                       ) : (
                                         <button
                                           onClick={() => confirmDeleteModule(module)}
-                                          aria-label={`Eliminar acción: ${module.name}`}
+                                          aria-label={`Eliminar ${ENTITY_LABELS.module.toLowerCase()}: ${module.name}`}
                                           className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                                           title={`Eliminar ${ENTITY_LABELS.module.toLowerCase()}`}
                                         >

@@ -611,7 +611,7 @@ const ExpectationsEditor: React.FC = () => {
     >
       <ResponsiveFunctionalPageHeader
         icon={<Target />}
-        title="Expectativas por Año"
+        title="Calibración"
         subtitle={template.name}
       />
 
@@ -652,7 +652,7 @@ const ExpectationsEditor: React.FC = () => {
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-brand_accent flex-shrink-0 mt-0.5" />
             <div className="text-sm text-gray-800">
-              <p className="font-medium mb-1">Cómo configurar expectativas:</p>
+              <p className="font-medium mb-1">Cómo calibrar el template:</p>
               <ul className="list-disc list-inside space-y-1 text-gray-700">
                 <li><strong>Profundidad (0-4):</strong> Selecciona el nivel de madurez esperado para cada año de transformación</li>
                 <li><strong>Cobertura:</strong> Marca si se espera que el indicador esté implementado en ese año</li>

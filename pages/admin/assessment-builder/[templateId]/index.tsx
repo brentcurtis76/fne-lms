@@ -112,11 +112,9 @@ const TemplateEditor: React.FC = () => {
   const [objectiveForm, setObjectiveForm] = useState<{
     name: string;
     description: string;
-    weight: number;
   }>({
     name: '',
     description: '',
-    weight: 1,
   });
 
   // Module modal
@@ -127,12 +125,10 @@ const TemplateEditor: React.FC = () => {
     name: string;
     description: string;
     instructions: string;
-    weight: number;
   }>({
     name: '',
     description: '',
     instructions: '',
-    weight: 1,
   });
 
   // Indicator modal
@@ -153,7 +149,6 @@ const TemplateEditor: React.FC = () => {
     level2Descriptor: string;
     level3Descriptor: string;
     level4Descriptor: string;
-    weight: number;
   }>({
     code: '',
     name: '',
@@ -166,7 +161,6 @@ const TemplateEditor: React.FC = () => {
     level2Descriptor: '',
     level3Descriptor: '',
     level4Descriptor: '',
-    weight: 1,
   });
 
   // Publishing state
@@ -364,11 +358,10 @@ const TemplateEditor: React.FC = () => {
       setObjectiveForm({
         name: objective.name,
         description: objective.description || '',
-        weight: objective.weight,
       });
     } else {
       setEditingObjective(null);
-      setObjectiveForm({ name: '', description: '', weight: 1 });
+      setObjectiveForm({ name: '', description: '' });
     }
     setIsObjectiveModalOpen(true);
   };
@@ -391,7 +384,6 @@ const TemplateEditor: React.FC = () => {
             body: JSON.stringify({
               name: objectiveForm.name.trim(),
               description: objectiveForm.description.trim() || undefined,
-              weight: objectiveForm.weight,
             } as UpdateObjectiveRequest),
           }
         );
@@ -414,7 +406,6 @@ const TemplateEditor: React.FC = () => {
             template_id: template.id,
             name: objectiveForm.name.trim(),
             description: objectiveForm.description.trim() || undefined,
-            weight: objectiveForm.weight,
           } as CreateObjectiveRequest),
         });
 
@@ -470,11 +461,10 @@ const TemplateEditor: React.FC = () => {
         name: module.name,
         description: module.description || '',
         instructions: module.instructions || '',
-        weight: module.weight,
       });
     } else {
       setEditingModule(null);
-      setModuleForm({ name: '', description: '', instructions: '', weight: 1 });
+      setModuleForm({ name: '', description: '', instructions: '' });
     }
     setIsModuleModalOpen(true);
   };
@@ -499,7 +489,6 @@ const TemplateEditor: React.FC = () => {
               name: moduleForm.name.trim(),
               description: moduleForm.description.trim() || undefined,
               instructions: moduleForm.instructions.trim() || undefined,
-              weight: moduleForm.weight,
             } as UpdateModuleRequest),
           }
         );
@@ -524,7 +513,6 @@ const TemplateEditor: React.FC = () => {
             name: moduleForm.name.trim(),
             description: moduleForm.description.trim() || undefined,
             instructions: moduleForm.instructions.trim() || undefined,
-            weight: moduleForm.weight,
             objective_id: moduleObjectiveId || undefined,
           } as CreateModuleRequest),
         });
@@ -615,7 +603,6 @@ const TemplateEditor: React.FC = () => {
         level2Descriptor: indicator.level2Descriptor || '',
         level3Descriptor: indicator.level3Descriptor || '',
         level4Descriptor: indicator.level4Descriptor || '',
-        weight: indicator.weight,
       });
     } else {
       // Creating new: first indicator of module must be cobertura
@@ -638,7 +625,6 @@ const TemplateEditor: React.FC = () => {
         level2Descriptor: '',
         level3Descriptor: '',
         level4Descriptor: '',
-        weight: 1,
       });
     }
     setIsIndicatorModalOpen(true);
@@ -679,7 +665,6 @@ const TemplateEditor: React.FC = () => {
         name: indicatorForm.name.trim(),
         description: indicatorForm.description.trim() || undefined,
         category: indicatorForm.category,
-        weight: indicatorForm.weight,
       };
 
       if (indicatorForm.code.trim()) {
@@ -1347,7 +1332,7 @@ const TemplateEditor: React.FC = () => {
                   <Link href={`/admin/assessment-builder/${template.id}/expectations`} legacyBehavior>
                     <a className="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg shadow hover:bg-amber-700 transition-colors text-sm font-medium">
                       <Target className="w-4 h-4 mr-2" />
-                      Expectativas
+                      Calibración
                     </a>
                   </Link>
                   {isAdmin && (
@@ -1498,7 +1483,7 @@ const TemplateEditor: React.FC = () => {
                   <Link href={`/admin/assessment-builder/${template.id}/expectations`} legacyBehavior>
                     <a className="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg shadow hover:bg-amber-700 transition-colors text-sm font-medium">
                       <Target className="w-4 h-4 mr-2" />
-                      Expectativas
+                      Calibración
                     </a>
                   </Link>
                   {isAdmin && (
@@ -1602,7 +1587,6 @@ const TemplateEditor: React.FC = () => {
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-medium text-gray-400">#{objIndex + 1}</span>
                               <span className="font-semibold text-brand_primary">{objective.name}</span>
-                              <span className="text-xs text-gray-500">Peso: {objective.weight}</span>
                               <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
                                 {objectiveModules.length} {objectiveModules.length !== 1 ? ENTITY_LABELS.modules.toLowerCase() : ENTITY_LABELS.module.toLowerCase()}
                               </span>
@@ -1697,7 +1681,6 @@ const TemplateEditor: React.FC = () => {
                                         <div className="flex items-center gap-2">
                                           <span className="text-xs font-medium text-gray-400">#{modIndex + 1}</span>
                                           <span className="font-medium text-gray-900 text-sm">{module.name}</span>
-                                          <span className="text-xs text-gray-500">Peso: {module.weight}</span>
                                         </div>
                                         {module.description && (
                                           <p className="text-xs text-gray-500 truncate">{module.description}</p>
@@ -1928,21 +1911,6 @@ const TemplateEditor: React.FC = () => {
                   />
                 </div>
 
-                <div>
-                  <label htmlFor="objective-weight" className="block text-sm font-medium text-gray-700 mb-1">Peso</label>
-                  <input
-                    id="objective-weight"
-                    type="number"
-                    value={objectiveForm.weight}
-                    onChange={(e) => setObjectiveForm({ ...objectiveForm, weight: parseFloat(e.target.value) || 1 })}
-                    min={0}
-                    step={0.1}
-                    className="block w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Peso relativo del objetivo en el cálculo total
-                  </p>
-                </div>
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
@@ -2026,21 +1994,6 @@ const TemplateEditor: React.FC = () => {
                   </p>
                 </div>
 
-                <div>
-                  <label htmlFor="module-weight" className="block text-sm font-medium text-gray-700 mb-1">Peso</label>
-                  <input
-                    id="module-weight"
-                    type="number"
-                    value={moduleForm.weight}
-                    onChange={(e) => setModuleForm({ ...moduleForm, weight: parseFloat(e.target.value) || 1 })}
-                    min={0}
-                    step={0.1}
-                    className="block w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Peso relativo de la {ENTITY_LABELS.module.toLowerCase()} en el cálculo total
-                  </p>
-                </div>
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
@@ -2124,42 +2077,28 @@ const TemplateEditor: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Category and weight row */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="indicator-category" className="block text-sm font-medium text-gray-700 mb-1">
-                      Categoría <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      id="indicator-category"
-                      value={indicatorForm.category}
-                      onChange={(e) => setIndicatorForm({ ...indicatorForm, category: e.target.value as IndicatorCategory })}
-                      disabled={isFirstIndicatorLocked}
-                      className={`block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary ${isFirstIndicatorLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                    >
-                      <option value="cobertura">Cobertura (Sí/No)</option>
-                      <option value="frecuencia">Frecuencia (Número)</option>
-                      <option value="profundidad">Profundidad (Niveles 0-4)</option>
-                      <option value="traspaso">Traspaso (Evidencia + Sugerencias)</option>
-                    </select>
-                    {isFirstIndicatorLocked && (
-                      <p className="mt-1 text-xs text-amber-600">
-                        El primer indicador de cada práctica siempre es de tipo Cobertura
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <label htmlFor="indicator-weight" className="block text-sm font-medium text-gray-700 mb-1">Peso</label>
-                    <input
-                      id="indicator-weight"
-                      type="number"
-                      value={indicatorForm.weight}
-                      onChange={(e) => setIndicatorForm({ ...indicatorForm, weight: parseFloat(e.target.value) || 1 })}
-                      min={0}
-                      step={0.1}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
-                    />
-                  </div>
+                {/* Category */}
+                <div>
+                  <label htmlFor="indicator-category" className="block text-sm font-medium text-gray-700 mb-1">
+                    Categoría <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="indicator-category"
+                    value={indicatorForm.category}
+                    onChange={(e) => setIndicatorForm({ ...indicatorForm, category: e.target.value as IndicatorCategory })}
+                    disabled={isFirstIndicatorLocked}
+                    className={`block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary ${isFirstIndicatorLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  >
+                    <option value="cobertura">Cobertura (Sí/No)</option>
+                    <option value="frecuencia">Frecuencia (Número)</option>
+                    <option value="profundidad">Profundidad (Niveles 0-4)</option>
+                    <option value="traspaso">Traspaso (Evidencia + Sugerencias)</option>
+                  </select>
+                  {isFirstIndicatorLocked && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      El primer indicador de cada práctica siempre es de tipo Cobertura
+                    </p>
+                  )}
                 </div>
 
                 {/* Frequency config */}

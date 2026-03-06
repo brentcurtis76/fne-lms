@@ -22,6 +22,8 @@ import {
   scoreCoberturaIndicator,
   scoreFrecuenciaIndicator,
   scoreProfundidadIndicator,
+  scoreTraspasoIndicator,
+  scoreDetalleIndicator,
   calculateWeightedAverage,
   calculateModuleScore,
   calculateAssessmentScores,
@@ -150,6 +152,70 @@ describe('Profundidad normalization', () => {
 });
 
 // ============================================================
+// Traspaso binary scoring
+// ============================================================
+
+describe('Traspaso binary scoring', () => {
+  it('returns 100 when evidence_link has content', () => {
+    expect(scoreTraspasoIndicator({ evidence_link: 'https://example.com/doc' })).toBe(100);
+  });
+
+  it('returns 100 when improvement_suggestions has content', () => {
+    expect(scoreTraspasoIndicator({ improvement_suggestions: 'Mejorar seguimiento' })).toBe(100);
+  });
+
+  it('returns 100 when both fields have content', () => {
+    expect(scoreTraspasoIndicator({ evidence_link: 'https://link', improvement_suggestions: 'text' })).toBe(100);
+  });
+
+  it('returns 0 when neither field has content', () => {
+    expect(scoreTraspasoIndicator({ evidence_link: '', improvement_suggestions: '' })).toBe(0);
+  });
+
+  it('returns 0 when fields are whitespace-only', () => {
+    expect(scoreTraspasoIndicator({ evidence_link: '   ', improvement_suggestions: '  ' })).toBe(0);
+  });
+
+  it('returns 0 when null', () => {
+    expect(scoreTraspasoIndicator(null)).toBe(0);
+  });
+
+  it('returns 0 when undefined', () => {
+    expect(scoreTraspasoIndicator(undefined)).toBe(0);
+  });
+});
+
+// ============================================================
+// Detalle binary scoring
+// ============================================================
+
+describe('Detalle binary scoring', () => {
+  it('returns 100 with 3 selected options', () => {
+    expect(scoreDetalleIndicator({ selected_options: ['ABP', 'Gamificación', 'Tutoría'] })).toBe(100);
+  });
+
+  it('returns 100 with 1 selected option', () => {
+    expect(scoreDetalleIndicator({ selected_options: ['ABP'] })).toBe(100);
+  });
+
+  it('returns 0 with empty array', () => {
+    expect(scoreDetalleIndicator({ selected_options: [] })).toBe(0);
+  });
+
+  it('returns 0 when null', () => {
+    expect(scoreDetalleIndicator(null)).toBe(0);
+  });
+
+  it('returns 0 when undefined', () => {
+    expect(scoreDetalleIndicator(undefined)).toBe(0);
+  });
+
+  it('returns 0 when selected_options is not an array', () => {
+    expect(scoreDetalleIndicator({ selected_options: 'not an array' })).toBe(0);
+  });
+});
+
+// ============================================================
 // Weighted module score
 // ============================================================
 
@@ -239,6 +305,40 @@ describe('Weighted global score', () => {
 
     const result = calculateModuleScore(indicators, responses, 'Single', 1);
     expect(result.moduleScore).toBe(75);
+  });
+
+  it('all 5 categories completed → 100% (binary scoring for detalle/traspaso)', () => {
+    const indicators = [
+      { id: '1', name: 'Cob', category: 'cobertura' as IndicatorCategory, weight: 20 },
+      { id: '2', name: 'Frec', category: 'frecuencia' as IndicatorCategory, weight: 20 },
+      { id: '3', name: 'Prof', category: 'profundidad' as IndicatorCategory, weight: 20 },
+      { id: '4', name: 'Det', category: 'detalle' as IndicatorCategory, weight: 20 },
+      { id: '5', name: 'Tras', category: 'traspaso' as IndicatorCategory, weight: 20 },
+    ];
+    const responses = new Map<string, AssessmentResponse>();
+    responses.set('1', { id: '1', instance_id: 'i1', indicator_id: '1', coverage_value: true } as AssessmentResponse);
+    responses.set('2', { id: '2', instance_id: 'i1', indicator_id: '2', frequency_value: 100 } as AssessmentResponse);
+    responses.set('3', { id: '3', instance_id: 'i1', indicator_id: '3', profundity_level: 4 } as AssessmentResponse);
+    responses.set('4', { id: '4', instance_id: 'i1', indicator_id: '4', sub_responses: { selected_options: ['ABP', 'Tutoría'] } } as AssessmentResponse);
+    responses.set('5', { id: '5', instance_id: 'i1', indicator_id: '5', sub_responses: { evidence_link: 'https://doc.com' } } as AssessmentResponse);
+
+    const result = calculateModuleScore(indicators, responses, 'Full Module', 1);
+    // All score 100 → (100*20)*5 / (20*5) = 100
+    expect(result.moduleScore).toBe(100);
+  });
+
+  it('detalle incomplete reduces score based on its weight', () => {
+    const indicators = [
+      { id: '1', name: 'Cob', category: 'cobertura' as IndicatorCategory, weight: 50 },
+      { id: '2', name: 'Det', category: 'detalle' as IndicatorCategory, weight: 50 },
+    ];
+    const responses = new Map<string, AssessmentResponse>();
+    responses.set('1', { id: '1', instance_id: 'i1', indicator_id: '1', coverage_value: true } as AssessmentResponse);
+    responses.set('2', { id: '2', instance_id: 'i1', indicator_id: '2', sub_responses: { selected_options: [] } } as AssessmentResponse);
+
+    const result = calculateModuleScore(indicators, responses, 'Test', 1);
+    // cobertura=100*50, detalle=0*50 → (5000) / 100 = 50
+    expect(result.moduleScore).toBe(50);
   });
 });
 

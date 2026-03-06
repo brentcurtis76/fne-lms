@@ -351,69 +351,78 @@ vi.mock('../../../lib/supabaseAdmin', () => ({
 }));
 
 describe('Scoring service — detalle/traspaso scoring (DOD-12, DOD-13)', () => {
-  it('scoreIndicator returns 0 for detalle category (DOD-13)', async () => {
+  it('scoreIndicator returns 100 for detalle with selected options', async () => {
     const { scoreIndicator } = await import('../../../lib/services/assessment-builder/scoringService');
     const score = scoreIndicator(
-      { coverage_value: true, frequency_value: 10, profundity_level: 4 },
+      { coverage_value: true, frequency_value: 10, profundity_level: 4, sub_responses: { selected_options: ['ABP', 'Tutoría'] } },
       'detalle'
     );
-    expect(score).toBe(0);
+    expect(score).toBe(100);
   });
 
-  it('scoreIndicator returns 0 for traspaso category (DOD-13)', async () => {
+  it('scoreIndicator returns 0 for detalle with empty/null sub_responses', async () => {
+    const { scoreIndicator } = await import('../../../lib/services/assessment-builder/scoringService');
+    expect(scoreIndicator({ sub_responses: null } as any, 'detalle')).toBe(0);
+    expect(scoreIndicator({ sub_responses: { selected_options: [] } } as any, 'detalle')).toBe(0);
+    expect(scoreIndicator({} as any, 'detalle')).toBe(0);
+  });
+
+  it('scoreIndicator returns 100 for traspaso with evidence', async () => {
     const { scoreIndicator } = await import('../../../lib/services/assessment-builder/scoringService');
     const score = scoreIndicator(
-      { coverage_value: true, frequency_value: 10, profundity_level: 4 },
+      { coverage_value: true, frequency_value: 10, profundity_level: 4, sub_responses: { evidence_link: 'https://doc.com' } },
       'traspaso'
     );
-    expect(score).toBe(0);
+    expect(score).toBe(100);
   });
 
-  it('calculateModuleScore includes all passed indicators (R9: exclusion moved to caller)', async () => {
-    // R9: The traspaso/detalle exclusion was removed from calculateModuleScore.
-    // It now happens BEFORE calling calculateModuleScore in calculateAssessmentScores.
-    // When called directly with all indicators, detalle/traspaso contribute 0 to the average.
+  it('scoreIndicator returns 0 for traspaso with empty sub_responses', async () => {
+    const { scoreIndicator } = await import('../../../lib/services/assessment-builder/scoringService');
+    expect(scoreIndicator({ sub_responses: null } as any, 'traspaso')).toBe(0);
+    expect(scoreIndicator({ sub_responses: {} } as any, 'traspaso')).toBe(0);
+  });
+
+  it('calculateModuleScore with all 5 categories completed scores 100', async () => {
     const { calculateModuleScore } = await import('../../../lib/services/assessment-builder/scoringService');
 
-    // Module with cobertura (100%), profundidad (75%), detalle (0 — scoreIndicator returns 0)
     const indicators = [
       { id: 'ind-1', name: 'Cobertura', category: 'cobertura' as const, weight: 1 },
       { id: 'ind-2', name: 'Profundidad', category: 'profundidad' as const, weight: 1 },
       { id: 'ind-3', name: 'Detalle', category: 'detalle' as const, weight: 1 },
+      { id: 'ind-4', name: 'Traspaso', category: 'traspaso' as const, weight: 1 },
+      { id: 'ind-5', name: 'Frecuencia', category: 'frecuencia' as const, weight: 1 },
     ];
 
     const responses = new Map([
-      ['ind-1', { coverage_value: true, frequency_value: undefined, profundity_level: undefined, indicator_id: 'ind-1' } as any],
-      ['ind-2', { coverage_value: undefined, frequency_value: undefined, profundity_level: 3, indicator_id: 'ind-2' } as any],
+      ['ind-1', { coverage_value: true, indicator_id: 'ind-1' } as any],
+      ['ind-2', { profundity_level: 4, indicator_id: 'ind-2' } as any],
+      ['ind-3', { sub_responses: { selected_options: ['ABP'] }, indicator_id: 'ind-3' } as any],
+      ['ind-4', { sub_responses: { evidence_link: 'https://doc.com' }, indicator_id: 'ind-4' } as any],
+      ['ind-5', { frequency_value: 100, indicator_id: 'ind-5' } as any],
     ]);
 
     const result = calculateModuleScore(indicators, responses, 'Test Module', 1);
-
-    // New behavior: detalle IS included (with score 0) → (100*1 + 75*1 + 0*1) / 3 = 58.33
-    // Year-aware filtering (R8) in calculateAssessmentScores would exclude detalle BEFORE this call.
-    expect(result.moduleScore).toBe(58.33);
-    // All 3 indicators still appear in the result
-    expect(result.indicators).toHaveLength(3);
-    expect(result.activeIndicatorCount).toBe(3); // all passed indicators counted
+    // All 5 score 100 → average = 100
+    expect(result.moduleScore).toBe(100);
+    expect(result.indicators).toHaveLength(5);
+    expect(result.activeIndicatorCount).toBe(5);
   });
 
-  it('calculateModuleScore includes traspaso in average when passed (R9)', async () => {
-    // R9: Traspaso exclusion removed from calculateModuleScore.
-    // In practice, calculateAssessmentScores filters traspaso out (legacy) or by year expectations.
+  it('calculateModuleScore with incomplete detalle reduces score correctly', async () => {
     const { calculateModuleScore } = await import('../../../lib/services/assessment-builder/scoringService');
 
     const indicators = [
       { id: 'ind-1', name: 'Cobertura', category: 'cobertura' as const, weight: 1 },
-      { id: 'ind-t', name: 'Traspaso', category: 'traspaso' as const, weight: 1 },
+      { id: 'ind-3', name: 'Detalle', category: 'detalle' as const, weight: 1 },
     ];
 
     const responses = new Map([
-      ['ind-1', { coverage_value: true, frequency_value: undefined, profundity_level: undefined, indicator_id: 'ind-1' } as any],
+      ['ind-1', { coverage_value: true, indicator_id: 'ind-1' } as any],
+      // detalle has no sub_responses → scores 0
     ]);
 
     const result = calculateModuleScore(indicators, responses, 'Test Module', 1);
-
-    // New behavior: traspaso IS included (with score 0) → (100*1 + 0*1) / 2 = 50
+    // cobertura=100, detalle=0 → (100+0)/2 = 50
     expect(result.moduleScore).toBe(50);
     expect(result.indicators).toHaveLength(2);
   });

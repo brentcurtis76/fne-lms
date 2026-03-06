@@ -85,7 +85,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Get all responses for this instance
     const { data: responses, error: responsesError } = await supabaseClient
       .from('assessment_responses')
-      .select('indicator_id, coverage_value, frequency_value, profundity_level')
+      .select('indicator_id, coverage_value, frequency_value, profundity_level, sub_responses')
       .eq('instance_id', instanceId);
 
     if (responsesError) {
@@ -113,7 +113,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Build active indicator set (R12)
     const templateId = snapshot?.template_id;
     const transformationYear = instance.transformation_year;
-    const generationType = instance.generation_type || 'GT';
+    const generationType = instance.generation_type as string;
+    if (!generationType || !['GT', 'GI'].includes(generationType)) {
+      return res.status(400).json({
+        error: `Tipo de generación inválido: ${generationType || 'no definido'}`
+      });
+    }
 
     let activeIndicatorIds: Set<string> | null = null;
 
@@ -161,10 +166,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // Check if response has appropriate value based on category
-        const hasValue =
-          (indicator.category === 'cobertura' && response.coverage_value !== null) ||
-          (indicator.category === 'frecuencia' && response.frequency_value !== null) ||
-          (indicator.category === 'profundidad' && response.profundity_level !== null);
+        let hasValue = false;
+        switch (indicator.category) {
+          case 'cobertura':
+            hasValue = response.coverage_value !== null;
+            break;
+          case 'frecuencia':
+            hasValue = response.frequency_value !== null;
+            break;
+          case 'profundidad':
+            hasValue = response.profundity_level !== null;
+            break;
+          case 'traspaso': {
+            const sub = response.sub_responses as Record<string, unknown> | undefined;
+            const evidenceLink = sub?.evidence_link;
+            const suggestions = sub?.improvement_suggestions;
+            hasValue =
+              (typeof evidenceLink === 'string' && evidenceLink.trim().length > 0) ||
+              (typeof suggestions === 'string' && suggestions.trim().length > 0);
+            break;
+          }
+          case 'detalle': {
+            const sub = response.sub_responses as Record<string, unknown> | undefined;
+            const selectedOptions = sub?.selected_options;
+            hasValue = Array.isArray(selectedOptions) && selectedOptions.length > 0;
+            break;
+          }
+        }
 
         if (!hasValue) {
           missingIndicators.push(indicator.name || indicator.id);

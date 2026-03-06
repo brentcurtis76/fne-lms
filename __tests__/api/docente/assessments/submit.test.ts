@@ -17,6 +17,7 @@ const TEMPLATE_ID = 'tmpl0001-0000-0000-0000-000000000001';
 const IND_COB = 'ind00001-0000-0000-0000-000000000001'; // cobertura — active year 1
 const IND_FREC = 'ind00002-0000-0000-0000-000000000002'; // frecuencia — active year 1
 const IND_TRAS = 'ind00003-0000-0000-0000-000000000003'; // traspaso — inactive year 1
+const IND_DET = 'ind00004-0000-0000-0000-000000000004'; // detalle
 
 // ============================================================
 // Mocks
@@ -251,6 +252,170 @@ describe('POST /api/docente/assessments/[instanceId]/submit', () => {
     await submitHandler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(405);
+  });
+
+  it('T-detalle: Active detalle with non-empty selected_options submits successfully', async () => {
+    const snapshotWithDetalle = {
+      modules: [
+        {
+          id: 'mod-1',
+          indicators: [
+            { id: IND_COB, name: 'Indicador cobertura', category: 'cobertura' },
+            { id: IND_DET, name: 'Indicador detalle', category: 'detalle' },
+          ],
+        },
+      ],
+    };
+    const instanceWithDetalle = {
+      ...INSTANCE_DATA,
+      assessment_template_snapshots: {
+        template_id: TEMPLATE_ID,
+        snapshot_data: snapshotWithDetalle,
+      },
+    };
+    const yearExpWithDetalle = [
+      { indicator_id: IND_COB, year_1_expected: 1 },
+      { indicator_id: IND_DET, year_1_expected: 1 }, // active
+    ];
+
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        instanceData: instanceWithDetalle,
+        yearExpData: yearExpWithDetalle,
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: true, frequency_value: null, profundity_level: null, sub_responses: null },
+          { indicator_id: IND_DET, coverage_value: null, frequency_value: null, profundity_level: null, sub_responses: { selected_options: ['ABP', 'Tutoría'] } },
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(200);
+  });
+
+  it('T-traspaso: Active traspaso with evidence submits successfully', async () => {
+    const snapshotWithTraspaso = {
+      modules: [
+        {
+          id: 'mod-1',
+          indicators: [
+            { id: IND_COB, name: 'Indicador cobertura', category: 'cobertura' },
+            { id: IND_TRAS, name: 'Indicador traspaso', category: 'traspaso' },
+          ],
+        },
+      ],
+    };
+    const instanceWithTraspaso = {
+      ...INSTANCE_DATA,
+      assessment_template_snapshots: {
+        template_id: TEMPLATE_ID,
+        snapshot_data: snapshotWithTraspaso,
+      },
+    };
+    const yearExpWithTraspaso = [
+      { indicator_id: IND_COB, year_1_expected: 1 },
+      { indicator_id: IND_TRAS, year_1_expected: 1 }, // active
+    ];
+
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        instanceData: instanceWithTraspaso,
+        yearExpData: yearExpWithTraspaso,
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: true, frequency_value: null, profundity_level: null, sub_responses: null },
+          { indicator_id: IND_TRAS, coverage_value: null, frequency_value: null, profundity_level: null, sub_responses: { evidence_link: 'https://doc.com', improvement_suggestions: '' } },
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(200);
+  });
+
+  it('T-detalle-missing: Active detalle without selected_options returns 400', async () => {
+    const snapshotWithDetalle = {
+      modules: [
+        {
+          id: 'mod-1',
+          indicators: [
+            { id: IND_COB, name: 'Indicador cobertura', category: 'cobertura' },
+            { id: IND_DET, name: 'Indicador detalle', category: 'detalle' },
+          ],
+        },
+      ],
+    };
+    const instanceWithDetalle = {
+      ...INSTANCE_DATA,
+      assessment_template_snapshots: {
+        template_id: TEMPLATE_ID,
+        snapshot_data: snapshotWithDetalle,
+      },
+    };
+    const yearExpWithDetalle = [
+      { indicator_id: IND_COB, year_1_expected: 1 },
+      { indicator_id: IND_DET, year_1_expected: 1 }, // active
+    ];
+
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        instanceData: instanceWithDetalle,
+        yearExpData: yearExpWithDetalle,
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: true, frequency_value: null, profundity_level: null, sub_responses: null },
+          { indicator_id: IND_DET, coverage_value: null, frequency_value: null, profundity_level: null, sub_responses: { selected_options: [] } },
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(400);
+    expect(JSON.parse(res._getData()).missingCount).toBeGreaterThan(0);
+  });
+
+  it('T-generation-type: Rejects invalid generation_type with 400', async () => {
+    const instanceBadGen = {
+      ...INSTANCE_DATA,
+      generation_type: 'INVALID',
+    };
+
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        instanceData: instanceBadGen,
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: true, frequency_value: null, profundity_level: null, sub_responses: null },
+          { indicator_id: IND_FREC, coverage_value: null, frequency_value: 5, profundity_level: null, sub_responses: null },
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(400);
+    expect(JSON.parse(res._getData()).error).toContain('Tipo de generación inválido');
+  });
+
+  it('T-generation-type-null: Rejects null generation_type with 400', async () => {
+    const instanceNoGen = {
+      ...INSTANCE_DATA,
+      generation_type: null,
+    };
+
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildSubmitClient({
+        instanceData: instanceNoGen,
+        responsesData: [
+          { indicator_id: IND_COB, coverage_value: true, frequency_value: null, profundity_level: null, sub_responses: null },
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({ method: 'POST', query: { instanceId: INSTANCE_ID } });
+    await submitHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(400);
+    expect(JSON.parse(res._getData()).error).toContain('no definido');
   });
 
   it('T-legacy: No year expectations data — validates all scorable indicators', async () => {

@@ -76,11 +76,33 @@ export function scoreProfundidadIndicator(level: number | undefined | null): num
 }
 
 /**
+ * Calculate binary score (0 or 100) for a traspaso indicator.
+ * Has content in evidence_link or improvement_suggestions = complete (100).
+ */
+export function scoreTraspasoIndicator(subResponses: Record<string, unknown> | undefined | null): number {
+  if (!subResponses) return 0;
+  const evidenceLink = subResponses.evidence_link;
+  const suggestions = subResponses.improvement_suggestions;
+  const hasEvidence = typeof evidenceLink === 'string' && evidenceLink.trim().length > 0;
+  const hasSuggestions = typeof suggestions === 'string' && suggestions.trim().length > 0;
+  return (hasEvidence || hasSuggestions) ? 100 : 0;
+}
+
+/**
+ * Calculate binary score (0 or 100) for a detalle indicator.
+ * Has at least one option selected = complete (100).
+ */
+export function scoreDetalleIndicator(subResponses: Record<string, unknown> | undefined | null): number {
+  if (!subResponses) return 0;
+  const selectedOptions = subResponses.selected_options;
+  return (Array.isArray(selectedOptions) && selectedOptions.length > 0) ? 100 : 0;
+}
+
+/**
  * Calculate score for any indicator based on its category.
- * Traspaso and detalle are descriptive-only — always return 0.
  */
 export function scoreIndicator(
-  response: Pick<AssessmentResponse, 'coverage_value' | 'frequency_value' | 'profundity_level'>,
+  response: Pick<AssessmentResponse, 'coverage_value' | 'frequency_value' | 'profundity_level' | 'sub_responses'>,
   category: IndicatorCategory,
   frequencyConfig?: FrequencyConfig
 ): number {
@@ -92,9 +114,9 @@ export function scoreIndicator(
     case 'profundidad':
       return scoreProfundidadIndicator(response.profundity_level);
     case 'traspaso':
-      return 0; // Descriptive only — excluded from scoring
+      return scoreTraspasoIndicator(response.sub_responses);
     case 'detalle':
-      return 0; // Descriptive only — excluded from scoring
+      return scoreDetalleIndicator(response.sub_responses);
     default:
       return 0;
   }
@@ -176,14 +198,10 @@ export function calculateModuleScore(
     };
   });
 
-  // NOTE: The hardcoded traspaso/detalle exclusion has been removed.
   // Year-aware filtering now happens at the calculateAssessmentScores level BEFORE
   // this function is called. When activeExpectations is set (R8), only active indicators
   // are passed here. When it is undefined (legacy instances with no expectations data),
   // we fall back to the old exclusion behaviour to preserve backward compatibility.
-  // KNOWN LIMITATION: if traspaso/detalle ARE active for a year, scoreIndicator() still
-  // returns 0 for them (multi-select matching is not yet implemented), so they will
-  // contribute 0 to the weighted average.
   const moduleScore = calculateWeightedAverage(
     indicatorScores.map((i) => ({ score: i.normalizedScore, weight: i.weight }))
   );
@@ -504,7 +522,14 @@ export async function fetchInstanceDataForScoring(
   }
 
   const template = snapshotData.template;
-  const transformationYear = instance.transformation_year as 1 | 2 | 3 | 4 | 5;
+  const rawYear = instance.transformation_year as number;
+
+  // Validate transformation_year is within valid range (1-5)
+  if (!rawYear || rawYear < 1 || rawYear > 5) {
+    console.error(`Invalid transformation year: ${rawYear}`);
+    return null;
+  }
+  const transformationYear = rawYear as 1 | 2 | 3 | 4 | 5;
 
   // R6: Fetch year expectations for active indicator filtering
   // generation_type defaults to 'GT' for backward compatibility with old instances

@@ -269,11 +269,9 @@ describe('DEFAULT_DATA — structure', () => {
 // ── Gantt chart UI features ───────────────────────────────────────────────────
 
 describe('Gantt chart UI features', () => {
-  it('renders GENERA logo SVG', () => {
-    expect(componentSrc).toContain('<svg');
-    expect(componentSrc).toContain('viewBox="0 0 36 36"');
-    // Circle elements for the logo
-    expect(componentSrc).toContain('<circle');
+  it('renders page header with title', () => {
+    expect(componentSrc).toContain('{/* ── Page header ── */}');
+    expect(componentSrc).toContain('data.title');
   });
 
   it('uses light background for platform coherence', () => {

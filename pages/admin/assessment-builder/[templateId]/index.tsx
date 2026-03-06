@@ -20,6 +20,7 @@ import {
   History,
   Lock,
   Eye,
+  X,
   Target,
   Archive,
   RotateCcw,
@@ -27,17 +28,21 @@ import {
 import type {
   AssessmentTemplate,
   AssessmentModule,
-  AssessmentIndicator,
+  AssessmentObjective,
   TransformationArea,
   IndicatorCategory,
   FrequencyUnit,
   UpdateTemplateRequest,
   CreateModuleRequest,
   UpdateModuleRequest,
+  CreateObjectiveRequest,
+  UpdateObjectiveRequest,
 } from '@/types/assessment-builder';
 import {
   AREA_LABELS,
+  AREA_CODES,
   CATEGORY_LABELS,
+  ENTITY_LABELS,
   FREQUENCY_UNIT_OPTIONS,
   FREQUENCY_UNIT_LABELS,
   DEFAULT_FREQUENCY_UNIT_OPTIONS,
@@ -63,6 +68,7 @@ interface IndicatorData {
   level2Descriptor?: string;
   level3Descriptor?: string;
   level4Descriptor?: string;
+  detalleOptions?: string[];
   displayOrder: number;
   weight: number;
   isActive: boolean;
@@ -72,6 +78,10 @@ interface ModuleWithIndicators extends Omit<AssessmentModule, 'indicators'> {
   indicators?: IndicatorData[];
   isExpanded?: boolean;
   indicatorsLoaded?: boolean;
+}
+
+type ObjectiveWithModules = AssessmentObjective & {
+  isExpanded?: boolean;
 }
 
 const TemplateEditor: React.FC = () => {
@@ -88,6 +98,7 @@ const TemplateEditor: React.FC = () => {
   // Template state
   const [template, setTemplate] = useState<AssessmentTemplate | null>(null);
   const [modules, setModules] = useState<ModuleWithIndicators[]>([]);
+  const [objectives, setObjectives] = useState<ObjectiveWithModules[]>([]);
 
   // Edit template modal
   const [isEditingTemplate, setIsEditingTemplate] = useState(false);
@@ -96,25 +107,37 @@ const TemplateEditor: React.FC = () => {
     description: '',
   });
 
+  // Objective modal
+  const [isObjectiveModalOpen, setIsObjectiveModalOpen] = useState(false);
+  const [editingObjective, setEditingObjective] = useState<ObjectiveWithModules | null>(null);
+  const [objectiveForm, setObjectiveForm] = useState<{
+    name: string;
+    description: string;
+  }>({
+    name: '',
+    description: '',
+  });
+
   // Module modal
   const [isModuleModalOpen, setIsModuleModalOpen] = useState(false);
   const [editingModule, setEditingModule] = useState<ModuleWithIndicators | null>(null);
+  const [moduleObjectiveId, setModuleObjectiveId] = useState<string | null>(null);
   const [moduleForm, setModuleForm] = useState<{
     name: string;
     description: string;
     instructions: string;
-    weight: number;
   }>({
     name: '',
     description: '',
     instructions: '',
-    weight: 1,
   });
 
   // Indicator modal
   const [isIndicatorModalOpen, setIsIndicatorModalOpen] = useState(false);
   const [indicatorModuleId, setIndicatorModuleId] = useState<string | null>(null);
   const [editingIndicator, setEditingIndicator] = useState<IndicatorData | null>(null);
+  // Whether the first indicator (cobertura-locked) is being created/edited
+  const [isFirstIndicatorLocked, setIsFirstIndicatorLocked] = useState(false);
   const [indicatorForm, setIndicatorForm] = useState<{
     code: string;
     name: string;
@@ -127,7 +150,7 @@ const TemplateEditor: React.FC = () => {
     level2Descriptor: string;
     level3Descriptor: string;
     level4Descriptor: string;
-    weight: number;
+    detalleOptions: string[];
   }>({
     code: '',
     name: '',
@@ -140,7 +163,7 @@ const TemplateEditor: React.FC = () => {
     level2Descriptor: '',
     level3Descriptor: '',
     level4Descriptor: '',
-    weight: 1,
+    detalleOptions: ['', ''],
   });
 
   // Publishing state
@@ -166,6 +189,52 @@ const TemplateEditor: React.FC = () => {
   const [deleteConfirmData, setDeleteConfirmData] = useState<{
     counts?: { instances: number; responses: number; snapshots: number; modules: number };
   } | null>(null);
+
+  // Preview modal state
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewModule, setPreviewModule] = useState<ModuleWithIndicators | null>(null);
+  const [previewCoberturaAnswer, setPreviewCoberturaAnswer] = useState<boolean | null>(null);
+
+  // Inline confirmation state (replaces window.confirm)
+  const [pendingConfirm, setPendingConfirm] = useState<{
+    key: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  // Publish flow: step 1 = confirm publish, step 2 = ask about upgrade
+  const [publishStep, setPublishStep] = useState<null | 'confirm' | 'upgrade'>(null);
+
+  const requestConfirm = (key: string, onConfirm: () => void) => {
+    setPendingConfirm({ key, onConfirm });
+  };
+
+  const cancelConfirm = () => {
+    setPendingConfirm(null);
+  };
+
+  const executeConfirm = () => {
+    if (pendingConfirm) {
+      const fn = pendingConfirm.onConfirm;
+      setPendingConfirm(null);
+      fn();
+    }
+  };
+
+  // Close any open modal on Escape key (A-3)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (isPreviewOpen) { setIsPreviewOpen(false); return; }
+      if (isObjectiveModalOpen) { setIsObjectiveModalOpen(false); return; }
+      if (isModuleModalOpen) { setIsModuleModalOpen(false); return; }
+      if (isIndicatorModalOpen) { setIsIndicatorModalOpen(false); return; }
+      if (isVersionHistoryOpen) { setIsVersionHistoryOpen(false); return; }
+      if (publishStep !== null) { setPublishStep(null); return; }
+      if (pendingConfirm !== null) { setPendingConfirm(null); return; }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isPreviewOpen, isObjectiveModalOpen, isModuleModalOpen, isIndicatorModalOpen, isVersionHistoryOpen, publishStep, pendingConfirm]);
 
   // Check auth and permissions
   useEffect(() => {
@@ -225,6 +294,13 @@ const TemplateEditor: React.FC = () => {
         setUsageStats(templateData.usageStats);
       }
 
+      // Fetch objectives
+      const objectivesRes = await fetch(`/api/admin/assessment-builder/templates/${templateId}/objectives`);
+      if (objectivesRes.ok) {
+        const objectivesData = await objectivesRes.json();
+        setObjectives((objectivesData.objectives || []).map((o: AssessmentObjective) => ({ ...o, isExpanded: false })));
+      }
+
       // Fetch modules
       const modulesRes = await fetch(`/api/admin/assessment-builder/templates/${templateId}/modules`);
       if (modulesRes.ok) {
@@ -278,19 +354,120 @@ const TemplateEditor: React.FC = () => {
     }
   };
 
+  // Objective CRUD
+  const openObjectiveModal = (objective?: ObjectiveWithModules) => {
+    if (objective) {
+      setEditingObjective(objective);
+      setObjectiveForm({
+        name: objective.name,
+        description: objective.description || '',
+      });
+    } else {
+      setEditingObjective(null);
+      setObjectiveForm({ name: '', description: '' });
+    }
+    setIsObjectiveModalOpen(true);
+  };
+
+  const handleSaveObjective = async () => {
+    if (!template) return;
+    if (!objectiveForm.name.trim()) {
+      toast.error('El nombre del objetivo es requerido');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (editingObjective) {
+        const response = await fetch(
+          `/api/admin/assessment-builder/templates/${template.id}/objectives/${editingObjective.id}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: objectiveForm.name.trim(),
+              description: objectiveForm.description.trim() || undefined,
+            } as UpdateObjectiveRequest),
+          }
+        );
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Error al actualizar el objetivo');
+        }
+
+        const data = await response.json();
+        setObjectives(prev =>
+          prev.map(o => (o.id === editingObjective.id ? { ...data.objective, isExpanded: o.isExpanded } : o))
+        );
+        toast.success(`${ENTITY_LABELS.objective} actualizado`);
+      } else {
+        const response = await fetch(`/api/admin/assessment-builder/templates/${template.id}/objectives`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            template_id: template.id,
+            name: objectiveForm.name.trim(),
+            description: objectiveForm.description.trim() || undefined,
+          } as CreateObjectiveRequest),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || 'Error al crear el objetivo');
+        }
+
+        const data = await response.json();
+        setObjectives(prev => [...prev, { ...data.objective, isExpanded: false }]);
+        toast.success(`${ENTITY_LABELS.objective} creado`);
+      }
+
+      setIsObjectiveModalOpen(false);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Error al guardar el objetivo';
+      toast.error(msg);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteObjective = async (objective: ObjectiveWithModules) => {
+    if (!template) return;
+
+    try {
+      const response = await fetch(
+        `/api/admin/assessment-builder/templates/${template.id}/objectives/${objective.id}`,
+        { method: 'DELETE' }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Error al eliminar el objetivo');
+      }
+
+      setObjectives(prev => prev.filter(o => o.id !== objective.id));
+      // Remove modules that belonged to this objective from state
+      setModules(prev => prev.filter(m => m.objective_id !== objective.id));
+      toast.success(`${ENTITY_LABELS.objective} eliminado`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Error al eliminar el objetivo';
+      toast.error(msg);
+    }
+  };
+
   // Module CRUD
-  const openModuleModal = (module?: ModuleWithIndicators) => {
+  const openModuleModal = (objectiveId?: string, module?: ModuleWithIndicators) => {
+    setModuleObjectiveId(objectiveId || null);
     if (module) {
       setEditingModule(module);
       setModuleForm({
         name: module.name,
         description: module.description || '',
         instructions: module.instructions || '',
-        weight: module.weight,
       });
     } else {
       setEditingModule(null);
-      setModuleForm({ name: '', description: '', instructions: '', weight: 1 });
+      setModuleForm({ name: '', description: '', instructions: '' });
     }
     setIsModuleModalOpen(true);
   };
@@ -298,7 +475,7 @@ const TemplateEditor: React.FC = () => {
   const handleSaveModule = async () => {
     if (!template) return;
     if (!moduleForm.name.trim()) {
-      toast.error('El nombre del módulo es requerido');
+      toast.error(`El nombre de la ${ENTITY_LABELS.module} es requerido`);
       return;
     }
 
@@ -315,21 +492,20 @@ const TemplateEditor: React.FC = () => {
               name: moduleForm.name.trim(),
               description: moduleForm.description.trim() || undefined,
               instructions: moduleForm.instructions.trim() || undefined,
-              weight: moduleForm.weight,
             } as UpdateModuleRequest),
           }
         );
 
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || 'Error al actualizar el módulo');
+          throw new Error(data.error || `Error al actualizar la ${ENTITY_LABELS.module}`);
         }
 
         const data = await response.json();
         setModules(prev =>
           prev.map(m => (m.id === editingModule.id ? { ...data.module, isExpanded: m.isExpanded } : m))
         );
-        toast.success('Módulo actualizado');
+        toast.success(`${ENTITY_LABELS.module} actualizada`);
       } else {
         // Create module
         const response = await fetch(`/api/admin/assessment-builder/templates/${template.id}/modules`, {
@@ -340,24 +516,24 @@ const TemplateEditor: React.FC = () => {
             name: moduleForm.name.trim(),
             description: moduleForm.description.trim() || undefined,
             instructions: moduleForm.instructions.trim() || undefined,
-            weight: moduleForm.weight,
+            objective_id: moduleObjectiveId || undefined,
           } as CreateModuleRequest),
         });
 
         if (!response.ok) {
           const data = await response.json();
-          throw new Error(data.error || 'Error al crear el módulo');
+          throw new Error(data.error || `Error al crear la ${ENTITY_LABELS.module}`);
         }
 
         const data = await response.json();
         setModules(prev => [...prev, { ...data.module, isExpanded: false }]);
-        toast.success('Módulo creado');
+        toast.success(`${ENTITY_LABELS.module} creada`);
       }
 
       setIsModuleModalOpen(false);
     } catch (error: any) {
       console.error('Error saving module:', error);
-      toast.error(error.message || 'Error al guardar el módulo');
+      toast.error(error.message || `Error al guardar la ${ENTITY_LABELS.module.toLowerCase()}`);
     } finally {
       setIsSaving(false);
     }
@@ -365,9 +541,6 @@ const TemplateEditor: React.FC = () => {
 
   const handleDeleteModule = async (module: ModuleWithIndicators) => {
     if (!template) return;
-    if (!confirm(`¿Estás seguro de eliminar el módulo "${module.name}"? Esta acción no se puede deshacer.`)) {
-      return;
-    }
 
     try {
       const response = await fetch(
@@ -377,21 +550,49 @@ const TemplateEditor: React.FC = () => {
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Error al eliminar el módulo');
+        throw new Error(data.error || `Error al eliminar la ${ENTITY_LABELS.module}`);
       }
 
       setModules(prev => prev.filter(m => m.id !== module.id));
-      toast.success('Módulo eliminado');
-    } catch (error: any) {
-      console.error('Error deleting module:', error);
-      toast.error(error.message || 'Error al eliminar el módulo');
+      toast.success(`${ENTITY_LABELS.module} eliminada`);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : `Error al eliminar la ${ENTITY_LABELS.module}`;
+      toast.error(msg);
     }
+  };
+
+  // Generate indicator code from area + objective order + module order + indicator order
+  const generateIndicatorCode = (moduleId: string, existingCount: number): string => {
+    if (!template) return '';
+    const areaCode = AREA_CODES[template.area] || '';
+    const module = modules.find((m) => m.id === moduleId);
+    if (!module) return '';
+
+    // Find objective order
+    const objective = objectives.find((o) => o.id === module.objective_id);
+    const objOrder = objective ? objectives.indexOf(objective) + 1 : 1;
+
+    // Find module order within its objective
+    const objectiveModules = modules.filter((m) => m.objective_id === module.objective_id);
+    const modOrder = objectiveModules.indexOf(module) + 1;
+
+    // Next indicator order
+    const indOrder = existingCount + 1;
+
+    return `${areaCode}${objOrder}.${modOrder}.${indOrder}`;
   };
 
   // Indicator CRUD
   const openIndicatorModal = (moduleId: string, indicator?: IndicatorData) => {
     setIndicatorModuleId(moduleId);
+
+    const module = modules.find((m) => m.id === moduleId);
+    const currentIndicators = module?.indicators || [];
+
     if (indicator) {
+      // Editing: first indicator (display_order === 1) is locked to cobertura
+      const isFirst = indicator.displayOrder === 1 && currentIndicators.length > 0;
+      setIsFirstIndicatorLocked(isFirst);
       setEditingIndicator(indicator);
       setIndicatorForm({
         code: indicator.code || '',
@@ -405,12 +606,21 @@ const TemplateEditor: React.FC = () => {
         level2Descriptor: indicator.level2Descriptor || '',
         level3Descriptor: indicator.level3Descriptor || '',
         level4Descriptor: indicator.level4Descriptor || '',
-        weight: indicator.weight,
+        detalleOptions: indicator.detalleOptions && indicator.detalleOptions.length > 0
+          ? indicator.detalleOptions
+          : ['', ''],
       });
     } else {
+      // Creating new: first indicator of module must be cobertura
+      const isFirst = currentIndicators.length === 0;
+      setIsFirstIndicatorLocked(isFirst);
       setEditingIndicator(null);
+
+      // Auto-generate code
+      const autoCode = generateIndicatorCode(moduleId, currentIndicators.length);
+
       setIndicatorForm({
-        code: '',
+        code: autoCode,
         name: '',
         description: '',
         category: 'cobertura',
@@ -421,7 +631,7 @@ const TemplateEditor: React.FC = () => {
         level2Descriptor: '',
         level3Descriptor: '',
         level4Descriptor: '',
-        weight: 1,
+        detalleOptions: ['', ''],
       });
     }
     setIsIndicatorModalOpen(true);
@@ -456,13 +666,26 @@ const TemplateEditor: React.FC = () => {
       }
     }
 
+    // For detalle, validate options
+    if (indicatorForm.category === 'detalle') {
+      const filledOptions = indicatorForm.detalleOptions.map(o => o.trim()).filter(o => o.length > 0);
+      if (filledOptions.length < 2) {
+        toast.error('Los indicadores de detalle requieren al menos 2 opciones');
+        return;
+      }
+      const unique = new Set(filledOptions.map(o => o.toLowerCase()));
+      if (unique.size !== filledOptions.length) {
+        toast.error('Las opciones de detalle no pueden repetirse');
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
       const body: any = {
         name: indicatorForm.name.trim(),
         description: indicatorForm.description.trim() || undefined,
         category: indicatorForm.category,
-        weight: indicatorForm.weight,
       };
 
       if (indicatorForm.code.trim()) {
@@ -480,6 +703,10 @@ const TemplateEditor: React.FC = () => {
         body.level2Descriptor = indicatorForm.level2Descriptor.trim() || undefined;
         body.level3Descriptor = indicatorForm.level3Descriptor.trim() || undefined;
         body.level4Descriptor = indicatorForm.level4Descriptor.trim() || undefined;
+      }
+
+      if (indicatorForm.category === 'detalle') {
+        body.detalleOptions = indicatorForm.detalleOptions.map(o => o.trim()).filter(o => o.length > 0);
       }
 
       if (editingIndicator) {
@@ -540,9 +767,9 @@ const TemplateEditor: React.FC = () => {
       }
 
       setIsIndicatorModalOpen(false);
-    } catch (error: any) {
-      console.error('Error saving indicator:', error);
-      toast.error(error.message || 'Error al guardar el indicador');
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Error al guardar el indicador';
+      toast.error(msg);
     } finally {
       setIsSaving(false);
     }
@@ -550,9 +777,6 @@ const TemplateEditor: React.FC = () => {
 
   const handleDeleteIndicator = async (moduleId: string, indicator: IndicatorData) => {
     if (!template) return;
-    if (!confirm(`¿Estás seguro de eliminar el indicador "${indicator.name}"? Esta acción no se puede deshacer.`)) {
-      return;
-    }
 
     try {
       const response = await fetch(
@@ -573,9 +797,10 @@ const TemplateEditor: React.FC = () => {
         )
       );
       toast.success('Indicador eliminado');
-    } catch (error: any) {
-      console.error('Error deleting indicator:', error);
-      toast.error(error.message || 'Error al eliminar el indicador');
+      toast('Los códigos de indicadores pueden no coincidir con el orden actual', { icon: '\u26A0\uFE0F', duration: 4000 });
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Error al eliminar el indicador';
+      toast.error(msg);
     }
   };
 
@@ -592,7 +817,7 @@ const TemplateEditor: React.FC = () => {
     }
 
     if (modules.length === 0) {
-      toast.error('El template debe tener al menos un módulo para ser publicado');
+      toast.error(`El template debe tener al menos una ${ENTITY_LABELS.module.toLowerCase()} para ser publicado`);
       return;
     }
 
@@ -601,17 +826,14 @@ const TemplateEditor: React.FC = () => {
       return;
     }
 
-    if (!confirm(`¿Estás seguro de publicar este template? Una vez publicado, no podrá ser editado directamente.`)) {
-      return;
-    }
+    // Open inline publish confirmation (step 1)
+    setPublishStep('confirm');
+    return;
+  };
 
-    // Ask if they want to upgrade existing assignments
-    const upgradeExisting = confirm(
-      '¿Deseas crear nuevas evaluaciones para docentes que ya tienen asignaciones previas de este template?\n\n' +
-      'Si seleccionas "Aceptar", los docentes verán la nueva versión en su lista.\n' +
-      'Si seleccionas "Cancelar", solo nuevas asignaciones usarán esta versión.'
-    );
-
+  const executePublish = async (upgradeExisting: boolean) => {
+    if (!template) return;
+    setPublishStep(null);
     setIsPublishing(true);
     try {
       const response = await fetch(`/api/admin/assessment-builder/templates/${template.id}/publish`, {
@@ -644,16 +866,6 @@ const TemplateEditor: React.FC = () => {
 
   const handleDuplicate = async () => {
     if (!template) return;
-
-    // Different message for published vs draft templates
-    const confirmMessage = template.status === 'published'
-      ? 'Este template está publicado y no puede modificarse directamente.\n\n¿Deseas crear una nueva versión borrador para editar?'
-      : '¿Crear una copia borrador de este template?';
-
-    if (!confirm(confirmMessage)) {
-      return;
-    }
-
     setIsDuplicating(true);
     try {
       const response = await fetch(`/api/admin/assessment-builder/templates/${template.id}/duplicate`, {
@@ -698,10 +910,6 @@ const TemplateEditor: React.FC = () => {
   // Archive a published template
   const handleArchive = async () => {
     if (!template || template.status !== 'published' || template.is_archived) return;
-
-    if (!confirm(`¿Estás seguro de archivar este template? No podrá ser usado para nuevas evaluaciones.`)) {
-      return;
-    }
 
     setIsArchiving(true);
     try {
@@ -754,12 +962,9 @@ const TemplateEditor: React.FC = () => {
   const handleDelete = async () => {
     if (!template) return;
 
-    // Draft templates - simple confirmation
+    // Draft templates - use inline confirmation
     if (template.status === 'draft') {
-      if (!confirm(`¿Estás seguro de eliminar el template "${template.name}"? Esta acción no se puede deshacer.`)) {
-        return;
-      }
-      await executeDelete();
+      requestConfirm('delete-draft-template', () => executeDelete());
       return;
     }
 
@@ -861,6 +1066,28 @@ const TemplateEditor: React.FC = () => {
     );
   };
 
+  // Open preview modal for a module — fetches indicators first if not yet loaded
+  const openModulePreview = async (module: ModuleWithIndicators) => {
+    let moduleToPreview = module;
+    if (!module.indicatorsLoaded && template) {
+      try {
+        const response = await fetch(
+          `/api/admin/assessment-builder/templates/${template.id}/modules/${module.id}/indicators`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          moduleToPreview = { ...module, indicators: data.indicators || [], indicatorsLoaded: true };
+          setModules(prev => prev.map(m => m.id === module.id ? moduleToPreview : m));
+        }
+      } catch (error) {
+        console.error('Error fetching indicators for preview:', error);
+      }
+    }
+    setPreviewModule(moduleToPreview);
+    setPreviewCoberturaAnswer(null);
+    setIsPreviewOpen(true);
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem('rememberMe');
@@ -868,11 +1095,32 @@ const TemplateEditor: React.FC = () => {
     router.push('/login');
   };
 
+  // Inline confirm wrappers — defined here so they appear after all handlers (A, ID-1)
+  const confirmDeleteObjective = (objective: ObjectiveWithModules) => {
+    requestConfirm(`delete-objective-${objective.id}`, () => handleDeleteObjective(objective));
+  };
+
+  const confirmDeleteModule = (module: ModuleWithIndicators) => {
+    requestConfirm(`delete-module-${module.id}`, () => handleDeleteModule(module));
+  };
+
+  const confirmDeleteIndicator = (moduleId: string, indicator: IndicatorData) => {
+    requestConfirm(`delete-indicator-${indicator.id}`, () => handleDeleteIndicator(moduleId, indicator));
+  };
+
+  const confirmDuplicate = () => {
+    requestConfirm('duplicate-template', () => handleDuplicate());
+  };
+
+  const confirmArchive = () => {
+    requestConfirm('archive-template', () => handleArchive());
+  };
+
   // Loading state
   if (loading || hasPermission === null) {
     return (
-      <div className="min-h-screen bg-brand_beige flex justify-center items-center">
-        <p className="text-xl text-brand_blue">Cargando...</p>
+      <div className="min-h-screen bg-brand_light flex justify-center items-center">
+        <p className="text-xl text-brand_primary">Cargando...</p>
       </div>
     );
   }
@@ -891,10 +1139,10 @@ const TemplateEditor: React.FC = () => {
       >
         <div className="flex flex-col justify-center items-center min-h-[50vh]">
           <div className="text-center p-8">
-            <h1 className="text-2xl font-semibold text-brand_blue mb-4">Acceso Denegado</h1>
+            <h1 className="text-2xl font-semibold text-brand_primary mb-4">Acceso Denegado</h1>
             <p className="text-gray-700 mb-6">No tienes permiso para editar templates de evaluación.</p>
             <Link href="/dashboard" legacyBehavior>
-              <a className="px-6 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
+              <a className="px-6 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
                 Ir al Panel
               </a>
             </Link>
@@ -917,9 +1165,9 @@ const TemplateEditor: React.FC = () => {
       >
         <div className="flex flex-col justify-center items-center min-h-[50vh]">
           <div className="text-center p-8">
-            <h1 className="text-2xl font-semibold text-brand_blue mb-4">Template no encontrado</h1>
+            <h1 className="text-2xl font-semibold text-brand_primary mb-4">Template no encontrado</h1>
             <Link href="/admin/assessment-builder" legacyBehavior>
-              <a className="px-6 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
+              <a className="px-6 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
                 Volver a la lista
               </a>
             </Link>
@@ -954,7 +1202,7 @@ const TemplateEditor: React.FC = () => {
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Back button */}
         <Link href="/admin/assessment-builder" legacyBehavior>
-          <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_blue mb-6">
+          <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_primary mb-6">
             <ArrowLeft className="w-4 h-4 mr-1" />
             Volver a la lista
           </a>
@@ -995,7 +1243,7 @@ const TemplateEditor: React.FC = () => {
                         type="text"
                         value={templateForm.name}
                         onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                       />
                     </div>
                     <div>
@@ -1004,14 +1252,14 @@ const TemplateEditor: React.FC = () => {
                         value={templateForm.description}
                         onChange={(e) => setTemplateForm({ ...templateForm, description: e.target.value })}
                         rows={2}
-                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                       />
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={handleUpdateTemplate}
                         disabled={isSaving}
-                        className="px-3 py-1.5 bg-brand_blue text-white rounded text-sm hover:bg-brand_blue/90 disabled:opacity-50"
+                        className="px-3 py-1.5 bg-brand_primary text-white rounded text-sm hover:bg-brand_primary/90 disabled:opacity-50"
                       >
                         {isSaving ? 'Guardando...' : 'Guardar'}
                       </button>
@@ -1029,7 +1277,7 @@ const TemplateEditor: React.FC = () => {
                 ) : (
                   <>
                     <div className="flex items-center gap-3 mb-2">
-                      <h2 className="text-xl font-semibold text-brand_blue">{template.name}</h2>
+                      <h2 className="text-xl font-semibold text-brand_primary">{template.name}</h2>
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusStyle.bgColor} ${statusStyle.textColor}`}>
                         {statusStyle.label}
                       </span>
@@ -1038,7 +1286,7 @@ const TemplateEditor: React.FC = () => {
                       <p className="text-sm text-gray-600 mb-2">{template.description}</p>
                     )}
                     <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span>Área: {AREA_LABELS[template.area]}</span>
+                      <span>Vía de Evolución: {AREA_LABELS[template.area]}</span>
                       <span>Versión: {template.version}</span>
                     </div>
                   </>
@@ -1049,7 +1297,8 @@ const TemplateEditor: React.FC = () => {
                   {canEdit && (
                     <button
                       onClick={() => setIsEditingTemplate(true)}
-                      className="p-2 text-gray-500 hover:text-brand_blue hover:bg-gray-100 rounded-lg transition-colors"
+                      aria-label="Editar información del template"
+                      className="p-2 text-gray-500 hover:text-brand_primary hover:bg-gray-100 rounded-lg transition-colors"
                       title="Editar información"
                     >
                       <Edit2 className="w-4 h-4" />
@@ -1057,7 +1306,8 @@ const TemplateEditor: React.FC = () => {
                   )}
                   <button
                     onClick={openVersionHistory}
-                    className="p-2 text-gray-500 hover:text-brand_blue hover:bg-gray-100 rounded-lg transition-colors"
+                    aria-label="Ver historial de versiones"
+                    className="p-2 text-gray-500 hover:text-brand_primary hover:bg-gray-100 rounded-lg transition-colors"
                     title="Historial de versiones"
                   >
                     <History className="w-4 h-4" />
@@ -1075,35 +1325,92 @@ const TemplateEditor: React.FC = () => {
                   <Edit2 className="w-4 h-4" />
                   <span>{isAdmin ? 'Modo edición - Puedes modificar el template' : 'Modo lectura - Solo visualización'}</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {isAdmin && (
-                    <button
-                      onClick={handleDelete}
-                      disabled={isDeleting}
-                      className="inline-flex items-center px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
-                      title="Eliminar template"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      {isDeleting ? 'Eliminando...' : 'Eliminar'}
-                    </button>
+                    pendingConfirm?.key === 'delete-draft-template' ? (
+                      <span className="flex items-center gap-2">
+                        <button
+                          onClick={executeConfirm}
+                          className="px-3 py-2 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700"
+                        >
+                          ¿Eliminar?
+                        </button>
+                        <button
+                          onClick={cancelConfirm}
+                          className="px-3 py-2 text-xs text-gray-600 hover:text-gray-900"
+                        >
+                          Cancelar
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={handleDelete}
+                        disabled={isDeleting}
+                        className="inline-flex items-center px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+                        title="Eliminar template"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                      </button>
+                    )
                   )}
                   <Link href={`/admin/assessment-builder/${template.id}/expectations`} legacyBehavior>
                     <a className="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg shadow hover:bg-amber-700 transition-colors text-sm font-medium">
                       <Target className="w-4 h-4 mr-2" />
-                      Expectativas
+                      Calibración
                     </a>
                   </Link>
                   {isAdmin && (
-                    <button
-                      data-testid="publish-btn"
-                      onClick={handlePublish}
-                      disabled={isPublishing || modules.length === 0}
-                      className="inline-flex items-center px-4 py-2 bg-brand_accent text-white rounded-lg shadow hover:bg-amber-400 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                      title={modules.length === 0 ? 'Agrega módulos e indicadores antes de publicar' : 'Publicar template'}
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      {isPublishing ? 'Publicando...' : 'Publicar'}
-                    </button>
+                    publishStep === 'confirm' ? (
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600">¿Publicar este template?</span>
+                        <button
+                          onClick={() => setPublishStep('upgrade')}
+                          className="px-3 py-1.5 text-xs bg-brand_accent text-white rounded-lg hover:bg-amber-400"
+                        >
+                          Sí, publicar
+                        </button>
+                        <button
+                          onClick={() => setPublishStep(null)}
+                          className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-900"
+                        >
+                          Cancelar
+                        </button>
+                      </span>
+                    ) : publishStep === 'upgrade' ? (
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600">¿Crear evaluaciones para docentes existentes?</span>
+                        <button
+                          onClick={() => executePublish(true)}
+                          className="px-3 py-1.5 text-xs bg-brand_accent text-white rounded-lg hover:bg-amber-400"
+                        >
+                          Sí
+                        </button>
+                        <button
+                          onClick={() => executePublish(false)}
+                          className="px-3 py-1.5 text-xs bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                        >
+                          No
+                        </button>
+                        <button
+                          onClick={() => setPublishStep(null)}
+                          className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700"
+                        >
+                          Cancelar
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        data-testid="publish-btn"
+                        onClick={handlePublish}
+                        disabled={isPublishing || modules.length === 0}
+                        className="inline-flex items-center px-4 py-2 bg-brand_accent text-white rounded-lg shadow hover:bg-amber-400 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={modules.length === 0 ? `Agrega ${ENTITY_LABELS.modules.toLowerCase()} e indicadores antes de publicar` : 'Publicar template'}
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {isPublishing ? 'Publicando...' : 'Publicar'}
+                      </button>
+                    )
                   )}
                 </div>
               </>
@@ -1132,14 +1439,31 @@ const TemplateEditor: React.FC = () => {
                       <RotateCcw className="w-4 h-4 mr-2" />
                       {isArchiving ? 'Restaurando...' : 'Restaurar'}
                     </button>
-                    <button
-                      onClick={handleDuplicate}
-                      disabled={isDuplicating}
-                      className="inline-flex items-center px-4 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-brand_blue/90 transition-colors text-sm font-medium disabled:opacity-50"
-                    >
-                      <Edit2 className="w-4 h-4 mr-2" />
-                      {isDuplicating ? 'Creando borrador...' : 'Editar (Nueva Versión)'}
-                    </button>
+                    {pendingConfirm?.key === 'duplicate-template' ? (
+                      <span className="flex items-center gap-2">
+                        <button
+                          onClick={executeConfirm}
+                          className="px-3 py-2 text-xs bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90"
+                        >
+                          ¿Confirmar?
+                        </button>
+                        <button
+                          onClick={cancelConfirm}
+                          className="px-3 py-2 text-xs text-gray-600 hover:text-gray-900"
+                        >
+                          Cancelar
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={confirmDuplicate}
+                        disabled={isDuplicating}
+                        className="inline-flex items-center px-4 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-brand_primary/90 transition-colors text-sm font-medium disabled:opacity-50"
+                      >
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        {isDuplicating ? 'Creando borrador...' : 'Editar (Nueva Versión)'}
+                      </button>
+                    )}
                   </div>
                 )}
               </>
@@ -1154,32 +1478,66 @@ const TemplateEditor: React.FC = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   {isAdmin && (
-                    <button
-                      onClick={handleArchive}
-                      disabled={isArchiving}
-                      className="inline-flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
-                      title="Archivar template"
-                    >
-                      <Archive className="w-4 h-4 mr-2" />
-                      {isArchiving ? 'Archivando...' : 'Archivar'}
-                    </button>
+                    pendingConfirm?.key === 'archive-template' ? (
+                      <span className="flex items-center gap-2">
+                        <button
+                          onClick={executeConfirm}
+                          className="px-3 py-2 text-xs bg-red-600 text-white rounded-lg hover:bg-red-700"
+                        >
+                          ¿Archivar?
+                        </button>
+                        <button
+                          onClick={cancelConfirm}
+                          className="px-3 py-2 text-xs text-gray-600 hover:text-gray-900"
+                        >
+                          Cancelar
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={confirmArchive}
+                        disabled={isArchiving}
+                        className="inline-flex items-center px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors text-sm font-medium disabled:opacity-50"
+                        title="Archivar template"
+                      >
+                        <Archive className="w-4 h-4 mr-2" />
+                        {isArchiving ? 'Archivando...' : 'Archivar'}
+                      </button>
+                    )
                   )}
                   <Link href={`/admin/assessment-builder/${template.id}/expectations`} legacyBehavior>
                     <a className="inline-flex items-center px-4 py-2 bg-amber-600 text-white rounded-lg shadow hover:bg-amber-700 transition-colors text-sm font-medium">
                       <Target className="w-4 h-4 mr-2" />
-                      Expectativas
+                      Calibración
                     </a>
                   </Link>
                   {isAdmin && (
-                    <button
-                      onClick={handleDuplicate}
-                      disabled={isDuplicating}
-                      className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg shadow hover:bg-gray-200 transition-colors text-sm font-medium disabled:opacity-50"
-                      title="Crear copia borrador"
-                    >
-                      <Copy className="w-4 h-4 mr-2" />
-                      {isDuplicating ? 'Duplicando...' : 'Duplicar'}
-                    </button>
+                    pendingConfirm?.key === 'duplicate-template' ? (
+                      <span className="flex items-center gap-2">
+                        <button
+                          onClick={executeConfirm}
+                          className="px-3 py-2 text-xs bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90"
+                        >
+                          ¿Confirmar?
+                        </button>
+                        <button
+                          onClick={cancelConfirm}
+                          className="px-3 py-2 text-xs text-gray-600 hover:text-gray-900"
+                        >
+                          Cancelar
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={confirmDuplicate}
+                        disabled={isDuplicating}
+                        className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg shadow hover:bg-gray-200 transition-colors text-sm font-medium disabled:opacity-50"
+                        title="Crear copia borrador"
+                      >
+                        <Copy className="w-4 h-4 mr-2" />
+                        {isDuplicating ? 'Duplicando...' : 'Duplicar'}
+                      </button>
+                    )
                   )}
                 </div>
               </>
@@ -1187,197 +1545,340 @@ const TemplateEditor: React.FC = () => {
           </div>
         </div>
 
-        {/* Modules Section */}
-        <div className="bg-white shadow-md rounded-lg overflow-hidden">
+        {/* Objectives Section (3-level hierarchy) */}
+        <div className="bg-white shadow-md rounded-lg overflow-hidden mb-4">
           <div className="p-6 border-b border-gray-200 flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-brand_blue">Módulos</h3>
-              <p className="text-sm text-gray-500">{modules.length} módulo{modules.length !== 1 ? 's' : ''}</p>
+              <h3 className="text-lg font-semibold text-brand_primary">{ENTITY_LABELS.objectives}</h3>
+              <p className="text-sm text-gray-500">{objectives.length} objetivo{objectives.length !== 1 ? 's' : ''}</p>
             </div>
             {canEdit && (
               <button
-                data-testid="add-module-btn"
-                onClick={() => openModuleModal()}
-                className="inline-flex items-center px-3 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-brand_blue/90 transition-colors text-sm font-medium"
+                data-testid="add-objective-btn"
+                onClick={() => openObjectiveModal()}
+                className="inline-flex items-center px-3 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-brand_primary/90 transition-colors text-sm font-medium"
               >
                 <Plus className="w-4 h-4 mr-1" />
-                Agregar Módulo
+                Agregar {ENTITY_LABELS.objective}
               </button>
             )}
           </div>
 
-          {modules.length === 0 ? (
+          {objectives.length === 0 ? (
             <div className="p-12 text-center">
               <ClipboardList className="mx-auto h-12 w-12 text-gray-300" />
-              <h4 className="mt-4 text-lg font-medium text-gray-900">Sin módulos</h4>
+              <h4 className="mt-4 text-lg font-medium text-gray-900">Sin {ENTITY_LABELS.objectives.toLowerCase()}</h4>
               <p className="mt-2 text-sm text-gray-500">
-                Agrega módulos para organizar los indicadores de evaluación
+                Agrega {ENTITY_LABELS.objectives.toLowerCase()} para organizar las {ENTITY_LABELS.modules.toLowerCase()} e indicadores de evaluación
               </p>
               {canEdit && (
                 <button
-                  onClick={() => openModuleModal()}
-                  className="mt-4 inline-flex items-center px-4 py-2 bg-brand_blue text-white rounded-lg text-sm font-medium hover:bg-brand_blue/90"
+                  onClick={() => openObjectiveModal()}
+                  className="mt-4 inline-flex items-center px-4 py-2 bg-brand_primary text-white rounded-lg text-sm font-medium hover:bg-brand_primary/90"
                 >
                   <Plus className="w-4 h-4 mr-1" />
-                  Agregar Módulo
+                  Agregar {ENTITY_LABELS.objective}
                 </button>
               )}
             </div>
           ) : (
             <div className="divide-y divide-gray-200">
-              {modules.map((module, index) => (
-                <div key={module.id} data-testid="module-card" className="p-4 hover:bg-gray-50">
-                  <div className="flex items-center gap-3">
-                    <div className="flex-shrink-0 text-gray-400">
-                      <GripVertical className="w-5 h-5" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <button
-                        onClick={() => toggleModuleExpand(module.id)}
-                        className="flex items-center gap-2 text-left w-full"
-                      >
-                        {module.isExpanded ? (
-                          <ChevronUp className="w-4 h-4 text-gray-400" />
-                        ) : (
-                          <ChevronDown className="w-4 h-4 text-gray-400" />
-                        )}
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-medium text-gray-400">#{index + 1}</span>
-                            <span className="font-medium text-gray-900">{module.name}</span>
-                            <span className="text-xs text-gray-500">Peso: {module.weight}</span>
-                          </div>
-                          {module.description && (
-                            <p className="text-sm text-gray-500 truncate">{module.description}</p>
+              {objectives.map((objective, objIndex) => {
+                // Get modules that belong to this objective
+                const objectiveModules = modules.filter(m => m.objective_id === objective.id);
+
+                return (
+                  <div key={objective.id} data-testid="objective-card" className="p-4">
+                    {/* Objective header */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0 text-gray-400">
+                        <GripVertical className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <button
+                          onClick={() => setObjectives(prev =>
+                            prev.map(o => o.id === objective.id ? { ...o, isExpanded: !o.isExpanded } : o)
                           )}
-                        </div>
-                      </button>
-                    </div>
-                    {canEdit && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => openModuleModal(module)}
-                          className="p-2 text-gray-500 hover:text-brand_blue hover:bg-gray-100 rounded-lg transition-colors"
-                          title="Editar módulo"
+                          aria-expanded={objective.isExpanded ?? false}
+                          aria-label={`${objective.isExpanded ? 'Contraer' : 'Expandir'} ${ENTITY_LABELS.objective.toLowerCase()}: ${objective.name}`}
+                          className="flex items-center gap-2 text-left w-full"
                         >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteModule(module)}
-                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Eliminar módulo"
-                        >
-                          <Trash2 className="w-4 h-4" />
+                          {objective.isExpanded ? (
+                            <ChevronUp className="w-4 h-4 text-gray-400" />
+                          ) : (
+                            <ChevronDown className="w-4 h-4 text-gray-400" />
+                          )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-gray-400">#{objIndex + 1}</span>
+                              <span className="font-semibold text-brand_primary">{objective.name}</span>
+                              <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                                {objectiveModules.length} {objectiveModules.length !== 1 ? ENTITY_LABELS.modules.toLowerCase() : ENTITY_LABELS.module.toLowerCase()}
+                              </span>
+                            </div>
+                            {objective.description && (
+                              <p className="text-sm text-gray-500 truncate">{objective.description}</p>
+                            )}
+                          </div>
                         </button>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Expanded content - indicators */}
-                  {module.isExpanded && (
-                    <div className="mt-4 ml-10 p-4 bg-gray-50 rounded-lg">
-                      {module.instructions && (
-                        <div className="mb-3">
-                          <span className="text-xs font-medium text-gray-500">Instrucciones:</span>
-                          <p className="text-sm text-gray-700">{module.instructions}</p>
+                      {canEdit && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openObjectiveModal(objective)}
+                            aria-label={`Editar ${ENTITY_LABELS.objective.toLowerCase()}: ${objective.name}`}
+                            className="p-2 text-gray-500 hover:text-brand_primary hover:bg-gray-100 rounded-lg transition-colors"
+                            title={`Editar ${ENTITY_LABELS.objective.toLowerCase()}`}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          {pendingConfirm?.key === `delete-objective-${objective.id}` ? (
+                            <span className="flex items-center gap-1">
+                              <button
+                                onClick={executeConfirm}
+                                className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                              >
+                                ¿Eliminar?
+                              </button>
+                              <button
+                                onClick={cancelConfirm}
+                                className="px-2 py-1 text-xs text-gray-600 hover:text-gray-900"
+                              >
+                                Cancelar
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => confirmDeleteObjective(objective)}
+                              aria-label={`Eliminar ${ENTITY_LABELS.objective.toLowerCase()}: ${objective.name}`}
+                              className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title={`Eliminar ${ENTITY_LABELS.objective.toLowerCase()}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       )}
+                    </div>
 
-                      {/* Indicators section */}
-                      <div className="mt-4">
+                    {/* Expanded objective content - shows acciones */}
+                    {objective.isExpanded && (
+                      <div className="mt-4 ml-10">
                         <div className="flex items-center justify-between mb-3">
                           <h4 className="text-sm font-medium text-gray-700">
-                            Indicadores ({(module.indicators || []).length})
+                            {ENTITY_LABELS.modules} ({objectiveModules.length})
                           </h4>
                           {canEdit && (
                             <button
-                              onClick={() => openIndicatorModal(module.id)}
-                              data-testid="add-indicator-btn"
-                              className="inline-flex items-center px-2 py-1 text-xs bg-brand_blue text-white rounded hover:bg-brand_blue/90"
+                              onClick={() => openModuleModal(objective.id)}
+                              data-testid="add-module-btn"
+                              className="inline-flex items-center px-2 py-1 text-xs bg-brand_primary text-white rounded hover:bg-brand_primary/90"
                             >
                               <Plus className="w-3 h-3 mr-1" />
-                              Agregar
+                              Agregar {ENTITY_LABELS.module}
                             </button>
                           )}
                         </div>
 
-                        {!module.indicatorsLoaded ? (
-                          <p className="text-sm text-gray-500">Cargando indicadores...</p>
-                        ) : (module.indicators || []).length === 0 ? (
-                          <p className="text-sm text-gray-500 italic">
-                            Sin indicadores. {canEdit ? 'Agrega indicadores usando el botón de arriba.' : ''}
+                        {objectiveModules.length === 0 ? (
+                          <p className="text-sm text-gray-500 italic p-3 bg-gray-50 rounded">
+                            Sin {ENTITY_LABELS.modules.toLowerCase()}. {canEdit ? `Agrega ${ENTITY_LABELS.modules.toLowerCase()} usando el botón de arriba.` : ''}
                           </p>
                         ) : (
                           <div className="space-y-2">
-                            {(module.indicators || []).map((indicator, indIndex) => (
-                              <div
-                                key={indicator.id}
-                                data-testid="indicator-row"
-                                className="flex items-start justify-between p-3 bg-white rounded-lg border border-gray-200"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-xs text-gray-400">#{indIndex + 1}</span>
-                                    {indicator.code && (
-                                      <span className="text-xs font-mono bg-gray-100 px-1 rounded">
-                                        {indicator.code}
-                                      </span>
-                                    )}
-                                    <span className="font-medium text-gray-900 text-sm">
-                                      {indicator.name}
-                                    </span>
-                                    <span
-                                      className={`text-xs px-2 py-0.5 rounded-full ${
-                                        indicator.category === 'cobertura'
-                                          ? 'bg-brand_beige text-brand_primary'
-                                          : indicator.category === 'frecuencia'
-                                          ? 'bg-amber-100 text-amber-700'
-                                          : 'bg-amber-100 text-amber-700'
-                                      }`}
-                                    >
-                                      {CATEGORY_LABELS[indicator.category]}
-                                    </span>
+                            {objectiveModules.map((module, modIndex) => (
+                              <div key={module.id} data-testid="module-card" className="border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="flex items-center gap-3 p-3 bg-gray-50">
+                                  <div className="flex-shrink-0 text-gray-400">
+                                    <GripVertical className="w-4 h-4" />
                                   </div>
-                                  {indicator.description && (
-                                    <p className="text-xs text-gray-500 truncate">
-                                      {indicator.description}
-                                    </p>
-                                  )}
-                                  {indicator.category === 'frecuencia' && indicator.frequencyConfig?.unit && (
-                                    <p className="text-xs text-gray-400 mt-1">
-                                      Unidad: {indicator.frequencyConfig.unit}
-                                    </p>
-                                  )}
-                                  {indicator.category === 'profundidad' && (
-                                    <p className="text-xs text-gray-400 mt-1">
-                                      Niveles configurados: {
-                                        [
-                                          indicator.level0Descriptor,
-                                          indicator.level1Descriptor,
-                                          indicator.level2Descriptor,
-                                          indicator.level3Descriptor,
-                                          indicator.level4Descriptor,
-                                        ].filter(Boolean).length
-                                      }/5
-                                    </p>
+                                  <div className="flex-1 min-w-0">
+                                    <button
+                                      onClick={() => toggleModuleExpand(module.id)}
+                                      className="flex items-center gap-2 text-left w-full"
+                                    >
+                                      {module.isExpanded ? (
+                                        <ChevronUp className="w-3.5 h-3.5 text-gray-400" />
+                                      ) : (
+                                        <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                                      )}
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-xs font-medium text-gray-400">#{modIndex + 1}</span>
+                                          <span className="font-medium text-gray-900 text-sm">{module.name}</span>
+                                        </div>
+                                        {module.description && (
+                                          <p className="text-xs text-gray-500 truncate">{module.description}</p>
+                                        )}
+                                      </div>
+                                    </button>
+                                  </div>
+                                  <button
+                                    onClick={() => openModulePreview(module)}
+                                    aria-label={`Vista previa del evaluador: ${module.name}`}
+                                    className="p-2.5 text-gray-500 hover:text-brand_primary hover:bg-gray-100 rounded transition-colors focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-1"
+                                    title="Vista previa del evaluador"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+                                  {canEdit && (
+                                    <div className="flex items-center gap-1">
+                                      <button
+                                        onClick={() => openModuleModal(objective.id, module)}
+                                        aria-label={`Editar ${ENTITY_LABELS.module.toLowerCase()}: ${module.name}`}
+                                        className="p-1.5 text-gray-500 hover:text-brand_primary hover:bg-gray-100 rounded transition-colors"
+                                        title={`Editar ${ENTITY_LABELS.module.toLowerCase()}`}
+                                      >
+                                        <Edit2 className="w-3.5 h-3.5" />
+                                      </button>
+                                      {pendingConfirm?.key === `delete-module-${module.id}` ? (
+                                        <span className="flex items-center gap-1">
+                                          <button
+                                            onClick={executeConfirm}
+                                            className="px-2 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                          >
+                                            ¿Eliminar?
+                                          </button>
+                                          <button
+                                            onClick={cancelConfirm}
+                                            className="px-2 py-0.5 text-xs text-gray-600 hover:text-gray-900"
+                                          >
+                                            Cancelar
+                                          </button>
+                                        </span>
+                                      ) : (
+                                        <button
+                                          onClick={() => confirmDeleteModule(module)}
+                                          aria-label={`Eliminar ${ENTITY_LABELS.module.toLowerCase()}: ${module.name}`}
+                                          className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                          title={`Eliminar ${ENTITY_LABELS.module.toLowerCase()}`}
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
-                                {canEdit && (
-                                  <div className="flex items-center gap-1 ml-2">
-                                    <button
-                                      onClick={() => openIndicatorModal(module.id, indicator)}
-                                      className="p-1.5 text-gray-400 hover:text-brand_blue hover:bg-gray-100 rounded"
-                                      title="Editar indicador"
-                                    >
-                                      <Edit2 className="w-3.5 h-3.5" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteIndicator(module.id, indicator)}
-                                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
-                                      title="Eliminar indicador"
-                                    >
-                                      <Trash2 className="w-3.5 h-3.5" />
-                                    </button>
+
+                                {/* Expanded accion content - indicators */}
+                                {module.isExpanded && (
+                                  <div className="p-3 ml-8">
+                                    {module.instructions && (
+                                      <div className="mb-3">
+                                        <span className="text-xs font-medium text-gray-500">Instrucciones:</span>
+                                        <p className="text-sm text-gray-700">{module.instructions}</p>
+                                      </div>
+                                    )}
+
+                                    <div className="mt-2">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <h5 className="text-xs font-medium text-gray-700">
+                                          {ENTITY_LABELS.indicators} ({(module.indicators || []).length})
+                                        </h5>
+                                        {canEdit && (
+                                          <button
+                                            onClick={() => openIndicatorModal(module.id)}
+                                            data-testid="add-indicator-btn"
+                                            className="inline-flex items-center px-2 py-1 text-xs bg-brand_primary text-white rounded hover:bg-brand_primary/90"
+                                          >
+                                            <Plus className="w-3 h-3 mr-1" />
+                                            Agregar
+                                          </button>
+                                        )}
+                                      </div>
+
+                                      {!module.indicatorsLoaded ? (
+                                        <p className="text-sm text-gray-500">Cargando indicadores...</p>
+                                      ) : (module.indicators || []).length === 0 ? (
+                                        <p className="text-xs text-gray-500 italic">
+                                          Sin indicadores. {canEdit ? 'Agrega indicadores usando el botón de arriba.' : ''}
+                                        </p>
+                                      ) : (
+                                        <div className="space-y-1">
+                                          {(module.indicators || []).map((indicator, indIndex) => {
+                                            const isLockedCobertura = indicator.displayOrder === 1 && indicator.category === 'cobertura';
+                                            return (
+                                            <div
+                                              key={indicator.id}
+                                              data-testid="indicator-row"
+                                              className="flex items-start justify-between p-2 bg-white rounded border border-gray-100"
+                                            >
+                                              <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                  <span className="text-xs text-gray-400">#{indIndex + 1}</span>
+                                                  {isLockedCobertura && (
+                                                    <span title={`${ENTITY_LABELS.indicator} de cobertura bloqueado (primer ${ENTITY_LABELS.indicator.toLowerCase()})`}><Lock className="w-3 h-3 text-amber-500" /></span>
+                                                  )}
+                                                  {indicator.code && (
+                                                    <span className="text-xs font-mono bg-gray-100 px-1 rounded">
+                                                      {indicator.code}
+                                                    </span>
+                                                  )}
+                                                  <span className="font-medium text-gray-900 text-xs">
+                                                    {indicator.name}
+                                                  </span>
+                                                  <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                                                    indicator.category === 'cobertura'
+                                                      ? 'bg-brand_accent text-brand_primary'
+                                                      : indicator.category === 'frecuencia'
+                                                      ? 'bg-brand_accent_light text-brand_gray_dark'
+                                                      : indicator.category === 'profundidad'
+                                                      ? 'bg-brand_primary text-white'
+                                                      : indicator.category === 'traspaso'
+                                                      ? 'bg-gray-200 text-brand_gray_dark'
+                                                      : indicator.category === 'detalle'
+                                                      ? 'bg-gray-100 text-brand_gray_medium border border-gray-300'
+                                                      : 'bg-brand_accent text-brand_primary'
+                                                  }`}>
+                                                    {CATEGORY_LABELS[indicator.category]}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                              {canEdit && (
+                                                <div className="flex items-center gap-1 ml-2">
+                                                  <button
+                                                    onClick={() => openIndicatorModal(module.id, indicator)}
+                                                    aria-label={`Editar indicador: ${indicator.name}`}
+                                                    className="p-1 text-gray-400 hover:text-brand_primary hover:bg-gray-100 rounded"
+                                                    title="Editar indicador"
+                                                  >
+                                                    <Edit2 className="w-3 h-3" />
+                                                  </button>
+                                                  {!isLockedCobertura && (
+                                                    pendingConfirm?.key === `delete-indicator-${indicator.id}` ? (
+                                                      <span className="flex items-center gap-1">
+                                                        <button
+                                                          onClick={executeConfirm}
+                                                          className="px-1.5 py-0.5 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                                                        >
+                                                          ¿Eliminar?
+                                                        </button>
+                                                        <button
+                                                          onClick={cancelConfirm}
+                                                          className="px-1.5 py-0.5 text-xs text-gray-600 hover:text-gray-900"
+                                                        >
+                                                          Cancelar
+                                                        </button>
+                                                      </span>
+                                                    ) : (
+                                                      <button
+                                                        onClick={() => confirmDeleteIndicator(module.id, indicator)}
+                                                        aria-label={`Eliminar indicador: ${indicator.name}`}
+                                                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                                        title="Eliminar indicador"
+                                                      >
+                                                        <Trash2 className="w-3 h-3" />
+                                                      </button>
+                                                    )
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 )}
                               </div>
@@ -1385,14 +1886,81 @@ const TemplateEditor: React.FC = () => {
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
+
+        {/* Note: All modules must belong to an objective. No "unassigned" section needed. */}
       </div>
+
+      {/* Objective Modal */}
+      {isObjectiveModalOpen && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setIsObjectiveModalOpen(false)} />
+
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="objective-modal-title"
+              className="relative inline-block w-full max-w-lg p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg"
+            >
+              <h3 id="objective-modal-title" className="text-lg font-semibold text-brand_primary mb-4">
+                {editingObjective ? `Editar ${ENTITY_LABELS.objective}` : `Nuevo ${ENTITY_LABELS.objective}`}
+              </h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="objective-name" className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="objective-name"
+                    type="text"
+                    value={objectiveForm.name}
+                    onChange={(e) => setObjectiveForm({ ...objectiveForm, name: e.target.value })}
+                    placeholder={`Ej: ${ENTITY_LABELS.objective} 1`}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="objective-description" className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                  <textarea
+                    id="objective-description"
+                    value={objectiveForm.description}
+                    onChange={(e) => setObjectiveForm({ ...objectiveForm, description: e.target.value })}
+                    rows={2}
+                    placeholder="Descripción del objetivo..."
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
+                  />
+                </div>
+
+              </div>
+
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  onClick={() => setIsObjectiveModalOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSaveObjective}
+                  disabled={isSaving}
+                  className="px-4 py-2 bg-brand_primary text-white rounded-lg text-sm font-medium hover:bg-brand_primary/90 disabled:opacity-50"
+                >
+                  {isSaving ? 'Guardando...' : editingObjective ? 'Actualizar' : 'Crear'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Module Modal */}
       {isModuleModalOpen && (
@@ -1400,61 +1968,61 @@ const TemplateEditor: React.FC = () => {
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
             <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setIsModuleModalOpen(false)} />
 
-            <div className="relative inline-block w-full max-w-lg p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
-              <h3 className="text-lg font-semibold text-brand_blue mb-4">
-                {editingModule ? 'Editar Módulo' : 'Nuevo Módulo'}
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="module-modal-title"
+              className="relative inline-block w-full max-w-lg p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg"
+            >
+              <h3 id="module-modal-title" className="text-lg font-semibold text-brand_primary mb-4">
+                {editingModule ? `Editar ${ENTITY_LABELS.module}` : `Nueva ${ENTITY_LABELS.module}`}
               </h3>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="module-name" className="block text-sm font-medium text-gray-700 mb-1">
                     Nombre <span className="text-red-500">*</span>
                   </label>
                   <input
+                    id="module-name"
                     type="text"
                     value={moduleForm.name}
                     onChange={(e) => setModuleForm({ ...moduleForm, name: e.target.value })}
-                    placeholder="Ej: Conocimiento del Estudiante"
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                    placeholder={`Ej: Conocimiento del Estudiante`}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                  <label htmlFor="module-description" className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
                   <textarea
+                    id="module-description"
                     value={moduleForm.description}
                     onChange={(e) => setModuleForm({ ...moduleForm, description: e.target.value })}
                     rows={2}
-                    placeholder="Descripción del módulo..."
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                    placeholder="Ej: Práctica centrada en conocer el contexto de cada estudiante"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Breve resumen de esta práctica. Aparece como subtítulo bajo el nombre — siempre visible para el evaluador. (1-2 oraciones)
+                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Instrucciones</label>
+                  <label htmlFor="module-instructions" className="block text-sm font-medium text-gray-700 mb-1">Instrucciones</label>
                   <textarea
+                    id="module-instructions"
                     value={moduleForm.instructions}
                     onChange={(e) => setModuleForm({ ...moduleForm, instructions: e.target.value })}
                     rows={2}
-                    placeholder="Instrucciones para completar este módulo..."
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Peso</label>
-                  <input
-                    type="number"
-                    value={moduleForm.weight}
-                    onChange={(e) => setModuleForm({ ...moduleForm, weight: parseFloat(e.target.value) || 1 })}
-                    min={0}
-                    step={0.1}
-                    className="block w-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                    placeholder="Ej: Para evaluar esta práctica, revise los registros de entrevistas individuales y compare con el plan de acompañamiento..."
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Peso relativo del módulo en el cálculo total
+                    Guía detallada para el evaluador. Aparece en un recuadro azul al expandir la sección. Explica qué evidencia buscar y cómo evaluar los indicadores.
                   </p>
                 </div>
+
               </div>
 
               <div className="mt-6 flex justify-end gap-3">
@@ -1467,7 +2035,7 @@ const TemplateEditor: React.FC = () => {
                 <button
                   onClick={handleSaveModule}
                   disabled={isSaving}
-                  className="px-4 py-2 bg-brand_blue text-white rounded-lg text-sm font-medium hover:bg-brand_blue/90 disabled:opacity-50"
+                  className="px-4 py-2 bg-brand_primary text-white rounded-lg text-sm font-medium hover:bg-brand_primary/90 disabled:opacity-50"
                 >
                   {isSaving ? 'Guardando...' : editingModule ? 'Actualizar' : 'Crear'}
                 </button>
@@ -1477,82 +2045,92 @@ const TemplateEditor: React.FC = () => {
         </div>
       )}
 
+
       {/* Indicator Modal */}
       {isIndicatorModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
             <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setIsIndicatorModalOpen(false)} />
 
-            <div className="relative inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg max-h-[90vh] overflow-y-auto">
-              <h3 className="text-lg font-semibold text-brand_blue mb-4">
-                {editingIndicator ? 'Editar Indicador' : 'Nuevo Indicador'}
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="indicator-modal-title"
+              className="relative inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg max-h-[90vh] overflow-y-auto"
+            >
+              <h3 id="indicator-modal-title" className="text-lg font-semibold text-brand_primary mb-4">
+                {editingIndicator ? `Editar ${ENTITY_LABELS.indicator}` : `Nuevo ${ENTITY_LABELS.indicator}`}
               </h3>
 
               <div className="space-y-4">
                 {/* Basic info row */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label htmlFor="indicator-name" className="block text-sm font-medium text-gray-700 mb-1">
                       Nombre <span className="text-red-500">*</span>
                     </label>
                     <input
+                      id="indicator-name"
                       type="text"
                       value={indicatorForm.name}
                       onChange={(e) => setIndicatorForm({ ...indicatorForm, name: e.target.value })}
                       placeholder="Ej: Conocimiento de contextos"
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Código</label>
+                    <label htmlFor="indicator-code" className="block text-sm font-medium text-gray-700 mb-1">Código</label>
                     <input
+                      id="indicator-code"
                       type="text"
                       value={indicatorForm.code}
                       onChange={(e) => setIndicatorForm({ ...indicatorForm, code: e.target.value })}
                       placeholder="Ej: P1.1"
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                  <label htmlFor="indicator-description" className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
                   <textarea
+                    id="indicator-description"
                     value={indicatorForm.description}
                     onChange={(e) => setIndicatorForm({ ...indicatorForm, description: e.target.value })}
                     rows={2}
                     placeholder="Descripción del indicador..."
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Aparece como texto de ayuda junto al indicador cuando el evaluador lo completa. Aclara qué se está midiendo.
+                  </p>
                 </div>
 
-                {/* Category and weight row */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Categoría <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      value={indicatorForm.category}
-                      onChange={(e) => setIndicatorForm({ ...indicatorForm, category: e.target.value as IndicatorCategory })}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
-                    >
-                      <option value="cobertura">Cobertura (Sí/No)</option>
-                      <option value="frecuencia">Frecuencia (Número)</option>
-                      <option value="profundidad">Profundidad (Niveles 0-4)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Peso</label>
-                    <input
-                      type="number"
-                      value={indicatorForm.weight}
-                      onChange={(e) => setIndicatorForm({ ...indicatorForm, weight: parseFloat(e.target.value) || 1 })}
-                      min={0}
-                      step={0.1}
-                      className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
-                    />
-                  </div>
+                {/* Category */}
+                <div>
+                  <label htmlFor="indicator-category" className="block text-sm font-medium text-gray-700 mb-1">
+                    Categoría <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    id="indicator-category"
+                    value={indicatorForm.category}
+                    onChange={(e) => setIndicatorForm({ ...indicatorForm, category: e.target.value as IndicatorCategory })}
+                    disabled={isFirstIndicatorLocked}
+                    className={`block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary ${isFirstIndicatorLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                  >
+                    <option value="cobertura">Cobertura (Sí/No)</option>
+                    <option value="frecuencia">Frecuencia (Número)</option>
+                    <option value="profundidad">Profundidad (Niveles 0-4)</option>
+                    <option value="traspaso">Traspaso (Evidencia + Sugerencias)</option>
+                    {!isFirstIndicatorLocked && (
+                      <option value="detalle">Detalle (Selección múltiple)</option>
+                    )}
+                  </select>
+                  {isFirstIndicatorLocked && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      El primer indicador de cada práctica siempre es de tipo Cobertura
+                    </p>
+                  )}
                 </div>
 
                 {/* Frequency config */}
@@ -1586,7 +2164,7 @@ const TemplateEditor: React.FC = () => {
                                 });
                               }
                             }}
-                            className="w-4 h-4 text-brand_blue border-gray-300 rounded focus:ring-brand_blue"
+                            className="w-4 h-4 text-brand_primary border-gray-300 rounded focus:ring-brand_primary"
                           />
                           <span className="text-sm text-gray-700 capitalize">
                             Por {FREQUENCY_UNIT_LABELS[unit]}
@@ -1597,6 +2175,106 @@ const TemplateEditor: React.FC = () => {
                     {indicatorForm.frequencyUnitOptions.length === 0 && (
                       <p className="text-xs text-red-500 mt-2">
                         Debes seleccionar al menos un período
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Traspaso preview */}
+                {indicatorForm.category === 'traspaso' && (
+                  <div className="border-t pt-4">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Vista previa de campos Traspaso</p>
+                    <p className="text-xs text-gray-500 mb-3">
+                      Los docentes verán estos dos campos al responder este indicador
+                    </p>
+                    <div className="space-y-3 bg-gray-50 p-3 rounded-lg">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Enlace de Evidencia (URL)
+                        </label>
+                        <input
+                          type="text"
+                          disabled
+                          placeholder="https://..."
+                          className="block w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-white text-gray-400"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Sugerencias de Mejora
+                        </label>
+                        <textarea
+                          disabled
+                          rows={2}
+                          placeholder="Describe las sugerencias de mejora..."
+                          className="block w-full px-3 py-2 text-sm border border-gray-200 rounded-md bg-white text-gray-400"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Detalle options editor */}
+                {indicatorForm.category === 'detalle' && (
+                  <div className="border-t pt-4">
+                    <p className="text-sm font-medium text-gray-700 mb-1">
+                      Opciones de selección <span className="text-red-500">*</span>
+                      <span className="text-xs font-normal text-gray-500 ml-2">
+                        (mínimo 2, máximo 15)
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-500 mb-3">
+                      El evaluador podrá marcar todas las que aplican
+                    </p>
+                    <div className="space-y-2">
+                      {indicatorForm.detalleOptions.map((opt, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={(e) => {
+                              const newOptions = [...indicatorForm.detalleOptions];
+                              newOptions[idx] = e.target.value;
+                              setIndicatorForm({ ...indicatorForm, detalleOptions: newOptions });
+                            }}
+                            placeholder={`Opción ${idx + 1}`}
+                            maxLength={200}
+                            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-brand_primary"
+                          />
+                          {indicatorForm.detalleOptions.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newOptions = indicatorForm.detalleOptions.filter((_, i) => i !== idx);
+                                setIndicatorForm({ ...indicatorForm, detalleOptions: newOptions });
+                              }}
+                              className="text-gray-400 hover:text-red-500 flex-shrink-0"
+                              aria-label="Eliminar opción"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {indicatorForm.detalleOptions.length < 15 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIndicatorForm({
+                            ...indicatorForm,
+                            detalleOptions: [...indicatorForm.detalleOptions, ''],
+                          });
+                        }}
+                        className="mt-2 text-sm text-brand_primary hover:underline flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Agregar opción
+                      </button>
+                    )}
+                    {indicatorForm.detalleOptions.map(o => o.trim()).filter(o => o.length > 0).length < 2 && (
+                      <p className="text-xs text-red-500 mt-1">
+                        Debes ingresar al menos 2 opciones
                       </p>
                     )}
                   </div>
@@ -1621,7 +2299,7 @@ const TemplateEditor: React.FC = () => {
                           value={indicatorForm.level0Descriptor}
                           onChange={(e) => setIndicatorForm({ ...indicatorForm, level0Descriptor: e.target.value })}
                           placeholder="Descriptor para nivel 0..."
-                          className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                          className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                         />
                       </div>
                       <div>
@@ -1633,7 +2311,7 @@ const TemplateEditor: React.FC = () => {
                           value={indicatorForm.level1Descriptor}
                           onChange={(e) => setIndicatorForm({ ...indicatorForm, level1Descriptor: e.target.value })}
                           placeholder="Descriptor para nivel 1..."
-                          className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                          className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                         />
                       </div>
                       <div>
@@ -1645,7 +2323,7 @@ const TemplateEditor: React.FC = () => {
                           value={indicatorForm.level2Descriptor}
                           onChange={(e) => setIndicatorForm({ ...indicatorForm, level2Descriptor: e.target.value })}
                           placeholder="Descriptor para nivel 2..."
-                          className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                          className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                         />
                       </div>
                       <div>
@@ -1657,7 +2335,7 @@ const TemplateEditor: React.FC = () => {
                           value={indicatorForm.level3Descriptor}
                           onChange={(e) => setIndicatorForm({ ...indicatorForm, level3Descriptor: e.target.value })}
                           placeholder="Descriptor para nivel 3..."
-                          className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                          className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                         />
                       </div>
                       <div>
@@ -1669,7 +2347,7 @@ const TemplateEditor: React.FC = () => {
                           value={indicatorForm.level4Descriptor}
                           onChange={(e) => setIndicatorForm({ ...indicatorForm, level4Descriptor: e.target.value })}
                           placeholder="Descriptor para nivel 4..."
-                          className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_blue"
+                          className="block w-full px-3 py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
                         />
                       </div>
                     </div>
@@ -1687,7 +2365,7 @@ const TemplateEditor: React.FC = () => {
                 <button
                   onClick={handleSaveIndicator}
                   disabled={isSaving}
-                  className="px-4 py-2 bg-brand_blue text-white rounded-lg text-sm font-medium hover:bg-brand_blue/90 disabled:opacity-50"
+                  className="px-4 py-2 bg-brand_primary text-white rounded-lg text-sm font-medium hover:bg-brand_primary/90 disabled:opacity-50"
                 >
                   {isSaving ? 'Guardando...' : editingIndicator ? 'Actualizar' : 'Crear'}
                 </button>
@@ -1703,9 +2381,14 @@ const TemplateEditor: React.FC = () => {
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
             <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setIsVersionHistoryOpen(false)} />
 
-            <div className="relative inline-block w-full max-w-lg p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="version-history-modal-title"
+              className="relative inline-block w-full max-w-lg p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg"
+            >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-brand_blue">
+                <h3 id="version-history-modal-title" className="text-lg font-semibold text-brand_primary">
                   Historial de Versiones
                 </h3>
                 <button
@@ -1752,7 +2435,8 @@ const TemplateEditor: React.FC = () => {
                         </span>
                       </div>
                       <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <span>{version.stats.modules} módulos</span>
+                        {version.stats.objectives > 0 && <span>{version.stats.objectives} objetivos</span>}
+                        <span>{version.stats.modules} {ENTITY_LABELS.modules.toLowerCase()}</span>
                         <span>{version.stats.indicators} indicadores</span>
                       </div>
                     </div>
@@ -1767,6 +2451,194 @@ const TemplateEditor: React.FC = () => {
                 >
                   Cerrar
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview Modal — shows the module as the evaluator would see it */}
+      {isPreviewOpen && previewModule && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
+            <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={() => setIsPreviewOpen(false)} />
+
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="preview-modal-title"
+              className="relative inline-block w-full max-w-2xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-lg max-h-[85vh] overflow-y-auto"
+            >
+              {/* Header */}
+              <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50 rounded-t-lg">
+                <div>
+                  <h3 id="preview-modal-title" className="text-lg font-semibold text-brand_primary">Vista Previa del Evaluador</h3>
+                  <p className="text-xs text-gray-500">Así verá esta práctica quien complete la evaluación</p>
+                </div>
+                <button
+                  onClick={() => setIsPreviewOpen(false)}
+                  aria-label="Cerrar vista previa"
+                  autoFocus
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Preview content */}
+              <div className="p-6">
+                {/* Module name + description */}
+                <h4 className="text-lg font-semibold text-brand_primary">{previewModule.name}</h4>
+                {previewModule.description && (
+                  <p className="text-sm text-gray-500 mt-1">{previewModule.description}</p>
+                )}
+
+                {/* Instructions in blue box */}
+                {previewModule.instructions && (
+                  <div className="mt-3 bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
+                    {previewModule.instructions}
+                  </div>
+                )}
+
+                {/* Indicators */}
+                <div className="mt-4 space-y-4">
+                  {!previewModule.indicatorsLoaded ? (
+                    <p className="text-sm text-gray-500 italic">Cargando indicadores...</p>
+                  ) : (previewModule.indicators || []).length === 0 ? (
+                    <p className="text-sm text-gray-500 italic">Esta práctica aún no tiene indicadores.</p>
+                  ) : (
+                    (() => {
+                      const sorted = [...(previewModule.indicators || [])].sort((a, b) => a.displayOrder - b.displayOrder);
+                      return (
+                        <>
+                          {sorted.map((indicator, idx) => {
+                            const isFirstIndicator = idx === 0;
+
+                            // Gate logic: non-first indicators only show if cobertura = Sí
+                            if (!isFirstIndicator) {
+                              if (previewCoberturaAnswer === null) return null;
+                              if (previewCoberturaAnswer === false) return null;
+                            }
+
+                            return (
+                              <div key={indicator.id} className="border border-gray-200 rounded-lg p-4">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                    indicator.category === 'cobertura' ? 'bg-brand_accent text-brand_primary' :
+                                    indicator.category === 'frecuencia' ? 'bg-brand_accent_light text-brand_gray_dark' :
+                                    indicator.category === 'traspaso' ? 'bg-gray-200 text-brand_gray_dark' :
+                                    indicator.category === 'detalle' ? 'bg-gray-100 text-brand_gray_medium border border-gray-300' :
+                                    'bg-brand_primary text-white'
+                                  }`}>
+                                    {CATEGORY_LABELS[indicator.category]}
+                                  </span>
+                                  {indicator.code && (
+                                    <span className="text-xs font-mono bg-gray-100 px-1 rounded">{indicator.code}</span>
+                                  )}
+                                </div>
+                                <h5 className="font-medium text-gray-900">{indicator.name}</h5>
+                                {indicator.description && (
+                                  <p className="text-sm text-gray-500 mt-1">{indicator.description}</p>
+                                )}
+
+                                {/* Simulated response UI per category */}
+                                <div className="mt-3">
+                                  {indicator.category === 'cobertura' && (
+                                    <div className="flex gap-4">
+                                      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                                        <input
+                                          type="radio"
+                                          name={`preview-${indicator.id}`}
+                                          checked={previewCoberturaAnswer === true}
+                                          onChange={() => setPreviewCoberturaAnswer(true)}
+                                        /> Sí
+                                      </label>
+                                      <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                                        <input
+                                          type="radio"
+                                          name={`preview-${indicator.id}`}
+                                          checked={previewCoberturaAnswer === false}
+                                          onChange={() => setPreviewCoberturaAnswer(false)}
+                                        /> No
+                                      </label>
+                                    </div>
+                                  )}
+                                  {indicator.category === 'frecuencia' && (
+                                    <input type="number" disabled placeholder="Valor" className="w-24 px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" />
+                                  )}
+                                  {indicator.category === 'profundidad' && (
+                                    <div className="space-y-2">
+                                      {([0, 1, 2, 3, 4] as const).map(level => {
+                                        const descriptorKey = `level${level}Descriptor` as keyof IndicatorData;
+                                        const desc = indicator[descriptorKey] as string | undefined;
+                                        return desc ? (
+                                          <label key={level} className="flex items-start gap-2 text-sm">
+                                            <input type="radio" disabled name={`preview-prof-${indicator.id}`} className="mt-1" />
+                                            <span><strong>{level}:</strong> {desc}</span>
+                                          </label>
+                                        ) : null;
+                                      })}
+                                    </div>
+                                  )}
+                                  {indicator.category === 'traspaso' && (
+                                    <div className="space-y-3">
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">
+                                          Adjunte link a carpeta con evidencia de sus respuestas
+                                        </label>
+                                        <input type="url" disabled placeholder="https://..." className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" />
+                                        <p className="text-xs text-gray-400 mt-0.5">El archivo enlazado debe ser accesible para cualquier persona con el link</p>
+                                      </div>
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-1">
+                                          Mejoras sugeridas
+                                        </label>
+                                        <textarea disabled placeholder="¿Con la experiencia adquirida, qué mejoras sugieres...?" className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" rows={3} />
+                                      </div>
+                                    </div>
+                                  )}
+                                  {indicator.category === 'detalle' && (
+                                    <div className="space-y-2">
+                                      <p className="text-xs text-gray-500 mb-1">Selecciona todas las que aplican:</p>
+                                      {(indicator.detalleOptions || []).map((opt, optIdx) => (
+                                        <label key={optIdx} className="flex items-center gap-2 text-sm text-gray-600">
+                                          <input type="checkbox" disabled className="w-4 h-4 border-gray-300 rounded" />
+                                          {opt}
+                                        </label>
+                                      ))}
+                                      {(!indicator.detalleOptions || indicator.detalleOptions.length === 0) && (
+                                        <p className="text-xs text-gray-400 italic">Sin opciones definidas</p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+
+                          {/* Gate messages after cobertura indicator */}
+                          {previewCoberturaAnswer === null && sorted.length > 1 && (
+                            <div className="text-sm text-gray-400 italic text-center py-3">
+                              Seleccione Sí o No para ver cómo se comporta la evaluación
+                            </div>
+                          )}
+                          {previewCoberturaAnswer === false && (
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center">
+                              <p className="text-sm text-gray-500">Esta práctica no se implementa en este establecimiento</p>
+                              <p className="text-xs text-gray-400 mt-1">Los demás indicadores no se mostrarán al evaluador</p>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()
+                  )}
+                </div>
+
+                {/* Note about cobertura gate */}
+                <div className="mt-4 bg-blue-50 p-3 rounded-lg text-xs text-blue-700">
+                  <strong>Comportamiento real:</strong> El primer indicador (Cobertura) actúa como filtro.
+                  Pruebe seleccionando Sí o No arriba para ver cómo cambia la vista del evaluador.
+                </div>
               </div>
             </div>
           </div>
@@ -1792,7 +2664,7 @@ const TemplateEditor: React.FC = () => {
                   <li>• {deleteConfirmData.counts.instances} evaluaciones</li>
                   <li>• {deleteConfirmData.counts.responses} respuestas</li>
                   <li>• {deleteConfirmData.counts.snapshots} versiones guardadas</li>
-                  <li>• {deleteConfirmData.counts.modules} módulos</li>
+                  <li>• {deleteConfirmData.counts.modules} {ENTITY_LABELS.modules.toLowerCase()}</li>
                 </ul>
                 <p className="text-sm text-red-800 font-medium mt-3">
                   Esta acción es permanente y no se puede deshacer.

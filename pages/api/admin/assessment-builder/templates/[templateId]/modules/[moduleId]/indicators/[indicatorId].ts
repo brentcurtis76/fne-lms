@@ -2,6 +2,10 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
+import type { IndicatorCategory } from '@/types/assessment-builder';
+import { validateDetalleOptions } from '@/lib/validation/detalleValidator';
+
+const VALID_CATEGORIES: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad', 'traspaso', 'detalle'];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { templateId, moduleId, indicatorId } = req.query;
@@ -86,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Los templates archivados no pueden ser modificados' });
       }
       if (req.method === 'PUT') {
-        return handlePut(req, res, supabaseClient, templateId, indicatorId, user.id);
+        return handlePut(req, res, supabaseClient, templateId, moduleId, indicatorId, user.id);
       }
       return handleDelete(req, res, supabaseClient, indicatorId, moduleId, templateId, user.id);
     }
@@ -113,11 +117,13 @@ async function handleGet(
         description,
         category,
         frequency_config,
+        frequency_unit_options,
         level_0_descriptor,
         level_1_descriptor,
         level_2_descriptor,
         level_3_descriptor,
         level_4_descriptor,
+        detalle_options,
         display_order,
         weight,
         visibility_condition,
@@ -149,6 +155,7 @@ async function handlePut(
   res: NextApiResponse,
   supabaseClient: any,
   templateId: string,
+  moduleId: string,
   indicatorId: string,
   userId: string
 ) {
@@ -159,27 +166,76 @@ async function handlePut(
       description,
       category,
       frequency_config,
+      frequency_unit_options,
       level_0_descriptor,
       level_1_descriptor,
       level_2_descriptor,
       level_3_descriptor,
       level_4_descriptor,
+      detalleOptions,
       weight,
       visibility_condition
     } = req.body;
 
+    // Validate category if provided
+    if (category !== undefined && !VALID_CATEGORIES.includes(category)) {
+      return res.status(400).json({
+        error: 'Categoría inválida. Debe ser: cobertura, frecuencia, profundidad, traspaso, o detalle',
+      });
+    }
+
+    // Validate detalle options using shared validator
+    let validatedDetalleOptions: string[] | null | undefined = undefined;
+
+    if (category === 'detalle') {
+      // When setting category to detalle, detalleOptions is required
+      const result = validateDetalleOptions(detalleOptions);
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
+      }
+      validatedDetalleOptions = result.options!;
+    } else if (category !== undefined) {
+      // Transitioning away from detalle — clear detalle_options
+      validatedDetalleOptions = null;
+    } else if (detalleOptions !== undefined) {
+      // No category change but updating options (for existing detalle indicator)
+      const result = validateDetalleOptions(detalleOptions);
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
+      }
+      validatedDetalleOptions = result.options!;
+    }
+
+    // Enforce cobertura lock: first indicator in a module must stay cobertura
+    if (category && category !== 'cobertura') {
+      const { data: indicators } = await supabaseClient
+        .from('assessment_indicators')
+        .select('id, display_order')
+        .eq('module_id', moduleId)
+        .order('display_order', { ascending: true })
+        .limit(1);
+
+      if (indicators?.[0]?.id === indicatorId) {
+        return res.status(400).json({
+          error: 'El primer indicador de cada práctica generativa debe ser de tipo Cobertura y no puede ser modificado'
+        });
+      }
+    }
+
     // Build update object
-    const updateData: Record<string, any> = {};
+    const updateData: Record<string, unknown> = {};
     if (code !== undefined) updateData.code = code;
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (category !== undefined) updateData.category = category;
     if (frequency_config !== undefined) updateData.frequency_config = frequency_config;
+    if (frequency_unit_options !== undefined) updateData.frequency_unit_options = frequency_unit_options;
     if (level_0_descriptor !== undefined) updateData.level_0_descriptor = level_0_descriptor;
     if (level_1_descriptor !== undefined) updateData.level_1_descriptor = level_1_descriptor;
     if (level_2_descriptor !== undefined) updateData.level_2_descriptor = level_2_descriptor;
     if (level_3_descriptor !== undefined) updateData.level_3_descriptor = level_3_descriptor;
     if (level_4_descriptor !== undefined) updateData.level_4_descriptor = level_4_descriptor;
+    if (validatedDetalleOptions !== undefined) updateData.detalle_options = validatedDetalleOptions;
     if (weight !== undefined) updateData.weight = weight;
     if (visibility_condition !== undefined) updateData.visibility_condition = visibility_condition;
 

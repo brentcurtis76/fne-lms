@@ -20,7 +20,7 @@ export type TransformationArea =
 
 export type TemplateStatus = 'draft' | 'published' | 'archived';
 
-export type IndicatorCategory = 'cobertura' | 'frecuencia' | 'profundidad';
+export type IndicatorCategory = 'cobertura' | 'frecuencia' | 'profundidad' | 'traspaso' | 'detalle';
 
 export type QuestionType =
   | 'text'
@@ -67,13 +67,23 @@ export const MATURITY_LEVELS = [
 ] as const;
 
 export const AREA_LABELS: Record<TransformationArea, string> = {
-  personalizacion: 'Personalización',
+  personalizacion: 'Crecimiento',
   aprendizaje: 'Aprendizaje',
   evaluacion: 'Evaluación',
   proposito: 'Propósito',
   familias: 'Familias',
   trabajo_docente: 'Trabajo Docente',
   liderazgo: 'Liderazgo',
+};
+
+export const AREA_CODES: Record<TransformationArea, string> = {
+  personalizacion: 'CRE',
+  aprendizaje: 'APR',
+  evaluacion: 'EVA',
+  proposito: 'PRO',
+  familias: 'FAM',
+  trabajo_docente: 'TDO',
+  liderazgo: 'LID',
 };
 
 export const AREA_STATUS: Record<TransformationArea, 'available' | 'coming_soon'> = {
@@ -90,13 +100,28 @@ export const CATEGORY_LABELS: Record<IndicatorCategory, string> = {
   cobertura: 'Cobertura',
   frecuencia: 'Frecuencia',
   profundidad: 'Profundidad',
+  traspaso: 'Traspaso',
+  detalle: 'Detalle',
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<IndicatorCategory, string> = {
   cobertura: 'Respuesta binaria (Sí/No)',
   frecuencia: 'Valor cuantitativo (número, porcentaje)',
   profundidad: 'Nivel de rúbrica (0-4)',
+  traspaso: 'Evidencia y sugerencias de mejora',
+  detalle: 'Selección múltiple — elige todas las que aplican',
 };
+
+// UI labels for assessment hierarchy entities
+// DB tables and code use "module" internally; UI shows "Práctica Generativa"
+export const ENTITY_LABELS = {
+  objective: 'Proceso Generativo',
+  objectives: 'Procesos Generativos',
+  module: 'Práctica Generativa',
+  modules: 'Prácticas Generativas',
+  indicator: 'Indicador',
+  indicators: 'Indicadores',
+} as const;
 
 // Frequency unit options and labels
 export type FrequencyUnit = 'dia' | 'semana' | 'mes' | 'trimestre' | 'semestre' | 'año';
@@ -179,6 +204,7 @@ export interface ScoringConfig {
     emerging: number; // Default: 12.5
   };
   default_weights: {
+    objective: number; // Default: 1.0
     module: number; // Default: 1.0
     indicator: number; // Default: 1.0
   };
@@ -349,6 +375,7 @@ export interface AssessmentTemplate {
   archived_at?: string;
   archived_by?: string;
   // Relaciones (cuando se cargan)
+  objectives?: AssessmentObjective[];
   modules?: AssessmentModule[];
   context_questions?: AssessmentContextQuestion[];
 }
@@ -369,9 +396,23 @@ export interface AssessmentContextQuestion {
   updated_at: string;
 }
 
+export interface AssessmentObjective {
+  id: string;
+  template_id: string;
+  name: string;
+  description?: string;
+  display_order: number;
+  weight: number;
+  created_at: string;
+  updated_at: string;
+  // Relaciones (cuando se cargan)
+  modules?: AssessmentModule[];
+}
+
 export interface AssessmentModule {
   id: string;
   template_id: string;
+  objective_id?: string;
   name: string;
   description?: string;
   instructions?: string;
@@ -397,6 +438,7 @@ export interface AssessmentIndicator {
   level_2_descriptor?: string;
   level_3_descriptor?: string;
   level_4_descriptor?: string;
+  detalle_options?: string[]; // Array of option labels for detalle-category indicators
   display_order: number;
   weight: number;
   visibility_condition?: VisibilityCondition;
@@ -458,15 +500,62 @@ export interface AssessmentTemplateSnapshot {
   created_by?: string;
 }
 
+/** Nested indicator type used within snapshots */
+export type SnapshotIndicator = AssessmentIndicator & {
+  sub_questions: AssessmentSubQuestion[];
+  expectations?: AssessmentYearExpectation;
+  expectations_gt?: AssessmentYearExpectation | null;
+  expectations_gi?: AssessmentYearExpectation | null;
+};
+
+/** Nested module type used within snapshots */
+export type SnapshotModule = AssessmentModule & {
+  indicators: SnapshotIndicator[];
+};
+
+/** Nested objective type used within snapshots */
+export type SnapshotObjective = AssessmentObjective & {
+  modules: SnapshotModule[];
+};
+
+// ============================================================
+// PER-YEAR WEIGHT DISTRIBUTION
+// ============================================================
+
+/**
+ * A single per-year weight entry stored in assessment_entity_year_weights.
+ * entityType discriminates which table entity_id belongs to.
+ */
+export interface EntityYearWeight {
+  entityType: 'objective' | 'module' | 'indicator';
+  entityId: string;
+  year: 1 | 2 | 3 | 4 | 5;
+  weight: number;
+}
+
+/**
+ * All weight entries for a single year, grouped by entity type.
+ * Used in the snapshot and in the GET /expectations response.
+ */
+export interface YearWeightGroup {
+  objectives: Array<{ id: string; weight: number }>;
+  modules: Array<{ id: string; weight: number; objectiveId?: string }>;
+  indicators: Array<{ id: string; weight: number; moduleId?: string }>;
+}
+
 export interface TemplateSnapshotData {
-  template: Omit<AssessmentTemplate, 'modules' | 'context_questions'>;
+  template: Omit<AssessmentTemplate, 'modules' | 'objectives' | 'context_questions'>;
   context_questions: AssessmentContextQuestion[];
-  modules: (AssessmentModule & {
-    indicators: (AssessmentIndicator & {
-      sub_questions: AssessmentSubQuestion[];
-      expectations?: AssessmentYearExpectation;
-    })[];
-  })[];
+  /** New hierarchy: objectives → modules → indicators */
+  objectives: SnapshotObjective[];
+  /** @deprecated Kept for backward compatibility with old snapshots. New snapshots use objectives[].modules[] */
+  modules?: SnapshotModule[];
+  /**
+   * Per-year weight overrides captured at publish time.
+   * Key: year number (1-5). Value: weight group for that year.
+   * When present, scoring uses these weights instead of the live DB values.
+   */
+  yearWeights?: Record<number, YearWeightGroup>;
 }
 
 // ============================================================
@@ -551,6 +640,8 @@ export interface ModuleScore {
   moduleScore: number;
   moduleWeight: number;
   indicators: IndicatorScore[];
+  /** Number of indicators active for the scored year. Undefined = legacy (all indicators scored). */
+  activeIndicatorCount?: number;
 }
 
 export interface IndicatorScore {
@@ -564,11 +655,20 @@ export interface IndicatorScore {
   isAboveExpectation: boolean;
 }
 
+export interface ObjectiveScore {
+  objectiveId: string;
+  objectiveName: string;
+  objectiveScore: number; // 0-100 weighted average of module scores
+  objectiveWeight: number;
+  modules: ModuleScore[];
+}
+
 export interface AssessmentSummary {
   instanceId: string;
   area: TransformationArea;
   totalScore: number; // 0-100
   moduleScores: ModuleScore[];
+  objectiveScores?: ObjectiveScore[]; // 3-level scoring (objectives → modules → indicators)
   overallLevel: number; // 0-4
   expectedLevel: number; // 0-4 based on year
   transformationYear: 1 | 2 | 3 | 4 | 5;
@@ -594,6 +694,20 @@ export interface UpdateTemplateRequest {
   grade_id?: number;
 }
 
+// Objective CRUD
+export interface CreateObjectiveRequest {
+  template_id: string;
+  name: string;
+  description?: string;
+  weight?: number;
+}
+
+export interface UpdateObjectiveRequest {
+  name?: string;
+  description?: string;
+  weight?: number;
+}
+
 // Module CRUD
 export interface CreateModuleRequest {
   template_id: string;
@@ -601,6 +715,7 @@ export interface CreateModuleRequest {
   description?: string;
   instructions?: string;
   weight?: number;
+  objective_id: string; // Required — every module must belong to an objective
 }
 
 export interface UpdateModuleRequest {
@@ -608,6 +723,7 @@ export interface UpdateModuleRequest {
   description?: string;
   instructions?: string;
   weight?: number;
+  objective_id?: string;
 }
 
 export interface ReorderModulesRequest {
@@ -628,6 +744,7 @@ export interface CreateIndicatorRequest {
   level_2_descriptor?: string;
   level_3_descriptor?: string;
   level_4_descriptor?: string;
+  detalle_options?: string[];
   weight?: number;
 }
 
@@ -643,6 +760,7 @@ export interface UpdateIndicatorRequest {
   level_2_descriptor?: string;
   level_3_descriptor?: string;
   level_4_descriptor?: string;
+  detalle_options?: string[];
   weight?: number;
   visibility_condition?: VisibilityCondition;
 }

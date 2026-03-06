@@ -260,6 +260,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     adminOnly: true
   },
   {
+    id: 'roadmap',
+    label: 'Roadmap MVP',
+    icon: ChartBarIcon,
+    href: '/admin/roadmap',
+    description: 'Progreso del desarrollo GENERA',
+    adminOnly: true
+  },
+  {
     id: 'users',
     label: 'Usuarios',
     icon: UsersIcon,

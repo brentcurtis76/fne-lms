@@ -3,6 +3,7 @@ import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllo
 import { IndicatorCategory } from '@/types/assessment-builder';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
+import { validateDetalleOptions } from '@/lib/validation/detalleValidator';
 
 /**
  * GET /api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators
@@ -111,6 +112,7 @@ async function handleGet(
         level2Descriptor: ind.level_2_descriptor,
         level3Descriptor: ind.level_3_descriptor,
         level4Descriptor: ind.level_4_descriptor,
+        detalleOptions: ind.detalle_options,
         displayOrder: ind.display_order,
         weight: ind.weight,
         createdAt: ind.created_at,
@@ -144,6 +146,7 @@ async function handlePost(
       level2Descriptor,
       level3Descriptor,
       level4Descriptor,
+      detalleOptions,
       weight,
     } = req.body;
 
@@ -152,10 +155,10 @@ async function handlePost(
       return res.status(400).json({ error: 'El nombre del indicador es requerido' });
     }
 
-    const validCategories: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad'];
+    const validCategories: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad', 'traspaso', 'detalle'];
     if (!category || !validCategories.includes(category)) {
       return res.status(400).json({
-        error: 'Categoría inválida. Debe ser: cobertura, frecuencia, o profundidad',
+        error: 'Categoría inválida. Debe ser: cobertura, frecuencia, profundidad, traspaso, o detalle',
       });
     }
 
@@ -177,6 +180,16 @@ async function handlePost(
       }
     }
 
+    // For detalle, validate detalleOptions using shared validator
+    let validatedDetalleOptions: string[] | null = null;
+    if (category === 'detalle') {
+      const result = validateDetalleOptions(detalleOptions);
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
+      }
+      validatedDetalleOptions = result.options!;
+    }
+
     // Get max display_order for this module
     const { data: maxOrderResult } = await supabaseClient
       .from('assessment_indicators')
@@ -189,9 +202,21 @@ async function handlePost(
       ? (maxOrderResult[0].display_order || 0) + 1
       : 1;
 
+    // Reject detalle as first indicator (first must be cobertura)
+    if (nextOrder === 1 && category === 'detalle') {
+      return res.status(400).json({
+        error: 'El primer indicador de cada práctica generativa debe ser de tipo Cobertura',
+      });
+    }
+
     // Insert indicator
     // Note: expectations are in assessment_year_expectations table
     // Note: sub_questions are in assessment_sub_questions table
+    // traspaso and cobertura don't use frequency or level fields
+    const isQuantitative = category === 'frecuencia';
+    const isRubric = category === 'profundidad';
+    const isDetalle = category === 'detalle';
+
     const { data: indicator, error } = await supabaseClient
       .from('assessment_indicators')
       .insert({
@@ -200,13 +225,14 @@ async function handlePost(
         name: name.trim(),
         description: description?.trim() || null,
         category,
-        frequency_config: category === 'frecuencia' ? (frequencyConfig || { unit: 'veces' }) : null,
-        frequency_unit_options: category === 'frecuencia' ? (frequencyUnitOptions || ['dia', 'semana', 'mes', 'trimestre', 'semestre', 'año']) : null,
-        level_0_descriptor: category === 'profundidad' ? (level0Descriptor?.trim() || null) : null,
-        level_1_descriptor: category === 'profundidad' ? (level1Descriptor?.trim() || null) : null,
-        level_2_descriptor: category === 'profundidad' ? (level2Descriptor?.trim() || null) : null,
-        level_3_descriptor: category === 'profundidad' ? (level3Descriptor?.trim() || null) : null,
-        level_4_descriptor: category === 'profundidad' ? (level4Descriptor?.trim() || null) : null,
+        frequency_config: isQuantitative ? (frequencyConfig || { unit: 'veces' }) : null,
+        frequency_unit_options: isQuantitative ? (frequencyUnitOptions || ['dia', 'semana', 'mes', 'trimestre', 'semestre', 'año']) : null,
+        level_0_descriptor: isRubric ? (level0Descriptor?.trim() || null) : null,
+        level_1_descriptor: isRubric ? (level1Descriptor?.trim() || null) : null,
+        level_2_descriptor: isRubric ? (level2Descriptor?.trim() || null) : null,
+        level_3_descriptor: isRubric ? (level3Descriptor?.trim() || null) : null,
+        level_4_descriptor: isRubric ? (level4Descriptor?.trim() || null) : null,
+        detalle_options: isDetalle ? validatedDetalleOptions : null,
         display_order: nextOrder,
         weight: weight || 1.0,
       })
@@ -240,6 +266,7 @@ async function handlePost(
         level2Descriptor: indicator.level_2_descriptor,
         level3Descriptor: indicator.level_3_descriptor,
         level4Descriptor: indicator.level_4_descriptor,
+        detalleOptions: indicator.detalle_options,
         displayOrder: indicator.display_order,
         weight: indicator.weight,
         createdAt: indicator.created_at,

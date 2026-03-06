@@ -19,6 +19,7 @@ import {
   AREA_LABELS,
   MATURITY_LEVELS,
   CATEGORY_LABELS,
+  ENTITY_LABELS,
   FREQUENCY_UNIT_LABELS,
   TransformationArea,
   IndicatorCategory,
@@ -44,8 +45,11 @@ interface IndicatorData {
   level2Descriptor?: string;
   level3Descriptor?: string;
   level4Descriptor?: string;
+  detalle_options?: string[];
   displayOrder: number;
   weight: number;
+  /** R11: Whether this indicator has an active expectation for the instance's year. */
+  isActiveThisYear?: boolean;
 }
 
 interface ModuleData {
@@ -55,7 +59,17 @@ interface ModuleData {
   instructions?: string;
   displayOrder: number;
   weight: number;
+  objectiveId?: string;
   indicators: IndicatorData[];
+}
+
+interface ObjectiveData {
+  id: string;
+  name: string;
+  description?: string;
+  displayOrder: number;
+  weight: number;
+  modules: ModuleData[];
 }
 
 interface ResponseData {
@@ -66,6 +80,7 @@ interface ResponseData {
   profundityLevel?: number;
   rationale?: string;
   evidenceNotes?: string;
+  subResponses?: Record<string, unknown>;
 }
 
 const AssessmentResponseForm: React.FC = () => {
@@ -83,6 +98,7 @@ const AssessmentResponseForm: React.FC = () => {
   const [instance, setInstance] = useState<any>(null);
   const [template, setTemplate] = useState<any>(null);
   const [modules, setModules] = useState<ModuleData[]>([]);
+  const [objectives, setObjectives] = useState<ObjectiveData[]>([]);
   const [responses, setResponses] = useState<Record<string, ResponseData>>({});
   const [progress, setProgress] = useState({ total: 0, answered: 0, percentage: 0 });
   const [assignee, setAssignee] = useState<any>(null);
@@ -134,12 +150,15 @@ const AssessmentResponseForm: React.FC = () => {
       setInstance(data.instance);
       setTemplate(data.template);
       setModules(data.modules || []);
+      setObjectives(data.objectives || []);
       setResponses(data.responses || {});
       setProgress(data.progress || { total: 0, answered: 0, percentage: 0 });
       setAssignee(data.assignee);
 
-      // Expand first module by default
-      if (data.modules?.length > 0) {
+      // Expand first module or first objective by default
+      if (data.objectives?.length > 0 && data.objectives[0].modules?.length > 0) {
+        setExpandedModules(new Set([data.objectives[0].modules[0].id]));
+      } else if (data.modules?.length > 0) {
         setExpandedModules(new Set([data.modules[0].id]));
       }
     } catch (error: any) {
@@ -157,25 +176,71 @@ const AssessmentResponseForm: React.FC = () => {
     }
   }, [user, instanceId, fetchAssessment]);
 
+  // Compute all modules (from objectives hierarchy or flat list)
+  const allModules: ModuleData[] = objectives.length > 0
+    ? objectives.flatMap((o) => o.modules)
+    : modules;
+
+  // Check if an indicator response is "answered"
+  const isIndicatorAnswered = (indicator: IndicatorData, resp: ResponseData | undefined): boolean => {
+    if (!resp) return false;
+    if (indicator.category === 'cobertura') return resp.coverageValue !== undefined && resp.coverageValue !== null;
+    if (indicator.category === 'frecuencia') return resp.frequencyValue !== undefined && resp.frequencyValue !== null;
+    if (indicator.category === 'profundidad') return resp.profundityLevel !== undefined && resp.profundityLevel !== null;
+    if (indicator.category === 'traspaso') {
+      const sub = resp.subResponses as Record<string, unknown> | undefined;
+      return !!(sub?.evidence_link || sub?.improvement_suggestions);
+    }
+    if (indicator.category === 'detalle') {
+      const sub = resp.subResponses as Record<string, unknown> | undefined;
+      const selected = sub?.selected_options;
+      return Array.isArray(selected) && selected.length > 0;
+    }
+    return false;
+  };
+
   // Update progress whenever responses change
   useEffect(() => {
-    if (modules.length > 0) {
+    const modulesToCheck = objectives.length > 0
+      ? objectives.flatMap((o) => o.modules)
+      : modules;
+
+    if (modulesToCheck.length > 0) {
       // Recalculate progress based on current responses
       let total = 0;
       let answered = 0;
 
-      modules.forEach(module => {
-        module.indicators.forEach(indicator => {
+      modulesToCheck.forEach(module => {
+        const sortedIndicators = [...module.indicators]
+          .filter((ind) => ind.isActiveThisYear !== false)
+          .sort((a, b) => a.displayOrder - b.displayOrder);
+        const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
+
+        if (hasCoberturaGate) {
+          const coberturaResp = responses[sortedIndicators[0].id];
+          const coberturaValue = coberturaResp?.coverageValue;
+
+          // Always count the cobertura indicator
           total++;
-          const resp = responses[indicator.id];
-          if (resp) {
-            const hasValue =
-              (indicator.category === 'cobertura' && resp.coverageValue !== undefined && resp.coverageValue !== null) ||
-              (indicator.category === 'frecuencia' && resp.frequencyValue !== undefined && resp.frequencyValue !== null) ||
-              (indicator.category === 'profundidad' && resp.profundityLevel !== undefined && resp.profundityLevel !== null);
-            if (hasValue) answered++;
+          if (isIndicatorAnswered(sortedIndicators[0], coberturaResp)) answered++;
+
+          if (coberturaValue === false) {
+            // Gate closed: hidden indicators don't count
+          } else if (coberturaValue === true) {
+            // Gate open: count remaining indicators
+            sortedIndicators.slice(1).forEach(indicator => {
+              total++;
+              if (isIndicatorAnswered(indicator, responses[indicator.id])) answered++;
+            });
           }
-        });
+          // coberturaValue undefined: only show cobertura indicator (already counted above)
+        } else {
+          // Legacy: no cobertura gate, count all
+          module.indicators.forEach(indicator => {
+            total++;
+            if (isIndicatorAnswered(indicator, responses[indicator.id])) answered++;
+          });
+        }
       });
 
       setProgress({
@@ -184,7 +249,8 @@ const AssessmentResponseForm: React.FC = () => {
         percentage: total > 0 ? Math.round((answered / total) * 100) : 0,
       });
     }
-  }, [responses, modules]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [responses, modules, objectives]);
 
   // Toggle module expansion
   const toggleModule = (moduleId: string) => {
@@ -200,7 +266,7 @@ const AssessmentResponseForm: React.FC = () => {
   };
 
   // Handle response change
-  const handleResponseChange = (indicatorId: string, field: keyof ResponseData, value: any) => {
+  const handleResponseChange = (indicatorId: string, field: keyof ResponseData, value: ResponseData[keyof ResponseData]) => {
     setResponses(prev => ({
       ...prev,
       [indicatorId]: {
@@ -241,6 +307,7 @@ const AssessmentResponseForm: React.FC = () => {
         profundity_level: currentResponses[id].profundityLevel,
         rationale: currentResponses[id].rationale,
         evidence_notes: currentResponses[id].evidenceNotes,
+        sub_responses: currentResponses[id].subResponses,
       }));
 
     if (responsesToSave.length === 0) return;
@@ -277,18 +344,31 @@ const AssessmentResponseForm: React.FC = () => {
     let total = 0;
     let answered = 0;
 
-    modules.forEach(module => {
-      module.indicators.forEach(indicator => {
+    allModules.forEach(module => {
+      const sortedIndicators = [...module.indicators]
+        .filter((ind) => ind.isActiveThisYear !== false)
+        .sort((a, b) => a.displayOrder - b.displayOrder);
+      const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
+
+      if (hasCoberturaGate) {
+        const coberturaResp = currentResponses[sortedIndicators[0].id];
+        const coberturaValue = coberturaResp?.coverageValue;
+
         total++;
-        const resp = currentResponses[indicator.id];
-        if (resp) {
-          const hasValue =
-            (indicator.category === 'cobertura' && resp.coverageValue !== undefined && resp.coverageValue !== null) ||
-            (indicator.category === 'frecuencia' && resp.frequencyValue !== undefined && resp.frequencyValue !== null) ||
-            (indicator.category === 'profundidad' && resp.profundityLevel !== undefined && resp.profundityLevel !== null);
-          if (hasValue) answered++;
+        if (isIndicatorAnswered(sortedIndicators[0], coberturaResp)) answered++;
+
+        if (coberturaValue === true) {
+          sortedIndicators.slice(1).forEach(indicator => {
+            total++;
+            if (isIndicatorAnswered(indicator, currentResponses[indicator.id])) answered++;
+          });
         }
-      });
+      } else {
+        module.indicators.forEach(indicator => {
+          total++;
+          if (isIndicatorAnswered(indicator, currentResponses[indicator.id])) answered++;
+        });
+      }
     });
 
     setProgress({
@@ -341,8 +421,8 @@ const AssessmentResponseForm: React.FC = () => {
   // Loading state
   if (loading || !user) {
     return (
-      <div className="min-h-screen bg-brand_beige flex justify-center items-center">
-        <p className="text-xl text-brand_blue">Cargando...</p>
+      <div className="min-h-screen bg-brand_light flex justify-center items-center">
+        <p className="text-xl text-brand_primary">Cargando...</p>
       </div>
     );
   }
@@ -370,7 +450,7 @@ const AssessmentResponseForm: React.FC = () => {
         {/* Back button and actions */}
         <div className="flex items-center justify-between mb-6">
           <Link href="/docente/assessments" legacyBehavior>
-            <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_blue">
+            <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_primary">
               <ArrowLeft className="w-4 h-4 mr-1" />
               Volver a evaluaciones
             </a>
@@ -396,7 +476,7 @@ const AssessmentResponseForm: React.FC = () => {
                 <button
                   onClick={handleSubmit}
                   disabled={submitting || progress.percentage < 100}
-                  className="inline-flex items-center px-4 py-1.5 text-sm bg-brand_blue text-white rounded-lg hover:bg-brand_blue/90 disabled:opacity-50"
+                  className="inline-flex items-center px-4 py-1.5 text-sm bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 disabled:opacity-50"
                 >
                   {submitting ? (
                     <>
@@ -426,7 +506,7 @@ const AssessmentResponseForm: React.FC = () => {
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className={`h-2 rounded-full transition-all ${
-                progress.percentage === 100 ? 'bg-green-500' : 'bg-brand_blue'
+                progress.percentage === 100 ? 'bg-green-500' : 'bg-brand_primary'
               }`}
               style={{ width: `${progress.percentage}%` }}
             />
@@ -439,66 +519,187 @@ const AssessmentResponseForm: React.FC = () => {
           )}
         </div>
 
-        {/* Modules */}
-        <div className="space-y-4">
-          {modules.map((module) => (
-            <div key={module.id} className="bg-white shadow-md rounded-lg overflow-hidden">
-              {/* Module header */}
-              <button
-                onClick={() => toggleModule(module.id)}
-                className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50"
-              >
-                <div>
-                  <h3 className="text-lg font-semibold text-brand_blue">{module.name}</h3>
-                  {module.description && (
-                    <p className="text-sm text-gray-500 mt-1">{module.description}</p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">
-                    {module.indicators.length} indicador{module.indicators.length !== 1 ? 'es' : ''}
-                  </p>
+        {/* 3-level hierarchy: Objectives → Acciones → Indicators */}
+        {objectives.length > 0 ? (
+          <div className="space-y-6">
+            {objectives.map((objective) => (
+              <div key={objective.id} className="space-y-3">
+                {/* Objective header */}
+                <div className="flex items-center gap-3 px-1">
+                  <div className="h-px flex-1 bg-gray-200" />
+                  <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">
+                    {ENTITY_LABELS.objective}: {objective.name}
+                  </h3>
+                  <div className="h-px flex-1 bg-gray-200" />
                 </div>
-                {expandedModules.has(module.id) ? (
-                  <ChevronUp className="w-5 h-5 text-gray-400" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-400" />
+                {objective.description && (
+                  <p className="text-sm text-gray-500 px-1">{objective.description}</p>
                 )}
-              </button>
 
-              {/* Module instructions */}
-              {expandedModules.has(module.id) && module.instructions && (
-                <div className="px-4 pb-4 pt-0">
-                  <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
-                    {module.instructions}
-                  </div>
-                </div>
-              )}
-
-              {/* Indicators */}
-              {expandedModules.has(module.id) && (
-                <div className="border-t border-gray-200 divide-y divide-gray-100">
-                  {module.indicators.map((indicator) => (
-                    <IndicatorInput
-                      key={indicator.id}
-                      indicator={indicator}
-                      response={responses[indicator.id] || {}}
-                      onChange={(field, value) => handleResponseChange(indicator.id, field, value)}
-                      disabled={!canEdit}
+                {/* Acciones within this objective */}
+                <div className="space-y-3">
+                  {objective.modules.map((module) => (
+                    <ModuleCard
+                      key={module.id}
+                      module={module}
+                      responses={responses}
+                      expanded={expandedModules.has(module.id)}
+                      onToggle={() => toggleModule(module.id)}
+                      onResponseChange={handleResponseChange}
+                      canEdit={canEdit}
                     />
                   ))}
+                  {objective.modules.length === 0 && (
+                    <p className="text-sm text-gray-400 italic px-2">
+                      Sin {ENTITY_LABELS.modules.toLowerCase()} en este {ENTITY_LABELS.objective.toLowerCase()}
+                    </p>
+                  )}
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* Flat modules fallback (backward compat) */
+          <div className="space-y-4">
+            {modules.map((module) => (
+              <ModuleCard
+                key={module.id}
+                module={module}
+                responses={responses}
+                expanded={expandedModules.has(module.id)}
+                onToggle={() => toggleModule(module.id)}
+                onResponseChange={handleResponseChange}
+                canEdit={canEdit}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </MainLayout>
+  );
+};
+
+// Module card component (reusable for both flat and objectives hierarchy)
+interface ModuleCardProps {
+  module: ModuleData;
+  responses: Record<string, ResponseData>;
+  expanded: boolean;
+  onToggle: () => void;
+  onResponseChange: (indicatorId: string, field: keyof ResponseData, value: ResponseData[keyof ResponseData]) => void;
+  canEdit: boolean | undefined;
+}
+
+const ModuleCard: React.FC<ModuleCardProps> = ({
+  module,
+  responses,
+  expanded,
+  onToggle,
+  onResponseChange,
+  canEdit,
+}) => {
+  // R12: Filter out indicators that are inactive for this year.
+  // isActiveThisYear defaults to true when undefined (legacy instances with no expectations data).
+  const activeIndicators = module.indicators.filter(
+    (ind) => ind.isActiveThisYear !== false
+  );
+
+  // Sort active indicators by display order
+  const sortedIndicators = [...activeIndicators].sort((a, b) => a.displayOrder - b.displayOrder);
+
+  // Cobertura gate logic
+  const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
+  const coberturaResponse = hasCoberturaGate ? responses[sortedIndicators[0].id] : undefined;
+  const coberturaValue = coberturaResponse?.coverageValue;
+
+  // Determine which indicators to show
+  let visibleIndicators: IndicatorData[];
+  let showGateMessage = false;
+
+  if (hasCoberturaGate) {
+    if (coberturaValue === true) {
+      // Gate open: show all indicators
+      visibleIndicators = sortedIndicators;
+    } else if (coberturaValue === false) {
+      // Gate closed: show only cobertura + message
+      visibleIndicators = [sortedIndicators[0]];
+      showGateMessage = true;
+    } else {
+      // Not answered yet: show only cobertura
+      visibleIndicators = [sortedIndicators[0]];
+    }
+  } else {
+    // Legacy: no gate, show all
+    visibleIndicators = sortedIndicators;
+  }
+
+  return (
+  <div className="bg-white shadow-md rounded-lg overflow-hidden">
+    {/* Module header */}
+    <button
+      onClick={onToggle}
+      aria-expanded={expanded}
+      aria-label={`${expanded ? 'Contraer' : 'Expandir'} ${module.name}`}
+      className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50"
+    >
+      <div>
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-semibold text-brand_primary">{module.name}</h3>
+          {hasCoberturaGate && coberturaValue === false && (
+            <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+              No implementada
+            </span>
+          )}
+        </div>
+        {module.description && (
+          <p className="text-sm text-gray-500 mt-1">{module.description}</p>
+        )}
+        <p className="text-xs text-gray-400 mt-1">
+          {activeIndicators.length} indicador{activeIndicators.length !== 1 ? 'es' : ''}
+        </p>
+      </div>
+      {expanded ? (
+        <ChevronUp className="w-5 h-5 text-gray-400" />
+      ) : (
+        <ChevronDown className="w-5 h-5 text-gray-400" />
+      )}
+    </button>
+
+    {/* Module instructions */}
+    {expanded && module.instructions && (
+      <div className="px-4 pb-4 pt-0">
+        <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
+          {module.instructions}
+        </div>
+      </div>
+    )}
+
+    {/* Indicators */}
+    {expanded && (
+      <div className="border-t border-gray-200 divide-y divide-gray-100">
+        {visibleIndicators.map((indicator) => (
+          <IndicatorInput
+            key={indicator.id}
+            indicator={indicator}
+            response={responses[indicator.id] || {}}
+            onChange={(field, value) => onResponseChange(indicator.id, field, value)}
+            disabled={!canEdit}
+          />
+        ))}
+        {showGateMessage && (
+          <div className="p-4 bg-gray-50 text-sm text-gray-500 italic">
+            Esta práctica no se implementa en este establecimiento
+          </div>
+        )}
+      </div>
+    )}
+  </div>
   );
 };
 
 interface IndicatorInputProps {
   indicator: IndicatorData;
   response: ResponseData;
-  onChange: (field: keyof ResponseData, value: any) => void;
+  onChange: (field: keyof ResponseData, value: ResponseData[keyof ResponseData]) => void;
   disabled?: boolean;
 }
 
@@ -508,10 +709,14 @@ const IndicatorInput: React.FC<IndicatorInputProps> = ({
   onChange,
   disabled,
 }) => {
+  const subResp = response.subResponses as Record<string, unknown> | undefined;
+  const detalleSelected = Array.isArray(subResp?.selected_options) ? subResp.selected_options as string[] : [];
   const hasResponse =
     (indicator.category === 'cobertura' && response.coverageValue !== undefined && response.coverageValue !== null) ||
     (indicator.category === 'frecuencia' && response.frequencyValue !== undefined && response.frequencyValue !== null) ||
-    (indicator.category === 'profundidad' && response.profundityLevel !== undefined && response.profundityLevel !== null);
+    (indicator.category === 'profundidad' && response.profundityLevel !== undefined && response.profundityLevel !== null) ||
+    (indicator.category === 'traspaso' && !!(subResp?.evidence_link || subResp?.improvement_suggestions)) ||
+    (indicator.category === 'detalle' && detalleSelected.length > 0);
 
   return (
     <div className={`p-4 ${hasResponse ? 'bg-green-50/50' : ''}`}>
@@ -544,6 +749,7 @@ const IndicatorInput: React.FC<IndicatorInputProps> = ({
             value={response.coverageValue}
             onChange={(v) => onChange('coverageValue', v)}
             disabled={disabled}
+            indicatorName={indicator.name}
           />
         )}
 
@@ -573,6 +779,25 @@ const IndicatorInput: React.FC<IndicatorInputProps> = ({
             disabled={disabled}
           />
         )}
+
+        {indicator.category === 'traspaso' && (
+          <TraspasoInput
+            indicatorId={indicator.id}
+            value={response.subResponses as { evidence_link?: string; improvement_suggestions?: string } | undefined}
+            onChange={(v) => onChange('subResponses', v)}
+            disabled={disabled}
+          />
+        )}
+
+        {indicator.category === 'detalle' && (
+          <DetalleInput
+            indicatorId={indicator.id}
+            options={indicator.detalle_options || []}
+            selectedOptions={detalleSelected}
+            onChange={(selected) => onChange('subResponses', { selected_options: selected })}
+            disabled={disabled}
+          />
+        )}
       </div>
     </div>
   );
@@ -583,12 +808,14 @@ const CoberturaInput: React.FC<{
   value?: boolean;
   onChange: (value: boolean) => void;
   disabled?: boolean;
-}> = ({ value, onChange, disabled }) => (
+  indicatorName?: string;
+}> = ({ value, onChange, disabled, indicatorName }) => (
   <div className="flex gap-3">
     <button
       type="button"
       onClick={() => onChange(true)}
       disabled={disabled}
+      aria-label={indicatorName ? `Sí: ${indicatorName}` : 'Sí'}
       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
         value === true
           ? 'bg-green-500 text-white'
@@ -601,6 +828,7 @@ const CoberturaInput: React.FC<{
       type="button"
       onClick={() => onChange(false)}
       disabled={disabled}
+      aria-label={indicatorName ? `No: ${indicatorName}` : 'No'}
       className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
         value === false
           ? 'bg-red-500 text-white'
@@ -643,7 +871,8 @@ const FrecuenciaInput: React.FC<{
         max={config?.max}
         step={config?.step ?? 1}
         disabled={disabled}
-        className={`w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_blue ${
+        aria-label="Cantidad de frecuencia"
+        className={`w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_primary ${
           disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
         }`}
         placeholder="0"
@@ -653,7 +882,8 @@ const FrecuenciaInput: React.FC<{
         value={unit || availableUnits[0]}
         onChange={(e) => onUnitChange(e.target.value as FrequencyUnit)}
         disabled={disabled}
-        className={`px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_blue ${
+        aria-label="Unidad de frecuencia"
+        className={`px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_primary ${
           disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
         }`}
       >
@@ -705,6 +935,99 @@ const ProfundidadInput: React.FC<{
         </button>
       );
     })}
+  </div>
+);
+
+// Detalle input (multiple-choice checkboxes — pick all that apply)
+const DetalleInput: React.FC<{
+  indicatorId: string;
+  options: string[];
+  selectedOptions: string[];
+  onChange: (selected: string[]) => void;
+  disabled?: boolean;
+}> = ({ indicatorId, options, selectedOptions, onChange, disabled }) => {
+  const toggleOption = (opt: string) => {
+    if (selectedOptions.includes(opt)) {
+      onChange(selectedOptions.filter((o) => o !== opt));
+    } else {
+      onChange([...selectedOptions, opt]);
+    }
+  };
+
+  if (options.length === 0) {
+    return (
+      <p className="text-sm text-gray-400 italic">Sin opciones definidas para este indicador.</p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-gray-500 mb-2">Selecciona todas las que aplican:</p>
+      {options.map((opt, idx) => (
+        <label
+          key={idx}
+          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+            selectedOptions.includes(opt) ? 'bg-teal-50 border border-teal-200' : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          <input
+            type="checkbox"
+            id={`detalle-${indicatorId}-${idx}`}
+            checked={selectedOptions.includes(opt)}
+            onChange={() => !disabled && toggleOption(opt)}
+            disabled={disabled}
+            className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:ring-offset-2"
+          />
+          <span className="text-sm text-gray-800">{opt}</span>
+        </label>
+      ))}
+    </div>
+  );
+};
+
+// Traspaso input (evidence link URL + improvement suggestions textarea)
+const TraspasoInput: React.FC<{
+  indicatorId: string;
+  value?: { evidence_link?: string; improvement_suggestions?: string };
+  onChange: (value: { evidence_link?: string; improvement_suggestions?: string }) => void;
+  disabled?: boolean;
+}> = ({ indicatorId, value, onChange, disabled }) => (
+  <div className="space-y-3">
+    <div>
+      <label htmlFor={`evidence-link-${indicatorId}`} className="block text-sm font-medium text-gray-700 mb-1">
+        Adjunte link a carpeta con evidencia de sus respuestas
+      </label>
+      <input
+        id={`evidence-link-${indicatorId}`}
+        type="url"
+        value={value?.evidence_link || ''}
+        onChange={(e) => onChange({ ...(value || {}), evidence_link: e.target.value })}
+        disabled={disabled}
+        placeholder="https://..."
+        className={`block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_primary text-sm ${
+          disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
+        }`}
+      />
+      <p className="mt-1 text-xs text-gray-500">
+        El archivo o carpeta enlazada debe ser accesible para cualquier persona con el link (permisos de lectura pública o compartido con el equipo evaluador)
+      </p>
+    </div>
+    <div>
+      <label htmlFor={`improvement-${indicatorId}`} className="block text-sm font-medium text-gray-700 mb-1">
+        Mejoras sugeridas
+      </label>
+      <textarea
+        id={`improvement-${indicatorId}`}
+        value={value?.improvement_suggestions || ''}
+        onChange={(e) => onChange({ ...(value || {}), improvement_suggestions: e.target.value })}
+        disabled={disabled}
+        rows={3}
+        placeholder="¿Con la experiencia adquirida, qué mejoras sugieres para la implementación de esta práctica?"
+        className={`block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_primary text-sm ${
+          disabled ? 'opacity-50 cursor-not-allowed bg-gray-100' : ''
+        }`}
+      />
+    </div>
   </div>
 );
 

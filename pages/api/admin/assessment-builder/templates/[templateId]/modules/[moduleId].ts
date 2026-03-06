@@ -90,6 +90,7 @@ async function handleGet(
       .select(`
         id,
         template_id,
+        objective_id,
         name,
         description,
         instructions,
@@ -159,14 +160,44 @@ async function handlePut(
   userId: string
 ) {
   try {
-    const { name, description, instructions, weight } = req.body as UpdateModuleRequest;
+    const { name, description, instructions, weight, objective_id } = req.body as UpdateModuleRequest;
+
+    // Validate name if provided
+    if (name !== undefined && (!name || !name.trim())) {
+      return res.status(400).json({ error: 'El nombre del módulo no puede estar vacío' });
+    }
+
+    // Validate weight if provided
+    if (weight !== undefined) {
+      if (typeof weight !== 'number' || !isFinite(weight) || weight <= 0 || weight > 100) {
+        return res.status(400).json({ error: 'El peso debe ser un número entre 0.01 y 100' });
+      }
+    }
+
+    // Validate objective_id if provided — must exist and belong to same template
+    if (objective_id !== undefined) {
+      if (!objective_id) {
+        return res.status(400).json({ error: 'El objetivo (objective_id) no puede estar vacío' });
+      }
+      const { data: obj, error: objErr } = await supabaseClient
+        .from('assessment_objectives')
+        .select('id')
+        .eq('id', objective_id)
+        .eq('template_id', templateId)
+        .single();
+
+      if (objErr || !obj) {
+        return res.status(400).json({ error: 'El objetivo especificado no existe o no pertenece a este template' });
+      }
+    }
 
     // Build update object
-    const updateData: Record<string, any> = {};
-    if (name !== undefined) updateData.name = name;
+    const updateData: Record<string, unknown> = {};
+    if (name !== undefined) updateData.name = name.trim();
     if (description !== undefined) updateData.description = description;
     if (instructions !== undefined) updateData.instructions = instructions;
     if (weight !== undefined) updateData.weight = weight;
+    if (objective_id !== undefined) updateData.objective_id = objective_id;
 
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ error: 'No hay campos para actualizar' });

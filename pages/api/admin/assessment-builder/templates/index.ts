@@ -7,24 +7,37 @@ import type {
 } from '@/types/assessment-builder';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 
-// Generate next version number for an area
-async function getNextVersion(supabaseClient: any, area: TransformationArea): Promise<string> {
+// Generate next version number for an area + grade combination
+async function getNextVersion(supabaseClient: any, area: TransformationArea, gradeId: number): Promise<string> {
   const { data: existing } = await supabaseClient
     .from('assessment_templates')
     .select('version')
     .eq('area', area)
-    .order('version', { ascending: false })
-    .limit(1);
+    .eq('grade_id', gradeId)
+    .order('created_at', { ascending: false })
+    .limit(10);
 
   if (!existing || existing.length === 0) {
     return '1.0.0';
   }
 
-  // Parse version and increment
-  const currentVersion = existing[0].version;
-  const parts = currentVersion.split('.').map(Number);
-  parts[2] = (parts[2] || 0) + 1; // Increment patch version
-  return parts.join('.');
+  // Find the highest valid semver version
+  let maxMajor = 0, maxMinor = 0, maxPatch = 0;
+  for (const row of existing) {
+    const parts = row.version.split('.').map(Number);
+    if (parts.length >= 3 && parts.every((p: number) => !isNaN(p))) {
+      if (parts[0] > maxMajor ||
+          (parts[0] === maxMajor && parts[1] > maxMinor) ||
+          (parts[0] === maxMajor && parts[1] === maxMinor && parts[2] > maxPatch)) {
+        maxMajor = parts[0];
+        maxMinor = parts[1];
+        maxPatch = parts[2];
+      }
+    }
+  }
+
+  // Increment patch version
+  return `${maxMajor}.${maxMinor}.${maxPatch + 1}`;
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -64,7 +77,34 @@ async function handleGet(
   supabaseClient: any
 ) {
   try {
-    const { area, status, archived } = req.query;
+    const { area, status, archived, count_only, grade_id } = req.query;
+
+    // count_only mode: return just the count for a given area + grade_id
+    if (count_only === 'true') {
+      const validAreas: TransformationArea[] = [
+        'personalizacion', 'aprendizaje', 'evaluacion',
+        'proposito', 'familias', 'trabajo_docente', 'liderazgo'
+      ];
+
+      let countQuery = supabaseClient
+        .from('assessment_templates')
+        .select('id', { count: 'exact', head: true });
+
+      if (area && typeof area === 'string' && validAreas.includes(area as TransformationArea)) {
+        countQuery = countQuery.eq('area', area);
+      }
+      if (grade_id && typeof grade_id === 'string') {
+        countQuery = countQuery.eq('grade_id', grade_id);
+      }
+
+      const { count, error: countError } = await countQuery;
+
+      if (countError) {
+        return res.status(500).json({ error: 'Error al contar templates' });
+      }
+
+      return res.status(200).json({ success: true, count: count ?? 0 });
+    }
 
     let query = supabaseClient
       .from('assessment_templates')
@@ -182,8 +222,8 @@ async function handlePost(
       return res.status(400).json({ error: 'Área de transformación inválida' });
     }
 
-    // Generate version
-    const version = await getNextVersion(supabaseClient, area);
+    // Generate version (scoped to area + grade)
+    const version = await getNextVersion(supabaseClient, area, grade_id);
 
     // Create template
     const { data: template, error } = await supabaseClient

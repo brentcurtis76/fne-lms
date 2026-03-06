@@ -19,10 +19,12 @@ import type {
   ScoringConfig,
   ModuleScore,
   IndicatorScore,
+  ObjectiveScore,
   AssessmentSummary,
   IndicatorCategory,
   FrequencyConfig,
   TransformationArea,
+  YearWeightGroup,
 } from '@/types/assessment-builder';
 import { scoreToLevel, getExpectedLevelByYear } from '@/types/assessment-builder';
 
@@ -75,10 +77,33 @@ export function scoreProfundidadIndicator(level: number | undefined | null): num
 }
 
 /**
- * Calculate score for any indicator based on its category
+ * Calculate binary score (0 or 100) for a traspaso indicator.
+ * Has content in evidence_link or improvement_suggestions = complete (100).
+ */
+export function scoreTraspasoIndicator(subResponses: Record<string, unknown> | undefined | null): number {
+  if (!subResponses) return 0;
+  const evidenceLink = subResponses.evidence_link;
+  const suggestions = subResponses.improvement_suggestions;
+  const hasEvidence = typeof evidenceLink === 'string' && evidenceLink.trim().length > 0;
+  const hasSuggestions = typeof suggestions === 'string' && suggestions.trim().length > 0;
+  return (hasEvidence || hasSuggestions) ? 100 : 0;
+}
+
+/**
+ * Calculate binary score (0 or 100) for a detalle indicator.
+ * Has at least one option selected = complete (100).
+ */
+export function scoreDetalleIndicator(subResponses: Record<string, unknown> | undefined | null): number {
+  if (!subResponses) return 0;
+  const selectedOptions = subResponses.selected_options;
+  return (Array.isArray(selectedOptions) && selectedOptions.length > 0) ? 100 : 0;
+}
+
+/**
+ * Calculate score for any indicator based on its category.
  */
 export function scoreIndicator(
-  response: Pick<AssessmentResponse, 'coverage_value' | 'frequency_value' | 'profundity_level'>,
+  response: Pick<AssessmentResponse, 'coverage_value' | 'frequency_value' | 'profundity_level' | 'sub_responses'>,
   category: IndicatorCategory,
   frequencyConfig?: FrequencyConfig
 ): number {
@@ -89,6 +114,10 @@ export function scoreIndicator(
       return scoreFrecuenciaIndicator(response.frequency_value, frequencyConfig);
     case 'profundidad':
       return scoreProfundidadIndicator(response.profundity_level);
+    case 'traspaso':
+      return scoreTraspasoIndicator(response.sub_responses);
+    case 'detalle':
+      return scoreDetalleIndicator(response.sub_responses);
     default:
       return 0;
   }
@@ -170,6 +199,10 @@ export function calculateModuleScore(
     };
   });
 
+  // Year-aware filtering now happens at the calculateAssessmentScores level BEFORE
+  // this function is called. When activeExpectations is set (R8), only active indicators
+  // are passed here. When it is undefined (legacy instances with no expectations data),
+  // we fall back to the old exclusion behaviour to preserve backward compatibility.
   const moduleScore = calculateWeightedAverage(
     indicatorScores.map((i) => ({ score: i.normalizedScore, weight: i.weight }))
   );
@@ -180,6 +213,7 @@ export function calculateModuleScore(
     moduleScore,
     moduleWeight,
     indicators: indicatorScores,
+    activeIndicatorCount: indicators.length,
   };
 }
 
@@ -187,48 +221,237 @@ export function calculateModuleScore(
 // FULL ASSESSMENT CALCULATION
 // ============================================================
 
+interface ModuleInput {
+  id: string;
+  name: string;
+  weight: number;
+  indicators: Array<{
+    id: string;
+    name: string;
+    category: IndicatorCategory;
+    weight: number;
+    frequency_config?: FrequencyConfig;
+  }>;
+}
+
+interface ObjectiveInput {
+  id: string;
+  name: string;
+  weight: number;
+  modules: ModuleInput[];
+}
+
 export interface CalculateScoresInput {
   instanceId: string;
   transformationYear: 1 | 2 | 3 | 4 | 5;
   area: TransformationArea;
   scoringConfig?: ScoringConfig;
-  modules: Array<{
-    id: string;
-    name: string;
-    weight: number;
-    indicators: Array<{
-      id: string;
-      name: string;
-      category: IndicatorCategory;
-      weight: number;
-      frequency_config?: FrequencyConfig;
-    }>;
-  }>;
+  /** Flat modules list (2-level: modules → indicators). Used for legacy snapshots. */
+  modules: ModuleInput[];
+  /** Objectives hierarchy (3-level: objectives → modules → indicators). Takes precedence over flat modules. */
+  objectives?: ObjectiveInput[];
   responses: AssessmentResponse[];
-  yearExpectations?: Map<string, number>; // indicatorId -> expected level
+  yearExpectations?: Map<string, number>; // indicatorId -> expected maturity level (0-4). Existing field — do not rename.
+  /**
+   * Year-aware active expectations map (R6/R8).
+   * Key: indicatorId. Value: { expected: number | null; unit: string | null; tolerance: number }.
+   * When defined: only indicators with non-null expected values are scored.
+   * When undefined: falls back to legacy behaviour (traspaso/detalle excluded, others included).
+   */
+  activeExpectations?: Map<string, { expected: number | null; unit: string | null; tolerance: number }>;
+  /**
+   * Per-year weight overrides for indicators, modules, and objectives.
+   *
+   * Three-tier weight priority (applied in fetchInstanceDataForScoring):
+   *  1. Snapshot yearWeights (snapshotData.yearWeights[transformationYear]) — for published instances
+   *  2. DB assessment_entity_year_weights table — for draft templates being scored
+   *  3. Entity default `weight` column — ultimate fallback (backward compatible)
+   *
+   * These maps are built by fetchInstanceDataForScoring and passed here.
+   * The maps override the `weight` field on each entity when scoring.
+   */
+  objectiveYearWeights?: Map<string, number>;
+  moduleYearWeights?: Map<string, number>;
+  indicatorYearWeights?: Map<string, number>;
 }
 
 /**
- * Calculate complete assessment scores including all modules and overall score
+ * Calculate objective score from its child module scores
+ */
+export function calculateObjectiveScore(
+  objectiveId: string,
+  objectiveName: string,
+  objectiveWeight: number,
+  moduleScores: ModuleScore[]
+): ObjectiveScore {
+  const objectiveScore = calculateWeightedAverage(
+    moduleScores.map((m) => ({ score: m.moduleScore, weight: m.moduleWeight }))
+  );
+
+  return {
+    objectiveId,
+    objectiveName,
+    objectiveScore,
+    objectiveWeight,
+    modules: moduleScores,
+  };
+}
+
+/**
+ * Calculate complete assessment scores including all modules and overall score.
+ * Supports both 3-level (objectives → modules → indicators) and 2-level (modules → indicators) hierarchies.
  */
 export function calculateAssessmentScores(input: CalculateScoresInput): AssessmentSummary {
   const responseMap = new Map(input.responses.map((r) => [r.indicator_id, r]));
 
-  const moduleScores: ModuleScore[] = input.modules.map((module) => {
-    const indicatorsWithExpectations = module.indicators.map((ind) => ({
+  // Determine if we use 3-level hierarchy (objectives) or 2-level (flat modules)
+  const hasObjectives = input.objectives && input.objectives.length > 0;
+
+  /**
+   * Helper: Filter indicators for a module based on year-aware expectations.
+   * When activeExpectations is defined, only include indicators with a non-null expected value.
+   * When undefined (legacy instances with no expectations data), fall back to excluding
+   * traspaso/detalle to preserve backward compatibility.
+   */
+  const filterActiveIndicators = (indicators: ModuleInput['indicators']): ModuleInput['indicators'] => {
+    if (input.activeExpectations) {
+      // Year-aware: include only indicators that have an active expectation for this year
+      return indicators.filter((ind) => {
+        const exp = input.activeExpectations!.get(ind.id);
+        return exp !== undefined && exp.expected !== null;
+      });
+    }
+    // Legacy fallback: exclude traspaso/detalle (same behaviour as before R9)
+    return indicators.filter((ind) => ind.category !== 'traspaso' && ind.category !== 'detalle');
+  };
+
+  /**
+   * Apply per-year weight overrides to an indicator's weight.
+   * Priority: indicatorYearWeights map → entity default weight.
+   */
+  const resolveIndicatorWeight = (ind: ModuleInput['indicators'][number]): number =>
+    input.indicatorYearWeights?.get(ind.id) ?? ind.weight;
+
+  /**
+   * Apply per-year weight overrides to a module's weight.
+   * Priority: moduleYearWeights map → entity default weight.
+   */
+  const resolveModuleWeight = (module: ModuleInput): number =>
+    input.moduleYearWeights?.get(module.id) ?? module.weight;
+
+  /**
+   * Apply per-year weight overrides to an objective's weight.
+   * Priority: objectiveYearWeights map → entity default weight.
+   */
+  const resolveObjectiveWeight = (objective: ObjectiveInput): number =>
+    input.objectiveYearWeights?.get(objective.id) ?? objective.weight;
+
+  if (hasObjectives && input.objectives) {
+    // 3-level scoring: objectives → modules → indicators
+    const objectiveScores: ObjectiveScore[] = [];
+
+    for (const objective of input.objectives) {
+      const moduleScores: ModuleScore[] = [];
+
+      for (const module of objective.modules) {
+        const activeIndicators = filterActiveIndicators(module.indicators);
+
+        // R10: if no active indicators, skip module (exclude from objective average)
+        if (activeIndicators.length === 0) {
+          continue;
+        }
+
+        // Apply per-year indicator weight overrides
+        const indicatorsWithExpectations = activeIndicators.map((ind) => ({
+          ...ind,
+          weight: resolveIndicatorWeight(ind),
+          expectedLevel: input.yearExpectations?.get(ind.id),
+        }));
+
+        // Apply per-year module weight override
+        const resolvedModuleWeight = resolveModuleWeight(module);
+
+        const score = calculateModuleScore(
+          indicatorsWithExpectations,
+          responseMap,
+          module.name,
+          resolvedModuleWeight
+        );
+        score.moduleId = module.id;
+        moduleScores.push(score);
+      }
+
+      // R10: if objective has no active modules, skip it (exclude from overall average)
+      if (moduleScores.length === 0) {
+        continue;
+      }
+
+      // Apply per-year objective weight override
+      const resolvedObjectiveWeight = resolveObjectiveWeight(objective);
+
+      objectiveScores.push(calculateObjectiveScore(
+        objective.id,
+        objective.name,
+        resolvedObjectiveWeight,
+        moduleScores
+      ));
+    }
+
+    // R10: if nothing is active, return null/0 score
+    const totalScore = objectiveScores.length > 0
+      ? calculateWeightedAverage(
+          objectiveScores.map((o) => ({ score: o.objectiveScore, weight: o.objectiveWeight }))
+        )
+      : 0;
+
+    // Flatten module scores for backward compatibility
+    const allModuleScores: ModuleScore[] = objectiveScores.flatMap((o) => o.modules);
+
+    const overallLevel = scoreToLevel(totalScore, input.scoringConfig);
+    const expectedLevel = getExpectedLevelByYear(input.transformationYear);
+
+    return {
+      instanceId: input.instanceId,
+      area: input.area,
+      totalScore,
+      moduleScores: allModuleScores,
+      objectiveScores,
+      overallLevel,
+      expectedLevel,
+      transformationYear: input.transformationYear,
+    };
+  }
+
+  // 2-level scoring: flat modules → indicators (legacy path)
+  const moduleScores: ModuleScore[] = [];
+
+  for (const module of input.modules) {
+    const activeIndicators = filterActiveIndicators(module.indicators);
+
+    // R10: if no active indicators, skip module
+    if (activeIndicators.length === 0) {
+      continue;
+    }
+
+    // Apply per-year indicator weight overrides
+    const indicatorsWithExpectations = activeIndicators.map((ind) => ({
       ...ind,
+      weight: resolveIndicatorWeight(ind),
       expectedLevel: input.yearExpectations?.get(ind.id),
     }));
+
+    // Apply per-year module weight override
+    const resolvedModuleWeight2 = resolveModuleWeight(module);
 
     const score = calculateModuleScore(
       indicatorsWithExpectations,
       responseMap,
       module.name,
-      module.weight
+      resolvedModuleWeight2
     );
     score.moduleId = module.id;
-    return score;
-  });
+    moduleScores.push(score);
+  }
 
   // Calculate overall weighted score
   const totalScore = calculateWeightedAverage(
@@ -273,7 +496,33 @@ export interface InstanceDataForScoring {
       frequency_config?: FrequencyConfig;
     }>;
   }>;
+  objectives?: Array<{
+    id: string;
+    name: string;
+    weight: number;
+    modules: Array<{
+      id: string;
+      name: string;
+      weight: number;
+      indicators: Array<{
+        id: string;
+        name: string;
+        category: IndicatorCategory;
+        weight: number;
+        frequency_config?: FrequencyConfig;
+      }>;
+    }>;
+  }>;
   responses: AssessmentResponse[];
+  /**
+   * Year-aware active expectations (R6). Undefined when no expectations data found (legacy instances).
+   * Key: indicatorId. Value: { expected: number | null; unit: string | null; tolerance: number }.
+   */
+  activeExpectations?: Map<string, { expected: number | null; unit: string | null; tolerance: number }>;
+  /** Per-year weight override maps — built from snapshot yearWeights or DB year weight table */
+  objectiveYearWeights?: Map<string, number>;
+  moduleYearWeights?: Map<string, number>;
+  indicatorYearWeights?: Map<string, number>;
 }
 
 /**
@@ -283,15 +532,17 @@ export async function fetchInstanceDataForScoring(
   supabase: SupabaseClient,
   instanceId: string
 ): Promise<InstanceDataForScoring | null> {
-  // Get instance with snapshot
+  // Get instance with snapshot (R6: also fetch generation_type and template_id)
   const { data: instance, error: instanceError } = await supabase
     .from('assessment_instances')
     .select(
       `
       id,
       transformation_year,
+      generation_type,
       template_snapshot_id,
       assessment_template_snapshots!inner (
+        template_id,
         snapshot_data
       )
     `
@@ -316,35 +567,155 @@ export async function fetchInstanceDataForScoring(
   }
 
   // Extract data from snapshot
-  const snapshotData = (instance as any).assessment_template_snapshots?.snapshot_data;
+  const snapshotRecord = (instance as any).assessment_template_snapshots;
+  const snapshotData = snapshotRecord?.snapshot_data;
   if (!snapshotData) {
     console.error('No snapshot data found');
     return null;
   }
 
   const template = snapshotData.template;
+  const rawYear = instance.transformation_year as number;
+
+  // Validate transformation_year is within valid range (1-5)
+  if (!rawYear || rawYear < 1 || rawYear > 5) {
+    console.error(`Invalid transformation year: ${rawYear}`);
+    return null;
+  }
+  const transformationYear = rawYear as 1 | 2 | 3 | 4 | 5;
+
+  // R6: Fetch year expectations for active indicator filtering
+  // generation_type defaults to 'GT' for backward compatibility with old instances
+  const generationType = (instance as any).generation_type || 'GT';
+  const templateId = snapshotRecord?.template_id;
+
+  let activeExpectations: InstanceDataForScoring['activeExpectations'];
+
+  if (templateId && transformationYear) {
+    const yearKey = `year_${transformationYear}_expected`;
+    const unitKey = `year_${transformationYear}_expected_unit`;
+
+    const { data: expectationsData, error: expectationsError } = await supabase
+      .from('assessment_year_expectations')
+      .select('*')
+      .eq('template_id', templateId)
+      .eq('generation_type', generationType);
+
+    if (!expectationsError && expectationsData && expectationsData.length > 0) {
+      // Build Map<indicatorId, { expected, unit, tolerance }>
+      activeExpectations = new Map();
+      for (const row of expectationsData) {
+        activeExpectations.set(row.indicator_id, {
+          expected: row[yearKey] ?? null,
+          unit: row[unitKey] ?? null,
+          tolerance: row.tolerance ?? 1,
+        });
+      }
+    }
+    // If expectationsError or no data: leave activeExpectations undefined (backward compat)
+  }
+
+  // ============================================================
+  // Per-year weight override resolution
+  //
+  // Three-tier weight priority:
+  //  1. Snapshot yearWeights (snapshotData.yearWeights[transformationYear])
+  //     — captured at publish time, guarantees scoring stability for published instances
+  //  2. DB assessment_entity_year_weights table
+  //     — used when instance is scored before publishing, or snapshot predates this feature
+  //  3. Entity default `weight` column (fallback in calculateAssessmentScores)
+  //     — backward-compatible default; used when no per-year configuration exists
+  // ============================================================
+
+  let objectiveYearWeights: Map<string, number> | undefined;
+  let moduleYearWeights: Map<string, number> | undefined;
+  let indicatorYearWeights: Map<string, number> | undefined;
+
+  // Priority 1: snapshot yearWeights
+  const snapshotYearWeights = (snapshotData as { yearWeights?: Record<number, YearWeightGroup> }).yearWeights;
+  const snapshotWeightsForYear = snapshotYearWeights?.[transformationYear];
+
+  if (snapshotWeightsForYear) {
+    // Use snapshot-captured per-year weights
+    if (snapshotWeightsForYear.objectives && snapshotWeightsForYear.objectives.length > 0) {
+      objectiveYearWeights = new Map(snapshotWeightsForYear.objectives.map((o) => [o.id, o.weight]));
+    }
+    if (snapshotWeightsForYear.modules && snapshotWeightsForYear.modules.length > 0) {
+      moduleYearWeights = new Map(snapshotWeightsForYear.modules.map((m) => [m.id, m.weight]));
+    }
+    if (snapshotWeightsForYear.indicators && snapshotWeightsForYear.indicators.length > 0) {
+      indicatorYearWeights = new Map(snapshotWeightsForYear.indicators.map((i) => [i.id, i.weight]));
+    }
+  } else if (templateId) {
+    // Priority 2: query DB for per-year weights
+    const { data: yearWeightRows, error: yearWeightsError } = await supabase
+      .from('assessment_entity_year_weights')
+      .select('entity_type, entity_id, weight')
+      .eq('template_id', templateId)
+      .eq('year', transformationYear);
+
+    if (!yearWeightsError && yearWeightRows && yearWeightRows.length > 0) {
+      for (const row of yearWeightRows) {
+        if (row.entity_type === 'objective') {
+          if (!objectiveYearWeights) objectiveYearWeights = new Map();
+          objectiveYearWeights.set(row.entity_id as string, Number(row.weight));
+        } else if (row.entity_type === 'module') {
+          if (!moduleYearWeights) moduleYearWeights = new Map();
+          moduleYearWeights.set(row.entity_id as string, Number(row.weight));
+        } else if (row.entity_type === 'indicator') {
+          if (!indicatorYearWeights) indicatorYearWeights = new Map();
+          indicatorYearWeights.set(row.entity_id as string, Number(row.weight));
+        }
+      }
+    }
+    // If no DB rows or error: all three maps remain undefined → fallback to entity default weights
+  }
+
+  // Dual-path: use objectives hierarchy if present, fall back to flat modules
+  const snapshotObjectives = snapshotData.objectives || [];
   const snapshotModules = snapshotData.modules || [];
 
-  const modules = snapshotModules.map((m: any) => ({
+  const mapIndicator = (ind: any) => ({
+    id: ind.id,
+    name: ind.name,
+    category: ind.category as IndicatorCategory,
+    weight: ind.weight ?? 1,
+    frequency_config: ind.frequency_config,
+  });
+
+  const mapModule = (m: any) => ({
     id: m.id,
     name: m.name,
     weight: m.weight ?? 1,
-    indicators: (m.indicators || []).map((ind: any) => ({
-      id: ind.id,
-      name: ind.name,
-      category: ind.category as IndicatorCategory,
-      weight: ind.weight ?? 1,
-      frequency_config: ind.frequency_config,
-    })),
-  }));
+    indicators: (m.indicators || []).map(mapIndicator),
+  });
+
+  // Build flat modules list (always needed for backward compat)
+  const modules = snapshotModules.map(mapModule);
+
+  // Build objectives hierarchy if present
+  let objectives: InstanceDataForScoring['objectives'] | undefined;
+  if (snapshotObjectives.length > 0) {
+    objectives = snapshotObjectives.map((o: any) => ({
+      id: o.id,
+      name: o.name,
+      weight: o.weight ?? 1,
+      modules: (o.modules || []).map(mapModule),
+    }));
+  }
 
   return {
     instanceId: instance.id,
-    transformationYear: instance.transformation_year as 1 | 2 | 3 | 4 | 5,
+    transformationYear,
     area: template.area as TransformationArea,
     scoringConfig: template.scoring_config,
     modules,
+    objectives,
     responses: responses || [],
+    activeExpectations,
+    objectiveYearWeights,
+    moduleYearWeights,
+    indicatorYearWeights,
   };
 }
 
@@ -364,14 +735,21 @@ export async function calculateAndSaveScores(
       return { success: false, error: 'No se pudo cargar los datos de la instancia' };
     }
 
-    // Calculate scores
+    // Calculate scores (3-level if objectives present, 2-level otherwise)
+    // R7: pass activeExpectations for year-aware scoring
+    // Per-year weights: passed from instanceData (resolved via 3-tier priority chain)
     const summary = calculateAssessmentScores({
       instanceId: instanceData.instanceId,
       transformationYear: instanceData.transformationYear,
       area: instanceData.area,
       scoringConfig: instanceData.scoringConfig,
       modules: instanceData.modules,
+      objectives: instanceData.objectives,
       responses: instanceData.responses,
+      activeExpectations: instanceData.activeExpectations,
+      objectiveYearWeights: instanceData.objectiveYearWeights,
+      moduleYearWeights: instanceData.moduleYearWeights,
+      indicatorYearWeights: instanceData.indicatorYearWeights,
     });
 
     // Check if result already exists (use admin client to bypass RLS)

@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Get the instance with full snapshot data
+    // Get the instance with full snapshot data (R11: also fetch generation_type)
     const { data: instance, error: instanceError } = await supabaseClient
       .from('assessment_instances')
       .select(`
@@ -49,6 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         school_id,
         course_structure_id,
         transformation_year,
+        generation_type,
         status,
         context_responses,
         assigned_at,
@@ -75,6 +76,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (instanceError || !instance) {
       console.error('Error fetching instance:', instanceError);
       return res.status(404).json({ error: 'Evaluación no encontrada' });
+    }
+
+    // R11: Fetch year expectations for the instance's transformation year and generation_type
+    // to build the isActiveThisYear flag per indicator.
+    const snapshot = instance.assessment_template_snapshots as any;
+    const templateId = snapshot?.template_id;
+    const transformationYear = instance.transformation_year;
+    const generationType = (instance as any).generation_type || 'GT';
+
+    let activeExpectationsMap: Map<string, boolean> | null = null;
+
+    if (templateId && transformationYear) {
+      const yearKey = `year_${transformationYear}_expected`;
+      const { data: expData, error: expError } = await supabaseClient
+        .from('assessment_year_expectations')
+        .select('*')
+        .eq('template_id', templateId)
+        .eq('generation_type', generationType);
+
+      if (!expError && expData && expData.length > 0) {
+        activeExpectationsMap = new Map<string, boolean>();
+        for (const row of expData) {
+          // An indicator is active if it has a non-null expected value for this year
+          const expectedValue = row[yearKey];
+          activeExpectationsMap.set(row.indicator_id, expectedValue !== null && expectedValue !== undefined);
+        }
+      }
     }
 
     // Get existing responses for this instance
@@ -104,32 +132,115 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     });
 
-    // Extract snapshot data for easier frontend access
-    const snapshot = instance.assessment_template_snapshots as any;
+    // Extract snapshot data for easier frontend access (snapshot already defined above for template_id lookup)
     const snapshotData = snapshot?.snapshot_data || {};
 
-    // Count total indicators and answered indicators
+    // Helper to count indicator progress
+    const countProgress = (indicator: any) => {
+      const resp = responseMap[indicator.id];
+      if (resp) {
+        if (indicator.category === 'traspaso') {
+          const sub = resp.subResponses as Record<string, unknown> | undefined;
+          return !!(sub?.evidence_link || sub?.improvement_suggestions);
+        }
+        return (
+          (resp.coverageValue !== null && resp.coverageValue !== undefined) ||
+          (resp.frequencyValue !== null && resp.frequencyValue !== undefined) ||
+          (resp.profundityLevel !== null && resp.profundityLevel !== undefined)
+        );
+      }
+      return false;
+    };
+
+    // Count total indicators and answered indicators (dual-path: objectives or flat modules)
     let totalIndicators = 0;
     let answeredIndicators = 0;
 
-    const modules = snapshotData.modules || [];
-    modules.forEach((module: any) => {
-      const indicators = module.indicators || [];
-      indicators.forEach((indicator: any) => {
+    const snapshotObjectives = snapshotData.objectives || [];
+    const flatModules = snapshotData.modules || [];
+
+    // Use objectives hierarchy if present, else flat modules
+    const modulesToCount = snapshotObjectives.length > 0
+      ? snapshotObjectives.flatMap((o: any) => o.modules || [])
+      : flatModules;
+
+    modulesToCount.forEach((module: any) => {
+      const sortedIndicators = [...(module.indicators || [])].sort(
+        (a: any, b: any) => (a.display_order || 0) - (b.display_order || 0)
+      );
+      const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
+
+      if (hasCoberturaGate) {
+        const coberturaResp = responseMap[sortedIndicators[0].id];
+        const coberturaValue = coberturaResp?.coverageValue;
+
+        // Always count the cobertura indicator
         totalIndicators++;
-        if (responseMap[indicator.id]) {
-          const resp = responseMap[indicator.id];
-          // Check if the indicator has a meaningful response
-          const hasResponse =
-            resp.coverageValue !== null && resp.coverageValue !== undefined ||
-            resp.frequencyValue !== null && resp.frequencyValue !== undefined ||
-            resp.profundityLevel !== null && resp.profundityLevel !== undefined;
-          if (hasResponse) {
-            answeredIndicators++;
-          }
+        if (countProgress(sortedIndicators[0])) answeredIndicators++;
+
+        if (coberturaValue === true) {
+          // Gate open: count remaining indicators
+          sortedIndicators.slice(1).forEach((indicator: any) => {
+            totalIndicators++;
+            if (countProgress(indicator)) answeredIndicators++;
+          });
         }
-      });
+        // coberturaValue false/undefined: hidden indicators don't count
+      } else {
+        (module.indicators || []).forEach((indicator: any) => {
+          totalIndicators++;
+          if (countProgress(indicator)) answeredIndicators++;
+        });
+      }
     });
+
+    // Build modules array for the frontend (flat list from objectives or direct flat)
+    const modules = flatModules;
+
+    // Helper to map module data to frontend shape
+    const mapModule = (module: any) => ({
+      id: module.id,
+      name: module.name,
+      description: module.description,
+      instructions: module.instructions,
+      displayOrder: module.display_order,
+      weight: module.weight,
+      objectiveId: module.objective_id || null,
+      indicators: (module.indicators || []).map((indicator: any) => ({
+        id: indicator.id,
+        code: indicator.code,
+        name: indicator.name,
+        description: indicator.description,
+        category: indicator.category,
+        frequencyConfig: indicator.frequency_config,
+        frequencyUnitOptions: indicator.frequency_unit_options,
+        level0Descriptor: indicator.level_0_descriptor,
+        level1Descriptor: indicator.level_1_descriptor,
+        level2Descriptor: indicator.level_2_descriptor,
+        level3Descriptor: indicator.level_3_descriptor,
+        level4Descriptor: indicator.level_4_descriptor,
+        detalle_options: indicator.detalle_options || null,
+        displayOrder: indicator.display_order,
+        weight: indicator.weight,
+        subQuestions: indicator.sub_questions || [],
+        expectations: indicator.expectations,
+        // R11: isActiveThisYear — true if indicator has an expectation for this year.
+        // When no expectations data exists (legacy instances), all indicators are active (true).
+        isActiveThisYear: activeExpectationsMap !== null
+          ? (activeExpectationsMap.get(indicator.id) ?? false)
+          : true,
+      })),
+    });
+
+    // Build objectives for 3-level rendering
+    const objectives = snapshotObjectives.map((obj: any) => ({
+      id: obj.id,
+      name: obj.name,
+      description: obj.description,
+      displayOrder: obj.display_order,
+      weight: obj.weight,
+      modules: (obj.modules || []).map(mapModule),
+    }));
 
     return res.status(200).json({
       success: true,
@@ -160,32 +271,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         description: snapshotData.template?.description,
         scoringConfig: snapshotData.template?.scoring_config,
       },
-      modules: modules.map((module: any) => ({
-        id: module.id,
-        name: module.name,
-        description: module.description,
-        instructions: module.instructions,
-        displayOrder: module.display_order,
-        weight: module.weight,
-        indicators: (module.indicators || []).map((indicator: any) => ({
-          id: indicator.id,
-          code: indicator.code,
-          name: indicator.name,
-          description: indicator.description,
-          category: indicator.category,
-          frequencyConfig: indicator.frequency_config,
-          frequencyUnitOptions: indicator.frequency_unit_options,
-          level0Descriptor: indicator.level_0_descriptor,
-          level1Descriptor: indicator.level_1_descriptor,
-          level2Descriptor: indicator.level_2_descriptor,
-          level3Descriptor: indicator.level_3_descriptor,
-          level4Descriptor: indicator.level_4_descriptor,
-          displayOrder: indicator.display_order,
-          weight: indicator.weight,
-          subQuestions: indicator.sub_questions || [],
-          expectations: indicator.expectations,
-        })),
-      })),
+      // Objectives hierarchy (new 3-level format)
+      objectives,
+      // Flat modules for backward compatibility
+      modules: modules.map(mapModule),
       responses: responseMap,
       progress: {
         total: totalIndicators,

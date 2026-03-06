@@ -192,6 +192,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         level2Descriptor: indicator.level_2_descriptor,
         level3Descriptor: indicator.level_3_descriptor,
         level4Descriptor: indicator.level_4_descriptor,
+        detalle_options: indicator.detalle_options || null,
         displayOrder: indicator.display_order,
         weight: indicator.weight,
         subQuestions: indicator.sub_questions || [],

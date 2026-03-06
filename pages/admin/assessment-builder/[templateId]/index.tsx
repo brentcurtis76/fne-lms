@@ -68,6 +68,7 @@ interface IndicatorData {
   level2Descriptor?: string;
   level3Descriptor?: string;
   level4Descriptor?: string;
+  detalleOptions?: string[];
   displayOrder: number;
   weight: number;
   isActive: boolean;
@@ -149,6 +150,7 @@ const TemplateEditor: React.FC = () => {
     level2Descriptor: string;
     level3Descriptor: string;
     level4Descriptor: string;
+    detalleOptions: string[];
   }>({
     code: '',
     name: '',
@@ -161,6 +163,7 @@ const TemplateEditor: React.FC = () => {
     level2Descriptor: '',
     level3Descriptor: '',
     level4Descriptor: '',
+    detalleOptions: ['', ''],
   });
 
   // Publishing state
@@ -603,6 +606,9 @@ const TemplateEditor: React.FC = () => {
         level2Descriptor: indicator.level2Descriptor || '',
         level3Descriptor: indicator.level3Descriptor || '',
         level4Descriptor: indicator.level4Descriptor || '',
+        detalleOptions: indicator.detalleOptions && indicator.detalleOptions.length > 0
+          ? indicator.detalleOptions
+          : ['', ''],
       });
     } else {
       // Creating new: first indicator of module must be cobertura
@@ -625,6 +631,7 @@ const TemplateEditor: React.FC = () => {
         level2Descriptor: '',
         level3Descriptor: '',
         level4Descriptor: '',
+        detalleOptions: ['', ''],
       });
     }
     setIsIndicatorModalOpen(true);
@@ -659,6 +666,20 @@ const TemplateEditor: React.FC = () => {
       }
     }
 
+    // For detalle, validate options
+    if (indicatorForm.category === 'detalle') {
+      const filledOptions = indicatorForm.detalleOptions.map(o => o.trim()).filter(o => o.length > 0);
+      if (filledOptions.length < 2) {
+        toast.error('Los indicadores de detalle requieren al menos 2 opciones');
+        return;
+      }
+      const unique = new Set(filledOptions.map(o => o.toLowerCase()));
+      if (unique.size !== filledOptions.length) {
+        toast.error('Las opciones de detalle no pueden repetirse');
+        return;
+      }
+    }
+
     setIsSaving(true);
     try {
       const body: any = {
@@ -682,6 +703,10 @@ const TemplateEditor: React.FC = () => {
         body.level2Descriptor = indicatorForm.level2Descriptor.trim() || undefined;
         body.level3Descriptor = indicatorForm.level3Descriptor.trim() || undefined;
         body.level4Descriptor = indicatorForm.level4Descriptor.trim() || undefined;
+      }
+
+      if (indicatorForm.category === 'detalle') {
+        body.detalleOptions = indicatorForm.detalleOptions.map(o => o.trim()).filter(o => o.length > 0);
       }
 
       if (editingIndicator) {
@@ -2093,6 +2118,9 @@ const TemplateEditor: React.FC = () => {
                     <option value="frecuencia">Frecuencia (Número)</option>
                     <option value="profundidad">Profundidad (Niveles 0-4)</option>
                     <option value="traspaso">Traspaso (Evidencia + Sugerencias)</option>
+                    {!isFirstIndicatorLocked && (
+                      <option value="detalle">Detalle (Selección múltiple)</option>
+                    )}
                   </select>
                   {isFirstIndicatorLocked && (
                     <p className="mt-1 text-xs text-amber-600">
@@ -2179,6 +2207,72 @@ const TemplateEditor: React.FC = () => {
                         />
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Detalle options editor */}
+                {indicatorForm.category === 'detalle' && (
+                  <div className="border-t pt-4">
+                    <p className="text-sm font-medium text-gray-700 mb-1">
+                      Opciones de selección <span className="text-red-500">*</span>
+                      <span className="text-xs font-normal text-gray-500 ml-2">
+                        (mínimo 2, máximo 15)
+                      </span>
+                    </p>
+                    <p className="text-xs text-gray-500 mb-3">
+                      El evaluador podrá marcar todas las que aplican
+                    </p>
+                    <div className="space-y-2">
+                      {indicatorForm.detalleOptions.map((opt, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={(e) => {
+                              const newOptions = [...indicatorForm.detalleOptions];
+                              newOptions[idx] = e.target.value;
+                              setIndicatorForm({ ...indicatorForm, detalleOptions: newOptions });
+                            }}
+                            placeholder={`Opción ${idx + 1}`}
+                            maxLength={200}
+                            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-brand_primary"
+                          />
+                          {indicatorForm.detalleOptions.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newOptions = indicatorForm.detalleOptions.filter((_, i) => i !== idx);
+                                setIndicatorForm({ ...indicatorForm, detalleOptions: newOptions });
+                              }}
+                              className="text-gray-400 hover:text-red-500 flex-shrink-0"
+                              aria-label="Eliminar opción"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    {indicatorForm.detalleOptions.length < 15 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIndicatorForm({
+                            ...indicatorForm,
+                            detalleOptions: [...indicatorForm.detalleOptions, ''],
+                          });
+                        }}
+                        className="mt-2 text-sm text-brand_primary hover:underline flex items-center gap-1"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        Agregar opción
+                      </button>
+                    )}
+                    {indicatorForm.detalleOptions.map(o => o.trim()).filter(o => o.length > 0).length < 2 && (
+                      <p className="text-xs text-red-500 mt-1">
+                        Debes ingresar al menos 2 opciones
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -2429,6 +2523,7 @@ const TemplateEditor: React.FC = () => {
                                     indicator.category === 'cobertura' ? 'bg-gray-100 text-brand_gray_dark' :
                                     indicator.category === 'frecuencia' ? 'bg-amber-100 text-amber-700' :
                                     indicator.category === 'traspaso' ? 'bg-purple-100 text-purple-700' :
+                                    indicator.category === 'detalle' ? 'bg-teal-100 text-teal-700' :
                                     'bg-blue-100 text-blue-700'
                                   }`}>
                                     {CATEGORY_LABELS[indicator.category]}
@@ -2496,6 +2591,20 @@ const TemplateEditor: React.FC = () => {
                                         </label>
                                         <textarea disabled placeholder="¿Con la experiencia adquirida, qué mejoras sugieres...?" className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-gray-50" rows={3} />
                                       </div>
+                                    </div>
+                                  )}
+                                  {indicator.category === 'detalle' && (
+                                    <div className="space-y-2">
+                                      <p className="text-xs text-gray-500 mb-1">Selecciona todas las que aplican:</p>
+                                      {(indicator.detalleOptions || []).map((opt, optIdx) => (
+                                        <label key={optIdx} className="flex items-center gap-2 text-sm text-gray-600">
+                                          <input type="checkbox" disabled className="w-4 h-4 border-gray-300 rounded" />
+                                          {opt}
+                                        </label>
+                                      ))}
+                                      {(!indicator.detalleOptions || indicator.detalleOptions.length === 0) && (
+                                        <p className="text-xs text-gray-400 italic">Sin opciones definidas</p>
+                                      )}
                                     </div>
                                   )}
                                 </div>

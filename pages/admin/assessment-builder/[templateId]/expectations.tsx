@@ -14,6 +14,8 @@ import {
   CheckCircle,
   AlertCircle,
   Lock,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   AREA_LABELS,
@@ -63,6 +65,28 @@ interface ModuleExpectations {
   indicators: IndicatorExpectation[];
 }
 
+// Weight distributor types
+interface WeightIndicator {
+  id: string;
+  name: string;
+  category: IndicatorCategory;
+  weight: number; // percentage 0-100
+}
+
+interface WeightModule {
+  id: string;
+  name: string;
+  weight: number; // percentage 0-100
+  indicators: WeightIndicator[];
+}
+
+interface WeightObjective {
+  id: string;
+  name: string;
+  weight: number; // percentage 0-100
+  modules: WeightModule[];
+}
+
 interface TemplateInfo {
   id: string;
   name: string;
@@ -95,6 +119,14 @@ const ExpectationsEditor: React.FC = () => {
 
   // Expanded level descriptors state (indicatorId or null)
   const [expandedDescriptors, setExpandedDescriptors] = useState<string | null>(null);
+
+  // Weight distributor state
+  const [weightObjectives, setWeightObjectives] = useState<WeightObjective[]>([]);
+  const [expandedWeightObjective, setExpandedWeightObjective] = useState<string | null>(null);
+  const [expandedWeightModule, setExpandedWeightModule] = useState<string | null>(null);
+  const [isWeightDistributorOpen, setIsWeightDistributorOpen] = useState(true);
+  const [weightsDirty, setWeightsDirty] = useState(false);
+  const [isSavingWeights, setIsSavingWeights] = useState(false);
 
   // Check auth and permissions
   useEffect(() => {
@@ -233,6 +265,76 @@ const ExpectationsEditor: React.FC = () => {
       }));
 
       setModuleExpectations(modules);
+
+      // Load weight distributor data from objectives hierarchy
+      const rawObjectives = expectationsData.objectives || [];
+      const convertedObjectives: WeightObjective[] = rawObjectives.map((obj: any) => {
+        const objMods: WeightModule[] = (obj.modules || []).map((mod: any) => {
+          // Filter out detalle and traspaso from weight distribution
+          const scoredInds: WeightIndicator[] = (mod.indicators || []).filter(
+            (ind: any) => ind.indicatorCategory !== 'detalle' && ind.indicatorCategory !== 'traspaso'
+          ).map((ind: any) => ({
+            id: ind.indicatorId,
+            name: ind.indicatorName,
+            category: ind.indicatorCategory,
+            weight: ind.indicatorWeight ?? 1,
+          }));
+
+          return {
+            id: mod.moduleId,
+            name: mod.moduleName,
+            weight: mod.moduleWeight ?? 1,
+            indicators: scoredInds,
+          };
+        });
+
+        return {
+          id: obj.objectiveId,
+          name: obj.objectiveName,
+          weight: obj.objectiveWeight ?? 1,
+          modules: objMods,
+        };
+      });
+
+      // Convert raw weights to percentages within each group
+      const toPercent = (items: Array<{ weight: number }>): number[] => {
+        const total = items.reduce((s, i) => s + i.weight, 0);
+        if (total === 0 || items.length === 0) return items.map(() => Math.round(100 / items.length));
+        const percents = items.map((item, idx) => {
+          if (idx === items.length - 1) {
+            // Last item gets remainder to ensure sum = 100
+            const prevSum = items.slice(0, -1).reduce((s, i) => s + Math.floor((i.weight / total) * 100), 0);
+            return 100 - prevSum;
+          }
+          return Math.floor((item.weight / total) * 100);
+        });
+        return percents;
+      };
+
+      // Apply percentage conversion
+      const objTotal = convertedObjectives.reduce((s, o) => s + o.weight, 0);
+      const objPercents = objTotal > 0 ? toPercent(convertedObjectives) : convertedObjectives.map(() => Math.round(100 / Math.max(convertedObjectives.length, 1)));
+      const weightedObjectives = convertedObjectives.map((obj, i) => {
+        const modPercents = obj.modules.length > 0 ? toPercent(obj.modules) : [];
+        const modulesWithPercent = obj.modules.map((mod, mi) => {
+          const indPercents = mod.indicators.length > 0 ? toPercent(mod.indicators) : [];
+          return {
+            ...mod,
+            weight: modPercents[mi] ?? 100,
+            indicators: mod.indicators.map((ind, ii) => ({
+              ...ind,
+              weight: indPercents[ii] ?? 100,
+            })),
+          };
+        });
+        return {
+          ...obj,
+          weight: objPercents[i] ?? 100,
+          modules: modulesWithPercent,
+        };
+      });
+
+      setWeightObjectives(weightedObjectives);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       toast.error(error.message || 'Error al cargar datos');
@@ -384,6 +486,78 @@ const ExpectationsEditor: React.FC = () => {
     }
   };
 
+  // Equitable weight distribution helper
+  const distributeEquitably = (count: number): number[] => {
+    if (count === 0) return [];
+    if (count === 1) return [100];
+    const base = Math.floor(100 / count);
+    const remainder = 100 - base * count;
+    return Array.from({ length: count }, (_, i) => (i === count - 1 ? base + remainder : base));
+  };
+
+  // Validate that weights sum to 100 within a group
+  const weightSum = (items: Array<{ weight: number }>): number =>
+    Math.round(items.reduce((s, i) => s + i.weight, 0) * 10) / 10;
+
+  const handleSaveWeights = async () => {
+    if (!template) return;
+
+    // Validate all levels sum to 100
+    if (weightObjectives.length > 1) {
+      const s = weightSum(weightObjectives);
+      if (Math.abs(s - 100) > 0.5) {
+        toast.error(`Los pesos de los procesos deben sumar 100% (actual: ${s}%)`);
+        return;
+      }
+    }
+    for (const obj of weightObjectives) {
+      if (obj.modules.length > 1) {
+        const s = weightSum(obj.modules);
+        if (Math.abs(s - 100) > 0.5) {
+          toast.error(`Los pesos de las prácticas de "${obj.name}" deben sumar 100% (actual: ${s}%)`);
+          return;
+        }
+      }
+      for (const mod of obj.modules) {
+        if (mod.indicators.length > 1) {
+          const s = weightSum(mod.indicators);
+          if (Math.abs(s - 100) > 0.5) {
+            toast.error(`Los pesos de los indicadores de "${mod.name}" deben sumar 100% (actual: ${s}%)`);
+            return;
+          }
+        }
+      }
+    }
+
+    setIsSavingWeights(true);
+    try {
+      const weightsPayload = {
+        objectives: weightObjectives.map(o => ({ id: o.id, weight: o.weight })),
+        modules: weightObjectives.flatMap(o => o.modules.map(m => ({ id: m.id, weight: m.weight }))),
+        indicators: weightObjectives.flatMap(o => o.modules.flatMap(m => m.indicators.map(i => ({ id: i.id, weight: i.weight })))),
+      };
+
+      const response = await fetch(`/api/admin/assessment-builder/templates/${template.id}/expectations`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weights: weightsPayload }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Error al guardar pesos');
+      }
+
+      setWeightsDirty(false);
+      toast.success('Distribución de pesos guardada');
+    } catch (error: any) {
+      console.error('Error saving weights:', error);
+      toast.error(error.message || 'Error al guardar pesos');
+    } finally {
+      setIsSavingWeights(false);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem('rememberMe');
@@ -441,7 +615,7 @@ const ExpectationsEditor: React.FC = () => {
               }}
               disabled={disabled}
               placeholder="-"
-              className="w-12 px-1 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_blue disabled:bg-gray-100 disabled:opacity-50"
+              className="w-12 px-1 py-1 text-sm text-center border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:opacity-50"
             />
             <span className="text-xs text-gray-400">/</span>
             <select
@@ -450,7 +624,7 @@ const ExpectationsEditor: React.FC = () => {
                 updateExpectation(moduleId, indicator.indicatorId, generationType, unitKey, e.target.value as FrequencyUnit);
               }}
               disabled={disabled}
-              className="w-16 px-1 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_blue disabled:bg-gray-100 disabled:opacity-50"
+              className="w-16 px-1 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:opacity-50"
             >
               {availableUnits.map((u) => (
                 <option key={u} value={u}>
@@ -478,6 +652,21 @@ const ExpectationsEditor: React.FC = () => {
       );
     }
 
+    // For detalle indicators, show checkbox (expected yes/no per year — same as cobertura/traspaso)
+    if (indicator.indicatorCategory === 'detalle') {
+      return (
+        <td key={`${yearKey}-${generationType}`} className="px-2 py-2 text-center border-r border-gray-200">
+          <input
+            type="checkbox"
+            checked={value === 1}
+            onChange={(e) => updateExpectation(moduleId, indicator.indicatorId, generationType, yearKey, e.target.checked ? 1 : null)}
+            disabled={disabled}
+            className="h-4 w-4 text-teal-600 focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 border-gray-300 rounded disabled:opacity-50"
+          />
+        </td>
+      );
+    }
+
     // For profundidad indicators, show 0-4 dropdown
     return (
       <td key={`${yearKey}-${generationType}`} className="px-2 py-2 text-center border-r border-gray-200">
@@ -488,7 +677,7 @@ const ExpectationsEditor: React.FC = () => {
             updateExpectation(moduleId, indicator.indicatorId, generationType, yearKey, newValue);
           }}
           disabled={disabled}
-          className="w-14 px-1 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_blue disabled:bg-gray-100 disabled:opacity-50"
+          className="w-14 px-1 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:opacity-50"
         >
           <option value="">-</option>
           <option value="0">0</option>
@@ -538,8 +727,8 @@ const ExpectationsEditor: React.FC = () => {
   // Loading state
   if (loading || hasPermission === null) {
     return (
-      <div className="min-h-screen bg-brand_beige flex justify-center items-center">
-        <p className="text-xl text-brand_blue">Cargando...</p>
+      <div className="min-h-screen bg-brand_light flex justify-center items-center">
+        <p className="text-xl text-brand_primary">Cargando...</p>
       </div>
     );
   }
@@ -558,10 +747,10 @@ const ExpectationsEditor: React.FC = () => {
       >
         <div className="flex flex-col justify-center items-center min-h-[50vh]">
           <div className="text-center p-8">
-            <h1 className="text-2xl font-semibold text-brand_blue mb-4">Acceso Denegado</h1>
+            <h1 className="text-2xl font-semibold text-brand_primary mb-4">Acceso Denegado</h1>
             <p className="text-gray-700 mb-6">No tienes permiso para editar expectativas.</p>
             <Link href="/dashboard" legacyBehavior>
-              <a className="px-6 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
+              <a className="px-6 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
                 Ir al Panel
               </a>
             </Link>
@@ -584,9 +773,9 @@ const ExpectationsEditor: React.FC = () => {
       >
         <div className="flex flex-col justify-center items-center min-h-[50vh]">
           <div className="text-center p-8">
-            <h1 className="text-2xl font-semibold text-brand_blue mb-4">Template no encontrado</h1>
+            <h1 className="text-2xl font-semibold text-brand_primary mb-4">Template no encontrado</h1>
             <Link href="/admin/assessment-builder" legacyBehavior>
-              <a className="px-6 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
+              <a className="px-6 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-opacity-90 transition-colors">
                 Volver a la lista
               </a>
             </Link>
@@ -619,7 +808,7 @@ const ExpectationsEditor: React.FC = () => {
         {/* Back button and info */}
         <div className="flex items-center justify-between mb-6">
           <Link href={`/admin/assessment-builder/${template.id}`} legacyBehavior>
-            <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_blue">
+            <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_primary">
               <ArrowLeft className="w-4 h-4 mr-1" />
               Volver al template
             </a>
@@ -633,7 +822,7 @@ const ExpectationsEditor: React.FC = () => {
               <button
                 onClick={handleSaveAll}
                 disabled={isSaving || !hasChanges}
-                className="inline-flex items-center px-4 py-2 bg-brand_blue text-white rounded-lg shadow hover:bg-brand_blue/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center px-4 py-2 bg-brand_primary text-white rounded-lg shadow hover:bg-brand_primary/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-4 h-4 mr-2" />
                 {isSaving ? 'Guardando...' : 'Guardar Cambios'}
@@ -648,7 +837,7 @@ const ExpectationsEditor: React.FC = () => {
         </div>
 
         {/* Info panel */}
-        <div className="bg-brand_beige border border-brand_accent rounded-lg p-4 mb-6">
+        <div className="bg-brand_light border border-brand_accent rounded-lg p-4 mb-6">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-brand_accent flex-shrink-0 mt-0.5" />
             <div className="text-sm text-gray-800">
@@ -658,8 +847,10 @@ const ExpectationsEditor: React.FC = () => {
                 <li><strong>Cobertura:</strong> Marca si se espera que el indicador esté implementado en ese año</li>
                 <li><strong>Frecuencia:</strong> Ingresa el valor mínimo esperado (ej: 4 veces por semestre)</li>
                 <li><strong>Traspaso:</strong> Marca si se espera que el evaluador adjunte evidencia y sugerencias de mejora ese año</li>
+                <li><strong>Detalle:</strong> Marca si se espera que el evaluador responda la selección múltiple ese año</li>
                 <li><strong>Tolerancia:</strong> Define cuántos niveles por debajo de lo esperado se considera &quot;en camino&quot; (0-2)</li>
                 <li>Deja en blanco (-) si no hay expectativa definida para ese año</li>
+                <li><strong>Pesos:</strong> Distribuye la importancia relativa (%) de cada proceso, práctica e indicador. Deben sumar 100% en cada nivel.</li>
               </ul>
             </div>
           </div>
@@ -669,7 +860,7 @@ const ExpectationsEditor: React.FC = () => {
         <div className="bg-white shadow-md rounded-lg p-4 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-brand_blue">{template.name}</h2>
+              <h2 className="text-lg font-semibold text-brand_primary">{template.name}</h2>
               <div className="flex items-center gap-4 text-sm text-gray-500 mt-1">
                 <span>Área: {AREA_LABELS[template.area]}</span>
                 {template.gradeName && <span>Nivel: {template.gradeName}</span>}
@@ -694,7 +885,7 @@ const ExpectationsEditor: React.FC = () => {
                   </span>
                   como
                   <span className="inline-flex items-center mx-1">
-                    <span className="px-1.5 py-0.5 rounded bg-brand_beige text-brand_primary text-xs font-medium">GI</span>
+                    <span className="px-1.5 py-0.5 rounded bg-brand_light text-brand_primary text-xs font-medium">GI</span>
                   </span>
                   para cada indicador.
                 </span>
@@ -702,6 +893,242 @@ const ExpectationsEditor: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* Weight Distributor Section */}
+        {weightObjectives.length > 0 && (
+          <div className="mb-6 bg-white shadow-md rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+              <button
+                type="button"
+                onClick={() => setIsWeightDistributorOpen(prev => !prev)}
+                className="flex items-center gap-2 flex-1 text-left"
+                aria-expanded={isWeightDistributorOpen}
+              >
+                <span className="font-semibold text-sm text-gray-700 uppercase tracking-wide">
+                  Distribución de Pesos
+                </span>
+                {weightsDirty && (
+                  <span className="w-2 h-2 bg-yellow-500 rounded-full" title="Cambios sin guardar" aria-label="Cambios sin guardar" />
+                )}
+              </button>
+              <div className="flex items-center gap-2">
+                {isDraft && isAdmin && weightsDirty && (
+                  <button
+                    type="button"
+                    onClick={() => handleSaveWeights()}
+                    disabled={isSavingWeights}
+                    className="px-3 py-1 bg-brand_primary text-white text-xs rounded-md hover:bg-brand_primary/90 disabled:opacity-50"
+                  >
+                    {isSavingWeights ? 'Guardando...' : 'Guardar pesos'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsWeightDistributorOpen(prev => !prev)}
+                  className="p-1"
+                  aria-label={isWeightDistributorOpen ? 'Cerrar distribución de pesos' : 'Abrir distribución de pesos'}
+                >
+                  {isWeightDistributorOpen ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+                </button>
+              </div>
+            </div>
+
+            {isWeightDistributorOpen && (
+              <div className="p-4 space-y-4">
+                {/* Level 1: Objectives */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-medium text-gray-700">Procesos Generativos</h4>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xs font-semibold ${Math.abs(weightSum(weightObjectives) - 100) <= 0.5 ? 'text-green-600' : 'text-red-600'}`}>
+                        Total: {weightSum(weightObjectives)}%
+                      </span>
+                      {isDraft && isAdmin && weightObjectives.length > 1 && (
+                        <button
+                          onClick={() => {
+                            const percents = distributeEquitably(weightObjectives.length);
+                            setWeightObjectives(prev => prev.map((o, i) => ({ ...o, weight: percents[i] })));
+                            setWeightsDirty(true);
+                          }}
+                          className="text-xs text-brand_primary hover:underline"
+                        >
+                          Distribuir equitativamente
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {weightObjectives.map((obj) => (
+                      <div key={obj.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                        <button
+                          type="button"
+                          className="w-full flex items-center gap-3 px-3 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100 text-left"
+                          onClick={() => setExpandedWeightObjective(prev => prev === obj.id ? null : obj.id)}
+                          aria-expanded={expandedWeightObjective === obj.id}
+                        >
+                          <div className="flex-1 flex items-center gap-2">
+                            {expandedWeightObjective === obj.id ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
+                            <span className="text-sm text-gray-800">{obj.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={obj.weight}
+                              disabled={!isDraft || !isAdmin || weightObjectives.length === 1}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                const val = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+                                setWeightObjectives(prev => prev.map(o => o.id === obj.id ? { ...o, weight: val } : o));
+                                setWeightsDirty(true);
+                              }}
+                              aria-label={`Peso de ${obj.name} (%)`}
+                              className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:text-gray-500"
+                            />
+                            <span className="text-xs text-gray-500">%</span>
+                          </div>
+                        </button>
+
+                        {/* Level 2: Modules */}
+                        {expandedWeightObjective === obj.id && obj.modules.length > 0 && (
+                          <div className="p-3 space-y-2 border-t border-gray-100">
+                            <div className="flex items-center justify-between mb-1">
+                              <h5 className="text-xs font-medium text-gray-600 uppercase">Prácticas Generativas</h5>
+                              <div className="flex items-center gap-3">
+                                <span className={`text-xs font-semibold ${Math.abs(weightSum(obj.modules) - 100) <= 0.5 ? 'text-green-600' : 'text-red-600'}`}>
+                                  Total: {weightSum(obj.modules)}%
+                                </span>
+                                {isDraft && isAdmin && obj.modules.length > 1 && (
+                                  <button
+                                    onClick={() => {
+                                      const percents = distributeEquitably(obj.modules.length);
+                                      setWeightObjectives(prev => prev.map(o => o.id === obj.id
+                                        ? { ...o, modules: o.modules.map((m, mi) => ({ ...m, weight: percents[mi] })) }
+                                        : o
+                                      ));
+                                      setWeightsDirty(true);
+                                    }}
+                                    className="text-xs text-brand_primary hover:underline"
+                                  >
+                                    Distribuir equitativamente
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            {obj.modules.map((mod) => (
+                              <div key={mod.id} className="border border-gray-100 rounded overflow-hidden">
+                                <button
+                                  type="button"
+                                  className="w-full flex items-center gap-3 px-3 py-2 bg-white cursor-pointer hover:bg-gray-50 text-left"
+                                  onClick={() => setExpandedWeightModule(prev => prev === mod.id ? null : mod.id)}
+                                  aria-expanded={expandedWeightModule === mod.id}
+                                >
+                                  <div className="flex-1 flex items-center gap-2">
+                                    {expandedWeightModule === mod.id ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
+                                    <span className="text-sm text-gray-700">{mod.name}</span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      step="1"
+                                      value={mod.weight}
+                                      disabled={!isDraft || !isAdmin || obj.modules.length === 1}
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) => {
+                                        const val = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+                                        setWeightObjectives(prev => prev.map(o => o.id === obj.id
+                                          ? { ...o, modules: o.modules.map(m => m.id === mod.id ? { ...m, weight: val } : m) }
+                                          : o
+                                        ));
+                                        setWeightsDirty(true);
+                                      }}
+                                      aria-label={`Peso de ${mod.name} (%)`}
+                                      className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:text-gray-500"
+                                    />
+                                    <span className="text-xs text-gray-500">%</span>
+                                  </div>
+                                </button>
+
+                                {/* Level 3: Indicators */}
+                                {expandedWeightModule === mod.id && mod.indicators.length > 0 && (
+                                  <div className="px-3 pb-2 border-t border-gray-100">
+                                    <div className="flex items-center justify-between my-1">
+                                      <h6 className="text-xs font-medium text-gray-500 uppercase">Indicadores (excluye detalle y traspaso)</h6>
+                                      <div className="flex items-center gap-3">
+                                        <span className={`text-xs font-semibold ${Math.abs(weightSum(mod.indicators) - 100) <= 0.5 ? 'text-green-600' : 'text-red-600'}`}>
+                                          Total: {weightSum(mod.indicators)}%
+                                        </span>
+                                        {isDraft && isAdmin && mod.indicators.length > 1 && (
+                                          <button
+                                            onClick={() => {
+                                              const percents = distributeEquitably(mod.indicators.length);
+                                              setWeightObjectives(prev => prev.map(o => o.id === obj.id
+                                                ? {
+                                                    ...o, modules: o.modules.map(m => m.id === mod.id
+                                                      ? { ...m, indicators: m.indicators.map((ind, ii) => ({ ...ind, weight: percents[ii] })) }
+                                                      : m
+                                                    )
+                                                  }
+                                                : o
+                                              ));
+                                              setWeightsDirty(true);
+                                            }}
+                                            className="text-xs text-brand_primary hover:underline"
+                                          >
+                                            Distribuir equitativamente
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {mod.indicators.map((ind) => (
+                                      <div key={ind.id} className="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
+                                        <span className="flex-1 text-sm text-gray-700">{ind.name}</span>
+                                        <div className="flex items-center gap-1">
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            step="1"
+                                            value={ind.weight}
+                                            disabled={!isDraft || !isAdmin || mod.indicators.length === 1}
+                                            onChange={(e) => {
+                                              const val = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+                                              setWeightObjectives(prev => prev.map(o => o.id === obj.id
+                                                ? {
+                                                    ...o, modules: o.modules.map(m => m.id === mod.id
+                                                      ? { ...m, indicators: m.indicators.map(i => i.id === ind.id ? { ...i, weight: val } : i) }
+                                                      : m
+                                                    )
+                                                  }
+                                                : o
+                                              ));
+                                              setWeightsDirty(true);
+                                            }}
+                                            aria-label={`Peso de ${ind.name} (%)`}
+                                            className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:text-gray-500"
+                                          />
+                                          <span className="text-xs text-gray-500">%</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Expectations matrix */}
         {moduleExpectations.length === 0 ? (
@@ -712,7 +1139,7 @@ const ExpectationsEditor: React.FC = () => {
               Agrega módulos e indicadores al template antes de configurar expectativas.
             </p>
             <Link href={`/admin/assessment-builder/${template.id}`} legacyBehavior>
-              <a className="mt-4 inline-flex items-center px-4 py-2 bg-brand_blue text-white rounded-lg text-sm font-medium hover:bg-brand_blue/90">
+              <a className="mt-4 inline-flex items-center px-4 py-2 bg-brand_primary text-white rounded-lg text-sm font-medium hover:bg-brand_primary/90">
                 Ir al editor de template
               </a>
             </Link>
@@ -737,19 +1164,19 @@ const ExpectationsEditor: React.FC = () => {
                         <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16 border-r border-gray-200">
                           Tipo
                         </th>
-                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_beige">
+                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_light">
                           Año 1
                         </th>
-                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_beige">
+                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_light">
                           Año 2
                         </th>
-                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_beige">
+                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_light">
                           Año 3
                         </th>
-                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_beige">
+                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_light">
                           Año 4
                         </th>
-                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_beige">
+                        <th className="px-2 py-3 text-center text-xs font-medium text-brand_primary uppercase tracking-wider border-r border-gray-200 bg-brand_light">
                           Año 5
                         </th>
                         <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
@@ -821,11 +1248,14 @@ const ExpectationsEditor: React.FC = () => {
                                     ? 'bg-amber-100 text-amber-700'
                                     : indicator.indicatorCategory === 'traspaso'
                                     ? 'bg-purple-100 text-purple-700'
+                                    : indicator.indicatorCategory === 'detalle'
+                                    ? 'bg-teal-100 text-teal-700'
                                     : 'bg-brand_primary text-white'
                                 }`}>
                                   {indicator.indicatorCategory === 'cobertura' ? 'Cob' :
                                    indicator.indicatorCategory === 'frecuencia' ? 'Frec' :
-                                   indicator.indicatorCategory === 'traspaso' ? 'Tras' : 'Prof'}
+                                   indicator.indicatorCategory === 'traspaso' ? 'Tras' :
+                                   indicator.indicatorCategory === 'detalle' ? 'Det' : 'Prof'}
                                 </span>
                               )}
                             </td>
@@ -845,7 +1275,7 @@ const ExpectationsEditor: React.FC = () => {
                                   parseInt(e.target.value, 10)
                                 )}
                                 disabled={!isDraft || !isAdmin}
-                                className="w-14 px-1 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_blue disabled:bg-gray-100 disabled:opacity-50"
+                                className="w-14 px-1 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:opacity-50"
                               >
                                 <option value="0">0</option>
                                 <option value="1">1</option>
@@ -859,11 +1289,11 @@ const ExpectationsEditor: React.FC = () => {
                         const giRow = requiresDual && indicator.expectationsGI ? (
                           <tr
                             key={`${indicator.indicatorId}-GI`}
-                            className={`hover:bg-gray-50 ${indicator.isDirtyGI ? 'bg-brand_beige' : 'bg-gray-50/50'}`}
+                            className={`hover:bg-gray-50 ${indicator.isDirtyGI ? 'bg-brand_light' : 'bg-gray-50/50'}`}
                           >
                             {/* No indicator name cell - rowSpan from GT row */}
                             <td className="px-2 py-2 text-center border-r border-gray-200">
-                              <span className="text-xs px-2 py-0.5 rounded-full bg-brand_beige text-brand_primary font-medium">
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-brand_light text-brand_primary font-medium">
                                 GI
                               </span>
                             </td>
@@ -883,7 +1313,7 @@ const ExpectationsEditor: React.FC = () => {
                                   parseInt(e.target.value, 10)
                                 )}
                                 disabled={!isDraft || !isAdmin}
-                                className="w-14 px-1 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_blue disabled:bg-gray-100 disabled:opacity-50"
+                                className="w-14 px-1 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:opacity-50"
                               >
                                 <option value="0">0</option>
                                 <option value="1">1</option>
@@ -923,7 +1353,7 @@ const ExpectationsEditor: React.FC = () => {
                     <span className="text-gray-600">Generación Tractor (expectativas más altas)</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-full bg-brand_beige text-brand_primary text-xs font-medium">GI</span>
+                    <span className="px-2 py-0.5 rounded-full bg-brand_light text-brand_primary text-xs font-medium">GI</span>
                     <span className="text-gray-600">Generación Innova (expectativas adaptadas)</span>
                   </div>
                 </div>
@@ -947,6 +1377,10 @@ const ExpectationsEditor: React.FC = () => {
               <div className="flex items-center gap-2">
                 <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Tras</span>
                 <span className="text-gray-600">Traspaso (¿Se espera evidencia y mejoras ese año?)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 text-xs font-medium">Det</span>
+                <span className="text-gray-600">Detalle (¿Se espera que el evaluador complete la selección múltiple ese año?)</span>
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-gray-200">

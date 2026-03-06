@@ -753,6 +753,7 @@ export async function updatePublishedTemplateSnapshot(
       level_2_descriptor: indicator.level_2_descriptor,
       level_3_descriptor: indicator.level_3_descriptor,
       level_4_descriptor: indicator.level_4_descriptor,
+      detalle_options: indicator.detalle_options || null,
       display_order: indicator.display_order,
       weight: indicator.weight,
       sub_questions: indicator.sub_questions,

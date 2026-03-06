@@ -20,7 +20,7 @@ export type TransformationArea =
 
 export type TemplateStatus = 'draft' | 'published' | 'archived';
 
-export type IndicatorCategory = 'cobertura' | 'frecuencia' | 'profundidad' | 'traspaso';
+export type IndicatorCategory = 'cobertura' | 'frecuencia' | 'profundidad' | 'traspaso' | 'detalle';
 
 export type QuestionType =
   | 'text'
@@ -101,6 +101,7 @@ export const CATEGORY_LABELS: Record<IndicatorCategory, string> = {
   frecuencia: 'Frecuencia',
   profundidad: 'Profundidad',
   traspaso: 'Traspaso',
+  detalle: 'Detalle',
 };
 
 export const CATEGORY_DESCRIPTIONS: Record<IndicatorCategory, string> = {
@@ -108,6 +109,7 @@ export const CATEGORY_DESCRIPTIONS: Record<IndicatorCategory, string> = {
   frecuencia: 'Valor cuantitativo (número, porcentaje)',
   profundidad: 'Nivel de rúbrica (0-4)',
   traspaso: 'Evidencia y sugerencias de mejora',
+  detalle: 'Selección múltiple — elige todas las que aplican',
 };
 
 // UI labels for assessment hierarchy entities
@@ -436,6 +438,7 @@ export interface AssessmentIndicator {
   level_2_descriptor?: string;
   level_3_descriptor?: string;
   level_4_descriptor?: string;
+  detalle_options?: string[]; // Array of option labels for detalle-category indicators
   display_order: number;
   weight: number;
   visibility_condition?: VisibilityCondition;
@@ -708,6 +711,7 @@ export interface CreateIndicatorRequest {
   level_2_descriptor?: string;
   level_3_descriptor?: string;
   level_4_descriptor?: string;
+  detalle_options?: string[];
   weight?: number;
 }
 
@@ -723,6 +727,7 @@ export interface UpdateIndicatorRequest {
   level_2_descriptor?: string;
   level_3_descriptor?: string;
   level_4_descriptor?: string;
+  detalle_options?: string[];
   weight?: number;
   visibility_condition?: VisibilityCondition;
 }

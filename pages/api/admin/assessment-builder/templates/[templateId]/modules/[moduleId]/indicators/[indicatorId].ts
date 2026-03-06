@@ -4,7 +4,7 @@ import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-build
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import type { IndicatorCategory } from '@/types/assessment-builder';
 
-const VALID_CATEGORIES: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad', 'traspaso'];
+const VALID_CATEGORIES: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad', 'traspaso', 'detalle'];
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { templateId, moduleId, indicatorId } = req.query;
@@ -116,11 +116,13 @@ async function handleGet(
         description,
         category,
         frequency_config,
+        frequency_unit_options,
         level_0_descriptor,
         level_1_descriptor,
         level_2_descriptor,
         level_3_descriptor,
         level_4_descriptor,
+        detalle_options,
         display_order,
         weight,
         visibility_condition,
@@ -163,11 +165,13 @@ async function handlePut(
       description,
       category,
       frequency_config,
+      frequency_unit_options,
       level_0_descriptor,
       level_1_descriptor,
       level_2_descriptor,
       level_3_descriptor,
       level_4_descriptor,
+      detalleOptions,
       weight,
       visibility_condition
     } = req.body;
@@ -175,8 +179,34 @@ async function handlePut(
     // Validate category if provided
     if (category !== undefined && !VALID_CATEGORIES.includes(category)) {
       return res.status(400).json({
-        error: 'Categoría inválida. Debe ser: cobertura, frecuencia, profundidad, o traspaso',
+        error: 'Categoría inválida. Debe ser: cobertura, frecuencia, profundidad, traspaso, o detalle',
       });
+    }
+
+    // Validate detalleOptions if provided
+    let validatedDetalleOptions: string[] | null | undefined = undefined;
+    if (detalleOptions !== undefined) {
+      if (!Array.isArray(detalleOptions) || detalleOptions.length < 2) {
+        return res.status(400).json({ error: 'Los indicadores de detalle requieren al menos 2 opciones' });
+      }
+      if (detalleOptions.length > 15) {
+        return res.status(400).json({ error: 'Los indicadores de detalle permiten un máximo de 15 opciones' });
+      }
+      const trimmedOptions = detalleOptions.map((opt: unknown) => {
+        if (typeof opt !== 'string') return '';
+        return opt.trim();
+      });
+      if (trimmedOptions.some((opt: string) => opt.length === 0)) {
+        return res.status(400).json({ error: 'Todas las opciones de detalle deben tener contenido' });
+      }
+      if (trimmedOptions.some((opt: string) => opt.length > 200)) {
+        return res.status(400).json({ error: 'Cada opción de detalle puede tener un máximo de 200 caracteres' });
+      }
+      const uniqueOptions = new Set(trimmedOptions.map((o: string) => o.toLowerCase()));
+      if (uniqueOptions.size !== trimmedOptions.length) {
+        return res.status(400).json({ error: 'Las opciones de detalle no pueden repetirse' });
+      }
+      validatedDetalleOptions = trimmedOptions;
     }
 
     // Enforce cobertura lock: first indicator in a module must stay cobertura
@@ -202,11 +232,13 @@ async function handlePut(
     if (description !== undefined) updateData.description = description;
     if (category !== undefined) updateData.category = category;
     if (frequency_config !== undefined) updateData.frequency_config = frequency_config;
+    if (frequency_unit_options !== undefined) updateData.frequency_unit_options = frequency_unit_options;
     if (level_0_descriptor !== undefined) updateData.level_0_descriptor = level_0_descriptor;
     if (level_1_descriptor !== undefined) updateData.level_1_descriptor = level_1_descriptor;
     if (level_2_descriptor !== undefined) updateData.level_2_descriptor = level_2_descriptor;
     if (level_3_descriptor !== undefined) updateData.level_3_descriptor = level_3_descriptor;
     if (level_4_descriptor !== undefined) updateData.level_4_descriptor = level_4_descriptor;
+    if (validatedDetalleOptions !== undefined) updateData.detalle_options = validatedDetalleOptions;
     if (weight !== undefined) updateData.weight = weight;
     if (visibility_condition !== undefined) updateData.visibility_condition = visibility_condition;
 

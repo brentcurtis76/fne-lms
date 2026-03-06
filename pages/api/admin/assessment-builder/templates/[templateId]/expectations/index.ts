@@ -75,6 +75,18 @@ async function handleGet(
     const isAlwaysGT = template.grade?.is_always_gt ?? true;
     const requiresDualExpectations = !isAlwaysGT;
 
+    // Get all objectives with weights for this template (needed for weight distributor)
+    const { data: objectives, error: objectivesError } = await supabase
+      .from('assessment_objectives')
+      .select('id, name, display_order, weight')
+      .eq('template_id', templateId)
+      .order('display_order');
+
+    if (objectivesError) {
+      console.error('Error fetching objectives:', objectivesError);
+      return res.status(500).json({ error: 'Error al cargar objetivos' });
+    }
+
     // Get all modules with indicators for this template
     const { data: modules, error: modulesError } = await supabase
       .from('assessment_modules')
@@ -82,18 +94,22 @@ async function handleGet(
         id,
         name,
         display_order,
+        weight,
+        objective_id,
         assessment_indicators (
           id,
           code,
           name,
           category,
           display_order,
+          weight,
           frequency_unit_options,
           level_0_descriptor,
           level_1_descriptor,
           level_2_descriptor,
           level_3_descriptor,
-          level_4_descriptor
+          level_4_descriptor,
+          detalle_options
         )
       `)
       .eq('template_id', templateId)
@@ -145,6 +161,8 @@ async function handleGet(
       moduleId: module.id,
       moduleName: module.name,
       moduleOrder: module.display_order,
+      moduleWeight: module.weight,
+      objectiveId: module.objective_id,
       indicators: (module.assessment_indicators || [])
         .sort((a: any, b: any) => a.display_order - b.display_order)
         .map((indicator: any) => {
@@ -158,6 +176,7 @@ async function handleGet(
             indicatorCode: indicator.code,
             indicatorName: indicator.name,
             indicatorCategory: indicator.category,
+            indicatorWeight: indicator.weight,
             frequencyUnitOptions: indicator.frequency_unit_options,
             displayOrder: indicator.display_order,
             levelDescriptors: indicator.category === 'profundidad' ? {
@@ -167,6 +186,7 @@ async function handleGet(
               level3: indicator.level_3_descriptor,
               level4: indicator.level_4_descriptor,
             } : undefined,
+            detalleOptions: indicator.category === 'detalle' ? (indicator.detalle_options || null) : undefined,
             // For always_gt templates: only GT expectations
             // For non-always_gt templates: both GT and GI expectations
             expectationsGT: formatExpectation(gtExp),
@@ -193,6 +213,26 @@ async function handleGet(
       0
     );
 
+    // Build objectives hierarchy for weight distributor
+    const formattedObjectives = (objectives || []).map((obj: any) => ({
+      objectiveId: obj.id,
+      objectiveName: obj.name,
+      objectiveOrder: obj.display_order,
+      objectiveWeight: obj.weight,
+      modules: formattedModules.filter((m: any) => m.objectiveId === obj.id).map((m: any) => ({
+        moduleId: m.moduleId,
+        moduleName: m.moduleName,
+        moduleOrder: m.moduleOrder,
+        moduleWeight: m.moduleWeight,
+        indicators: m.indicators.map((i: any) => ({
+          indicatorId: i.indicatorId,
+          indicatorName: i.indicatorName,
+          indicatorCategory: i.indicatorCategory,
+          indicatorWeight: i.indicatorWeight,
+        })),
+      })),
+    }));
+
     return res.status(200).json({
       success: true,
       template: {
@@ -205,6 +245,7 @@ async function handleGet(
         isAlwaysGT,
         requiresDualExpectations,
       },
+      objectives: formattedObjectives,
       modules: formattedModules,
       stats: {
         totalIndicators,
@@ -228,8 +269,8 @@ async function handlePut(
   userId: string
 ) {
   try {
-    const { expectations } = req.body as {
-      expectations: Array<{
+    const { expectations, weights } = req.body as {
+      expectations?: Array<{
         indicatorId: string;
         generationType: GenerationType; // 'GT' or 'GI'
         year1?: number | null;
@@ -244,9 +285,18 @@ async function handlePut(
         year5Unit?: string | null;
         tolerance?: number;
       }>;
+      weights?: {
+        objectives?: Array<{ id: string; weight: number }>;
+        modules?: Array<{ id: string; weight: number }>;
+        indicators?: Array<{ id: string; weight: number }>;
+      };
     };
 
-    if (!expectations || !Array.isArray(expectations)) {
+    if (!expectations && !weights) {
+      return res.status(400).json({ error: 'Se requiere expectations o weights' });
+    }
+
+    if (expectations !== undefined && !Array.isArray(expectations)) {
       return res.status(400).json({ error: 'Se requiere un array de expectativas' });
     }
 
@@ -274,10 +324,10 @@ async function handlePut(
 
     const isAlwaysGT = template.grade?.is_always_gt ?? true;
 
-    // Get all indicator IDs for this template to validate
+    // Get all indicator IDs for this template to validate (including category for weight validation)
     const { data: indicators, error: indicatorsError } = await supabase
       .from('assessment_indicators')
-      .select('id, module_id, assessment_modules!inner(template_id)')
+      .select('id, module_id, category, assessment_modules!inner(template_id)')
       .eq('assessment_modules.template_id', templateId);
 
     if (indicatorsError) {
@@ -286,6 +336,154 @@ async function handlePut(
     }
 
     const validIndicatorIds = new Set((indicators || []).map((i: any) => i.id));
+
+    // Build indicator category map for weight validation
+    const indicatorCategoryMap = new Map<string, string>(
+      (indicators || []).map((i: any) => [i.id, i.category])
+    );
+
+    // ---- Handle weight updates ----
+    let weightsSaved = 0;
+    if (weights) {
+      // Fetch objectives and modules for validation
+      const { data: dbObjectives } = await supabase
+        .from('assessment_objectives')
+        .select('id, weight')
+        .eq('template_id', templateId);
+
+      const { data: dbModules } = await supabase
+        .from('assessment_modules')
+        .select('id, weight, objective_id')
+        .eq('template_id', templateId);
+
+      const { data: dbIndicators } = await supabase
+        .from('assessment_indicators')
+        .select('id, weight, module_id, category')
+        .in('module_id', (dbModules || []).map((m: any) => m.id));
+
+      const validObjectiveIds = new Set((dbObjectives || []).map((o: any) => o.id));
+      const validModuleIds = new Set((dbModules || []).map((m: any) => m.id));
+
+      // Validate and save objective weights
+      if (weights.objectives && weights.objectives.length > 0) {
+        for (const obj of weights.objectives) {
+          if (!validObjectiveIds.has(obj.id)) {
+            return res.status(400).json({ error: `Objetivo ${obj.id} no pertenece a este template` });
+          }
+          const w = Number(obj.weight);
+          if (isNaN(w) || w < 0) {
+            return res.status(400).json({ error: `Peso inválido para objetivo ${obj.id}` });
+          }
+        }
+        // Validate sum to 100 (only for multi-objective templates)
+        if (weights.objectives.length > 1) {
+          const objSum = weights.objectives.reduce((s, o) => s + Number(o.weight), 0);
+          if (Math.abs(objSum - 100) > 0.5) {
+            return res.status(400).json({
+              error: `Los pesos de los procesos deben sumar 100% (suma actual: ${objSum.toFixed(1)}%)`,
+            });
+          }
+        }
+        for (const obj of weights.objectives) {
+          await supabase
+            .from('assessment_objectives')
+            .update({ weight: Number(obj.weight) })
+            .eq('id', obj.id);
+          weightsSaved++;
+        }
+      }
+
+      // Validate and save module weights (group by objective for sum validation)
+      if (weights.modules && weights.modules.length > 0) {
+        for (const mod of weights.modules) {
+          if (!validModuleIds.has(mod.id)) {
+            return res.status(400).json({ error: `Módulo ${mod.id} no pertenece a este template` });
+          }
+          const w = Number(mod.weight);
+          if (isNaN(w) || w < 0) {
+            return res.status(400).json({ error: `Peso inválido para módulo ${mod.id}` });
+          }
+        }
+        // Group modules by objective_id and validate sum per group
+        const modulesByObjective = new Map<string, Array<{ id: string; weight: number }>>();
+        for (const mod of weights.modules) {
+          const dbMod = (dbModules || []).find((m: any) => m.id === mod.id);
+          const objId = dbMod?.objective_id || '__none__';
+          if (!modulesByObjective.has(objId)) modulesByObjective.set(objId, []);
+          modulesByObjective.get(objId)!.push(mod);
+        }
+        for (const [objId, mods] of modulesByObjective.entries()) {
+          // Single-item groups always sum to themselves; skip sum validation
+          if (mods.length <= 1) continue;
+          const modSum = mods.reduce((s, m) => s + Number(m.weight), 0);
+          if (Math.abs(modSum - 100) > 0.5) {
+            return res.status(400).json({
+              error: `Los pesos de las prácticas del proceso ${objId} deben sumar 100% (suma actual: ${modSum.toFixed(1)}%)`,
+            });
+          }
+        }
+        for (const mod of weights.modules) {
+          await supabase
+            .from('assessment_modules')
+            .update({ weight: Number(mod.weight) })
+            .eq('id', mod.id);
+          weightsSaved++;
+        }
+      }
+
+      // Validate and save indicator weights (group by module for sum validation)
+      if (weights.indicators && weights.indicators.length > 0) {
+        for (const ind of weights.indicators) {
+          if (!validIndicatorIds.has(ind.id)) {
+            return res.status(400).json({ error: `Indicador ${ind.id} no pertenece a este template` });
+          }
+          const cat = indicatorCategoryMap.get(ind.id);
+          if (cat === 'detalle' || cat === 'traspaso') {
+            return res.status(400).json({
+              error: `El indicador ${ind.id} es de tipo ${cat} y no participa en la distribución de pesos`,
+            });
+          }
+          const w = Number(ind.weight);
+          if (isNaN(w) || w < 0) {
+            return res.status(400).json({ error: `Peso inválido para indicador ${ind.id}` });
+          }
+        }
+        // Group indicators by module_id and validate sum per group
+        const indicatorsByModule = new Map<string, Array<{ id: string; weight: number }>>();
+        for (const ind of weights.indicators) {
+          const dbInd = (dbIndicators || []).find((i: any) => i.id === ind.id);
+          const modId = dbInd?.module_id || '__none__';
+          if (!indicatorsByModule.has(modId)) indicatorsByModule.set(modId, []);
+          indicatorsByModule.get(modId)!.push(ind);
+        }
+        for (const [modId, inds] of indicatorsByModule.entries()) {
+          // Single-item groups always sum to themselves; skip sum validation
+          if (inds.length <= 1) continue;
+          const indSum = inds.reduce((s, i) => s + Number(i.weight), 0);
+          if (Math.abs(indSum - 100) > 0.5) {
+            return res.status(400).json({
+              error: `Los pesos de los indicadores del módulo ${modId} deben sumar 100% (suma actual: ${indSum.toFixed(1)}%)`,
+            });
+          }
+        }
+        for (const ind of weights.indicators) {
+          await supabase
+            .from('assessment_indicators')
+            .update({ weight: Number(ind.weight) })
+            .eq('id', ind.id);
+          weightsSaved++;
+        }
+      }
+    }
+
+    // ---- Handle expectations updates ----
+    if (!expectations || expectations.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: `${weightsSaved} pesos guardados`,
+        weightsSaved,
+      });
+    }
 
     // Validate and prepare upsert data
     const errors: string[] = [];
@@ -403,6 +601,7 @@ async function handlePut(
       success: true,
       message: `${savedExpectations?.length || 0} expectativas guardadas`,
       saved: savedExpectations?.length || 0,
+      weightsSaved,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err: any) {

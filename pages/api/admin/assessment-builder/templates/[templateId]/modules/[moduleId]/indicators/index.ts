@@ -111,6 +111,7 @@ async function handleGet(
         level2Descriptor: ind.level_2_descriptor,
         level3Descriptor: ind.level_3_descriptor,
         level4Descriptor: ind.level_4_descriptor,
+        detalleOptions: ind.detalle_options,
         displayOrder: ind.display_order,
         weight: ind.weight,
         createdAt: ind.created_at,
@@ -144,6 +145,7 @@ async function handlePost(
       level2Descriptor,
       level3Descriptor,
       level4Descriptor,
+      detalleOptions,
       weight,
     } = req.body;
 
@@ -152,10 +154,10 @@ async function handlePost(
       return res.status(400).json({ error: 'El nombre del indicador es requerido' });
     }
 
-    const validCategories: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad', 'traspaso'];
+    const validCategories: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad', 'traspaso', 'detalle'];
     if (!category || !validCategories.includes(category)) {
       return res.status(400).json({
-        error: 'Categoría inválida. Debe ser: cobertura, frecuencia, profundidad, o traspaso',
+        error: 'Categoría inválida. Debe ser: cobertura, frecuencia, profundidad, traspaso, o detalle',
       });
     }
 
@@ -177,6 +179,32 @@ async function handlePost(
       }
     }
 
+    // For detalle, validate detalleOptions
+    let validatedDetalleOptions: string[] | null = null;
+    if (category === 'detalle') {
+      if (!Array.isArray(detalleOptions) || detalleOptions.length < 2) {
+        return res.status(400).json({ error: 'Los indicadores de detalle requieren al menos 2 opciones' });
+      }
+      if (detalleOptions.length > 15) {
+        return res.status(400).json({ error: 'Los indicadores de detalle permiten un máximo de 15 opciones' });
+      }
+      const trimmedOptions = detalleOptions.map((opt: unknown) => {
+        if (typeof opt !== 'string') return '';
+        return opt.trim();
+      });
+      if (trimmedOptions.some((opt: string) => opt.length === 0)) {
+        return res.status(400).json({ error: 'Todas las opciones de detalle deben tener contenido' });
+      }
+      if (trimmedOptions.some((opt: string) => opt.length > 200)) {
+        return res.status(400).json({ error: 'Cada opción de detalle puede tener un máximo de 200 caracteres' });
+      }
+      const uniqueOptions = new Set(trimmedOptions.map((o: string) => o.toLowerCase()));
+      if (uniqueOptions.size !== trimmedOptions.length) {
+        return res.status(400).json({ error: 'Las opciones de detalle no pueden repetirse' });
+      }
+      validatedDetalleOptions = trimmedOptions;
+    }
+
     // Get max display_order for this module
     const { data: maxOrderResult } = await supabaseClient
       .from('assessment_indicators')
@@ -189,12 +217,20 @@ async function handlePost(
       ? (maxOrderResult[0].display_order || 0) + 1
       : 1;
 
+    // Reject detalle as first indicator (first must be cobertura)
+    if (nextOrder === 1 && category === 'detalle') {
+      return res.status(400).json({
+        error: 'El primer indicador de cada práctica generativa debe ser de tipo Cobertura',
+      });
+    }
+
     // Insert indicator
     // Note: expectations are in assessment_year_expectations table
     // Note: sub_questions are in assessment_sub_questions table
     // traspaso and cobertura don't use frequency or level fields
     const isQuantitative = category === 'frecuencia';
     const isRubric = category === 'profundidad';
+    const isDetalle = category === 'detalle';
 
     const { data: indicator, error } = await supabaseClient
       .from('assessment_indicators')
@@ -211,6 +247,7 @@ async function handlePost(
         level_2_descriptor: isRubric ? (level2Descriptor?.trim() || null) : null,
         level_3_descriptor: isRubric ? (level3Descriptor?.trim() || null) : null,
         level_4_descriptor: isRubric ? (level4Descriptor?.trim() || null) : null,
+        detalle_options: isDetalle ? validatedDetalleOptions : null,
         display_order: nextOrder,
         weight: weight || 1.0,
       })
@@ -244,6 +281,7 @@ async function handlePost(
         level2Descriptor: indicator.level_2_descriptor,
         level3Descriptor: indicator.level_3_descriptor,
         level4Descriptor: indicator.level_4_descriptor,
+        detalleOptions: indicator.detalle_options,
         displayOrder: indicator.display_order,
         weight: indicator.weight,
         createdAt: indicator.created_at,

@@ -76,7 +76,8 @@ export function scoreProfundidadIndicator(level: number | undefined | null): num
 }
 
 /**
- * Calculate score for any indicator based on its category
+ * Calculate score for any indicator based on its category.
+ * Traspaso and detalle are descriptive-only — always return 0.
  */
 export function scoreIndicator(
   response: Pick<AssessmentResponse, 'coverage_value' | 'frequency_value' | 'profundity_level'>,
@@ -90,6 +91,10 @@ export function scoreIndicator(
       return scoreFrecuenciaIndicator(response.frequency_value, frequencyConfig);
     case 'profundidad':
       return scoreProfundidadIndicator(response.profundity_level);
+    case 'traspaso':
+      return 0; // Descriptive only — excluded from scoring
+    case 'detalle':
+      return 0; // Descriptive only — excluded from scoring
     default:
       return 0;
   }
@@ -171,8 +176,14 @@ export function calculateModuleScore(
     };
   });
 
+  // Exclude traspaso and detalle from weighted average — they are descriptive only.
+  // Including them (with score 0) would incorrectly drag down module scores.
+  const scoredIndicators = indicatorScores.filter(
+    (i) => i.category !== 'traspaso' && i.category !== 'detalle'
+  );
+
   const moduleScore = calculateWeightedAverage(
-    indicatorScores.map((i) => ({ score: i.normalizedScore, weight: i.weight }))
+    scoredIndicators.map((i) => ({ score: i.normalizedScore, weight: i.weight }))
   );
 
   return {

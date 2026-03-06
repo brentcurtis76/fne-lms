@@ -45,6 +45,7 @@ interface IndicatorData {
   level2Descriptor?: string;
   level3Descriptor?: string;
   level4Descriptor?: string;
+  detalle_options?: string[];
   displayOrder: number;
   weight: number;
 }
@@ -187,6 +188,11 @@ const AssessmentResponseForm: React.FC = () => {
     if (indicator.category === 'traspaso') {
       const sub = resp.subResponses as Record<string, unknown> | undefined;
       return !!(sub?.evidence_link || sub?.improvement_suggestions);
+    }
+    if (indicator.category === 'detalle') {
+      const sub = resp.subResponses as Record<string, unknown> | undefined;
+      const selected = sub?.selected_options;
+      return Array.isArray(selected) && selected.length > 0;
     }
     return false;
   };
@@ -692,11 +698,13 @@ const IndicatorInput: React.FC<IndicatorInputProps> = ({
   disabled,
 }) => {
   const subResp = response.subResponses as Record<string, unknown> | undefined;
+  const detalleSelected = Array.isArray(subResp?.selected_options) ? subResp.selected_options as string[] : [];
   const hasResponse =
     (indicator.category === 'cobertura' && response.coverageValue !== undefined && response.coverageValue !== null) ||
     (indicator.category === 'frecuencia' && response.frequencyValue !== undefined && response.frequencyValue !== null) ||
     (indicator.category === 'profundidad' && response.profundityLevel !== undefined && response.profundityLevel !== null) ||
-    (indicator.category === 'traspaso' && !!(subResp?.evidence_link || subResp?.improvement_suggestions));
+    (indicator.category === 'traspaso' && !!(subResp?.evidence_link || subResp?.improvement_suggestions)) ||
+    (indicator.category === 'detalle' && detalleSelected.length > 0);
 
   return (
     <div className={`p-4 ${hasResponse ? 'bg-green-50/50' : ''}`}>
@@ -765,6 +773,16 @@ const IndicatorInput: React.FC<IndicatorInputProps> = ({
             indicatorId={indicator.id}
             value={response.subResponses as { evidence_link?: string; improvement_suggestions?: string } | undefined}
             onChange={(v) => onChange('subResponses', v)}
+            disabled={disabled}
+          />
+        )}
+
+        {indicator.category === 'detalle' && (
+          <DetalleInput
+            indicatorId={indicator.id}
+            options={indicator.detalle_options || []}
+            selectedOptions={detalleSelected}
+            onChange={(selected) => onChange('subResponses', { selected_options: selected })}
             disabled={disabled}
           />
         )}
@@ -907,6 +925,53 @@ const ProfundidadInput: React.FC<{
     })}
   </div>
 );
+
+// Detalle input (multiple-choice checkboxes — pick all that apply)
+const DetalleInput: React.FC<{
+  indicatorId: string;
+  options: string[];
+  selectedOptions: string[];
+  onChange: (selected: string[]) => void;
+  disabled?: boolean;
+}> = ({ indicatorId, options, selectedOptions, onChange, disabled }) => {
+  const toggleOption = (opt: string) => {
+    if (selectedOptions.includes(opt)) {
+      onChange(selectedOptions.filter((o) => o !== opt));
+    } else {
+      onChange([...selectedOptions, opt]);
+    }
+  };
+
+  if (options.length === 0) {
+    return (
+      <p className="text-sm text-gray-400 italic">Sin opciones definidas para este indicador.</p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-gray-500 mb-2">Selecciona todas las que aplican:</p>
+      {options.map((opt, idx) => (
+        <label
+          key={idx}
+          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+            selectedOptions.includes(opt) ? 'bg-teal-50 border border-teal-200' : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        >
+          <input
+            type="checkbox"
+            id={`detalle-${indicatorId}-${idx}`}
+            checked={selectedOptions.includes(opt)}
+            onChange={() => !disabled && toggleOption(opt)}
+            disabled={disabled}
+            className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:ring-offset-2"
+          />
+          <span className="text-sm text-gray-800">{opt}</span>
+        </label>
+      ))}
+    </div>
+  );
+};
 
 // Traspaso input (evidence link URL + improvement suggestions textarea)
 const TraspasoInput: React.FC<{

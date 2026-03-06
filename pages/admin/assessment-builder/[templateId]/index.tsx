@@ -2520,11 +2520,11 @@ const TemplateEditor: React.FC = () => {
                               <div key={indicator.id} className="border border-gray-200 rounded-lg p-4">
                                 <div className="flex items-center gap-2 mb-2">
                                   <span className={`text-xs px-2 py-0.5 rounded-full ${
-                                    indicator.category === 'cobertura' ? 'bg-gray-100 text-brand_gray_dark' :
-                                    indicator.category === 'frecuencia' ? 'bg-amber-100 text-amber-700' :
-                                    indicator.category === 'traspaso' ? 'bg-purple-100 text-purple-700' :
-                                    indicator.category === 'detalle' ? 'bg-teal-100 text-teal-700' :
-                                    'bg-blue-100 text-blue-700'
+                                    indicator.category === 'cobertura' ? 'bg-brand_accent text-brand_primary' :
+                                    indicator.category === 'frecuencia' ? 'bg-brand_accent_light text-brand_gray_dark' :
+                                    indicator.category === 'traspaso' ? 'bg-gray-200 text-brand_gray_dark' :
+                                    indicator.category === 'detalle' ? 'bg-gray-100 text-brand_gray_medium border border-gray-300' :
+                                    'bg-brand_primary text-white'
                                   }`}>
                                     {CATEGORY_LABELS[indicator.category]}
                                   </span>

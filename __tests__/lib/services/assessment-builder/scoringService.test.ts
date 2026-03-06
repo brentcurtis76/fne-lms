@@ -860,6 +860,197 @@ describe('calculateAssessmentScores — year-aware scoring (R8)', () => {
 });
 
 // ============================================================
+// Per-year weight override tests
+// ============================================================
+
+describe('calculateAssessmentScores — per-year weight overrides', () => {
+  it('T-PY1: Scoring Year 1 uses Year 1 indicatorYearWeights (Cobertura 40%)', () => {
+    // Cobertura (ind cob) weight = 40 for Year 1, Frecuencia (ind frec) weight = 60
+    // cob answered true (100), frec answered 50/100
+    // Expected score: (100*40 + 50*60) / (40+60) = (4000 + 3000) / 100 = 70
+    const indicatorYearWeights = new Map([
+      ['cob', 40],
+      ['frec', 60],
+    ]);
+
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Module',
+          weight: 1,
+          indicators: [
+            { id: 'cob', name: 'Cobertura', category: 'cobertura', weight: 50 }, // default 50
+            { id: 'frec', name: 'Frecuencia', category: 'frecuencia', weight: 50 }, // default 50
+          ],
+        },
+      ],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'cob', coverage_value: true } as AssessmentResponse,
+        { id: 'r2', instance_id: 'test', indicator_id: 'frec', frequency_value: 50 } as AssessmentResponse,
+      ],
+      indicatorYearWeights,
+    });
+
+    // With per-year overrides (40/60): (100*40 + 50*60) / 100 = 70
+    expect(result.totalScore).toBe(70);
+  });
+
+  it('T-PY2: Year 2 with no per-year weights falls back to default entity weights', () => {
+    // No indicatorYearWeights → uses entity default weights (both weight=1 → equal)
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 2,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Module',
+          weight: 1,
+          indicators: [
+            { id: 'cob', name: 'Cobertura', category: 'cobertura', weight: 1 },
+            { id: 'frec', name: 'Frecuencia', category: 'frecuencia', weight: 1 },
+          ],
+        },
+      ],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'cob', coverage_value: true } as AssessmentResponse,
+        { id: 'r2', instance_id: 'test', indicator_id: 'frec', frequency_value: 50 } as AssessmentResponse,
+      ],
+      // no indicatorYearWeights → fallback
+    });
+
+    // Default equal weights: (100*1 + 50*1) / 2 = 75
+    expect(result.totalScore).toBe(75);
+  });
+
+  it('T-PY3: Cobertura 40% in Y1 → its contribution is 40% of module score', () => {
+    // cob: weight=40, answered true (100). frec: weight=60, answered 0 (no response)
+    // Score: (100*40 + 0*60) / 100 = 40
+    const indicatorYearWeights = new Map([
+      ['cob', 40],
+      ['frec', 60],
+    ]);
+
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Module',
+          weight: 1,
+          indicators: [
+            { id: 'cob', name: 'Cobertura', category: 'cobertura', weight: 50 },
+            { id: 'frec', name: 'Frecuencia', category: 'frecuencia', weight: 50 },
+          ],
+        },
+      ],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'cob', coverage_value: true } as AssessmentResponse,
+        // frec has no response → scores 0
+      ],
+      indicatorYearWeights,
+    });
+
+    // (100 * 40 + 0 * 60) / (40 + 60) = 40
+    expect(result.totalScore).toBe(40);
+  });
+
+  it('T-PY4: Year 4 with Cobertura 10% → contribution is 10%', () => {
+    // Same template, Year 4: cob weight=10, frec weight=90
+    // cob=true (100), frec answered 100 → score=(100*10 + 100*90)/100=100
+    // But let frec=0 to verify weight: (100*10 + 0*90)/100=10
+    const indicatorYearWeights = new Map([
+      ['cob', 10],
+      ['frec', 90],
+    ]);
+
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 4,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Module',
+          weight: 1,
+          indicators: [
+            { id: 'cob', name: 'Cobertura', category: 'cobertura', weight: 50 },
+            { id: 'frec', name: 'Frecuencia', category: 'frecuencia', weight: 50 },
+          ],
+        },
+      ],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'cob', coverage_value: true } as AssessmentResponse,
+        // frec = no response → 0
+      ],
+      indicatorYearWeights,
+    });
+
+    // cob contributes 10% of total: (100 * 10 + 0 * 90) / 100 = 10
+    expect(result.totalScore).toBe(10);
+  });
+
+  it('T-PY5: per-year objective weight overrides → objective contributes correctly', () => {
+    // Two objectives, Year 1: obj1 weight=80, obj2 weight=20
+    // obj1 score=100, obj2 score=0
+    // Expected total: (100*80 + 0*20) / 100 = 80
+    const objectiveYearWeights = new Map([
+      ['obj1', 80],
+      ['obj2', 20],
+    ]);
+
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      objectives: [
+        {
+          id: 'obj1',
+          name: 'Objetivo 1',
+          weight: 50, // default (overridden to 80)
+          modules: [
+            {
+              id: 'm1',
+              name: 'Modulo 1',
+              weight: 1,
+              indicators: [{ id: 'i1', name: 'Ind 1', category: 'cobertura', weight: 1 }],
+            },
+          ],
+        },
+        {
+          id: 'obj2',
+          name: 'Objetivo 2',
+          weight: 50, // default (overridden to 20)
+          modules: [
+            {
+              id: 'm2',
+              name: 'Modulo 2',
+              weight: 1,
+              indicators: [{ id: 'i2', name: 'Ind 2', category: 'cobertura', weight: 1 }],
+            },
+          ],
+        },
+      ],
+      modules: [],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'i1', coverage_value: true } as AssessmentResponse,
+        { id: 'r2', instance_id: 'test', indicator_id: 'i2', coverage_value: false } as AssessmentResponse,
+      ],
+      objectiveYearWeights,
+    });
+
+    // (100*80 + 0*20) / 100 = 80
+    expect(result.totalScore).toBe(80);
+  });
+});
+
+// ============================================================
 // 3-level calculateAssessmentScores with objectives
 // ============================================================
 

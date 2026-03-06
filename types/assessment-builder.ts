@@ -518,6 +518,31 @@ export type SnapshotObjective = AssessmentObjective & {
   modules: SnapshotModule[];
 };
 
+// ============================================================
+// PER-YEAR WEIGHT DISTRIBUTION
+// ============================================================
+
+/**
+ * A single per-year weight entry stored in assessment_entity_year_weights.
+ * entityType discriminates which table entity_id belongs to.
+ */
+export interface EntityYearWeight {
+  entityType: 'objective' | 'module' | 'indicator';
+  entityId: string;
+  year: 1 | 2 | 3 | 4 | 5;
+  weight: number;
+}
+
+/**
+ * All weight entries for a single year, grouped by entity type.
+ * Used in the snapshot and in the GET /expectations response.
+ */
+export interface YearWeightGroup {
+  objectives: Array<{ id: string; weight: number }>;
+  modules: Array<{ id: string; weight: number; objectiveId?: string }>;
+  indicators: Array<{ id: string; weight: number; moduleId?: string }>;
+}
+
 export interface TemplateSnapshotData {
   template: Omit<AssessmentTemplate, 'modules' | 'objectives' | 'context_questions'>;
   context_questions: AssessmentContextQuestion[];
@@ -525,6 +550,12 @@ export interface TemplateSnapshotData {
   objectives: SnapshotObjective[];
   /** @deprecated Kept for backward compatibility with old snapshots. New snapshots use objectives[].modules[] */
   modules?: SnapshotModule[];
+  /**
+   * Per-year weight overrides captured at publish time.
+   * Key: year number (1-5). Value: weight group for that year.
+   * When present, scoring uses these weights instead of the live DB values.
+   */
+  yearWeights?: Record<number, YearWeightGroup>;
 }
 
 // ============================================================

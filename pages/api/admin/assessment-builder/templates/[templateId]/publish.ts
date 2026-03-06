@@ -249,6 +249,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Also include flat modules list for backward compatibility
     const flatModulesSnapshot = modules.map(buildModuleSnapshot);
 
+    // Fetch per-year weights for snapshot capture
+    // These are stored so scoring of published instances uses weights from publish time,
+    // not whatever the live DB has (which may have been edited after publishing).
+    const { data: yearWeightRows, error: yearWeightsSnapshotError } = await supabaseClient
+      .from('assessment_entity_year_weights')
+      .select('entity_type, entity_id, year, weight')
+      .eq('template_id', templateId);
+
+    if (yearWeightsSnapshotError) {
+      console.error('Error fetching year weights for snapshot (non-fatal):', yearWeightsSnapshotError);
+    }
+
+    // Group per-year weights by year
+    const yearWeightsSnapshot: Record<number, {
+      objectives: Array<{ id: string; weight: number }>;
+      modules: Array<{ id: string; weight: number }>;
+      indicators: Array<{ id: string; weight: number }>;
+    }> = {};
+
+    if (yearWeightRows && yearWeightRows.length > 0) {
+      for (const row of yearWeightRows) {
+        const yr = row.year as number;
+        if (!yearWeightsSnapshot[yr]) {
+          yearWeightsSnapshot[yr] = { objectives: [], modules: [], indicators: [] };
+        }
+        const entry = { id: row.entity_id as string, weight: Number(row.weight) };
+        if (row.entity_type === 'objective') yearWeightsSnapshot[yr].objectives.push(entry);
+        else if (row.entity_type === 'module') yearWeightsSnapshot[yr].modules.push(entry);
+        else if (row.entity_type === 'indicator') yearWeightsSnapshot[yr].indicators.push(entry);
+      }
+    }
+
     // Build the snapshot data structure
     const snapshotData = {
       template: {
@@ -267,6 +299,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       objectives: objectivesSnapshot,
       // Legacy flat list for backward compatibility
       modules: flatModulesSnapshot,
+      // Per-year weight overrides (captured at publish time for stable scoring)
+      yearWeights: Object.keys(yearWeightsSnapshot).length > 0 ? yearWeightsSnapshot : undefined,
       published_at: new Date().toISOString(),
       published_by: user.id,
     };

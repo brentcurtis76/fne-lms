@@ -128,6 +128,16 @@ const ExpectationsEditor: React.FC = () => {
   const [weightsDirty, setWeightsDirty] = useState(false);
   const [isSavingWeights, setIsSavingWeights] = useState(false);
 
+  // Per-year weight distributor state
+  const [selectedWeightYear, setSelectedWeightYear] = useState<number>(1);
+  const [yearWeights, setYearWeights] = useState<Record<number, WeightObjective[]>>({
+    1: [], 2: [], 3: [], 4: [], 5: [],
+  });
+  const [weightsDirtyByYear, setWeightsDirtyByYear] = useState<Record<number, boolean>>({
+    1: false, 2: false, 3: false, 4: false, 5: false,
+  });
+  const [showCopyDropdown, setShowCopyDropdown] = useState(false);
+
   // Check auth and permissions
   useEffect(() => {
     const checkAuth = async () => {
@@ -345,6 +355,48 @@ const ExpectationsEditor: React.FC = () => {
       });
 
       setWeightObjectives(weightedObjectives);
+
+      // Initialize per-year weight state.
+      // For years with explicitly saved weights (from API yearWeights), use those.
+      // For unconfigured years, use the default distribution (equal distribution).
+      const apiYearWeights = expectationsData.yearWeights as Record<number, {
+        objectives: Array<{ id: string; weight: number }>;
+        modules: Array<{ id: string; weight: number }>;
+        indicators: Array<{ id: string; weight: number }>;
+      }> | undefined;
+
+      const initialYearWeights: Record<number, WeightObjective[]> = {
+        1: [], 2: [], 3: [], 4: [], 5: [],
+      };
+
+      for (let yr = 1; yr <= 5; yr++) {
+        const savedForYear = apiYearWeights?.[yr];
+        if (savedForYear &&
+            (savedForYear.objectives.length > 0 || savedForYear.modules.length > 0 || savedForYear.indicators.length > 0)) {
+          // Reconstruct WeightObjective[] from saved data
+          const objWeightMap = new Map(savedForYear.objectives.map((o) => [o.id, o.weight]));
+          const modWeightMap = new Map(savedForYear.modules.map((m) => [m.id, m.weight]));
+          const indWeightMap = new Map(savedForYear.indicators.map((i) => [i.id, i.weight]));
+
+          initialYearWeights[yr] = weightedObjectives.map((obj) => ({
+            ...obj,
+            weight: objWeightMap.has(obj.id) ? objWeightMap.get(obj.id)! : obj.weight,
+            modules: obj.modules.map((mod) => ({
+              ...mod,
+              weight: modWeightMap.has(mod.id) ? modWeightMap.get(mod.id)! : mod.weight,
+              indicators: mod.indicators.map((ind) => ({
+                ...ind,
+                weight: indWeightMap.has(ind.id) ? indWeightMap.get(ind.id)! : ind.weight,
+              })),
+            })),
+          }));
+        } else {
+          // Use equal distribution as default for unconfigured years
+          initialYearWeights[yr] = weightedObjectives.map((obj) => ({ ...obj }));
+        }
+      }
+
+      setYearWeights(initialYearWeights);
     } catch (error: any) {
       console.error('Error fetching data:', error);
       toast.error(error.message || 'Error al cargar datos');
@@ -568,6 +620,82 @@ const ExpectationsEditor: React.FC = () => {
     }
   };
 
+  // Save per-year weights for the currently selected year
+  const handleSaveYearWeights = async () => {
+    if (!template) return;
+    const currentYearObjs = yearWeights[selectedWeightYear] || [];
+
+    // Validate
+    if (currentYearObjs.length > 1) {
+      const s = weightSum(currentYearObjs);
+      if (Math.abs(s - 100) > 0.5) {
+        toast.error(`Los pesos de los procesos del Año ${selectedWeightYear} deben sumar 100% (actual: ${s}%)`);
+        return;
+      }
+    }
+    for (const obj of currentYearObjs) {
+      if (obj.modules.length > 1) {
+        const s = weightSum(obj.modules);
+        if (Math.abs(s - 100) > 0.5) {
+          toast.error(`Los pesos de las prácticas de "${obj.name}" (Año ${selectedWeightYear}) deben sumar 100% (actual: ${s}%)`);
+          return;
+        }
+      }
+      for (const mod of obj.modules) {
+        if (mod.indicators.length > 1) {
+          const s = weightSum(mod.indicators);
+          if (Math.abs(s - 100) > 0.5) {
+            toast.error(`Los pesos de los indicadores de "${mod.name}" (Año ${selectedWeightYear}) deben sumar 100% (actual: ${s}%)`);
+            return;
+          }
+        }
+      }
+    }
+
+    setIsSavingWeights(true);
+    try {
+      const yearWeightsPayload = [{
+        year: selectedWeightYear,
+        objectives: currentYearObjs.map(o => ({ id: o.id, weight: o.weight })),
+        modules: currentYearObjs.flatMap(o => o.modules.map(m => ({ id: m.id, weight: m.weight }))),
+        indicators: currentYearObjs.flatMap(o => o.modules.flatMap(m => m.indicators.map(i => ({ id: i.id, weight: i.weight })))),
+      }];
+
+      const response = await fetch(`/api/admin/assessment-builder/templates/${template.id}/expectations`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ yearWeights: yearWeightsPayload }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Error al guardar pesos por año');
+      }
+
+      setWeightsDirtyByYear(prev => ({ ...prev, [selectedWeightYear]: false }));
+      toast.success(`Pesos del Año ${selectedWeightYear} guardados`);
+    } catch (error: any) {
+      console.error('Error saving year weights:', error);
+      toast.error(error.message || 'Error al guardar pesos por año');
+    } finally {
+      setIsSavingWeights(false);
+    }
+  };
+
+  // Copy weights from another year to the current year
+  const handleCopyFromYear = (sourceYear: number) => {
+    const sourceWeights = yearWeights[sourceYear];
+    if (!sourceWeights || sourceWeights.length === 0) return;
+
+    setYearWeights(prev => ({
+      ...prev,
+      [selectedWeightYear]: JSON.parse(JSON.stringify(sourceWeights)),
+    }));
+    setWeightsDirtyByYear(prev => ({ ...prev, [selectedWeightYear]: true }));
+    setShowCopyDropdown(false);
+    toast.success(`Pesos copiados del Año ${sourceYear} al Año ${selectedWeightYear}`);
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem('rememberMe');
@@ -597,7 +725,7 @@ const ExpectationsEditor: React.FC = () => {
             checked={value === 1}
             onChange={(e) => updateExpectation(moduleId, indicator.indicatorId, generationType, yearKey, e.target.checked ? 1 : null)}
             disabled={disabled}
-            className="h-4 w-4 text-brand_primary focus:ring-brand_accent border-gray-300 rounded disabled:opacity-50"
+            className="h-4 w-4 accent-brand_accent focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 border-gray-300 rounded disabled:opacity-50"
           />
         </td>
       );
@@ -656,7 +784,7 @@ const ExpectationsEditor: React.FC = () => {
             checked={value === 1}
             onChange={(e) => updateExpectation(moduleId, indicator.indicatorId, generationType, yearKey, e.target.checked ? 1 : null)}
             disabled={disabled}
-            className="h-4 w-4 text-brand_primary focus:ring-brand_accent border-gray-300 rounded disabled:opacity-50"
+            className="h-4 w-4 accent-brand_accent focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 border-gray-300 rounded disabled:opacity-50"
           />
         </td>
       );
@@ -671,7 +799,7 @@ const ExpectationsEditor: React.FC = () => {
             checked={value === 1}
             onChange={(e) => updateExpectation(moduleId, indicator.indicatorId, generationType, yearKey, e.target.checked ? 1 : null)}
             disabled={disabled}
-            className="h-4 w-4 text-teal-600 focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 border-gray-300 rounded disabled:opacity-50"
+            className="h-4 w-4 text-brand_accent accent-brand_accent focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 border-gray-300 rounded disabled:opacity-50"
           />
         </td>
       );
@@ -876,7 +1004,7 @@ const ExpectationsEditor: React.FC = () => {
                 {template.gradeName && <span>Nivel: {template.gradeName}</span>}
                 <span>Versión: {template.version}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs ${
-                  isDraft ? 'bg-yellow-100 text-yellow-800' : 'bg-amber-100 text-amber-800'
+                  isDraft ? 'bg-brand_accent_light text-brand_primary' : 'bg-brand_accent text-brand_primary'
                 }`}>
                   {isDraft ? 'Borrador' : 'Publicado'}
                 </span>
@@ -891,7 +1019,7 @@ const ExpectationsEditor: React.FC = () => {
                 <span className="text-gray-700">
                   Este nivel requiere <strong>expectativas duales</strong>: configure tanto
                   <span className="inline-flex items-center mx-1">
-                    <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-xs font-medium">GT</span>
+                    <span className="px-1.5 py-0.5 rounded bg-brand_accent_light text-brand_gray_dark text-xs font-medium">GT</span>
                   </span>
                   como
                   <span className="inline-flex items-center mx-1">
@@ -918,25 +1046,15 @@ const ExpectationsEditor: React.FC = () => {
                 <span className="font-semibold text-sm text-gray-700 uppercase tracking-wide">
                   Distribución de Pesos
                 </span>
-                {weightsDirty && (
-                  <span className="w-2 h-2 bg-yellow-500 rounded-full" title="Cambios sin guardar" aria-label="Cambios sin guardar" />
+                {Object.values(weightsDirtyByYear).some(Boolean) && (
+                  <span className="w-2 h-2 bg-brand_accent rounded-full" title="Cambios sin guardar" aria-label="Cambios sin guardar" />
                 )}
               </button>
               <div className="flex items-center gap-2">
-                {isDraft && isAdmin && weightsDirty && (
-                  <button
-                    type="button"
-                    onClick={() => handleSaveWeights()}
-                    disabled={isSavingWeights}
-                    className="px-3 py-1 bg-brand_primary text-white text-xs rounded-md hover:bg-brand_primary/90 disabled:opacity-50"
-                  >
-                    {isSavingWeights ? 'Guardando...' : 'Guardar pesos'}
-                  </button>
-                )}
                 <button
                   type="button"
                   onClick={() => setIsWeightDistributorOpen(prev => !prev)}
-                  className="p-1"
+                  className="p-1 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-1 rounded"
                   aria-label={isWeightDistributorOpen ? 'Cerrar distribución de pesos' : 'Abrir distribución de pesos'}
                 >
                   {isWeightDistributorOpen ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
@@ -945,177 +1063,188 @@ const ExpectationsEditor: React.FC = () => {
             </div>
 
             {isWeightDistributorOpen && (
-              <div id="weight-distributor-panel" className="p-4 space-y-4">
-                {/* Level 1: Objectives */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-medium text-gray-700">Procesos Generativos</h4>
-                    <div className="flex items-center gap-3">
-                      <span className={`text-xs font-semibold ${Math.abs(weightSum(weightObjectives) - 100) <= 0.5 ? 'text-green-600' : 'text-red-600'}`}>
-                        Total: {weightSum(weightObjectives)}%
-                      </span>
-                      {isDraft && isAdmin && weightObjectives.length > 1 && (
-                        <button
-                          onClick={() => {
-                            const percents = distributeEquitably(weightObjectives.length);
-                            setWeightObjectives(prev => prev.map((o, i) => ({ ...o, weight: percents[i] })));
-                            setWeightsDirty(true);
-                          }}
-                          className="text-xs text-brand_primary hover:underline"
-                        >
-                          Distribuir equitativamente
-                        </button>
+              <div id="year-weight-panel" role="tabpanel" aria-labelledby={`year-tab-${selectedWeightYear}`} className="p-4 space-y-4">
+                {/* Year Tab Bar */}
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-1" role="tablist" aria-label="Año de transformación">
+                    {[1, 2, 3, 4, 5].map((yr) => (
+                      <button
+                        key={yr}
+                        type="button"
+                        role="tab"
+                        id={`year-tab-${yr}`}
+                        aria-selected={selectedWeightYear === yr}
+                        aria-controls="year-weight-panel"
+                        onClick={() => setSelectedWeightYear(yr)}
+                        className={`px-3 py-1.5 text-xs font-medium rounded transition-colors relative focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2 ${
+                          selectedWeightYear === yr
+                            ? 'bg-brand_accent text-brand_primary'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        Año {yr}
+                        {weightsDirtyByYear[yr] && (
+                          <span className={`absolute -top-1 -right-1 w-2 h-2 rounded-full border border-white ${selectedWeightYear === yr ? 'bg-brand_primary' : 'bg-brand_accent'}`} title="Cambios sin guardar" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {/* Copy from year dropdown */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setShowCopyDropdown(prev => !prev)}
+                        className="px-3 py-1.5 text-xs text-gray-600 bg-gray-100 rounded hover:bg-gray-200 flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-1"
+                        disabled={!isDraft || !isAdmin}
+                      >
+                        Copiar de...
+                        <ChevronDown className="w-3 h-3" />
+                      </button>
+                      {showCopyDropdown && (
+                        <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded shadow-lg z-10 min-w-28">
+                          {[1, 2, 3, 4, 5]
+                            .filter((yr) => yr !== selectedWeightYear)
+                            .map((yr) => (
+                              <button
+                                key={yr}
+                                type="button"
+                                onClick={() => handleCopyFromYear(yr)}
+                                className="w-full px-3 py-2 text-xs text-left hover:bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-1"
+                              >
+                                Año {yr}
+                              </button>
+                            ))}
+                        </div>
                       )}
                     </div>
+                    {isDraft && isAdmin && weightsDirtyByYear[selectedWeightYear] && (
+                      <button
+                        type="button"
+                        onClick={() => handleSaveYearWeights()}
+                        disabled={isSavingWeights}
+                        className="px-3 py-1 bg-brand_primary text-white text-xs rounded-md hover:bg-brand_primary/90 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-2"
+                      >
+                        {isSavingWeights ? 'Guardando...' : `Guardar Año ${selectedWeightYear}`}
+                      </button>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    {weightObjectives.map((obj) => (
-                      <div key={obj.id} className="border border-gray-200 rounded-lg overflow-hidden">
-                        <button
-                          type="button"
-                          className="w-full flex items-center gap-3 px-3 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100 text-left"
-                          onClick={() => setExpandedWeightObjective(prev => prev === obj.id ? null : obj.id)}
-                          aria-expanded={expandedWeightObjective === obj.id}
-                        >
-                          <div className="flex-1 flex items-center gap-2">
-                            {expandedWeightObjective === obj.id ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
-                            <span className="text-sm text-gray-800">{obj.name}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="1"
-                              value={obj.weight}
-                              disabled={!isDraft || !isAdmin || weightObjectives.length === 1}
-                              onClick={(e) => e.stopPropagation()}
-                              onChange={(e) => {
-                                const val = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
-                                setWeightObjectives(prev => prev.map(o => o.id === obj.id ? { ...o, weight: val } : o));
-                                setWeightsDirty(true);
-                              }}
-                              aria-label={`Peso de ${obj.name} (%)`}
-                              className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:text-gray-500"
-                            />
-                            <span className="text-xs text-gray-500">%</span>
-                          </div>
-                        </button>
+                </div>
 
-                        {/* Level 2: Modules */}
-                        {expandedWeightObjective === obj.id && obj.modules.length > 0 && (
-                          <div className="p-3 space-y-2 border-t border-gray-100">
-                            <div className="flex items-center justify-between mb-1">
-                              <h5 className="text-xs font-medium text-gray-600 uppercase">Prácticas Generativas</h5>
-                              <div className="flex items-center gap-3">
-                                <span className={`text-xs font-semibold ${Math.abs(weightSum(obj.modules) - 100) <= 0.5 ? 'text-green-600' : 'text-red-600'}`}>
-                                  Total: {weightSum(obj.modules)}%
-                                </span>
-                                {isDraft && isAdmin && obj.modules.length > 1 && (
-                                  <button
-                                    onClick={() => {
-                                      const percents = distributeEquitably(obj.modules.length);
-                                      setWeightObjectives(prev => prev.map(o => o.id === obj.id
-                                        ? { ...o, modules: o.modules.map((m, mi) => ({ ...m, weight: percents[mi] })) }
-                                        : o
-                                      ));
-                                      setWeightsDirty(true);
+                {/* Unsaved changes bar for current year */}
+                {weightsDirtyByYear[selectedWeightYear] && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-brand_accent_light text-brand_primary border border-brand_accent rounded text-xs">
+                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>Cambios sin guardar para Año {selectedWeightYear}</span>
+                  </div>
+                )}
+
+                {/* Level 1: Objectives (for selected year) */}
+                <div>
+                  {(() => {
+                    const currentYearObjs = yearWeights[selectedWeightYear] || [];
+                    return (
+                      <>
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="text-sm font-medium text-gray-700">Procesos Generativos</h4>
+                          <div className="flex items-center gap-3">
+                            <span className={`text-xs font-semibold ${Math.abs(weightSum(currentYearObjs) - 100) <= 0.5 ? 'text-brand_accent_hover' : 'text-brand_primary font-bold'}`}>
+                              Total: {weightSum(currentYearObjs)}%
+                            </span>
+                            {isDraft && isAdmin && currentYearObjs.length > 1 && (
+                              <button
+                                onClick={() => {
+                                  const percents = distributeEquitably(currentYearObjs.length);
+                                  setYearWeights(prev => ({
+                                    ...prev,
+                                    [selectedWeightYear]: (prev[selectedWeightYear] || []).map((o, i) => ({ ...o, weight: percents[i] })),
+                                  }));
+                                  setWeightsDirtyByYear(prev => ({ ...prev, [selectedWeightYear]: true }));
+                                }}
+                                className="text-xs text-brand_primary hover:underline"
+                              >
+                                Distribuir equitativamente
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          {currentYearObjs.map((obj) => (
+                            <div key={obj.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                              <button
+                                type="button"
+                                className="w-full flex items-center gap-3 px-3 py-2 bg-gray-50 cursor-pointer hover:bg-gray-100 text-left"
+                                onClick={() => setExpandedWeightObjective(prev => prev === obj.id ? null : obj.id)}
+                                aria-expanded={expandedWeightObjective === obj.id}
+                              >
+                                <div className="flex-1 flex items-center gap-2">
+                                  {expandedWeightObjective === obj.id ? <ChevronUp className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
+                                  <span className="text-sm text-gray-800">{obj.name}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    step="1"
+                                    value={obj.weight}
+                                    disabled={!isDraft || !isAdmin || currentYearObjs.length === 1}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => {
+                                      const val = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+                                      setYearWeights(prev => ({
+                                        ...prev,
+                                        [selectedWeightYear]: (prev[selectedWeightYear] || []).map(o => o.id === obj.id ? { ...o, weight: val } : o),
+                                      }));
+                                      setWeightsDirtyByYear(prev => ({ ...prev, [selectedWeightYear]: true }));
                                     }}
-                                    className="text-xs text-brand_primary hover:underline"
-                                  >
-                                    Distribuir equitativamente
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                            {obj.modules.map((mod) => (
-                              <div key={mod.id} className="border border-gray-100 rounded overflow-hidden">
-                                <button
-                                  type="button"
-                                  className="w-full flex items-center gap-3 px-3 py-2 bg-white cursor-pointer hover:bg-gray-50 text-left"
-                                  onClick={() => setExpandedWeightModule(prev => prev === mod.id ? null : mod.id)}
-                                  aria-expanded={expandedWeightModule === mod.id}
-                                >
-                                  <div className="flex-1 flex items-center gap-2">
-                                    {expandedWeightModule === mod.id ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
-                                    <span className="text-sm text-gray-700">{mod.name}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="100"
-                                      step="1"
-                                      value={mod.weight}
-                                      disabled={!isDraft || !isAdmin || obj.modules.length === 1}
-                                      onClick={(e) => e.stopPropagation()}
-                                      onChange={(e) => {
-                                        const val = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
-                                        setWeightObjectives(prev => prev.map(o => o.id === obj.id
-                                          ? { ...o, modules: o.modules.map(m => m.id === mod.id ? { ...m, weight: val } : m) }
-                                          : o
-                                        ));
-                                        setWeightsDirty(true);
-                                      }}
-                                      aria-label={`Peso de ${mod.name} (%)`}
-                                      className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:text-gray-500"
-                                    />
-                                    <span className="text-xs text-gray-500">%</span>
-                                  </div>
-                                </button>
+                                    aria-label={`Peso de ${obj.name} (%) Año ${selectedWeightYear}`}
+                                    className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:text-gray-500"
+                                  />
+                                  <span className="text-xs text-gray-500">%</span>
+                                </div>
+                              </button>
 
-                                {/* Level 3: Indicators */}
-                                {expandedWeightModule === mod.id && mod.indicators.length > 0 && (
-                                  <div className="px-3 pb-2 border-t border-gray-100">
-                                    <div className="flex items-center justify-between my-1">
-                                      <h6 className="text-xs font-medium text-gray-500 uppercase">Indicadores</h6>
-                                      <div className="flex items-center gap-3">
-                                        <span className={`text-xs font-semibold ${Math.abs(weightSum(mod.indicators) - 100) <= 0.5 ? 'text-green-600' : 'text-red-600'}`}>
-                                          Total: {weightSum(mod.indicators)}%
-                                        </span>
-                                        {isDraft && isAdmin && mod.indicators.length > 1 && (
-                                          <button
-                                            onClick={() => {
-                                              const percents = distributeEquitably(mod.indicators.length);
-                                              setWeightObjectives(prev => prev.map(o => o.id === obj.id
-                                                ? {
-                                                    ...o, modules: o.modules.map(m => m.id === mod.id
-                                                      ? { ...m, indicators: m.indicators.map((ind, ii) => ({ ...ind, weight: percents[ii] })) }
-                                                      : m
-                                                    )
-                                                  }
+                              {/* Level 2: Modules */}
+                              {expandedWeightObjective === obj.id && obj.modules.length > 0 && (
+                                <div className="p-3 space-y-2 border-t border-gray-100">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <h5 className="text-xs font-medium text-gray-600 uppercase">Practicas Generativas</h5>
+                                    <div className="flex items-center gap-3">
+                                      <span className={`text-xs font-semibold ${Math.abs(weightSum(obj.modules) - 100) <= 0.5 ? 'text-brand_accent_hover' : 'text-brand_primary font-bold'}`}>
+                                        Total: {weightSum(obj.modules)}%
+                                      </span>
+                                      {isDraft && isAdmin && obj.modules.length > 1 && (
+                                        <button
+                                          onClick={() => {
+                                            const percents = distributeEquitably(obj.modules.length);
+                                            setYearWeights(prev => ({
+                                              ...prev,
+                                              [selectedWeightYear]: (prev[selectedWeightYear] || []).map(o => o.id === obj.id
+                                                ? { ...o, modules: o.modules.map((m, mi) => ({ ...m, weight: percents[mi] })) }
                                                 : o
-                                              ));
-                                              setWeightsDirty(true);
-                                            }}
-                                            className="text-xs text-brand_primary hover:underline"
-                                          >
-                                            Distribuir equitativamente
-                                          </button>
-                                        )}
-                                      </div>
+                                              ),
+                                            }));
+                                            setWeightsDirtyByYear(prev => ({ ...prev, [selectedWeightYear]: true }));
+                                          }}
+                                          className="text-xs text-brand_primary hover:underline"
+                                        >
+                                          Distribuir equitativamente
+                                        </button>
+                                      )}
                                     </div>
-                                    {mod.indicators.map((ind) => (
-                                      <div key={ind.id} className="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
-                                        <div className="flex-1 flex items-center gap-2 min-w-0">
-                                          {/* R3: Category badge */}
-                                          <span className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium ${
-                                            ind.category === 'cobertura'
-                                              ? 'bg-gray-100 text-brand_gray_dark'
-                                              : ind.category === 'frecuencia'
-                                              ? 'bg-amber-100 text-amber-700'
-                                              : ind.category === 'traspaso'
-                                              ? 'bg-purple-100 text-purple-700'
-                                              : ind.category === 'detalle'
-                                              ? 'bg-teal-100 text-teal-700'
-                                              : 'bg-brand_primary text-white'
-                                          }`}>
-                                            {ind.category === 'cobertura' ? 'Cob' :
-                                             ind.category === 'frecuencia' ? 'Frec' :
-                                             ind.category === 'traspaso' ? 'Tras' :
-                                             ind.category === 'detalle' ? 'Det' : 'Prof'}
-                                          </span>
-                                          <span className="text-sm text-gray-700 truncate">{ind.name}</span>
+                                  </div>
+                                  {obj.modules.map((mod) => (
+                                    <div key={mod.id} className="border border-gray-100 rounded overflow-hidden">
+                                      <button
+                                        type="button"
+                                        className="w-full flex items-center gap-3 px-3 py-2 bg-white cursor-pointer hover:bg-gray-50 text-left"
+                                        onClick={() => setExpandedWeightModule(prev => prev === mod.id ? null : mod.id)}
+                                        aria-expanded={expandedWeightModule === mod.id}
+                                      >
+                                        <div className="flex-1 flex items-center gap-2">
+                                          {expandedWeightModule === mod.id ? <ChevronUp className="w-3 h-3 text-gray-400" /> : <ChevronDown className="w-3 h-3 text-gray-400" />}
+                                          <span className="text-sm text-gray-700">{mod.name}</span>
                                         </div>
                                         <div className="flex items-center gap-1">
                                           <input
@@ -1123,37 +1252,145 @@ const ExpectationsEditor: React.FC = () => {
                                             min="0"
                                             max="100"
                                             step="1"
-                                            value={ind.weight}
-                                            disabled={!isDraft || !isAdmin || mod.indicators.length === 1}
+                                            value={mod.weight}
+                                            disabled={!isDraft || !isAdmin || obj.modules.length === 1}
+                                            onClick={(e) => e.stopPropagation()}
                                             onChange={(e) => {
                                               const val = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
-                                              setWeightObjectives(prev => prev.map(o => o.id === obj.id
-                                                ? {
-                                                    ...o, modules: o.modules.map(m => m.id === mod.id
-                                                      ? { ...m, indicators: m.indicators.map(i => i.id === ind.id ? { ...i, weight: val } : i) }
-                                                      : m
-                                                    )
-                                                  }
-                                                : o
-                                              ));
-                                              setWeightsDirty(true);
+                                              setYearWeights(prev => ({
+                                                ...prev,
+                                                [selectedWeightYear]: (prev[selectedWeightYear] || []).map(o => o.id === obj.id
+                                                  ? { ...o, modules: o.modules.map(m => m.id === mod.id ? { ...m, weight: val } : m) }
+                                                  : o
+                                                ),
+                                              }));
+                                              setWeightsDirtyByYear(prev => ({ ...prev, [selectedWeightYear]: true }));
                                             }}
-                                            aria-label={`Peso de ${ind.name} (%)`}
+                                            aria-label={`Peso de ${mod.name} (%) Año ${selectedWeightYear}`}
                                             className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:text-gray-500"
                                           />
                                           <span className="text-xs text-gray-500">%</span>
                                         </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                                      </button>
+
+                                      {/* Level 3: Indicators */}
+                                      {expandedWeightModule === mod.id && mod.indicators.length > 0 && (
+                                        <div className="px-3 pb-2 border-t border-gray-100">
+                                          <div className="flex items-center justify-between my-1">
+                                            <h6 className="text-xs font-medium text-gray-500 uppercase">Indicadores</h6>
+                                            <div className="flex items-center gap-3">
+                                              <span className={`text-xs font-semibold ${Math.abs(weightSum(mod.indicators) - 100) <= 0.5 ? 'text-brand_accent_hover' : 'text-brand_primary font-bold'}`}>
+                                                Total: {weightSum(mod.indicators)}%
+                                              </span>
+                                              {isDraft && isAdmin && mod.indicators.length > 1 && (
+                                                <button
+                                                  onClick={() => {
+                                                    const percents = distributeEquitably(mod.indicators.length);
+                                                    setYearWeights(prev => ({
+                                                      ...prev,
+                                                      [selectedWeightYear]: (prev[selectedWeightYear] || []).map(o => o.id === obj.id
+                                                        ? {
+                                                            ...o, modules: o.modules.map(m => m.id === mod.id
+                                                              ? { ...m, indicators: m.indicators.map((ind, ii) => ({ ...ind, weight: percents[ii] })) }
+                                                              : m
+                                                            )
+                                                          }
+                                                        : o
+                                                      ),
+                                                    }));
+                                                    setWeightsDirtyByYear(prev => ({ ...prev, [selectedWeightYear]: true }));
+                                                  }}
+                                                  className="text-xs text-brand_primary hover:underline"
+                                                >
+                                                  Distribuir equitativamente
+                                                </button>
+                                              )}
+                                            </div>
+                                          </div>
+                                          {mod.indicators.map((ind) => {
+                                            // Check if this indicator has an expectation for selected year
+                                            const hasExpectation = moduleExpectations.some(m =>
+                                              m.indicators.some(i => {
+                                                if (i.indicatorId !== ind.id) return false;
+                                                const yearKey = `year${selectedWeightYear}` as 'year1' | 'year2' | 'year3' | 'year4' | 'year5';
+                                                return i.expectationsGT[yearKey] !== null;
+                                              })
+                                            );
+                                            const isInactive = !hasExpectation;
+
+                                            return (
+                                              <div
+                                                key={ind.id}
+                                                className={`flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0 ${isInactive ? 'opacity-50' : ''}`}
+                                                title={isInactive ? `Sin expectativa para Año ${selectedWeightYear} — no participará en la evaluación` : undefined}
+                                              >
+                                                <div className="flex-1 flex items-center gap-2 min-w-0">
+                                                  {/* Brand-compliant category badge */}
+                                                  <span className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                                                    ind.category === 'cobertura'
+                                                      ? 'bg-brand_accent text-brand_primary'
+                                                      : ind.category === 'frecuencia'
+                                                      ? 'bg-brand_accent_light text-brand_gray_dark'
+                                                      : ind.category === 'traspaso'
+                                                      ? 'bg-gray-200 text-brand_gray_dark'
+                                                      : ind.category === 'detalle'
+                                                      ? 'bg-gray-100 text-brand_gray_medium border border-gray-300'
+                                                      : 'bg-brand_primary text-white'
+                                                  }`}>
+                                                    {ind.category === 'cobertura' ? 'Cob' :
+                                                     ind.category === 'frecuencia' ? 'Frec' :
+                                                     ind.category === 'traspaso' ? 'Tras' :
+                                                     ind.category === 'detalle' ? 'Det' : 'Prof'}
+                                                  </span>
+                                                  <span className="text-sm text-gray-700 truncate">{ind.name}</span>
+                                                  {isInactive && (
+                                                    <span className="text-xs text-gray-400 italic flex-shrink-0">(sin expectativa)</span>
+                                                  )}
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                  <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="100"
+                                                    step="1"
+                                                    value={ind.weight}
+                                                    disabled={!isDraft || !isAdmin || mod.indicators.length === 1}
+                                                    onChange={(e) => {
+                                                      const val = Math.max(0, Math.min(100, parseInt(e.target.value) || 0));
+                                                      setYearWeights(prev => ({
+                                                        ...prev,
+                                                        [selectedWeightYear]: (prev[selectedWeightYear] || []).map(o => o.id === obj.id
+                                                          ? {
+                                                              ...o, modules: o.modules.map(m => m.id === mod.id
+                                                                ? { ...m, indicators: m.indicators.map(i => i.id === ind.id ? { ...i, weight: val } : i) }
+                                                                : m
+                                                              )
+                                                            }
+                                                          : o
+                                                        ),
+                                                      }));
+                                                      setWeightsDirtyByYear(prev => ({ ...prev, [selectedWeightYear]: true }));
+                                                    }}
+                                                    aria-label={`Peso de ${ind.name} (%) Año ${selectedWeightYear}`}
+                                                    className="w-16 px-2 py-1 text-sm text-center border border-gray-300 rounded focus:ring-1 focus:ring-brand_primary disabled:bg-gray-100 disabled:text-gray-500"
+                                                  />
+                                                  <span className="text-xs text-gray-500">%</span>
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             )}
@@ -1223,12 +1460,12 @@ const ExpectationsEditor: React.FC = () => {
                         const gtRow = (
                           <tr
                             key={`${indicator.indicatorId}-GT`}
-                            className={`hover:bg-gray-50 ${indicator.isDirtyGT ? 'bg-yellow-50' : ''}`}
+                            className={`hover:bg-gray-50 ${indicator.isDirtyGT ? 'bg-brand_accent_light/30' : ''}`}
                           >
                             <td className={`px-4 py-3 border-r border-gray-200 ${requiresDual ? 'border-b-0' : ''}`} rowSpan={requiresDual ? 2 : 1}>
                               <div className="flex items-center gap-2">
                                 {hasDirtyRows && (
-                                  <span className="w-2 h-2 bg-yellow-500 rounded-full flex-shrink-0" title="Cambios sin guardar" />
+                                  <span className="w-2 h-2 bg-brand_accent rounded-full flex-shrink-0" title="Cambios sin guardar" />
                                 )}
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-1 text-sm font-medium text-gray-900">
@@ -1250,7 +1487,7 @@ const ExpectationsEditor: React.FC = () => {
                                     )}
                                   </div>
                                   {expandedDescriptors === indicator.indicatorId && indicator.levelDescriptors && (
-                                    <div className="mt-2 text-xs bg-blue-50 p-2 rounded space-y-1">
+                                    <div className="mt-2 text-xs bg-gray-50 border-l-4 border-brand_accent p-2 rounded space-y-1">
                                       {(['level0', 'level1', 'level2', 'level3', 'level4'] as const).map((key, level) => {
                                         const desc = indicator.levelDescriptors?.[key];
                                         return desc ? (
@@ -1267,19 +1504,19 @@ const ExpectationsEditor: React.FC = () => {
                             </td>
                             <td className="px-2 py-2 text-center border-r border-gray-200">
                               {requiresDual ? (
-                                <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                                <span className="text-xs px-2 py-0.5 rounded-full bg-brand_accent_light text-brand_gray_dark font-medium">
                                   GT
                                 </span>
                               ) : (
                                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                                   indicator.indicatorCategory === 'cobertura'
-                                    ? 'bg-gray-100 text-brand_gray_dark'
+                                    ? 'bg-brand_accent text-brand_primary'
                                     : indicator.indicatorCategory === 'frecuencia'
-                                    ? 'bg-amber-100 text-amber-700'
+                                    ? 'bg-brand_accent_light text-brand_gray_dark'
                                     : indicator.indicatorCategory === 'traspaso'
-                                    ? 'bg-purple-100 text-purple-700'
+                                    ? 'bg-gray-200 text-brand_gray_dark'
                                     : indicator.indicatorCategory === 'detalle'
-                                    ? 'bg-teal-100 text-teal-700'
+                                    ? 'bg-gray-100 text-brand_gray_medium border border-gray-300'
                                     : 'bg-brand_primary text-white'
                                 }`}>
                                   {indicator.indicatorCategory === 'cobertura' ? 'Cob' :
@@ -1379,12 +1616,12 @@ const ExpectationsEditor: React.FC = () => {
                 <p className="text-xs text-gray-500 uppercase font-medium mb-2">Tipos de generación:</p>
                 <div className="flex flex-wrap gap-4 text-sm">
                   <div className="flex items-center gap-2">
-                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">GT</span>
-                    <span className="text-gray-600">Generación Tractor (expectativas más altas)</span>
+                    <span className="px-2 py-0.5 rounded-full bg-brand_accent_light text-brand_gray_dark text-xs font-medium">GT</span>
+                    <span className="text-gray-600">Generacion Tractor (expectativas mas altas)</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded-full bg-brand_light text-brand_primary text-xs font-medium">GI</span>
-                    <span className="text-gray-600">Generación Innova (expectativas adaptadas)</span>
+                    <span className="text-gray-600">Generacion Innova (expectativas adaptadas)</span>
                   </div>
                 </div>
               </div>
@@ -1393,24 +1630,24 @@ const ExpectationsEditor: React.FC = () => {
             <p className="text-xs text-gray-500 uppercase font-medium mb-2">Tipos de indicador:</p>
             <div className="flex flex-wrap gap-4 text-sm">
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-gray-100 text-brand_gray_dark text-xs font-medium">Cob</span>
-                <span className="text-gray-600">Cobertura (Sí/No implementado)</span>
+                <span className="px-2 py-0.5 rounded-full bg-brand_accent text-brand_primary text-xs font-medium">Cob</span>
+                <span className="text-gray-600">Cobertura (Si/No implementado)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">Frec</span>
-                <span className="text-gray-600">Frecuencia (mínimo esperado por período)</span>
+                <span className="px-2 py-0.5 rounded-full bg-brand_accent_light text-brand_gray_dark text-xs font-medium">Frec</span>
+                <span className="text-gray-600">Frecuencia (minimo esperado por periodo)</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="px-2 py-0.5 rounded-full bg-brand_primary text-white text-xs font-medium">Prof</span>
                 <span className="text-gray-600">Profundidad (niveles 0-4)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-medium">Tras</span>
-                <span className="text-gray-600">Traspaso (¿Se espera evidencia y mejoras ese año?)</span>
+                <span className="px-2 py-0.5 rounded-full bg-gray-200 text-brand_gray_dark text-xs font-medium">Tras</span>
+                <span className="text-gray-600">Traspaso (Se espera evidencia y mejoras ese ano)</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 text-xs font-medium">Det</span>
-                <span className="text-gray-600">Detalle (¿Se espera que el evaluador complete la selección múltiple ese año?)</span>
+                <span className="px-2 py-0.5 rounded-full bg-gray-100 text-brand_gray_medium border border-gray-300 text-xs font-medium">Det</span>
+                <span className="text-gray-600">Detalle (Se espera que el evaluador complete la seleccion multiple ese ano)</span>
               </div>
             </div>
             <div className="mt-3 pt-3 border-t border-gray-200">
@@ -1425,13 +1662,13 @@ const ExpectationsEditor: React.FC = () => {
 
       {/* Unsaved changes warning (admin only) */}
       {hasChanges && isAdmin && (
-        <div className="fixed bottom-4 right-4 bg-yellow-100 border border-yellow-300 rounded-lg shadow-lg p-4 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-yellow-600" />
-          <span className="text-sm text-yellow-800">Hay cambios sin guardar</span>
+        <div className="fixed bottom-4 right-4 bg-brand_accent_light border border-brand_accent rounded-lg shadow-lg p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-brand_primary" />
+          <span className="text-sm text-brand_primary">Hay cambios sin guardar</span>
           <button
             onClick={handleSaveAll}
             disabled={isSaving}
-            className="px-3 py-1 bg-yellow-600 text-white rounded text-sm font-medium hover:bg-yellow-700 disabled:opacity-50"
+            className="px-3 py-1 bg-brand_primary text-white rounded text-sm font-medium hover:bg-brand_primary/90 disabled:opacity-50"
           >
             {isSaving ? 'Guardando...' : 'Guardar'}
           </button>

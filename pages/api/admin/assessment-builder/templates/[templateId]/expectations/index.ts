@@ -3,6 +3,58 @@ import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllo
 import type { GenerationType } from '@/types/assessment-builder';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 
+// ============================================================
+// Weight validation helper (shared between `weights` and `yearWeights`)
+// ============================================================
+
+/**
+ * Validate that a flat list of items sums to 100 (±0.5) and that all DB
+ * entities in the group are included (no partial payloads).
+ *
+ * @param submitted  Items submitted by the client (id + weight)
+ * @param dbItems    All items that exist in the DB for the same parent group
+ * @param groupLabel Human-readable label for error messages (e.g. "módulo xyz")
+ * @returns { error } if validation fails, { error: undefined } on success
+ */
+function validateWeightGroup(
+  submitted: Array<{ id: string; weight: number }>,
+  dbItems: Array<{ id: string }>,
+  groupLabel: string
+): { error?: string } {
+  if (submitted.length === 0) return {};
+
+  const submittedIds = new Set(submitted.map((i) => i.id));
+  const dbIds = dbItems.map((i) => i.id);
+
+  // Require ALL entities when there is more than one
+  if (dbIds.length > 1) {
+    const missing = dbIds.filter((id) => !submittedIds.has(id));
+    if (missing.length > 0) {
+      return { error: `Debe incluir pesos para todos los elementos de ${groupLabel}` };
+    }
+  }
+
+  // Validate individual weight values
+  for (const item of submitted) {
+    const w = Number(item.weight);
+    if (isNaN(w) || w < 0) {
+      return { error: `Peso inválido para ${item.id} en ${groupLabel}` };
+    }
+  }
+
+  // Sum-to-100 check (only meaningful when > 1 entity)
+  if (submitted.length > 1) {
+    const sum = submitted.reduce((s, i) => s + Number(i.weight), 0);
+    if (Math.abs(sum - 100) > 0.5) {
+      return {
+        error: `Los pesos de ${groupLabel} deben sumar 100% (suma actual: ${sum.toFixed(1)}%)`,
+      };
+    }
+  }
+
+  return {};
+}
+
 /**
  * GET /api/admin/assessment-builder/templates/[templateId]/expectations
  * Returns all year expectations for indicators in a template, grouped by module
@@ -233,6 +285,38 @@ async function handleGet(
       })),
     }));
 
+    // Fetch per-year weights for this template
+    // Only return years that have been explicitly configured (no auto-defaults)
+    const { data: yearWeightRows, error: yearWeightsError } = await supabase
+      .from('assessment_entity_year_weights')
+      .select('entity_type, entity_id, year, weight')
+      .eq('template_id', templateId);
+
+    if (yearWeightsError) {
+      console.error('Error fetching year weights:', yearWeightsError);
+      // Non-fatal: return without year weights
+    }
+
+    // Group by year
+    const yearWeights: Record<number, {
+      objectives: Array<{ id: string; weight: number }>;
+      modules: Array<{ id: string; weight: number }>;
+      indicators: Array<{ id: string; weight: number }>;
+    }> = {};
+
+    if (yearWeightRows && yearWeightRows.length > 0) {
+      for (const row of yearWeightRows) {
+        const yr = row.year as number;
+        if (!yearWeights[yr]) {
+          yearWeights[yr] = { objectives: [], modules: [], indicators: [] };
+        }
+        const entry = { id: row.entity_id as string, weight: Number(row.weight) };
+        if (row.entity_type === 'objective') yearWeights[yr].objectives.push(entry);
+        else if (row.entity_type === 'module') yearWeights[yr].modules.push(entry);
+        else if (row.entity_type === 'indicator') yearWeights[yr].indicators.push(entry);
+      }
+    }
+
     return res.status(200).json({
       success: true,
       template: {
@@ -254,6 +338,8 @@ async function handleGet(
           ? Math.round((indicatorsWithCompleteExpectations / totalIndicators) * 100)
           : 0,
       },
+      // Only include if at least one year has been configured
+      yearWeights: Object.keys(yearWeights).length > 0 ? yearWeights : undefined,
     });
   } catch (err: any) {
     console.error('Unexpected error fetching expectations:', err);
@@ -269,7 +355,7 @@ async function handlePut(
   userId: string
 ) {
   try {
-    const { expectations, weights } = req.body as {
+    const { expectations, weights, yearWeights } = req.body as {
       expectations?: Array<{
         indicatorId: string;
         generationType: GenerationType; // 'GT' or 'GI'
@@ -290,10 +376,16 @@ async function handlePut(
         modules?: Array<{ id: string; weight: number }>;
         indicators?: Array<{ id: string; weight: number }>;
       };
+      yearWeights?: Array<{
+        year: number; // 1-5
+        objectives?: Array<{ id: string; weight: number }>;
+        modules?: Array<{ id: string; weight: number }>;
+        indicators?: Array<{ id: string; weight: number }>;
+      }>;
     };
 
-    if (!expectations && !weights) {
-      return res.status(400).json({ error: 'Se requiere expectations o weights' });
+    if (!expectations && !weights && !yearWeights) {
+      return res.status(400).json({ error: 'Se requiere expectations, weights o yearWeights' });
     }
 
     if (expectations !== undefined && !Array.isArray(expectations)) {
@@ -510,12 +602,157 @@ async function handlePut(
       }
     }
 
+    // ---- Handle per-year weight updates ----
+    let yearWeightsSaved = 0;
+    if (yearWeights && Array.isArray(yearWeights) && yearWeights.length > 0) {
+      // Re-fetch DB groups if not already fetched (may have been fetched above for weights)
+      const { data: dbObjectivesForYear } = await supabase
+        .from('assessment_objectives')
+        .select('id')
+        .eq('template_id', templateId);
+
+      const { data: dbModulesForYear } = await supabase
+        .from('assessment_modules')
+        .select('id, objective_id')
+        .eq('template_id', templateId);
+
+      const moduleIdsForYear = (dbModulesForYear || []).map((m: { id: string }) => m.id);
+      const { data: dbIndicatorsForYear } = await supabase
+        .from('assessment_indicators')
+        .select('id, module_id')
+        .in('module_id', moduleIdsForYear.length > 0 ? moduleIdsForYear : ['__none__']);
+
+      const validObjectiveIds = new Set((dbObjectivesForYear || []).map((o: { id: string }) => o.id));
+      const validModuleIds = new Set((dbModulesForYear || []).map((m: { id: string }) => m.id));
+      const validIndicatorIds2 = new Set((dbIndicatorsForYear || []).map((i: { id: string }) => i.id));
+
+      const upsertRowsForYear: Array<{
+        template_id: string;
+        entity_type: string;
+        entity_id: string;
+        year: number;
+        weight: number;
+      }> = [];
+
+      for (const yw of yearWeights) {
+        // Validate year value
+        const yearNum = Number(yw.year);
+        if (!Number.isInteger(yearNum) || yearNum < 1 || yearNum > 5) {
+          return res.status(400).json({ error: `Año inválido: ${yw.year}. Debe ser entre 1 y 5` });
+        }
+
+        // Validate and collect objective weights
+        if (yw.objectives && yw.objectives.length > 0) {
+          // Validate ownership
+          for (const obj of yw.objectives) {
+            if (!validObjectiveIds.has(obj.id)) {
+              return res.status(400).json({ error: `Objetivo ${obj.id} no pertenece a este template` });
+            }
+          }
+          const validResult = validateWeightGroup(
+            yw.objectives,
+            (dbObjectivesForYear || []),
+            `los procesos del año ${yearNum}`
+          );
+          if (validResult.error) return res.status(400).json({ error: validResult.error });
+          for (const obj of yw.objectives) {
+            upsertRowsForYear.push({
+              template_id: templateId,
+              entity_type: 'objective',
+              entity_id: obj.id,
+              year: yearNum,
+              weight: Number(obj.weight),
+            });
+          }
+        }
+
+        // Validate and collect module weights (group by objective for completeness check)
+        if (yw.modules && yw.modules.length > 0) {
+          for (const mod of yw.modules) {
+            if (!validModuleIds.has(mod.id)) {
+              return res.status(400).json({ error: `Módulo ${mod.id} no pertenece a este template` });
+            }
+          }
+          const modulesByObjective = new Map<string, Array<{ id: string; weight: number }>>();
+          for (const mod of yw.modules) {
+            const dbMod = (dbModulesForYear || []).find((m: { id: string; objective_id: string }) => m.id === mod.id);
+            const objId = dbMod?.objective_id || '__none__';
+            if (!modulesByObjective.has(objId)) modulesByObjective.set(objId, []);
+            modulesByObjective.get(objId)!.push(mod);
+          }
+          for (const [objId, mods] of modulesByObjective.entries()) {
+            const allModsInObj = (dbModulesForYear || []).filter(
+              (m: { objective_id: string }) => m.objective_id === objId
+            );
+            const validResult = validateWeightGroup(mods, allModsInObj, `las prácticas del proceso ${objId} (año ${yearNum})`);
+            if (validResult.error) return res.status(400).json({ error: validResult.error });
+          }
+          for (const mod of yw.modules) {
+            upsertRowsForYear.push({
+              template_id: templateId,
+              entity_type: 'module',
+              entity_id: mod.id,
+              year: yearNum,
+              weight: Number(mod.weight),
+            });
+          }
+        }
+
+        // Validate and collect indicator weights (group by module for completeness check)
+        if (yw.indicators && yw.indicators.length > 0) {
+          for (const ind of yw.indicators) {
+            if (!validIndicatorIds2.has(ind.id)) {
+              return res.status(400).json({ error: `Indicador ${ind.id} no pertenece a este template` });
+            }
+          }
+          const indicatorsByModule = new Map<string, Array<{ id: string; weight: number }>>();
+          for (const ind of yw.indicators) {
+            const dbInd = (dbIndicatorsForYear || []).find((i: { id: string; module_id: string }) => i.id === ind.id);
+            const modId = dbInd?.module_id || '__none__';
+            if (!indicatorsByModule.has(modId)) indicatorsByModule.set(modId, []);
+            indicatorsByModule.get(modId)!.push(ind);
+          }
+          for (const [modId, inds] of indicatorsByModule.entries()) {
+            const allIndsInMod = (dbIndicatorsForYear || []).filter(
+              (i: { module_id: string }) => i.module_id === modId
+            );
+            const validResult = validateWeightGroup(inds, allIndsInMod, `los indicadores del módulo ${modId} (año ${yearNum})`);
+            if (validResult.error) return res.status(400).json({ error: validResult.error });
+          }
+          for (const ind of yw.indicators) {
+            upsertRowsForYear.push({
+              template_id: templateId,
+              entity_type: 'indicator',
+              entity_id: ind.id,
+              year: yearNum,
+              weight: Number(ind.weight),
+            });
+          }
+        }
+      }
+
+      if (upsertRowsForYear.length > 0) {
+        const { error: upsertError } = await supabase
+          .from('assessment_entity_year_weights')
+          .upsert(upsertRowsForYear, {
+            onConflict: 'template_id,entity_type,entity_id,year',
+            ignoreDuplicates: false,
+          });
+        if (upsertError) {
+          console.error('Error upserting year weights:', upsertError);
+          return res.status(500).json({ error: `Error al guardar pesos por año: ${upsertError.message}` });
+        }
+        yearWeightsSaved = upsertRowsForYear.length;
+      }
+    }
+
     // ---- Handle expectations updates ----
     if (!expectations || expectations.length === 0) {
       return res.status(200).json({
         success: true,
-        message: `${weightsSaved} pesos guardados`,
+        message: `${weightsSaved} pesos guardados, ${yearWeightsSaved} pesos por año guardados`,
         weightsSaved,
+        yearWeightsSaved,
       });
     }
 
@@ -636,6 +873,7 @@ async function handlePut(
       message: `${savedExpectations?.length || 0} expectativas guardadas`,
       saved: savedExpectations?.length || 0,
       weightsSaved,
+      yearWeightsSaved,
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (err: any) {

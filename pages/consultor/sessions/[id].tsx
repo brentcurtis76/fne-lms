@@ -55,6 +55,7 @@ const SessionDetailPage: React.FC = () => {
 
   // Auth state
   const [user, setUser] = useState<User | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [isConsultorOrAdmin, setIsConsultorOrAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -111,8 +112,9 @@ const SessionDetailPage: React.FC = () => {
       }
       setUser(session.user);
 
-      const userRole = await getUserPrimaryRole(session.user.id);
-      const allowed = userRole === 'consultor' || userRole === 'admin'; // Only consultor/admin can access session detail page
+      const role = await getUserPrimaryRole(session.user.id);
+      setUserRole(role);
+      const allowed = role === 'consultor' || role === 'admin' || role === 'lider_comunidad';
       setIsConsultorOrAdmin(allowed);
 
       if (!allowed) {
@@ -562,6 +564,9 @@ const SessionDetailPage: React.FC = () => {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
+  // Admins can edit even if not facilitator; lider_comunidad is always read-only
+  const canEdit = isFacilitator || userRole === 'admin';
+
   const renderTabContent = () => {
     if (!session) return null;
 
@@ -611,7 +616,7 @@ const SessionDetailPage: React.FC = () => {
                 <h3 className="text-lg font-semibold text-gray-900">
                   Asistencia ({session.attendees.length})
                 </h3>
-                {!isReadOnly && isFacilitator && (
+                {!isReadOnly && canEdit && (
                   <div className="flex flex-col sm:flex-row gap-2">
                     <button
                       onClick={handleMarkAllPresent}
@@ -684,7 +689,7 @@ const SessionDetailPage: React.FC = () => {
                             )}
                           </td>
                           <td className="px-4 py-2 text-center">
-                            {isReadOnly || !isFacilitator ? (
+                            {isReadOnly || !canEdit ? (
                               attendee.attended === true ? (
                                 <Check className="w-4 h-4 text-green-600 mx-auto" />
                               ) : attendee.attended === false ? (
@@ -704,7 +709,7 @@ const SessionDetailPage: React.FC = () => {
                             )}
                           </td>
                           <td className="px-4 py-2">
-                            {isReadOnly || !isFacilitator ? (
+                            {isReadOnly || !canEdit ? (
                               <span className="text-sm text-gray-600 capitalize">
                                 {attendee.arrival_status?.replace(/_/g, ' ') || '—'}
                               </span>
@@ -728,7 +733,7 @@ const SessionDetailPage: React.FC = () => {
                             )}
                           </td>
                           <td className="px-4 py-2">
-                            {isReadOnly || !isFacilitator ? (
+                            {isReadOnly || !canEdit ? (
                               <span className="text-sm text-gray-600">{attendee.notes || '—'}</span>
                             ) : (
                               <input
@@ -776,7 +781,7 @@ const SessionDetailPage: React.FC = () => {
                       {/* Attended Checkbox */}
                       <div className="flex items-center gap-2 mb-3">
                         <label className="flex items-center gap-2 text-sm font-medium text-gray-700 min-h-[44px]">
-                          {isReadOnly || !isFacilitator ? (
+                          {isReadOnly || !canEdit ? (
                             attendee.attended === true ? (
                               <Check className="w-5 h-5 text-green-600" />
                             ) : attendee.attended === false ? (
@@ -801,7 +806,7 @@ const SessionDetailPage: React.FC = () => {
                       {/* Arrival Status Dropdown */}
                       <div className="mb-3">
                         <label className="block text-sm font-medium text-gray-700 mb-1">Estado de llegada</label>
-                        {isReadOnly || !isFacilitator ? (
+                        {isReadOnly || !canEdit ? (
                           <span className="text-sm text-gray-600 capitalize">
                             {attendee.arrival_status?.replace(/_/g, ' ') || '—'}
                           </span>
@@ -828,7 +833,7 @@ const SessionDetailPage: React.FC = () => {
                       {/* Notes Input */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
-                        {isReadOnly || !isFacilitator ? (
+                        {isReadOnly || !canEdit ? (
                           <span className="text-sm text-gray-600">{attendee.notes || '—'}</span>
                         ) : (
                           <input
@@ -851,7 +856,7 @@ const SessionDetailPage: React.FC = () => {
         );
 
       case 'planning':
-        if (!isFacilitator) return null;
+        if (!canEdit) return null;
         return (
           <div className="text-center py-12 text-gray-500">
             <PenLine className="w-12 h-12 mx-auto mb-3 text-gray-400" />
@@ -863,7 +868,7 @@ const SessionDetailPage: React.FC = () => {
         const materials = session.materials || [];
         return (
           <div className="space-y-4">
-            {!isReadOnly && isFacilitator && (
+            {!isReadOnly && canEdit && (
               <div className="flex justify-end">
                 <label className="px-4 py-2 bg-brand_accent hover:bg-brand_accent_hover text-white rounded cursor-pointer flex items-center gap-2">
                   <Upload className="w-4 h-4" />
@@ -926,7 +931,7 @@ const SessionDetailPage: React.FC = () => {
                                 </a>
                               )}
                               {!isReadOnly &&
-                                (material.uploaded_by === user?.id || isFacilitator) && (
+                                (material.uploaded_by === user?.id || canEdit) && (
                                   <button
                                     onClick={() => handleDeleteMaterial(material.id, material.file_name)}
                                     className="text-red-600 hover:text-red-800"
@@ -947,7 +952,7 @@ const SessionDetailPage: React.FC = () => {
         );
 
       case 'report':
-        if (!isFacilitator && !existingReport) {
+        if (!canEdit && !existingReport) {
           return (
             <div className="text-center py-12 text-gray-500">
               <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
@@ -959,7 +964,7 @@ const SessionDetailPage: React.FC = () => {
         return (
           <div className="space-y-4">
             {/* Audio uploader - show when no existing report and not read-only */}
-            {!isReadOnly && isFacilitator && !existingReport && !editingReport && session && (
+            {!isReadOnly && canEdit && !existingReport && !editingReport && session && (
               <AudioReportUploader
                 sessionId={session.id}
                 onReportCreated={handleAudioReportCreated}
@@ -967,7 +972,7 @@ const SessionDetailPage: React.FC = () => {
               />
             )}
 
-            {!isReadOnly && isFacilitator && !existingReport && !editingReport && (
+            {!isReadOnly && canEdit && !existingReport && !editingReport && (
               <button
                 onClick={() => setEditingReport(true)}
                 className="px-4 py-2 bg-brand_accent hover:bg-brand_accent_hover text-white rounded"
@@ -976,7 +981,7 @@ const SessionDetailPage: React.FC = () => {
               </button>
             )}
 
-            {!isReadOnly && isFacilitator && existingReport && !editingReport && (
+            {!isReadOnly && canEdit && existingReport && !editingReport && (
               <button
                 onClick={() => setEditingReport(true)}
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded"
@@ -985,7 +990,7 @@ const SessionDetailPage: React.FC = () => {
               </button>
             )}
 
-            {editingReport && isFacilitator && !isReadOnly ? (
+            {editingReport && canEdit && !isReadOnly ? (
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Contenido del informe</label>
@@ -1141,7 +1146,7 @@ const SessionDetailPage: React.FC = () => {
 
   const tabs: { id: TabId; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: 'details', label: 'Detalles', icon: ClipboardList },
-    ...(isFacilitator ? [{ id: 'planning' as TabId, label: 'Planificación', icon: PenLine }] : []),
+    ...(canEdit ? [{ id: 'planning' as TabId, label: 'Planificación', icon: PenLine }] : []),
     { id: 'materials', label: 'Materiales', icon: Paperclip },
     { id: 'report', label: 'Informe', icon: FileText },
     { id: 'communications', label: 'Comunicaciones', icon: MessageSquare },
@@ -1153,7 +1158,7 @@ const SessionDetailPage: React.FC = () => {
   return (
     <MainLayout user={user} onLogout={handleLogout}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {!isFacilitator && (
+        {!isFacilitator && userRole !== 'admin' && (
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
             <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-yellow-800">
@@ -1195,7 +1200,7 @@ const SessionDetailPage: React.FC = () => {
               )}
 
               {/* Edit Request Button */}
-              {isFacilitator && (session.status !== 'completada' && session.status !== 'cancelada') && (
+              {canEdit && (session.status !== 'completada' && session.status !== 'cancelada') && (
                 <div className="relative group">
                   <button
                     onClick={() => setShowEditRequestModal(true)}
@@ -1218,7 +1223,7 @@ const SessionDetailPage: React.FC = () => {
               )}
 
               {/* Finalize Button */}
-              {isFacilitator && session.status === 'pendiente_informe' && (
+              {canEdit && session.status === 'pendiente_informe' && (
                 <div className="relative group">
                   <button
                     onClick={() => setShowFinalizeModal(true)}

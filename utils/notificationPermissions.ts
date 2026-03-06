@@ -113,6 +113,11 @@ export const getAccessibleUrl = (
       url = url.replace(`{${key}}`, value?.toString() || '');
     });
   }
+
+  // If URL still contains unresolved placeholders, fall back to dashboard
+  if (url.includes('{')) {
+    return '/dashboard';
+  }
   
   // Special handling for feedback URLs
   if (url.startsWith('/admin/feedback')) {

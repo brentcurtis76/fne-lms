@@ -151,7 +151,8 @@ describe('Expectations PUT — weights only (DOD-21)', () => {
     expect(data.error).toContain('100%');
   });
 
-  it('rejects weight for detalle/traspaso indicators (DOD-21)', async () => {
+  it('accepts weight for detalle/traspaso indicators (R4 — DOD-4)', async () => {
+    // R4: detalle and traspaso indicators may now participate in weight distribution.
     const detalleInd = { id: 'det-ind-1', weight: 1, module_id: MODULE_A, category: 'detalle' };
     mockCreateApiSupabaseClient.mockResolvedValue(
       buildWeightsClient({ indicators: [detalleInd] })
@@ -167,9 +168,43 @@ describe('Expectations PUT — weights only (DOD-21)', () => {
       },
     });
     await expectationsHandler(req as any, res as any);
-    expect(res._getStatusCode()).toBe(400);
+    // Should now return 200 (not 400) — detalle/traspaso rejection removed
+    expect(res._getStatusCode()).toBe(200);
     const data = JSON.parse(res._getData());
-    expect(data.error).toContain('detalle');
+    expect(data.success).toBe(true);
+  });
+
+  it('accepts weights for all 5 categories summing to 100% (T2 — DOD-5)', async () => {
+    const allCategoryInds = [
+      { id: 'cob-1', weight: 1, module_id: MODULE_A, category: 'cobertura' },
+      { id: 'frec-1', weight: 1, module_id: MODULE_A, category: 'frecuencia' },
+      { id: 'prof-1', weight: 1, module_id: MODULE_A, category: 'profundidad' },
+      { id: 'tras-1', weight: 1, module_id: MODULE_A, category: 'traspaso' },
+      { id: 'det-1', weight: 1, module_id: MODULE_A, category: 'detalle' },
+    ];
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildWeightsClient({ indicators: allCategoryInds })
+    );
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1 },
+      body: {
+        weights: {
+          indicators: [
+            { id: 'cob-1', weight: 25 },
+            { id: 'frec-1', weight: 25 },
+            { id: 'prof-1', weight: 20 },
+            { id: 'tras-1', weight: 20 },
+            { id: 'det-1', weight: 10 },
+          ],
+        },
+      },
+    });
+    await expectationsHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(200);
+    const data = JSON.parse(res._getData());
+    expect(data.success).toBe(true);
   });
 
   it('rejects PUT with neither expectations nor weights (DOD-21)', async () => {

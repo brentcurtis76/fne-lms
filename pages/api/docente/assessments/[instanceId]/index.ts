@@ -40,7 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Get the instance with full snapshot data
+    // Get the instance with full snapshot data (R11: also fetch generation_type)
     const { data: instance, error: instanceError } = await supabaseClient
       .from('assessment_instances')
       .select(`
@@ -49,6 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         school_id,
         course_structure_id,
         transformation_year,
+        generation_type,
         status,
         context_responses,
         assigned_at,
@@ -75,6 +76,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (instanceError || !instance) {
       console.error('Error fetching instance:', instanceError);
       return res.status(404).json({ error: 'Evaluación no encontrada' });
+    }
+
+    // R11: Fetch year expectations for the instance's transformation year and generation_type
+    // to build the isActiveThisYear flag per indicator.
+    const snapshot = instance.assessment_template_snapshots as any;
+    const templateId = snapshot?.template_id;
+    const transformationYear = instance.transformation_year;
+    const generationType = (instance as any).generation_type || 'GT';
+
+    let activeExpectationsMap: Map<string, boolean> | null = null;
+
+    if (templateId && transformationYear) {
+      const yearKey = `year_${transformationYear}_expected`;
+      const { data: expData, error: expError } = await supabaseClient
+        .from('assessment_year_expectations')
+        .select('*')
+        .eq('template_id', templateId)
+        .eq('generation_type', generationType);
+
+      if (!expError && expData && expData.length > 0) {
+        activeExpectationsMap = new Map<string, boolean>();
+        for (const row of expData) {
+          // An indicator is active if it has a non-null expected value for this year
+          const expectedValue = row[yearKey];
+          activeExpectationsMap.set(row.indicator_id, expectedValue !== null && expectedValue !== undefined);
+        }
+      }
     }
 
     // Get existing responses for this instance
@@ -104,8 +132,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     });
 
-    // Extract snapshot data for easier frontend access
-    const snapshot = instance.assessment_template_snapshots as any;
+    // Extract snapshot data for easier frontend access (snapshot already defined above for template_id lookup)
     const snapshotData = snapshot?.snapshot_data || {};
 
     // Helper to count indicator progress
@@ -197,6 +224,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         weight: indicator.weight,
         subQuestions: indicator.sub_questions || [],
         expectations: indicator.expectations,
+        // R11: isActiveThisYear — true if indicator has an expectation for this year.
+        // When no expectations data exists (legacy instances), all indicators are active (true).
+        isActiveThisYear: activeExpectationsMap !== null
+          ? (activeExpectationsMap.get(indicator.id) ?? false)
+          : true,
       })),
     });
 

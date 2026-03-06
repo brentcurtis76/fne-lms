@@ -270,10 +270,8 @@ const ExpectationsEditor: React.FC = () => {
       const rawObjectives = expectationsData.objectives || [];
       const convertedObjectives: WeightObjective[] = rawObjectives.map((obj: any) => {
         const objMods: WeightModule[] = (obj.modules || []).map((mod: any) => {
-          // Filter out detalle and traspaso from weight distribution
-          const scoredInds: WeightIndicator[] = (mod.indicators || []).filter(
-            (ind: any) => ind.indicatorCategory !== 'detalle' && ind.indicatorCategory !== 'traspaso'
-          ).map((ind: any) => ({
+          // R1: Include ALL indicator categories (including detalle and traspaso) in weight distribution
+          const scoredInds: WeightIndicator[] = (mod.indicators || []).map((ind: any) => ({
             id: ind.indicatorId,
             name: ind.indicatorName,
             category: ind.indicatorCategory,
@@ -915,6 +913,7 @@ const ExpectationsEditor: React.FC = () => {
                 onClick={() => setIsWeightDistributorOpen(prev => !prev)}
                 className="flex items-center gap-2 flex-1 text-left"
                 aria-expanded={isWeightDistributorOpen}
+                aria-controls="weight-distributor-panel"
               >
                 <span className="font-semibold text-sm text-gray-700 uppercase tracking-wide">
                   Distribución de Pesos
@@ -946,7 +945,7 @@ const ExpectationsEditor: React.FC = () => {
             </div>
 
             {isWeightDistributorOpen && (
-              <div className="p-4 space-y-4">
+              <div id="weight-distributor-panel" className="p-4 space-y-4">
                 {/* Level 1: Objectives */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
@@ -1069,7 +1068,7 @@ const ExpectationsEditor: React.FC = () => {
                                 {expandedWeightModule === mod.id && mod.indicators.length > 0 && (
                                   <div className="px-3 pb-2 border-t border-gray-100">
                                     <div className="flex items-center justify-between my-1">
-                                      <h6 className="text-xs font-medium text-gray-500 uppercase">Indicadores (excluye detalle y traspaso)</h6>
+                                      <h6 className="text-xs font-medium text-gray-500 uppercase">Indicadores</h6>
                                       <div className="flex items-center gap-3">
                                         <span className={`text-xs font-semibold ${Math.abs(weightSum(mod.indicators) - 100) <= 0.5 ? 'text-green-600' : 'text-red-600'}`}>
                                           Total: {weightSum(mod.indicators)}%
@@ -1098,7 +1097,26 @@ const ExpectationsEditor: React.FC = () => {
                                     </div>
                                     {mod.indicators.map((ind) => (
                                       <div key={ind.id} className="flex items-center gap-3 py-1.5 border-b border-gray-50 last:border-0">
-                                        <span className="flex-1 text-sm text-gray-700">{ind.name}</span>
+                                        <div className="flex-1 flex items-center gap-2 min-w-0">
+                                          {/* R3: Category badge */}
+                                          <span className={`flex-shrink-0 text-xs px-1.5 py-0.5 rounded-full font-medium ${
+                                            ind.category === 'cobertura'
+                                              ? 'bg-gray-100 text-brand_gray_dark'
+                                              : ind.category === 'frecuencia'
+                                              ? 'bg-amber-100 text-amber-700'
+                                              : ind.category === 'traspaso'
+                                              ? 'bg-purple-100 text-purple-700'
+                                              : ind.category === 'detalle'
+                                              ? 'bg-teal-100 text-teal-700'
+                                              : 'bg-brand_primary text-white'
+                                          }`}>
+                                            {ind.category === 'cobertura' ? 'Cob' :
+                                             ind.category === 'frecuencia' ? 'Frec' :
+                                             ind.category === 'traspaso' ? 'Tras' :
+                                             ind.category === 'detalle' ? 'Det' : 'Prof'}
+                                          </span>
+                                          <span className="text-sm text-gray-700 truncate">{ind.name}</span>
+                                        </div>
                                         <div className="flex items-center gap-1">
                                           <input
                                             type="number"

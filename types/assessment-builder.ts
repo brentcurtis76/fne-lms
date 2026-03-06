@@ -609,6 +609,8 @@ export interface ModuleScore {
   moduleScore: number;
   moduleWeight: number;
   indicators: IndicatorScore[];
+  /** Number of indicators active for the scored year. Undefined = legacy (all indicators scored). */
+  activeIndicatorCount?: number;
 }
 
 export interface IndicatorScore {

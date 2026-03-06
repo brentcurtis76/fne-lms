@@ -337,11 +337,6 @@ async function handlePut(
 
     const validIndicatorIds = new Set((indicators || []).map((i: any) => i.id));
 
-    // Build indicator category map for weight validation
-    const indicatorCategoryMap = new Map<string, string>(
-      (indicators || []).map((i: any) => [i.id, i.category])
-    );
-
     // ---- Handle weight updates ----
     let weightsSaved = 0;
     if (weights) {
@@ -464,18 +459,14 @@ async function handlePut(
           if (!validIndicatorIds.has(ind.id)) {
             return res.status(400).json({ error: `Indicador ${ind.id} no pertenece a este template` });
           }
-          const cat = indicatorCategoryMap.get(ind.id);
-          if (cat === 'detalle' || cat === 'traspaso') {
-            return res.status(400).json({
-              error: `El indicador ${ind.id} es de tipo ${cat} y no participa en la distribución de pesos`,
-            });
-          }
+          // R4: All categories (including detalle/traspaso) may now participate in weight distribution.
+          // The category rejection has been removed.
           const w = Number(ind.weight);
           if (isNaN(w) || w < 0) {
             return res.status(400).json({ error: `Peso inválido para indicador ${ind.id}` });
           }
         }
-        // Fix 2: For each module with submitted indicators, require ALL scored indicators
+        // Fix 2: For each module with submitted indicators, require ALL indicators (R5: all 5 categories)
         const indicatorsByModule = new Map<string, Array<{ id: string; weight: number }>>();
         for (const ind of weights.indicators) {
           const dbInd = (dbIndicators || []).find((i: any) => i.id === ind.id);
@@ -484,9 +475,9 @@ async function handlePut(
           indicatorsByModule.get(modId)!.push(ind);
         }
         for (const [modId, inds] of indicatorsByModule.entries()) {
-          // Get all scored indicators (excluding detalle and traspaso) in this module
+          // R5: Get ALL indicators in this module (all 5 categories participate in sum-to-100 check)
           const allScoredInMod = (dbIndicators || []).filter(
-            (i: any) => i.module_id === modId && i.category !== 'detalle' && i.category !== 'traspaso'
+            (i: any) => i.module_id === modId
           );
           if (allScoredInMod.length > 1) {
             const submittedIds = new Set(inds.map(i => i.id));

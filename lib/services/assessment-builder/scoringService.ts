@@ -176,14 +176,16 @@ export function calculateModuleScore(
     };
   });
 
-  // Exclude traspaso and detalle from weighted average — they are descriptive only.
-  // Including them (with score 0) would incorrectly drag down module scores.
-  const scoredIndicators = indicatorScores.filter(
-    (i) => i.category !== 'traspaso' && i.category !== 'detalle'
-  );
-
+  // NOTE: The hardcoded traspaso/detalle exclusion has been removed.
+  // Year-aware filtering now happens at the calculateAssessmentScores level BEFORE
+  // this function is called. When activeExpectations is set (R8), only active indicators
+  // are passed here. When it is undefined (legacy instances with no expectations data),
+  // we fall back to the old exclusion behaviour to preserve backward compatibility.
+  // KNOWN LIMITATION: if traspaso/detalle ARE active for a year, scoreIndicator() still
+  // returns 0 for them (multi-select matching is not yet implemented), so they will
+  // contribute 0 to the weighted average.
   const moduleScore = calculateWeightedAverage(
-    scoredIndicators.map((i) => ({ score: i.normalizedScore, weight: i.weight }))
+    indicatorScores.map((i) => ({ score: i.normalizedScore, weight: i.weight }))
   );
 
   return {
@@ -192,6 +194,7 @@ export function calculateModuleScore(
     moduleScore,
     moduleWeight,
     indicators: indicatorScores,
+    activeIndicatorCount: indicators.length,
   };
 }
 
@@ -229,7 +232,14 @@ export interface CalculateScoresInput {
   /** Objectives hierarchy (3-level: objectives → modules → indicators). Takes precedence over flat modules. */
   objectives?: ObjectiveInput[];
   responses: AssessmentResponse[];
-  yearExpectations?: Map<string, number>; // indicatorId -> expected level
+  yearExpectations?: Map<string, number>; // indicatorId -> expected maturity level (0-4). Existing field — do not rename.
+  /**
+   * Year-aware active expectations map (R6/R8).
+   * Key: indicatorId. Value: { expected: number | null; unit: string | null; tolerance: number }.
+   * When defined: only indicators with non-null expected values are scored.
+   * When undefined: falls back to legacy behaviour (traspaso/detalle excluded, others included).
+   */
+  activeExpectations?: Map<string, { expected: number | null; unit: string | null; tolerance: number }>;
 }
 
 /**
@@ -264,11 +274,40 @@ export function calculateAssessmentScores(input: CalculateScoresInput): Assessme
   // Determine if we use 3-level hierarchy (objectives) or 2-level (flat modules)
   const hasObjectives = input.objectives && input.objectives.length > 0;
 
+  /**
+   * Helper: Filter indicators for a module based on year-aware expectations.
+   * When activeExpectations is defined, only include indicators with a non-null expected value.
+   * When undefined (legacy instances with no expectations data), fall back to excluding
+   * traspaso/detalle to preserve backward compatibility.
+   */
+  const filterActiveIndicators = (indicators: ModuleInput['indicators']): ModuleInput['indicators'] => {
+    if (input.activeExpectations) {
+      // Year-aware: include only indicators that have an active expectation for this year
+      return indicators.filter((ind) => {
+        const exp = input.activeExpectations!.get(ind.id);
+        return exp !== undefined && exp.expected !== null;
+      });
+    }
+    // Legacy fallback: exclude traspaso/detalle (same behaviour as before R9)
+    return indicators.filter((ind) => ind.category !== 'traspaso' && ind.category !== 'detalle');
+  };
+
   if (hasObjectives && input.objectives) {
     // 3-level scoring: objectives → modules → indicators
-    const objectiveScores: ObjectiveScore[] = input.objectives.map((objective) => {
-      const moduleScores: ModuleScore[] = objective.modules.map((module) => {
-        const indicatorsWithExpectations = module.indicators.map((ind) => ({
+    const objectiveScores: ObjectiveScore[] = [];
+
+    for (const objective of input.objectives) {
+      const moduleScores: ModuleScore[] = [];
+
+      for (const module of objective.modules) {
+        const activeIndicators = filterActiveIndicators(module.indicators);
+
+        // R10: if no active indicators, skip module (exclude from objective average)
+        if (activeIndicators.length === 0) {
+          continue;
+        }
+
+        const indicatorsWithExpectations = activeIndicators.map((ind) => ({
           ...ind,
           expectedLevel: input.yearExpectations?.get(ind.id),
         }));
@@ -280,21 +319,28 @@ export function calculateAssessmentScores(input: CalculateScoresInput): Assessme
           module.weight
         );
         score.moduleId = module.id;
-        return score;
-      });
+        moduleScores.push(score);
+      }
 
-      return calculateObjectiveScore(
+      // R10: if objective has no active modules, skip it (exclude from overall average)
+      if (moduleScores.length === 0) {
+        continue;
+      }
+
+      objectiveScores.push(calculateObjectiveScore(
         objective.id,
         objective.name,
         objective.weight,
         moduleScores
-      );
-    });
+      ));
+    }
 
-    // Overall score: weighted average of objective scores
-    const totalScore = calculateWeightedAverage(
-      objectiveScores.map((o) => ({ score: o.objectiveScore, weight: o.objectiveWeight }))
-    );
+    // R10: if nothing is active, return null/0 score
+    const totalScore = objectiveScores.length > 0
+      ? calculateWeightedAverage(
+          objectiveScores.map((o) => ({ score: o.objectiveScore, weight: o.objectiveWeight }))
+        )
+      : 0;
 
     // Flatten module scores for backward compatibility
     const allModuleScores: ModuleScore[] = objectiveScores.flatMap((o) => o.modules);
@@ -315,8 +361,17 @@ export function calculateAssessmentScores(input: CalculateScoresInput): Assessme
   }
 
   // 2-level scoring: flat modules → indicators (legacy path)
-  const moduleScores: ModuleScore[] = input.modules.map((module) => {
-    const indicatorsWithExpectations = module.indicators.map((ind) => ({
+  const moduleScores: ModuleScore[] = [];
+
+  for (const module of input.modules) {
+    const activeIndicators = filterActiveIndicators(module.indicators);
+
+    // R10: if no active indicators, skip module
+    if (activeIndicators.length === 0) {
+      continue;
+    }
+
+    const indicatorsWithExpectations = activeIndicators.map((ind) => ({
       ...ind,
       expectedLevel: input.yearExpectations?.get(ind.id),
     }));
@@ -328,8 +383,8 @@ export function calculateAssessmentScores(input: CalculateScoresInput): Assessme
       module.weight
     );
     score.moduleId = module.id;
-    return score;
-  });
+    moduleScores.push(score);
+  }
 
   // Calculate overall weighted score
   const totalScore = calculateWeightedAverage(
@@ -392,6 +447,11 @@ export interface InstanceDataForScoring {
     }>;
   }>;
   responses: AssessmentResponse[];
+  /**
+   * Year-aware active expectations (R6). Undefined when no expectations data found (legacy instances).
+   * Key: indicatorId. Value: { expected: number | null; unit: string | null; tolerance: number }.
+   */
+  activeExpectations?: Map<string, { expected: number | null; unit: string | null; tolerance: number }>;
 }
 
 /**
@@ -401,15 +461,17 @@ export async function fetchInstanceDataForScoring(
   supabase: SupabaseClient,
   instanceId: string
 ): Promise<InstanceDataForScoring | null> {
-  // Get instance with snapshot
+  // Get instance with snapshot (R6: also fetch generation_type and template_id)
   const { data: instance, error: instanceError } = await supabase
     .from('assessment_instances')
     .select(
       `
       id,
       transformation_year,
+      generation_type,
       template_snapshot_id,
       assessment_template_snapshots!inner (
+        template_id,
         snapshot_data
       )
     `
@@ -434,13 +496,46 @@ export async function fetchInstanceDataForScoring(
   }
 
   // Extract data from snapshot
-  const snapshotData = (instance as any).assessment_template_snapshots?.snapshot_data;
+  const snapshotRecord = (instance as any).assessment_template_snapshots;
+  const snapshotData = snapshotRecord?.snapshot_data;
   if (!snapshotData) {
     console.error('No snapshot data found');
     return null;
   }
 
   const template = snapshotData.template;
+  const transformationYear = instance.transformation_year as 1 | 2 | 3 | 4 | 5;
+
+  // R6: Fetch year expectations for active indicator filtering
+  // generation_type defaults to 'GT' for backward compatibility with old instances
+  const generationType = (instance as any).generation_type || 'GT';
+  const templateId = snapshotRecord?.template_id;
+
+  let activeExpectations: InstanceDataForScoring['activeExpectations'];
+
+  if (templateId && transformationYear) {
+    const yearKey = `year_${transformationYear}_expected`;
+    const unitKey = `year_${transformationYear}_expected_unit`;
+
+    const { data: expectationsData, error: expectationsError } = await supabase
+      .from('assessment_year_expectations')
+      .select('*')
+      .eq('template_id', templateId)
+      .eq('generation_type', generationType);
+
+    if (!expectationsError && expectationsData && expectationsData.length > 0) {
+      // Build Map<indicatorId, { expected, unit, tolerance }>
+      activeExpectations = new Map();
+      for (const row of expectationsData) {
+        activeExpectations.set(row.indicator_id, {
+          expected: row[yearKey] ?? null,
+          unit: row[unitKey] ?? null,
+          tolerance: row.tolerance ?? 1,
+        });
+      }
+    }
+    // If expectationsError or no data: leave activeExpectations undefined (backward compat)
+  }
 
   // Dual-path: use objectives hierarchy if present, fall back to flat modules
   const snapshotObjectives = snapshotData.objectives || [];
@@ -477,12 +572,13 @@ export async function fetchInstanceDataForScoring(
 
   return {
     instanceId: instance.id,
-    transformationYear: instance.transformation_year as 1 | 2 | 3 | 4 | 5,
+    transformationYear,
     area: template.area as TransformationArea,
     scoringConfig: template.scoring_config,
     modules,
     objectives,
     responses: responses || [],
+    activeExpectations,
   };
 }
 
@@ -503,6 +599,7 @@ export async function calculateAndSaveScores(
     }
 
     // Calculate scores (3-level if objectives present, 2-level otherwise)
+    // R7: pass activeExpectations for year-aware scoring
     const summary = calculateAssessmentScores({
       instanceId: instanceData.instanceId,
       transformationYear: instanceData.transformationYear,
@@ -511,6 +608,7 @@ export async function calculateAndSaveScores(
       modules: instanceData.modules,
       objectives: instanceData.objectives,
       responses: instanceData.responses,
+      activeExpectations: instanceData.activeExpectations,
     });
 
     // Check if result already exists (use admin client to bypass RLS)

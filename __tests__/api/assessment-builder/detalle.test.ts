@@ -350,7 +350,7 @@ vi.mock('../../../lib/supabaseAdmin', () => ({
   },
 }));
 
-describe('Scoring service — detalle excluded from weighted average (DOD-12, DOD-13)', () => {
+describe('Scoring service — detalle/traspaso scoring (DOD-12, DOD-13)', () => {
   it('scoreIndicator returns 0 for detalle category (DOD-13)', async () => {
     const { scoreIndicator } = await import('../../../lib/services/assessment-builder/scoringService');
     const score = scoreIndicator(
@@ -369,10 +369,13 @@ describe('Scoring service — detalle excluded from weighted average (DOD-12, DO
     expect(score).toBe(0);
   });
 
-  it('calculateModuleScore excludes detalle from weighted average (DOD-12)', async () => {
+  it('calculateModuleScore includes all passed indicators (R9: exclusion moved to caller)', async () => {
+    // R9: The traspaso/detalle exclusion was removed from calculateModuleScore.
+    // It now happens BEFORE calling calculateModuleScore in calculateAssessmentScores.
+    // When called directly with all indicators, detalle/traspaso contribute 0 to the average.
     const { calculateModuleScore } = await import('../../../lib/services/assessment-builder/scoringService');
 
-    // Module with cobertura (100%), profundidad (75%), detalle (not scored)
+    // Module with cobertura (100%), profundidad (75%), detalle (0 — scoreIndicator returns 0)
     const indicators = [
       { id: 'ind-1', name: 'Cobertura', category: 'cobertura' as const, weight: 1 },
       { id: 'ind-2', name: 'Profundidad', category: 'profundidad' as const, weight: 1 },
@@ -382,19 +385,21 @@ describe('Scoring service — detalle excluded from weighted average (DOD-12, DO
     const responses = new Map([
       ['ind-1', { coverage_value: true, frequency_value: undefined, profundity_level: undefined, indicator_id: 'ind-1' } as any],
       ['ind-2', { coverage_value: undefined, frequency_value: undefined, profundity_level: 3, indicator_id: 'ind-2' } as any],
-      // ind-3 detalle has no meaningful response for scoring
     ]);
 
     const result = calculateModuleScore(indicators, responses, 'Test Module', 1);
 
-    // Expected: (100 * 1 + 75 * 1) / (1 + 1) = 87.5
-    // NOT (100 + 75 + 0) / 3 = 58.33 (which was the bug)
-    expect(result.moduleScore).toBe(87.5);
-    // But all 3 indicators still appear in the result
+    // New behavior: detalle IS included (with score 0) → (100*1 + 75*1 + 0*1) / 3 = 58.33
+    // Year-aware filtering (R8) in calculateAssessmentScores would exclude detalle BEFORE this call.
+    expect(result.moduleScore).toBe(58.33);
+    // All 3 indicators still appear in the result
     expect(result.indicators).toHaveLength(3);
+    expect(result.activeIndicatorCount).toBe(3); // all passed indicators counted
   });
 
-  it('calculateModuleScore excludes traspaso from weighted average (DOD-12)', async () => {
+  it('calculateModuleScore includes traspaso in average when passed (R9)', async () => {
+    // R9: Traspaso exclusion removed from calculateModuleScore.
+    // In practice, calculateAssessmentScores filters traspaso out (legacy) or by year expectations.
     const { calculateModuleScore } = await import('../../../lib/services/assessment-builder/scoringService');
 
     const indicators = [
@@ -408,8 +413,8 @@ describe('Scoring service — detalle excluded from weighted average (DOD-12, DO
 
     const result = calculateModuleScore(indicators, responses, 'Test Module', 1);
 
-    // Expected: 100 (only cobertura counts)
-    expect(result.moduleScore).toBe(100);
+    // New behavior: traspaso IS included (with score 0) → (100*1 + 0*1) / 2 = 50
+    expect(result.moduleScore).toBe(50);
     expect(result.indicators).toHaveLength(2);
   });
 });

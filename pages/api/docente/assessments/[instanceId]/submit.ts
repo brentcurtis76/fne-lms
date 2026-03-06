@@ -54,14 +54,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Get instance with snapshot
+    // Get instance with snapshot (R12: also fetch transformation_year, generation_type, template_id)
     const { data: instance, error: instanceError } = await supabaseClient
       .from('assessment_instances')
       .select(`
         id,
         status,
+        transformation_year,
+        generation_type,
         template_snapshot_id,
         assessment_template_snapshots:template_snapshot_id (
+          template_id,
           snapshot_data
         )
       `)
@@ -96,15 +99,60 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       responseMap.set(resp.indicator_id, resp);
     });
 
-    // Validate all required indicators are answered
+    // R12: Fetch year expectations to determine active indicators for this instance
     const snapshot = instance.assessment_template_snapshots as any;
     const snapshotData = snapshot?.snapshot_data;
-    const modules = snapshotData?.modules || [];
+
+    // Dual-path: use objectives hierarchy if present, fall back to flat modules
+    const snapshotObjectives = snapshotData?.objectives || [];
+    const flatModules = snapshotData?.modules || [];
+    const modulesToValidate = snapshotObjectives.length > 0
+      ? snapshotObjectives.flatMap((o: any) => o.modules || [])
+      : flatModules;
+
+    // Build active indicator set (R12)
+    const templateId = snapshot?.template_id;
+    const transformationYear = instance.transformation_year;
+    const generationType = instance.generation_type || 'GT';
+
+    let activeIndicatorIds: Set<string> | null = null;
+
+    if (templateId && transformationYear) {
+      const yearKey = `year_${transformationYear}_expected`;
+      const { data: expData, error: expError } = await supabaseClient
+        .from('assessment_year_expectations')
+        .select('indicator_id, ' + yearKey)
+        .eq('template_id', templateId)
+        .eq('generation_type', generationType);
+
+      if (!expError && expData && expData.length > 0) {
+        activeIndicatorIds = new Set<string>();
+        for (const row of expData) {
+          const r = row as any;
+          const expectedValue = r[yearKey];
+          if (expectedValue !== null && expectedValue !== undefined) {
+            activeIndicatorIds.add(r.indicator_id);
+          }
+        }
+      }
+      // If error or no data: leave activeIndicatorIds null (validate all indicators — backward compat)
+    }
 
     const missingIndicators: string[] = [];
 
-    modules.forEach((module: any) => {
+    modulesToValidate.forEach((module: any) => {
       (module.indicators || []).forEach((indicator: any) => {
+        // R12: skip inactive indicators (if expectations data exists)
+        if (activeIndicatorIds !== null && !activeIndicatorIds.has(indicator.id)) {
+          return;
+        }
+
+        // Legacy mode: when no year expectations data is available, skip traspaso/detalle
+        // (they are descriptive-only and were never required in the original validation).
+        if (activeIndicatorIds === null && (indicator.category === 'traspaso' || indicator.category === 'detalle')) {
+          return;
+        }
+
         const response = responseMap.get(indicator.id);
 
         if (!response) {

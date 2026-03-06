@@ -48,6 +48,8 @@ interface IndicatorData {
   detalle_options?: string[];
   displayOrder: number;
   weight: number;
+  /** R11: Whether this indicator has an active expectation for the instance's year. */
+  isActiveThisYear?: boolean;
 }
 
 interface ModuleData {
@@ -209,7 +211,9 @@ const AssessmentResponseForm: React.FC = () => {
       let answered = 0;
 
       modulesToCheck.forEach(module => {
-        const sortedIndicators = [...module.indicators].sort((a, b) => a.displayOrder - b.displayOrder);
+        const sortedIndicators = [...module.indicators]
+          .filter((ind) => ind.isActiveThisYear !== false)
+          .sort((a, b) => a.displayOrder - b.displayOrder);
         const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
 
         if (hasCoberturaGate) {
@@ -341,7 +345,9 @@ const AssessmentResponseForm: React.FC = () => {
     let answered = 0;
 
     allModules.forEach(module => {
-      const sortedIndicators = [...module.indicators].sort((a, b) => a.displayOrder - b.displayOrder);
+      const sortedIndicators = [...module.indicators]
+        .filter((ind) => ind.isActiveThisYear !== false)
+        .sort((a, b) => a.displayOrder - b.displayOrder);
       const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
 
       if (hasCoberturaGate) {
@@ -591,8 +597,14 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
   onResponseChange,
   canEdit,
 }) => {
-  // Sort indicators by display order
-  const sortedIndicators = [...module.indicators].sort((a, b) => a.displayOrder - b.displayOrder);
+  // R12: Filter out indicators that are inactive for this year.
+  // isActiveThisYear defaults to true when undefined (legacy instances with no expectations data).
+  const activeIndicators = module.indicators.filter(
+    (ind) => ind.isActiveThisYear !== false
+  );
+
+  // Sort active indicators by display order
+  const sortedIndicators = [...activeIndicators].sort((a, b) => a.displayOrder - b.displayOrder);
 
   // Cobertura gate logic
   const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
@@ -642,7 +654,7 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
           <p className="text-sm text-gray-500 mt-1">{module.description}</p>
         )}
         <p className="text-xs text-gray-400 mt-1">
-          {module.indicators.length} indicador{module.indicators.length !== 1 ? 'es' : ''}
+          {activeIndicators.length} indicador{activeIndicators.length !== 1 ? 'es' : ''}
         </p>
       </div>
       {expanded ? (

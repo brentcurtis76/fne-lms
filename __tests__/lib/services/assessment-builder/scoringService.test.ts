@@ -459,6 +459,307 @@ describe('calculateObjectiveScore', () => {
 });
 
 // ============================================================
+// Year-aware scoring with activeExpectations (R8)
+// ============================================================
+
+describe('calculateAssessmentScores — year-aware scoring (R8)', () => {
+  it('T3: Module with 4 indicators, only 2 active for Year 1 — uses only those 2 weights', () => {
+    // Active: i1 (cobertura, weight 30), i2 (frecuencia, weight 20).
+    // Inactive: i3 (weight 30), i4 (weight 20) — no entry in activeExpectations.
+    const activeExpectations = new Map([
+      ['i1', { expected: 1, unit: null, tolerance: 1 }],
+      ['i2', { expected: 2, unit: 'semana', tolerance: 1 }],
+    ]);
+
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Module 1',
+          weight: 1,
+          indicators: [
+            { id: 'i1', name: 'Cobertura', category: 'cobertura', weight: 30 },
+            { id: 'i2', name: 'Frecuencia', category: 'frecuencia', weight: 20 },
+            { id: 'i3', name: 'Traspaso', category: 'traspaso', weight: 30 },
+            { id: 'i4', name: 'Detalle', category: 'detalle', weight: 20 },
+          ],
+        },
+      ],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'i1', coverage_value: true } as AssessmentResponse,
+        // frequency_value: 50 with default config (min=0, max=100) → score = 50
+        { id: 'r2', instance_id: 'test', indicator_id: 'i2', frequency_value: 50 } as AssessmentResponse,
+      ],
+      activeExpectations,
+    });
+
+    // Only i1 (100 * weight 30) and i2 (frecuencia=50 with default max=100 → score=50, weight 20) are active
+    // Score: (100*30 + 50*20) / (30+20) = (3000 + 1000) / 50 = 80
+    expect(result.totalScore).toBe(80);
+    // Active indicator count in module score
+    expect(result.moduleScores[0].activeIndicatorCount).toBe(2);
+  });
+
+  it('T4: Module with 0 active indicators — excluded from objective average', () => {
+    // All indicators are inactive
+    const activeExpectations = new Map<string, { expected: number | null; unit: string | null; tolerance: number }>();
+    // No entries = no indicators active
+
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      objectives: [
+        {
+          id: 'obj1',
+          name: 'Objetivo 1',
+          weight: 1,
+          modules: [
+            {
+              id: 'm1',
+              name: 'Module (all inactive)',
+              weight: 1,
+              indicators: [
+                { id: 'i1', name: 'Ind 1', category: 'cobertura', weight: 1 },
+              ],
+            },
+          ],
+        },
+        {
+          id: 'obj2',
+          name: 'Objetivo 2',
+          weight: 1,
+          modules: [
+            {
+              id: 'm2',
+              name: 'Module (active)',
+              weight: 1,
+              indicators: [
+                { id: 'i2', name: 'Ind 2', category: 'cobertura', weight: 1 },
+              ],
+            },
+          ],
+        },
+      ],
+      modules: [],
+      responses: [
+        { id: 'r2', instance_id: 'test', indicator_id: 'i2', coverage_value: true } as AssessmentResponse,
+      ],
+      activeExpectations: new Map([
+        ['i2', { expected: 1, unit: null, tolerance: 1 }],
+      ]),
+    });
+
+    // obj1's module has no active indicators → obj1 excluded
+    // obj2's module has i2 active → obj2 score = 100
+    // Total: just obj2 = 100
+    expect(result.totalScore).toBe(100);
+    // Only obj2 contributed (obj1 excluded)
+    expect(result.objectiveScores!.length).toBe(1);
+    expect(result.objectiveScores![0].objectiveId).toBe('obj2');
+  });
+
+  it('T5: Indicator with no expectation entry — not included in score', () => {
+    // i1 has an entry, i2 does not
+    const activeExpectations = new Map([
+      ['i1', { expected: 1, unit: null, tolerance: 1 }],
+    ]);
+
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Module',
+          weight: 1,
+          indicators: [
+            { id: 'i1', name: 'Active', category: 'cobertura', weight: 1 },
+            { id: 'i2', name: 'Inactive', category: 'profundidad', weight: 1 },
+          ],
+        },
+      ],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'i1', coverage_value: true } as AssessmentResponse,
+        { id: 'r2', instance_id: 'test', indicator_id: 'i2', profundity_level: 0 } as AssessmentResponse,
+      ],
+      activeExpectations,
+    });
+
+    // Only i1 is active: score = 100 (i2 excluded)
+    expect(result.totalScore).toBe(100);
+    expect(result.moduleScores[0].activeIndicatorCount).toBe(1);
+  });
+
+  it('T6: Cobertura active + answered No — module scores 0 (gate effect)', () => {
+    const activeExpectations = new Map([
+      ['cob', { expected: 1, unit: null, tolerance: 1 }],
+      ['frec', { expected: 5, unit: 'semana', tolerance: 1 }],
+    ]);
+
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Module',
+          weight: 1,
+          indicators: [
+            { id: 'cob', name: 'Cobertura', category: 'cobertura', weight: 50 },
+            { id: 'frec', name: 'Frecuencia', category: 'frecuencia', weight: 50 },
+          ],
+        },
+      ],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'cob', coverage_value: false } as AssessmentResponse,
+        // frec has no response (docente didn't fill it because gate was closed)
+      ],
+      activeExpectations,
+    });
+
+    // cobertura = false (0), frecuencia = no response (0)
+    // Score: (0*50 + 0*50) / 100 = 0
+    expect(result.totalScore).toBe(0);
+  });
+
+  it('T7: All indicators active — uses full design-time weights (same as current)', () => {
+    const activeExpectations = new Map([
+      ['i1', { expected: 1, unit: null, tolerance: 1 }],
+      ['i2', { expected: 2, unit: null, tolerance: 1 }],
+    ]);
+
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Module',
+          weight: 1,
+          indicators: [
+            { id: 'i1', name: 'Cobertura', category: 'cobertura', weight: 1 },
+            { id: 'i2', name: 'Profundidad', category: 'profundidad', weight: 1 },
+          ],
+        },
+      ],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'i1', coverage_value: true } as AssessmentResponse,
+        { id: 'r2', instance_id: 'test', indicator_id: 'i2', profundity_level: 2 } as AssessmentResponse,
+      ],
+      activeExpectations,
+    });
+
+    // (100*1 + 50*1) / 2 = 75
+    expect(result.totalScore).toBe(75);
+    expect(result.moduleScores[0].activeIndicatorCount).toBe(2);
+  });
+
+  it('T8: Dynamic redistribution: weights [30, 20, 50], only first two active → [60%, 40%]', () => {
+    // i1 weight=30, i2 weight=20, i3 weight=50. Only i1 and i2 active.
+    // calculateWeightedAverage will divide by (30+20)=50, effectively redistributing.
+    const activeExpectations = new Map([
+      ['i1', { expected: 1, unit: null, tolerance: 1 }],
+      ['i2', { expected: 1, unit: null, tolerance: 1 }],
+      // i3 not in map = inactive
+    ]);
+
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Module',
+          weight: 1,
+          indicators: [
+            { id: 'i1', name: 'Cobertura', category: 'cobertura', weight: 30 },
+            { id: 'i2', name: 'Profundidad', category: 'profundidad', weight: 20 },
+            { id: 'i3', name: 'Frecuencia', category: 'frecuencia', weight: 50 },
+          ],
+        },
+      ],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'i1', coverage_value: true } as AssessmentResponse,
+        { id: 'r2', instance_id: 'test', indicator_id: 'i2', profundity_level: 0 } as AssessmentResponse,
+      ],
+      activeExpectations,
+    });
+
+    // i1: 100 * weight 30, i2: 0 * weight 20
+    // calculateWeightedAverage: (100*30 + 0*20) / (30+20) = 3000/50 = 60
+    // Effectively: i1 contributes 60% (30/50), i2 contributes 40% (20/50)
+    expect(result.totalScore).toBe(60);
+    expect(result.moduleScores[0].activeIndicatorCount).toBe(2);
+  });
+
+  it('T-legacy: No activeExpectations — falls back to excluding traspaso/detalle', () => {
+    // Legacy mode: no activeExpectations → traspaso and detalle excluded
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Module',
+          weight: 1,
+          indicators: [
+            { id: 'i1', name: 'Cobertura', category: 'cobertura', weight: 1 },
+            { id: 'i2', name: 'Traspaso', category: 'traspaso', weight: 1 },
+            { id: 'i3', name: 'Detalle', category: 'detalle', weight: 1 },
+          ],
+        },
+      ],
+      responses: [
+        { id: 'r1', instance_id: 'test', indicator_id: 'i1', coverage_value: true } as AssessmentResponse,
+      ],
+      // activeExpectations: undefined (legacy)
+    });
+
+    // Legacy: traspaso/detalle excluded → only i1 scored → 100
+    expect(result.totalScore).toBe(100);
+    expect(result.moduleScores[0].activeIndicatorCount).toBe(1);
+  });
+
+  it('T-nothing-active: All modules inactive — returns 0 score', () => {
+    // All indicators have null expected values for this year
+    const activeExpectations = new Map([
+      ['i1', { expected: null, unit: null, tolerance: 1 }],
+    ]);
+
+    const result = calculateAssessmentScores({
+      instanceId: 'test',
+      transformationYear: 1,
+      area: 'evaluacion',
+      modules: [
+        {
+          id: 'm1',
+          name: 'Module',
+          weight: 1,
+          indicators: [
+            { id: 'i1', name: 'Cobertura', category: 'cobertura', weight: 1 },
+          ],
+        },
+      ],
+      responses: [],
+      activeExpectations,
+    });
+
+    // No active indicators → module skipped → totalScore = 0
+    expect(result.totalScore).toBe(0);
+    expect(result.moduleScores.length).toBe(0);
+  });
+});
+
+// ============================================================
 // 3-level calculateAssessmentScores with objectives
 // ============================================================
 

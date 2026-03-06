@@ -1819,11 +1819,15 @@ const TemplateEditor: React.FC = () => {
                                                   </span>
                                                   <span className={`text-xs px-1.5 py-0.5 rounded-full ${
                                                     indicator.category === 'cobertura'
-                                                      ? 'bg-gray-100 text-brand_gray_dark'
+                                                      ? 'bg-brand_accent text-brand_primary'
                                                       : indicator.category === 'frecuencia'
-                                                      ? 'bg-brand_accent/20 text-brand_gray_dark'
+                                                      ? 'bg-brand_accent_light text-brand_gray_dark'
                                                       : indicator.category === 'profundidad'
                                                       ? 'bg-brand_primary text-white'
+                                                      : indicator.category === 'traspaso'
+                                                      ? 'bg-gray-200 text-brand_gray_dark'
+                                                      : indicator.category === 'detalle'
+                                                      ? 'bg-gray-100 text-brand_gray_medium border border-gray-300'
                                                       : 'bg-brand_accent text-brand_primary'
                                                   }`}>
                                                     {CATEGORY_LABELS[indicator.category]}

@@ -137,6 +137,9 @@ const ExpectationsEditor: React.FC = () => {
     1: false, 2: false, 3: false, 4: false, 5: false,
   });
   const [showCopyDropdown, setShowCopyDropdown] = useState(false);
+  const [yearWeightsExplicit, setYearWeightsExplicit] = useState<Record<number, boolean>>({
+    1: false, 2: false, 3: false, 4: false, 5: false,
+  });
 
   // Check auth and permissions
   useEffect(() => {
@@ -396,7 +399,36 @@ const ExpectationsEditor: React.FC = () => {
         }
       }
 
-      setYearWeights(initialYearWeights);
+      setYearWeights(prev => {
+        const updated = { ...initialYearWeights };
+        // Preserve dirty years — don't overwrite user edits
+        for (let y = 1; y <= 5; y++) {
+          if (weightsDirtyByYear[y]) {
+            updated[y] = prev[y] || initialYearWeights[y];
+          }
+        }
+        return updated;
+      });
+
+      // Mark which years have explicitly saved weights from API
+      const explicitMap: Record<number, boolean> = { 1: false, 2: false, 3: false, 4: false, 5: false };
+      for (let yr = 1; yr <= 5; yr++) {
+        const savedForYear = apiYearWeights?.[yr];
+        if (savedForYear &&
+            (savedForYear.objectives.length > 0 || savedForYear.modules.length > 0 || savedForYear.indicators.length > 0)) {
+          explicitMap[yr] = true;
+        }
+      }
+      setYearWeightsExplicit(prev => {
+        // Preserve explicit flags for dirty years (user may have saved during this session)
+        const merged = { ...explicitMap };
+        for (let y = 1; y <= 5; y++) {
+          if (weightsDirtyByYear[y] && prev[y]) {
+            merged[y] = true;
+          }
+        }
+        return merged;
+      });
     } catch (error: any) {
       console.error('Error fetching data:', error);
       toast.error(error.message || 'Error al cargar datos');
@@ -673,6 +705,7 @@ const ExpectationsEditor: React.FC = () => {
       }
 
       setWeightsDirtyByYear(prev => ({ ...prev, [selectedWeightYear]: false }));
+      setYearWeightsExplicit(prev => ({ ...prev, [selectedWeightYear]: true }));
       toast.success(`Pesos del Año ${selectedWeightYear} guardados`);
     } catch (error: any) {
       console.error('Error saving year weights:', error);
@@ -685,7 +718,11 @@ const ExpectationsEditor: React.FC = () => {
   // Copy weights from another year to the current year
   const handleCopyFromYear = (sourceYear: number) => {
     const sourceWeights = yearWeights[sourceYear];
-    if (!sourceWeights || sourceWeights.length === 0) return;
+    if (!sourceWeights || sourceWeights.length === 0) {
+      toast.error(`No hay datos de pesos disponibles para Año ${sourceYear}`);
+      setShowCopyDropdown(false);
+      return;
+    }
 
     setYearWeights(prev => ({
       ...prev,
@@ -693,7 +730,8 @@ const ExpectationsEditor: React.FC = () => {
     }));
     setWeightsDirtyByYear(prev => ({ ...prev, [selectedWeightYear]: true }));
     setShowCopyDropdown(false);
-    toast.success(`Pesos copiados del Año ${sourceYear} al Año ${selectedWeightYear}`);
+    const sourceLabel = yearWeightsExplicit[sourceYear] ? '' : ' (predeterminado)';
+    toast.success(`Pesos copiados del Año ${sourceYear}${sourceLabel} al Año ${selectedWeightYear}`);
   };
 
   const handleLogout = async () => {
@@ -1113,6 +1151,9 @@ const ExpectationsEditor: React.FC = () => {
                                 className="w-full px-3 py-2 text-xs text-left hover:bg-gray-50 text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand_accent focus:ring-offset-1"
                               >
                                 Año {yr}
+                                {!yearWeightsExplicit[yr] && (
+                                  <span className="ml-1 text-gray-400 italic">(predeterminado)</span>
+                                )}
                               </button>
                             ))}
                         </div>
@@ -1148,7 +1189,7 @@ const ExpectationsEditor: React.FC = () => {
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="text-sm font-medium text-gray-700">Procesos Generativos</h4>
                           <div className="flex items-center gap-3">
-                            <span className={`text-xs font-semibold ${Math.abs(weightSum(currentYearObjs) - 100) <= 0.5 ? 'text-brand_accent_hover' : 'text-brand_primary font-bold'}`}>
+                            <span className={`text-xs font-semibold ${Math.abs(weightSum(currentYearObjs) - 100) <= 0.5 ? 'text-brand_accent' : 'text-brand_primary font-bold'}`}>
                               Total: {weightSum(currentYearObjs)}%
                             </span>
                             {isDraft && isAdmin && currentYearObjs.length > 1 && (
@@ -1211,7 +1252,7 @@ const ExpectationsEditor: React.FC = () => {
                                   <div className="flex items-center justify-between mb-1">
                                     <h5 className="text-xs font-medium text-gray-600 uppercase">Practicas Generativas</h5>
                                     <div className="flex items-center gap-3">
-                                      <span className={`text-xs font-semibold ${Math.abs(weightSum(obj.modules) - 100) <= 0.5 ? 'text-brand_accent_hover' : 'text-brand_primary font-bold'}`}>
+                                      <span className={`text-xs font-semibold ${Math.abs(weightSum(obj.modules) - 100) <= 0.5 ? 'text-brand_accent' : 'text-brand_primary font-bold'}`}>
                                         Total: {weightSum(obj.modules)}%
                                       </span>
                                       {isDraft && isAdmin && obj.modules.length > 1 && (
@@ -1279,7 +1320,7 @@ const ExpectationsEditor: React.FC = () => {
                                           <div className="flex items-center justify-between my-1">
                                             <h6 className="text-xs font-medium text-gray-500 uppercase">Indicadores</h6>
                                             <div className="flex items-center gap-3">
-                                              <span className={`text-xs font-semibold ${Math.abs(weightSum(mod.indicators) - 100) <= 0.5 ? 'text-brand_accent_hover' : 'text-brand_primary font-bold'}`}>
+                                              <span className={`text-xs font-semibold ${Math.abs(weightSum(mod.indicators) - 100) <= 0.5 ? 'text-brand_accent' : 'text-brand_primary font-bold'}`}>
                                                 Total: {weightSum(mod.indicators)}%
                                               </span>
                                               {isDraft && isAdmin && mod.indicators.length > 1 && (

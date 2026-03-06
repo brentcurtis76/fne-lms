@@ -296,19 +296,31 @@ const ExpectationsEditor: React.FC = () => {
         };
       });
 
-      // Convert raw weights to percentages within each group
+      // Convert raw weights to percentages using largest-remainder method
       const toPercent = (items: Array<{ weight: number }>): number[] => {
+        if (items.length === 0) return [];
         const total = items.reduce((s, i) => s + i.weight, 0);
-        if (total === 0 || items.length === 0) return items.map(() => Math.round(100 / items.length));
-        const percents = items.map((item, idx) => {
-          if (idx === items.length - 1) {
-            // Last item gets remainder to ensure sum = 100
-            const prevSum = items.slice(0, -1).reduce((s, i) => s + Math.floor((i.weight / total) * 100), 0);
-            return 100 - prevSum;
-          }
-          return Math.floor((item.weight / total) * 100);
-        });
-        return percents;
+        if (total === 0) {
+          // Equal distribution with proper rounding
+          const base = Math.floor(100 / items.length);
+          const remainder = 100 - (base * items.length);
+          return items.map((_, i) => base + (i < remainder ? 1 : 0));
+        }
+
+        const percentFloats = items.map(i => (i.weight / total) * 100);
+        const floored = percentFloats.map(p => Math.floor(p));
+        let remainder = 100 - floored.reduce((s, r) => s + r, 0);
+
+        // Distribute remainder to items with largest fractional parts
+        const fractional = percentFloats
+          .map((p, i) => ({ index: i, frac: p - Math.floor(p) }))
+          .sort((a, b) => b.frac - a.frac);
+
+        for (let i = 0; i < remainder; i++) {
+          floored[fractional[i].index]++;
+        }
+
+        return floored;
       };
 
       // Apply percentage conversion
@@ -486,13 +498,13 @@ const ExpectationsEditor: React.FC = () => {
     }
   };
 
-  // Equitable weight distribution helper
+  // Equitable weight distribution helper (largest-remainder method)
   const distributeEquitably = (count: number): number[] => {
     if (count === 0) return [];
     if (count === 1) return [100];
     const base = Math.floor(100 / count);
-    const remainder = 100 - base * count;
-    return Array.from({ length: count }, (_, i) => (i === count - 1 ? base + remainder : base));
+    const remainder = 100 - (base * count);
+    return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0));
   };
 
   // Validate that weights sum to 100 within a group

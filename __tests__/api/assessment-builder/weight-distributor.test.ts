@@ -208,29 +208,118 @@ describe('Expectations PUT — weights only (DOD-21)', () => {
 });
 
 // ============================================================
+// PARTIAL PAYLOAD REJECTION (Fix 2)
+// ============================================================
+
+describe('Expectations PUT — partial payload rejection (Fix 2)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGetApiUser.mockResolvedValue({ user: { id: ADMIN_UUID }, error: null });
+    mockHasReadPerm.mockResolvedValue(true);
+    mockHasWritePerm.mockResolvedValue(true);
+  });
+
+  it('rejects partial objective weights (missing one of two) (Fix 2)', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(buildWeightsClient());
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1 },
+      body: {
+        weights: {
+          objectives: [
+            // Only OBJECTIVE_A provided, OBJECTIVE_B is missing
+            { id: OBJECTIVE_A, weight: 100 },
+          ],
+        },
+      },
+    });
+    await expectationsHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    expect(data.error).toContain('todos los Procesos Generativos');
+  });
+
+  it('rejects partial module weights within an objective (Fix 2)', async () => {
+    // Two modules under the same objective
+    const twoModsSameObj = [
+      { id: MODULE_A, weight: 1, objective_id: OBJECTIVE_A },
+      { id: MODULE_B, weight: 1, objective_id: OBJECTIVE_A },
+    ];
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildWeightsClient({ modules: twoModsSameObj })
+    );
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1 },
+      body: {
+        weights: {
+          modules: [
+            // Only MODULE_A provided, MODULE_B is missing
+            { id: MODULE_A, weight: 100 },
+          ],
+        },
+      },
+    });
+    await expectationsHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    expect(data.error).toContain('todas las prácticas');
+  });
+
+  it('rejects partial indicator weights within a module (Fix 2)', async () => {
+    const IND_PROF_1 = 'ab000004-0000-0000-0000-000000000099';
+    const twoInds = [
+      { id: IND_COBERTURA_1, weight: 1, module_id: MODULE_A, category: 'cobertura' },
+      { id: IND_PROF_1, weight: 1, module_id: MODULE_A, category: 'profundidad' },
+    ];
+    mockCreateApiSupabaseClient.mockResolvedValue(
+      buildWeightsClient({ indicators: twoInds })
+    );
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1 },
+      body: {
+        weights: {
+          indicators: [
+            // Only one of two scored indicators in MODULE_A
+            { id: IND_COBERTURA_1, weight: 100 },
+          ],
+        },
+      },
+    });
+    await expectationsHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    expect(data.error).toContain('todos los indicadores');
+  });
+});
+
+// ============================================================
 // WEIGHT CONVERSION LOGIC (DOD-22)
 // ============================================================
 
 describe('Weight conversion logic (DOD-22)', () => {
-  it('equitable distribution handles 3 items correctly (33.33 rounding)', () => {
-    // Test the equitable distribution logic: 3 items should sum to 100
+  it('largest-remainder: 3 items distribute as [34, 33, 33] (Fix 6)', () => {
+    // Using largest-remainder method: first items get the extra 1
     const count = 3;
     const base = Math.floor(100 / count); // 33
-    const remainder = 100 - base * count; // 1
-    const percents = Array.from({ length: count }, (_, i) =>
-      i === count - 1 ? base + remainder : base
-    );
-    // [33, 33, 34]
+    const remainder = 100 - (base * count); // 1
+    const percents = Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0));
+    // [34, 33, 33] — first item gets the extra, not the last
     expect(percents.reduce((s, p) => s + p, 0)).toBe(100);
-    expect(percents[2]).toBe(34); // remainder goes to last
+    expect(percents[0]).toBe(34);
+    expect(percents[1]).toBe(33);
+    expect(percents[2]).toBe(33);
   });
 
   it('equitable distribution for 2 items gives 50/50', () => {
     const count = 2;
     const base = Math.floor(100 / count); // 50
-    const percents = Array.from({ length: count }, (_, i) =>
-      i === count - 1 ? 100 - base * (count - 1) : base
-    );
+    const remainder = 100 - (base * count); // 0
+    const percents = Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0));
     expect(percents).toEqual([50, 50]);
     expect(percents.reduce((s, p) => s + p, 0)).toBe(100);
   });

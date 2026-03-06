@@ -3,6 +3,7 @@ import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllo
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import type { IndicatorCategory } from '@/types/assessment-builder';
+import { validateDetalleOptions } from '@/lib/validation/detalleValidator';
 
 const VALID_CATEGORIES: IndicatorCategory[] = ['cobertura', 'frecuencia', 'profundidad', 'traspaso', 'detalle'];
 
@@ -183,30 +184,26 @@ async function handlePut(
       });
     }
 
-    // Validate detalleOptions if provided
+    // Validate detalle options using shared validator
     let validatedDetalleOptions: string[] | null | undefined = undefined;
-    if (detalleOptions !== undefined) {
-      if (!Array.isArray(detalleOptions) || detalleOptions.length < 2) {
-        return res.status(400).json({ error: 'Los indicadores de detalle requieren al menos 2 opciones' });
+
+    if (category === 'detalle') {
+      // When setting category to detalle, detalleOptions is required
+      const result = validateDetalleOptions(detalleOptions);
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
       }
-      if (detalleOptions.length > 15) {
-        return res.status(400).json({ error: 'Los indicadores de detalle permiten un máximo de 15 opciones' });
+      validatedDetalleOptions = result.options!;
+    } else if (category !== undefined) {
+      // Transitioning away from detalle — clear detalle_options
+      validatedDetalleOptions = null;
+    } else if (detalleOptions !== undefined) {
+      // No category change but updating options (for existing detalle indicator)
+      const result = validateDetalleOptions(detalleOptions);
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
       }
-      const trimmedOptions = detalleOptions.map((opt: unknown) => {
-        if (typeof opt !== 'string') return '';
-        return opt.trim();
-      });
-      if (trimmedOptions.some((opt: string) => opt.length === 0)) {
-        return res.status(400).json({ error: 'Todas las opciones de detalle deben tener contenido' });
-      }
-      if (trimmedOptions.some((opt: string) => opt.length > 200)) {
-        return res.status(400).json({ error: 'Cada opción de detalle puede tener un máximo de 200 caracteres' });
-      }
-      const uniqueOptions = new Set(trimmedOptions.map((o: string) => o.toLowerCase()));
-      if (uniqueOptions.size !== trimmedOptions.length) {
-        return res.status(400).json({ error: 'Las opciones de detalle no pueden repetirse' });
-      }
-      validatedDetalleOptions = trimmedOptions;
+      validatedDetalleOptions = result.options!;
     }
 
     // Enforce cobertura lock: first indicator in a module must stay cobertura

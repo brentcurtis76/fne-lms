@@ -345,7 +345,7 @@ async function handlePut(
     // ---- Handle weight updates ----
     let weightsSaved = 0;
     if (weights) {
-      // Fetch objectives and modules for validation
+      // Fetch full DB groups for completeness validation
       const { data: dbObjectives } = await supabase
         .from('assessment_objectives')
         .select('id, weight')
@@ -366,6 +366,17 @@ async function handlePut(
 
       // Validate and save objective weights
       if (weights.objectives && weights.objectives.length > 0) {
+        // Fix 2: Require weights for ALL objectives in the template
+        const allObjectiveIds = (dbObjectives || []).map((o: any) => o.id);
+        if (allObjectiveIds.length > 1) {
+          const submittedIds = new Set(weights.objectives.map(o => o.id));
+          const missing = allObjectiveIds.filter((id: string) => !submittedIds.has(id));
+          if (missing.length > 0) {
+            return res.status(400).json({
+              error: 'Debe incluir pesos para todos los Procesos Generativos del template',
+            });
+          }
+        }
         for (const obj of weights.objectives) {
           if (!validObjectiveIds.has(obj.id)) {
             return res.status(400).json({ error: `Objetivo ${obj.id} no pertenece a este template` });
@@ -375,7 +386,6 @@ async function handlePut(
             return res.status(400).json({ error: `Peso inválido para objetivo ${obj.id}` });
           }
         }
-        // Validate sum to 100 (only for multi-objective templates)
         if (weights.objectives.length > 1) {
           const objSum = weights.objectives.reduce((s, o) => s + Number(o.weight), 0);
           if (Math.abs(objSum - 100) > 0.5) {
@@ -385,10 +395,14 @@ async function handlePut(
           }
         }
         for (const obj of weights.objectives) {
-          await supabase
+          const { error: updateError } = await supabase
             .from('assessment_objectives')
             .update({ weight: Number(obj.weight) })
             .eq('id', obj.id);
+          if (updateError) {
+            console.error('Error updating objective weight:', updateError);
+            return res.status(500).json({ error: `Error al guardar peso del proceso: ${updateError.message}` });
+          }
           weightsSaved++;
         }
       }
@@ -404,7 +418,7 @@ async function handlePut(
             return res.status(400).json({ error: `Peso inválido para módulo ${mod.id}` });
           }
         }
-        // Group modules by objective_id and validate sum per group
+        // Fix 2: For each objective with submitted modules, require ALL modules in that objective
         const modulesByObjective = new Map<string, Array<{ id: string; weight: number }>>();
         for (const mod of weights.modules) {
           const dbMod = (dbModules || []).find((m: any) => m.id === mod.id);
@@ -413,7 +427,16 @@ async function handlePut(
           modulesByObjective.get(objId)!.push(mod);
         }
         for (const [objId, mods] of modulesByObjective.entries()) {
-          // Single-item groups always sum to themselves; skip sum validation
+          const allModsInObj = (dbModules || []).filter((m: any) => m.objective_id === objId);
+          if (allModsInObj.length > 1) {
+            const submittedIds = new Set(mods.map(m => m.id));
+            const missing = allModsInObj.filter((m: any) => !submittedIds.has(m.id));
+            if (missing.length > 0) {
+              return res.status(400).json({
+                error: `Debe incluir pesos para todas las prácticas del proceso ${objId}`,
+              });
+            }
+          }
           if (mods.length <= 1) continue;
           const modSum = mods.reduce((s, m) => s + Number(m.weight), 0);
           if (Math.abs(modSum - 100) > 0.5) {
@@ -423,10 +446,14 @@ async function handlePut(
           }
         }
         for (const mod of weights.modules) {
-          await supabase
+          const { error: updateError } = await supabase
             .from('assessment_modules')
             .update({ weight: Number(mod.weight) })
             .eq('id', mod.id);
+          if (updateError) {
+            console.error('Error updating module weight:', updateError);
+            return res.status(500).json({ error: `Error al guardar peso de la práctica: ${updateError.message}` });
+          }
           weightsSaved++;
         }
       }
@@ -448,7 +475,7 @@ async function handlePut(
             return res.status(400).json({ error: `Peso inválido para indicador ${ind.id}` });
           }
         }
-        // Group indicators by module_id and validate sum per group
+        // Fix 2: For each module with submitted indicators, require ALL scored indicators
         const indicatorsByModule = new Map<string, Array<{ id: string; weight: number }>>();
         for (const ind of weights.indicators) {
           const dbInd = (dbIndicators || []).find((i: any) => i.id === ind.id);
@@ -457,7 +484,19 @@ async function handlePut(
           indicatorsByModule.get(modId)!.push(ind);
         }
         for (const [modId, inds] of indicatorsByModule.entries()) {
-          // Single-item groups always sum to themselves; skip sum validation
+          // Get all scored indicators (excluding detalle and traspaso) in this module
+          const allScoredInMod = (dbIndicators || []).filter(
+            (i: any) => i.module_id === modId && i.category !== 'detalle' && i.category !== 'traspaso'
+          );
+          if (allScoredInMod.length > 1) {
+            const submittedIds = new Set(inds.map(i => i.id));
+            const missing = allScoredInMod.filter((i: any) => !submittedIds.has(i.id));
+            if (missing.length > 0) {
+              return res.status(400).json({
+                error: `Debe incluir pesos para todos los indicadores del módulo ${modId}`,
+              });
+            }
+          }
           if (inds.length <= 1) continue;
           const indSum = inds.reduce((s, i) => s + Number(i.weight), 0);
           if (Math.abs(indSum - 100) > 0.5) {
@@ -467,10 +506,14 @@ async function handlePut(
           }
         }
         for (const ind of weights.indicators) {
-          await supabase
+          const { error: updateError } = await supabase
             .from('assessment_indicators')
             .update({ weight: Number(ind.weight) })
             .eq('id', ind.id);
+          if (updateError) {
+            console.error('Error updating indicator weight:', updateError);
+            return res.status(500).json({ error: `Error al guardar peso del indicador: ${updateError.message}` });
+          }
           weightsSaved++;
         }
       }

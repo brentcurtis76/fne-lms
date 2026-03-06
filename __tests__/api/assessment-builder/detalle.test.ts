@@ -266,6 +266,76 @@ describe('PUT indicator — detalle category (DOD-5)', () => {
     await indicatorIdHandler(req as any, res as any);
     expect(res._getStatusCode()).toBe(400);
   });
+
+  it('requires detalleOptions when setting category to detalle (Fix 1)', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(buildPutClient({}));
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_DETALLE },
+      body: { category: 'detalle' }, // No detalleOptions provided
+    });
+    await indicatorIdHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    expect(data.error).toBeTruthy();
+  });
+
+  it('clears detalle_options when changing category away from detalle (Fix 1)', async () => {
+    // Track what updateData is passed to Supabase
+    let capturedUpdateData: Record<string, unknown> | null = null;
+    const mockClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'assessment_templates') return buildChainableQuery({ id: TEMPLATE_DRAFT_1, status: 'draft', is_archived: false });
+        if (table === 'assessment_modules') return buildChainableQuery({ id: MODULE_A, template_id: TEMPLATE_DRAFT_1 });
+        if (table === 'assessment_indicators') {
+          // Build a proxy that captures .update() calls
+          const handler: ProxyHandler<Record<string, unknown>> = {
+            get(_target, prop) {
+              if (prop === 'then') {
+                return (resolve: (value: unknown) => void) =>
+                  resolve({ data: { id: IND_DETALLE, module_id: MODULE_A, category: 'frecuencia', detalle_options: null }, error: null });
+              }
+              if (prop === 'update') {
+                return (data: Record<string, unknown>) => {
+                  capturedUpdateData = data;
+                  return new Proxy({}, handler);
+                };
+              }
+              return vi.fn(() => new Proxy({}, handler));
+            },
+          };
+          return new Proxy({}, handler);
+        }
+        return buildChainableQuery([]);
+      }),
+    };
+    mockCreateApiSupabaseClient.mockResolvedValue(mockClient);
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_DETALLE },
+      body: { category: 'frecuencia' },
+    });
+    await indicatorIdHandler(req as any, res as any);
+    // The handler should set detalle_options to null in the update
+    expect(capturedUpdateData).toBeTruthy();
+    expect(capturedUpdateData!.detalle_options).toBeNull();
+  });
+
+  it('rejects detalle options with HTML tags (XSS, Fix 4)', async () => {
+    mockCreateApiSupabaseClient.mockResolvedValue(buildPutClient({}));
+
+    const { req, res } = createMocks({
+      method: 'PUT',
+      query: { templateId: TEMPLATE_DRAFT_1, moduleId: MODULE_A, indicatorId: IND_DETALLE },
+      body: { detalleOptions: ['ABP', '<script>alert(1)</script>'] },
+    });
+    await indicatorIdHandler(req as any, res as any);
+    expect(res._getStatusCode()).toBe(400);
+    const data = JSON.parse(res._getData());
+    expect(data.error).toContain('HTML');
+  });
 });
 
 // ============================================================

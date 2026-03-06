@@ -3,6 +3,7 @@ import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllo
 import { IndicatorCategory } from '@/types/assessment-builder';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
+import { validateDetalleOptions } from '@/lib/validation/detalleValidator';
 
 /**
  * GET /api/admin/assessment-builder/templates/[templateId]/modules/[moduleId]/indicators
@@ -179,30 +180,14 @@ async function handlePost(
       }
     }
 
-    // For detalle, validate detalleOptions
+    // For detalle, validate detalleOptions using shared validator
     let validatedDetalleOptions: string[] | null = null;
     if (category === 'detalle') {
-      if (!Array.isArray(detalleOptions) || detalleOptions.length < 2) {
-        return res.status(400).json({ error: 'Los indicadores de detalle requieren al menos 2 opciones' });
+      const result = validateDetalleOptions(detalleOptions);
+      if (!result.valid) {
+        return res.status(400).json({ error: result.error });
       }
-      if (detalleOptions.length > 15) {
-        return res.status(400).json({ error: 'Los indicadores de detalle permiten un máximo de 15 opciones' });
-      }
-      const trimmedOptions = detalleOptions.map((opt: unknown) => {
-        if (typeof opt !== 'string') return '';
-        return opt.trim();
-      });
-      if (trimmedOptions.some((opt: string) => opt.length === 0)) {
-        return res.status(400).json({ error: 'Todas las opciones de detalle deben tener contenido' });
-      }
-      if (trimmedOptions.some((opt: string) => opt.length > 200)) {
-        return res.status(400).json({ error: 'Cada opción de detalle puede tener un máximo de 200 caracteres' });
-      }
-      const uniqueOptions = new Set(trimmedOptions.map((o: string) => o.toLowerCase()));
-      if (uniqueOptions.size !== trimmedOptions.length) {
-        return res.status(400).json({ error: 'Las opciones de detalle no pueden repetirse' });
-      }
-      validatedDetalleOptions = trimmedOptions;
+      validatedDetalleOptions = result.options!;
     }
 
     // Get max display_order for this module

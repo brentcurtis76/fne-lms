@@ -224,12 +224,30 @@ export default function QuizTaker({
   
   const renderResults = () => {
     if (!submission || !showResults) return null;
-    
+
     const hasOpenQuestions = submission.manual_gradable_points > 0;
-    const percentage = submission.total_possible_points > 0
-      ? (submission.auto_graded_score / submission.auto_gradable_points) * 100
+    const autoGradable = submission.auto_gradable_points || submission.total_possible_points || 0;
+    const percentage = autoGradable > 0
+      ? (submission.auto_graded_score / autoGradable) * 100
       : 0;
-    
+
+    // Build per-question feedback from submission answers and quiz data
+    const questionResults = questions.map((q: QuizQuestion) => {
+      const studentAnswer = answers[q.id];
+      if (q.type === 'open-ended') {
+        return { question: q, isCorrect: null, studentAnswer: studentAnswer?.text || '', correctAnswer: null };
+      }
+      const correctOption = q.options.find(o => o.isCorrect);
+      const selectedOption = q.options.find(o => o.id === studentAnswer?.selectedOption);
+      const isCorrect = correctOption?.id === studentAnswer?.selectedOption;
+      return {
+        question: q,
+        isCorrect,
+        studentAnswer: selectedOption?.text || '',
+        correctAnswer: correctOption?.text || '',
+      };
+    });
+
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
         <div className="text-center mb-6">
@@ -261,7 +279,53 @@ export default function QuizTaker({
             </div>
           )}
         </div>
-        
+
+        {/* Per-question feedback */}
+        <div className="space-y-4 mt-6 border-t pt-6">
+          <h3 className="text-lg font-semibold text-gray-900">Detalle por pregunta</h3>
+          {questionResults.map((result, index) => (
+            <div key={result.question.id} className={`p-4 rounded-lg border ${
+              result.isCorrect === null ? 'border-blue-200 bg-blue-50' :
+              result.isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+            }`}>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  {result.isCorrect === null ? (
+                    <Clock className="w-5 h-5 text-blue-500" />
+                  ) : result.isCorrect ? (
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-600" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">
+                    {index + 1}. {result.question.question}
+                  </p>
+                  <p className="text-sm text-gray-700 mt-1">
+                    Tu respuesta: <span className="font-medium">{result.studentAnswer || '(sin respuesta)'}</span>
+                  </p>
+                  {result.isCorrect === false && result.correctAnswer && (
+                    <p className="text-sm text-green-700 mt-1">
+                      Respuesta correcta: <span className="font-medium">{result.correctAnswer}</span>
+                    </p>
+                  )}
+                  {result.isCorrect === null && (
+                    <p className="text-sm text-blue-700 mt-1">
+                      Pendiente de revisión por el profesor
+                    </p>
+                  )}
+                  {result.question.explanation && result.isCorrect !== null && (
+                    <p className="text-sm text-gray-600 mt-2 italic">
+                      {result.question.explanation}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
         <div className="flex justify-center mt-6">
           <button
             onClick={() => window.location.reload()}

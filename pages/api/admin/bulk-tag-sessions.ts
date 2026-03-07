@@ -73,11 +73,11 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
         `
         id,
         title,
-        scheduled_date,
+        session_date,
         status,
         hour_type_key,
         contrato_id,
-        schools!school_id ( id, name ),
+        school_id,
         session_facilitators (
           profiles ( first_name, last_name )
         )
@@ -86,7 +86,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       )
       .is('hour_type_key', null)
       .not('status', 'in', '("borrador","pendiente_aprobacion")')
-      .order('scheduled_date', { ascending: false });
+      .order('session_date', { ascending: false });
 
     if (school_id && typeof school_id === 'string') {
       const schoolIdNum = parseInt(school_id, 10);
@@ -97,11 +97,11 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
 
     const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
     if (date_from && typeof date_from === 'string' && DATE_RE.test(date_from)) {
-      query = query.gte('scheduled_date', date_from);
+      query = query.gte('session_date', date_from);
     }
 
     if (date_to && typeof date_to === 'string' && DATE_RE.test(date_to)) {
-      query = query.lte('scheduled_date', date_to);
+      query = query.lte('session_date', date_to);
     }
 
     query = query.range(offset, offset + pageSizeNum - 1);
@@ -112,8 +112,28 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
       return sendAuthError(res, 'Error al obtener sesiones sin clasificar', 500, dbError.message);
     }
 
+    // Resolve school names (no FK constraint exists, so join manually)
+    const schoolIds = [...new Set((sessions ?? []).map((s: any) => s.school_id).filter(Boolean))];
+    let schoolMap: Record<number, string> = {};
+    if (schoolIds.length > 0) {
+      const { data: schoolRows } = await serviceClient
+        .from('schools')
+        .select('id, name')
+        .in('id', schoolIds);
+      if (schoolRows) {
+        schoolMap = Object.fromEntries(schoolRows.map((s: any) => [s.id, s.name]));
+      }
+    }
+
+    // Map sessions to include schools object and scheduled_date alias for frontend compat
+    const mapped = (sessions ?? []).map((s: any) => ({
+      ...s,
+      scheduled_date: s.session_date,
+      schools: s.school_id ? { id: s.school_id, name: schoolMap[s.school_id] || 'Desconocido' } : null,
+    }));
+
     return sendApiResponse(res, {
-      sessions: sessions ?? [],
+      sessions: mapped,
       total: count ?? 0,
       page: pageNum,
       page_size: pageSizeNum,

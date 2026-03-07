@@ -283,9 +283,10 @@ const ModernNotificationCenter: React.FC<ModernNotificationCenterProps> = ({ cla
     }
 
     // Navigate to related content or fallback
-    if (notification.related_url) {
+    const url = notification.related_url;
+    if (url && !url.includes('{')) {
       setIsOpen(false);
-      router.push(notification.related_url);
+      router.push(url);
     } else {
       // Provide fallback navigation for notifications without related_url
       let fallbackUrl = '/dashboard';

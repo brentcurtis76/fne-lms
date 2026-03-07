@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { QuizBlockPayload, QuizQuestion } from '@/types/blocks';
-import { Clock, AlertCircle, Send, RefreshCw, CheckCircle } from 'lucide-react';
+import { Clock, AlertCircle, Send, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 import { submitQuiz } from '@/lib/services/quizSubmissions';
 import { toast } from 'react-hot-toast';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
@@ -345,24 +345,90 @@ export default function LearningQuizTaker({
   };
   
   const renderCompleted = () => {
+    // Build per-question results
+    const questionResults = questions.map((q: QuizQuestion) => {
+      const studentAnswer = answers[q.id];
+      if (q.type === 'open-ended') {
+        return { question: q, isCorrect: null, studentAnswer: studentAnswer?.text || '', correctAnswer: null };
+      }
+      const correctOption = q.options.find(o => o.isCorrect);
+      const selectedOption = q.options.find(o => o.id === studentAnswer?.selectedOption);
+      const isCorrect = correctOption?.id === studentAnswer?.selectedOption;
+      return {
+        question: q,
+        isCorrect,
+        studentAnswer: selectedOption?.text || '',
+        correctAnswer: correctOption?.text || '',
+      };
+    });
+
     return (
       <div className="bg-white rounded-lg shadow-lg p-6">
-        <div className="text-center">
+        <div className="text-center mb-6">
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             ¡Felicitaciones!
           </h2>
-          <p className="text-lg text-gray-600 mb-6">
+          <p className="text-lg text-gray-600">
             Has completado el quiz exitosamente.
           </p>
           {openEndedQuestions.length > 0 && (
-            <div className="bg-brand_accent/10 border border-brand_accent/30 rounded-lg p-4 mb-6 max-w-md mx-auto">
+            <div className="bg-brand_accent/10 border border-brand_accent/30 rounded-lg p-4 mt-4 max-w-md mx-auto">
               <p className="text-sm text-brand_gray_dark">
-                Las preguntas abiertas serán revisadas por tu profesor. 
+                Las preguntas abiertas serán revisadas por tu profesor.
                 Recibirás retroalimentación pronto.
               </p>
             </div>
           )}
+        </div>
+
+        {/* Per-question feedback */}
+        <div className="space-y-4 border-t pt-6">
+          <h3 className="text-lg font-semibold text-gray-900">Detalle por pregunta</h3>
+          {questionResults.map((result, index) => (
+            <div key={result.question.id} className={`p-4 rounded-lg border ${
+              result.isCorrect === null ? 'border-blue-200 bg-blue-50' :
+              result.isCorrect ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+            }`}>
+              <div className="flex items-start gap-3">
+                <div className="flex-shrink-0 mt-0.5">
+                  {result.isCorrect === null ? (
+                    <Clock className="w-5 h-5 text-blue-500" />
+                  ) : result.isCorrect ? (
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <XCircle className="w-5 h-5 text-red-600" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-gray-900">
+                    {index + 1}. {result.question.question}
+                  </p>
+                  <p className="text-sm text-gray-700 mt-1">
+                    Tu respuesta: <span className="font-medium">{result.studentAnswer || '(sin respuesta)'}</span>
+                  </p>
+                  {result.isCorrect === false && result.correctAnswer && (
+                    <p className="text-sm text-green-700 mt-1">
+                      Respuesta correcta: <span className="font-medium">{result.correctAnswer}</span>
+                    </p>
+                  )}
+                  {result.isCorrect === null && (
+                    <p className="text-sm text-blue-700 mt-1">
+                      Pendiente de revisión por el profesor
+                    </p>
+                  )}
+                  {result.question.explanation && result.isCorrect !== null && (
+                    <p className="text-sm text-gray-600 mt-2 italic">
+                      {result.question.explanation}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex justify-center mt-6">
           <button
             onClick={() => window.location.reload()}
             className="px-6 py-2 bg-brand_blue text-white rounded-md hover:bg-brand_gray_dark transition"

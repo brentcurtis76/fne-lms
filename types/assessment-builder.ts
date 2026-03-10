@@ -314,11 +314,22 @@ export interface SchoolCourseDocenteAssignment {
 
 export type ContextQuestionType = 'text' | 'number' | 'select' | 'multiselect' | 'boolean' | 'scale' | 'textarea';
 
+export type ContextWidgetType =
+  | 'total_students'
+  | 'grade_levels'
+  | 'courses_per_level'
+  | 'implementation_year'
+  | 'programa_inicia'
+  | 'period_system'
+  | 'generic';
+
 export interface ContextGeneralQuestion {
   id: string;
   question_key: string;
   question_text: string;
   question_type: ContextQuestionType;
+  widget_type?: ContextWidgetType;
+  structural_key?: string;
   options?: string[];
   placeholder?: string;
   help_text?: string;

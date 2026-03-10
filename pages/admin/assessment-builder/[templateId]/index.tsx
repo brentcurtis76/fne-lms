@@ -1619,7 +1619,7 @@ const TemplateEditor: React.FC = () => {
                           ) : (
                             <ChevronDown className="w-4 h-4 text-gray-400" />
                           )}
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <span className="text-xs font-medium text-gray-400">#{objIndex + 1}</span>
                               <span className="font-semibold text-brand_primary">{objective.name}</span>

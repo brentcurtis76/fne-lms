@@ -219,6 +219,22 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         icon: OfficeBuildingIcon
       },
       {
+        id: 'context-questions-manage',
+        label: 'Preguntas de Contexto',
+        href: '/admin/context-questions',
+        description: 'Gestionar preguntas de contexto general',
+        icon: DocumentTextIcon,
+        adminOnly: true
+      },
+      {
+        id: 'context-questions-overview',
+        label: 'Resumen Respuestas',
+        href: '/admin/context-questions/overview',
+        description: 'Ver respuestas de todas las escuelas',
+        icon: ChartBarIcon,
+        adminOnly: true
+      },
+      {
         id: 'migration-plan',
         label: 'Plan de Migración',
         href: '/school/migration-plan',

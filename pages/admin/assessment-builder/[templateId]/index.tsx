@@ -60,6 +60,7 @@ interface IndicatorData {
   code?: string;
   name: string;
   description?: string;
+  evaluationGuidance?: string;
   category: IndicatorCategory;
   frequencyConfig?: { unit?: string; min?: number; max?: number };
   frequencyUnitOptions?: FrequencyUnit[];
@@ -142,6 +143,7 @@ const TemplateEditor: React.FC = () => {
     code: string;
     name: string;
     description: string;
+    evaluationGuidance: string;
     category: IndicatorCategory;
     frequencyUnit: string;
     frequencyUnitOptions: FrequencyUnit[];
@@ -155,6 +157,7 @@ const TemplateEditor: React.FC = () => {
     code: '',
     name: '',
     description: '',
+    evaluationGuidance: '',
     category: 'cobertura',
     frequencyUnit: 'veces',
     frequencyUnitOptions: [...DEFAULT_FREQUENCY_UNIT_OPTIONS],
@@ -598,6 +601,7 @@ const TemplateEditor: React.FC = () => {
         code: indicator.code || '',
         name: indicator.name,
         description: indicator.description || '',
+        evaluationGuidance: indicator.evaluationGuidance || '',
         category: indicator.category,
         frequencyUnit: indicator.frequencyConfig?.unit || 'veces',
         frequencyUnitOptions: indicator.frequencyUnitOptions || [...DEFAULT_FREQUENCY_UNIT_OPTIONS],
@@ -623,6 +627,7 @@ const TemplateEditor: React.FC = () => {
         code: autoCode,
         name: '',
         description: '',
+        evaluationGuidance: '',
         category: 'cobertura',
         frequencyUnit: 'veces',
         frequencyUnitOptions: [...DEFAULT_FREQUENCY_UNIT_OPTIONS],
@@ -685,6 +690,7 @@ const TemplateEditor: React.FC = () => {
       const body: any = {
         name: indicatorForm.name.trim(),
         description: indicatorForm.description.trim() || undefined,
+        evaluationGuidance: indicatorForm.evaluationGuidance.trim() || undefined,
         category: indicatorForm.category,
       };
 
@@ -710,6 +716,11 @@ const TemplateEditor: React.FC = () => {
       }
 
       if (editingIndicator) {
+        // PUT endpoint uses snake_case for evaluation_guidance
+        if (body.evaluationGuidance !== undefined) {
+          body.evaluation_guidance = body.evaluationGuidance;
+          delete body.evaluationGuidance;
+        }
         // Update indicator
         const response = await fetch(
           `/api/admin/assessment-builder/templates/${template.id}/modules/${indicatorModuleId}/indicators/${editingIndicator.id}`,
@@ -2103,6 +2114,23 @@ const TemplateEditor: React.FC = () => {
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Aparece como texto de ayuda junto al indicador cuando el evaluador lo completa. Aclara qué se está midiendo.
+                  </p>
+                </div>
+
+                <div>
+                  <label htmlFor="indicator-evaluation-guidance" className="block text-sm font-medium text-gray-700 mb-1">
+                    Guía de Evaluación
+                  </label>
+                  <textarea
+                    id="indicator-evaluation-guidance"
+                    value={indicatorForm.evaluationGuidance}
+                    onChange={(e) => setIndicatorForm({ ...indicatorForm, evaluationGuidance: e.target.value })}
+                    rows={3}
+                    placeholder="Instrucciones para el LLM al interpretar este indicador en el informe..."
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Instrucciones para la IA al generar el informe de evaluación. Ejemplo: &quot;Realizar esto más de una vez al año no es necesario — no señalar baja frecuencia como problema.&quot;
                   </p>
                 </div>
 

@@ -124,6 +124,7 @@ async function handleGet(
         level_3_descriptor,
         level_4_descriptor,
         detalle_options,
+        evaluation_guidance,
         display_order,
         weight,
         visibility_condition,
@@ -164,6 +165,7 @@ async function handlePut(
       code,
       name,
       description,
+      evaluation_guidance,
       category,
       frequency_config,
       frequency_unit_options,
@@ -227,6 +229,7 @@ async function handlePut(
     if (code !== undefined) updateData.code = code;
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
+    if (evaluation_guidance !== undefined) updateData.evaluation_guidance = evaluation_guidance;
     if (category !== undefined) updateData.category = category;
     if (frequency_config !== undefined) updateData.frequency_config = frequency_config;
     if (frequency_unit_options !== undefined) updateData.frequency_unit_options = frequency_unit_options;

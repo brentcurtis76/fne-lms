@@ -430,6 +430,7 @@ export interface AssessmentIndicator {
   code?: string;
   name: string;
   description?: string;
+  evaluation_guidance?: string;
   category: IndicatorCategory;
   frequency_config?: FrequencyConfig;
   frequency_unit_options?: FrequencyUnit[]; // Allowed frequency units for this indicator
@@ -736,6 +737,7 @@ export interface CreateIndicatorRequest {
   code?: string;
   name: string;
   description?: string;
+  evaluation_guidance?: string;
   category: IndicatorCategory;
   frequency_config?: FrequencyConfig;
   frequency_unit_options?: FrequencyUnit[];
@@ -752,6 +754,7 @@ export interface UpdateIndicatorRequest {
   code?: string;
   name?: string;
   description?: string;
+  evaluation_guidance?: string;
   category?: IndicatorCategory;
   frequency_config?: FrequencyConfig;
   frequency_unit_options?: FrequencyUnit[];

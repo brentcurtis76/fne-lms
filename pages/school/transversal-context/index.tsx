@@ -25,6 +25,16 @@ import {
 import type { SchoolTransversalContext, GradeLevel, ContextGeneralQuestion, ContextGeneralResponse } from '@/types/assessment-builder';
 import { GRADE_LEVEL_LABELS } from '@/types/assessment-builder';
 
+const WIDGET_ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
+  total_students: Users,
+  grade_levels: GraduationCap,
+  courses_per_level: BookOpen,
+  implementation_year: Calendar,
+  period_system: Clock,
+  programa_inicia: CheckCircle,
+  generic: HelpCircle,
+};
+
 const TransversalContextDashboard: React.FC = () => {
   const router = useRouter();
   const supabase = useSupabaseClient();
@@ -53,8 +63,8 @@ const TransversalContextDashboard: React.FC = () => {
   const [loadingDocentes, setLoadingDocentes] = useState(false);
   const [assigning, setAssigning] = useState(false);
 
-  // Custom context questions
-  const [customQuestions, setCustomQuestions] = useState<ContextGeneralQuestion[]>([]);
+  // All context questions (structural + generic, driven from DB)
+  const [allQuestions, setAllQuestions] = useState<ContextGeneralQuestion[]>([]);
   const [customResponses, setCustomResponses] = useState<ContextGeneralResponse[]>([]);
 
   // Check auth and permissions
@@ -201,7 +211,7 @@ const TransversalContextDashboard: React.FC = () => {
         ]);
         if (qRes.ok) {
           const qData = await qRes.json();
-          setCustomQuestions((qData.questions || []).filter((q: ContextGeneralQuestion) => q.is_active));
+          setAllQuestions((qData.questions || []).filter((q: ContextGeneralQuestion) => q.is_active));
         }
         if (rRes.ok) {
           const rData = await rRes.json();
@@ -553,165 +563,213 @@ const TransversalContextDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Questions and Answers Section */}
+        {/* Questions and Answers Section — data-driven from DB */}
         {context && (
           <div className="space-y-6">
-            {/* P1: Total Students */}
-            <div className="bg-white shadow-md rounded-lg p-6">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-brand_accent/20 rounded-lg">
-                  <Users className="w-6 h-6 text-brand_primary" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium text-brand_primary/60 mb-1">
-                    P1. Número total de estudiantes
-                  </h3>
-                  <p className="text-2xl font-bold text-brand_primary">
-                    {context.total_students?.toLocaleString('es-CL') || 'No especificado'}
-                  </p>
-                </div>
-              </div>
-            </div>
+            {allQuestions.map(q => {
+              const widgetType = q.widget_type || 'generic';
+              const IconComponent = WIDGET_ICON_MAP[widgetType] || HelpCircle;
 
-            {/* P2: Grade Levels */}
-            <div className="bg-white shadow-md rounded-lg p-6">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-brand_accent/20 rounded-lg">
-                  <GraduationCap className="w-6 h-6 text-brand_primary" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium text-brand_primary/60 mb-3">
-                    P2. Niveles educativos ({sortedGradeLevels.length} seleccionados)
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {sortedGradeLevels.map(level => (
-                      <span
-                        key={level}
-                        className="px-3 py-1.5 bg-brand_accent/20 text-brand_primary text-sm font-medium rounded-lg"
-                      >
-                        {GRADE_LEVEL_LABELS[level as GradeLevel] || level}
-                      </span>
-                    ))}
-                    {sortedGradeLevels.length === 0 && (
-                      <span className="text-brand_primary/60">No hay niveles seleccionados</span>
-                    )}
+              // --- total_students ---
+              if (widgetType === 'total_students') {
+                return (
+                  <div key={q.id} className="bg-white shadow-md rounded-lg p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-brand_accent/20 rounded-lg">
+                        <IconComponent className="w-6 h-6 text-brand_primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-brand_primary/60 mb-1">
+                          {q.question_text}
+                        </h3>
+                        <p className="text-2xl font-bold text-brand_primary">
+                          {context.total_students?.toLocaleString('es-CL') || 'No especificado'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            </div>
+                );
+              }
 
-            {/* P3: Courses per Level */}
-            {context.courses_per_level && Object.keys(context.courses_per_level).length > 0 && (
-              <div className="bg-white shadow-md rounded-lg p-6">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-brand_accent/20 rounded-lg">
-                    <BookOpen className="w-6 h-6 text-brand_primary" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-medium text-brand_primary/60 mb-3">
-                      P3. Cursos por nivel
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {sortedGradeLevels.map(level => {
-                        const count = context.courses_per_level?.[level as GradeLevel] || 1;
-                        return (
-                          <div key={level} className="flex items-center gap-2 p-2 bg-brand_beige rounded-lg">
-                            <span className="text-sm text-brand_primary">
+              // --- grade_levels ---
+              if (widgetType === 'grade_levels') {
+                return (
+                  <div key={q.id} className="bg-white shadow-md rounded-lg p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-brand_accent/20 rounded-lg">
+                        <IconComponent className="w-6 h-6 text-brand_primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-brand_primary/60 mb-3">
+                          {q.question_text} ({sortedGradeLevels.length} seleccionados)
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {sortedGradeLevels.map(level => (
+                            <span
+                              key={level}
+                              className="px-3 py-1.5 bg-brand_accent/20 text-brand_primary text-sm font-medium rounded-lg"
+                            >
                               {GRADE_LEVEL_LABELS[level as GradeLevel] || level}
                             </span>
-                            <span className="text-sm font-bold text-brand_primary bg-brand_accent/30 px-2 py-0.5 rounded">
-                              {count}
-                            </span>
-                          </div>
-                        );
-                      })}
+                          ))}
+                          {sortedGradeLevels.length === 0 && (
+                            <span className="text-brand_primary/60">No hay niveles seleccionados</span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
+                );
+              }
 
-            {/* P5: Implementation Year */}
-            <div className="bg-white shadow-md rounded-lg p-6">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-brand_accent/20 rounded-lg">
-                  <Calendar className="w-6 h-6 text-brand_primary" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium text-brand_primary/60 mb-1">
-                    P5. Año de implementación para 2026
-                  </h3>
-                  <p className="text-2xl font-bold text-brand_primary">
-                    Año {context.implementation_year_2026 || 'No especificado'}
-                  </p>
-                  <p className="text-sm text-brand_primary/60 mt-1">
-                    {context.implementation_year_2026 === 1 && 'Incipiente - Primer año de transformación'}
-                    {context.implementation_year_2026 === 2 && 'En Desarrollo - Segundo año de transformación'}
-                    {context.implementation_year_2026 === 3 && 'Avanzado - Tercer año de transformación'}
-                    {context.implementation_year_2026 === 4 && 'Consolidando - Cuarto año de transformación'}
-                    {context.implementation_year_2026 === 5 && 'Consolidado - Quinto año de transformación'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* P11: Period System */}
-            <div className="bg-white shadow-md rounded-lg p-6">
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-brand_accent/20 rounded-lg">
-                  <Clock className="w-6 h-6 text-brand_primary" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium text-brand_primary/60 mb-1">
-                    P11. Sistema de períodos
-                  </h3>
-                  <p className="text-2xl font-bold text-brand_primary capitalize">
-                    {context.period_system || 'No especificado'}
-                  </p>
-                  <p className="text-sm text-brand_primary/60 mt-1">
-                    {context.period_system === 'semestral' && '2 períodos por año académico'}
-                    {context.period_system === 'trimestral' && '3 períodos por año académico'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Custom Context Questions */}
-            {customQuestions.length > 0 && (
-              <div className="bg-white shadow-md rounded-lg p-6">
-                <div className="flex items-start gap-4">
-                  <div className="p-3 bg-brand_accent/20 rounded-lg">
-                    <HelpCircle className="w-6 h-6 text-brand_primary" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-medium text-brand_primary/60 mb-3">
-                      Preguntas Adicionales
-                    </h3>
-                    <div className="space-y-4">
-                      {customQuestions.map(q => {
-                        const resp = customResponses.find(r => r.question_id === q.id);
-                        const value = resp?.response;
-                        return (
-                          <div key={q.id} className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
-                            <p className="text-sm text-brand_primary/70 mb-1">{q.question_text}</p>
-                            <p className="text-base font-medium text-brand_primary">
-                              {value === undefined || value === null || value === ''
-                                ? <span className="text-brand_primary/40">Sin respuesta</span>
-                                : q.question_type === 'boolean'
-                                  ? (value === true ? 'Sí' : 'No')
-                                  : q.question_type === 'multiselect' && Array.isArray(value)
-                                    ? (value as string[]).join(', ')
-                                    : String(value)
-                              }
-                            </p>
-                          </div>
-                        );
-                      })}
+              // --- courses_per_level ---
+              if (widgetType === 'courses_per_level') {
+                if (!context.courses_per_level || Object.keys(context.courses_per_level).length === 0) {
+                  return null;
+                }
+                return (
+                  <div key={q.id} className="bg-white shadow-md rounded-lg p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-brand_accent/20 rounded-lg">
+                        <IconComponent className="w-6 h-6 text-brand_primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-brand_primary/60 mb-3">
+                          {q.question_text}
+                        </h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                          {sortedGradeLevels.map(level => {
+                            const count = context.courses_per_level?.[level as GradeLevel] || 1;
+                            return (
+                              <div key={level} className="flex items-center gap-2 p-2 bg-brand_beige rounded-lg">
+                                <span className="text-sm text-brand_primary">
+                                  {GRADE_LEVEL_LABELS[level as GradeLevel] || level}
+                                </span>
+                                <span className="text-sm font-bold text-brand_primary bg-brand_accent/30 px-2 py-0.5 rounded">
+                                  {count}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
-            )}
+                );
+              }
+
+              // --- implementation_year ---
+              if (widgetType === 'implementation_year') {
+                return (
+                  <div key={q.id} className="bg-white shadow-md rounded-lg p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-brand_accent/20 rounded-lg">
+                        <IconComponent className="w-6 h-6 text-brand_primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-brand_primary/60 mb-1">
+                          {q.question_text}
+                        </h3>
+                        <p className="text-2xl font-bold text-brand_primary">
+                          Año {context.implementation_year_2026 || 'No especificado'}
+                        </p>
+                        <p className="text-sm text-brand_primary/60 mt-1">
+                          {context.implementation_year_2026 === 1 && 'Incipiente - Primer año de transformación'}
+                          {context.implementation_year_2026 === 2 && 'En Desarrollo - Segundo año de transformación'}
+                          {context.implementation_year_2026 === 3 && 'Avanzado - Tercer año de transformación'}
+                          {context.implementation_year_2026 === 4 && 'Consolidando - Cuarto año de transformación'}
+                          {context.implementation_year_2026 === 5 && 'Consolidado - Quinto año de transformación'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // --- period_system ---
+              if (widgetType === 'period_system') {
+                return (
+                  <div key={q.id} className="bg-white shadow-md rounded-lg p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-brand_accent/20 rounded-lg">
+                        <IconComponent className="w-6 h-6 text-brand_primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-brand_primary/60 mb-1">
+                          {q.question_text}
+                        </h3>
+                        <p className="text-2xl font-bold text-brand_primary capitalize">
+                          {context.period_system || 'No especificado'}
+                        </p>
+                        <p className="text-sm text-brand_primary/60 mt-1">
+                          {context.period_system === 'semestral' && '2 períodos por año académico'}
+                          {context.period_system === 'trimestral' && '3 períodos por año académico'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // --- programa_inicia ---
+              if (widgetType === 'programa_inicia') {
+                return (
+                  <div key={q.id} className="bg-white shadow-md rounded-lg p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-brand_accent/20 rounded-lg">
+                        <IconComponent className="w-6 h-6 text-brand_primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-brand_primary/60 mb-1">
+                          {q.question_text}
+                        </h3>
+                        <p className="text-2xl font-bold text-brand_primary">
+                          {context.programa_inicia_completed ? 'Sí' : 'No'}
+                        </p>
+                        {context.programa_inicia_completed && context.programa_inicia_hours && (
+                          <p className="text-sm text-brand_primary/60 mt-1">
+                            {context.programa_inicia_hours} horas/año
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // --- generic ---
+              if (widgetType === 'generic') {
+                const resp = customResponses.find(r => r.question_id === q.id);
+                const value = resp?.response;
+                return (
+                  <div key={q.id} className="bg-white shadow-md rounded-lg p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-brand_accent/20 rounded-lg">
+                        <IconComponent className="w-6 h-6 text-brand_primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-medium text-brand_primary/60 mb-1">
+                          {q.question_text}
+                        </h3>
+                        <p className="text-base font-medium text-brand_primary">
+                          {value === undefined || value === null || value === ''
+                            ? <span className="text-brand_primary/40">Sin respuesta</span>
+                            : q.question_type === 'boolean'
+                              ? (value === true ? 'Sí' : 'No')
+                              : q.question_type === 'multiselect' && Array.isArray(value)
+                                ? (value as string[]).join(', ')
+                                : String(value)
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Unknown widget type — skip
+              return null;
+            })}
           </div>
         )}
 

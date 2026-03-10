@@ -1713,7 +1713,7 @@ const TemplateEditor: React.FC = () => {
                                       ) : (
                                         <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
                                       )}
-                                      <div>
+                                      <div className="min-w-0">
                                         <div className="flex items-center gap-2">
                                           <span className="text-xs font-medium text-gray-400">#{modIndex + 1}</span>
                                           <span className="font-medium text-gray-900 text-sm">{module.name}</span>

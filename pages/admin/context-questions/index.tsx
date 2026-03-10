@@ -57,13 +57,13 @@ const QUESTION_TYPE_LABELS: Record<ContextQuestionType, string> = {
 };
 
 const QUESTION_TYPE_COLORS: Record<ContextQuestionType, string> = {
-  text: 'bg-blue-100 text-blue-800',
-  number: 'bg-purple-100 text-purple-800',
-  select: 'bg-green-100 text-green-800',
-  multiselect: 'bg-teal-100 text-teal-800',
-  boolean: 'bg-yellow-100 text-yellow-800',
-  scale: 'bg-orange-100 text-orange-800',
-  textarea: 'bg-indigo-100 text-indigo-800',
+  text: 'bg-brand_primary/10 text-brand_primary',
+  number: 'bg-brand_primary/10 text-brand_primary',
+  select: 'bg-brand_accent/20 text-brand_gray_dark',
+  multiselect: 'bg-brand_accent/20 text-brand_gray_dark',
+  boolean: 'bg-brand_primary/10 text-brand_primary',
+  scale: 'bg-brand_accent/20 text-brand_gray_dark',
+  textarea: 'bg-brand_primary/10 text-brand_primary',
 };
 
 /** Returns true when the question maps to a DB column (structural widget). */
@@ -367,7 +367,7 @@ const ContextQuestionsPage: React.FC = () => {
                   {editingId ? 'Editar Pregunta' : 'Nueva Pregunta'}
                 </h2>
                 {editingIsStructural && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full bg-brand_accent/20 text-brand_gray_dark border border-brand_accent/40">
                     <Shield className="w-3.5 h-3.5" />
                     Pregunta Estructural
                   </span>
@@ -418,7 +418,7 @@ const ContextQuestionsPage: React.FC = () => {
                   ))}
                 </select>
                 {editingIsStructural && (
-                  <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
+                  <p className="mt-1 text-xs text-brand_gray_medium flex items-center gap-1">
                     <Lock className="w-3 h-3" />
                     El tipo no se puede cambiar en preguntas estructurales
                   </p>
@@ -565,7 +565,7 @@ const ContextQuestionsPage: React.FC = () => {
         ) : (
           <div className="bg-white shadow-md rounded-lg overflow-hidden">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+              <thead className="bg-brand_primary/5">
                 <tr>
                   <th
                     scope="col"
@@ -628,7 +628,7 @@ const ContextQuestionsPage: React.FC = () => {
                           {question.question_text}
                         </div>
                         {isStructuralQuestion(question) && (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap flex-shrink-0">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-brand_accent/20 text-brand_gray_dark border border-brand_accent/40 whitespace-nowrap flex-shrink-0">
                             <Shield className="w-3 h-3" />
                             Estructural
                           </span>
@@ -661,11 +661,11 @@ const ContextQuestionsPage: React.FC = () => {
                     {/* Required Badge */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       {question.is_required ? (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-brand_primary text-white">
                           Obligatoria
                         </span>
                       ) : (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-brand_gray_medium">
                           Opcional
                         </span>
                       )}
@@ -674,11 +674,11 @@ const ContextQuestionsPage: React.FC = () => {
                     {/* Active Status */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       {question.is_active ? (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-brand_accent/20 text-brand_gray_dark">
                           Activa
                         </span>
                       ) : (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-600">
+                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-brand_gray_medium">
                           Inactiva
                         </span>
                       )}
@@ -699,7 +699,7 @@ const ContextQuestionsPage: React.FC = () => {
                         {/* Toggle Active — hidden for structural questions */}
                         {isStructuralQuestion(question) ? (
                           <span
-                            className="p-2 text-amber-400 cursor-not-allowed"
+                            className="p-2 text-brand_accent cursor-not-allowed"
                             title="Las preguntas estructurales no se pueden desactivar"
                           >
                             <Lock className="w-4 h-4" />
@@ -710,8 +710,8 @@ const ContextQuestionsPage: React.FC = () => {
                           disabled={togglingId === question.id}
                           className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
                             question.is_active
-                              ? 'text-green-600 hover:bg-green-50'
-                              : 'text-gray-400 hover:bg-gray-100'
+                              ? 'text-brand_accent_hover hover:bg-brand_accent/10'
+                              : 'text-brand_gray_medium hover:bg-gray-100'
                           }`}
                           title={question.is_active ? 'Desactivar' : 'Activar'}
                         >

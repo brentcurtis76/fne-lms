@@ -196,7 +196,7 @@ const TransversalContextDashboard: React.FC = () => {
     const fetchCustom = async () => {
       try {
         const [qRes, rRes] = await Promise.all([
-          fetch('/api/admin/context-questions'),
+          fetch('/api/school/transversal-context/questions'),
           fetch(`/api/school/transversal-context/custom-responses?school_id=${schoolId}`),
         ]);
         if (qRes.ok) {

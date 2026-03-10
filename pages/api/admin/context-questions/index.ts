@@ -84,8 +84,12 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     const body = req.body as SaveContextQuestionRequest;
 
     // Validation
-    if (!body.question_text) {
+    const trimmedText = typeof body.question_text === 'string' ? body.question_text.trim() : '';
+    if (!trimmedText) {
       return res.status(400).json({ error: 'question_text es requerido' });
+    }
+    if (trimmedText.length > 500) {
+      return res.status(400).json({ error: 'question_text no puede exceder 500 caracteres' });
     }
 
     if (!body.question_type) {
@@ -97,8 +101,16 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
       return res.status(400).json({ error: 'question_type inválido' });
     }
 
-    // Auto-generate question_key if not provided
-    const questionKey = body.question_key || `custom_q_${Date.now()}`;
+    // Validate options for select/multiselect types
+    if (['select', 'multiselect'].includes(body.question_type)) {
+      if (!body.options || !Array.isArray(body.options) || body.options.length < 2) {
+        return res.status(400).json({ error: 'Las preguntas de tipo select/multiselect requieren al menos 2 opciones' });
+      }
+    }
+
+    // Auto-generate question_key if not provided (collision-safe)
+    const questionKey = body.question_key
+      || `custom_q_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
     const serviceClient = createServiceRoleClient();
 
@@ -106,7 +118,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
       .from('context_general_questions')
       .insert({
         question_key: questionKey,
-        question_text: body.question_text,
+        question_text: trimmedText,
         question_type: body.question_type,
         options: body.options ?? null,
         placeholder: body.placeholder ?? null,

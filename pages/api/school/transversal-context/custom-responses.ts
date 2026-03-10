@@ -1,7 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import {
   getApiUser,
-  createApiSupabaseClient,
   createServiceRoleClient,
   sendAuthError,
   handleMethodNotAllowed,
@@ -81,16 +80,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return sendAuthError(res, 'Autenticación requerida');
   }
 
-  const supabaseClient = await createApiSupabaseClient(req, res);
+  // Use service role client for reliable permission checks (bypasses RLS)
+  const serviceClient = createServiceRoleClient();
 
   // Get school_id from query for GET, or from body for POST
-  const querySchoolId = req.query.school_id ? parseInt(req.query.school_id as string) : undefined;
-  const bodySchoolId = req.body?.school_id ? parseInt(req.body.school_id) : undefined;
-  const requestedSchoolId = req.method === 'GET' ? querySchoolId : bodySchoolId;
+  const rawQuerySchoolId = req.query.school_id ? parseInt(req.query.school_id as string) : undefined;
+  const rawBodySchoolId = req.body?.school_id ? parseInt(req.body.school_id) : undefined;
+  const requestedSchoolId = req.method === 'GET' ? rawQuerySchoolId : rawBodySchoolId;
+
+  // Validate school_id is a valid number
+  if (requestedSchoolId !== undefined && isNaN(requestedSchoolId)) {
+    return res.status(400).json({ error: 'school_id debe ser un número válido' });
+  }
 
   // Permission check
   const { hasPermission, schoolId, isAdmin } = await hasDirectivoPermission(
-    supabaseClient,
+    serviceClient,
     user.id,
     requestedSchoolId
   );
@@ -179,9 +184,10 @@ async function handlePost(
       return res.status(400).json({ error: 'Se requiere al menos una respuesta' });
     }
 
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     for (const r of body.responses) {
-      if (!r.question_id) {
-        return res.status(400).json({ error: 'Cada respuesta debe incluir question_id' });
+      if (!r.question_id || typeof r.question_id !== 'string' || !uuidRegex.test(r.question_id)) {
+        return res.status(400).json({ error: 'Cada respuesta debe incluir un question_id válido (UUID)' });
       }
     }
 

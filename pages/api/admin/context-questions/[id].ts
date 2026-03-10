@@ -21,6 +21,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return sendAuthError(res, 'ID inválido', 400);
   }
 
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    return sendAuthError(res, 'ID debe ser un UUID válido', 400);
+  }
+
   if (req.method === 'PUT') {
     return handlePut(req, res, id);
   }

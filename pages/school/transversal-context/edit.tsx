@@ -44,7 +44,7 @@ const TransversalContextEdit: React.FC = () => {
   // Custom context questions
   const [customQuestions, setCustomQuestions] = useState<ContextGeneralQuestion[]>([]);
   const [customResponses, setCustomResponses] = useState<Record<string, unknown>>({});
-  const [savingCustom, setSavingCustom] = useState(false);
+  // savingCustom removed — custom responses now save inline with structural context
 
   // Check auth and permissions
   useEffect(() => {
@@ -160,7 +160,7 @@ const TransversalContextEdit: React.FC = () => {
   const fetchCustomQuestions = useCallback(async () => {
     try {
       // Fetch active questions
-      const qRes = await fetch('/api/admin/context-questions');
+      const qRes = await fetch('/api/school/transversal-context/questions');
       if (qRes.ok) {
         const qData = await qRes.json();
         setCustomQuestions((qData.questions || []).filter((q: ContextGeneralQuestion) => q.is_active));
@@ -284,33 +284,36 @@ const TransversalContextEdit: React.FC = () => {
         toast.success(`${data.coursesGenerated} cursos generados`, { duration: 3000 });
       }
 
-      // Save custom responses
-      if (Object.keys(customResponses).length > 0) {
-        setSavingCustom(true);
+      // Save custom responses before redirecting
+      let customSaveOk = true;
+      const filteredResponses = Object.entries(customResponses)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([question_id, response]) => ({ question_id, response }));
+
+      if (filteredResponses.length > 0) {
         try {
           const customRes = await fetch('/api/school/transversal-context/custom-responses', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              school_id: schoolId,
-              responses: Object.entries(customResponses)
-                .filter(([, v]) => v !== undefined && v !== null && v !== '')
-                .map(([question_id, response]) => ({ question_id, response })),
-            }),
+            body: JSON.stringify({ school_id: schoolId, responses: filteredResponses }),
           });
           if (!customRes.ok) {
+            customSaveOk = false;
             const errData = await customRes.json();
             console.error('Error saving custom responses:', errData);
-            toast.error('Error al guardar respuestas personalizadas');
+            toast.error('Error al guardar respuestas personalizadas. Intente de nuevo.');
           }
         } catch (err) {
+          customSaveOk = false;
           console.error('Error saving custom responses:', err);
-        } finally {
-          setSavingCustom(false);
+          toast.error('Error al guardar respuestas personalizadas. Intente de nuevo.');
         }
       }
 
-      router.push(`/school/transversal-context?school_id=${schoolId}`);
+      // Only redirect if both saves succeeded
+      if (customSaveOk) {
+        router.push(`/school/transversal-context?school_id=${schoolId}`);
+      }
     } catch (error: any) {
       console.error('Error saving context:', error);
       toast.error(error.message || 'Error al guardar el contexto');

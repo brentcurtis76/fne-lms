@@ -40,7 +40,7 @@ test.describe('Admin Context Questions — Management Page', () => {
     await page.goto('/admin/context-questions');
 
     // Should see the header
-    await expect(page.locator('text=Preguntas de Contexto')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('h1:has-text("Preguntas de Contexto")').first()).toBeVisible({ timeout: 10000 });
 
     // Should see the "Add Question" button
     await expect(page.locator('text=Agregar Pregunta')).toBeVisible();

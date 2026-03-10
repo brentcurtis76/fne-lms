@@ -44,6 +44,7 @@ async function loginAndGetToken(request: any): Promise<string> {
 }
 
 test.describe('Context Questions — Admin CRUD via API', () => {
+  test.describe.configure({ mode: 'serial' });
   let createdQuestionId = '';
 
   test.beforeAll(async ({ request }) => {

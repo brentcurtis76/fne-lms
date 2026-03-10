@@ -29,7 +29,7 @@ test.describe('Hour Tracking — Session Reservation', () => {
 
     // Navigate to session create form
     await page.goto('/admin/sessions/create');
-    await expect(page.locator('text=Programar Sesión')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Programar Sesión' }).first()).toBeVisible({ timeout: 10000 });
 
     // Verify hour type dropdown appears
     await expect(page.locator('text=Tipo de Hora')).toBeVisible();
@@ -40,7 +40,7 @@ test.describe('Hour Tracking — Session Reservation', () => {
     await page.waitForTimeout(500);
 
     // Verify contract dropdown appears after school selection
-    await expect(page.locator('text=Contrato')).toBeVisible();
+    await expect(page.getByText('Contrato', { exact: true })).toBeVisible();
 
     // NOTE: Full E2E test requires seed data with a school that has a contrato.
     // The following steps are conditional on seed data availability.
@@ -52,7 +52,7 @@ test.describe('Hour Tracking — Session Reservation', () => {
     await page.goto('/admin/sessions/create');
 
     // Verify the form loads without errors
-    await expect(page.locator('text=Programar Sesión')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Programar Sesión' }).first()).toBeVisible({ timeout: 10000 });
 
     // The form should work without selecting hour type (backward compatibility)
     await page.locator('select[name="school_id"]').selectOption({ index: 1 });

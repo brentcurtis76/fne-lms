@@ -448,12 +448,33 @@ const MigrationPlanPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Back button - different behavior for admin/consultor vs directivo */}
         {isAdmin ? (
-          <Link href="/school/migration-plan" legacyBehavior>
-            <a className="inline-flex items-center text-sm text-brand_primary/70 hover:text-brand_accent mb-6 transition-colors">
-              <ArrowLeft className="w-4 h-4 mr-1" />
-              Volver a Selección de Escuelas
-            </a>
-          </Link>
+          <button
+            onClick={async () => {
+              setSchoolId(null);
+              setSchoolName('');
+              setGrades([]);
+              setEntries([]);
+              setPlanGrid({});
+              setHasChanges(false);
+              setLoadingSchools(true);
+              try {
+                const response = await fetch('/api/school/transversal-context/schools');
+                const data = await response.json();
+                if (response.ok && data.schools) {
+                  setSchools(data.schools);
+                }
+              } catch (err) {
+                console.error('Error fetching schools:', err);
+              } finally {
+                setLoadingSchools(false);
+              }
+              router.push('/school/migration-plan', undefined, { shallow: true });
+            }}
+            className="inline-flex items-center text-sm text-brand_primary/70 hover:text-brand_accent mb-6 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4 mr-1" />
+            Volver a Selección de Escuelas
+          </button>
         ) : (
           <Link href="/school/transversal-context" legacyBehavior>
             <a className="inline-flex items-center text-sm text-brand_primary/70 hover:text-brand_accent mb-6 transition-colors">

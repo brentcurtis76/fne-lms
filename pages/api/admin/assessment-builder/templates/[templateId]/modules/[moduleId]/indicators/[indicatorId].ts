@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { updatePublishedTemplateSnapshot } from '@/lib/services/assessment-builder/autoAssignmentService';
 import { hasAssessmentReadPermission, hasAssessmentWritePermission } from '@/lib/assessment-permissions';
 import type { IndicatorCategory } from '@/types/assessment-builder';
@@ -28,16 +28,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return sendAuthError(res, 'Autenticación requerida');
   }
 
-  const supabaseClient = await createApiSupabaseClient(req, res);
+  // Use service role client for data operations (auth is handled above)
+  const serviceClient = createServiceRoleClient();
 
   // Read permission check (admin or consultor)
-  const canRead = await hasAssessmentReadPermission(supabaseClient, user.id);
+  const canRead = await hasAssessmentReadPermission(serviceClient, user.id);
   if (!canRead) {
     return res.status(403).json({ error: 'No tienes permiso para acceder al constructor de evaluaciones' });
   }
 
   // Verify template exists
-  const { data: template, error: templateError } = await supabaseClient
+  const { data: template, error: templateError } = await serviceClient
     .from('assessment_templates')
     .select('id, status, is_archived')
     .eq('id', templateId)
@@ -48,7 +49,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Verify module exists and belongs to template
-  const { data: module, error: moduleError } = await supabaseClient
+  const { data: module, error: moduleError } = await serviceClient
     .from('assessment_modules')
     .select('id, template_id')
     .eq('id', moduleId)
@@ -63,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Verify indicator exists and belongs to module
-  const { data: indicator, error: indicatorError } = await supabaseClient
+  const { data: indicator, error: indicatorError } = await serviceClient
     .from('assessment_indicators')
     .select('id, module_id')
     .eq('id', indicatorId)
@@ -79,10 +80,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   switch (req.method) {
     case 'GET':
-      return handleGet(req, res, supabaseClient, indicatorId);
+      return handleGet(req, res, serviceClient, indicatorId);
     case 'PUT':
     case 'DELETE': {
-      const canWrite = await hasAssessmentWritePermission(supabaseClient, user.id);
+      const canWrite = await hasAssessmentWritePermission(serviceClient, user.id);
       if (!canWrite) {
         return res.status(403).json({ error: 'Solo administradores pueden modificar indicadores' });
       }
@@ -90,9 +91,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: 'Los templates archivados no pueden ser modificados' });
       }
       if (req.method === 'PUT') {
-        return handlePut(req, res, supabaseClient, templateId, moduleId, indicatorId, user.id);
+        return handlePut(req, res, serviceClient, templateId, moduleId, indicatorId, user.id);
       }
-      return handleDelete(req, res, supabaseClient, indicatorId, moduleId, templateId, user.id);
+      return handleDelete(req, res, serviceClient, indicatorId, moduleId, templateId, user.id);
     }
     default:
       return handleMethodNotAllowed(res, ['GET', 'PUT', 'DELETE']);
@@ -103,11 +104,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function handleGet(
   req: NextApiRequest,
   res: NextApiResponse,
-  supabaseClient: any,
+  serviceClient: any,
   indicatorId: string
 ) {
   try {
-    const { data: indicator, error } = await supabaseClient
+    const { data: indicator, error } = await serviceClient
       .from('assessment_indicators')
       .select(`
         id,
@@ -154,7 +155,7 @@ async function handleGet(
 async function handlePut(
   req: NextApiRequest,
   res: NextApiResponse,
-  supabaseClient: any,
+  serviceClient: any,
   templateId: string,
   moduleId: string,
   indicatorId: string,
@@ -210,7 +211,7 @@ async function handlePut(
 
     // Enforce cobertura lock: first indicator in a module must stay cobertura
     if (category && category !== 'cobertura') {
-      const { data: indicators } = await supabaseClient
+      const { data: indicators } = await serviceClient
         .from('assessment_indicators')
         .select('id, display_order')
         .eq('module_id', moduleId)
@@ -247,7 +248,7 @@ async function handlePut(
     }
 
     // Update indicator
-    const { data: indicator, error } = await supabaseClient
+    const { data: indicator, error } = await serviceClient
       .from('assessment_indicators')
       .update(updateData)
       .eq('id', indicatorId)
@@ -281,7 +282,7 @@ async function handlePut(
 async function handleDelete(
   req: NextApiRequest,
   res: NextApiResponse,
-  supabaseClient: any,
+  serviceClient: any,
   indicatorId: string,
   moduleId: string,
   templateId: string,
@@ -289,7 +290,7 @@ async function handleDelete(
 ) {
   try {
     // Delete indicator
-    const { error } = await supabaseClient
+    const { error } = await serviceClient
       .from('assessment_indicators')
       .delete()
       .eq('id', indicatorId);
@@ -300,7 +301,7 @@ async function handleDelete(
     }
 
     // Re-order remaining indicators
-    const { data: remainingIndicators } = await supabaseClient
+    const { data: remainingIndicators } = await serviceClient
       .from('assessment_indicators')
       .select('id, display_order')
       .eq('module_id', moduleId)
@@ -309,7 +310,7 @@ async function handleDelete(
     if (remainingIndicators && remainingIndicators.length > 0) {
       for (let i = 0; i < remainingIndicators.length; i++) {
         if (remainingIndicators[i].display_order !== i + 1) {
-          await supabaseClient
+          await serviceClient
             .from('assessment_indicators')
             .update({ display_order: i + 1 })
             .eq('id', remainingIndicators[i].id);

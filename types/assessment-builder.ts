@@ -309,6 +309,60 @@ export interface SchoolCourseDocenteAssignment {
 }
 
 // ============================================================
+// CONTEXT GENERAL QUESTIONS (Admin-defined)
+// ============================================================
+
+export type ContextQuestionType = 'text' | 'number' | 'select' | 'multiselect' | 'boolean' | 'scale' | 'textarea';
+
+export interface ContextGeneralQuestion {
+  id: string;
+  question_key: string;
+  question_text: string;
+  question_type: ContextQuestionType;
+  options?: string[];
+  placeholder?: string;
+  help_text?: string;
+  is_required: boolean;
+  is_active: boolean;
+  display_order: number;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContextGeneralResponse {
+  id: string;
+  school_id: number;
+  question_id: string;
+  response: unknown;
+  responded_by?: string;
+  created_at: string;
+  updated_at: string;
+  // Joined
+  question?: ContextGeneralQuestion;
+}
+
+export interface SaveContextQuestionRequest {
+  question_key: string;
+  question_text: string;
+  question_type: ContextQuestionType;
+  options?: string[];
+  placeholder?: string;
+  help_text?: string;
+  is_required?: boolean;
+  is_active?: boolean;
+  display_order?: number;
+}
+
+export interface SaveContextResponsesRequest {
+  school_id: number;
+  responses: Array<{
+    question_id: string;
+    response: unknown;
+  }>;
+}
+
+// ============================================================
 // GRADES
 // ============================================================
 

@@ -5,8 +5,8 @@ import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPageHeader';
-import { Building2, ArrowLeft, Save, Info } from 'lucide-react';
-import type { GradeLevel, PeriodSystem, SaveTransversalContextRequest } from '@/types/assessment-builder';
+import { Building2, ArrowLeft, Save, Info, Loader2, HelpCircle } from 'lucide-react';
+import type { GradeLevel, PeriodSystem, SaveTransversalContextRequest, ContextGeneralQuestion } from '@/types/assessment-builder';
 import { GRADE_LEVEL_LABELS, GRADE_LEVEL_CATEGORIES } from '@/types/assessment-builder';
 
 const TransversalContextEdit: React.FC = () => {
@@ -40,6 +40,11 @@ const TransversalContextEdit: React.FC = () => {
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Custom context questions
+  const [customQuestions, setCustomQuestions] = useState<ContextGeneralQuestion[]>([]);
+  const [customResponses, setCustomResponses] = useState<Record<string, unknown>>({});
+  const [savingCustom, setSavingCustom] = useState(false);
 
   // Check auth and permissions
   useEffect(() => {
@@ -151,6 +156,39 @@ const TransversalContextEdit: React.FC = () => {
     }
   }, [schoolId, hasPermission, fetchContext]);
 
+  // Fetch custom questions and existing responses
+  const fetchCustomQuestions = useCallback(async () => {
+    try {
+      // Fetch active questions
+      const qRes = await fetch('/api/admin/context-questions');
+      if (qRes.ok) {
+        const qData = await qRes.json();
+        setCustomQuestions((qData.questions || []).filter((q: ContextGeneralQuestion) => q.is_active));
+      }
+
+      // Fetch existing responses for this school
+      if (schoolId) {
+        const rRes = await fetch(`/api/school/transversal-context/custom-responses?school_id=${schoolId}`);
+        if (rRes.ok) {
+          const rData = await rRes.json();
+          const responseMap: Record<string, unknown> = {};
+          (rData.responses || []).forEach((r: any) => {
+            responseMap[r.question_id] = r.response;
+          });
+          setCustomResponses(responseMap);
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching custom questions:', err);
+    }
+  }, [schoolId]);
+
+  useEffect(() => {
+    if (schoolId && hasPermission) {
+      fetchCustomQuestions();
+    }
+  }, [schoolId, hasPermission, fetchCustomQuestions]);
+
   // Toggle grade level selection
   const toggleGradeLevel = (level: GradeLevel) => {
     setFormData(prev => {
@@ -183,6 +221,10 @@ const TransversalContextEdit: React.FC = () => {
         [level]: Math.max(1, Math.min(10, count)), // Limit 1-10
       },
     }));
+  };
+
+  const updateCustomResponse = (questionId: string, value: unknown) => {
+    setCustomResponses(prev => ({ ...prev, [questionId]: value }));
   };
 
   // Validate form
@@ -240,6 +282,32 @@ const TransversalContextEdit: React.FC = () => {
         toast.error(data.warning, { duration: 6000 });
       } else if (data.coursesGenerated !== undefined) {
         toast.success(`${data.coursesGenerated} cursos generados`, { duration: 3000 });
+      }
+
+      // Save custom responses
+      if (Object.keys(customResponses).length > 0) {
+        setSavingCustom(true);
+        try {
+          const customRes = await fetch('/api/school/transversal-context/custom-responses', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              school_id: schoolId,
+              responses: Object.entries(customResponses)
+                .filter(([, v]) => v !== undefined && v !== null && v !== '')
+                .map(([question_id, response]) => ({ question_id, response })),
+            }),
+          });
+          if (!customRes.ok) {
+            const errData = await customRes.json();
+            console.error('Error saving custom responses:', errData);
+            toast.error('Error al guardar respuestas personalizadas');
+          }
+        } catch (err) {
+          console.error('Error saving custom responses:', err);
+        } finally {
+          setSavingCustom(false);
+        }
       }
 
       router.push(`/school/transversal-context?school_id=${schoolId}`);
@@ -546,6 +614,155 @@ const TransversalContextEdit: React.FC = () => {
               <p className="mt-2 text-sm text-red-500">{errors.period_system}</p>
             )}
           </div>
+
+          {/* Custom Context Questions */}
+          {customQuestions.length > 0 && (
+            <div className="bg-white shadow-md rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-brand_blue mb-2">
+                Preguntas Adicionales
+              </h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Preguntas adicionales definidas por la administración.
+              </p>
+              <div className="space-y-6">
+                {customQuestions.map(q => (
+                  <div key={q.id} className="border-b border-gray-100 pb-4 last:border-0 last:pb-0">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {q.question_text}
+                      {q.is_required && <span className="text-red-500 ml-1">*</span>}
+                    </label>
+                    {q.help_text && (
+                      <p className="text-xs text-gray-400 mb-2 flex items-center gap-1">
+                        <HelpCircle className="w-3 h-3" />
+                        {q.help_text}
+                      </p>
+                    )}
+
+                    {q.question_type === 'text' && (
+                      <input
+                        type="text"
+                        value={(customResponses[q.id] as string) || ''}
+                        onChange={(e) => updateCustomResponse(q.id, e.target.value)}
+                        placeholder={q.placeholder || ''}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_blue"
+                      />
+                    )}
+
+                    {q.question_type === 'textarea' && (
+                      <textarea
+                        value={(customResponses[q.id] as string) || ''}
+                        onChange={(e) => updateCustomResponse(q.id, e.target.value)}
+                        placeholder={q.placeholder || ''}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_blue"
+                      />
+                    )}
+
+                    {q.question_type === 'number' && (
+                      <input
+                        type="number"
+                        value={(customResponses[q.id] as number) ?? ''}
+                        onChange={(e) => updateCustomResponse(q.id, e.target.value ? Number(e.target.value) : '')}
+                        placeholder={q.placeholder || ''}
+                        className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_blue"
+                      />
+                    )}
+
+                    {q.question_type === 'scale' && (
+                      <div className="flex gap-2">
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <button
+                            key={n}
+                            type="button"
+                            onClick={() => updateCustomResponse(q.id, n)}
+                            className={`w-10 h-10 rounded-lg text-sm font-medium transition-colors ${
+                              customResponses[q.id] === n
+                                ? 'bg-brand_blue text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {q.question_type === 'boolean' && (
+                      <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => updateCustomResponse(q.id, true)}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            customResponses[q.id] === true
+                              ? 'bg-brand_blue text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          Sí
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateCustomResponse(q.id, false)}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            customResponses[q.id] === false
+                              ? 'bg-brand_blue text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          No
+                        </button>
+                      </div>
+                    )}
+
+                    {q.question_type === 'select' && (
+                      <select
+                        value={(customResponses[q.id] as string) || ''}
+                        onChange={(e) => updateCustomResponse(q.id, e.target.value)}
+                        className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_blue"
+                      >
+                        <option value="">{q.placeholder || '-- Seleccionar --'}</option>
+                        {(q.options || []).map(opt => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                      </select>
+                    )}
+
+                    {q.question_type === 'multiselect' && (
+                      <div className="flex flex-wrap gap-2">
+                        {(q.options || []).map(opt => {
+                          const selected = Array.isArray(customResponses[q.id])
+                            ? (customResponses[q.id] as string[]).includes(opt)
+                            : false;
+                          return (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => {
+                                const current = Array.isArray(customResponses[q.id])
+                                  ? (customResponses[q.id] as string[])
+                                  : [];
+                                updateCustomResponse(
+                                  q.id,
+                                  selected ? current.filter(v => v !== opt) : [...current, opt]
+                                );
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                                selected
+                                  ? 'bg-brand_blue text-white'
+                                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                              }`}
+                            >
+                              {opt}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Deferred questions notice */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">

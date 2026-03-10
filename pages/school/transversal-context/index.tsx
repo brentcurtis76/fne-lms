@@ -20,8 +20,9 @@ import {
   MapIcon,
   BookOpen,
   Clock,
+  HelpCircle,
 } from 'lucide-react';
-import type { SchoolTransversalContext, GradeLevel } from '@/types/assessment-builder';
+import type { SchoolTransversalContext, GradeLevel, ContextGeneralQuestion, ContextGeneralResponse } from '@/types/assessment-builder';
 import { GRADE_LEVEL_LABELS } from '@/types/assessment-builder';
 
 const TransversalContextDashboard: React.FC = () => {
@@ -51,6 +52,10 @@ const TransversalContextDashboard: React.FC = () => {
   const [selectedDocente, setSelectedDocente] = useState<string>('');
   const [loadingDocentes, setLoadingDocentes] = useState(false);
   const [assigning, setAssigning] = useState(false);
+
+  // Custom context questions
+  const [customQuestions, setCustomQuestions] = useState<ContextGeneralQuestion[]>([]);
+  const [customResponses, setCustomResponses] = useState<ContextGeneralResponse[]>([]);
 
   // Check auth and permissions
   useEffect(() => {
@@ -184,6 +189,30 @@ const TransversalContextDashboard: React.FC = () => {
       fetchContext();
     }
   }, [schoolId, hasPermission, fetchContext]);
+
+  // Fetch custom context questions and responses
+  useEffect(() => {
+    if (!schoolId || !hasPermission) return;
+    const fetchCustom = async () => {
+      try {
+        const [qRes, rRes] = await Promise.all([
+          fetch('/api/admin/context-questions'),
+          fetch(`/api/school/transversal-context/custom-responses?school_id=${schoolId}`),
+        ]);
+        if (qRes.ok) {
+          const qData = await qRes.json();
+          setCustomQuestions((qData.questions || []).filter((q: ContextGeneralQuestion) => q.is_active));
+        }
+        if (rRes.ok) {
+          const rData = await rRes.json();
+          setCustomResponses(rData.responses || []);
+        }
+      } catch (err) {
+        console.error('Error fetching custom context:', err);
+      }
+    };
+    fetchCustom();
+  }, [schoolId, hasPermission]);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -646,6 +675,43 @@ const TransversalContextDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {/* Custom Context Questions */}
+            {customQuestions.length > 0 && (
+              <div className="bg-white shadow-md rounded-lg p-6">
+                <div className="flex items-start gap-4">
+                  <div className="p-3 bg-brand_accent/20 rounded-lg">
+                    <HelpCircle className="w-6 h-6 text-brand_primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-medium text-brand_primary/60 mb-3">
+                      Preguntas Adicionales
+                    </h3>
+                    <div className="space-y-4">
+                      {customQuestions.map(q => {
+                        const resp = customResponses.find(r => r.question_id === q.id);
+                        const value = resp?.response;
+                        return (
+                          <div key={q.id} className="border-b border-gray-100 pb-3 last:border-0 last:pb-0">
+                            <p className="text-sm text-brand_primary/70 mb-1">{q.question_text}</p>
+                            <p className="text-base font-medium text-brand_primary">
+                              {value === undefined || value === null || value === ''
+                                ? <span className="text-brand_primary/40">Sin respuesta</span>
+                                : q.question_type === 'boolean'
+                                  ? (value === true ? 'Sí' : 'No')
+                                  : q.question_type === 'multiselect' && Array.isArray(value)
+                                    ? (value as string[]).join(', ')
+                                    : String(value)
+                              }
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

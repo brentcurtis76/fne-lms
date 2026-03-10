@@ -222,7 +222,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         id: 'context-questions-manage',
         label: 'Preguntas de Contexto',
         href: '/admin/context-questions',
-        description: 'Gestionar preguntas de contexto general',
+        description: 'Gestionar preguntas de contexto transversal',
         icon: DocumentTextIcon,
         adminOnly: true
       },

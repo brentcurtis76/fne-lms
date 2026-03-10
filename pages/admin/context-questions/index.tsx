@@ -17,6 +17,8 @@ import {
   ToggleLeft,
   ToggleRight,
   GripVertical,
+  Lock,
+  Shield,
 } from 'lucide-react';
 import type { ContextGeneralQuestion, ContextQuestionType } from '@/types/assessment-builder';
 
@@ -64,6 +66,10 @@ const QUESTION_TYPE_COLORS: Record<ContextQuestionType, string> = {
   textarea: 'bg-indigo-100 text-indigo-800',
 };
 
+/** Returns true when the question maps to a DB column (structural widget). */
+const isStructuralQuestion = (q: ContextGeneralQuestion): boolean =>
+  !!q.widget_type && q.widget_type !== 'generic';
+
 // ============================================================
 // Component
 // ============================================================
@@ -85,6 +91,9 @@ const ContextQuestionsPage: React.FC = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<QuestionFormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+
+  // Track whether the question being edited is structural
+  const [editingIsStructural, setEditingIsStructural] = useState(false);
 
   // Toggle state
   const [togglingId, setTogglingId] = useState<string | null>(null);
@@ -151,6 +160,7 @@ const ContextQuestionsPage: React.FC = () => {
 
   const openAddForm = () => {
     setEditingId(null);
+    setEditingIsStructural(false);
     const nextOrder =
       questions.length > 0
         ? Math.max(...questions.map((q) => q.display_order)) + 1
@@ -161,6 +171,7 @@ const ContextQuestionsPage: React.FC = () => {
 
   const openEditForm = (question: ContextGeneralQuestion) => {
     setEditingId(question.id);
+    setEditingIsStructural(isStructuralQuestion(question));
     setFormData({
       question_text: question.question_text,
       question_type: question.question_type,
@@ -176,6 +187,7 @@ const ContextQuestionsPage: React.FC = () => {
   const closeForm = () => {
     setShowForm(false);
     setEditingId(null);
+    setEditingIsStructural(false);
     setFormData(EMPTY_FORM);
   };
 
@@ -209,7 +221,8 @@ const ContextQuestionsPage: React.FC = () => {
     try {
       const payload: Record<string, unknown> = {
         question_text: formData.question_text.trim(),
-        question_type: formData.question_type,
+        // Don't send question_type for structural questions — it's tied to a DB column
+        ...(editingIsStructural ? {} : { question_type: formData.question_type }),
         options: needsOptions ? optionsArray : null,
         placeholder: formData.placeholder.trim() || null,
         help_text: formData.help_text.trim() || null,
@@ -317,7 +330,7 @@ const ContextQuestionsPage: React.FC = () => {
     >
       <ResponsiveFunctionalPageHeader
         icon={<HelpCircle />}
-        title="Preguntas de Contexto General"
+        title="Preguntas de Contexto Transversal"
         subtitle={`${questions.length} pregunta${questions.length !== 1 ? 's' : ''}`}
       />
 
@@ -349,9 +362,17 @@ const ContextQuestionsPage: React.FC = () => {
         {showForm && (
           <div className="bg-white shadow-md rounded-lg p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-brand_primary">
-                {editingId ? 'Editar Pregunta' : 'Nueva Pregunta'}
-              </h2>
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-brand_primary">
+                  {editingId ? 'Editar Pregunta' : 'Nueva Pregunta'}
+                </h2>
+                {editingIsStructural && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                    <Shield className="w-3.5 h-3.5" />
+                    Pregunta Estructural
+                  </span>
+                )}
+              </div>
               <button
                 onClick={closeForm}
                 className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
@@ -385,7 +406,10 @@ const ContextQuestionsPage: React.FC = () => {
                   onChange={(e) =>
                     handleFormChange('question_type', e.target.value as ContextQuestionType)
                   }
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary focus:border-brand_primary text-sm bg-white"
+                  disabled={editingIsStructural}
+                  className={`block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-brand_primary focus:border-brand_primary text-sm bg-white ${
+                    editingIsStructural ? 'opacity-60 cursor-not-allowed bg-gray-50' : ''
+                  }`}
                 >
                   {(Object.keys(QUESTION_TYPE_LABELS) as ContextQuestionType[]).map((type) => (
                     <option key={type} value={type}>
@@ -393,6 +417,12 @@ const ContextQuestionsPage: React.FC = () => {
                     </option>
                   ))}
                 </select>
+                {editingIsStructural && (
+                  <p className="mt-1 text-xs text-amber-600 flex items-center gap-1">
+                    <Lock className="w-3 h-3" />
+                    El tipo no se puede cambiar en preguntas estructurales
+                  </p>
+                )}
               </div>
 
               {/* Display Order */}
@@ -517,7 +547,7 @@ const ContextQuestionsPage: React.FC = () => {
               No hay preguntas todavía
             </h3>
             <p className="mt-2 text-sm text-brand_primary/60">
-              Agrega preguntas personalizadas para la sección de Contexto General de las
+              Agrega preguntas personalizadas para la sección de Contexto Transversal de las
               evaluaciones.
             </p>
             {!showForm && (
@@ -593,8 +623,16 @@ const ContextQuestionsPage: React.FC = () => {
 
                     {/* Question Text */}
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900 max-w-md">
-                        {question.question_text}
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-medium text-gray-900 max-w-md">
+                          {question.question_text}
+                        </div>
+                        {isStructuralQuestion(question) && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800 border border-amber-200 whitespace-nowrap flex-shrink-0">
+                            <Shield className="w-3 h-3" />
+                            Estructural
+                          </span>
+                        )}
                       </div>
                       {question.help_text && (
                         <div className="text-xs text-brand_primary/60 mt-1">
@@ -658,7 +696,15 @@ const ContextQuestionsPage: React.FC = () => {
                           <Edit2 className="w-4 h-4" />
                         </button>
 
-                        {/* Toggle Active */}
+                        {/* Toggle Active — hidden for structural questions */}
+                        {isStructuralQuestion(question) ? (
+                          <span
+                            className="p-2 text-amber-400 cursor-not-allowed"
+                            title="Las preguntas estructurales no se pueden desactivar"
+                          >
+                            <Lock className="w-4 h-4" />
+                          </span>
+                        ) : (
                         <button
                           onClick={() => handleToggleActive(question)}
                           disabled={togglingId === question.id}
@@ -677,6 +723,7 @@ const ContextQuestionsPage: React.FC = () => {
                             <ToggleLeft className="w-5 h-5" />
                           )}
                         </button>
+                        )}
                       </div>
                     </td>
                   </tr>

@@ -298,7 +298,7 @@ export default function ContextQuestionsOverview() {
         {/* Header */}
         <ResponsiveFunctionalPageHeader
           icon={<Building2 className="w-6 h-6" />}
-          title="Contexto General — Vista Global"
+          title="Contexto Transversal — Vista Global"
           subtitle="Respuestas de todas las escuelas"
         />
 

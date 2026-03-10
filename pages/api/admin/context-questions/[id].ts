@@ -56,15 +56,30 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, questionId: 
     const serviceClient = createServiceRoleClient();
     const body = req.body as Partial<SaveContextQuestionRequest>;
 
-    // Verify the question exists
+    // Verify the question exists and check if structural
     const { data: existing, error: fetchError } = await serviceClient
       .from('context_general_questions')
-      .select('id')
+      .select('id, widget_type, structural_key')
       .eq('id', questionId)
       .single();
 
     if (fetchError || !existing) {
       return res.status(404).json({ error: 'Pregunta de contexto no encontrada' });
+    }
+
+    const isStructural = existing.widget_type && existing.widget_type !== 'generic';
+
+    // Structural questions: block changes to question_type, question_key, widget_type, structural_key
+    if (isStructural) {
+      if (body.question_type !== undefined) {
+        return res.status(400).json({ error: 'No se puede cambiar el tipo de una pregunta estructural' });
+      }
+      if ((body as any).widget_type !== undefined || (body as any).structural_key !== undefined) {
+        return res.status(400).json({ error: 'No se puede modificar widget_type o structural_key de una pregunta estructural' });
+      }
+      if (body.question_key !== undefined) {
+        return res.status(400).json({ error: 'No se puede cambiar la clave de una pregunta estructural' });
+      }
     }
 
     // Validate question_type if provided
@@ -75,14 +90,33 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, questionId: 
       }
     }
 
-    // Build update payload with only provided fields
+    // Validate question_text if provided
+    if (body.question_text !== undefined) {
+      const trimmed = typeof body.question_text === 'string' ? body.question_text.trim() : '';
+      if (!trimmed) {
+        return res.status(400).json({ error: 'El texto de la pregunta es requerido' });
+      }
+      if (trimmed.length > 500) {
+        return res.status(400).json({ error: 'El texto de la pregunta no puede superar 500 caracteres' });
+      }
+    }
+
+    // Validate options for select/multiselect
+    const effectiveType = body.question_type || (existing as any).question_type;
+    if (['select', 'multiselect'].includes(effectiveType) && body.options !== undefined) {
+      if (!Array.isArray(body.options) || body.options.length < 2) {
+        return res.status(400).json({ error: 'Las preguntas de tipo select/multiselect requieren al menos 2 opciones' });
+      }
+    }
+
+    // Build update payload with only provided fields (never include widget_type/structural_key)
     const updatePayload: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
 
-    if (body.question_key !== undefined) updatePayload.question_key = body.question_key;
+    if (!isStructural && body.question_key !== undefined) updatePayload.question_key = body.question_key;
     if (body.question_text !== undefined) updatePayload.question_text = body.question_text;
-    if (body.question_type !== undefined) updatePayload.question_type = body.question_type;
+    if (!isStructural && body.question_type !== undefined) updatePayload.question_type = body.question_type;
     if (body.options !== undefined) updatePayload.options = body.options;
     if (body.placeholder !== undefined) updatePayload.placeholder = body.placeholder;
     if (body.help_text !== undefined) updatePayload.help_text = body.help_text;
@@ -140,12 +174,17 @@ async function handleDelete(req: NextApiRequest, res: NextApiResponse, questionI
     // Verify the question exists
     const { data: existing, error: fetchError } = await serviceClient
       .from('context_general_questions')
-      .select('id, is_active')
+      .select('id, is_active, widget_type')
       .eq('id', questionId)
       .single();
 
     if (fetchError || !existing) {
       return res.status(404).json({ error: 'Pregunta de contexto no encontrada' });
+    }
+
+    // Structural questions cannot be deactivated
+    if (existing.widget_type && existing.widget_type !== 'generic') {
+      return res.status(400).json({ error: 'Las preguntas estructurales no pueden ser desactivadas' });
     }
 
     if (!existing.is_active) {

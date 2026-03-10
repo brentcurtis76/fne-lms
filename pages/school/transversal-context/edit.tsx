@@ -192,6 +192,7 @@ const TransversalContextEdit: React.FC = () => {
       }
     } catch (err) {
       console.error('Error fetching questions:', err);
+      toast.error('Error al cargar las preguntas del cuestionario');
     }
   }, [schoolId]);
 

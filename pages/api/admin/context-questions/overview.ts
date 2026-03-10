@@ -62,11 +62,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener respuestas de contexto' });
     }
 
-    // Query 4: Fetch all active questions ordered by display_order
+    // Query 4: Fetch only generic (non-structural) active questions for custom columns
     const { data: questions, error: questionsError } = await serviceClient
       .from('context_general_questions')
       .select('*')
       .eq('is_active', true)
+      .or('widget_type.eq.generic,widget_type.is.null')
       .order('display_order', { ascending: true });
 
     if (questionsError) {

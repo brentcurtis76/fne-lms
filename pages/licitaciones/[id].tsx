@@ -10,6 +10,7 @@ import Step4Propuestas from '@/components/licitaciones/Step4Propuestas';
 import Step6Adjudicacion from '@/components/licitaciones/Step6Adjudicacion';
 import Step7Contrato from '@/components/licitaciones/Step7Contrato';
 import DocumentCenter from '@/components/licitaciones/DocumentCenter';
+import ProposalConfigPanel from '@/components/licitaciones/ProposalConfigPanel';
 
 // Pure client-side helper — no server imports needed
 function generatePublicacionText(
@@ -905,6 +906,14 @@ export default function LicitacionDetailPage() {
             </div>
           );
         })()}
+
+        {/* Proposal Config Panel — admin only, always visible once licitacion exists */}
+        {isAdmin && (
+          <ProposalConfigPanel
+            licitacionId={licitacion.id}
+            licitacion={licitacion}
+          />
+        )}
 
         {/* Document Center — visible for all non-locked states */}
         {activeStep >= 2 && (

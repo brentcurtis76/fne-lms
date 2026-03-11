@@ -12,7 +12,7 @@ interface DarkSectionProps {
 }
 
 const LOGOS_DIR = path.join(process.cwd(), 'lib/propuestas/assets/logos');
-const FNE_LOGO = path.join(LOGOS_DIR, 'fne-logo-bw.png');
+const FNE_LOGO = path.join(LOGOS_DIR, 'fne-sunflower-gold.png');
 
 const styles = StyleSheet.create({
   page: {
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
     bottom: 20,
     right: 40,
     width: 60,
-    height: 20,
+    height: 60,
     objectFit: 'contain',
     opacity: 0.15,
   },

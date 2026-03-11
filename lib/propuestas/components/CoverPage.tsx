@@ -12,7 +12,7 @@ interface CoverPageProps {
 }
 
 const LOGOS_DIR = path.join(process.cwd(), 'lib/propuestas/assets/logos');
-const FNE_LOGO = path.join(LOGOS_DIR, 'fne-logo-bw.png');
+const FNE_LOGO = path.join(LOGOS_DIR, 'fne-logo-gold.png');
 
 const styles = StyleSheet.create({
   page: {
@@ -31,8 +31,8 @@ const styles = StyleSheet.create({
     marginBottom: 60,
   },
   fneLogo: {
-    width: 80,
-    height: 27,
+    width: 120,
+    height: 90,
     objectFit: 'contain',
   },
   schoolLogo: {
@@ -101,10 +101,10 @@ const styles = StyleSheet.create({
     lineHeight: 1.5,
   },
   bottomLogo: {
-    width: 60,
-    height: 20,
+    width: 80,
+    height: 60,
     objectFit: 'contain',
-    opacity: 0.6,
+    opacity: 0.7,
   },
   // Content area fills remaining space
   content: {

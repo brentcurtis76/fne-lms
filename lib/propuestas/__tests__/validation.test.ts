@@ -276,6 +276,34 @@ describe('Expired certificate blocking', () => {
     const result = validateProposalConfig(config, makeFicha(), [doc]);
     expect(result.errors.filter(e => e.field === 'documentos')).toHaveLength(0);
   });
+
+  it('cert expiring yesterday IS expired', () => {
+    const config = makeConfig();
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const doc = { id: 'doc-uuid', nombre: 'Cert Ayer', fecha_vencimiento: yesterdayStr };
+    const result = validateProposalConfig(config, makeFicha(), [doc]);
+    expect(result.errors.some(e => e.field === 'documentos')).toBe(true);
+  });
+
+  it('cert expiring today is NOT expired (inclusive last valid day)', () => {
+    const config = makeConfig();
+    const todayStr = new Date().toISOString().split('T')[0];
+    const doc = { id: 'doc-uuid', nombre: 'Cert Hoy', fecha_vencimiento: todayStr };
+    const result = validateProposalConfig(config, makeFicha(), [doc]);
+    expect(result.errors.filter(e => e.field === 'documentos')).toHaveLength(0);
+  });
+
+  it('cert expiring tomorrow is NOT expired', () => {
+    const config = makeConfig();
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    const doc = { id: 'doc-uuid', nombre: 'Cert Mañana', fecha_vencimiento: tomorrowStr };
+    const result = validateProposalConfig(config, makeFicha(), [doc]);
+    expect(result.errors.filter(e => e.field === 'documentos')).toHaveLength(0);
+  });
 });
 
 // ── Multiple errors accumulated ───────────────────────────────────────────────

@@ -270,12 +270,14 @@ describe('DELETE /api/propuestas/fichas/[id] (soft delete)', () => {
 // ══════════════════════════════════════════════════════════════════════════════
 
 describe('GET /api/propuestas/documentos — expired boolean', () => {
-  it('computes expired=true for past fecha_vencimiento', async () => {
+  it('computes expired=true for past fecha_vencimiento using date-only comparison', async () => {
     const mockClient = setupAdmin();
+    const todayStr = new Date().toISOString().split('T')[0];
     const docs = [
       { id: 'd1', nombre: 'Cert', fecha_vencimiento: '2020-01-01', activo: true },
       { id: 'd2', nombre: 'Eval', fecha_vencimiento: '2099-12-31', activo: true },
       { id: 'd3', nombre: 'Otro', fecha_vencimiento: null, activo: true },
+      { id: 'd4', nombre: 'Hoy', fecha_vencimiento: todayStr, activo: true },
     ];
     mockClient._chain.order.mockResolvedValue({ data: docs, error: null });
 
@@ -291,6 +293,7 @@ describe('GET /api/propuestas/documentos — expired boolean', () => {
           expect.objectContaining({ id: 'd1', expired: true }),
           expect.objectContaining({ id: 'd2', expired: false }),
           expect.objectContaining({ id: 'd3', expired: false }),
+          expect.objectContaining({ id: 'd4', expired: false }), // today is NOT expired
         ]),
       }
     );
@@ -532,6 +535,52 @@ describe('POST /api/licitaciones/[id]/generate-propuesta', () => {
       'La propuesta no cumple con los requisitos MINEDUC',
       400,
       expect.any(String)
+    );
+  });
+
+  it('returns 409 on unique constraint violation (race condition)', async () => {
+    const mockClient = setupAdmin();
+    const fichaData = {
+      id: 'ficha-uuid',
+      nombre_servicio: 'Programa Evoluciona',
+      horas_presenciales: 148,
+      horas_no_presenciales: 0,
+      total_horas: 148,
+      destinatarios: ['Docentes'],
+      equipo_trabajo: [
+        { nombre: 'Ana García', formacion: 'PhD', anos_experiencia: 10 },
+        { nombre: 'Carlos López', formacion: 'Mg', anos_experiencia: 8 },
+      ],
+      objetivo_general: null,
+      activo: true,
+    };
+
+    mockClient._chain.single
+      .mockResolvedValueOnce({ data: { id: 'lic-uuid' }, error: null }) // licitacion check
+      .mockResolvedValueOnce({
+        data: { id: 'plan-uuid', ficha_id: 'ficha-uuid', ficha: fichaData },
+        error: null,
+      }) // plantilla + ficha
+      .mockResolvedValueOnce({
+        data: null,
+        error: { code: '23505', message: 'duplicate key value violates unique constraint' },
+      }); // insert fails with unique violation
+
+    mockClient._chain.maybeSingle.mockResolvedValue({ data: null, error: null });
+
+    const { default: handler } = await import(
+      '../../../pages/api/licitaciones/[id]/generate-propuesta'
+    );
+    const req = mockReq('POST', VALID_GENERATE_BODY, {
+      id: '123e4567-e89b-12d3-a456-426614174000',
+    });
+    const res = mockRes();
+    await handler(req, res);
+
+    expect(mockSendAuthError).toHaveBeenCalledWith(
+      expect.anything(),
+      'Conflicto de versión: otra generación se completó simultáneamente. Intente nuevamente.',
+      409
     );
   });
 

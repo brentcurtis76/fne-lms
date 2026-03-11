@@ -554,7 +554,6 @@ export default function ProposalConfigPanel({
           imagenes: b.imagenes || null,
         })),
         destinatarios: selectedFicha.destinatarios,
-        ...(formaPagoDetalle ? { supportingDocuments: [] } : {}),
       },
       documentos_ids: documentosIds.length > 0 ? documentosIds : undefined,
     };
@@ -773,6 +772,7 @@ export default function ProposalConfigPanel({
                     className={INPUT_CLASS}
                     value={fichaId}
                     onChange={e => setFichaId(e.target.value)}
+                    disabled={!!plantillaId}
                   >
                     <option value="">— Seleccionar —</option>
                     {fichas.map(f => (
@@ -781,6 +781,11 @@ export default function ProposalConfigPanel({
                       </option>
                     ))}
                   </select>
+                  {plantillaId && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      La ficha se determina por la plantilla seleccionada
+                    </p>
+                  )}
                   {selectedFicha && (
                     <p className="text-xs text-gray-500 mt-1">
                       {selectedFicha.horas_presenciales}h presenciales registradas ·{' '}

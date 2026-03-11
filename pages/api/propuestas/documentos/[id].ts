@@ -67,10 +67,10 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, documentoId:
 
     if (dbError || !data) return sendAuthError(res, 'Documento no encontrado', 404);
 
-    const now = new Date().toISOString();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const documento = {
       ...data,
-      expired: data.fecha_vencimiento ? data.fecha_vencimiento < now : false,
+      expired: data.fecha_vencimiento ? data.fecha_vencimiento < today : false,
     };
 
     return sendApiResponse(res, { documento });

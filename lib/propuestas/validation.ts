@@ -170,9 +170,9 @@ export function validateProposalConfig(
 
   // Expired certificates — block generation
   if (selectedDocuments && selectedDocuments.length > 0) {
-    const now = new Date();
+    const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     for (const doc of selectedDocuments) {
-      if (doc.fecha_vencimiento && new Date(doc.fecha_vencimiento) < now) {
+      if (doc.fecha_vencimiento && doc.fecha_vencimiento < todayStr) {
         errors.push({
           rule: 0,
           field: 'documentos',

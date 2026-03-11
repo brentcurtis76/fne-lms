@@ -58,10 +58,10 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
 
     if (dbError) throw new Error(dbError.message);
 
-    const now = new Date().toISOString();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const documentos = (data ?? []).map(doc => ({
       ...doc,
-      expired: doc.fecha_vencimiento ? doc.fecha_vencimiento < now : false,
+      expired: doc.fecha_vencimiento ? doc.fecha_vencimiento < today : false,
     }));
 
     return sendApiResponse(res, { documentos });

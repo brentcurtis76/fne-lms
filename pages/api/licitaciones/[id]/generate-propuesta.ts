@@ -112,6 +112,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .from('propuesta_plantillas')
     .select('*, ficha:propuesta_fichas_servicio(*)')
     .eq('id', plantilla_id)
+    .eq('activo', true)
     .single();
 
   if (plantillaError || !plantilla) {
@@ -119,12 +120,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   // Step 3: Load selected documents for expiry check
-  let selectedDocuments: Array<{ id: string; nombre: string; fecha_vencimiento: string | null }> =
+  let selectedDocuments: Array<{ id: string; nombre: string; fecha_vencimiento: string | null; archivo_path: string | null }> =
     [];
   if (documentos_ids && documentos_ids.length > 0) {
     const { data: docs, error: docsError } = await serviceClient
       .from('propuesta_documentos_biblioteca')
-      .select('id, nombre, fecha_vencimiento')
+      .select('id, nombre, fecha_vencimiento, archivo_path')
+      .eq('activo', true)
       .in('id', documentos_ids);
 
     if (docsError) {
@@ -170,6 +172,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       400,
       JSON.stringify({ errors: validation.errors, warnings: validation.warnings })
     );
+  }
+
+  // Step 4a: Build supporting document paths from selected docs + consultant CVs
+  const supportingDocPaths: string[] = [];
+  for (const doc of selectedDocuments) {
+    if (doc.archivo_path) supportingDocPaths.push(doc.archivo_path);
+  }
+  if (proposalConfig.consultants && proposalConfig.consultants.length > 0) {
+    const consultantNames = proposalConfig.consultants.map((c: { nombre: string }) => c.nombre);
+    const { data: consultantDocs } = await serviceClient
+      .from('propuesta_consultores')
+      .select('cv_path')
+      .in('nombre', consultantNames)
+      .eq('activo', true);
+    if (consultantDocs) {
+      for (const c of consultantDocs) {
+        if (c.cv_path) supportingDocPaths.push(c.cv_path);
+      }
+    }
   }
 
   // Step 4b: Guard against concurrent generation for the same licitacion
@@ -229,6 +250,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .single();
 
   if (insertError || !propuesta) {
+    if (insertError?.code === '23505') {
+      return sendAuthError(
+        res,
+        'Conflicto de versión: otra generación se completó simultáneamente. Intente nuevamente.',
+        409
+      );
+    }
     return sendAuthError(res, 'Error al crear registro de propuesta', 500, insertError?.message);
   }
 
@@ -237,7 +265,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Steps 7-10: Generate PDF, hash, upload, update record
   try {
     // Step 7: Generate PDF
-    const pdfBuffer = await generateProposal(proposalConfig as Parameters<typeof generateProposal>[0]);
+    const pdfBuffer = await generateProposal({
+      ...proposalConfig,
+      supportingDocuments: supportingDocPaths,
+    } as Parameters<typeof generateProposal>[0]);
 
     // Step 8: Compute SHA-256
     const sha256 = createHash('sha256').update(pdfBuffer).digest('hex');

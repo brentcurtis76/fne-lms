@@ -93,7 +93,15 @@ export async function generateProposal(config: ProposalConfig): Promise<Buffer> 
     React.createElement(TemplateComponent, { config })
   );
 
-  const mainPdf = await renderToBuffer(doc);
+  let mainPdf: Buffer;
+  try {
+    mainPdf = await renderToBuffer(doc);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(
+      `PDF render failed for template "${config.type}" / school "${config.schoolName}": ${detail}`
+    );
+  }
 
   if (config.supportingDocuments && config.supportingDocuments.length > 0) {
     return mergeSupportingDocs(mainPdf, config.supportingDocuments);

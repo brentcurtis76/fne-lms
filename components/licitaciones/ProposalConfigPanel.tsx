@@ -214,7 +214,7 @@ export default function ProposalConfigPanel({
 
   const loadAllData = useCallback(async () => {
     try {
-      const [plantRes, fichaRes, consRes, docRes, bloqRes, propRes] = await Promise.all([
+      const results = await Promise.allSettled([
         fetch('/api/propuestas/plantillas'),
         fetch('/api/propuestas/fichas'),
         fetch('/api/propuestas/consultores'),
@@ -223,25 +223,41 @@ export default function ProposalConfigPanel({
         fetch(`/api/licitaciones/${licitacionId}/propuestas`),
       ]);
 
+      const [plantResult, fichaResult, consResult, docResult, bloqResult, propResult] = results;
+
+      async function getJson(result: PromiseSettledResult<Response>, label: string) {
+        if (result.status === 'rejected') {
+          toast.error(`Error de red al cargar ${label}`);
+          return null;
+        }
+        if (!result.value.ok) return null;
+        try {
+          return await result.value.json();
+        } catch {
+          toast.error(`Respuesta inválida al cargar ${label}`);
+          return null;
+        }
+      }
+
       const [plantJson, fichaJson, consJson, docJson, bloqJson, propJson] = await Promise.all([
-        plantRes.json(),
-        fichaRes.json(),
-        consRes.json(),
-        docRes.json(),
-        bloqRes.json(),
-        propRes.json(),
+        getJson(plantResult, 'plantillas'),
+        getJson(fichaResult, 'fichas'),
+        getJson(consResult, 'consultores'),
+        getJson(docResult, 'documentos'),
+        getJson(bloqResult, 'bloques de contenido'),
+        getJson(propResult, 'historial de propuestas'),
       ]);
 
-      if (plantRes.ok) setPlantillas(plantJson.data?.plantillas || []);
-      if (fichaRes.ok) setFichas(fichaJson.data?.fichas || []);
-      if (consRes.ok) setConsultores(consJson.data?.consultores || []);
-      if (docRes.ok) setDocumentos(docJson.data?.documentos || []);
-      if (bloqRes.ok) setBloques(bloqJson.data?.bloques || []);
-      if (propRes.ok) setPropuestas(propJson.data?.propuestas || []);
+      if (plantJson) setPlantillas(plantJson.data?.plantillas || []);
+      if (fichaJson) setFichas(fichaJson.data?.fichas || []);
+      if (consJson) setConsultores(consJson.data?.consultores || []);
+      if (docJson) setDocumentos(docJson.data?.documentos || []);
+      if (bloqJson) setBloques(bloqJson.data?.bloques || []);
+      if (propJson) setPropuestas(propJson.data?.propuestas || []);
 
       setDataLoaded(true);
     } catch {
-      toast.error('Error al cargar datos de configuración');
+      toast.error('Error inesperado al cargar datos de configuración');
     }
   }, [licitacionId]);
 
@@ -545,11 +561,18 @@ export default function ProposalConfigPanel({
 
     setGenerating(true);
     try {
-      const res = await fetch(`/api/licitaciones/${licitacionId}/generate-propuesta`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      let res: Response;
+      try {
+        res = await fetch(`/api/licitaciones/${licitacionId}/generate-propuesta`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        toast.error('Sin conexión al servidor. Verifique su red e intente nuevamente.');
+        return;
+      }
+
       const json = await res.json();
 
       if (!res.ok) {
@@ -559,12 +582,16 @@ export default function ProposalConfigPanel({
 
       toast.success('Propuesta generada exitosamente');
       // Reload history
-      const histRes = await fetch(`/api/licitaciones/${licitacionId}/propuestas`);
-      const histJson = await histRes.json();
-      if (histRes.ok) setPropuestas(histJson.data?.propuestas || []);
+      try {
+        const histRes = await fetch(`/api/licitaciones/${licitacionId}/propuestas`);
+        const histJson = await histRes.json();
+        if (histRes.ok) setPropuestas(histJson.data?.propuestas || []);
+      } catch {
+        // Non-critical: history reload failure should not mask the success message
+      }
       setSecHistorial(true);
     } catch {
-      toast.error('Error al generar propuesta');
+      toast.error('Error inesperado al generar propuesta');
     } finally {
       setGenerating(false);
     }
@@ -666,7 +693,7 @@ export default function ProposalConfigPanel({
                           />
                         </button>
                         {objetivoExpanded && (
-                          <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
+                          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                             <div className="bg-white border border-gray-200 rounded p-2">
                               <p className="font-medium text-gray-600 mb-1">Ficha MINEDUC:</p>
                               <p className="text-gray-700">
@@ -772,7 +799,7 @@ export default function ProposalConfigPanel({
                 />
                 {secHoras && (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
                           Presencial (hrs)
@@ -993,7 +1020,7 @@ export default function ProposalConfigPanel({
                     </div>
 
                     {precioModelo === 'per_hour' ? (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Valor UF por hora
@@ -1021,7 +1048,7 @@ export default function ProposalConfigPanel({
                         </div>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Precio fijo (UF)
@@ -1047,7 +1074,7 @@ export default function ProposalConfigPanel({
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
                           Forma de pago
@@ -1159,7 +1186,7 @@ export default function ProposalConfigPanel({
                                   <Trash2 size={13} />
                                 </button>
                               </div>
-                              <div className="grid grid-cols-4 gap-2">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                                 <div>
                                   <label className="block text-xs text-gray-500 mb-0.5">
                                     Presencial
@@ -1433,7 +1460,7 @@ export default function ProposalConfigPanel({
                         {propuestas.map(p => (
                           <div
                             key={p.id}
-                            className={`flex items-center justify-between p-3 rounded-lg border text-sm ${
+                            className={`flex items-center justify-between flex-wrap gap-2 p-3 rounded-lg border text-sm ${
                               p.estado === 'completada'
                                 ? 'border-green-200 bg-green-50'
                                 : p.estado === 'error'

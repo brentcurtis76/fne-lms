@@ -51,11 +51,28 @@ export function validateProposalConfig(
   ficha: PropuestaFichaServicio,
   selectedDocuments?: Pick<PropuestaDocumentoBiblioteca, 'id' | 'nombre' | 'fecha_vencimiento'>[]
 ): ValidationResult {
+  // Guard: return a validation error for missing required inputs rather than throwing
+  if (!config || !ficha) {
+    return {
+      valid: false,
+      errors: [
+        {
+          rule: 0,
+          field: 'config',
+          expected: 'config and ficha objects',
+          actual: !config ? 'config is null/undefined' : 'ficha is null/undefined',
+          message: 'Se requieren configuración y ficha de servicio para validar',
+        },
+      ],
+      warnings: [],
+    };
+  }
+
   const errors: ValidationError[] = [];
   const warnings: ValidationWarning[] = [];
 
   // RULE 1: nombre_servicio must match exactly
-  if (config.nombre_servicio !== ficha.nombre_servicio) {
+  if ((config.nombre_servicio ?? '') !== (ficha.nombre_servicio ?? '')) {
     errors.push({
       rule: 1,
       field: 'nombre_servicio',
@@ -66,8 +83,8 @@ export function validateProposalConfig(
   }
 
   // RULE 2: presenciales + sincronicas <= ficha.horas_presenciales
-  const horasRegistradas = config.horas_presenciales + config.horas_sincronicas;
-  if (horasRegistradas > ficha.horas_presenciales) {
+  const horasRegistradas = (config.horas_presenciales ?? 0) + (config.horas_sincronicas ?? 0);
+  if (horasRegistradas > (ficha.horas_presenciales ?? 0)) {
     errors.push({
       rule: 2,
       field: 'horas_presenciales',
@@ -78,7 +95,7 @@ export function validateProposalConfig(
   }
 
   // RULE 3: horas_asincronicas >= 0 (extra hours on top of presenciales)
-  if (config.horas_asincronicas < 0) {
+  if ((config.horas_asincronicas ?? 0) < 0) {
     errors.push({
       rule: 3,
       field: 'horas_asincronicas',
@@ -90,13 +107,14 @@ export function validateProposalConfig(
 
   // RULE 4: destinatarios must be a subset of ficha.destinatarios
   if (config.destinatarios && config.destinatarios.length > 0) {
-    const fichaSet = new Set(ficha.destinatarios);
+    const fichaDestinatarios = ficha.destinatarios ?? [];
+    const fichaSet = new Set(fichaDestinatarios);
     const invalid = config.destinatarios.filter(d => !fichaSet.has(d));
     if (invalid.length > 0) {
       errors.push({
         rule: 4,
         field: 'destinatarios',
-        expected: ficha.destinatarios.join(', '),
+        expected: fichaDestinatarios.join(', ') || '(ninguno registrado)',
         actual: config.destinatarios.join(', '),
         message: `Los destinatarios "${invalid.join(', ')}" no están registrados en la Ficha de Servicio`,
       });
@@ -106,10 +124,10 @@ export function validateProposalConfig(
   // RULE 5: At least 2 consultores match ficha.equipo_trabajo by nombre
   if (ficha.equipo_trabajo && ficha.equipo_trabajo.length > 0) {
     const fichaEquipo = new Set(
-      ficha.equipo_trabajo.map(m => m.nombre.toLowerCase().trim())
+      ficha.equipo_trabajo.map(m => (m.nombre ?? '').toLowerCase().trim())
     );
-    const matches = config.consultores.filter(c =>
-      fichaEquipo.has(c.nombre.toLowerCase().trim())
+    const matches = (config.consultores ?? []).filter(c =>
+      fichaEquipo.has((c.nombre ?? '').toLowerCase().trim())
     );
     if (matches.length < 2) {
       errors.push({

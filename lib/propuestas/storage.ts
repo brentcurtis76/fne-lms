@@ -12,11 +12,15 @@ export async function getSignedUrl(path: string, expiresIn = DEFAULT_EXPIRY): Pr
 }
 
 export async function uploadFile(path: string, file: Buffer, contentType: string): Promise<string> {
-  const { error } = await supabaseAdmin.storage
-    .from(BUCKET)
-    .upload(path, file, { contentType, upsert: true });
-  if (error) throw new Error(`Failed to upload ${path}: ${error.message}`);
-  return path;
+  let lastError: Error | undefined;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const { error } = await supabaseAdmin.storage
+      .from(BUCKET)
+      .upload(path, file, { contentType, upsert: true });
+    if (!error) return path;
+    lastError = new Error(`Failed to upload ${path}: ${error.message}`);
+  }
+  throw lastError!;
 }
 
 export async function downloadFile(path: string): Promise<Buffer> {

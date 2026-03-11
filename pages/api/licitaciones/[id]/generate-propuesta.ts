@@ -172,6 +172,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     );
   }
 
+  // Step 4b: Guard against concurrent generation for the same licitacion
+  const { data: inProgress } = await serviceClient
+    .from('propuesta_generadas')
+    .select('id')
+    .eq('licitacion_id', licitacionId)
+    .eq('estado', 'generando')
+    .maybeSingle();
+
+  if (inProgress) {
+    return sendAuthError(
+      res,
+      'Ya hay una generación en curso para esta licitación. Espere a que finalice antes de generar una nueva propuesta.',
+      409
+    );
+  }
+
   // Step 5: Determine version number
   const { data: maxVersionRow } = await serviceClient
     .from('propuesta_generadas')

@@ -4,15 +4,24 @@
  */
 import React from 'react';
 import { Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
-import fs from 'fs';
 import path from 'path';
 import { COLORS, FONTS, PAGE } from '../styles';
 import type { ContentBlockData, ContentSectionData } from '../generator';
 import '../fonts';
 
-const LOGOS_DIR = path.join(process.cwd(), 'lib/propuestas/assets/logos');
-const FNE_SUNFLOWER = path.join(LOGOS_DIR, 'fne-sunflower-gold.png');
-const FNE_LOGO_BW = path.join(LOGOS_DIR, 'fne-logo-bw.png');
+// Browser-safe: no fs in browser — images fall back to placeholder in preview
+const isBrowser = typeof window !== 'undefined';
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const fsExistsSync: (p: string) => boolean = isBrowser ? () => false : require('fs').existsSync;
+
+// Browser-safe logo paths: public URL in browser, filesystem path on server
+const FNE_SUNFLOWER = isBrowser
+  ? '/fne-sunflower-gold.png'
+  : path.join(process.cwd(), 'lib/propuestas/assets/logos/fne-sunflower-gold.png');
+const FNE_LOGO_BW = isBrowser
+  ? '/fne-logo-bw.png'
+  : path.join(process.cwd(), 'lib/propuestas/assets/logos/fne-logo-bw.png');
 
 const darkStyles = StyleSheet.create({
   page: {
@@ -178,10 +187,11 @@ const lightStyles = StyleSheet.create({
 });
 
 function resolveLocalImagePath(storagePath: string): string | null {
+  if (isBrowser) return null; // No filesystem access in browser — show placeholder in preview
   // Strip bucket prefix if present (propuestas/infographics/foo.png → infographics/foo.png)
   const relative = storagePath.replace(/^propuestas\//, '');
   const localPath = path.join(process.cwd(), 'lib/propuestas/assets', relative);
-  return fs.existsSync(localPath) ? localPath : null;
+  return fsExistsSync(localPath) ? localPath : null;
 }
 
 function renderSection(

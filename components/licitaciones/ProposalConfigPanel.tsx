@@ -38,6 +38,8 @@ import {
   type ValidationResult,
   type ValidationConfig,
 } from '@/lib/propuestas/validation';
+import { ProposalPreview } from './ProposalPreview';
+import type { ProposalConfig } from '@/lib/propuestas/generator';
 
 // ============================================================
 // TYPES
@@ -197,6 +199,9 @@ export default function ProposalConfigPanel({
   // Generation state
   const [generating, setGenerating] = useState(false);
 
+  // Preview state
+  const [showPreview, setShowPreview] = useState(false);
+
   // ============================================================
   // Load data when panel opens
   // ============================================================
@@ -266,6 +271,67 @@ export default function ProposalConfigPanel({
   const fixedUfNum = parseFloat(fixedUf) || 0;
   const totalUf =
     precioModelo === 'per_hour' ? precioUfNum * totalHoras : fixedUfNum;
+
+  // ============================================================
+  // Preview config — passed to ProposalPreview (body-only, no school logo / photos)
+  // ============================================================
+
+  const previewConfig: ProposalConfig | null = useMemo(() => {
+    if (!selectedPlantilla || !selectedFicha) return null;
+
+    const schoolName =
+      licitacion.cliente?.nombre_fantasia || licitacion.school?.name || 'Escuela';
+
+    const plantillaBloques = (selectedPlantilla.bloques_orden || [])
+      .map((key) => bloques.find((b) => b.id === key || b.clave === key))
+      .filter((b): b is PropuestaContenidoBloque => b !== undefined);
+
+    return {
+      type: selectedPlantilla.tipo_servicio === 'preparacion' ? 'preparacion' : 'evoluciona',
+      schoolName,
+      // schoolLogoPath omitted — Supabase path not accessible as a browser URL
+      programYear: licitacion.year,
+      serviceName: selectedFicha.nombre_servicio,
+      consultants: selectedConsultores.map((c) => ({
+        nombre: c.nombre,
+        titulo: c.titulo,
+        bio: c.perfil_profesional || '',
+        // fotoPath omitted — Supabase path not accessible as a browser URL
+      })),
+      modules: modulos,
+      horasPresenciales,
+      horasSincronicas,
+      horasAsincronicas,
+      pricing: {
+        mode: precioModelo,
+        precioUf: precioUfNum,
+        totalHours: totalHoras,
+        formaPago: formaPago || '3 cuotas iguales',
+        fixedUf: precioModelo === 'fixed' ? fixedUfNum : undefined,
+      },
+      contentBlocks: plantillaBloques.map((b) => ({
+        key: b.clave,
+        titulo: b.titulo,
+        contenido: b.contenido as { sections: import('@/lib/propuestas/generator').ContentSectionData[] },
+        imagenes: b.imagenes || null,
+      })),
+    };
+  }, [
+    selectedPlantilla,
+    selectedFicha,
+    selectedConsultores,
+    modulos,
+    horasPresenciales,
+    horasSincronicas,
+    horasAsincronicas,
+    precioModelo,
+    precioUfNum,
+    totalHoras,
+    formaPago,
+    fixedUfNum,
+    bloques,
+    licitacion,
+  ]);
 
   // ============================================================
   // MINEDUC live validation
@@ -1317,6 +1383,15 @@ export default function ProposalConfigPanel({
                       'Generar Propuesta Final'
                     )}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowPreview((v) => !v)}
+                    disabled={!previewConfig}
+                    className="flex items-center gap-2 px-5 py-3 border border-yellow-400 text-yellow-700 rounded-lg font-medium hover:bg-yellow-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Muestra el cuerpo de la propuesta en el navegador (sin documentos adjuntos)"
+                  >
+                    {showPreview ? 'Ocultar Vista Previa' : 'Vista Previa (solo cuerpo)'}
+                  </button>
                   {!plantillaId && (
                     <p className="text-xs text-gray-500">Seleccione una plantilla para continuar</p>
                   )}
@@ -1333,6 +1408,11 @@ export default function ProposalConfigPanel({
                 <p className="text-xs text-gray-400 mt-2">
                   La generación puede tomar hasta 60 segundos. No cierre la página.
                 </p>
+
+                {/* ── PDF PREVIEW (body only) ── */}
+                {showPreview && previewConfig && (
+                  <ProposalPreview config={previewConfig} />
+                )}
               </div>
 
               {/* ── HISTORIAL ── */}

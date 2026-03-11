@@ -11,8 +11,11 @@ interface DarkSectionProps {
   showLogo?: boolean;
 }
 
-const LOGOS_DIR = path.join(process.cwd(), 'lib/propuestas/assets/logos');
-const FNE_LOGO = path.join(LOGOS_DIR, 'fne-sunflower-gold.png');
+// Browser-safe logo path: public URL in browser, filesystem path on server
+const FNE_LOGO =
+  typeof window !== 'undefined'
+    ? '/fne-sunflower-gold.png'
+    : path.join(process.cwd(), 'lib/propuestas/assets/logos/fne-sunflower-gold.png');
 
 const styles = StyleSheet.create({
   page: {

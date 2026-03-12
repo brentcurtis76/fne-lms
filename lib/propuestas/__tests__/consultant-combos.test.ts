@@ -108,7 +108,7 @@ describe('consultant combinations', () => {
       {
         nombre: 'Dr. Carlos Rodríguez Martínez',
         titulo: 'Comité Internacional — Educación Relacional',
-        bio: 'Doctor en Ciencias de la Educación (Universidad de Barcelona). Miembro del Comité Internacional de la Fundación Nacional de Educación. Especialista en transformación cultural de organizaciones educativas en entornos de alta complejidad social.',
+        bio: 'Doctor en Ciencias de la Educación (Universidad de Barcelona). Miembro del Comité Internacional de la Fundación Nueva Educación. Especialista en transformación cultural de organizaciones educativas en entornos de alta complejidad social.',
       },
       {
         nombre: 'Dra. Ana María Fernández López',

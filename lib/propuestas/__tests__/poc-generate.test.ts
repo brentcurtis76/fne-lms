@@ -91,7 +91,7 @@ describe('Phase 2a PoC — PDF generation', () => {
           React.createElement(ConsultantCard, {
             nombre: 'María Gabriela Naranjo Armas',
             titulo: 'Directora de la FNE — IR Chile',
-            bio: 'Psicóloga con formación en Psicoterapia Corporal (IIBS, Suiza). Directora de la Fundación Nacional de Educación. Especialista en coaching ejecutivo y desarrollo de liderazgo en contextos educativos.',
+            bio: 'Psicóloga con formación en Psicoterapia Corporal (IIBS, Suiza). Directora de la Fundación Nueva Educación. Especialista en coaching ejecutivo y desarrollo de liderazgo en contextos educativos.',
           }),
           React.createElement(ConsultantCard, {
             nombre: 'Ignacio Andrés Pavez Barrio',

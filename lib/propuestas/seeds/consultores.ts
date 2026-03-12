@@ -37,7 +37,7 @@ export const CONSULTORES_SEED: PropuestaConsultorInsert[] = [
         funcion: 'Diseño e implementación metodológica del programa de transformación educativa Los Pellines',
       },
       {
-        empresa: 'Fundación Nacional de Educación',
+        empresa: 'Fundación Nueva Educación',
         cargo: 'Director del Programa ATE',
         funcion: 'Dirección del programa de Asistencia Técnica Educativa y asesorías a escuelas MINEDUC',
       },
@@ -61,7 +61,7 @@ export const CONSULTORES_SEED: PropuestaConsultorInsert[] = [
     titulo: 'Directora de la FNE – IR Chile',
     categoria: 'equipo_fne',
     perfil_profesional:
-      'Psicóloga con formación en Psicoterapia Corporal (IIBS, Suiza) y Máster en Recursos Humanos (Universidad Blanquerna, Barcelona). Directora de la Fundación Nacional de Educación — Instituto Relacional Chile. Creó y lidera la entidad ATE de la FNE inscrita ante MINEDUC. Especialista en psicología organizacional, coaching ejecutivo y desarrollo de liderazgo en contextos educativos. Ha acompañado procesos de transformación en equipos directivos y docentes en múltiples establecimientos educacionales del país.',
+      'Psicóloga con formación en Psicoterapia Corporal (IIBS, Suiza) y Máster en Recursos Humanos (Universidad Blanquerna, Barcelona). Directora de la Fundación Nueva Educación — Instituto Relacional Chile. Creó y lidera la entidad ATE de la FNE inscrita ante MINEDUC. Especialista en psicología organizacional, coaching ejecutivo y desarrollo de liderazgo en contextos educativos. Ha acompañado procesos de transformación en equipos directivos y docentes en múltiples establecimientos educacionales del país.',
     formacion_academica: [
       {
         year: 2011,
@@ -81,7 +81,7 @@ export const CONSULTORES_SEED: PropuestaConsultorInsert[] = [
     ],
     experiencia_profesional: [
       {
-        empresa: 'Fundación Nacional de Educación — IR Chile',
+        empresa: 'Fundación Nueva Educación — IR Chile',
         cargo: 'Directora',
         funcion: 'Dirección ejecutiva de la FNE, gestión de la entidad ATE y liderazgo de programas de asesoría educativa',
       },
@@ -135,7 +135,7 @@ export const CONSULTORES_SEED: PropuestaConsultorInsert[] = [
         funcion: 'Co-creación y aplicación del modelo IDeIA para el fortalecimiento de equipos y culturas escolares positivas',
       },
       {
-        empresa: 'Fundación Nacional de Educación',
+        empresa: 'Fundación Nueva Educación',
         cargo: 'Director de Investigación',
         funcion: 'Diseño metodológico de programas y coordinación de investigación aplicada en asesorías ATE',
       },

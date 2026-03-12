@@ -1,6 +1,6 @@
 # GENERA (FNE-LMS) — Project Rules
 
-> Learning management system for Fundación Nacional de Educación.
+> Learning management system for Fundación Nueva Educación.
 > Next.js (Pages Router) + TypeScript + Tailwind/shadcn + Supabase.
 
 ---

@@ -153,13 +153,13 @@ export function EvolucionaTemplate({ config }: { config: ProposalConfig }) {
 
       {/* Pages 4–5: Introduction — dark, two-column */}
       <DarkSection
-        heading="Sobre Fundación Nacional de Educación"
+        heading="Sobre Fundación Nueva Educación"
         columns={2}
         showLogo
       >
         <DarkColumn>
           <DarkBody>
-            La Fundación Nacional de Educación (FNE) es una organización sin fines de
+            La Fundación Nueva Educación (FNE) es una organización sin fines de
             lucro dedicada a fortalecer las comunidades educativas chilenas a través de
             procesos de consultoría basados en el Modelo de Educación Relacional.
           </DarkBody>

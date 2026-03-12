@@ -272,13 +272,13 @@ export function PricingTable({
           <Text style={styles.signatureName}>Arnoldo Cisternas Chávez</Text>
           <Text style={styles.signatureTitle}>Representante Legal</Text>
           <Text style={styles.signatureTitle}>
-            FNE — Fundación Nacional de Educación
+            FNE — Fundación Nueva Educación
           </Text>
         </View>
         <View style={styles.contactBlock}>
           <Text style={styles.contactText}>www.nuevaeducacion.cl</Text>
           <Text style={styles.contactText}>contacto@nuevaeducacion.cl</Text>
-          <Text style={styles.contactText}>Fundación Nacional de Educación</Text>
+          <Text style={styles.contactText}>Fundación Nueva Educación</Text>
         </View>
       </View>
     </Page>

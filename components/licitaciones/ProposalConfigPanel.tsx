@@ -936,12 +936,11 @@ export default function ProposalConfigPanel({
                     ) : (
                       consultores.map(c => {
                         const checked = consultoresIds.includes(c.id);
-                        const inFicha =
-                          selectedFicha?.equipo_trabajo?.some(m => {
-                            const fichaName = m.nombre.toLowerCase().trim();
-                            const consultorName = c.nombre.toLowerCase().trim();
-                            return consultorName.includes(fichaName) || fichaName.includes(consultorName);
-                          }) || false;
+                        const inFicha = selectedFicha?.equipo_trabajo?.some(m => {
+                          const fichaWords = m.nombre.toLowerCase().trim().split(/\s+/);
+                          const consultorName = c.nombre.toLowerCase().trim();
+                          return fichaWords.every(word => consultorName.includes(word));
+                        }) || false;
                         return (
                           <label
                             key={c.id}

@@ -113,8 +113,8 @@ export function BatchAssignModal({
         : '/api/learning-paths/search-assignees';
 
       const body: any = contentType === 'course'
-        ? { courseId: contentId, query: debouncedSearch, page: currentPage, pageSize }
-        : { pathId: contentId, query: debouncedSearch, page: currentPage, pageSize };
+        ? { courseId: contentId, searchType: 'users', query: debouncedSearch, page: currentPage, pageSize }
+        : { pathId: contentId, searchType: 'users', query: debouncedSearch, page: currentPage, pageSize };
 
       // Add optional filters
       if (schoolId) body.schoolId = schoolId;

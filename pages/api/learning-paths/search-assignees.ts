@@ -8,6 +8,7 @@ interface SearchAssigneesRequest {
   searchType: 'users' | 'groups';
   query: string;
   schoolId?: string;
+  communityId?: string;
   page?: number;
   pageSize?: number;
 }
@@ -103,6 +104,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   let searchType: 'users' | 'groups' = 'users';
   let query: string = '';
   let schoolId: string | undefined;
+  let communityId: string | undefined;
   let safePage: number = 1;
   let safePageSize: number = 20;
 
@@ -125,6 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     searchType = bodyData.searchType;
     query = bodyData.query;
     schoolId = bodyData.schoolId;
+    communityId = bodyData.communityId;
     const page = bodyData.page || 1;
     const pageSize = bodyData.pageSize || 20;
 
@@ -152,11 +155,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     if (schoolId && !isValidUUID(schoolId) && !/^\d+$/.test(schoolId)) {
       console.log(`[Search Assignees] Invalid schoolId`, { requestId, schoolId });
-      return res.status(400).json({ 
-        error: 'schoolId inválido - debe ser un ID válido' 
+      return res.status(400).json({
+        error: 'schoolId inválido - debe ser un ID válido'
       });
     }
-    
+
+    if (communityId && !isValidUUID(communityId)) {
+      console.log(`[Search Assignees] Invalid communityId`, { requestId, communityId });
+      return res.status(400).json({
+        error: 'communityId inválido - debe ser un UUID válido'
+      });
+    }
+
     // Cap page size to maximum 50
     safePageSize = Math.min(Math.max(1, pageSize || 20), 50);
     safePage = Math.max(1, page);
@@ -183,15 +193,57 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let totalCount = 0;
 
     if (searchType === 'users') {
-      // Search users with optional school filtering
+      // Search users with optional school/community filtering
       let users, count, usersError;
-      
-      if (schoolId) {
-        // Filter by school using a two-step approach to avoid relationship ambiguity
-        // Use service role client to bypass RLS restrictions on user_roles table
+      const serviceClient = createServiceRoleClient();
+
+      if (communityId) {
+        // Filter by community - get users with roles in this community
+        console.log(`[Search Assignees] Filtering users by community: ${communityId}`);
+
+        const { data: communityRoles, error: rolesError } = await serviceClient
+          .from('user_roles')
+          .select('user_id')
+          .eq('community_id', communityId)
+          .eq('is_active', true);
+
+        if (rolesError) {
+          console.error('[Search Assignees] Failed to query user roles for community filter:', rolesError);
+          throw new Error('No se pudo filtrar por comunidad: error al consultar roles de usuario');
+        }
+
+        if (!communityRoles || communityRoles.length === 0) {
+          console.log(`[Search Assignees] No users found for community: ${communityId}`);
+          users = [];
+          count = 0;
+          usersError = null;
+        } else {
+          const userIds = [...new Set(communityRoles.map(ur => ur.user_id))];
+          console.log(`[Search Assignees] Found ${userIds.length} unique users in community: ${communityId}`);
+
+          let userQuery = serviceClient
+            .from('profiles')
+            .select('id, first_name, last_name, email', { count: 'exact' })
+            .in('id', userIds);
+
+          if (searchQuery) {
+            userQuery = userQuery.or(
+              `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
+            );
+          }
+
+          const result = await userQuery
+            .order('first_name')
+            .range(offset, offset + safePageSize - 1);
+
+          users = result.data;
+          count = result.count;
+          usersError = result.error;
+        }
+      } else if (schoolId) {
+        // Filter by school
         console.log(`[Search Assignees] Filtering users by school: ${schoolId}`);
-        
-        const serviceClient = createServiceRoleClient();
+
         const { data: userRoles, error: rolesError } = await serviceClient
           .from('user_roles')
           .select('user_id')
@@ -210,51 +262,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           usersError = null;
         } else {
           console.log(`[Search Assignees] Found ${userRoles.length} users in school: ${schoolId}`);
-          const userIds = userRoles.map(ur => ur.user_id);
-          
-          // Then get profiles for those users
-          // Use service role client for authorized users to ensure complete visibility
-          console.log(`[Search Assignees] Fetching profiles via service role for authorized user`);
-          const profileClient = createServiceRoleClient();
-          let userQuery = profileClient
+          const userIds = [...new Set(userRoles.map(ur => ur.user_id))];
+
+          let userQuery = serviceClient
             .from('profiles')
             .select('id, first_name, last_name, email', { count: 'exact' })
             .in('id', userIds);
 
-          // Apply search filter if query is not empty
           if (searchQuery) {
             userQuery = userQuery.or(
               `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
             );
           }
 
-          // Apply pagination
           const result = await userQuery
             .order('first_name')
             .range(offset, offset + safePageSize - 1);
-          
+
           users = result.data;
           count = result.count;
           usersError = result.error;
         }
       } else {
-        // No school filter - search all users
-        let userQuery = supabaseClient
+        // No filter - search all users
+        let userQuery = serviceClient
           .from('profiles')
           .select('id, first_name, last_name, email', { count: 'exact' });
 
-        // Apply search filter if query is not empty
         if (searchQuery) {
           userQuery = userQuery.or(
             `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`
           );
         }
 
-        // Apply pagination
         const result = await userQuery
           .order('first_name')
           .range(offset, offset + safePageSize - 1);
-        
+
         users = result.data;
         count = result.count;
         usersError = result.error;
@@ -428,6 +472,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       searchType,
       query: query || '(empty)',
       schoolId: schoolId || '(no filter)',
+      communityId: communityId || '(no filter)',
       resultsCount: results.length,
       totalCount,
       page: safePage,
@@ -447,6 +492,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       searchType,
       query,
       schoolId,
+      communityId,
       page: safePage,
       pageSize: safePageSize,
       durationMs: Date.now() - startTime

@@ -123,12 +123,14 @@ export function validateProposalConfig(
 
   // RULE 5: At least 2 consultores match ficha.equipo_trabajo by nombre
   if (ficha.equipo_trabajo && ficha.equipo_trabajo.length > 0) {
-    const fichaEquipo = new Set(
-      ficha.equipo_trabajo.map(m => (m.nombre ?? '').toLowerCase().trim())
-    );
-    const matches = (config.consultores ?? []).filter(c =>
-      fichaEquipo.has((c.nombre ?? '').toLowerCase().trim())
-    );
+    const fichaNames = ficha.equipo_trabajo.map(m => (m.nombre ?? '').toLowerCase().trim());
+    const matches = (config.consultores ?? []).filter(c => {
+      const consultorName = (c.nombre ?? '').toLowerCase().trim();
+      return fichaNames.some(fichaName => {
+        const fichaWords = fichaName.split(/\s+/);
+        return fichaWords.every(word => consultorName.includes(word));
+      });
+    });
     if (matches.length < 2) {
       errors.push({
         rule: 5,

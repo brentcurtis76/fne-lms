@@ -17,11 +17,11 @@ const fsExistsSync: (p: string) => boolean = isBrowser ? () => false : require('
 
 // Browser-safe logo paths: public URL in browser, filesystem path on server
 const FNE_SUNFLOWER = isBrowser
-  ? '/fne-sunflower-gold.png'
-  : path.join(process.cwd(), 'lib/propuestas/assets/logos/fne-sunflower-gold.png');
+  ? '/logos/fne-sunflower-gold.png'
+  : path.join(process.cwd(), 'public', 'logos', 'fne-sunflower-gold.png');
 const FNE_LOGO_BW = isBrowser
-  ? '/fne-logo-bw.png'
-  : path.join(process.cwd(), 'lib/propuestas/assets/logos/fne-logo-bw.png');
+  ? '/logos/fne-logo-bw.png'
+  : path.join(process.cwd(), 'public', 'logos', 'fne-logo-bw.png');
 
 const darkStyles = StyleSheet.create({
   page: {
@@ -190,7 +190,7 @@ function resolveLocalImagePath(storagePath: string): string | null {
   if (isBrowser) return null; // No filesystem access in browser — show placeholder in preview
   // Strip bucket prefix if present (propuestas/infographics/foo.png → infographics/foo.png)
   const relative = storagePath.replace(/^propuestas\//, '');
-  const localPath = path.join(process.cwd(), 'lib/propuestas/assets', relative);
+  const localPath = path.join(process.cwd(), 'public', 'propuestas', relative);
   return fsExistsSync(localPath) ? localPath : null;
 }
 

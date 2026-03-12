@@ -11,8 +11,7 @@ interface LightSectionProps {
   showLogo?: boolean;
 }
 
-const LOGOS_DIR = path.join(process.cwd(), 'lib/propuestas/assets/logos');
-const FNE_LOGO = path.join(LOGOS_DIR, 'fne-logo-bw.png');
+const FNE_LOGO = path.join(process.cwd(), 'public', 'logos', 'fne-logo-bw.png');
 
 const styles = StyleSheet.create({
   page: {

@@ -3,7 +3,7 @@ import path from 'path';
 
 // Browser-safe font paths: use public URL in browser, filesystem path on server
 const isBrowser = typeof window !== 'undefined';
-const FONTS_DIR = isBrowser ? null : path.join(process.cwd(), 'lib/propuestas/assets/fonts');
+const FONTS_DIR = isBrowser ? null : path.join(process.cwd(), 'public', 'fonts');
 
 function fontSrc(filename: string): string {
   return isBrowser

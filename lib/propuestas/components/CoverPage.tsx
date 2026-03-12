@@ -14,8 +14,8 @@ interface CoverPageProps {
 // Browser-safe logo path: public URL in browser, filesystem path on server
 const FNE_LOGO =
   typeof window !== 'undefined'
-    ? '/fne-logo-gold.png'
-    : path.join(process.cwd(), 'lib/propuestas/assets/logos/fne-logo-gold.png');
+    ? '/logos/fne-logo-gold.png'
+    : path.join(process.cwd(), 'public', 'logos', 'fne-logo-gold.png');
 
 const styles = StyleSheet.create({
   page: {

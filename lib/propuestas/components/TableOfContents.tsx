@@ -14,8 +14,7 @@ interface TableOfContentsProps {
   year: number;
 }
 
-const LOGOS_DIR = path.join(process.cwd(), 'lib/propuestas/assets/logos');
-const FNE_LOGO_BW = path.join(LOGOS_DIR, 'fne-logo-bw.png');
+const FNE_LOGO_BW = path.join(process.cwd(), 'public', 'logos', 'fne-logo-bw.png');
 
 const styles = StyleSheet.create({
   page: {

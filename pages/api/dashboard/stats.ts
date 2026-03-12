@@ -26,7 +26,8 @@ const STATS_LABEL_MAP: Record<string, string> = {
   'lider_generacion': 'Estadísticas de tu Generación',
   'lider_comunidad': 'Estadísticas de tu Comunidad',
   'equipo_directivo': 'Estadísticas de tu Escuela',
-  'consultor': 'Estadísticas de tus Estudiantes'
+  'consultor': 'Estadísticas de tus Estudiantes',
+  'docente': 'Estadísticas de tu Escuela'
 };
 
 interface DashboardStats {
@@ -390,6 +391,23 @@ async function getScopedUserIds(
     return assignments?.map(a => a.student_id) || [];
   }
 
-  // For docente and other roles - just return their own ID
+  if (userRole === 'docente') {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('school_id')
+      .eq('id', userId)
+      .single();
+
+    if (!profile?.school_id) return [];
+
+    const { data: schoolUsers } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('school_id', profile.school_id);
+
+    return schoolUsers?.map(u => u.id) || [];
+  }
+
+  // For other roles - just return their own ID
   return [userId];
 }

@@ -350,7 +350,10 @@ async function getCommunitiesForMember(communityRoles: UserRole[]): Promise<Comm
 }
 
 /**
- * Get or create workspace for a community
+ * Get or create workspace for a community.
+ * First tries a direct read; if the workspace doesn't exist, calls the
+ * server-side API route which uses the service role client to create it
+ * (client-side RLS blocks INSERT for non-admin roles).
  */
 export async function getOrCreateWorkspace(communityId: string): Promise<CommunityWorkspace | null> {
   try {
@@ -373,48 +376,33 @@ export async function getOrCreateWorkspace(communityId: string): Promise<Communi
       return existingWorkspace;
     }
 
-    // Get community info for workspace creation
-    const { data: community, error: communityError } = await supabase
-      .from('growth_communities')
-      .select('*')
-      .eq('id', communityId)
-      .single();
-
-    if (communityError) {
-      console.error('Error fetching community:', communityError);
+    // Workspace doesn't exist — create via API route (bypasses RLS)
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error('No session for workspace creation');
       return null;
     }
 
-    // Create new workspace
-    const { data: newWorkspace, error: createError } = await supabase
+    const response = await fetch('/api/community/ensure-workspace', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ communityId })
+    });
+
+    if (!response.ok) {
+      console.error('Error creating workspace via API:', await response.text());
+      return null;
+    }
+
+    // Re-fetch with the full join so the shape matches CommunityWorkspace
+    const { data: newWorkspace } = await supabase
       .from('community_workspaces')
-      .insert({
-        community_id: communityId,
-        name: `Espacio de ${community.name}`,
-        description: `Espacio colaborativo para ${community.name}`,
-        settings: {
-          features: {
-            meetings: true,
-            documents: true,
-            messaging: true,
-            feed: true
-          },
-          permissions: {
-            all_can_post: true,
-            all_can_upload: true
-          }
-        }
-      })
       .select(`
         *,
         community:growth_communities(*)
       `)
+      .eq('community_id', communityId)
       .single();
-
-    if (createError) {
-      console.error('Error creating workspace:', createError);
-      return null;
-    }
 
     return newWorkspace;
 

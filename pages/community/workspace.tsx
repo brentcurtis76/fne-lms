@@ -258,7 +258,7 @@ const CommunityWorkspacePage: React.FC = () => {
       return;
     }
 
-    if (urlSection && ['overview', 'communities', 'meetings', 'documents', 'messaging'].includes(urlSection)) {
+    if (urlSection && ['overview', 'communities', 'meetings', 'sessions', 'documents', 'messaging'].includes(urlSection)) {
       setActiveSection(urlSection);
     }
     

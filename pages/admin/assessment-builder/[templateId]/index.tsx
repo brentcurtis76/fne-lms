@@ -27,6 +27,7 @@ import {
   UserPlus,
   Link2,
   Search,
+  Play,
 } from 'lucide-react';
 import type {
   AssessmentTemplate,
@@ -1631,6 +1632,12 @@ const TemplateEditor: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
+                  <Link href={`/demo/assessments/${template.id}`} legacyBehavior>
+                    <a className="inline-flex items-center px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors text-sm font-medium">
+                      <Play className="w-4 h-4 mr-2" />
+                      Probar Demo
+                    </a>
+                  </Link>
                   {isAdmin && (
                     pendingConfirm?.key === 'archive-template' ? (
                       <span className="flex items-center gap-2">

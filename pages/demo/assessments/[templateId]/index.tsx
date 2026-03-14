@@ -1,5 +1,5 @@
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
@@ -8,45 +8,45 @@ import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPa
 import {
   ClipboardCheck,
   ArrowLeft,
-  Save,
-  Send,
+  Eye,
+  BarChart3,
+  RotateCcw,
   CheckCircle,
-  Loader2,
 } from 'lucide-react';
 import {
   AREA_LABELS,
   ENTITY_LABELS,
   TransformationArea,
+  GenerationType,
 } from '@/types/assessment-builder';
 import { ModuleCard } from '@/components/assessment';
 import type { IndicatorData, ModuleData, ObjectiveData, ResponseData } from '@/components/assessment';
 
-const AssessmentResponseForm: React.FC = () => {
+const DemoAssessmentForm: React.FC = () => {
   const router = useRouter();
-  const { instanceId } = router.query;
+  const { templateId } = router.query;
   const supabase = useSupabaseClient();
 
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
 
+  // Demo selector state
+  const [year, setYear] = useState<number>(1);
+  const [generationType, setGenerationType] = useState<GenerationType>('GT');
+
   // Assessment data
-  const [instance, setInstance] = useState<any>(null);
   const [template, setTemplate] = useState<any>(null);
   const [modules, setModules] = useState<ModuleData[]>([]);
   const [objectives, setObjectives] = useState<ObjectiveData[]>([]);
+  const [expectations, setExpectations] = useState<any[]>([]);
+
+  // Client-side only responses
   const [responses, setResponses] = useState<Record<string, ResponseData>>({});
   const [progress, setProgress] = useState({ total: 0, answered: 0, percentage: 0 });
-  const [assignee, setAssignee] = useState<any>(null);
 
   // UI state
   const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-
-  // Debounce timer for auto-save
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check auth
   useEffect(() => {
@@ -72,52 +72,45 @@ const AssessmentResponseForm: React.FC = () => {
     checkAuth();
   }, [supabase, router]);
 
-  // Fetch assessment data
-  const fetchAssessment = useCallback(async () => {
-    if (!user || !instanceId) return;
+  // Fetch demo assessment data
+  const fetchDemoAssessment = useCallback(async () => {
+    if (!user || !templateId) return;
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/docente/assessments/${instanceId}`);
+      const response = await fetch(
+        `/api/demo/assessments/${templateId}?year=${year}&generationType=${generationType}`
+      );
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Error al cargar la evaluación');
+        throw new Error(data.error || 'Error al cargar la evaluación demo');
       }
 
       const data = await response.json();
-      setInstance(data.instance);
       setTemplate(data.template);
       setModules(data.modules || []);
       setObjectives(data.objectives || []);
-      setResponses(data.responses || {});
-      setProgress(data.progress || { total: 0, answered: 0, percentage: 0 });
-      setAssignee(data.assignee);
+      setExpectations(data.expectations || []);
 
-      // Expand first module or first objective by default
+      // Expand first module by default
       if (data.objectives?.length > 0 && data.objectives[0].modules?.length > 0) {
         setExpandedModules(new Set([data.objectives[0].modules[0].id]));
       } else if (data.modules?.length > 0) {
         setExpandedModules(new Set([data.modules[0].id]));
       }
     } catch (error: any) {
-      console.error('Error fetching assessment:', error);
-      toast.error(error.message || 'Error al cargar la evaluación');
-      router.push('/docente/assessments');
+      console.error('Error fetching demo assessment:', error);
+      toast.error(error.message || 'Error al cargar la evaluación demo');
     } finally {
       setLoading(false);
     }
-  }, [user, instanceId, router]);
+  }, [user, templateId, year, generationType]);
 
   useEffect(() => {
-    if (user && instanceId) {
-      fetchAssessment();
+    if (user && templateId) {
+      fetchDemoAssessment();
     }
-  }, [user, instanceId, fetchAssessment]);
-
-  // Compute all modules (from objectives hierarchy or flat list)
-  const allModules: ModuleData[] = objectives.length > 0
-    ? objectives.flatMap((o) => o.modules)
-    : modules;
+  }, [user, templateId, fetchDemoAssessment]);
 
   // Check if an indicator response is "answered"
   const isIndicatorAnswered = (indicator: IndicatorData, resp: ResponseData | undefined): boolean => {
@@ -144,7 +137,6 @@ const AssessmentResponseForm: React.FC = () => {
       : modules;
 
     if (modulesToCheck.length > 0) {
-      // Recalculate progress based on current responses
       let total = 0;
       let answered = 0;
 
@@ -158,22 +150,18 @@ const AssessmentResponseForm: React.FC = () => {
           const coberturaResp = responses[sortedIndicators[0].id];
           const coberturaValue = coberturaResp?.coverageValue;
 
-          // Always count the cobertura indicator
           total++;
           if (isIndicatorAnswered(sortedIndicators[0], coberturaResp)) answered++;
 
           if (coberturaValue === false) {
-            // Gate closed: hidden indicators don't count
+            // Gate closed
           } else if (coberturaValue === true) {
-            // Gate open: count remaining indicators
             sortedIndicators.slice(1).forEach(indicator => {
               total++;
               if (isIndicatorAnswered(indicator, responses[indicator.id])) answered++;
             });
           }
-          // coberturaValue undefined: only show cobertura indicator (already counted above)
         } else {
-          // Legacy: no cobertura gate, count all
           module.indicators.forEach(indicator => {
             total++;
             if (isIndicatorAnswered(indicator, responses[indicator.id])) answered++;
@@ -203,7 +191,7 @@ const AssessmentResponseForm: React.FC = () => {
     });
   };
 
-  // Handle response change
+  // Handle response change (client-side only, no API calls)
   const handleResponseChange = (indicatorId: string, field: keyof ResponseData, value: ResponseData[keyof ResponseData]) => {
     setResponses(prev => ({
       ...prev,
@@ -212,142 +200,28 @@ const AssessmentResponseForm: React.FC = () => {
         [field]: value,
       },
     }));
-    setHasUnsavedChanges(true);
-
-    // Debounced auto-save
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current);
-    }
-    saveTimerRef.current = setTimeout(() => {
-      saveResponses([indicatorId]);
-    }, 2000);
   };
 
-  // Save responses - uses ref to avoid stale closure issues
-  const responsesRef = useRef(responses);
-  responsesRef.current = responses;
+  // Reset all responses
+  const handleReset = () => {
+    setResponses({});
+    toast.success('Respuestas reiniciadas');
+  };
 
-  const saveResponses = async (indicatorIds?: string[]) => {
-    if (!instanceId) return;
-
-    // Use ref to get current responses (avoids stale closure)
-    const currentResponses = responsesRef.current;
-
-    // Build array of responses to save
-    const idsToSave = indicatorIds || Object.keys(currentResponses);
-    const responsesToSave = idsToSave
-      .filter(id => currentResponses[id])
-      .map(id => ({
-        indicator_id: id,
-        coverage_value: currentResponses[id].coverageValue,
-        frequency_value: currentResponses[id].frequencyValue,
-        frequency_unit: currentResponses[id].frequencyUnit,
-        profundity_level: currentResponses[id].profundityLevel,
-        rationale: currentResponses[id].rationale,
-        evidence_notes: currentResponses[id].evidenceNotes,
-        sub_responses: currentResponses[id].subResponses,
-      }));
-
-    if (responsesToSave.length === 0) return;
-
-    setSaving(true);
+  // Navigate to results
+  const handleViewResults = () => {
     try {
-      const response = await fetch(`/api/docente/assessments/${instanceId}/responses`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ responses: responsesToSave }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al guardar');
-      }
-
-      setHasUnsavedChanges(false);
-
-      // Update progress
-      updateProgress();
-    } catch (error: any) {
-      console.error('Error saving responses:', error);
-      toast.error(error.message || 'Error al guardar respuestas');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Calculate progress - uses ref to avoid stale closure issues
-  const updateProgress = () => {
-    const currentResponses = responsesRef.current;
-    let total = 0;
-    let answered = 0;
-
-    allModules.forEach(module => {
-      const sortedIndicators = [...module.indicators]
-        .filter((ind) => ind.isActiveThisYear !== false)
-        .sort((a, b) => a.displayOrder - b.displayOrder);
-      const hasCoberturaGate = sortedIndicators.length > 0 && sortedIndicators[0].category === 'cobertura';
-
-      if (hasCoberturaGate) {
-        const coberturaResp = currentResponses[sortedIndicators[0].id];
-        const coberturaValue = coberturaResp?.coverageValue;
-
-        total++;
-        if (isIndicatorAnswered(sortedIndicators[0], coberturaResp)) answered++;
-
-        if (coberturaValue === true) {
-          sortedIndicators.slice(1).forEach(indicator => {
-            total++;
-            if (isIndicatorAnswered(indicator, currentResponses[indicator.id])) answered++;
-          });
-        }
-      } else {
-        module.indicators.forEach(indicator => {
-          total++;
-          if (isIndicatorAnswered(indicator, currentResponses[indicator.id])) answered++;
-        });
-      }
-    });
-
-    setProgress({
-      total,
-      answered,
-      percentage: total > 0 ? Math.round((answered / total) * 100) : 0,
-    });
-  };
-
-  // Submit assessment
-  const handleSubmit = async () => {
-    if (!instanceId) return;
-
-    // First save any pending changes (use ref to get current responses)
-    await saveResponses(Object.keys(responsesRef.current));
-
-    setSubmitting(true);
-    try {
-      const response = await fetch(`/api/docente/assessments/${instanceId}/submit`, {
-        method: 'POST',
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (data.missingCount) {
-          toast.error(`Faltan ${data.missingCount} respuestas por completar`);
-        } else {
-          throw new Error(data.error || 'Error al enviar');
-        }
-        return;
-      }
-
-      toast.success('Evaluación enviada correctamente');
-      // Redirect to results page after successful submission
-      router.push(`/docente/assessments/${instanceId}/results`);
-    } catch (error: any) {
-      console.error('Error submitting:', error);
-      toast.error(error.message || 'Error al enviar la evaluación');
-    } finally {
-      setSubmitting(false);
+      sessionStorage.setItem(
+        `demo_responses_${templateId}`,
+        JSON.stringify(responses)
+      );
+      sessionStorage.setItem(
+        `demo_template_${templateId}`,
+        JSON.stringify({ template, objectives, modules, expectations, year, generationType })
+      );
+      router.push(`/demo/assessments/${templateId}/results`);
+    } catch (err) {
+      toast.error('Error al guardar datos para resultados');
     }
   };
 
@@ -365,9 +239,6 @@ const AssessmentResponseForm: React.FC = () => {
     );
   }
 
-  const isCompleted = instance?.status === 'completed';
-  const canEdit = assignee?.canEdit && !isCompleted;
-
   return (
     <MainLayout
       user={user}
@@ -380,56 +251,90 @@ const AssessmentResponseForm: React.FC = () => {
     >
       <ResponsiveFunctionalPageHeader
         icon={<ClipboardCheck />}
-        title={template?.name || 'Evaluación'}
+        title={template?.name || 'Evaluación Demo'}
         subtitle={AREA_LABELS[template?.area as TransformationArea] || 'Evaluación'}
       />
 
+      {/* MODO DEMO banner */}
+      <div className="bg-amber-50 border-b-2 border-amber-400 px-4 py-3">
+        <div className="max-w-4xl mx-auto flex items-center gap-3">
+          <Eye className="w-5 h-5 text-amber-600 flex-shrink-0" />
+          <p className="text-sm font-medium text-amber-800">
+            MODO DEMO — Las respuestas no se guardan. Este es un entorno de práctica.
+          </p>
+        </div>
+      </div>
+
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Back button and actions */}
-        <div className="flex items-center justify-between mb-6">
-          <Link href="/docente/assessments" legacyBehavior>
+        {/* Back button, Year/GenType selectors, and actions */}
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <Link href="/demo/assessments" legacyBehavior>
             <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_primary">
               <ArrowLeft className="w-4 h-4 mr-1" />
-              Volver a evaluaciones
+              Volver a Demos
             </a>
           </Link>
 
+          {/* Year & Generation Type selectors */}
           <div className="flex items-center gap-3">
-            {saving && (
-              <span className="text-sm text-gray-500 flex items-center">
-                <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                Guardando...
-              </span>
-            )}
-            {!isCompleted && (
-              <>
-                <button
-                  onClick={() => saveResponses(Object.keys(responses))}
-                  disabled={saving || !hasUnsavedChanges}
-                  className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-                >
-                  <Save className="w-4 h-4 mr-1" />
-                  Guardar
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={submitting || progress.percentage < 100}
-                  className="inline-flex items-center px-4 py-1.5 text-sm bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 disabled:opacity-50"
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-1" />
-                      Enviando...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4 mr-1" />
-                      Enviar
-                    </>
-                  )}
-                </button>
-              </>
-            )}
+            <div className="flex items-center gap-2">
+              <label htmlFor="demo-year" className="text-sm text-gray-600 font-medium">
+                Año:
+              </label>
+              <select
+                id="demo-year"
+                value={year}
+                onChange={(e) => setYear(parseInt(e.target.value, 10))}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_primary"
+              >
+                {[1, 2, 3, 4, 5].map((y) => (
+                  <option key={y} value={y}>Año {y}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5">
+              <button
+                type="button"
+                onClick={() => setGenerationType('GT')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  generationType === 'GT'
+                    ? 'bg-white text-brand_primary shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                GT
+              </button>
+              <button
+                type="button"
+                onClick={() => setGenerationType('GI')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  generationType === 'GI'
+                    ? 'bg-white text-brand_primary shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                GI
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleReset}
+              className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              <RotateCcw className="w-4 h-4 mr-1" />
+              Reiniciar
+            </button>
+            <button
+              onClick={handleViewResults}
+              disabled={progress.percentage < 100}
+              className="inline-flex items-center px-4 py-1.5 text-sm bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 disabled:opacity-50"
+            >
+              <BarChart3 className="w-4 h-4 mr-1" />
+              Ver Resultados
+            </button>
           </div>
         </div>
 
@@ -449,10 +354,10 @@ const AssessmentResponseForm: React.FC = () => {
               style={{ width: `${progress.percentage}%` }}
             />
           </div>
-          {isCompleted && (
+          {progress.percentage === 100 && (
             <div className="mt-3 flex items-center text-green-600">
               <CheckCircle className="w-4 h-4 mr-2" />
-              <span className="text-sm font-medium">Evaluación completada</span>
+              <span className="text-sm font-medium">Todos los indicadores respondidos</span>
             </div>
           )}
         </div>
@@ -462,7 +367,6 @@ const AssessmentResponseForm: React.FC = () => {
           <div className="space-y-6">
             {objectives.map((objective) => (
               <div key={objective.id} className="space-y-3">
-                {/* Objective header */}
                 <div className="flex items-center gap-3 px-1">
                   <div className="h-px flex-1 bg-gray-200" />
                   <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">
@@ -474,7 +378,6 @@ const AssessmentResponseForm: React.FC = () => {
                   <p className="text-sm text-gray-500 px-1">{objective.description}</p>
                 )}
 
-                {/* Acciones within this objective */}
                 <div className="space-y-3">
                   {objective.modules.map((module) => (
                     <ModuleCard
@@ -484,7 +387,7 @@ const AssessmentResponseForm: React.FC = () => {
                       expanded={expandedModules.has(module.id)}
                       onToggle={() => toggleModule(module.id)}
                       onResponseChange={handleResponseChange}
-                      canEdit={canEdit}
+                      canEdit={true}
                     />
                   ))}
                   {objective.modules.length === 0 && (
@@ -497,7 +400,6 @@ const AssessmentResponseForm: React.FC = () => {
             ))}
           </div>
         ) : (
-          /* Flat modules fallback (backward compat) */
           <div className="space-y-4">
             {modules.map((module) => (
               <ModuleCard
@@ -507,7 +409,7 @@ const AssessmentResponseForm: React.FC = () => {
                 expanded={expandedModules.has(module.id)}
                 onToggle={() => toggleModule(module.id)}
                 onResponseChange={handleResponseChange}
-                canEdit={canEdit}
+                canEdit={true}
               />
             ))}
           </div>
@@ -517,4 +419,4 @@ const AssessmentResponseForm: React.FC = () => {
   );
 };
 
-export default AssessmentResponseForm;
+export default DemoAssessmentForm;

@@ -8,7 +8,7 @@ import { useRouter } from 'next/router';
 import Link from 'next/link';
 import { User } from '@supabase/supabase-js';
 import { useUser, useSupabaseClient } from '@supabase/auth-helpers-react';
-import { BarChart3, Scale, DollarSign, TrendingUp, Clock, Tag } from 'lucide-react';
+import { BarChart3, Scale, DollarSign, TrendingUp, Clock, Tag, Eye as EyeIcon } from 'lucide-react';
 import {
   HomeIcon,
   BookOpenIcon,
@@ -73,6 +73,7 @@ interface NavigationItem {
   requireAllPermissions?: boolean; // If true, require ALL permissions (AND logic)
   requiresCommunity?: boolean; // If true, only show for users with community_id
   requiresQAAccess?: boolean; // If true, only show for users with can_run_qa_tests or admin
+  requiresDemoAccess?: boolean; // If true, only show for users with assessment_demo_access or admin
   children?: NavigationChild[];
   isExpanded?: boolean;
 }
@@ -133,6 +134,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     href: '/docente/assessments',
     description: 'Evaluaciones de tareas asignadas',
     restrictedRoles: ['docente', 'admin', 'consultor', 'community_manager']
+  },
+  {
+    id: 'demos',
+    label: 'Demos',
+    icon: EyeIcon,
+    href: '/demo/assessments',
+    description: 'Instrumentos en modo de práctica',
+    requiresDemoAccess: true,
   },
   {
     id: 'quiz-reviews',
@@ -931,6 +940,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const [communityCheckDone, setCommunityCheckDone] = useState(false);
   const [canRunQATests, setCanRunQATests] = useState(false);
   const [qaCheckDone, setQaCheckDone] = useState(false);
+  const [hasDemoAccess, setHasDemoAccess] = useState(false);
+  const [demoCheckDone, setDemoCheckDone] = useState(false);
 
   const fetchNewFeedbackCount = useCallback(async () => {
     try {
@@ -1060,6 +1071,44 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     return () => { cancelled = true; };
   }, [userId, isAdmin, supabase]);
 
+  // Check if user has demo access
+  useEffect(() => {
+    if (!userId) {
+      setHasDemoAccess(prev => prev === false ? prev : false);
+      setDemoCheckDone(prev => prev === true ? prev : true);
+      return;
+    }
+
+    // Admins always have demo access
+    if (isAdmin) {
+      setHasDemoAccess(prev => prev === true ? prev : true);
+      setDemoCheckDone(prev => prev === true ? prev : true);
+      return;
+    }
+
+    let cancelled = false;
+    const checkDemoAccess = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('assessment_demo_access')
+          .select('id')
+          .eq('user_id', userId)
+          .limit(1);
+
+        if (!cancelled) {
+          setHasDemoAccess(!error && !!data && data.length > 0);
+        }
+      } catch (error) {
+        if (!cancelled) setHasDemoAccess(false);
+      } finally {
+        if (!cancelled) setDemoCheckDone(true);
+      }
+    };
+
+    checkDemoAccess();
+    return () => { cancelled = true; };
+  }, [userId, isAdmin, supabase]);
+
   // Fetch new feedback count for admins
   useEffect(() => {
     if (isAdmin) {
@@ -1151,6 +1200,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         if (!canRunQATests && !isAdmin) return false;
       }
 
+      if (item.requiresDemoAccess) {
+        if (!demoCheckDone) return false;
+        if (!hasDemoAccess && !isAdmin) return false;
+      }
+
       if (item.adminOnly && !isAdmin) return false;
 
       if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
@@ -1188,7 +1242,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
       return true;
     });
-  }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone]);
+  }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasDemoAccess, demoCheckDone]);
 
   return (
     <>

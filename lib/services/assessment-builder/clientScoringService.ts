@@ -22,73 +22,15 @@ import {
   getExpectedLevelByYear,
   getMaturityLevelLabel,
 } from '@/types/assessment-builder';
+import type {
+  GapClassification,
+  IndicatorGap,
+  ModuleGapStats,
+  ModuleResult,
+  GapAnalysisSummary,
+} from '@/components/assessment/results/types';
 
-// ============================================================
-// TYPES
-// ============================================================
-
-export type GapClassification = 'ahead' | 'on_track' | 'behind' | 'critical';
-
-export interface IndicatorGap {
-  actualLevel: number;
-  expectedLevel: number | null;
-  gap: number | null;
-  classification: GapClassification;
-  tolerance: number;
-}
-
-export interface ModuleGapStats {
-  ahead: number;
-  onTrack: number;
-  behind: number;
-  critical: number;
-  avgGap: number | null;
-}
-
-export interface GapAnalysisSummary {
-  overallStats: {
-    total: number;
-    ahead: number;
-    onTrack: number;
-    behind: number;
-    critical: number;
-    notConfigured: number;
-  };
-  avgGap: number | null;
-  criticalIndicators: Array<{
-    indicatorName: string;
-    indicatorCode?: string;
-    actualLevel: number;
-    expectedLevel: number | null;
-    gap: number | null;
-  }>;
-  behindIndicators: Array<{
-    indicatorName: string;
-    indicatorCode?: string;
-    actualLevel: number;
-    expectedLevel: number | null;
-    gap: number | null;
-  }>;
-}
-
-export interface ModuleResult {
-  moduleId: string;
-  moduleName: string;
-  moduleScore: number;
-  moduleWeight: number;
-  level: number;
-  gapStats: ModuleGapStats | null;
-  indicators: Array<{
-    indicatorId: string;
-    indicatorName: string;
-    category: IndicatorCategory;
-    rawValue: boolean | number | undefined;
-    normalizedScore: number;
-    weight: number;
-    isAboveExpectation: boolean;
-    gap: IndicatorGap | null;
-  }>;
-}
+export type { GapClassification, IndicatorGap, ModuleGapStats, ModuleResult, GapAnalysisSummary };
 
 interface ObjectiveData {
   id: string;

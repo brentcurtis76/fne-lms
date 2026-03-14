@@ -20,9 +20,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(403).json({ error: 'Solo administradores pueden buscar usuarios' });
   }
 
-  const q = ((req.query.q as string) || '').trim();
+  const q = ((req.query.q as string) || '').trim().substring(0, 100);
 
   if (!q || q.length < 2) {
+    return res.status(200).json({ users: [] });
+  }
+
+  // Sanitize: strip characters meaningful in PostgREST filter syntax
+  const sanitized = q.replace(/[,().]/g, '');
+  if (!sanitized || sanitized.length < 2) {
     return res.status(200).json({ users: [] });
   }
 
@@ -30,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data, error } = await supabaseClient
       .from('profiles')
       .select('id, email, first_name, last_name')
-      .or(`email.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%`)
+      .or(`email.ilike.%${sanitized}%,first_name.ilike.%${sanitized}%,last_name.ilike.%${sanitized}%`)
       .limit(20);
 
     if (error) {

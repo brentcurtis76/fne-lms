@@ -72,6 +72,20 @@ const DemoAssessmentForm: React.FC = () => {
     checkAuth();
   }, [supabase, router]);
 
+  // Restore responses from sessionStorage on back-navigation
+  useEffect(() => {
+    if (!templateId || typeof templateId !== 'string') return;
+    try {
+      const stored = sessionStorage.getItem(`demo_responses_${templateId}`);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setResponses(parsed);
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, [templateId]);
+
   // Fetch demo assessment data
   const fetchDemoAssessment = useCallback(async () => {
     if (!user || !templateId) return;

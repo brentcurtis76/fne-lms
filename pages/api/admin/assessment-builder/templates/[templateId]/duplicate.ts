@@ -61,8 +61,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: 'Template no encontrado' });
     }
 
-    // New template always starts as draft v1.0.0
-    const newVersion = '1.0.0';
+    // Find highest existing version for this area + grade combo
+    const { data: existingVersions } = await supabaseClient
+      .from('assessment_templates')
+      .select('version')
+      .eq('area', sourceTemplate.area)
+      .eq('grade_id', grade_id)
+      .order('version', { ascending: false })
+      .limit(10);
+
+    let newVersion = '1.0.0';
+    if (existingVersions && existingVersions.length > 0) {
+      let maxMajor = 0, maxMinor = 0, maxPatch = 0;
+      for (const ev of existingVersions) {
+        const parts = (ev.version || '0.0.0').split('.').map(Number);
+        const [maj = 0, min = 0, pat = 0] = parts;
+        if (maj > maxMajor || (maj === maxMajor && min > maxMinor) || (maj === maxMajor && min === maxMinor && pat > maxPatch)) {
+          maxMajor = maj; maxMinor = min; maxPatch = pat;
+        }
+      }
+      newVersion = `${maxMajor}.${maxMinor}.${maxPatch + 1}`;
+    }
 
     // Create new template as draft with provided name and grade
     const { data: newTemplate, error: newTemplateError } = await supabaseClient
@@ -223,6 +242,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             level_4_descriptor: sourceIndicator.level_4_descriptor,
             display_order: sourceIndicator.display_order,
             weight: sourceIndicator.weight,
+            detalle_options: sourceIndicator.detalle_options,
+            evaluation_guidance: sourceIndicator.evaluation_guidance,
           })
           .select('id')
           .single();
@@ -282,6 +303,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
+    // Copy per-year weight distributions
+    let yearWeightCount = 0;
+    const { data: sourceYearWeights, error: yearWeightsError } = await supabaseClient
+      .from('assessment_entity_year_weights')
+      .select('*')
+      .eq('template_id', templateId);
+
+    if (yearWeightsError) {
+      console.error('Error fetching source year weights:', yearWeightsError);
+      // Don't fail - year weights are optional enhancement
+    } else if (sourceYearWeights && sourceYearWeights.length > 0) {
+      for (const sw of sourceYearWeights) {
+        // Remap entity_id based on entity_type
+        let newEntityId: string | undefined;
+        if (sw.entity_type === 'objective') {
+          newEntityId = objectiveIdMap[sw.entity_id];
+        } else if (sw.entity_type === 'module') {
+          newEntityId = moduleIdMap[sw.entity_id];
+        } else if (sw.entity_type === 'indicator') {
+          newEntityId = indicatorIdMap[sw.entity_id];
+        }
+        if (!newEntityId) continue;
+
+        const { error: insertError } = await supabaseClient
+          .from('assessment_entity_year_weights')
+          .insert({
+            template_id: newTemplate.id,
+            entity_type: sw.entity_type,
+            entity_id: newEntityId,
+            year: sw.year,
+            weight: sw.weight,
+          });
+
+        if (insertError) {
+          console.error('Error copying year weight:', insertError);
+        } else {
+          yearWeightCount++;
+        }
+      }
+    }
+
     // Count objectives, modules and indicators in new template
     const { count: objectiveCount } = await supabaseClient
       .from('assessment_objectives')
@@ -320,6 +382,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         modules: moduleCount || 0,
         indicators: indicatorCount,
         expectations: expectationCount,
+        yearWeights: yearWeightCount,
       },
       sourceTemplateId: templateId,
     });

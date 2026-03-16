@@ -1,65 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { hasDirectivoPermission } from '@/lib/permissions/directivo';
 import type { SaveTransversalContextRequest } from '@/types/assessment-builder';
-
-// Check if user has directivo permission for a specific school
-async function hasDirectivoPermission(
-  supabaseClient: any,
-  userId: string,
-  schoolId?: number
-): Promise<{ hasPermission: boolean; schoolId: number | null; isAdmin: boolean }> {
-  // Check for admin/consultor first
-  const { data: roles } = await supabaseClient
-    .from('user_roles')
-    .select('role_type, school_id')
-    .eq('user_id', userId)
-    .eq('is_active', true);
-
-  if (!roles || roles.length === 0) {
-    return { hasPermission: false, schoolId: null, isAdmin: false };
-  }
-
-  const isActualAdmin = roles.some((r: any) => r.role_type === 'admin');
-
-  if (isActualAdmin) {
-    // Admin can access any school, but needs a school_id to be specified
-    return { hasPermission: true, schoolId: schoolId || null, isAdmin: true };
-  }
-
-  // Consultor: must validate against consultant_assignments
-  const isConsultor = roles.some((r: any) => r.role_type === 'consultor');
-  if (isConsultor) {
-    const { data: assignments } = await supabaseClient
-      .from('consultant_assignments')
-      .select('school_id')
-      .eq('user_id', userId)
-      .eq('is_active', true);
-
-    if (!assignments || assignments.length === 0) {
-      return { hasPermission: false, schoolId: null, isAdmin: false };
-    }
-
-    const assignedSchoolIds = assignments.map((a: any) => a.school_id);
-
-    if (schoolId && !assignedSchoolIds.includes(schoolId)) {
-      return { hasPermission: false, schoolId: null, isAdmin: false };
-    }
-
-    return { hasPermission: true, schoolId: schoolId || assignments[0].school_id, isAdmin: false };
-  }
-
-  // Check for directivo role
-  const directivoRole = roles.find((r: any) => r.role_type === 'equipo_directivo');
-  if (directivoRole) {
-    // If schoolId is specified, verify it matches
-    if (schoolId && directivoRole.school_id !== schoolId) {
-      return { hasPermission: false, schoolId: null, isAdmin: false };
-    }
-    return { hasPermission: true, schoolId: directivoRole.school_id, isAdmin: false };
-  }
-
-  return { hasPermission: false, schoolId: null, isAdmin: false };
-}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Authentication check
@@ -108,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     case 'GET':
       return handleGet(req, res, supabaseClient, effectiveSchoolId!);
     case 'POST':
-      return handlePost(req, res, supabaseClient, effectiveSchoolId!);
+      return handlePost(req, res, supabaseClient, effectiveSchoolId!, user.id);
     default:
       return handleMethodNotAllowed(res, ['GET', 'POST']);
   }
@@ -183,7 +125,8 @@ async function handlePost(
   req: NextApiRequest,
   res: NextApiResponse,
   supabaseClient: any,
-  schoolId: number
+  schoolId: number,
+  userId: string
 ) {
   try {
     const body = req.body as SaveTransversalContextRequest;
@@ -205,12 +148,15 @@ async function handlePost(
       return res.status(400).json({ error: 'Se requiere un sistema de períodos válido' });
     }
 
-    // Check if context already exists
-    const { data: existingContext } = await supabaseClient
+    // Fetch previous state for change history
+    const { data: previousContext } = await supabaseClient
       .from('school_transversal_context')
-      .select('id')
+      .select('*')
       .eq('school_id', schoolId)
       .maybeSingle();
+
+    // Check if context already exists (use previous fetch)
+    const existingContext = previousContext ? { id: previousContext.id } : null;
 
     const contextData = {
       school_id: schoolId,
@@ -256,6 +202,49 @@ async function handlePost(
         return res.status(500).json({ error: 'Error al guardar el contexto transversal' });
       }
       savedContext = data;
+    }
+
+    // Log change history and update completion status
+    try {
+      const serviceClient = createServiceRoleClient();
+      const { data: profile } = await serviceClient.from('profiles').select('full_name').eq('id', userId).single();
+
+      const DIFF_IGNORE_FIELDS = new Set(['school_id', 'updated_at', 'created_at', 'id', 'is_completed', 'completed_at', 'completed_by']);
+      const changedFields = Object.keys(contextData)
+        .filter(key => !DIFF_IGNORE_FIELDS.has(key))
+        .filter(key =>
+          JSON.stringify(previousContext?.[key]) !== JSON.stringify(savedContext[key])
+        );
+
+      if (changedFields.length > 0 || !previousContext) {
+        await serviceClient.from('school_change_history').insert({
+          school_id: schoolId,
+          feature: 'transversal_context',
+          action: previousContext ? 'update' : 'initial_save',
+          previous_state: previousContext || null,
+          new_state: savedContext,
+          changed_fields: changedFields,
+          user_id: userId,
+          user_name: profile?.full_name || 'Unknown',
+        });
+      }
+
+      const isComplete = !!(savedContext.total_students && savedContext.grade_levels?.length > 0 && savedContext.implementation_year_2026 && savedContext.period_system);
+      const completionUpdate: Record<string, any> = {
+        is_completed: isComplete,
+      };
+      if (isComplete) {
+        // Always update to reflect the latest completion
+        completionUpdate.completed_at = new Date().toISOString();
+        completionUpdate.completed_by = userId;
+      } else {
+        // Clear completion fields when no longer complete
+        completionUpdate.completed_at = null;
+        completionUpdate.completed_by = null;
+      }
+      await serviceClient.from('school_transversal_context').update(completionUpdate).eq('id', savedContext.id);
+    } catch (historyErr) {
+      console.error('Error logging change history:', historyErr);
     }
 
     // Generate course structure based on grade levels and courses per level

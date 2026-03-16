@@ -6,6 +6,8 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPageHeader';
 import { Building2, ArrowLeft, Save, Info, HelpCircle } from 'lucide-react';
+import ChangeHistorySection from '@/components/school/ChangeHistorySection';
+import { TRANSVERSAL_CONTEXT_FIELD_LABELS } from '@/lib/constants/transversal-context';
 import type { GradeLevel, PeriodSystem, SaveTransversalContextRequest, ContextGeneralQuestion } from '@/types/assessment-builder';
 import { GRADE_LEVEL_LABELS, GRADE_LEVEL_CATEGORIES } from '@/types/assessment-builder';
 
@@ -958,6 +960,22 @@ const TransversalContextEdit: React.FC = () => {
             </button>
           </div>
         </form>
+
+        {/* Change History */}
+        <ChangeHistorySection
+          schoolId={schoolId}
+          feature="transversal_context"
+          fieldLabels={TRANSVERSAL_CONTEXT_FIELD_LABELS}
+        />
+        <ChangeHistorySection
+          schoolId={schoolId}
+          feature="context_responses"
+          fieldLabels={Object.fromEntries(
+            allQuestions
+              .filter(q => q.widget_type === 'generic')
+              .map(q => [q.id, q.question_text])
+          )}
+        />
       </div>
     </MainLayout>
   );

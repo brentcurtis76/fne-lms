@@ -1,43 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { hasDirectivoPermission } from '@/lib/permissions/directivo';
 import type { SaveMigrationPlanRequest, GenerationType } from '@/types/assessment-builder';
-
-// Check if user has directivo permission for a specific school
-async function hasDirectivoPermission(
-  supabaseClient: any,
-  userId: string,
-  schoolId?: number
-): Promise<{ hasPermission: boolean; schoolId: number | null; isAdmin: boolean }> {
-  // Check for admin/consultor first
-  const { data: roles } = await supabaseClient
-    .from('user_roles')
-    .select('role_type, school_id')
-    .eq('user_id', userId)
-    .eq('is_active', true);
-
-  if (!roles || roles.length === 0) {
-    return { hasPermission: false, schoolId: null, isAdmin: false };
-  }
-
-  const isAdmin = roles.some((r: any) => ['admin', 'consultor'].includes(r.role_type));
-
-  if (isAdmin) {
-    // Admin can access any school, but needs a school_id to be specified
-    return { hasPermission: true, schoolId: schoolId || null, isAdmin: true };
-  }
-
-  // Check for directivo role
-  const directivoRole = roles.find((r: any) => r.role_type === 'equipo_directivo');
-  if (directivoRole) {
-    // If schoolId is specified, verify it matches
-    if (schoolId && directivoRole.school_id !== schoolId) {
-      return { hasPermission: false, schoolId: null, isAdmin: false };
-    }
-    return { hasPermission: true, schoolId: directivoRole.school_id, isAdmin: false };
-  }
-
-  return { hasPermission: false, schoolId: null, isAdmin: false };
-}
 
 // IDs of always-GT grades (1-6: Medio Menor through Segundo Básico)
 const ALWAYS_GT_GRADE_IDS = [1, 2, 3, 4, 5, 6];
@@ -89,7 +53,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     case 'GET':
       return handleGet(req, res, supabaseClient, effectiveSchoolId!);
     case 'PUT':
-      return handlePut(req, res, supabaseClient, effectiveSchoolId!);
+      return handlePut(req, res, supabaseClient, effectiveSchoolId!, user.id);
     default:
       return handleMethodNotAllowed(res, ['GET', 'PUT']);
   }
@@ -172,7 +136,8 @@ async function handlePut(
   req: NextApiRequest,
   res: NextApiResponse,
   supabaseClient: any,
-  schoolId: number
+  schoolId: number,
+  userId: string
 ) {
   try {
     const { entries } = req.body as SaveMigrationPlanRequest;
@@ -222,6 +187,12 @@ async function handlePut(
       });
     }
 
+    // Snapshot current state for change history
+    const { data: previousEntries } = await supabaseClient
+      .from('ab_migration_plan')
+      .select('year_number, grade_id, generation_type')
+      .eq('school_id', schoolId);
+
     // Delete existing entries for this school
     const { error: deleteError } = await supabaseClient
       .from('ab_migration_plan')
@@ -233,7 +204,7 @@ async function handlePut(
       return res.status(500).json({ error: 'Error al actualizar el plan de migración' });
     }
 
-    // Insert new entries
+    // Insert new entries — if insert fails, rollback by re-inserting previous entries
     if (entries.length > 0) {
       const entriesToInsert = entries.map(entry => ({
         school_id: schoolId,
@@ -248,7 +219,30 @@ async function handlePut(
 
       if (insertError) {
         console.error('Error inserting migration plan:', insertError);
-        return res.status(500).json({ error: 'Error al guardar el plan de migración' });
+        // Rollback: restore previous entries to prevent data loss
+        if (previousEntries && previousEntries.length > 0) {
+          const { error: rollbackError } = await supabaseClient
+            .from('ab_migration_plan')
+            .insert(previousEntries.map((e: any) => ({
+              school_id: schoolId,
+              year_number: e.year_number,
+              grade_id: e.grade_id,
+              generation_type: e.generation_type,
+            })));
+
+          if (rollbackError) {
+            console.error('CRITICAL: Rollback failed after migration plan insert failure. Data may be lost.', {
+              schoolId,
+              rollbackError,
+              previousEntriesCount: previousEntries?.length,
+            });
+            return res.status(500).json({
+              error: 'Error crítico: no se pudo restaurar el plan anterior. Contacte al administrador.',
+              rollback_failed: true,
+            });
+          }
+        }
+        return res.status(500).json({ error: 'Error al guardar el plan de migración. Se restauró el plan anterior.' });
       }
     }
 
@@ -276,6 +270,45 @@ async function handlePut(
 
     if (fetchError) {
       console.error('Error fetching updated entries:', fetchError);
+    }
+
+    // Log change history and update completion status
+    try {
+      const serviceClient = createServiceRoleClient();
+      const { data: profile } = await serviceClient.from('profiles').select('full_name').eq('id', userId).single();
+
+      const prevState = Object.fromEntries((previousEntries || []).map((e: any) => [`${e.year_number}-${e.grade_id}`, e.generation_type]));
+      const newState = Object.fromEntries(entries.map(e => [`${e.year_number}-${e.grade_id}`, e.generation_type]));
+      const allKeys = new Set([...Object.keys(prevState), ...Object.keys(newState)]);
+      const changedFields = [...allKeys].filter(k => prevState[k] !== newState[k]);
+
+      if (changedFields.length > 0 || !previousEntries?.length) {
+        await serviceClient.from('school_change_history').insert({
+          school_id: schoolId,
+          feature: 'migration_plan',
+          action: previousEntries?.length ? 'update' : 'initial_save',
+          previous_state: prevState,
+          new_state: newState,
+          changed_fields: changedFields,
+          user_id: userId,
+          user_name: profile?.full_name || 'Unknown',
+        });
+      }
+
+      // A plan is complete if it has at least one entry for each of the 5 years
+      const yearsWithEntries = new Set(entries.map(e => e.year_number));
+      const isComplete = yearsWithEntries.size === 5;
+
+      await serviceClient.from('school_plan_completion_status').upsert({
+        school_id: schoolId,
+        feature: 'migration_plan',
+        is_completed: isComplete,
+        completed_at: isComplete ? new Date().toISOString() : null,
+        completed_by: isComplete ? userId : null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'school_id,feature' });
+    } catch (historyErr) {
+      console.error('Error logging change history:', historyErr);
     }
 
     const response: any = {

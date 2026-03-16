@@ -1,73 +1,13 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import {
   getApiUser,
+  createApiSupabaseClient,
   createServiceRoleClient,
   sendAuthError,
   handleMethodNotAllowed,
 } from '@/lib/api-auth';
+import { hasDirectivoPermission } from '@/lib/permissions/directivo';
 import type { SaveContextResponsesRequest, ContextGeneralResponse } from '@/types/assessment-builder';
-
-// ============================================================
-// Permission check — reuses the hasDirectivoPermission pattern
-// ============================================================
-
-async function hasDirectivoPermission(
-  supabaseClient: any,
-  userId: string,
-  schoolId?: number
-): Promise<{ hasPermission: boolean; schoolId: number | null; isAdmin: boolean }> {
-  // Check for admin/consultor first
-  const { data: roles } = await supabaseClient
-    .from('user_roles')
-    .select('role_type, school_id')
-    .eq('user_id', userId)
-    .eq('is_active', true);
-
-  if (!roles || roles.length === 0) {
-    return { hasPermission: false, schoolId: null, isAdmin: false };
-  }
-
-  const isActualAdmin = roles.some((r: any) => r.role_type === 'admin');
-
-  if (isActualAdmin) {
-    // Admin can access any school, but needs a school_id to be specified
-    return { hasPermission: true, schoolId: schoolId || null, isAdmin: true };
-  }
-
-  // Consultor: must validate against consultant_assignments
-  const isConsultor = roles.some((r: any) => r.role_type === 'consultor');
-  if (isConsultor) {
-    const { data: assignments } = await supabaseClient
-      .from('consultant_assignments')
-      .select('school_id')
-      .eq('user_id', userId)
-      .eq('is_active', true);
-
-    if (!assignments || assignments.length === 0) {
-      return { hasPermission: false, schoolId: null, isAdmin: false };
-    }
-
-    const assignedSchoolIds = assignments.map((a: any) => a.school_id);
-
-    if (schoolId && !assignedSchoolIds.includes(schoolId)) {
-      return { hasPermission: false, schoolId: null, isAdmin: false };
-    }
-
-    return { hasPermission: true, schoolId: schoolId || assignments[0].school_id, isAdmin: false };
-  }
-
-  // Check for directivo role
-  const directivoRole = roles.find((r: any) => r.role_type === 'equipo_directivo');
-  if (directivoRole) {
-    // If schoolId is specified, verify it matches
-    if (schoolId && directivoRole.school_id !== schoolId) {
-      return { hasPermission: false, schoolId: null, isAdmin: false };
-    }
-    return { hasPermission: true, schoolId: directivoRole.school_id, isAdmin: false };
-  }
-
-  return { hasPermission: false, schoolId: null, isAdmin: false };
-}
 
 // ============================================================
 // Main handler
@@ -80,7 +20,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return sendAuthError(res, 'Autenticación requerida');
   }
 
-  // Use service role client for reliable permission checks (bypasses RLS)
+  // User-scoped client for CRUD operations (respects RLS)
+  const supabaseClient = await createApiSupabaseClient(req, res);
+
+  // Use service role client for permission checks (bypasses RLS)
   const serviceClient = createServiceRoleClient();
 
   // Get school_id from query for GET, or from body for POST
@@ -124,9 +67,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   switch (req.method) {
     case 'GET':
-      return handleGet(req, res, effectiveSchoolId!);
+      return handleGet(req, res, supabaseClient, effectiveSchoolId!);
     case 'POST':
-      return handlePost(req, res, effectiveSchoolId!, user.id);
+      return handlePost(req, res, supabaseClient, effectiveSchoolId!, user.id);
     default:
       return handleMethodNotAllowed(res, ['GET', 'POST']);
   }
@@ -139,13 +82,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function handleGet(
   req: NextApiRequest,
   res: NextApiResponse,
+  supabaseClient: any,
   schoolId: number
 ) {
   try {
-    const serviceClient = createServiceRoleClient();
-
     // Fetch responses joined with question info
-    const { data: responses, error: dbError } = await serviceClient
+    const { data: responses, error: dbError } = await supabaseClient
       .from('context_general_responses')
       .select('*, question:context_general_questions(*)')
       .eq('school_id', schoolId);
@@ -173,6 +115,7 @@ async function handleGet(
 async function handlePost(
   req: NextApiRequest,
   res: NextApiResponse,
+  supabaseClient: any,
   schoolId: number,
   userId: string
 ) {
@@ -193,6 +136,12 @@ async function handlePost(
 
     const serviceClient = createServiceRoleClient();
 
+    // Fetch previous responses for change history
+    const { data: previousResponses } = await serviceClient
+      .from('context_general_responses')
+      .select('question_id, response')
+      .eq('school_id', schoolId);
+
     // Upsert each response
     const upsertRows = body.responses.map((r) => ({
       school_id: schoolId,
@@ -202,7 +151,7 @@ async function handlePost(
       updated_at: new Date().toISOString(),
     }));
 
-    const { data: savedResponses, error: upsertError } = await serviceClient
+    const { data: savedResponses, error: upsertError } = await supabaseClient
       .from('context_general_responses')
       .upsert(upsertRows, { onConflict: 'school_id,question_id' })
       .select('*, question:context_general_questions(*)');
@@ -210,6 +159,76 @@ async function handlePost(
     if (upsertError) {
       console.error('Error upserting custom responses:', upsertError);
       return res.status(500).json({ error: 'Error al guardar respuestas de contexto' });
+    }
+
+    // Log change history and update completion status
+    try {
+      const prevMap = Object.fromEntries((previousResponses || []).map((r: any) => [r.question_id, r.response]));
+      const newMap = Object.fromEntries(body.responses.map(r => [r.question_id, r.response]));
+      const changedFields = body.responses
+        .filter(r => JSON.stringify(prevMap[r.question_id]) !== JSON.stringify(r.response))
+        .map(r => r.question_id);
+
+      if (changedFields.length > 0) {
+        const { data: profile } = await serviceClient.from('profiles').select('full_name').eq('id', userId).single();
+        await serviceClient.from('school_change_history').insert({
+          school_id: schoolId,
+          feature: 'context_responses',
+          action: previousResponses?.length ? 'update' : 'initial_save',
+          previous_state: prevMap,
+          new_state: newMap,
+          changed_fields: changedFields,
+          user_id: userId,
+          user_name: profile?.full_name || 'Unknown',
+        });
+      }
+
+      // Check if all required generic questions are answered
+      const { data: requiredQuestions } = await serviceClient
+        .from('context_general_questions')
+        .select('id')
+        .eq('is_active', true)
+        .eq('is_required', true)
+        .eq('widget_type', 'generic');
+
+      const allRequiredAnswered = (requiredQuestions || []).every(q => {
+        const response = body.responses.find(r => r.question_id === q.id);
+        return response && response.response !== null && response.response !== '' && response.response !== undefined;
+      });
+
+      // Also check previously saved responses for questions not in this save batch
+      if (!allRequiredAnswered) {
+        const { data: allSavedResponses } = await serviceClient
+          .from('context_general_responses')
+          .select('question_id, response')
+          .eq('school_id', schoolId);
+
+        const savedMap = Object.fromEntries((allSavedResponses || []).map((r: any) => [r.question_id, r.response]));
+        const isComplete = (requiredQuestions || []).every(q => {
+          const val = savedMap[q.id];
+          return val !== null && val !== '' && val !== undefined;
+        });
+
+        await serviceClient.from('school_plan_completion_status').upsert({
+          school_id: schoolId,
+          feature: 'context_responses',
+          is_completed: isComplete,
+          completed_at: isComplete ? new Date().toISOString() : null,
+          completed_by: isComplete ? userId : null,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'school_id,feature' });
+      } else {
+        await serviceClient.from('school_plan_completion_status').upsert({
+          school_id: schoolId,
+          feature: 'context_responses',
+          is_completed: true,
+          completed_at: new Date().toISOString(),
+          completed_by: userId,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'school_id,feature' });
+      }
+    } catch (historyErr) {
+      console.error('Error logging change history:', historyErr);
     }
 
     return res.status(200).json({

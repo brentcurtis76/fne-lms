@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import type { SaveTransversalContextRequest } from '@/types/assessment-builder';
 
 // Check if user has directivo permission for a specific school
@@ -263,8 +263,11 @@ async function handlePost(
     let warning = null;
 
     try {
+      // Use service role client to bypass RLS for course structure generation
+      const serviceClient = createServiceRoleClient();
+
       // Delete existing course structure for this school
-      await supabaseClient
+      await serviceClient
         .from('school_course_structure')
         .delete()
         .eq('school_id', schoolId);
@@ -286,7 +289,7 @@ async function handlePost(
       }
 
       if (coursesToInsert.length > 0) {
-        const { error: courseInsertError } = await supabaseClient
+        const { error: courseInsertError } = await serviceClient
           .from('school_course_structure')
           .insert(coursesToInsert);
 

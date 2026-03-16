@@ -22,6 +22,9 @@ import {
   Clock,
   HelpCircle,
 } from 'lucide-react';
+import ChangeHistorySection from '@/components/school/ChangeHistorySection';
+import CompletionStatusBadge from '@/components/school/CompletionStatusBadge';
+import { TRANSVERSAL_CONTEXT_FIELD_LABELS } from '@/lib/constants/transversal-context';
 import type { SchoolTransversalContext, GradeLevel, ContextGeneralQuestion, ContextGeneralResponse } from '@/types/assessment-builder';
 import { GRADE_LEVEL_LABELS } from '@/types/assessment-builder';
 
@@ -66,6 +69,15 @@ const TransversalContextDashboard: React.FC = () => {
   // All context questions (structural + generic, driven from DB)
   const [allQuestions, setAllQuestions] = useState<ContextGeneralQuestion[]>([]);
   const [customResponses, setCustomResponses] = useState<ContextGeneralResponse[]>([]);
+
+  // Completion status
+  const [completionStatus, setCompletionStatus] = useState<Record<string, {
+    is_completed: boolean;
+    completed_at: string | null;
+    completed_by_name: string | null;
+    last_updated_at: string | null;
+    last_updated_by_name: string | null;
+  }>>({});
 
   // Check auth and permissions
   useEffect(() => {
@@ -200,14 +212,15 @@ const TransversalContextDashboard: React.FC = () => {
     }
   }, [schoolId, hasPermission, fetchContext]);
 
-  // Fetch custom context questions and responses
+  // Fetch custom context questions, responses, and completion status
   useEffect(() => {
     if (!schoolId || !hasPermission) return;
     const fetchCustom = async () => {
       try {
-        const [qRes, rRes] = await Promise.all([
+        const [qRes, rRes, csRes] = await Promise.all([
           fetch('/api/school/transversal-context/questions'),
           fetch(`/api/school/transversal-context/custom-responses?school_id=${schoolId}`),
+          fetch(`/api/school/completion-status?school_id=${schoolId}`),
         ]);
         if (qRes.ok) {
           const qData = await qRes.json();
@@ -216,6 +229,10 @@ const TransversalContextDashboard: React.FC = () => {
         if (rRes.ok) {
           const rData = await rRes.json();
           setCustomResponses(rData.responses || []);
+        }
+        if (csRes.ok) {
+          const csData = await csRes.json();
+          setCompletionStatus(csData.status || {});
         }
       } catch (err) {
         console.error('Error fetching custom context:', err);
@@ -515,7 +532,7 @@ const TransversalContextDashboard: React.FC = () => {
             <>
               <CheckCircle className="w-6 h-6 text-brand_primary" />
               <div>
-                <p className="font-medium text-brand_primary">Cuestionario completado</p>
+                <p className="font-medium text-brand_primary">Contexto Estructural</p>
                 <p className="text-sm text-brand_primary/70">
                   Última actualización: {new Date(context.updated_at).toLocaleDateString('es-CL')}
                 </p>
@@ -547,6 +564,32 @@ const TransversalContextDashboard: React.FC = () => {
             </Link>
           )}
         </div>
+
+        {/* Completion status badges — always visible */}
+        {schoolId && Object.keys(completionStatus).length > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-brand_primary/70">Contexto Estructural</p>
+              <CompletionStatusBadge
+                isCompleted={completionStatus.transversal_context?.is_completed ?? false}
+                completedByName={completionStatus.transversal_context?.completed_by_name ?? undefined}
+                completedAt={completionStatus.transversal_context?.completed_at ?? undefined}
+                lastUpdatedByName={completionStatus.transversal_context?.last_updated_by_name ?? undefined}
+                lastUpdatedAt={completionStatus.transversal_context?.last_updated_at ?? undefined}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-brand_primary/70">Preguntas de Contexto</p>
+              <CompletionStatusBadge
+                isCompleted={completionStatus.context_responses?.is_completed ?? false}
+                completedByName={completionStatus.context_responses?.completed_by_name ?? undefined}
+                completedAt={completionStatus.context_responses?.completed_at ?? undefined}
+                lastUpdatedByName={completionStatus.context_responses?.last_updated_by_name ?? undefined}
+                lastUpdatedAt={completionStatus.context_responses?.last_updated_at ?? undefined}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Link to Migration Plan */}
         {context && (
@@ -859,6 +902,26 @@ const TransversalContextDashboard: React.FC = () => {
               ))}
             </div>
           </div>
+        )}
+
+        {/* Change History */}
+        {context && schoolId && (
+          <>
+            <ChangeHistorySection
+              schoolId={schoolId}
+              feature="transversal_context"
+              fieldLabels={TRANSVERSAL_CONTEXT_FIELD_LABELS}
+            />
+            <ChangeHistorySection
+              schoolId={schoolId}
+              feature="context_responses"
+              fieldLabels={Object.fromEntries(
+                allQuestions
+                  .filter(q => q.widget_type === 'generic')
+                  .map(q => [q.id, q.question_text])
+              )}
+            />
+          </>
         )}
 
         {/* Empty State */}

@@ -15,6 +15,8 @@ import {
   TrendingUp,
   Building2,
 } from 'lucide-react';
+import ChangeHistorySection from '@/components/school/ChangeHistorySection';
+import CompletionStatusBadge from '@/components/school/CompletionStatusBadge';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import type { Grade, MigrationPlanEntry, GenerationType } from '@/types/assessment-builder';
 
@@ -54,6 +56,15 @@ const MigrationPlanPage: React.FC = () => {
 
   // Editable GI percentages per year
   const [giPercentages, setGiPercentages] = useState<Record<number, number>>(DEFAULT_GI_PERCENTAGES);
+
+  // Completion status
+  const [completionStatus, setCompletionStatus] = useState<{
+    is_completed: boolean;
+    completed_at: string | null;
+    completed_by_name: string | null;
+    last_updated_at: string | null;
+    last_updated_by_name: string | null;
+  } | null>(null);
 
   // Check auth and permissions
   useEffect(() => {
@@ -179,6 +190,15 @@ const MigrationPlanPage: React.FC = () => {
   useEffect(() => {
     if (schoolId) {
       fetchMigrationPlan();
+      // Fetch completion status
+      fetch(`/api/school/completion-status?school_id=${schoolId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.status?.migration_plan) {
+            setCompletionStatus(data.status.migration_plan);
+          }
+        })
+        .catch(err => console.error('Error fetching completion status:', err));
     }
   }, [schoolId, fetchMigrationPlan]);
 
@@ -446,6 +466,19 @@ const MigrationPlanPage: React.FC = () => {
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Completion status */}
+        {completionStatus && (
+          <div className="mb-4">
+            <CompletionStatusBadge
+              isCompleted={completionStatus.is_completed}
+              completedByName={completionStatus.completed_by_name ?? undefined}
+              completedAt={completionStatus.completed_at ?? undefined}
+              lastUpdatedByName={completionStatus.last_updated_by_name ?? undefined}
+              lastUpdatedAt={completionStatus.last_updated_at ?? undefined}
+            />
+          </div>
+        )}
+
         {/* Back button - different behavior for admin/consultor vs directivo */}
         {isAdmin ? (
           <button
@@ -754,6 +787,21 @@ const MigrationPlanPage: React.FC = () => {
             </button>
           </div>
         </div>
+        {/* Change History */}
+        {grades.length > 0 && (
+          <ChangeHistorySection
+            schoolId={schoolId}
+            feature="migration_plan"
+            fieldLabels={Object.fromEntries(
+              grades.flatMap(grade =>
+                [1, 2, 3, 4, 5].map(year => [
+                  `${year}-${grade.id}`,
+                  `Año ${year}, ${grade.name}`,
+                ])
+              )
+            )}
+          />
+        )}
       </div>
     </MainLayout>
   );

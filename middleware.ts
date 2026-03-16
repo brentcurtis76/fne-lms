@@ -69,9 +69,14 @@ export async function middleware(req: NextRequest) {
   }
 
   // --- SCHOOL-SCOPED ROUTES ---
-  // For /school/transversal-context with a school_id query param,
+  // For school pages with a school_id query param,
   // verify equipo_directivo can only access their own school
-  if (pathname.startsWith('/school/transversal-context')) {
+  const schoolScopedPrefixes = [
+    '/school/transversal-context',
+    '/school/change-history',
+    '/school/completion-status',
+  ];
+  if (schoolScopedPrefixes.some(prefix => pathname.startsWith(prefix))) {
     const requestedSchoolId = req.nextUrl.searchParams.get('school_id');
 
     if (requestedSchoolId) {

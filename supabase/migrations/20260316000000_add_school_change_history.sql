@@ -79,7 +79,7 @@ CREATE POLICY "school_change_history_admin_all" ON school_change_history
 CREATE POLICY "school_change_history_consultor_select" ON school_change_history
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM consultant_assignments ca
-            WHERE ca.user_id = auth.uid()
+            WHERE ca.consultant_id = auth.uid()
             AND ca.school_id = school_change_history.school_id
             AND ca.is_active = true)
   );
@@ -123,7 +123,7 @@ CREATE POLICY "school_plan_completion_admin_all" ON school_plan_completion_statu
 CREATE POLICY "school_plan_completion_consultor_select" ON school_plan_completion_status
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM consultant_assignments ca
-            WHERE ca.user_id = auth.uid()
+            WHERE ca.consultant_id = auth.uid()
             AND ca.school_id = school_plan_completion_status.school_id
             AND ca.is_active = true)
   );

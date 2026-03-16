@@ -38,7 +38,7 @@ export async function hasDirectivoPermission(
     const { data: assignments } = await supabaseClient
       .from('consultant_assignments')
       .select('school_id')
-      .eq('user_id', userId)
+      .eq('consultant_id', userId)
       .eq('is_active', true);
 
     if (!assignments || assignments.length === 0) {

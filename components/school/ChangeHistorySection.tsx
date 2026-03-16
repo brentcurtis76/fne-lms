@@ -17,6 +17,7 @@ interface ChangeHistoryEntry {
 interface ChangeHistorySectionProps {
   schoolId: number;
   feature: 'transversal_context' | 'migration_plan' | 'context_responses';
+  title?: string;
   fieldLabels?: Record<string, string>;
 }
 
@@ -60,9 +61,16 @@ function actionLabel(action: string): string {
   }
 }
 
+const DEFAULT_TITLES: Record<string, string> = {
+  transversal_context: 'Historial — Contexto Estructural',
+  migration_plan: 'Historial — Plan de Migración',
+  context_responses: 'Historial — Preguntas de Contexto',
+};
+
 const ChangeHistorySection: React.FC<ChangeHistorySectionProps> = ({
   schoolId,
   feature,
+  title,
   fieldLabels,
 }) => {
   const [expanded, setExpanded] = useState(false);
@@ -124,7 +132,7 @@ const ChangeHistorySection: React.FC<ChangeHistorySectionProps> = ({
           )}
           <Clock className="h-4 w-4 text-brand_primary/60" />
           <span className="text-sm font-medium text-brand_primary">
-            Historial de cambios
+            {title || DEFAULT_TITLES[feature] || 'Historial de cambios'}
           </span>
           {expanded && total > 0 && (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand_primary/10 text-brand_primary">

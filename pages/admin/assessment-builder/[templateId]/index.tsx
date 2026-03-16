@@ -24,6 +24,10 @@ import {
   Target,
   Archive,
   RotateCcw,
+  UserPlus,
+  Link2,
+  Search,
+  Play,
 } from 'lucide-react';
 import type {
   AssessmentTemplate,
@@ -197,6 +201,27 @@ const TemplateEditor: React.FC = () => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewModule, setPreviewModule] = useState<ModuleWithIndicators | null>(null);
   const [previewCoberturaAnswer, setPreviewCoberturaAnswer] = useState<boolean | null>(null);
+
+  // Demo access state
+  const [isDemoSectionOpen, setIsDemoSectionOpen] = useState(false);
+  const [demoUsers, setDemoUsers] = useState<Array<{
+    id: string;
+    user_id: string;
+    email: string;
+    full_name: string;
+    granted_at: string;
+  }>>([]);
+  const [loadingDemoUsers, setLoadingDemoUsers] = useState(false);
+  const [demoSearchQuery, setDemoSearchQuery] = useState('');
+  const [demoSearchResults, setDemoSearchResults] = useState<Array<{
+    id: string;
+    email: string;
+    full_name: string;
+  }>>([]);
+  const [demoSearching, setDemoSearching] = useState(false);
+  const [selectedDemoUsers, setSelectedDemoUsers] = useState<string[]>([]);
+  const [grantingAccess, setGrantingAccess] = useState(false);
+  const [revokingUserId, setRevokingUserId] = useState<string | null>(null);
 
   // Inline confirmation state (replaces window.confirm)
   const [pendingConfirm, setPendingConfirm] = useState<{
@@ -1099,6 +1124,125 @@ const TemplateEditor: React.FC = () => {
     setIsPreviewOpen(true);
   };
 
+  // Demo access functions
+  const fetchDemoUsers = useCallback(async () => {
+    if (!template) return;
+    setLoadingDemoUsers(true);
+    try {
+      const response = await fetch(
+        `/api/admin/assessment-builder/templates/${template.id}/demo-access`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setDemoUsers(data.demo_access || []);
+      }
+    } catch (error) {
+      console.error('Error fetching demo users:', error);
+    } finally {
+      setLoadingDemoUsers(false);
+    }
+  }, [template]);
+
+  const handleDemoSectionToggle = () => {
+    const next = !isDemoSectionOpen;
+    setIsDemoSectionOpen(next);
+    if (next && demoUsers.length === 0) {
+      fetchDemoUsers();
+    }
+  };
+
+  useEffect(() => {
+    if (!demoSearchQuery || demoSearchQuery.length < 2) {
+      setDemoSearchResults([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      setDemoSearching(true);
+      try {
+        const response = await fetch(
+          `/api/admin/users/search?q=${encodeURIComponent(demoSearchQuery)}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          // Filter out users who already have demo access
+          const existingIds = new Set(demoUsers.map(u => u.user_id));
+          setDemoSearchResults(
+            (data.users || []).filter((u: any) => !existingIds.has(u.id))
+          );
+        }
+      } catch (error) {
+        console.error('Error searching users:', error);
+      } finally {
+        setDemoSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [demoSearchQuery, demoUsers]);
+
+  const handleGrantDemoAccess = async () => {
+    if (!template || selectedDemoUsers.length === 0) return;
+    setGrantingAccess(true);
+    try {
+      const response = await fetch(
+        `/api/admin/assessment-builder/templates/${template.id}/demo-access`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_ids: selectedDemoUsers }),
+        }
+      );
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Error al otorgar acceso demo');
+      }
+      toast.success('Acceso demo otorgado');
+      setSelectedDemoUsers([]);
+      setDemoSearchQuery('');
+      setDemoSearchResults([]);
+      fetchDemoUsers();
+    } catch (error: any) {
+      toast.error(error.message || 'Error al otorgar acceso demo');
+    } finally {
+      setGrantingAccess(false);
+    }
+  };
+
+  const handleRevokeDemoAccess = async (userId: string) => {
+    if (!template) return;
+    setRevokingUserId(userId);
+    try {
+      const response = await fetch(
+        `/api/admin/assessment-builder/templates/${template.id}/demo-access`,
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_ids: [userId] }),
+        }
+      );
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Error al revocar acceso demo');
+      }
+      toast.success('Acceso demo revocado');
+      setDemoUsers(prev => prev.filter(u => u.user_id !== userId));
+    } catch (error: any) {
+      toast.error(error.message || 'Error al revocar acceso demo');
+    } finally {
+      setRevokingUserId(null);
+    }
+  };
+
+  const copyDemoLink = async () => {
+    if (!template) return;
+    const url = `${window.location.origin}/demo/assessments/${template.id}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Enlace copiado al portapapeles');
+    } catch {
+      toast.error('No se pudo copiar el enlace');
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem('rememberMe');
@@ -1488,6 +1632,12 @@ const TemplateEditor: React.FC = () => {
                   )}
                 </div>
                 <div className="flex items-center gap-2">
+                  <Link href={`/demo/assessments/${template.id}`} legacyBehavior>
+                    <a className="inline-flex items-center px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors text-sm font-medium">
+                      <Play className="w-4 h-4 mr-2" />
+                      Probar Demo
+                    </a>
+                  </Link>
                   {isAdmin && (
                     pendingConfirm?.key === 'archive-template' ? (
                       <span className="flex items-center gap-2">
@@ -1906,6 +2056,190 @@ const TemplateEditor: React.FC = () => {
         </div>
 
         {/* Note: All modules must belong to an objective. No "unassigned" section needed. */}
+
+        {/* Demo Access Section — only for published templates */}
+        {template.status === 'published' && !isArchived && isAdmin && (
+          <div className="bg-white shadow-md rounded-lg overflow-hidden mb-4">
+            <button
+              onClick={handleDemoSectionToggle}
+              className="w-full p-6 border-b border-gray-200 flex items-center justify-between text-left"
+            >
+              <div className="flex items-center gap-3">
+                <Eye className="w-5 h-5 text-brand_primary" />
+                <div>
+                  <h3 className="text-lg font-semibold text-brand_primary">Acceso Demo</h3>
+                  <p className="text-sm text-gray-500">
+                    {demoUsers.length} usuario{demoUsers.length !== 1 ? 's' : ''} con acceso
+                  </p>
+                </div>
+              </div>
+              {isDemoSectionOpen ? (
+                <ChevronUp className="w-4 h-4 text-gray-400" />
+              ) : (
+                <ChevronDown className="w-4 h-4 text-gray-400" />
+              )}
+            </button>
+
+            {isDemoSectionOpen && (
+              <div className="p-6 space-y-6">
+                {/* Copy demo link */}
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={copyDemoLink}
+                    className="inline-flex items-center px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                  >
+                    <Link2 className="w-4 h-4 mr-2" />
+                    Copiar enlace demo
+                  </button>
+                  <span className="text-xs text-gray-400">
+                    /demo/assessments/{template.id}
+                  </span>
+                </div>
+
+                {/* Add users search */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Agregar usuarios
+                  </label>
+                  <div className="relative">
+                    <div className="flex items-center border border-gray-300 rounded-md shadow-sm">
+                      <Search className="w-4 h-4 text-gray-400 ml-3" />
+                      <input
+                        type="text"
+                        value={demoSearchQuery}
+                        onChange={(e) => setDemoSearchQuery(e.target.value)}
+                        placeholder="Buscar por nombre o email..."
+                        className="block w-full px-3 py-2 border-0 focus:outline-none focus:ring-0 text-sm"
+                      />
+                      {demoSearching && (
+                        <span className="text-xs text-gray-400 mr-3">Buscando...</span>
+                      )}
+                    </div>
+
+                    {/* Search results dropdown */}
+                    {demoSearchResults.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {demoSearchResults.map((u) => (
+                          <button
+                            key={u.id}
+                            onClick={() => {
+                              if (selectedDemoUsers.includes(u.id)) {
+                                setSelectedDemoUsers(prev => prev.filter(id => id !== u.id));
+                              } else {
+                                setSelectedDemoUsers(prev => [...prev, u.id]);
+                              }
+                            }}
+                            className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center justify-between ${
+                              selectedDemoUsers.includes(u.id) ? 'bg-blue-50' : ''
+                            }`}
+                          >
+                            <div>
+                              <span className="font-medium text-gray-900">
+                                {u.full_name || u.email}
+                              </span>
+                              {u.full_name && (
+                                <span className="text-gray-500 ml-2">{u.email}</span>
+                              )}
+                            </div>
+                            {selectedDemoUsers.includes(u.id) && (
+                              <span className="text-blue-600 text-xs font-medium">Seleccionado</span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Selected users pills */}
+                  {selectedDemoUsers.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2 items-center">
+                      {selectedDemoUsers.map((uid) => {
+                        const u = demoSearchResults.find(r => r.id === uid);
+                        return (
+                          <span
+                            key={uid}
+                            className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full"
+                          >
+                            {u?.full_name || u?.email || uid}
+                            <button
+                              onClick={() => setSelectedDemoUsers(prev => prev.filter(id => id !== uid))}
+                              className="ml-1 text-blue-600 hover:text-blue-800"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        );
+                      })}
+                      <button
+                        onClick={handleGrantDemoAccess}
+                        disabled={grantingAccess}
+                        className="inline-flex items-center px-3 py-1.5 bg-brand_primary text-white rounded-lg text-sm font-medium hover:bg-brand_primary/90 disabled:opacity-50"
+                      >
+                        <UserPlus className="w-3.5 h-3.5 mr-1" />
+                        {grantingAccess ? 'Otorgando...' : 'Otorgar Acceso'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Current demo users table */}
+                {loadingDemoUsers ? (
+                  <p className="text-sm text-gray-500">Cargando usuarios...</p>
+                ) : demoUsers.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">
+                    Ningún usuario tiene acceso demo a este template.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Nombre
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Email
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Acceso otorgado
+                          </th>
+                          <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Acción
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {demoUsers.map((du) => (
+                          <tr key={du.id}>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              {du.full_name || '—'}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              {du.email}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                              {new Date(du.granted_at).toLocaleDateString('es-CL')}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                              <button
+                                onClick={() => handleRevokeDemoAccess(du.user_id)}
+                                disabled={revokingUserId === du.user_id}
+                                className="inline-flex items-center px-2 py-1 text-xs text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 mr-1" />
+                                {revokingUserId === du.user_id ? 'Revocando...' : 'Revocar'}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Objective Modal */}

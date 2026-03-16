@@ -83,6 +83,8 @@ interface NavigationChild {
   href: string;
   description?: string;
   adminOnly?: boolean;
+  consultantOnly?: boolean;
+  restrictedRoles?: string[];
   permission?: string | string[]; // Required permission(s)
   requireAllPermissions?: boolean;
   icon?: React.ComponentType<any>;
@@ -202,14 +204,15 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     label: 'Procesos de Cambio',
     icon: ClipboardDocumentListIcon,
     description: 'Constructor de evaluaciones y rúbricas',
-    consultantOnly: true,
+    restrictedRoles: ['admin', 'consultor', 'equipo_directivo'],
     children: [
       {
         id: 'assessment-builder-main',
         label: 'Constructor de Evaluaciones',
         href: '/admin/assessment-builder',
         description: 'Crear evaluaciones y rúbricas',
-        icon: ClipboardDocumentListIcon
+        icon: ClipboardDocumentListIcon,
+        consultantOnly: true
       },
       {
         id: 'transversal-context-admin',
@@ -631,6 +634,7 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
   isCollapsed,
   expandedItems,
   isAdmin,
+  userRole,
   hasPermission,
   hasAnyPermission,
   hasAllPermissions,
@@ -674,6 +678,12 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
     if (child.adminOnly && !isAdmin) {
       return false;
     }
+    if (child.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
+      return false;
+    }
+    if (child.restrictedRoles && child.restrictedRoles.length > 0) {
+      return child.restrictedRoles.includes(userRole || '') || (isAdmin && child.restrictedRoles.includes('admin'));
+    }
     if (child.permission && !isAdmin) {
       if (Array.isArray(child.permission)) {
         if (child.requireAllPermissions) {
@@ -686,7 +696,7 @@ const SidebarItem: React.FC<SidebarItemProps> = React.memo(({
       }
     }
     return true;
-  }) || [], [item.children, isAdmin, hasPermission, hasAnyPermission, hasAllPermissions]);
+  }) || [], [item.children, isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions]);
 
   const hasChildren = filteredChildren.length > 0;
   const isActive = item.href ? isItemActive(item.href, routerAsPath) : false;

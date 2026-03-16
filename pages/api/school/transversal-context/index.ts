@@ -204,9 +204,11 @@ async function handlePost(
       savedContext = data;
     }
 
+    // Service client for operations that need elevated privileges
+    const serviceClient = createServiceRoleClient();
+
     // Log change history and update completion status
     try {
-      const serviceClient = createServiceRoleClient();
       const { data: profile } = await serviceClient.from('profiles').select('full_name').eq('id', userId).single();
 
       const DIFF_IGNORE_FIELDS = new Set(['school_id', 'updated_at', 'created_at', 'id', 'is_completed', 'completed_at', 'completed_by']);
@@ -253,7 +255,7 @@ async function handlePost(
 
     try {
       // Delete existing course structure for this school
-      await supabaseClient
+      await serviceClient
         .from('school_course_structure')
         .delete()
         .eq('school_id', schoolId);
@@ -275,7 +277,7 @@ async function handlePost(
       }
 
       if (coursesToInsert.length > 0) {
-        const { error: courseInsertError } = await supabaseClient
+        const { error: courseInsertError } = await serviceClient
           .from('school_course_structure')
           .insert(coursesToInsert);
 

@@ -86,7 +86,6 @@ async function handleGet(
         school_id,
         grade_level,
         course_name,
-        course_letter,
         created_at,
         school_course_docente_assignments (
           id,
@@ -102,7 +101,7 @@ async function handleGet(
       `)
       .eq('school_id', schoolId)
       .order('grade_level', { ascending: true })
-      .order('course_letter', { ascending: true });
+      .order('course_name', { ascending: true });
 
     if (courseError) {
       console.error('Error fetching course structure:', courseError);
@@ -204,11 +203,9 @@ async function handlePost(
       savedContext = data;
     }
 
-    // Service client for operations that need elevated privileges
-    const serviceClient = createServiceRoleClient();
-
     // Log change history and update completion status
     try {
+      const serviceClient = createServiceRoleClient();
       const { data: profile } = await serviceClient.from('profiles').select('full_name').eq('id', userId).single();
 
       const DIFF_IGNORE_FIELDS = new Set(['school_id', 'updated_at', 'created_at', 'id', 'is_completed', 'completed_at', 'completed_by']);
@@ -254,6 +251,7 @@ async function handlePost(
     let warning = null;
 
     try {
+      const serviceClient = createServiceRoleClient();
       // Delete existing course structure for this school
       await serviceClient
         .from('school_course_structure')
@@ -269,9 +267,9 @@ async function handlePost(
         for (let i = 0; i < numCourses; i++) {
           coursesToInsert.push({
             school_id: schoolId,
+            context_id: savedContext.id,
             grade_level: gradeLevel,
             course_name: `${gradeLevel.replace(/_/g, ' ')} ${courseLetters[i]}`.toUpperCase(),
-            course_letter: courseLetters[i],
           });
         }
       }

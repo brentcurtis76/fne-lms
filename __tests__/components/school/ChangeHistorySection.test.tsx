@@ -64,14 +64,14 @@ describe('ChangeHistorySection', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders collapsed by default with "Historial de cambios" header', () => {
+  it('renders collapsed by default with "Historial — Contexto Estructural" header', () => {
     globalThis.fetch = mockFetchEmpty();
 
     render(
       <ChangeHistorySection schoolId={42} feature="transversal_context" />
     );
 
-    expect(screen.getByText('Historial de cambios')).toBeInTheDocument();
+    expect(screen.getByText('Historial — Contexto Estructural')).toBeInTheDocument();
     // Content area should not be visible
     expect(screen.queryByText('No hay cambios registrados aún')).not.toBeInTheDocument();
   });
@@ -99,7 +99,7 @@ describe('ChangeHistorySection', () => {
     );
 
     // Click to expand
-    fireEvent.click(screen.getByText('Historial de cambios'));
+    fireEvent.click(screen.getByText('Historial — Contexto Estructural'));
 
     await waitFor(() => {
       expect(screen.getAllByText('Ana García').length).toBeGreaterThan(0);
@@ -118,7 +118,7 @@ describe('ChangeHistorySection', () => {
     );
 
     // Click to expand
-    fireEvent.click(screen.getByText('Historial de cambios'));
+    fireEvent.click(screen.getByText('Historial — Contexto Estructural'));
 
     // Should show loading skeleton (animated pulse divs)
     const skeletons = document.querySelectorAll('.animate-pulse');
@@ -142,7 +142,7 @@ describe('ChangeHistorySection', () => {
       <ChangeHistorySection schoolId={42} feature="transversal_context" />
     );
 
-    fireEvent.click(screen.getByText('Historial de cambios'));
+    fireEvent.click(screen.getByText('Historial — Contexto Estructural'));
 
     await waitFor(() => {
       expect(screen.getByText('No hay cambios registrados aún')).toBeInTheDocument();
@@ -159,7 +159,7 @@ describe('ChangeHistorySection', () => {
       <ChangeHistorySection schoolId={42} feature="transversal_context" />
     );
 
-    fireEvent.click(screen.getByText('Historial de cambios'));
+    fireEvent.click(screen.getByText('Historial — Contexto Estructural'));
 
     await waitFor(() => {
       expect(screen.getByText('Ver más')).toBeInTheDocument();
@@ -191,7 +191,7 @@ describe('ChangeHistorySection', () => {
       <ChangeHistorySection schoolId={42} feature="transversal_context" />
     );
 
-    fireEvent.click(screen.getByText('Historial de cambios'));
+    fireEvent.click(screen.getByText('Historial — Contexto Estructural'));
 
     await waitFor(() => {
       expect(screen.getByText('hace 5 minutos')).toBeInTheDocument();
@@ -210,7 +210,7 @@ describe('ChangeHistorySection', () => {
       <ChangeHistorySection schoolId={42} feature="transversal_context" />
     );
 
-    fireEvent.click(screen.getByText('Historial de cambios'));
+    fireEvent.click(screen.getByText('Historial — Contexto Estructural'));
 
     await waitFor(() => {
       expect(screen.getByText('Actualización')).toBeInTheDocument();
@@ -232,7 +232,7 @@ describe('ChangeHistorySection', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Historial de cambios'));
+    fireEvent.click(screen.getByText('Historial — Contexto Estructural'));
 
     await waitFor(() => {
       // Field label should be human-readable
@@ -263,7 +263,7 @@ describe('ChangeHistorySection', () => {
       />
     );
 
-    fireEvent.click(screen.getByText('Historial de cambios'));
+    fireEvent.click(screen.getByText('Historial — Contexto Estructural'));
 
     await waitFor(() => {
       expect(screen.getByText('Número de Estudiantes')).toBeInTheDocument();

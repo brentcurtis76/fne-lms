@@ -1,34 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
-
-// Check if user has directivo permission
-async function hasDirectivoPermission(
-  supabaseClient: any,
-  userId: string
-): Promise<{ hasPermission: boolean; schoolId: number | null; isAdmin: boolean }> {
-  const { data: roles } = await supabaseClient
-    .from('user_roles')
-    .select('role_type, school_id')
-    .eq('user_id', userId)
-    .eq('is_active', true);
-
-  if (!roles || roles.length === 0) {
-    return { hasPermission: false, schoolId: null, isAdmin: false };
-  }
-
-  const isAdmin = roles.some((r: any) => ['admin', 'consultor'].includes(r.role_type));
-
-  if (isAdmin) {
-    return { hasPermission: true, schoolId: null, isAdmin: true };
-  }
-
-  const directivoRole = roles.find((r: any) => r.role_type === 'equipo_directivo');
-  if (directivoRole) {
-    return { hasPermission: true, schoolId: directivoRole.school_id, isAdmin: false };
-  }
-
-  return { hasPermission: false, schoolId: null, isAdmin: false };
-}
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { hasDirectivoPermission } from '@/lib/permissions/directivo';
+import { triggerAutoAssignment } from '@/lib/services/assessment-builder/autoAssignmentService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (!['POST', 'DELETE'].includes(req.method || '')) {
@@ -42,10 +15,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const supabaseClient = await createApiSupabaseClient(req, res);
+  const serviceClient = createServiceRoleClient();
 
   // Permission check
   const { hasPermission, schoolId, isAdmin } = await hasDirectivoPermission(
-    supabaseClient,
+    serviceClient,
     user.id
   );
 
@@ -77,8 +51,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(403).json({ error: 'No tiene permiso para este curso' });
   }
 
+  const effectiveSchoolId = course.school_id;
+
   if (req.method === 'POST') {
-    return handlePost(res, supabaseClient, course_structure_id, docente_id);
+    return handlePost(res, supabaseClient, course_structure_id, docente_id, effectiveSchoolId, user.id);
   } else if (req.method === 'DELETE') {
     return handleDelete(res, supabaseClient, course_structure_id, docente_id);
   }
@@ -89,7 +65,9 @@ async function handlePost(
   res: NextApiResponse,
   supabaseClient: any,
   courseStructureId: string,
-  docenteId: string
+  docenteId: string,
+  schoolId: number,
+  assignedBy: string
 ) {
   try {
     // Check if assignment already exists
@@ -131,54 +109,24 @@ async function handlePost(
       }
     }
 
-    // Auto-create assessment instances for this docente if applicable
+    // Auto-create assessment instances using the proper service
     let autoAssignment = { instancesCreated: 0, instancesSkipped: 0 };
     try {
-      // Get the course structure details
-      const { data: courseDetails } = await supabaseClient
-        .from('school_course_structure')
-        .select('school_id, grade_level')
-        .eq('id', courseStructureId)
-        .single();
+      const result = await triggerAutoAssignment(
+        null, // supabase param unused — service uses supabaseAdmin internally
+        docenteId,
+        courseStructureId,
+        schoolId,
+        assignedBy
+      );
+      autoAssignment.instancesCreated = result.instancesCreated;
+      autoAssignment.instancesSkipped = result.instancesSkipped;
 
-      if (courseDetails) {
-        // Find published templates applicable to this grade level
-        const { data: templates } = await supabaseClient
-          .from('ab_templates')
-          .select('id')
-          .eq('status', 'published')
-          .contains('target_grade_levels', [courseDetails.grade_level]);
-
-        if (templates && templates.length > 0) {
-          for (const template of templates) {
-            // Check if instance already exists
-            const { data: existingInstance } = await supabaseClient
-              .from('ab_instances')
-              .select('id')
-              .eq('template_id', template.id)
-              .eq('school_id', courseDetails.school_id)
-              .eq('assigned_to', docenteId)
-              .maybeSingle();
-
-            if (!existingInstance) {
-              // Create instance
-              const { error: instanceError } = await supabaseClient
-                .from('ab_instances')
-                .insert({
-                  template_id: template.id,
-                  school_id: courseDetails.school_id,
-                  assigned_to: docenteId,
-                  status: 'pending',
-                });
-
-              if (!instanceError) {
-                autoAssignment.instancesCreated++;
-              }
-            } else {
-              autoAssignment.instancesSkipped++;
-            }
-          }
-        }
+      if (result.errors.length > 0) {
+        console.error('Auto-assignment errors:', result.errors);
+      }
+      if (result.warnings.length > 0) {
+        console.warn('Auto-assignment warnings:', result.warnings);
       }
     } catch (autoErr) {
       console.error('Error in auto-assignment:', autoErr);

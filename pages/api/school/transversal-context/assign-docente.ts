@@ -110,7 +110,11 @@ async function handlePost(
     }
 
     // Auto-create assessment instances using the proper service
-    let autoAssignment = { instancesCreated: 0, instancesSkipped: 0 };
+    let autoAssignment: { instancesCreated: number; instancesSkipped: number; errors: string[] } = {
+      instancesCreated: 0,
+      instancesSkipped: 0,
+      errors: [],
+    };
     try {
       const result = await triggerAutoAssignment(
         null, // supabase param unused — service uses supabaseAdmin internally
@@ -121,6 +125,7 @@ async function handlePost(
       );
       autoAssignment.instancesCreated = result.instancesCreated;
       autoAssignment.instancesSkipped = result.instancesSkipped;
+      autoAssignment.errors = result.errors;
 
       if (result.errors.length > 0) {
         console.error('Auto-assignment errors:', result.errors);
@@ -128,15 +133,22 @@ async function handlePost(
       if (result.warnings.length > 0) {
         console.warn('Auto-assignment warnings:', result.warnings);
       }
-    } catch (autoErr) {
+    } catch (autoErr: any) {
       console.error('Error in auto-assignment:', autoErr);
-      // Don't fail the main operation
+      autoAssignment.errors = [autoErr.message || 'Error en asignación automática de evaluaciones'];
     }
 
-    return res.status(200).json({
-      success: true,
-      message: 'Docente asignado correctamente',
+    const hasAutoAssignmentErrors = autoAssignment.errors.length > 0;
+
+    return res.status(hasAutoAssignmentErrors ? 207 : 200).json({
+      success: !hasAutoAssignmentErrors,
+      message: hasAutoAssignmentErrors
+        ? 'Docente asignado al curso, pero hubo errores al crear las evaluaciones.'
+        : 'Docente asignado correctamente',
       autoAssignment,
+      warning: hasAutoAssignmentErrors
+        ? `Errores en evaluaciones: ${autoAssignment.errors.join('; ')}`
+        : undefined,
     });
   } catch (err: any) {
     console.error('Unexpected error assigning docente:', err);
@@ -168,6 +180,7 @@ async function handleDelete(
     // Revoke assessment access: delete assignee rows for this docente
     // on all instances linked to this course
     let assigneesRevoked = 0;
+    let revokeWarning: string | null = null;
     try {
       const { data: instances } = await serviceClient
         .from('assessment_instances')
@@ -185,19 +198,21 @@ async function handleDelete(
 
         if (revokeError) {
           console.error('Error revoking assessment assignees:', revokeError);
+          revokeWarning = 'El docente fue desasignado del curso, pero no se pudo revocar el acceso a las evaluaciones. Contacte al administrador.';
         } else {
           assigneesRevoked = deleted?.length || 0;
         }
       }
     } catch (revokeErr) {
       console.error('Error revoking assessment access:', revokeErr);
-      // Don't fail the main operation — course unassignment already succeeded
+      revokeWarning = 'El docente fue desasignado del curso, pero no se pudo revocar el acceso a las evaluaciones. Contacte al administrador.';
     }
 
-    return res.status(200).json({
-      success: true,
-      message: 'Docente desasignado correctamente',
+    return res.status(revokeWarning ? 207 : 200).json({
+      success: !revokeWarning,
+      message: revokeWarning || 'Docente desasignado correctamente',
       assigneesRevoked,
+      warning: revokeWarning || undefined,
     });
   } catch (err: any) {
     console.error('Unexpected error unassigning docente:', err);

@@ -299,16 +299,20 @@ const TransversalContextDashboard: React.FC = () => {
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok && response.status !== 207) {
         throw new Error(data.error || 'Error al asignar docente');
       }
 
-      toast.success('Docente asignado correctamente');
+      if (data.warning) {
+        toast.error(data.warning, { duration: 8000 });
+      } else {
+        toast.success('Docente asignado correctamente');
+      }
 
       // Show auto-assignment result
       if (data.autoAssignment) {
         const { instancesCreated } = data.autoAssignment;
-        if (instancesCreated > 0) {
+        if (instancesCreated > 0 && !data.warning) {
           toast.success(`Se crearon ${instancesCreated} evaluaciones automáticamente`);
         }
       }
@@ -339,11 +343,15 @@ const TransversalContextDashboard: React.FC = () => {
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok && response.status !== 207) {
         throw new Error(data.error || 'Error al desasignar docente');
       }
 
-      toast.success('Docente desasignado');
+      if (data.warning) {
+        toast.error(data.warning, { duration: 8000 });
+      } else {
+        toast.success('Docente desasignado');
+      }
       fetchContext(); // Refresh data
     } catch (error: any) {
       console.error('Error unassigning docente:', error);

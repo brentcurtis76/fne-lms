@@ -189,7 +189,10 @@ describe('POST/DELETE /api/school/transversal-context/assign-docente', () => {
     const data = JSON.parse(res._getData());
     expect(data.success).toBe(true);
     expect(data.message).toContain('asignado');
-    expect(data.autoAssignment).toEqual({ instancesCreated: 3, instancesSkipped: 1 });
+    expect(data.autoAssignment.instancesCreated).toBe(3);
+    expect(data.autoAssignment.instancesSkipped).toBe(1);
+    expect(data.autoAssignment.errors).toHaveLength(0);
+    expect(data.warning).toBeUndefined();
 
     expect(mockTriggerAutoAssignment).toHaveBeenCalledWith(
       null,
@@ -291,8 +294,8 @@ describe('POST/DELETE /api/school/transversal-context/assign-docente', () => {
     expect(svcClient.from).toHaveBeenCalledWith('assessment_instance_assignees');
   });
 
-  // ── 9. POST: auto-assignment failure doesn't break main op ───
-  it('POST auto-assignment failure does not break main operation', async () => {
+  // ── 9. POST: auto-assignment failure returns 207 with warning ──
+  it('POST auto-assignment failure returns 207 with warning', async () => {
     authed();
     directivo(SCHOOL_ID);
     mockTriggerAutoAssignment.mockRejectedValue(new Error('Auto-assignment service down'));
@@ -310,11 +313,45 @@ describe('POST/DELETE /api/school/transversal-context/assign-docente', () => {
     });
     await handler(req, res);
 
-    // Should still succeed — auto-assignment error is caught
-    expect(res._getStatusCode()).toBe(200);
+    // Course assignment succeeds but auto-assignment failed — 207 partial
+    expect(res._getStatusCode()).toBe(207);
     const data = JSON.parse(res._getData());
-    expect(data.success).toBe(true);
-    // Fallback counts when auto-assignment throws
-    expect(data.autoAssignment).toEqual({ instancesCreated: 0, instancesSkipped: 0 });
+    expect(data.success).toBe(false);
+    expect(data.warning).toBeDefined();
+    expect(data.autoAssignment.errors.length).toBeGreaterThan(0);
+  });
+
+  // ── 10. DELETE: revocation failure returns 207 with warning ──
+  it('DELETE revocation failure returns 207 with warning', async () => {
+    authed();
+    directivo(SCHOOL_ID);
+
+    const client = buildUserClient({
+      school_course_structure: { data: { id: COURSE_STRUCTURE_ID, school_id: SCHOOL_ID } },
+      school_course_docente_assignments: { data: null },
+    });
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+
+    // Service client where assessment_instances query throws
+    const svcClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'assessment_instances') {
+          throw new Error('Service unavailable');
+        }
+        return buildChainableQuery(null, null);
+      }),
+    };
+    mockCreateServiceRoleClient.mockReturnValue(svcClient);
+
+    const { req, res } = createMocks({
+      method: 'DELETE',
+      body: { course_structure_id: COURSE_STRUCTURE_ID, docente_id: DOCENTE_ID },
+    });
+    await handler(req, res);
+
+    expect(res._getStatusCode()).toBe(207);
+    const data = JSON.parse(res._getData());
+    expect(data.success).toBe(false);
+    expect(data.warning).toContain('revocar');
   });
 });

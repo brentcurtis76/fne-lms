@@ -2,8 +2,8 @@
 
 **Date:** March 17, 2026
 **Scope:** Review of Tasks #242-#249 (audit trail, versioning, completion tracking) + end-to-end course→assessment pipeline fixes
-**Commits:** `6eb352e`, `c870ea3`, `e474682`, `1810aa5`, pending (5 commits on main after initial feature merge)
-**Files changed:** 20 files modified/created in review commits
+**Commits:** `6eb352e`, `c870ea3`, `e474682`, `1810aa5`, `49c8eae`, `402e8cc`, pending (7 commits on main after initial feature merge)
+**Files changed:** 19 files, +1254 / -182 lines
 
 ---
 
@@ -80,6 +80,14 @@ The feature adds audit trail, versioning, and completion tracking for two school
 | 27 | **High** | `triggerAutoAssignment()` silently reports success when assignee insert fails on existing instance | Assignee insert error on existing-instance branch was ignored; `instancesCreated` incremented despite failure |
 | 28 | Medium | Report stated `createServiceRoleClient()` was scoped inside try/catch | Actually hoisted before both try blocks; downstream query failures are caught, but client-creation failure is not |
 
+### Round 7 — Production verification + second external review
+
+| # | Severity | Bug | Root Cause |
+|---|----------|-----|------------|
+| 29 | **Critical** | Course structure query selects non-existent `created_at` from `school_course_docente_assignments` | Table only has `assigned_at`; PostgREST returned 42703, handler caught silently, returned `courseStructure: []` — this was the actual reason the section was invisible |
+| 30 | **High** | POST `/assign-docente` returns 200 success even when auto-assignment fails | `triggerAutoAssignment` errors logged but discarded; UI showed success toast while no assessment instances were created |
+| 31 | **High** | DELETE `/assign-docente` returns 200 success even when access revocation fails | Revocation error caught and logged but response still `success: true`; directivo told unassign worked while docente retained assessment access |
+
 ---
 
 ## 3. Fixes Applied
@@ -121,14 +129,30 @@ The feature adds audit trail, versioning, and completion tracking for two school
 | Removed broken `profiles:docente_id` nested join — FK points to `auth.users`, not `profiles` | `transversal-context/index.ts` |
 | Replaced with separate `profiles.in('id', docenteIds)` query to resolve docente names | `transversal-context/index.ts` |
 
-### Commit 5: pending — External review feedback fixes
+### Commit 5: `49c8eae` — External review feedback: access revocation + error handling
 
 | Fix | Files |
 |-----|-------|
 | DELETE `/assign-docente` now deletes `assessment_instance_assignees` for the docente on all instances linked to the course | `assign-docente.ts` |
 | `triggerAutoAssignment()` existing-instance branch now checks assignee insert error, marks as error + does not increment `instancesCreated` | `autoAssignmentService.ts` |
-| Added regression test: DELETE verifies `assigneesRevoked` count and service client calls | `assign-docente.test.ts` |
-| Added regression test: assignee insert failure on existing instance reports error | `autoAssignmentService.test.ts` |
+| Added regression tests for both paths | `assign-docente.test.ts`, `autoAssignmentService.test.ts` |
+
+### Commit 6: `402e8cc` — Non-existent column in assignments query
+
+| Fix | Files |
+|-----|-------|
+| `school_course_docente_assignments` has no `created_at` or `updated_at` columns — PostgREST returned 42703 error, handler caught silently, returned `courseStructure: []` | `transversal-context/index.ts` |
+| Changed nested select to use `assigned_at` (the actual column), removed `updated_at` writes from assignment updates | `transversal-context/index.ts`, `assign-docente.ts` |
+| Verified fix against production PostgREST — query returns data | Direct API test |
+
+### Commit 7: pending — Surface partial failures to UI
+
+| Fix | Files |
+|-----|-------|
+| POST `/assign-docente` returns 207 with `warning` when `triggerAutoAssignment` has errors — previously returned 200 `success: true` even when assessment instances weren't created | `assign-docente.ts` |
+| DELETE `/assign-docente` returns 207 with `warning` when assessment access revocation fails — previously returned 200 `success: true` even when docente retained assessment access | `assign-docente.ts` |
+| UI handles 207: shows error toast with warning message instead of success toast | `transversal-context/index.tsx` |
+| Added tests: POST 207 on auto-assignment failure, DELETE 207 on revocation failure | `assign-docente.test.ts` |
 
 ---
 
@@ -154,7 +178,7 @@ The feature adds audit trail, versioning, and completion tracking for two school
 
 | File | Purpose |
 |------|---------|
-| `__tests__/api/school/assign-docente.test.ts` | 9 tests: auth, permissions, CRUD, access revocation, auto-assignment |
+| `__tests__/api/school/assign-docente.test.ts` | 10 tests: auth, permissions, CRUD, access revocation, auto-assignment, 207 partial failures |
 | `__tests__/services/autoAssignmentService.test.ts` | 10 tests: grade resolution, template matching, idempotency, GT/GI, assignee error |
 | `supabase/migrations/20260317000000_add_grade_id_to_course_structure.sql` | Add grade_id FK + backfill |
 
@@ -163,7 +187,7 @@ The feature adds audit trail, versioning, and completion tracking for two school
 | File | Changes |
 |------|---------|
 | `pages/api/school/transversal-context/index.ts` | Reconcile pattern for course gen, `grade_id` population, removed broken `profiles:docente_id` join, separate profiles query, `profiles.name` fix |
-| `pages/api/school/transversal-context/assign-docente.ts` | Replaced stale `ab_templates`/`ab_instances` with `triggerAutoAssignment()`, shared permission util, DELETE now revokes `assessment_instance_assignees` |
+| `pages/api/school/transversal-context/assign-docente.ts` | Replaced stale `ab_templates`/`ab_instances` with `triggerAutoAssignment()`, shared permission util, DELETE revokes `assessment_instance_assignees`, both POST/DELETE return 207 on partial failure |
 | `pages/api/school/transversal-context/custom-responses.ts` | `profiles.name` fix |
 | `pages/api/school/migration-plan/index.ts` | `profiles.name` fix |
 | `pages/api/school/change-history/index.ts` | `profiles.name` fix, read-time name resolution |
@@ -171,7 +195,7 @@ The feature adds audit trail, versioning, and completion tracking for two school
 | `lib/services/assessment-builder/autoAssignmentService.ts` | Use `grade_id` FK instead of string name matching, error handling on existing-instance assignee insert |
 | `lib/permissions/directivo.ts` | `consultant_id` fix, directivo-before-consultor priority |
 | `components/school/ChangeHistorySection.tsx` | Title prop, error state, future-date guard |
-| `pages/school/transversal-context/index.tsx` | `profiles.name` fix, docente name display |
+| `pages/school/transversal-context/index.tsx` | `profiles.name` fix, docente name display, 207 handling for assign/unassign toasts |
 | `types/assessment-builder.ts` | `GRADE_LEVEL_SORT_ORDER` constant |
 | `supabase/migrations/20260316000000_add_school_change_history.sql` | `consultant_id` fix, action CHECK constraint |
 | `__tests__/api/school/audit-logging.test.ts` | `profiles.name` mock, updated serviceClient test |
@@ -187,11 +211,11 @@ The feature adds audit trail, versioning, and completion tracking for two school
 | `__tests__/api/school/change-history.test.ts` | 11 | Pass |
 | `__tests__/api/school/completion-status.test.ts` | 7 | Pass |
 | `__tests__/api/school/audit-logging.test.ts` | 9 | Pass |
-| `__tests__/api/school/assign-docente.test.ts` | 9 | Pass |
+| `__tests__/api/school/assign-docente.test.ts` | 10 | Pass |
 | `__tests__/services/autoAssignmentService.test.ts` | 10 | Pass |
 | `__tests__/components/school/ChangeHistorySection.test.tsx` | 11 | Pass |
 | `__tests__/components/school/CompletionStatusBadge.test.tsx` | 11 | Pass |
-| **Total** | **68** | **All pass** |
+| **Total** | **69** | **All pass** |
 
 ### Test gap acknowledged
 

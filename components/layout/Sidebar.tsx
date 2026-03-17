@@ -135,7 +135,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: AcademicCapIcon,
     href: '/docente/assessments',
     description: 'Evaluaciones de tareas asignadas',
-    restrictedRoles: ['docente', 'admin', 'consultor', 'community_manager']
+    restrictedRoles: ['admin', 'consultor', 'community_manager']
   },
   {
     id: 'quiz-reviews',

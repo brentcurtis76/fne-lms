@@ -2,7 +2,7 @@
 
 **Date:** March 17, 2026
 **Scope:** Review of Tasks #242-#249 (audit trail, versioning, completion tracking) + end-to-end course→assessment pipeline fixes
-**Commits:** `6eb352e`, `c870ea3`, `e474682`, `1810aa5`, `49c8eae`, `402e8cc`, `182c253`, `f49fdf5`, `9d43791` (9 commits on main after initial feature merge)
+**Commits:** `6eb352e`, `c870ea3`, `e474682`, `1810aa5`, `49c8eae`, `402e8cc`, `182c253`, `f49fdf5`, `e13f4e4` (9 commits on main after initial feature merge)
 **Files changed:** 19 files, +1439 / -196 lines
 
 ---
@@ -154,13 +154,21 @@ The feature adds audit trail, versioning, and completion tracking for two school
 | UI handles 207: shows error toast with warning message instead of success toast | `transversal-context/index.tsx` |
 | Added tests: POST 207 on auto-assignment failure, DELETE 207 on revocation failure | `assign-docente.test.ts` |
 
-### Commit 8: `a413f43` — Supabase error shape + service success flag
+### Commit 8: `f49fdf5` — Supabase error shape + service success flag
 
 | Fix | Files |
 |-----|-------|
 | DELETE: check `{ error }` on `assessment_instances` query — standard Supabase error response now triggers 207, not silent 200 | `assign-docente.ts` |
 | POST: check `result.success` from `triggerAutoAssignment`, not just `errors.length` — `success: false` with empty errors (e.g. missing grade_id) now returns 207 | `assign-docente.ts` |
 | Added 2 regression tests: Supabase error shape for DELETE, resolved `success: false` for POST | `assign-docente.test.ts` |
+
+### Commit 9: `e13f4e4` — Warning message includes real reason
+
+| Fix | Files |
+|-----|-------|
+| POST warning message now includes both `errors` and `warnings` from `triggerAutoAssignment` — `success: false` with only warnings (e.g. missing grade_id) no longer produces empty `"Errores en evaluaciones: "` string | `assign-docente.ts` |
+| Regression test tightened: asserts warning contains `'grade_id'` (the actual reason), not just that it exists | `assign-docente.test.ts` |
+| Fixed file inventory inconsistency in report (10 vs 12 test count) | `review.md` |
 
 ---
 

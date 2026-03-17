@@ -110,10 +110,11 @@ async function handlePost(
     }
 
     // Auto-create assessment instances using the proper service
-    let autoAssignment: { instancesCreated: number; instancesSkipped: number; errors: string[] } = {
+    let autoAssignment: { instancesCreated: number; instancesSkipped: number; errors: string[]; success: boolean } = {
       instancesCreated: 0,
       instancesSkipped: 0,
       errors: [],
+      success: true,
     };
     try {
       const result = await triggerAutoAssignment(
@@ -126,6 +127,7 @@ async function handlePost(
       autoAssignment.instancesCreated = result.instancesCreated;
       autoAssignment.instancesSkipped = result.instancesSkipped;
       autoAssignment.errors = result.errors;
+      autoAssignment.success = result.success;
 
       if (result.errors.length > 0) {
         console.error('Auto-assignment errors:', result.errors);
@@ -136,17 +138,18 @@ async function handlePost(
     } catch (autoErr: any) {
       console.error('Error in auto-assignment:', autoErr);
       autoAssignment.errors = [autoErr.message || 'Error en asignación automática de evaluaciones'];
+      autoAssignment.success = false;
     }
 
-    const hasAutoAssignmentErrors = autoAssignment.errors.length > 0;
+    const hasAutoAssignmentFailure = !autoAssignment.success || autoAssignment.errors.length > 0;
 
-    return res.status(hasAutoAssignmentErrors ? 207 : 200).json({
-      success: !hasAutoAssignmentErrors,
-      message: hasAutoAssignmentErrors
+    return res.status(hasAutoAssignmentFailure ? 207 : 200).json({
+      success: !hasAutoAssignmentFailure,
+      message: hasAutoAssignmentFailure
         ? 'Docente asignado al curso, pero hubo errores al crear las evaluaciones.'
         : 'Docente asignado correctamente',
       autoAssignment,
-      warning: hasAutoAssignmentErrors
+      warning: hasAutoAssignmentFailure
         ? `Errores en evaluaciones: ${autoAssignment.errors.join('; ')}`
         : undefined,
     });
@@ -182,12 +185,15 @@ async function handleDelete(
     let assigneesRevoked = 0;
     let revokeWarning: string | null = null;
     try {
-      const { data: instances } = await serviceClient
+      const { data: instances, error: instancesError } = await serviceClient
         .from('assessment_instances')
         .select('id')
         .eq('course_structure_id', courseStructureId);
 
-      if (instances && instances.length > 0) {
+      if (instancesError) {
+        console.error('Error fetching instances for revocation:', instancesError);
+        revokeWarning = 'El docente fue desasignado del curso, pero no se pudo revocar el acceso a las evaluaciones. Contacte al administrador.';
+      } else if (instances && instances.length > 0) {
         const instanceIds = instances.map((i: any) => i.id);
         const { data: deleted, error: revokeError } = await serviceClient
           .from('assessment_instance_assignees')

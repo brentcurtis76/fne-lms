@@ -84,10 +84,12 @@ function buildServiceClient() {
 
 function autoAssignmentSuccess(created = 2, skipped = 0) {
   mockTriggerAutoAssignment.mockResolvedValue({
+    success: true,
     instancesCreated: created,
     instancesSkipped: skipped,
     errors: [],
     warnings: [],
+    details: [],
   });
 }
 
@@ -353,5 +355,73 @@ describe('POST/DELETE /api/school/transversal-context/assign-docente', () => {
     const data = JSON.parse(res._getData());
     expect(data.success).toBe(false);
     expect(data.warning).toContain('revocar');
+  });
+
+  // ── 11. DELETE: Supabase error shape (not thrown) returns 207 ──
+  it('DELETE returns 207 when instances lookup returns Supabase error object', async () => {
+    authed();
+    directivo(SCHOOL_ID);
+
+    const client = buildUserClient({
+      school_course_structure: { data: { id: COURSE_STRUCTURE_ID, school_id: SCHOOL_ID } },
+      school_course_docente_assignments: { data: null },
+    });
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+
+    // Service client returns { data: null, error: {...} } — standard Supabase error, not a throw
+    const svcClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'assessment_instances') {
+          return buildChainableQuery(null, { message: 'permission denied for table assessment_instances' });
+        }
+        return buildChainableQuery(null, null);
+      }),
+    };
+    mockCreateServiceRoleClient.mockReturnValue(svcClient);
+
+    const { req, res } = createMocks({
+      method: 'DELETE',
+      body: { course_structure_id: COURSE_STRUCTURE_ID, docente_id: DOCENTE_ID },
+    });
+    await handler(req, res);
+
+    expect(res._getStatusCode()).toBe(207);
+    const data = JSON.parse(res._getData());
+    expect(data.success).toBe(false);
+    expect(data.warning).toContain('revocar');
+  });
+
+  // ── 12. POST: triggerAutoAssignment resolves with success:false returns 207 ──
+  it('POST returns 207 when triggerAutoAssignment resolves with success:false', async () => {
+    authed();
+    directivo(SCHOOL_ID);
+
+    // Service resolves (not rejects) with success: false and a warning
+    mockTriggerAutoAssignment.mockResolvedValue({
+      success: false,
+      instancesCreated: 0,
+      instancesSkipped: 0,
+      errors: [],
+      warnings: ['El curso "1_basico" no tiene grade_id asignado.'],
+      details: [],
+    });
+
+    const client = buildUserClient({
+      school_course_structure: { data: { id: COURSE_STRUCTURE_ID, school_id: SCHOOL_ID } },
+      school_course_docente_assignments: { data: null },
+    });
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(buildServiceClient());
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      body: { course_structure_id: COURSE_STRUCTURE_ID, docente_id: DOCENTE_ID },
+    });
+    await handler(req, res);
+
+    expect(res._getStatusCode()).toBe(207);
+    const data = JSON.parse(res._getData());
+    expect(data.success).toBe(false);
+    expect(data.warning).toBeDefined();
   });
 });

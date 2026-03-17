@@ -2,8 +2,8 @@
 
 **Date:** March 17, 2026
 **Scope:** Review of Tasks #242-#249 (audit trail, versioning, completion tracking) + end-to-end course→assessment pipeline fixes
-**Commits:** `6eb352e`, `c870ea3`, `e474682`, `1810aa5`, `49c8eae`, `402e8cc`, pending (7 commits on main after initial feature merge)
-**Files changed:** 19 files, +1254 / -182 lines
+**Commits:** `6eb352e`, `c870ea3`, `e474682`, `1810aa5`, `49c8eae`, `402e8cc`, `182c253`, `a413f43` (8 commits on main after initial feature merge)
+**Files changed:** 19 files, +1428 / -196 lines
 
 ---
 
@@ -145,7 +145,7 @@ The feature adds audit trail, versioning, and completion tracking for two school
 | Changed nested select to use `assigned_at` (the actual column), removed `updated_at` writes from assignment updates | `transversal-context/index.ts`, `assign-docente.ts` |
 | Verified fix against production PostgREST — query returns data | Direct API test |
 
-### Commit 7: pending — Surface partial failures to UI
+### Commit 7: `182c253` — Surface partial failures to UI
 
 | Fix | Files |
 |-----|-------|
@@ -153,6 +153,14 @@ The feature adds audit trail, versioning, and completion tracking for two school
 | DELETE `/assign-docente` returns 207 with `warning` when assessment access revocation fails — previously returned 200 `success: true` even when docente retained assessment access | `assign-docente.ts` |
 | UI handles 207: shows error toast with warning message instead of success toast | `transversal-context/index.tsx` |
 | Added tests: POST 207 on auto-assignment failure, DELETE 207 on revocation failure | `assign-docente.test.ts` |
+
+### Commit 8: `a413f43` — Supabase error shape + service success flag
+
+| Fix | Files |
+|-----|-------|
+| DELETE: check `{ error }` on `assessment_instances` query — standard Supabase error response now triggers 207, not silent 200 | `assign-docente.ts` |
+| POST: check `result.success` from `triggerAutoAssignment`, not just `errors.length` — `success: false` with empty errors (e.g. missing grade_id) now returns 207 | `assign-docente.ts` |
+| Added 2 regression tests: Supabase error shape for DELETE, resolved `success: false` for POST | `assign-docente.test.ts` |
 
 ---
 
@@ -211,11 +219,11 @@ The feature adds audit trail, versioning, and completion tracking for two school
 | `__tests__/api/school/change-history.test.ts` | 11 | Pass |
 | `__tests__/api/school/completion-status.test.ts` | 7 | Pass |
 | `__tests__/api/school/audit-logging.test.ts` | 9 | Pass |
-| `__tests__/api/school/assign-docente.test.ts` | 10 | Pass |
+| `__tests__/api/school/assign-docente.test.ts` | 12 | Pass |
 | `__tests__/services/autoAssignmentService.test.ts` | 10 | Pass |
 | `__tests__/components/school/ChangeHistorySection.test.tsx` | 11 | Pass |
 | `__tests__/components/school/CompletionStatusBadge.test.tsx` | 11 | Pass |
-| **Total** | **69** | **All pass** |
+| **Total** | **71** | **All pass** |
 
 ### Test gap acknowledged
 

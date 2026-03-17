@@ -222,7 +222,7 @@ export async function triggerAutoAssignment(
             result.instancesSkipped++;
           } else {
             // Add docente as assignee to existing instance
-            await supabaseAdmin
+            const { error: addAssigneeError } = await supabaseAdmin
               .from('assessment_instance_assignees')
               .insert({
                 instance_id: existingInstance.id,
@@ -232,9 +232,16 @@ export async function triggerAutoAssignment(
                 assigned_by: assignedBy,
               });
 
-            templateDetail.status = 'created';
-            templateDetail.instanceId = existingInstance.id;
-            result.instancesCreated++;
+            if (addAssigneeError) {
+              templateDetail.status = 'error';
+              templateDetail.error = `Instance exists but assignee insert failed: ${addAssigneeError.message}`;
+              templateDetail.instanceId = existingInstance.id;
+              result.errors.push(`Template ${template.name}: ${templateDetail.error}`);
+            } else {
+              templateDetail.status = 'created';
+              templateDetail.instanceId = existingInstance.id;
+              result.instancesCreated++;
+            }
           }
         } else {
           // Create new instance with generation_type

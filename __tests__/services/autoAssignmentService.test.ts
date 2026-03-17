@@ -348,7 +348,44 @@ describe('triggerAutoAssignment', () => {
   });
 
   // ----------------------------------------------------------------
-  // 9. Handles no published templates gracefully (warnings, no errors)
+  // 9. Reports error when assignee insert fails on existing instance
+  // ----------------------------------------------------------------
+  it('reports error when assignee insert fails on existing instance', async () => {
+    // Instance exists, assignee does NOT exist, but insert fails
+    const assigneeProxy = new Proxy({} as Record<string, unknown>, {
+      get(_target, prop) {
+        if (prop === 'then') {
+          return (resolve: (v: unknown) => void) =>
+            resolve({ data: null, error: { message: 'unique_violation' } });
+        }
+        if (prop === 'insert') {
+          return () => new Proxy({}, this);
+        }
+        return vi.fn(() => new Proxy({}, this));
+      },
+    });
+
+    const map = happyPathMap({
+      existingInstance: buildChainableQuery({ id: INSTANCE_ID }),
+      assignee: [
+        // First call: existence check returns null (assignee not found)
+        buildChainableQuery(null, { code: 'PGRST116', message: 'not found' }),
+        // Second call: insert proxy that returns error
+        assigneeProxy as any,
+      ],
+    });
+    configureMock(map);
+
+    const result = await triggerAutoAssignment(null, DOCENTE_ID, COURSE_STRUCTURE_ID, SCHOOL_ID, ASSIGNED_BY);
+
+    expect(result.instancesCreated).toBe(0);
+    expect(result.errors.length).toBeGreaterThanOrEqual(1);
+    expect(result.errors[0]).toContain('assignee insert failed');
+    expect(result.details[0]?.status).toBe('error');
+  });
+
+  // ----------------------------------------------------------------
+  // 10. Handles no published templates gracefully (warnings, no errors)
   // ----------------------------------------------------------------
   it('handles no published templates gracefully', async () => {
     configureMock(happyPathMap({

@@ -56,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'POST') {
     return handlePost(res, supabaseClient, course_structure_id, docente_id, effectiveSchoolId, user.id);
   } else if (req.method === 'DELETE') {
-    return handleDelete(res, supabaseClient, course_structure_id, docente_id);
+    return handleDelete(res, supabaseClient, serviceClient, course_structure_id, docente_id);
   }
 }
 
@@ -144,14 +144,16 @@ async function handlePost(
   }
 }
 
-// DELETE - Unassign docente from course
+// DELETE - Unassign docente from course and revoke assessment access
 async function handleDelete(
   res: NextApiResponse,
   supabaseClient: any,
+  serviceClient: any,
   courseStructureId: string,
   docenteId: string
 ) {
   try {
+    // Soft-delete the course assignment
     const { error } = await supabaseClient
       .from('school_course_docente_assignments')
       .update({ is_active: false, updated_at: new Date().toISOString() })
@@ -163,9 +165,39 @@ async function handleDelete(
       return res.status(500).json({ error: 'Error al desasignar docente' });
     }
 
+    // Revoke assessment access: delete assignee rows for this docente
+    // on all instances linked to this course
+    let assigneesRevoked = 0;
+    try {
+      const { data: instances } = await serviceClient
+        .from('assessment_instances')
+        .select('id')
+        .eq('course_structure_id', courseStructureId);
+
+      if (instances && instances.length > 0) {
+        const instanceIds = instances.map((i: any) => i.id);
+        const { data: deleted, error: revokeError } = await serviceClient
+          .from('assessment_instance_assignees')
+          .delete()
+          .in('instance_id', instanceIds)
+          .eq('user_id', docenteId)
+          .select('id');
+
+        if (revokeError) {
+          console.error('Error revoking assessment assignees:', revokeError);
+        } else {
+          assigneesRevoked = deleted?.length || 0;
+        }
+      }
+    } catch (revokeErr) {
+      console.error('Error revoking assessment access:', revokeErr);
+      // Don't fail the main operation — course unassignment already succeeded
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Docente desasignado correctamente',
+      assigneesRevoked,
     });
   } catch (err: any) {
     console.error('Unexpected error unassigning docente:', err);

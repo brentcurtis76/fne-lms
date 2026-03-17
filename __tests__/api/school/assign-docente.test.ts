@@ -248,17 +248,30 @@ describe('POST/DELETE /api/school/transversal-context/assign-docente', () => {
     expect(data.error).toContain('ya está asignado');
   });
 
-  // ── 8. DELETE: soft-deletes assignment ────────────────────────
-  it('DELETE soft-deletes assignment', async () => {
+  // ── 8. DELETE: soft-deletes assignment and revokes assessment access ──
+  it('DELETE soft-deletes assignment and revokes assessment assignees', async () => {
     authed();
     directivo(SCHOOL_ID);
 
     const client = buildUserClient({
       school_course_structure: { data: { id: COURSE_STRUCTURE_ID, school_id: SCHOOL_ID } },
-      school_course_docente_assignments: { data: null }, // update returns no error
+      school_course_docente_assignments: { data: null },
     });
     mockCreateApiSupabaseClient.mockResolvedValue(client);
-    mockCreateServiceRoleClient.mockReturnValue(buildServiceClient());
+
+    // Service client returns instances for the course, then deletes assignees
+    const svcClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'assessment_instances') {
+          return buildChainableQuery([{ id: 'inst-1' }, { id: 'inst-2' }]);
+        }
+        if (table === 'assessment_instance_assignees') {
+          return buildChainableQuery([{ id: 'aa-1' }]); // 1 row deleted
+        }
+        return buildChainableQuery(null, null);
+      }),
+    };
+    mockCreateServiceRoleClient.mockReturnValue(svcClient);
 
     const { req, res } = createMocks({
       method: 'DELETE',
@@ -270,8 +283,12 @@ describe('POST/DELETE /api/school/transversal-context/assign-docente', () => {
     const data = JSON.parse(res._getData());
     expect(data.success).toBe(true);
     expect(data.message).toContain('desasignado');
+    expect(data.assigneesRevoked).toBe(1);
     // triggerAutoAssignment should NOT be called on DELETE
     expect(mockTriggerAutoAssignment).not.toHaveBeenCalled();
+    // Service client should have queried assessment_instances and assessment_instance_assignees
+    expect(svcClient.from).toHaveBeenCalledWith('assessment_instances');
+    expect(svcClient.from).toHaveBeenCalledWith('assessment_instance_assignees');
   });
 
   // ── 9. POST: auto-assignment failure doesn't break main op ───

@@ -2,8 +2,8 @@
 
 **Date:** March 17, 2026
 **Scope:** Review of Tasks #242-#249 (audit trail, versioning, completion tracking) + end-to-end course→assessment pipeline fixes
-**Commits:** `6eb352e`, `c870ea3`, `e474682`, `1810aa5`, `49c8eae`, `402e8cc`, `182c253`, `a413f43` (8 commits on main after initial feature merge)
-**Files changed:** 19 files, +1428 / -196 lines
+**Commits:** `6eb352e`, `c870ea3`, `e474682`, `1810aa5`, `49c8eae`, `402e8cc`, `182c253`, `f49fdf5`, `9d43791` (9 commits on main after initial feature merge)
+**Files changed:** 19 files, +1439 / -196 lines
 
 ---
 
@@ -186,7 +186,7 @@ The feature adds audit trail, versioning, and completion tracking for two school
 
 | File | Purpose |
 |------|---------|
-| `__tests__/api/school/assign-docente.test.ts` | 10 tests: auth, permissions, CRUD, access revocation, auto-assignment, 207 partial failures |
+| `__tests__/api/school/assign-docente.test.ts` | 12 tests: auth, permissions, CRUD, access revocation, auto-assignment, 207 partial failures (thrown, resolved, Supabase error shape) |
 | `__tests__/services/autoAssignmentService.test.ts` | 10 tests: grade resolution, template matching, idempotency, GT/GI, assignee error |
 | `supabase/migrations/20260317000000_add_grade_id_to_course_structure.sql` | Add grade_id FK + backfill |
 

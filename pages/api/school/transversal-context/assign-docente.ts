@@ -110,10 +110,11 @@ async function handlePost(
     }
 
     // Auto-create assessment instances using the proper service
-    let autoAssignment: { instancesCreated: number; instancesSkipped: number; errors: string[]; success: boolean } = {
+    let autoAssignment: { instancesCreated: number; instancesSkipped: number; errors: string[]; warnings: string[]; success: boolean } = {
       instancesCreated: 0,
       instancesSkipped: 0,
       errors: [],
+      warnings: [],
       success: true,
     };
     try {
@@ -127,6 +128,7 @@ async function handlePost(
       autoAssignment.instancesCreated = result.instancesCreated;
       autoAssignment.instancesSkipped = result.instancesSkipped;
       autoAssignment.errors = result.errors;
+      autoAssignment.warnings = result.warnings;
       autoAssignment.success = result.success;
 
       if (result.errors.length > 0) {
@@ -150,7 +152,7 @@ async function handlePost(
         : 'Docente asignado correctamente',
       autoAssignment,
       warning: hasAutoAssignmentFailure
-        ? `Errores en evaluaciones: ${autoAssignment.errors.join('; ')}`
+        ? [...autoAssignment.errors, ...autoAssignment.warnings].join('; ') || 'Error al crear evaluaciones automáticas'
         : undefined,
     });
   } catch (err: any) {

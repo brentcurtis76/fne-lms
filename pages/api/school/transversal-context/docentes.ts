@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { getApiUser, createApiSupabaseClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 
 // Check if user has directivo permission for a specific school
 async function hasDirectivoPermission(
@@ -100,11 +100,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ docentes: [] });
     }
 
-    // Get profile info for these users
+    // Get profile info using service client (profiles RLS only allows auth.uid() = id)
     const userIds = docenteRoles.map((r: any) => r.user_id);
-    const { data: profiles, error: profilesError } = await supabaseClient
+    const serviceClient = createServiceRoleClient();
+    const { data: profiles, error: profilesError } = await serviceClient
       .from('profiles')
-      .select('id, full_name, first_name, last_name, email')
+      .select('id, name, first_name, last_name, email')
       .in('id', userIds);
 
     if (profilesError) {
@@ -115,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Format response
     const docentes = (profiles || []).map((p: any) => ({
       id: p.id,
-      full_name: p.full_name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email,
+      name: p.name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email,
       email: p.email,
     }));
 

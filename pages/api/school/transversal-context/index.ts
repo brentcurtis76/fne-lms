@@ -1,7 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
 import { hasDirectivoPermission } from '@/lib/permissions/directivo';
-import type { SaveTransversalContextRequest } from '@/types/assessment-builder';
+import type { SaveTransversalContextRequest, GradeLevel } from '@/types/assessment-builder';
+import { GRADE_LEVEL_SORT_ORDER } from '@/types/assessment-builder';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // Authentication check
@@ -78,8 +79,10 @@ async function handleGet(
       return res.status(500).json({ error: 'Error al obtener el contexto transversal' });
     }
 
-    // Fetch course structure for this school
-    const { data: courseStructure, error: courseError } = await supabaseClient
+    // Fetch course structure using service client to bypass profiles RLS
+    // (profiles SELECT policy only allows auth.uid() = id, blocking nested joins for directivos)
+    const courseServiceClient = createServiceRoleClient();
+    const { data: courseStructure, error: courseError } = await courseServiceClient
       .from('school_course_structure')
       .select(`
         id,
@@ -258,17 +261,28 @@ async function handlePost(
         .delete()
         .eq('school_id', schoolId);
 
+      // Fetch ab_grades once to resolve grade_id FK
+      const { data: allGrades } = await serviceClient
+        .from('ab_grades').select('id, sort_order');
+      const sortOrderToGradeId: Record<number, number> = Object.fromEntries(
+        (allGrades || []).map((g: any) => [g.sort_order, g.id])
+      );
+
       // Generate new course structure
       const courseLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
       const coursesToInsert = [];
 
       for (const gradeLevel of body.grade_levels) {
         const numCourses = body.courses_per_level?.[gradeLevel] || 1;
+        const sortOrder = GRADE_LEVEL_SORT_ORDER[gradeLevel as GradeLevel];
+        const gradeId = sortOrder ? sortOrderToGradeId[sortOrder] || null : null;
+
         for (let i = 0; i < numCourses; i++) {
           coursesToInsert.push({
             school_id: schoolId,
             context_id: savedContext.id,
             grade_level: gradeLevel,
+            grade_id: gradeId,
             course_name: `${gradeLevel.replace(/_/g, ' ')} ${courseLetters[i]}`.toUpperCase(),
           });
         }

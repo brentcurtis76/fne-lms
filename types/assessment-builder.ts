@@ -165,6 +165,18 @@ export const GRADE_LEVEL_LABELS: Record<GradeLevel, string> = {
   '4_medio': '4° Medio',
 };
 
+/**
+ * Maps GradeLevel → ab_grades.sort_order.
+ * Used at course generation time to resolve the integer grade_id FK.
+ * Sort order is stable (Chilean grade system).
+ */
+export const GRADE_LEVEL_SORT_ORDER: Record<GradeLevel, number> = {
+  medio_menor: 1, medio_mayor: 2, pre_kinder: 3, kinder: 4,
+  '1_basico': 5, '2_basico': 6, '3_basico': 7, '4_basico': 8,
+  '5_basico': 9, '6_basico': 10, '7_basico': 11, '8_basico': 12,
+  '1_medio': 13, '2_medio': 14, '3_medio': 15, '4_medio': 16,
+};
+
 export const GRADE_LEVEL_CATEGORIES = {
   preescolar: ['medio_menor', 'medio_mayor', 'pre_kinder', 'kinder'] as GradeLevel[],
   basica: [

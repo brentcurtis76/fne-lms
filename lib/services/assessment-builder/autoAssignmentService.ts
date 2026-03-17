@@ -84,10 +84,10 @@ export async function triggerAutoAssignment(
 
     const transformationYear = schoolContext.implementation_year_2026 as 1 | 2 | 3 | 4 | 5;
 
-    // Get the course structure to find grade_level
+    // Get the course structure with grade_id FK (set at course generation time)
     const { data: courseStructure, error: courseError } = await supabaseAdmin
       .from('school_course_structure')
-      .select('id, grade_level')
+      .select('id, grade_level, grade_id')
       .eq('id', courseStructureId)
       .single();
 
@@ -97,21 +97,21 @@ export async function triggerAutoAssignment(
       return result;
     }
 
-    const courseGradeLevel = courseStructure.grade_level;
+    const courseGradeId = courseStructure.grade_id;
 
-    // Match grade_level text to ab_grades table
-    const { data: gradeData, error: gradeError } = await supabaseAdmin
-      .from('ab_grades')
-      .select('id, name, is_always_gt')
-      .eq('name', courseGradeLevel)
-      .single();
-
-    if (gradeError || !gradeData) {
-      // Grade not found in ab_grades - log warning but continue with no grade filter
-      result.warnings.push(`No se encontró el nivel "${courseGradeLevel}" en ab_grades. Buscando templates sin filtro de nivel.`);
+    if (!courseGradeId) {
+      result.warnings.push(`El curso "${courseStructure.grade_level}" no tiene grade_id asignado. No se pueden crear evaluaciones.`);
+      result.success = false;
+      return result;
     }
 
-    const courseGradeId = gradeData?.id || null;
+    // Fetch grade info for is_always_gt check
+    const { data: gradeData } = await supabaseAdmin
+      .from('ab_grades')
+      .select('is_always_gt')
+      .eq('id', courseGradeId)
+      .single();
+
     const isAlwaysGT = gradeData?.is_always_gt ?? true;
 
     // Determine generation_type from Migration Plan (only if grade is not always_gt)
@@ -129,15 +129,15 @@ export async function triggerAutoAssignment(
       if (mpError || !migrationPlanEntry) {
         // No migration plan entry - default to GT and warn
         result.warnings.push(
-          `No se encontró plan de migración para nivel "${courseGradeLevel}" en año ${transformationYear}. Usando GT por defecto.`
+          `No se encontró plan de migración para grade_id ${courseGradeId} en año ${transformationYear}. Usando GT por defecto.`
         );
       } else {
         generationType = migrationPlanEntry.generation_type as GenerationType;
       }
     }
 
-    // Get published templates matching the course's grade (or all if no grade match)
-    let templatesQuery = supabaseAdmin
+    // Get published templates matching the course's grade via integer FK
+    const { data: templates, error: templatesError } = await supabaseAdmin
       .from('assessment_templates')
       .select(`
         id,
@@ -156,14 +156,8 @@ export async function triggerAutoAssignment(
         )
       `)
       .eq('status', 'published')
+      .eq('grade_id', courseGradeId)
       .order('area');
-
-    // Filter by grade_id if we have a valid course grade
-    if (courseGradeId) {
-      templatesQuery = templatesQuery.eq('grade_id', courseGradeId);
-    }
-
-    const { data: templates, error: templatesError } = await templatesQuery;
 
     if (templatesError) {
       result.errors.push(`Error fetching templates: ${templatesError.message}`);
@@ -173,9 +167,7 @@ export async function triggerAutoAssignment(
 
     if (!templates || templates.length === 0) {
       // No published templates for this grade - this is OK
-      if (courseGradeId) {
-        result.warnings.push(`No hay templates publicados para el nivel "${courseGradeLevel}"`);
-      }
+      result.warnings.push(`No hay templates publicados para grade_id ${courseGradeId} (${courseStructure.grade_level})`);
       return result;
     }
 

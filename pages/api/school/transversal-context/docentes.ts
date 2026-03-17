@@ -82,9 +82,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const effectiveSchoolId = isAdmin ? querySchoolId : schoolId;
 
   try {
-    // Fetch docentes from this school
-    // First get user_ids with docente role at this school
-    const { data: docenteRoles, error: rolesError } = await supabaseClient
+    // Fetch docentes using service client (user_roles RLS only allows auth.uid() = user_id)
+    const serviceClient = createServiceRoleClient();
+    const { data: docenteRoles, error: rolesError } = await serviceClient
       .from('user_roles')
       .select('user_id')
       .eq('school_id', effectiveSchoolId)
@@ -100,9 +100,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ docentes: [] });
     }
 
-    // Get profile info using service client (profiles RLS only allows auth.uid() = id)
+    // Get profile info (same service client — profiles RLS also blocks cross-user reads)
     const userIds = docenteRoles.map((r: any) => r.user_id);
-    const serviceClient = createServiceRoleClient();
     const { data: profiles, error: profilesError } = await serviceClient
       .from('profiles')
       .select('id, name, first_name, last_name, email')

@@ -14,10 +14,10 @@ const CoberturaInput: React.FC<CoberturaInputProps> = ({ value, onChange, disabl
       onClick={() => onChange(true)}
       disabled={disabled}
       aria-label={indicatorName ? `Sí: ${indicatorName}` : 'Sí'}
-      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+      className={`px-5 py-2 rounded-lg text-sm font-semibold tracking-wide transition-all ${
         value === true
-          ? 'bg-green-500 text-white'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          ? 'bg-brand_primary text-brand_accent shadow-sm'
+          : 'bg-brand_primary/5 text-brand_primary/60 hover:bg-brand_primary/10 border border-brand_primary/10'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       Sí
@@ -27,10 +27,10 @@ const CoberturaInput: React.FC<CoberturaInputProps> = ({ value, onChange, disabl
       onClick={() => onChange(false)}
       disabled={disabled}
       aria-label={indicatorName ? `No: ${indicatorName}` : 'No'}
-      className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+      className={`px-5 py-2 rounded-lg text-sm font-semibold tracking-wide transition-all ${
         value === false
-          ? 'bg-red-500 text-white'
-          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          ? 'bg-brand_primary text-white shadow-sm'
+          : 'bg-brand_primary/5 text-brand_primary/60 hover:bg-brand_primary/10 border border-brand_primary/10'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
       No

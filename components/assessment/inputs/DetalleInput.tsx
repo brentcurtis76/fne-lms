@@ -21,18 +21,20 @@ const DetalleInput: React.FC<DetalleInputProps> = ({
 
   if (options.length === 0) {
     return (
-      <p className="text-sm text-gray-400 italic">Sin opciones definidas para este indicador.</p>
+      <p className="text-sm text-brand_primary/30 italic">Sin opciones definidas para este indicador.</p>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm text-gray-500 mb-2">Selecciona todas las que aplican:</p>
+    <div className="space-y-1.5">
+      <p className="text-xs text-brand_primary/40 font-medium uppercase tracking-wider mb-2">Selecciona todas las que aplican</p>
       {options.map((opt, idx) => (
         <label
           key={idx}
-          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
-            selectedOptions.includes(opt) ? 'bg-teal-50 border border-teal-200' : 'bg-gray-50 border border-gray-200 hover:bg-gray-100'
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-all ${
+            selectedOptions.includes(opt)
+              ? 'bg-brand_accent/10 border border-brand_accent/30'
+              : 'bg-brand_primary/[0.02] border border-brand_primary/[0.06] hover:border-brand_primary/15'
           } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <input
@@ -41,9 +43,9 @@ const DetalleInput: React.FC<DetalleInputProps> = ({
             checked={selectedOptions.includes(opt)}
             onChange={() => !disabled && toggleOption(opt)}
             disabled={disabled}
-            className="w-4 h-4 text-teal-600 border-gray-300 rounded focus:ring-2 focus:ring-brand_accent focus:ring-offset-2"
+            className="w-4 h-4 text-brand_accent border-brand_primary/20 rounded focus:ring-2 focus:ring-brand_accent/40 focus:ring-offset-1"
           />
-          <span className="text-sm text-gray-800">{opt}</span>
+          <span className="text-sm text-brand_primary/80">{opt}</span>
         </label>
       ))}
     </div>

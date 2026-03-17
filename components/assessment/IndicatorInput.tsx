@@ -31,30 +31,32 @@ const IndicatorInput: React.FC<IndicatorInputProps> = ({
     (indicator.category === 'detalle' && detalleSelected.length > 0);
 
   return (
-    <div className={`p-4 ${hasResponse ? 'bg-green-50/50' : ''}`}>
+    <div className={`px-5 py-4 transition-colors ${hasResponse ? 'bg-brand_accent/[0.04]' : ''}`}>
       <div className="flex items-start gap-3 mb-3">
         {hasResponse && (
-          <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-shrink-0 mt-0.5">
+            <CheckCircle className="w-4.5 h-4.5 text-brand_accent" />
+          </div>
         )}
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
             {indicator.code && (
-              <span className="text-xs font-mono bg-gray-200 px-1.5 py-0.5 rounded">
+              <span className="text-[10px] font-mono font-semibold bg-brand_primary/[0.06] text-brand_primary/50 px-1.5 py-0.5 rounded">
                 {indicator.code}
               </span>
             )}
-            <span className="text-xs text-gray-500">
+            <span className="text-[10px] text-brand_primary/35 font-medium uppercase tracking-wider">
               {CATEGORY_LABELS[indicator.category]}
             </span>
           </div>
-          <h4 className="font-medium text-gray-900">{indicator.name}</h4>
+          <h4 className="text-sm font-medium text-brand_primary leading-snug">{indicator.name}</h4>
           {indicator.description && (
-            <p className="text-sm text-gray-500 mt-1">{indicator.description}</p>
+            <p className="text-xs text-brand_primary/40 mt-0.5 leading-relaxed">{indicator.description}</p>
           )}
         </div>
       </div>
 
-      <div className="ml-8">
+      <div className={hasResponse ? 'ml-7' : 'ml-0'}>
         {indicator.category === 'cobertura' && (
           <CoberturaInput
             value={response.coverageValue}

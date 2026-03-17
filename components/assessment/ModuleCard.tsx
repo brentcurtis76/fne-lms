@@ -51,46 +51,46 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
   }
 
   return (
-    <div className="bg-white shadow-md rounded-lg overflow-hidden">
+    <div className="bg-white rounded-xl border border-brand_primary/[0.08] overflow-hidden transition-shadow hover:shadow-sm">
       <button
         onClick={onToggle}
         aria-expanded={expanded}
         aria-label={`${expanded ? 'Contraer' : 'Expandir'} ${module.name}`}
-        className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-50"
+        className="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-brand_primary/[0.015] transition-colors"
       >
         <div>
-          <div className="flex items-center gap-2">
-            <h3 className="text-lg font-semibold text-brand_primary">{module.name}</h3>
+          <div className="flex items-center gap-2.5">
+            <h3 className="text-base font-semibold text-brand_primary tracking-tight">{module.name}</h3>
             {hasCoberturaGate && coberturaValue === false && (
-              <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-medium bg-brand_primary/[0.06] text-brand_primary/50 px-2 py-0.5 rounded-full uppercase tracking-wider">
                 No implementada
               </span>
             )}
           </div>
           {module.description && (
-            <p className="text-sm text-gray-500 mt-1">{module.description}</p>
+            <p className="text-sm text-brand_primary/45 mt-0.5 leading-relaxed">{module.description}</p>
           )}
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-brand_primary/30 mt-1 font-medium">
             {activeIndicators.length} indicador{activeIndicators.length !== 1 ? 'es' : ''}
           </p>
         </div>
         {expanded ? (
-          <ChevronUp className="w-5 h-5 text-gray-400" />
+          <ChevronUp className="w-4 h-4 text-brand_primary/30 flex-shrink-0" />
         ) : (
-          <ChevronDown className="w-5 h-5 text-gray-400" />
+          <ChevronDown className="w-4 h-4 text-brand_primary/30 flex-shrink-0" />
         )}
       </button>
 
       {expanded && module.instructions && (
-        <div className="px-4 pb-4 pt-0">
-          <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
+        <div className="px-5 pb-4 pt-0">
+          <div className="bg-brand_accent/[0.08] border border-brand_accent/20 px-4 py-3 rounded-lg text-sm text-brand_primary/70 leading-relaxed">
             {module.instructions}
           </div>
         </div>
       )}
 
       {expanded && (
-        <div className="border-t border-gray-200 divide-y divide-gray-100">
+        <div className="border-t border-brand_primary/[0.06] divide-y divide-brand_primary/[0.04]">
           {visibleIndicators.map((indicator) => (
             <IndicatorInput
               key={indicator.id}
@@ -101,7 +101,7 @@ const ModuleCard: React.FC<ModuleCardProps> = ({
             />
           ))}
           {showGateMessage && (
-            <div className="p-4 bg-gray-50 text-sm text-gray-500 italic">
+            <div className="px-5 py-4 text-sm text-brand_primary/35 italic">
               Esta práctica no se implementa en este establecimiento
             </div>
           )}

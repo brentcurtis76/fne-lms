@@ -384,19 +384,19 @@ const AssessmentResponseForm: React.FC = () => {
         subtitle={AREA_LABELS[template?.area as TransformationArea] || 'Evaluación'}
       />
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back button and actions */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-8">
           <Link href="/docente/assessments" legacyBehavior>
-            <a className="inline-flex items-center text-sm text-gray-600 hover:text-brand_primary">
-              <ArrowLeft className="w-4 h-4 mr-1" />
+            <a className="inline-flex items-center text-sm text-brand_primary/50 hover:text-brand_primary transition-colors">
+              <ArrowLeft className="w-4 h-4 mr-1.5" />
               Volver a evaluaciones
             </a>
           </Link>
 
           <div className="flex items-center gap-3">
             {saving && (
-              <span className="text-sm text-gray-500 flex items-center">
+              <span className="text-sm text-brand_primary/40 flex items-center">
                 <Loader2 className="w-4 h-4 animate-spin mr-1" />
                 Guardando...
               </span>
@@ -406,24 +406,24 @@ const AssessmentResponseForm: React.FC = () => {
                 <button
                   onClick={() => saveResponses(Object.keys(responses))}
                   disabled={saving || !hasUnsavedChanges}
-                  className="inline-flex items-center px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                  className="inline-flex items-center px-4 py-2 text-sm font-medium border border-brand_primary/15 text-brand_primary/70 rounded-lg hover:bg-brand_primary/[0.03] disabled:opacity-40 transition-colors"
                 >
-                  <Save className="w-4 h-4 mr-1" />
+                  <Save className="w-4 h-4 mr-1.5" />
                   Guardar
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={submitting || progress.percentage < 100}
-                  className="inline-flex items-center px-4 py-1.5 text-sm bg-brand_primary text-white rounded-lg hover:bg-brand_primary/90 disabled:opacity-50"
+                  className="inline-flex items-center px-5 py-2 text-sm font-semibold bg-brand_accent text-brand_primary rounded-lg hover:bg-brand_accent_hover disabled:opacity-40 transition-colors shadow-sm"
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                      <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
                       Enviando...
                     </>
                   ) : (
                     <>
-                      <Send className="w-4 h-4 mr-1" />
+                      <Send className="w-4 h-4 mr-1.5" />
                       Enviar
                     </>
                   )}
@@ -434,44 +434,44 @@ const AssessmentResponseForm: React.FC = () => {
         </div>
 
         {/* Progress bar */}
-        <div className="bg-white shadow-md rounded-lg p-4 mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Progreso</span>
-            <span className="text-sm text-gray-500">
+        <div className="bg-white rounded-xl border border-brand_primary/[0.08] p-5 mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-brand_primary/50 uppercase tracking-wider">Progreso</span>
+            <span className="text-sm text-brand_primary/50 font-medium tabular-nums">
               {progress.answered} de {progress.total} indicadores ({progress.percentage}%)
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-brand_primary/[0.06] rounded-full h-2">
             <div
               className={`h-2 rounded-full transition-all ${
-                progress.percentage === 100 ? 'bg-green-500' : 'bg-brand_primary'
+                progress.percentage === 100 ? 'bg-brand_accent' : 'bg-brand_primary'
               }`}
               style={{ width: `${progress.percentage}%` }}
             />
           </div>
           {isCompleted && (
-            <div className="mt-3 flex items-center text-green-600">
+            <div className="mt-3 flex items-center text-brand_accent">
               <CheckCircle className="w-4 h-4 mr-2" />
-              <span className="text-sm font-medium">Evaluación completada</span>
+              <span className="text-sm font-semibold text-brand_primary">Evaluación completada</span>
             </div>
           )}
         </div>
 
         {/* 3-level hierarchy: Objectives → Acciones → Indicators */}
         {objectives.length > 0 ? (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {objectives.map((objective) => (
-              <div key={objective.id} className="space-y-3">
+              <div key={objective.id} className="space-y-4">
                 {/* Objective header */}
-                <div className="flex items-center gap-3 px-1">
-                  <div className="h-px flex-1 bg-gray-200" />
-                  <h3 className="text-sm font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap">
+                <div className="flex items-center gap-4 px-1">
+                  <div className="h-px flex-1 bg-brand_accent/40" />
+                  <h3 className="text-xs font-bold text-brand_primary/60 uppercase tracking-[0.15em] whitespace-nowrap">
                     {ENTITY_LABELS.objective}: {objective.name}
                   </h3>
-                  <div className="h-px flex-1 bg-gray-200" />
+                  <div className="h-px flex-1 bg-brand_accent/40" />
                 </div>
                 {objective.description && (
-                  <p className="text-sm text-gray-500 px-1">{objective.description}</p>
+                  <p className="text-sm text-brand_primary/45 px-1 leading-relaxed">{objective.description}</p>
                 )}
 
                 {/* Acciones within this objective */}
@@ -488,7 +488,7 @@ const AssessmentResponseForm: React.FC = () => {
                     />
                   ))}
                   {objective.modules.length === 0 && (
-                    <p className="text-sm text-gray-400 italic px-2">
+                    <p className="text-sm text-brand_primary/30 italic px-2">
                       Sin {ENTITY_LABELS.modules.toLowerCase()} en este {ENTITY_LABELS.objective.toLowerCase()}
                     </p>
                   )}

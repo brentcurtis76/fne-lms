@@ -93,7 +93,7 @@ async function handleGet(
           id,
           docente_id,
           is_active,
-          created_at
+          assigned_at
         )
       `)
       .eq('school_id', schoolId)

@@ -86,7 +86,7 @@ async function handlePost(
       // Reactivate existing assignment
       const { error: updateError } = await supabaseClient
         .from('school_course_docente_assignments')
-        .update({ is_active: true, updated_at: new Date().toISOString() })
+        .update({ is_active: true })
         .eq('id', existing.id);
 
       if (updateError) {
@@ -156,7 +156,7 @@ async function handleDelete(
     // Soft-delete the course assignment
     const { error } = await supabaseClient
       .from('school_course_docente_assignments')
-      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .update({ is_active: false })
       .eq('course_structure_id', courseStructureId)
       .eq('docente_id', docenteId);
 

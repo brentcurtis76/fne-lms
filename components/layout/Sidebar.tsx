@@ -73,6 +73,7 @@ interface NavigationItem {
   requireAllPermissions?: boolean; // If true, require ALL permissions (AND logic)
   requiresCommunity?: boolean; // If true, only show for users with community_id
   requiresQAAccess?: boolean; // If true, only show for users with can_run_qa_tests or admin
+  requiresAssessments?: boolean; // If true, only show when user has assigned assessments
   children?: NavigationChild[];
   isExpanded?: boolean;
 }
@@ -245,6 +246,15 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
         icon: MapIcon
       }
     ]
+  },
+  {
+    id: 'docente-procesos-cambio',
+    label: 'Procesos de Cambio',
+    icon: ClipboardDocumentListIcon,
+    href: '/docente/assessments',
+    description: 'Evaluaciones de transformación asignadas',
+    restrictedRoles: ['docente'],
+    requiresAssessments: true,
   },
   {
     id: 'news',
@@ -941,6 +951,8 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
   const [communityCheckDone, setCommunityCheckDone] = useState(false);
   const [canRunQATests, setCanRunQATests] = useState(false);
   const [qaCheckDone, setQaCheckDone] = useState(false);
+  const [hasAssessments, setHasAssessments] = useState(false);
+  const [assessmentsCheckDone, setAssessmentsCheckDone] = useState(false);
 
   const fetchNewFeedbackCount = useCallback(async () => {
     try {
@@ -1070,6 +1082,35 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
     return () => { cancelled = true; };
   }, [userId, isAdmin, supabase]);
 
+  // Check if docente has any assigned assessments
+  useEffect(() => {
+    if (!userId || isAdmin || userRole !== 'docente') {
+      setAssessmentsCheckDone(true);
+      return;
+    }
+
+    let cancelled = false;
+    const checkAssessments = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('assessment_instance_assignees')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', userId);
+
+        if (!cancelled) {
+          setHasAssessments(!error && (count ?? 0) > 0);
+        }
+      } catch {
+        if (!cancelled) setHasAssessments(false);
+      } finally {
+        if (!cancelled) setAssessmentsCheckDone(true);
+      }
+    };
+
+    checkAssessments();
+    return () => { cancelled = true; };
+  }, [userId, isAdmin, userRole, supabase]);
+
   // Fetch new feedback count for admins
   useEffect(() => {
     if (isAdmin) {
@@ -1161,6 +1202,11 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
         if (!canRunQATests && !isAdmin) return false;
       }
 
+      if (item.requiresAssessments) {
+        if (!assessmentsCheckDone) return false;
+        if (!hasAssessments) return false;
+      }
+
       if (item.adminOnly && !isAdmin) return false;
 
       if (item.consultantOnly && !isAdmin && !['admin', 'consultor'].includes(userRole || '')) {
@@ -1198,7 +1244,7 @@ const Sidebar: React.FC<SidebarProps> = React.memo(({
 
       return true;
     });
-  }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone]);
+  }, [isAdmin, userRole, hasPermission, hasAnyPermission, hasAllPermissions, permissionsLoading, isSuperadmin, superadminCheckDone, hasCommunity, communityCheckDone, canRunQATests, qaCheckDone, hasAssessments, assessmentsCheckDone]);
 
   return (
     <>

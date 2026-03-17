@@ -15,11 +15,11 @@ interface ProfundidadInputProps {
  * uses the brand palette (black/gold) with semantic warmth.
  */
 const LEVEL_STYLES: Record<number, { border: string; bg: string; selectedBg: string; text: string }> = {
-  0: { border: 'border-l-gray-300',    bg: '',                         selectedBg: 'bg-gray-50',       text: 'text-gray-600' },
-  1: { border: 'border-l-red-400',     bg: '',                         selectedBg: 'bg-red-50/60',     text: 'text-red-700' },
-  2: { border: 'border-l-amber-400',   bg: '',                         selectedBg: 'bg-amber-50/60',   text: 'text-amber-700' },
-  3: { border: 'border-l-sky-400',     bg: '',                         selectedBg: 'bg-sky-50/60',     text: 'text-sky-700' },
-  4: { border: 'border-l-emerald-400', bg: '',                         selectedBg: 'bg-emerald-50/60', text: 'text-emerald-700' },
+  0: { border: 'border-l-gray-300',    bg: '',                         selectedBg: 'bg-gray-50',        text: 'text-gray-600' },
+  1: { border: 'border-l-amber-300',   bg: '',                         selectedBg: 'bg-amber-50/50',    text: 'text-amber-700' },
+  2: { border: 'border-l-yellow-400',  bg: '',                         selectedBg: 'bg-yellow-50/50',   text: 'text-yellow-700' },
+  3: { border: 'border-l-sky-400',     bg: '',                         selectedBg: 'bg-sky-50/60',      text: 'text-sky-700' },
+  4: { border: 'border-l-emerald-400', bg: '',                         selectedBg: 'bg-emerald-50/60',  text: 'text-emerald-700' },
 };
 
 const ProfundidadInput: React.FC<ProfundidadInputProps> = ({ value, descriptors, onChange, disabled }) => (

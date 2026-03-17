@@ -97,7 +97,7 @@ async function handleGet(
         )
       `)
       .eq('school_id', schoolId)
-      .order('grade_level', { ascending: true })
+      .order('grade_id', { ascending: true })
       .order('course_name', { ascending: true });
 
     if (courseError) {

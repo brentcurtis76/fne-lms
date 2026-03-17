@@ -130,7 +130,7 @@ describe('GET /api/school/completion-status', () => {
         ],
       },
       profiles: {
-        data: [{ id: COMPLETER_ID, full_name: 'Ana García' }],
+        data: [{ id: COMPLETER_ID, name: 'Ana García' }],
       },
     });
     mockCreateServiceRoleClient.mockReturnValue(mockClient);
@@ -169,7 +169,7 @@ describe('GET /api/school/completion-status', () => {
       planStatus: { data: [] },
       lastUpdates: { data: [] },
       profiles: {
-        data: [{ id: COMPLETER_ID, full_name: 'María López' }],
+        data: [{ id: COMPLETER_ID, name: 'María López' }],
       },
     });
     mockCreateServiceRoleClient.mockReturnValue(mockClient);

@@ -97,7 +97,7 @@ async function handleGet(
           created_at,
           profiles:docente_id (
             id,
-            full_name,
+            name,
             email
           )
         )
@@ -206,10 +206,12 @@ async function handlePost(
       savedContext = data;
     }
 
+    // Service client for audit logging + course reconciliation (bypasses RLS)
+    const serviceClient = createServiceRoleClient();
+
     // Log change history and update completion status
     try {
-      const serviceClient = createServiceRoleClient();
-      const { data: profile } = await serviceClient.from('profiles').select('full_name').eq('id', userId).single();
+      const { data: profile } = await serviceClient.from('profiles').select('name').eq('id', userId).single();
 
       const DIFF_IGNORE_FIELDS = new Set(['school_id', 'updated_at', 'created_at', 'id', 'is_completed', 'completed_at', 'completed_by']);
       const changedFields = Object.keys(contextData)
@@ -227,7 +229,7 @@ async function handlePost(
           new_state: savedContext,
           changed_fields: changedFields,
           user_id: userId,
-          user_name: profile?.full_name || 'Unknown',
+          user_name: profile?.name || 'Unknown',
         });
       }
 
@@ -249,18 +251,12 @@ async function handlePost(
       console.error('Error logging change history:', historyErr);
     }
 
-    // Generate course structure based on grade levels and courses per level
+    // Reconcile course structure: add missing, remove extras, preserve existing
+    // (preserves docente assignments and assessment instance links on unchanged courses)
     let coursesGenerated = 0;
     let warning = null;
 
     try {
-      const serviceClient = createServiceRoleClient();
-      // Delete existing course structure for this school
-      await serviceClient
-        .from('school_course_structure')
-        .delete()
-        .eq('school_id', schoolId);
-
       // Fetch ab_grades once to resolve grade_id FK
       const { data: allGrades } = await serviceClient
         .from('ab_grades').select('id, sort_order');
@@ -268,9 +264,9 @@ async function handlePost(
         (allGrades || []).map((g: any) => [g.sort_order, g.id])
       );
 
-      // Generate new course structure
+      // Build desired courses from the form submission
       const courseLetters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-      const coursesToInsert = [];
+      const desiredCourses: Array<{ grade_level: string; course_name: string; grade_id: number | null }> = [];
 
       for (const gradeLevel of body.grade_levels) {
         const numCourses = body.courses_per_level?.[gradeLevel] || 1;
@@ -278,9 +274,7 @@ async function handlePost(
         const gradeId = sortOrder ? sortOrderToGradeId[sortOrder] || null : null;
 
         for (let i = 0; i < numCourses; i++) {
-          coursesToInsert.push({
-            school_id: schoolId,
-            context_id: savedContext.id,
+          desiredCourses.push({
             grade_level: gradeLevel,
             grade_id: gradeId,
             course_name: `${gradeLevel.replace(/_/g, ' ')} ${courseLetters[i]}`.toUpperCase(),
@@ -288,16 +282,69 @@ async function handlePost(
         }
       }
 
-      if (coursesToInsert.length > 0) {
+      // Fetch existing courses for this school
+      const { data: existingCourses } = await serviceClient
+        .from('school_course_structure')
+        .select('id, grade_level, course_name, grade_id')
+        .eq('school_id', schoolId);
+
+      const existing = existingCourses || [];
+
+      // Build keyed sets for diffing (grade_level + course_name is the natural key)
+      const existingKeys = new Map(existing.map((c: any) => [`${c.grade_level}::${c.course_name}`, c]));
+      const desiredKeys = new Set(desiredCourses.map(c => `${c.grade_level}::${c.course_name}`));
+
+      // Courses to add: in desired but not in existing
+      const toInsert = desiredCourses.filter(c => !existingKeys.has(`${c.grade_level}::${c.course_name}`));
+
+      // Courses to remove: in existing but not in desired
+      const toDeleteIds = existing
+        .filter((c: any) => !desiredKeys.has(`${c.grade_level}::${c.course_name}`))
+        .map((c: any) => c.id);
+
+      // Courses that exist but need grade_id update (backfill)
+      const toUpdateGradeId = existing.filter((c: any) => {
+        if (!desiredKeys.has(`${c.grade_level}::${c.course_name}`)) return false;
+        const desired = desiredCourses.find(d => d.grade_level === c.grade_level && d.course_name === c.course_name);
+        return desired && desired.grade_id && c.grade_id !== desired.grade_id;
+      });
+
+      // Delete only obsolete courses (preserves assignments on kept courses)
+      if (toDeleteIds.length > 0) {
+        await serviceClient
+          .from('school_course_structure')
+          .delete()
+          .in('id', toDeleteIds);
+      }
+
+      // Insert only new courses
+      if (toInsert.length > 0) {
         const { error: courseInsertError } = await serviceClient
           .from('school_course_structure')
-          .insert(coursesToInsert);
+          .insert(toInsert.map(c => ({
+            school_id: schoolId,
+            context_id: savedContext.id,
+            grade_level: c.grade_level,
+            grade_id: c.grade_id,
+            course_name: c.course_name,
+          })));
 
         if (courseInsertError) {
-          console.error('Error generating course structure:', courseInsertError);
-          warning = 'El contexto se guardó pero hubo un error al generar los cursos';
+          console.error('Error inserting new courses:', courseInsertError);
+          warning = 'El contexto se guardó pero hubo un error al generar algunos cursos';
         } else {
-          coursesGenerated = coursesToInsert.length;
+          coursesGenerated = toInsert.length;
+        }
+      }
+
+      // Update grade_id on existing courses that were missing it
+      for (const course of toUpdateGradeId) {
+        const desired = desiredCourses.find(d => d.grade_level === course.grade_level && d.course_name === course.course_name);
+        if (desired?.grade_id) {
+          await serviceClient
+            .from('school_course_structure')
+            .update({ grade_id: desired.grade_id })
+            .eq('id', course.id);
         }
       }
     } catch (courseErr) {

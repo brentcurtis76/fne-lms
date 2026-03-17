@@ -78,11 +78,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (userIds.length > 0) {
       const { data: profiles } = await serviceClient
         .from('profiles')
-        .select('id, full_name')
+        .select('id, name')
         .in('id', userIds);
 
       if (profiles) {
-        const namesMap = Object.fromEntries(profiles.map((p: any) => [p.id, p.full_name]));
+        const namesMap = Object.fromEntries(profiles.map((p: any) => [p.id, p.name]));
         for (const entry of history ?? []) {
           entry.user_name = namesMap[entry.user_id] || entry.user_name;
         }

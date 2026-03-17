@@ -73,7 +73,7 @@ function buildRecordingServiceClient(opts: {
     client: {
       from: vi.fn((table: string) => {
         if (table === 'profiles') {
-          return buildChainableQuery({ full_name: opts.profileName ?? 'Test User' });
+          return buildChainableQuery({ name: opts.profileName ?? 'Test User' });
         }
         if (table === 'school_change_history') {
           // Capture insert payloads
@@ -277,10 +277,17 @@ describe('Transversal context POST — audit logging', () => {
     };
     mockCreateApiSupabaseClient.mockResolvedValue(userClient);
 
-    // Service client that throws on creation
-    mockCreateServiceRoleClient.mockImplementation(() => {
-      throw new Error('Service role connection failed');
-    });
+    // Service client where profile lookup throws inside the audit try/catch
+    const serviceClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'profiles') {
+          throw new Error('Profile lookup failed');
+        }
+        // Return empty/success for all other tables (course reconciliation, ab_grades, etc.)
+        return buildChainableQuery([]);
+      }),
+    };
+    mockCreateServiceRoleClient.mockReturnValue(serviceClient);
 
     const { req, res } = createMocks({ method: 'POST', body: validBody });
     await transversalHandler(req, res);
@@ -318,7 +325,7 @@ describe('Custom responses POST — audit logging', () => {
           return buildChainableQuery(previousResponses);
         }
         if (table === 'profiles') {
-          return buildChainableQuery({ full_name: 'Test User' });
+          return buildChainableQuery({ name: 'Test User' });
         }
         if (table === 'school_change_history') {
           const handler: ProxyHandler<Record<string, unknown>> = {
@@ -506,7 +513,7 @@ describe('Migration plan PUT — audit logging', () => {
     const serviceClient = {
       from: vi.fn((table: string) => {
         if (table === 'profiles') {
-          return buildChainableQuery({ full_name: 'Test User' });
+          return buildChainableQuery({ name: 'Test User' });
         }
         if (table === 'school_change_history') {
           const handler: ProxyHandler<Record<string, unknown>> = {
@@ -565,7 +572,7 @@ describe('Migration plan PUT — audit logging', () => {
     const serviceClient = {
       from: vi.fn((table: string) => {
         if (table === 'profiles') {
-          return buildChainableQuery({ full_name: 'Test User' });
+          return buildChainableQuery({ name: 'Test User' });
         }
         if (table === 'school_change_history') {
           const handler: ProxyHandler<Record<string, unknown>> = {

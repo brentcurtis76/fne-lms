@@ -51,8 +51,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const effectiveSchoolId = isAdmin ? requestedSchoolId! : schoolId!;
 
   try {
-    const features = ['transversal_context', 'migration_plan', 'context_responses'] as const;
-
     // Fetch all data in parallel
     const [transversalResult, planStatusResult, tcLastUpdateResult, mpLastUpdateResult, crLastUpdateResult] = await Promise.all([
       // 1. Transversal context completion (stored on the table itself)
@@ -123,11 +121,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (completedByIds.size > 0) {
       const { data: profiles } = await serviceClient
         .from('profiles')
-        .select('id, full_name')
+        .select('id, name')
         .in('id', [...completedByIds]);
 
       if (profiles) {
-        namesMap = Object.fromEntries(profiles.map((p: any) => [p.id, p.full_name]));
+        namesMap = Object.fromEntries(profiles.map((p: any) => [p.id, p.name]));
       }
     }
 

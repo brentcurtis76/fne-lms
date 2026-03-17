@@ -874,7 +874,7 @@ const TransversalContextDashboard: React.FC = () => {
                                   className="flex items-center justify-between text-sm bg-white px-2 py-1 rounded"
                                 >
                                   <span className="text-brand_primary/80">
-                                    {assignment.profiles?.full_name || assignment.docente_id}
+                                    {assignment.profiles?.name || assignment.docente_id}
                                   </span>
                                   {/* Unassign button - only for directivos */}
                                   {!isAdminOrConsultor && (
@@ -882,7 +882,7 @@ const TransversalContextDashboard: React.FC = () => {
                                       onClick={() => handleUnassignDocente(
                                         course.id,
                                         assignment.docente_id,
-                                        assignment.profiles?.full_name || 'docente'
+                                        assignment.profiles?.name || 'docente'
                                       )}
                                       className="text-brand_primary/50 hover:text-brand_primary p-1"
                                       title="Desasignar"
@@ -999,7 +999,7 @@ const TransversalContextDashboard: React.FC = () => {
                     <option value="">-- Seleccionar --</option>
                     {availableDocentes.map(docente => (
                       <option key={docente.id} value={docente.id}>
-                        {docente.full_name || docente.email}
+                        {docente.name || docente.email}
                       </option>
                     ))}
                   </select>

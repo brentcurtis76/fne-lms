@@ -170,7 +170,7 @@ async function handlePost(
         .map(r => r.question_id);
 
       if (changedFields.length > 0) {
-        const { data: profile } = await serviceClient.from('profiles').select('full_name').eq('id', userId).single();
+        const { data: profile } = await serviceClient.from('profiles').select('name').eq('id', userId).single();
         await serviceClient.from('school_change_history').insert({
           school_id: schoolId,
           feature: 'context_responses',
@@ -179,7 +179,7 @@ async function handlePost(
           new_state: newMap,
           changed_fields: changedFields,
           user_id: userId,
-          user_name: profile?.full_name || 'Unknown',
+          user_name: profile?.name || 'Unknown',
         });
       }
 

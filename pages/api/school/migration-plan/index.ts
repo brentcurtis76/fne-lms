@@ -275,7 +275,7 @@ async function handlePut(
     // Log change history and update completion status
     try {
       const serviceClient = createServiceRoleClient();
-      const { data: profile } = await serviceClient.from('profiles').select('full_name').eq('id', userId).single();
+      const { data: profile } = await serviceClient.from('profiles').select('name').eq('id', userId).single();
 
       const prevState = Object.fromEntries((previousEntries || []).map((e: any) => [`${e.year_number}-${e.grade_id}`, e.generation_type]));
       const newState = Object.fromEntries(entries.map(e => [`${e.year_number}-${e.grade_id}`, e.generation_type]));
@@ -291,7 +291,7 @@ async function handlePut(
           new_state: newState,
           changed_fields: changedFields,
           user_id: userId,
-          user_name: profile?.full_name || 'Unknown',
+          user_name: profile?.name || 'Unknown',
         });
       }
 

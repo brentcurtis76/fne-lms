@@ -41,27 +41,27 @@ interface AssessmentListItem {
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; bgColor: string; textColor: string }> = {
   pending: {
     label: 'Pendiente',
-    icon: <Clock className="w-4 h-4" />,
-    bgColor: 'bg-yellow-100',
-    textColor: 'text-yellow-800',
+    icon: <Clock className="w-3.5 h-3.5" />,
+    bgColor: 'bg-amber-50',
+    textColor: 'text-amber-700',
   },
   in_progress: {
     label: 'En Progreso',
-    icon: <AlertCircle className="w-4 h-4" />,
-    bgColor: 'bg-blue-100',
-    textColor: 'text-blue-800',
+    icon: <AlertCircle className="w-3.5 h-3.5" />,
+    bgColor: 'bg-sky-50',
+    textColor: 'text-sky-700',
   },
   completed: {
     label: 'Completado',
-    icon: <CheckCircle className="w-4 h-4" />,
-    bgColor: 'bg-green-100',
-    textColor: 'text-green-800',
+    icon: <CheckCircle className="w-3.5 h-3.5" />,
+    bgColor: 'bg-emerald-50',
+    textColor: 'text-emerald-700',
   },
   archived: {
     label: 'Archivado',
-    icon: <Clock className="w-4 h-4" />,
-    bgColor: 'bg-gray-100',
-    textColor: 'text-gray-800',
+    icon: <Clock className="w-3.5 h-3.5" />,
+    bgColor: 'bg-gray-50',
+    textColor: 'text-gray-600',
   },
 };
 
@@ -141,8 +141,8 @@ const DocenteAssessmentsPage: React.FC = () => {
   // Loading state
   if (!user) {
     return (
-      <div className="min-h-screen bg-brand_beige flex justify-center items-center">
-        <p className="text-xl text-brand_blue">Cargando...</p>
+      <div className="min-h-screen bg-brand_light flex justify-center items-center">
+        <p className="text-xl text-brand_primary">Cargando...</p>
       </div>
     );
   }
@@ -163,14 +163,14 @@ const DocenteAssessmentsPage: React.FC = () => {
         subtitle={`${assessments.length} evaluación${assessments.length !== 1 ? 'es' : ''} asignada${assessments.length !== 1 ? 's' : ''}`}
       />
 
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-4xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
         {/* Filters */}
-        <div className="flex items-center gap-3 mb-6">
-          <Filter className="w-4 h-4 text-gray-500" />
+        <div className="flex items-center gap-3 mb-10">
+          <Filter className="w-4 h-4 text-brand_primary/30" />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white focus:outline-none focus:ring-1 focus:ring-brand_blue"
+            className="px-4 py-2.5 border border-brand_primary/10 rounded-lg text-sm text-brand_primary bg-white focus:outline-none focus:ring-2 focus:ring-brand_accent/40 focus:border-brand_accent"
           >
             <option value="">Todos los estados</option>
             <option value="pending">Pendiente</option>
@@ -180,28 +180,28 @@ const DocenteAssessmentsPage: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500">Cargando evaluaciones...</p>
+          <div className="text-center py-20">
+            <p className="text-brand_primary/40">Cargando evaluaciones...</p>
           </div>
         ) : assessments.length === 0 ? (
-          <div className="text-center bg-white p-12 rounded-xl shadow-lg">
-            <ClipboardCheck className="mx-auto h-16 w-16 text-brand_blue/30" />
-            <h3 className="mt-4 text-xl font-semibold text-brand_blue">
+          <div className="text-center py-24">
+            <ClipboardCheck className="mx-auto h-16 w-16 text-brand_primary/15" />
+            <h3 className="mt-6 text-xl font-semibold text-brand_primary">
               No hay evaluaciones asignadas
             </h3>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-3 text-sm text-brand_primary/45 max-w-sm mx-auto leading-relaxed">
               Cuando te asignen evaluaciones, aparecerán aquí.
             </p>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-14">
             {/* Pending/In Progress Section */}
             {pendingAssessments.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold text-brand_blue mb-4">
+              <section>
+                <h2 className="text-xs font-bold text-brand_primary/50 uppercase tracking-[0.15em] mb-6">
                   Por Completar ({pendingAssessments.length})
                 </h2>
-                <div className="space-y-3">
+                <div className="space-y-5">
                   {pendingAssessments.map((assessment) => (
                     <AssessmentCard
                       key={assessment.id}
@@ -210,16 +210,16 @@ const DocenteAssessmentsPage: React.FC = () => {
                     />
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
             {/* Completed Section */}
             {completedAssessments.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold text-gray-600 mb-4">
+              <section>
+                <h2 className="text-xs font-bold text-brand_primary/35 uppercase tracking-[0.15em] mb-6">
                   Completadas ({completedAssessments.length})
                 </h2>
-                <div className="space-y-3">
+                <div className="space-y-5">
                   {completedAssessments.map((assessment) => (
                     <AssessmentCard
                       key={assessment.id}
@@ -228,7 +228,7 @@ const DocenteAssessmentsPage: React.FC = () => {
                     />
                   ))}
                 </div>
-              </div>
+              </section>
             )}
           </div>
         )}
@@ -252,33 +252,35 @@ const AssessmentCard: React.FC<AssessmentCardProps> = ({ assessment, allAssessme
   );
   const hasMultipleVersions = relatedVersions.length > 0;
 
-  // Check if this is a newer version (has a pending/in_progress while others are completed)
+  // Check if this is a newer version
   const isNewerVersion = hasMultipleVersions &&
     (assessment.status === 'pending' || assessment.status === 'in_progress') &&
     relatedVersions.some(r => r.status === 'completed');
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-4 hover:shadow-lg transition-shadow">
-      <div className="flex items-center justify-between">
+    <div className="bg-white rounded-xl border border-brand_primary/[0.08] p-6 hover:border-brand_primary/[0.15] transition-all">
+      <div className="flex items-start justify-between gap-6">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className="text-lg font-medium text-gray-900 truncate">
-              {assessment.templateName}
-              <span className="ml-2 text-sm font-normal text-gray-500">
-                (v{assessment.templateVersion})
-              </span>
-            </h3>
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
+          {/* Title */}
+          <h3 className="text-lg font-semibold text-brand_primary leading-snug">
+            {assessment.templateName}
+          </h3>
+
+          {/* Badges row */}
+          <div className="flex flex-wrap items-center gap-2 mt-3">
+            <span className="text-xs font-medium text-brand_primary/40">
+              v{assessment.templateVersion}
+            </span>
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.textColor}`}>
               {statusConfig.icon}
               {statusConfig.label}
             </span>
-            {/* Generation Type Badge (GT/GI) */}
             {assessment.generationType && (
               <span
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                   assessment.generationType === 'GT'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-blue-100 text-blue-700'
+                    ? 'bg-brand_accent/15 text-brand_primary/70'
+                    : 'bg-sky-50 text-sky-700'
                 }`}
                 title={assessment.generationType === 'GT' ? 'Generación Tractor' : 'Generación Innova'}
               >
@@ -286,55 +288,53 @@ const AssessmentCard: React.FC<AssessmentCardProps> = ({ assessment, allAssessme
               </span>
             )}
             {isNewerVersion && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700">
                 <RefreshCw className="w-3 h-3" />
                 Actualizado
               </span>
             )}
           </div>
 
-          {/* Note about version update */}
+          {/* Version update note */}
           {isNewerVersion && (
-            <p className="text-xs text-amber-600 mb-2 flex items-center gap-1">
-              <RefreshCw className="w-3 h-3" />
-              Nueva versión - el instrumento fue actualizado desde tu última evaluación
+            <p className="text-xs text-amber-600 mt-3 flex items-center gap-1.5">
+              <RefreshCw className="w-3 h-3 flex-shrink-0" />
+              Nueva versión — el instrumento fue actualizado desde tu última evaluación
             </p>
           )}
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500">
-            <span className="font-medium text-brand_blue">
+          {/* Metadata */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5 mt-4 text-sm text-brand_primary/40">
+            <span className="font-medium text-brand_primary/60">
               {AREA_LABELS[assessment.templateArea]}
             </span>
             {assessment.courseName && (
-              <span>
-                Curso: {assessment.courseName}
-              </span>
+              <span>{assessment.courseName}</span>
             )}
-            <span>
-              Año {assessment.transformationYear}
-            </span>
+            <span>Año {assessment.transformationYear}</span>
             <span>
               Asignado: {new Date(assessment.assignedAt).toLocaleDateString('es-CL')}
             </span>
             {assessment.completedAt && (
-              <span className="text-green-600">
+              <span className="text-emerald-600">
                 Completado: {new Date(assessment.completedAt).toLocaleDateString('es-CL')}
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+        {/* Action button */}
+        <div className="flex-shrink-0 pt-1">
           {isCompleted ? (
             <Link href={`/docente/assessments/${assessment.id}/results`} legacyBehavior>
-              <a className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand_blue text-white text-sm font-medium rounded-lg hover:bg-brand_blue/90 transition-colors">
+              <a className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium border border-brand_primary/15 text-brand_primary/70 rounded-lg hover:bg-brand_primary/[0.03] transition-colors">
                 <BarChart3 className="w-4 h-4" />
                 Ver Resultados
               </a>
             </Link>
           ) : (
             <Link href={`/docente/assessments/${assessment.id}`} legacyBehavior>
-              <a className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand_blue text-white text-sm font-medium rounded-lg hover:bg-brand_blue/90 transition-colors">
+              <a className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold bg-brand_accent text-brand_primary rounded-lg hover:bg-brand_accent_hover transition-colors shadow-sm">
                 Continuar
                 <ChevronRight className="w-4 h-4" />
               </a>

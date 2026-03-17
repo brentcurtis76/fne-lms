@@ -79,10 +79,9 @@ async function handleGet(
       return res.status(500).json({ error: 'Error al obtener el contexto transversal' });
     }
 
-    // Fetch course structure using service client to bypass profiles RLS
-    // (profiles SELECT policy only allows auth.uid() = id, blocking nested joins for directivos)
+    // Fetch course structure + assignments using service client (bypasses RLS)
     const courseServiceClient = createServiceRoleClient();
-    const { data: courseStructure, error: courseError } = await courseServiceClient
+    const { data: rawCourseStructure, error: courseError } = await courseServiceClient
       .from('school_course_structure')
       .select(`
         id,
@@ -94,12 +93,7 @@ async function handleGet(
           id,
           docente_id,
           is_active,
-          created_at,
-          profiles:docente_id (
-            id,
-            name,
-            email
-          )
+          created_at
         )
       `)
       .eq('school_id', schoolId)
@@ -108,7 +102,38 @@ async function handleGet(
 
     if (courseError) {
       console.error('Error fetching course structure:', courseError);
-      // Don't fail the whole request, just return empty array
+    }
+
+    // Resolve docente names separately (docente_id FK points to auth.users, not profiles)
+    let courseStructure = rawCourseStructure || [];
+    if (courseStructure.length > 0) {
+      const docenteIds = [...new Set(
+        courseStructure.flatMap((c: any) =>
+          (c.school_course_docente_assignments || [])
+            .filter((a: any) => a.is_active)
+            .map((a: any) => a.docente_id)
+        )
+      )];
+
+      if (docenteIds.length > 0) {
+        const { data: docenteProfiles } = await courseServiceClient
+          .from('profiles')
+          .select('id, name, email')
+          .in('id', docenteIds);
+
+        const profilesMap = Object.fromEntries(
+          (docenteProfiles || []).map((p: any) => [p.id, p])
+        );
+
+        // Attach profiles to assignments
+        courseStructure = courseStructure.map((course: any) => ({
+          ...course,
+          school_course_docente_assignments: (course.school_course_docente_assignments || []).map((a: any) => ({
+            ...a,
+            profiles: profilesMap[a.docente_id] || null,
+          })),
+        }));
+      }
     }
 
     return res.status(200).json({

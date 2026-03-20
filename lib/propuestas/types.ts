@@ -188,6 +188,8 @@ export interface PropuestaPlantilla {
 /**
  * PropuestaGenerada — Generated proposal audit record
  */
+export type WebStatus = 'draft' | 'published' | 'viewed' | 'expired';
+
 export interface PropuestaGenerada {
   id: string;
   licitacion_id: string | null;
@@ -203,6 +205,14 @@ export interface PropuestaGenerada {
   version: number;
   generado_por: string | null;
   created_at: string;
+  // Web view fields (Phase 1 — propuesta web)
+  access_code: string | null;
+  access_code_plain: string | null;
+  web_slug: string | null;
+  viewed_at: string | null;
+  view_count: number | null;
+  web_status: WebStatus | null;
+  snapshot_json: Record<string, unknown> | null;
 }
 
 // ============================================================

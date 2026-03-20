@@ -14,6 +14,9 @@ import { uuidSchema } from '@/lib/validation/schemas';
 import { generateProposal } from '@/lib/propuestas/generator';
 import { uploadFile } from '@/lib/propuestas/storage';
 import { validateProposalConfig, type ValidationConfig } from '@/lib/propuestas/validation';
+import { generateAccessCode, hashAccessCode } from '@/lib/propuestas-web/access-code';
+import { generateSlug } from '@/lib/propuestas-web/access-code';
+import { buildProposalSnapshot, type BuildSnapshotInput } from '@/lib/propuestas-web/snapshot';
 
 export const config = { maxDuration: 60 };
 
@@ -96,10 +99,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { plantilla_id, config: proposalConfig, documentos_ids } = bodyParse.data;
 
-  // Step 1: Validate licitacion exists
+  // Step 1: Validate licitacion exists (fetch extra fields for snapshot)
   const { data: licitacion, error: licError } = await serviceClient
     .from('licitaciones')
-    .select('id')
+    .select('id, numero_licitacion, nombre_licitacion, year')
     .eq('id', licitacionId)
     .single();
 
@@ -119,13 +122,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return sendAuthError(res, 'Plantilla no encontrada', 404);
   }
 
-  // Step 3: Load selected documents for expiry check
-  let selectedDocuments: Array<{ id: string; nombre: string; fecha_vencimiento: string | null; archivo_path: string | null }> =
+  // Step 3: Load selected documents for expiry check + snapshot
+  let selectedDocuments: Array<{ id: string; nombre: string; tipo: string; descripcion: string | null; fecha_vencimiento: string | null; archivo_path: string | null }> =
     [];
   if (documentos_ids && documentos_ids.length > 0) {
     const { data: docs, error: docsError } = await serviceClient
       .from('propuesta_documentos_biblioteca')
-      .select('id, nombre, fecha_vencimiento, archivo_path')
+      .select('id, nombre, tipo, descripcion, fecha_vencimiento, archivo_path')
       .eq('activo', true)
       .in('id', documentos_ids);
 
@@ -277,13 +280,55 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const storagePath = `generadas/${licitacionId}/${propuestaId}.pdf`;
     await uploadFile(storagePath, pdfBuffer, 'application/pdf');
 
-    // Step 10: Update record to completada
+    // Step 10: Generate web view data
+    const accessCodePlain = generateAccessCode();
+    const accessCodeHash = await hashAccessCode(accessCodePlain);
+    const webSlug = generateSlug(
+      proposalConfig.schoolName,
+      proposalConfig.type,
+      proposalConfig.programYear,
+      version
+    );
+
+    // Fetch consultant DB records for snapshot enrichment
+    const consultantNames = proposalConfig.consultants.map((c: { nombre: string }) => c.nombre);
+    const { data: consultantRecords } = await serviceClient
+      .from('propuesta_consultores')
+      .select('nombre, foto_path, formacion_academica, experiencia_profesional, especialidades')
+      .in('nombre', consultantNames)
+      .eq('activo', true);
+
+    const fichaForSnapshot = ficha as {
+      id: string;
+      folio: number;
+      nombre_servicio: string;
+      dimension: string;
+      categoria: string;
+      total_horas: number;
+      destinatarios: string[];
+    } | null;
+
+    const snapshotJson = buildProposalSnapshot({
+      config: proposalConfig as BuildSnapshotInput['config'],
+      version,
+      consultantRecords: consultantRecords ?? [],
+      selectedDocuments,
+      licitacion,
+      ficha: fichaForSnapshot,
+    });
+
+    // Step 11: Update record to completada with web data
     const { error: updateError } = await serviceClient
       .from('propuesta_generadas')
       .update({
         estado: 'completada',
         archivo_path: storagePath,
         pdf_sha256: sha256,
+        access_code: accessCodeHash,
+        access_code_plain: accessCodePlain,
+        web_slug: webSlug,
+        web_status: 'published',
+        snapshot_json: snapshotJson,
       })
       .eq('id', propuestaId);
 
@@ -295,6 +340,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       archivo_path: storagePath,
       version,
       validation_warnings: validation.warnings,
+      web_slug: webSlug,
+      access_code: accessCodePlain,
     });
   } catch (err) {
     // Step 11: Mark as error

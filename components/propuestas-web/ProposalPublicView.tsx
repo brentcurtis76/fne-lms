@@ -19,6 +19,7 @@ import { INTERNATIONAL_ADVISORS, FNE_CONTACT_EMAIL } from '@/lib/propuestas-web/
 import ConsultantCard from './ConsultantCard';
 import ContentBlockSection from './ContentBlockSection';
 import BucketDistribution from './BucketDistribution';
+import BucketTimeline from './BucketTimeline';
 
 import PricingSection from './PricingSection';
 import DownloadablesSection from './DownloadablesSection';
@@ -447,7 +448,16 @@ export default function ProposalPublicView({
         <BucketDistribution buckets={snapshot.buckets} />
       )}
 
-      {/* Hours distribution section removed — buckets shown in section 6b */}
+      {/* ============================== */}
+      {/* 7. BUCKET TIMELINE            */}
+      {/* ============================== */}
+      {snapshot.buckets && snapshot.buckets.length > 0 && (
+        <section className="bg-[#fafaf9] py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-5xl mx-auto">
+            <BucketTimeline buckets={snapshot.buckets} />
+          </div>
+        </section>
+      )}
 
       {/* ============================== */}
       {/* 8. ECONOMIC PROPOSAL          */}

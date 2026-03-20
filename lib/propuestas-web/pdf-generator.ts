@@ -1,632 +1,558 @@
 /**
- * Client-side PDF generator for propuestas web view.
- * Uses jsPDF + jspdf-autotable with GENERA brand kit.
+ * Client-side PDF generator — elegant print-ready proposal.
+ *
+ * Design: Swiss corporate style. White backgrounds, dark text, gold accents
+ * used only as thin rules and small labels. Optimized for A4 printing and filing.
  */
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import type { ProposalSnapshot } from './snapshot';
 
-// Brand Kit
-const primaryColor: [number, number, number] = [10, 10, 10]; // #0a0a0a
-const accentColor: [number, number, number] = [251, 191, 36]; // #fbbf24
-const textColor: [number, number, number] = [31, 31, 31]; // #1f1f1f
-const mutedText: [number, number, number] = [107, 114, 128]; // #6b7280
-const dividerColor: [number, number, number] = [209, 213, 219]; // #d1d5db
-const neutralBg: [number, number, number] = [246, 247, 249]; // #f6f7f9
+// ─── Color palette (restrained — print-friendly) ────────────────────
+const ink: [number, number, number] = [24, 24, 24];
+const gold: [number, number, number] = [190, 150, 50]; // muted gold for print
+const gray: [number, number, number] = [120, 120, 120];
+const lightGray: [number, number, number] = [200, 200, 200];
+const faintBg: [number, number, number] = [248, 248, 246];
+const white: [number, number, number] = [255, 255, 255];
 
-// Extend jsPDF type for autoTable (uses `any` to match existing declaration in jspdfWrapper.ts)
+// Month names in Spanish
+const MES = [
+  '', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+// Extend jsPDF for autoTable
 declare module 'jspdf' {
-  // eslint-disable-next-line @typescript-eslint/no-empty-interface
   interface jsPDF {
     lastAutoTable: { finalY: number };
   }
 }
 
-// Month names in Spanish
-const MONTH_NAMES = [
-  '', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-];
-
 export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const margin = 56;
-  const contentWidth = pageWidth - margin * 2;
-  const footerHeight = 50;
+  const W = pdf.internal.pageSize.getWidth();   // 595.28
+  const H = pdf.internal.pageSize.getHeight();  // 841.89
+  const M = 60;                                  // generous margin
+  const CW = W - M * 2;                         // content width
+  const footerZone = 44;
 
-  let cursorY = margin;
+  let Y = M;
 
-  // Track section page numbers for TOC
-  const sectionPages: { title: string; page: number }[] = [];
+  // TOC tracking
+  const toc: { title: string; page: number }[] = [];
+  const recordTOC = (title: string) => toc.push({ title, page: pdf.getNumberOfPages() });
 
-  // ─── Helpers ───────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────
 
-  const ensureSpace = (height: number) => {
-    if (cursorY + height > pageHeight - margin - footerHeight) {
+  /** Break to new page if not enough room */
+  const need = (h: number) => {
+    if (Y + h > H - M - footerZone) {
       pdf.addPage();
-      cursorY = margin;
+      Y = M;
     }
   };
 
-  const addFooter = () => {
-    const totalPages = pdf.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-      pdf.setPage(i);
-      const footerY = pageHeight - margin + 10;
+  /** Thin gold rule across full width */
+  const goldRule = (y: number, length?: number) => {
+    pdf.setDrawColor(...gold);
+    pdf.setLineWidth(0.75);
+    pdf.line(M, y, M + (length ?? CW), y);
+  };
 
-      // Yellow accent line
-      pdf.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
-      pdf.setLineWidth(1.5);
-      pdf.line(margin, footerY - 16, pageWidth - margin, footerY - 16);
+  /** Thin gray rule */
+  const grayRule = (y: number) => {
+    pdf.setDrawColor(...lightGray);
+    pdf.setLineWidth(0.5);
+    pdf.line(M, y, W - M, y);
+  };
+
+  /** Section heading — elegant, restrained */
+  const sectionHead = (title: string, sub?: string) => {
+    need(60);
+    goldRule(Y, 40);
+    Y += 18;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(16);
+    pdf.setTextColor(...ink);
+    pdf.text(title, M, Y);
+    Y += 6;
+    if (sub) {
+      Y += 10;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.setTextColor(...gray);
+      pdf.text(sub, M, Y);
+    }
+    Y += 22;
+  };
+
+  /** Body text — wraps to content width, returns lines used */
+  const body = (text: string, maxW?: number): number => {
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9.5);
+    pdf.setTextColor(...ink);
+    const lines: string[] = pdf.splitTextToSize(text, maxW ?? CW);
+    for (const line of lines) {
+      need(14);
+      pdf.text(line, M, Y);
+      Y += 13;
+    }
+    Y += 5;
+    return lines.length;
+  };
+
+  /** Small label text */
+  const label = (text: string, x?: number) => {
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(...gray);
+    pdf.text(text.toUpperCase(), x ?? M, Y);
+  };
+
+  /** Bullet list with thin gold dots */
+  const bullets = (items: string[]) => {
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9.5);
+    for (const item of items) {
+      const lines: string[] = pdf.splitTextToSize(item, CW - 16);
+      need(lines.length * 13 + 6);
+      pdf.setFillColor(...gold);
+      pdf.circle(M + 3, Y - 2.5, 1.5, 'F');
+      pdf.setTextColor(...ink);
+      for (let i = 0; i < lines.length; i++) {
+        pdf.text(lines[i], M + 12, Y + i * 13);
+      }
+      Y += lines.length * 13 + 4;
+    }
+    Y += 4;
+  };
+
+  /** Add footers to all pages (called at end) */
+  const addFooters = () => {
+    const total = pdf.getNumberOfPages();
+    for (let p = 1; p <= total; p++) {
+      pdf.setPage(p);
+      const fY = H - M + 12;
+      // Skip footer on cover (page 1)
+      if (p === 1) continue;
+
+      pdf.setDrawColor(...lightGray);
+      pdf.setLineWidth(0.5);
+      pdf.line(M, fY - 14, W - M, fY - 14);
 
       pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(8);
-      pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
-
-      // Left
-      pdf.text('GENERA — Fundación Nueva Educación', margin, footerY);
-      // Center
-      pdf.text('contacto@fundacionnuevaeducacion.com', pageWidth / 2, footerY, {
-        align: 'center',
-      });
-      // Right — page number
-      pdf.text(`${i} / ${totalPages}`, pageWidth - margin, footerY, {
-        align: 'right',
-      });
+      pdf.setFontSize(7);
+      pdf.setTextColor(...gray);
+      pdf.text('Fundación Nueva Educación', M, fY);
+      pdf.text('info@nuevaeducacion.org', W / 2, fY, { align: 'center' });
+      pdf.text(`${p}`, W - M, fY, { align: 'right' });
     }
   };
 
-  const drawSectionTitle = (title: string) => {
-    ensureSpace(50);
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(14);
-    pdf.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    pdf.text(title.toUpperCase(), margin, cursorY);
-    cursorY += 6;
+  // ═══════════════════════════════════════════════════════════════════
+  // 1. COVER PAGE — white, elegant, restrained
+  // ═══════════════════════════════════════════════════════════════════
 
-    // Yellow accent underline
-    pdf.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
-    pdf.setLineWidth(2);
-    pdf.line(margin, cursorY, margin + 60, cursorY);
-    cursorY += 20;
-  };
+  // Top gold accent line
+  goldRule(M, 50);
 
-  const drawParagraph = (text: string) => {
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(10);
-    pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-    const lines = pdf.splitTextToSize(text, contentWidth);
-    lines.forEach((line: string) => {
-      ensureSpace(16);
-      pdf.text(line, margin, cursorY);
-      cursorY += 14;
-    });
-    cursorY += 6;
-  };
-
-  const drawBulletList = (items: string[]) => {
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(10);
-    items.forEach((item) => {
-      const lines = pdf.splitTextToSize(item, contentWidth - 20);
-      ensureSpace(lines.length * 14 + 4);
-      // Yellow bullet
-      pdf.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
-      pdf.circle(margin + 4, cursorY - 3, 2.5, 'F');
-      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-      lines.forEach((line: string, idx: number) => {
-        pdf.text(line, margin + 14, cursorY + idx * 14);
-      });
-      cursorY += lines.length * 14 + 4;
-    });
-    cursorY += 4;
-  };
-
-  const drawDefinitionCell = (
-    label: string,
-    value: string,
-    x: number,
-    y: number,
-    width: number
-  ) => {
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(8);
-    pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
-    pdf.text(label.toUpperCase(), x, y);
-
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(11);
-    pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-    const lines = pdf.splitTextToSize(value, width);
-    lines.forEach((line: string, index: number) => {
-      pdf.text(line, x, y + 14 + index * 13);
-    });
-    return 14 + (lines.length - 1) * 13 + 16;
-  };
-
-  const recordSection = (title: string) => {
-    sectionPages.push({ title, page: pdf.getNumberOfPages() });
-  };
-
-  // ─── 1. COVER PAGE ────────────────────────────────────
-
-  // Dark background
-  pdf.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-
-  // GENERA text with manual letter-spacing
-  const generaLetters = 'G E N E R A';
+  // "GENERA" brand
+  Y = M + 30;
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(36);
-  pdf.setTextColor(255, 255, 255);
-  pdf.text(generaLetters, margin, pageHeight * 0.3);
+  pdf.setFontSize(11);
+  pdf.setTextColor(...gold);
+  pdf.text('FUNDACIÓN NUEVA EDUCACIÓN', M, Y);
+  Y += 14;
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8);
+  pdf.setTextColor(...gray);
+  pdf.text('Hub de Transformación Educativa', M, Y);
 
-  // Tagline
+  // Main title block — centered vertically
+  const programLabel =
+    snapshot.type === 'evoluciona' ? 'Programa Evoluciona' : 'Programa Preparación';
+
+  Y = H * 0.35;
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(10);
-  pdf.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-  pdf.text('HUB DE TRANSFORMACIÓN EDUCATIVA', margin, pageHeight * 0.3 + 24);
+  pdf.setTextColor(...gold);
+  pdf.text(programLabel.toUpperCase(), M, Y);
 
-  // Yellow accent line
-  pdf.setDrawColor(accentColor[0], accentColor[1], accentColor[2]);
-  pdf.setLineWidth(3);
-  pdf.line(margin, pageHeight * 0.3 + 40, margin + 80, pageHeight * 0.3 + 40);
+  Y += 24;
+  goldRule(Y, 50);
+  Y += 24;
 
-  // Program name
-  const programLabel =
-    snapshot.type === 'evoluciona' ? 'PROGRAMA EVOLUCIONA' : 'PROGRAMA PREPARACIÓN';
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(14);
-  pdf.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-  pdf.text(programLabel, margin, pageHeight * 0.45);
+  pdf.setFontSize(28);
+  pdf.setTextColor(...ink);
+  const titleLines: string[] = pdf.splitTextToSize(snapshot.serviceName, CW);
+  for (const line of titleLines) {
+    pdf.text(line, M, Y);
+    Y += 34;
+  }
 
-  // Service name
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(24);
-  pdf.setTextColor(255, 255, 255);
-  const serviceLines = pdf.splitTextToSize(snapshot.serviceName, contentWidth);
-  serviceLines.forEach((line: string, i: number) => {
-    pdf.text(line, margin, pageHeight * 0.45 + 28 + i * 28);
-  });
-
-  // School name
-  const schoolY = pageHeight * 0.45 + 28 + serviceLines.length * 28 + 16;
+  Y += 12;
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(14);
-  pdf.setTextColor(200, 200, 200);
-  pdf.text(snapshot.schoolName, margin, schoolY);
+  pdf.setFontSize(13);
+  pdf.setTextColor(...gray);
+  pdf.text(snapshot.schoolName, M, Y);
 
-  // Year and version
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(11);
-  pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
-  pdf.text(`${snapshot.programYear}`, margin, schoolY + 22);
-  pdf.text(`Versión ${snapshot.version}`, margin, schoolY + 38);
+  Y += 24;
+  pdf.setFontSize(10);
+  pdf.setTextColor(...lightGray);
+  pdf.text(`${snapshot.programYear}  ·  Versión ${snapshot.version}`, M, Y);
 
-  // ─── 2. TABLE OF CONTENTS ─────────────────────────────
+  // Destinatarios at bottom
+  if (snapshot.destinatarios && snapshot.destinatarios.length > 0) {
+    Y = H - M - 80;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(...gray);
+    pdf.text('DIRIGIDO A', M, Y);
+    Y += 14;
+    pdf.setFontSize(9);
+    pdf.setTextColor(...ink);
+    pdf.text(snapshot.destinatarios.join('  ·  '), M, Y);
+  }
+
+  // Bottom gold line
+  goldRule(H - M, CW);
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 2. TABLE OF CONTENTS
+  // ═══════════════════════════════════════════════════════════════════
 
   pdf.addPage();
-  cursorY = margin;
-  recordSection('Índice');
+  Y = M;
 
-  drawSectionTitle('Índice');
+  sectionHead('Índice');
 
-  // We'll build TOC entries as we go and fill page numbers at the end.
-  // For now, define the fixed section names.
-  const tocEntries = [
+  const tocNames = [
     'Sobre Fundación Nueva Educación',
     'Equipo de Consultoría',
     'Contenidos del Programa',
-    'Distribución de Módulos y Horas',
     'Propuesta Económica',
     'Documentos de Apoyo',
   ];
 
-  const tocStartY = cursorY;
-  tocEntries.forEach((entry, idx) => {
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(11);
-    pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-    const y = tocStartY + idx * 28;
+  const tocStartY = Y;
+  for (let i = 0; i < tocNames.length; i++) {
+    const yy = tocStartY + i * 26;
     // Number
     pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-    pdf.text(`${String(idx + 1).padStart(2, '0')}`, margin, y);
+    pdf.setFontSize(9);
+    pdf.setTextColor(...gold);
+    pdf.text(String(i + 1).padStart(2, '0'), M, yy);
     // Title
     pdf.setFont('helvetica', 'normal');
-    pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-    pdf.text(entry, margin + 30, y);
-    // Dotted line
-    pdf.setDrawColor(dividerColor[0], dividerColor[1], dividerColor[2]);
+    pdf.setFontSize(10);
+    pdf.setTextColor(...ink);
+    pdf.text(tocNames[i], M + 24, yy);
+    // Dot leader
+    const tw = pdf.getTextWidth(tocNames[i]);
+    pdf.setDrawColor(...lightGray);
     pdf.setLineDashPattern([1, 3], 0);
-    pdf.line(margin + 30 + pdf.getTextWidth(entry) + 8, y, pageWidth - margin - 30, y);
+    pdf.line(M + 24 + tw + 6, yy, W - M - 24, yy);
     pdf.setLineDashPattern([], 0);
-  });
-  cursorY = tocStartY + tocEntries.length * 28 + 20;
+  }
+  Y = tocStartY + tocNames.length * 26 + 20;
 
-  // ─── 3. ABOUT FNE ─────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  // 3. ABOUT FNE
+  // ═══════════════════════════════════════════════════════════════════
 
   pdf.addPage();
-  cursorY = margin;
-  recordSection('Sobre Fundación Nueva Educación');
+  Y = M;
+  recordTOC('Sobre Fundación Nueva Educación');
 
-  drawSectionTitle('Sobre Fundación Nueva Educación');
+  sectionHead('Sobre Fundación Nueva Educación', 'Transformando comunidades educativas desde 2018');
 
-  drawParagraph(
+  body(
     'Desde 2018, la Fundación Nueva Educación trabaja por la transformación de comunidades educativas a través de la formación docente, el liderazgo escolar y la innovación pedagógica. Con más de 6 años de experiencia, acompañamos a colegios en su proceso de mejora continua.'
   );
-
-  drawParagraph(
+  body(
     'Nuestro equipo de consultores expertos diseña programas a medida que responden a las necesidades específicas de cada comunidad educativa, combinando metodologías probadas con enfoques innovadores.'
   );
 
-  // Stats row
-  ensureSpace(70);
-  const statWidth = contentWidth / 3;
-  const stats = [
-    { value: '6+', label: 'Años de experiencia' },
-    { value: '3', label: 'Países' },
-    { value: '100+', label: 'Colegios acompañados' },
+  // Stats — compact three-column
+  need(60);
+  Y += 8;
+  grayRule(Y);
+  Y += 18;
+  const statsData = [
+    { v: '6+', l: 'Años de experiencia' },
+    { v: '3', l: 'Países' },
+    { v: '100+', l: 'Colegios acompañados' },
   ];
-  stats.forEach((stat, idx) => {
-    const x = margin + idx * statWidth;
-    // Background rect
-    pdf.setFillColor(neutralBg[0], neutralBg[1], neutralBg[2]);
-    pdf.roundedRect(x, cursorY, statWidth - 12, 56, 6, 6, 'F');
-
+  const sw = CW / 3;
+  for (let i = 0; i < 3; i++) {
+    const x = M + i * sw;
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(22);
-    pdf.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-    pdf.text(stat.value, x + (statWidth - 12) / 2, cursorY + 24, { align: 'center' });
-
+    pdf.setFontSize(24);
+    pdf.setTextColor(...gold);
+    pdf.text(statsData[i].v, x + sw / 2, Y, { align: 'center' });
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(8);
-    pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
-    pdf.text(stat.label, x + (statWidth - 12) / 2, cursorY + 42, { align: 'center' });
-  });
-  cursorY += 76;
+    pdf.setFontSize(7.5);
+    pdf.setTextColor(...gray);
+    pdf.text(statsData[i].l.toUpperCase(), x + sw / 2, Y + 16, { align: 'center' });
+  }
+  Y += 40;
+  grayRule(Y);
+  Y += 20;
 
-  // ─── 4. CONSULTING TEAM ───────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  // 4. CONSULTING TEAM — compact, multi-per-page
+  // ═══════════════════════════════════════════════════════════════════
 
   pdf.addPage();
-  cursorY = margin;
-  recordSection('Equipo de Consultoría');
+  Y = M;
+  recordTOC('Equipo de Consultoría');
 
-  drawSectionTitle('Equipo de Consultoría');
+  sectionHead('Equipo de Consultoría', `${snapshot.consultants.length} profesionales asignados`);
 
-  snapshot.consultants.forEach((consultant) => {
-    const bioLines = pdf.splitTextToSize(consultant.bio || '', contentWidth - 20);
-    const blockHeight = 24 + bioLines.length * 13 + 20;
-    ensureSpace(blockHeight);
+  for (const c of snapshot.consultants) {
+    const bioLines: string[] = pdf.splitTextToSize(c.bio || '', CW - 4);
+    const blockH = 20 + 14 + bioLines.length * 12 + (c.especialidades?.length ? 24 : 0) + 20;
+    need(blockH);
 
     // Name
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(12);
-    pdf.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    pdf.text(consultant.nombre, margin, cursorY);
-    cursorY += 16;
+    pdf.setFontSize(11);
+    pdf.setTextColor(...ink);
+    pdf.text(c.nombre, M, Y);
+    Y += 14;
 
     // Title
-    pdf.setFont('helvetica', 'italic');
-    pdf.setFontSize(10);
-    pdf.setTextColor(accentColor[0], accentColor[1], accentColor[2]);
-    pdf.text(consultant.titulo, margin, cursorY);
-    cursorY += 16;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(...gold);
+    pdf.text(c.titulo, M, Y);
+    Y += 14;
 
     // Bio
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(10);
-    pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-    bioLines.forEach((line: string) => {
-      ensureSpace(16);
-      pdf.text(line, margin, cursorY);
-      cursorY += 13;
-    });
+    pdf.setFontSize(9);
+    pdf.setTextColor(...gray);
+    for (const line of bioLines) {
+      need(13);
+      pdf.text(line, M, Y);
+      Y += 12;
+    }
 
-    // Specialties
-    if (consultant.especialidades && consultant.especialidades.length > 0) {
-      cursorY += 4;
+    // Specialties inline
+    if (c.especialidades && c.especialidades.length > 0) {
+      Y += 4;
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(9);
-      pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
-      pdf.text('ESPECIALIDADES:', margin, cursorY);
-      cursorY += 12;
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(9);
-      pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-      const specText = consultant.especialidades.join(' · ');
-      const specLines = pdf.splitTextToSize(specText, contentWidth);
-      specLines.forEach((line: string) => {
-        ensureSpace(14);
-        pdf.text(line, margin, cursorY);
-        cursorY += 12;
-      });
+      pdf.setFontSize(7.5);
+      pdf.setTextColor(...gray);
+      const specText = c.especialidades.join('  ·  ');
+      const specLines: string[] = pdf.splitTextToSize(specText, CW);
+      for (const sl of specLines) {
+        need(12);
+        pdf.text(sl, M, Y);
+        Y += 11;
+      }
     }
 
     // Separator
-    cursorY += 8;
-    pdf.setDrawColor(dividerColor[0], dividerColor[1], dividerColor[2]);
-    pdf.setLineWidth(0.5);
-    pdf.line(margin, cursorY, pageWidth - margin, cursorY);
-    cursorY += 16;
-  });
+    Y += 8;
+    grayRule(Y);
+    Y += 14;
+  }
 
-  // ─── 5. CONTENT BLOCKS ────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  // 5. CONTENT BLOCKS — continuous flow, not one-per-page
+  // ═══════════════════════════════════════════════════════════════════
 
   pdf.addPage();
-  cursorY = margin;
-  recordSection('Contenidos del Programa');
+  Y = M;
+  recordTOC('Contenidos del Programa');
 
-  snapshot.contentBlocks.forEach((block, blockIdx) => {
-    if (blockIdx > 0) {
-      // New page for each major block
-      pdf.addPage();
-      cursorY = margin;
+  for (let bi = 0; bi < snapshot.contentBlocks.length; bi++) {
+    const block = snapshot.contentBlocks[bi];
+
+    // Section title for each block — but stay on same page if room
+    need(60);
+    if (bi > 0) {
+      Y += 10;
+      grayRule(Y);
+      Y += 20;
     }
 
-    drawSectionTitle(block.titulo);
+    // Block title with gold accent
+    goldRule(Y, 30);
+    Y += 16;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(13);
+    pdf.setTextColor(...ink);
+    const blockTitleLines: string[] = pdf.splitTextToSize(block.titulo, CW);
+    for (const line of blockTitleLines) {
+      pdf.text(line, M, Y);
+      Y += 16;
+    }
+    Y += 10;
 
-    if (block.contenido && block.contenido.sections) {
-      block.contenido.sections.forEach((section) => {
+    // Render content sections
+    if (block.contenido?.sections) {
+      for (const section of block.contenido.sections) {
         switch (section.type) {
           case 'heading': {
-            ensureSpace(30);
+            need(28);
+            Y += 6;
             pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(section.level && section.level <= 2 ? 12 : 11);
-            pdf.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-            pdf.text((section.text || '').toUpperCase(), margin, cursorY);
-            cursorY += 20;
+            pdf.setFontSize(section.level && section.level <= 2 ? 11 : 10);
+            pdf.setTextColor(...ink);
+            pdf.text(section.text || '', M, Y);
+            Y += 16;
             break;
           }
           case 'paragraph': {
-            drawParagraph(section.text || '');
+            body(section.text || '');
             break;
           }
           case 'list': {
-            if (section.items && section.items.length > 0) {
-              drawBulletList(section.items);
+            if (section.items?.length) {
+              bullets(section.items);
             }
             break;
           }
-          case 'image': {
-            // Skip images in PDF — text-focused document
+          case 'image':
+            // Skip images — text-focused print document
             break;
-          }
         }
-      });
-    }
-  });
-
-  // ─── 6. MODULES & HOURS TABLE ─────────────────────────
-
-  pdf.addPage();
-  cursorY = margin;
-  recordSection('Distribución de Módulos y Horas');
-
-  drawSectionTitle('Distribución de Módulos y Horas');
-
-  const tableHead = [['Módulo', 'Presencial', 'Sincrónica', 'Asincrónica', 'Total', 'Mes']];
-  const tableBody = snapshot.modules.map((m) => [
-    m.nombre,
-    String(m.horas_presenciales),
-    String(m.horas_sincronicas),
-    String(m.horas_asincronicas),
-    String(m.horas_presenciales + m.horas_sincronicas + m.horas_asincronicas),
-    m.mes ? MONTH_NAMES[m.mes] || '' : '',
-  ]);
-
-  // Summary row
-  tableBody.push([
-    'TOTAL',
-    String(snapshot.horasPresenciales),
-    String(snapshot.horasSincronicas),
-    String(snapshot.horasAsincronicas),
-    String(snapshot.totalHours),
-    '',
-  ]);
-
-  pdf.autoTable({
-    head: tableHead,
-    body: tableBody,
-    startY: cursorY,
-    margin: { left: margin, right: margin },
-    styles: {
-      font: 'helvetica',
-      fontSize: 9,
-      cellPadding: 8,
-      textColor: textColor,
-      lineColor: dividerColor,
-      lineWidth: 0.5,
-    },
-    headStyles: {
-      fillColor: primaryColor,
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      fontSize: 9,
-    },
-    alternateRowStyles: {
-      fillColor: neutralBg,
-    },
-    // Style the last row (TOTAL) differently
-    didParseCell: (data: { row: { index: number }; section: string; cell: { styles: Record<string, unknown> } }) => {
-      if (data.section === 'body' && data.row.index === tableBody.length - 1) {
-        data.cell.styles.fontStyle = 'bold';
-        data.cell.styles.fillColor = [accentColor[0], accentColor[1], accentColor[2]];
-        data.cell.styles.textColor = [primaryColor[0], primaryColor[1], primaryColor[2]];
       }
-    },
-    columnStyles: {
-      0: { cellWidth: 'auto' },
-      1: { halign: 'center', cellWidth: 60 },
-      2: { halign: 'center', cellWidth: 60 },
-      3: { halign: 'center', cellWidth: 65 },
-      4: { halign: 'center', cellWidth: 50 },
-      5: { halign: 'center', cellWidth: 70 },
-    },
-  });
-
-  cursorY = pdf.lastAutoTable.finalY + 20;
-
-  // Hours summary below table
-  ensureSpace(80);
-  const summaryItems = [
-    { label: 'Horas Presenciales', value: String(snapshot.horasPresenciales) },
-    { label: 'Horas Sincrónicas', value: String(snapshot.horasSincronicas) },
-    { label: 'Horas Asincrónicas', value: String(snapshot.horasAsincronicas) },
-    { label: 'Total Horas', value: String(snapshot.totalHours) },
-  ];
-  const colW = contentWidth / 4;
-  summaryItems.forEach((item, idx) => {
-    const x = margin + idx * colW;
-    drawDefinitionCell(item.label, item.value, x, cursorY, colW - 10);
-  });
-  cursorY += 50;
-
-  // ─── 7. ECONOMIC PROPOSAL ─────────────────────────────
-
-  pdf.addPage();
-  cursorY = margin;
-  recordSection('Propuesta Económica');
-
-  drawSectionTitle('Propuesta Económica');
-
-  // Hours summary
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(10);
-  pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
-  pdf.text('RESUMEN DE HORAS', margin, cursorY);
-  cursorY += 18;
-
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(11);
-  pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-  pdf.text(`Total de horas del programa: ${snapshot.totalHours} horas`, margin, cursorY);
-  cursorY += 28;
-
-  // Pricing mode
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(10);
-  pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
-  pdf.text('MODALIDAD DE PRECIO', margin, cursorY);
-  cursorY += 18;
-
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(11);
-  pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
-
-  let totalUf: number;
-  if (snapshot.pricing.mode === 'per_hour') {
-    pdf.text(`Valor por hora: ${snapshot.pricing.precioUf} UF`, margin, cursorY);
-    cursorY += 16;
-    totalUf = snapshot.pricing.precioUf * snapshot.pricing.totalHours;
-    pdf.text(`${snapshot.pricing.precioUf} UF × ${snapshot.pricing.totalHours} horas`, margin, cursorY);
-    cursorY += 28;
-  } else {
-    totalUf = snapshot.pricing.fixedUf ?? 0;
-    pdf.text(`Valor fijo del programa: ${totalUf} UF`, margin, cursorY);
-    cursorY += 28;
+    }
   }
 
-  // Grand total with yellow background
-  ensureSpace(60);
-  pdf.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
-  pdf.roundedRect(margin, cursorY, contentWidth, 48, 6, 6, 'F');
+  // ═══════════════════════════════════════════════════════════════════
+  // 6. ECONOMIC PROPOSAL — total only, no per-hour breakdown
+  // ═══════════════════════════════════════════════════════════════════
+
+  pdf.addPage();
+  Y = M;
+  recordTOC('Propuesta Económica');
+
+  sectionHead('Propuesta Económica');
+
+  // Calculate total without exposing per-hour rate
+  let totalUf: number;
+  if (snapshot.pricing.mode === 'per_hour') {
+    totalUf = snapshot.pricing.precioUf * snapshot.pricing.totalHours;
+  } else {
+    totalUf = snapshot.pricing.fixedUf ?? 0;
+  }
+
+  // Total hours summary
+  label('Programa');
+  Y += 14;
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(10);
+  pdf.setTextColor(...ink);
+  pdf.text(`${snapshot.totalHours} horas totales de acompañamiento`, M, Y);
+  Y += 26;
+
+  // Grand total — gold bordered box, white fill
+  need(60);
+  pdf.setDrawColor(...gold);
+  pdf.setLineWidth(1.5);
+  pdf.setFillColor(...white);
+  pdf.roundedRect(M, Y, CW, 50, 4, 4, 'FD');
 
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(12);
-  pdf.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-  pdf.text('INVERSIÓN TOTAL', margin + 16, cursorY + 20);
+  pdf.setFontSize(8);
+  pdf.setTextColor(...gray);
+  pdf.text('INVERSIÓN TOTAL', M + 16, Y + 22);
 
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(20);
-  pdf.text(`${totalUf.toLocaleString('es-CL')} UF`, pageWidth - margin - 16, cursorY + 22, {
-    align: 'right',
-  });
+  pdf.setFontSize(22);
+  pdf.setTextColor(...ink);
+  pdf.text(`${totalUf.toFixed(2)} UF`, W - M - 16, Y + 24, { align: 'right' });
 
-  cursorY += 68;
+  Y += 70;
 
   // Payment terms
   if (snapshot.pricing.formaPago) {
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(10);
-    pdf.setTextColor(mutedText[0], mutedText[1], mutedText[2]);
-    pdf.text('FORMA DE PAGO', margin, cursorY);
-    cursorY += 18;
-    drawParagraph(snapshot.pricing.formaPago);
+    label('Forma de pago');
+    Y += 14;
+    body(snapshot.pricing.formaPago);
   }
 
-  // ─── 8. SUPPORTING DOCUMENTS ──────────────────────────
+  // Payment details
+  if (snapshot.pricing.formaPagoDetalle) {
+    label('Detalle de pago');
+    Y += 14;
+    body(snapshot.pricing.formaPagoDetalle);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 8. SUPPORTING DOCUMENTS
+  // ═══════════════════════════════════════════════════════════════════
 
   if (snapshot.documents.length > 0) {
     pdf.addPage();
-    cursorY = margin;
-    recordSection('Documentos de Apoyo');
+    Y = M;
+    recordTOC('Documentos de Apoyo');
 
-    drawSectionTitle('Documentos de Apoyo');
+    sectionHead('Documentos de Apoyo', 'Disponibles para descarga en la versión web de esta propuesta');
 
-    drawParagraph(
-      'Los siguientes documentos complementan esta propuesta y están disponibles para descarga en la versión web.'
-    );
+    const dHead = [['Documento', 'Tipo']];
+    const dBody = snapshot.documents.map((d) => [d.nombre, d.tipo.replace(/_/g, ' ')]);
 
-    const docHead = [['Documento', 'Tipo']];
-    const docBody = snapshot.documents.map((d) => [d.nombre, d.tipo]);
-
-    pdf.autoTable({
-      head: docHead,
-      body: docBody,
-      startY: cursorY,
-      margin: { left: margin, right: margin },
+    autoTable(pdf, {
+      head: dHead,
+      body: dBody,
+      startY: Y,
+      margin: { left: M, right: M },
       styles: {
         font: 'helvetica',
-        fontSize: 10,
-        cellPadding: 10,
-        textColor: textColor,
-        lineColor: dividerColor,
+        fontSize: 9,
+        cellPadding: 9,
+        textColor: ink,
+        lineColor: lightGray,
         lineWidth: 0.5,
       },
       headStyles: {
-        fillColor: primaryColor,
-        textColor: [255, 255, 255],
+        fillColor: faintBg,
+        textColor: ink,
         fontStyle: 'bold',
+        fontSize: 8,
       },
-      alternateRowStyles: {
-        fillColor: neutralBg,
-      },
+      alternateRowStyles: { fillColor: white },
       columnStyles: {
         0: { cellWidth: 'auto' },
-        1: { cellWidth: 120, halign: 'center' },
+        1: { cellWidth: 130, halign: 'center' },
       },
     });
 
-    cursorY = pdf.lastAutoTable.finalY + 20;
+    Y = (pdf as any).lastAutoTable.finalY + 20;
   }
 
-  // ─── 9. FOOTERS ───────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  // 9. FOOTERS + TOC PAGE NUMBERS
+  // ═══════════════════════════════════════════════════════════════════
 
-  addFooter();
+  addFooters();
 
-  // ─── UPDATE TOC PAGE NUMBERS ──────────────────────────
-
-  // Go back to TOC page (page 2) and add page numbers
+  // Fill in TOC page numbers on page 2
   pdf.setPage(2);
-  sectionPages.forEach((section, idx) => {
-    // Skip the "Índice" entry itself
-    if (section.title === 'Índice') return;
-    const tocIdx = tocEntries.indexOf(section.title);
-    if (tocIdx === -1) return;
-    const y = tocStartY + tocIdx * 28;
+  for (const entry of toc) {
+    const idx = tocNames.indexOf(entry.title);
+    if (idx === -1) continue;
+    const yy = tocStartY + idx * 26;
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(11);
-    pdf.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
-    pdf.text(String(section.page), pageWidth - margin, y, { align: 'right' });
-  });
+    pdf.setFontSize(10);
+    pdf.setTextColor(...ink);
+    pdf.text(String(entry.page), W - M, yy, { align: 'right' });
+  }
 
-  // ─── SAVE ─────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  // SAVE
+  // ═══════════════════════════════════════════════════════════════════
 
-  const sanitizedSchool = snapshot.schoolName.replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ\s]/g, '').replace(/\s+/g, '_');
-  const dateStr = new Date().toISOString().slice(0, 10);
-  const fileName = `Propuesta_${sanitizedSchool}_${snapshot.type}_v${snapshot.version}_${dateStr}.pdf`;
-  pdf.save(fileName);
+  const safeName = snapshot.schoolName
+    .replace(/[^a-zA-Z0-9áéíóúñÁÉÍÓÚÑ\s]/g, '')
+    .replace(/\s+/g, '_');
+  const date = new Date().toISOString().slice(0, 10);
+  pdf.save(`Propuesta_${safeName}_${snapshot.type}_v${snapshot.version}_${date}.pdf`);
 }

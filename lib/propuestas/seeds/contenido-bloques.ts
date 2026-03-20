@@ -230,7 +230,11 @@ export const BLOQUES_SEED: PropuestaContenidoBloqueInsert[] = [
         },
         {
           type: 'paragraph',
-          text: 'PLACEHOLDER — extract from William Taylor 2025, p.16. Describe the digital learning platform component: the online environment that hosts asynchronous content, resources, collaborative spaces, and progress tracking for participating teachers between face-to-face sessions.',
+          text: 'La Plataforma de Crecimiento Genera es el entorno digital de gestión del aprendizaje que soporta todo el proceso de cambio entre las sesiones presenciales. Asesores, líderes en terreno y sus equipos cuentan con un espacio donde acceder a contenidos audiovisuales, coordinar la formación de sus comunidades, favorecer la formación cruzada entre pares y desarrollar contenidos propios. En coherencia con el Modelo de Educación Relacional, Genera no es un repositorio pasivo de contenidos sino un espacio de encuentro: está diseñada para que el aprendizaje ocurra en relación con otros, promoviendo el intercambio, la co-creación y el reconocimiento del saber que cada educador aporta.',
+        },
+        {
+          type: 'paragraph',
+          text: 'Uno de los mayores beneficios de la plataforma son las herramientas para tomar "fotografías apreciativas" del estado actual de la escuela, permitiendo diseñar una ruta de mejora y evaluar el progreso. A través de instrumentos simples pero quirúrgicos, los líderes obtienen visibilidad sobre lo que ocurre en las aulas, las prácticas pedagógicas y las relaciones dentro de la comunidad educativa.',
         },
       ],
     },

@@ -43,6 +43,8 @@ import {
 } from '@/lib/propuestas/validation';
 import { ProposalPreview } from './ProposalPreview';
 import type { ProposalConfig } from '@/lib/propuestas/generator';
+import type { HourBucket } from '@/lib/propuestas/types/hours';
+import BucketConfigSection from './BucketConfigSection';
 
 // ============================================================
 // TYPES
@@ -191,6 +193,7 @@ export default function ProposalConfigPanel({
   const [horasPresenciales, setHorasPresenciales] = useState(0);
   const [horasSincronicas, setHorasSincronicas] = useState(0);
   const [horasAsincronicas, setHorasAsincronicas] = useState(0);
+  const [activeBuckets, setActiveBuckets] = useState<HourBucket[]>([]);
   const [plataforma, setPlataforma] = useState(false);
   const [plataformaBeneficios, setPlataformaBeneficios] = useState('');
   const [consultoresIds, setConsultoresIds] = useState<string[]>([]);
@@ -205,6 +208,7 @@ export default function ProposalConfigPanel({
 
   // Sub-section open states
   const [secHoras, setSecHoras] = useState(true);
+  const [secBuckets, setSecBuckets] = useState(false);
   const [secPlataforma, setSecPlataforma] = useState(false);
   const [secConsultores, setSecConsultores] = useState(true);
   const [secPrecio, setSecPrecio] = useState(true);
@@ -574,11 +578,22 @@ export default function ProposalConfigPanel({
         horasPresenciales,
         horasSincronicas,
         horasAsincronicas,
+        buckets: activeBuckets.filter(b => b.hours > 0).map(b => ({
+          id: b.id,
+          label: b.label,
+          hours: b.hours,
+          distributionType: b.distributionType,
+          modalidad: b.modalidad,
+          isCustom: b.id.startsWith('custom-') || undefined,
+          mes: b.mes || undefined,
+          notes: b.notes || undefined,
+        })),
         pricing: {
           mode: precioModelo,
           precioUf: precioUfNum,
           totalHours: totalHoras,
           formaPago: formaPago || '3 cuotas iguales',
+          formaPagoDetalle: formaPagoDetalle || undefined,
           fixedUf: precioModelo === 'fixed' ? fixedUfNum : undefined,
         },
         contentBlocks: plantillaBloques.map(b => ({
@@ -914,6 +929,21 @@ export default function ProposalConfigPanel({
                       </div>
                     </div>
                   </div>
+                )}
+              </div>
+
+              {/* ── DISTRIBUCIÓN DE ACTIVIDADES (BUCKETS) ── */}
+              <div>
+                <SectionHeader
+                  title="Distribución de Actividades"
+                  open={secBuckets}
+                  onToggle={() => setSecBuckets(o => !o)}
+                />
+                {secBuckets && (
+                  <BucketConfigSection
+                    activeBuckets={activeBuckets}
+                    onChange={setActiveBuckets}
+                  />
                 )}
               </div>
 

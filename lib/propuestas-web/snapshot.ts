@@ -4,6 +4,8 @@
  * without additional DB queries.
  */
 
+import { interpolateContentBlocks, type ContentBlock } from './interpolate';
+
 // ============================================================
 // Snapshot Types
 // ============================================================
@@ -12,6 +14,7 @@ export interface SnapshotConsultant {
   nombre: string;
   titulo: string;
   bio: string;
+  categoria?: string;
   fotoPath: string | null;
   formacion: { year: number; institution: string; degree: string }[] | null;
   experiencia: { empresa: string; cargo: string; funcion: string }[] | null;
@@ -31,6 +34,7 @@ export interface SnapshotPricing {
   precioUf: number;
   totalHours: number;
   formaPago: string;
+  formaPagoDetalle?: string;
   fixedUf?: number;
 }
 
@@ -49,6 +53,26 @@ export interface SnapshotContentBlock {
     sections: SnapshotContentSection[];
   };
   imagenes: { key: string; path: string; alt: string }[] | null;
+}
+
+export interface SnapshotBucket {
+  id: string;
+  label: string;
+  hours: number;
+  distributionType: 'bloque' | 'cadencia' | 'flexible';
+  modalidad: 'presencial' | 'online' | 'asincronico' | 'hibrido';
+  isCustom?: boolean;
+  /** Relative program month (1-8). Required for bloque, absent for cadencia/flexible. */
+  mes?: number;
+  notes?: string;
+}
+
+export interface SnapshotCliente {
+  nombreLegal: string;
+  nombreFantasia: string;
+  comuna: string | null;
+  ciudad: string | null;
+  nombreRepresentante: string;
 }
 
 export interface SnapshotDocument {
@@ -86,6 +110,9 @@ export interface ProposalSnapshot {
   horasAsincronicas: number;
   totalHours: number;
 
+  // Activity buckets (optional — absent in older snapshots)
+  buckets?: SnapshotBucket[];
+
   // Pricing
   pricing: SnapshotPricing;
 
@@ -102,6 +129,15 @@ export interface ProposalSnapshot {
     nombre: string;
     year: number;
   } | null;
+
+  // Client info (optional — enrichment)
+  cliente?: SnapshotCliente | null;
+
+  // School code (optional — enrichment)
+  schoolCode?: string | null;
+
+  // Ficha objetivo general (optional — enrichment)
+  fichaObjetivo?: string | null;
 
   // Ficha metadata
   ficha: {
@@ -147,6 +183,7 @@ export interface BuildSnapshotInput {
       precioUf: number;
       totalHours: number;
       formaPago: string;
+      formaPagoDetalle?: string;
       fixedUf?: number;
     };
     contentBlocks: Array<{
@@ -158,10 +195,21 @@ export interface BuildSnapshotInput {
     startMonth?: number;
     duration?: number;
     destinatarios?: string[];
+    buckets?: Array<{
+      id: string;
+      label: string;
+      hours: number;
+      distributionType: 'bloque' | 'cadencia' | 'flexible';
+      modalidad: 'presencial' | 'online' | 'asincronico' | 'hibrido';
+      isCustom?: boolean;
+      mes?: number;
+      notes?: string;
+    }>;
   };
   version: number;
   consultantRecords: Array<{
     nombre: string;
+    categoria?: string;
     foto_path: string | null;
     formacion_academica: { year: number; institution: string; degree: string }[] | null;
     experiencia_profesional: { empresa: string; cargo: string; funcion: string }[] | null;
@@ -188,11 +236,20 @@ export interface BuildSnapshotInput {
     categoria: string;
     total_horas: number;
     destinatarios: string[];
+    objetivo_general?: string | null;
   } | null;
+  cliente?: {
+    nombre_legal: string;
+    nombre_fantasia: string;
+    comuna: string | null;
+    ciudad: string | null;
+    nombre_representante: string;
+  } | null;
+  schoolCode?: string | null;
 }
 
 export function buildProposalSnapshot(input: BuildSnapshotInput): ProposalSnapshot {
-  const { config, version, consultantRecords, selectedDocuments, licitacion, ficha } = input;
+  const { config, version, consultantRecords, selectedDocuments, licitacion, ficha, cliente, schoolCode } = input;
 
   // Merge consultant config data with DB records (photo URLs, CV, etc.)
   const consultants: SnapshotConsultant[] = config.consultants.map((c) => {
@@ -201,6 +258,7 @@ export function buildProposalSnapshot(input: BuildSnapshotInput): ProposalSnapsh
       nombre: c.nombre,
       titulo: c.titulo,
       bio: c.bio,
+      categoria: dbRecord?.categoria ?? undefined,
       fotoPath: c.fotoPath ?? dbRecord?.foto_path ?? null,
       formacion: dbRecord?.formacion_academica ?? null,
       experiencia: dbRecord?.experiencia_profesional ?? null,
@@ -229,6 +287,29 @@ export function buildProposalSnapshot(input: BuildSnapshotInput): ProposalSnapsh
 
   const totalHours = config.horasPresenciales + config.horasSincronicas + config.horasAsincronicas;
 
+  // Interpolate {{variable}} placeholders in content block text
+  const interpolatedBlocks = interpolateContentBlocks(
+    contentBlocks as ContentBlock[],
+    {
+      schoolName: config.schoolName,
+      programYear: config.programYear,
+      serviceName: config.serviceName,
+      totalHours,
+      destinatarios: config.destinatarios,
+      cliente: cliente
+        ? {
+            nombreFantasia: cliente.nombre_fantasia,
+            nombreRepresentante: cliente.nombre_representante,
+            ciudad: cliente.ciudad,
+            comuna: cliente.comuna,
+          }
+        : null,
+      schoolCode,
+    }
+  ) as SnapshotContentBlock[];
+
+  const activeBuckets = (config.buckets ?? []).filter((b) => b.hours > 0);
+
   return {
     version,
     generatedAt: new Date().toISOString(),
@@ -252,8 +333,9 @@ export function buildProposalSnapshot(input: BuildSnapshotInput): ProposalSnapsh
     horasSincronicas: config.horasSincronicas,
     horasAsincronicas: config.horasAsincronicas,
     totalHours,
+    buckets: activeBuckets.length > 0 ? activeBuckets : undefined,
     pricing: { ...config.pricing },
-    contentBlocks,
+    contentBlocks: interpolatedBlocks,
     documents,
     licitacion: licitacion
       ? {
@@ -263,6 +345,17 @@ export function buildProposalSnapshot(input: BuildSnapshotInput): ProposalSnapsh
           year: licitacion.year,
         }
       : null,
+    cliente: cliente
+      ? {
+          nombreLegal: cliente.nombre_legal,
+          nombreFantasia: cliente.nombre_fantasia,
+          comuna: cliente.comuna,
+          ciudad: cliente.ciudad,
+          nombreRepresentante: cliente.nombre_representante,
+        }
+      : undefined,
+    schoolCode: schoolCode ?? undefined,
+    fichaObjetivo: ficha?.objetivo_general ?? undefined,
     ficha: ficha
       ? {
           id: ficha.id,

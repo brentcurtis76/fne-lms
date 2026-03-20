@@ -53,6 +53,7 @@ const GenerateSchema = z.object({
       precioUf: z.number(),
       totalHours: z.number(),
       formaPago: z.string(),
+      formaPagoDetalle: z.string().max(500).optional(),
       fixedUf: z.number().optional(),
     }),
     contentBlocks: z.array(
@@ -67,6 +68,18 @@ const GenerateSchema = z.object({
     startMonth: z.number().int().optional(),
     duration: z.number().int().optional(),
     destinatarios: z.array(z.string()).optional(),
+    buckets: z.array(
+      z.object({
+        id: z.string(),
+        label: z.string(),
+        hours: z.number().min(0),
+        distributionType: z.enum(['bloque', 'cadencia', 'flexible']),
+        modalidad: z.enum(['presencial', 'online', 'asincronico', 'hibrido']),
+        isCustom: z.boolean().optional(),
+        mes: z.number().int().min(1).max(12).optional(),
+        notes: z.string().max(500).optional(),
+      })
+    ).optional().default([]),
   }),
   documentos_ids: z.array(z.string().uuid()).optional(),
 });
@@ -102,7 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Step 1: Validate licitacion exists (fetch extra fields for snapshot)
   const { data: licitacion, error: licError } = await serviceClient
     .from('licitaciones')
-    .select('id, numero_licitacion, nombre_licitacion, year')
+    .select('id, numero_licitacion, nombre_licitacion, year, cliente_id, school_id')
     .eq('id', licitacionId)
     .single();
 
@@ -292,11 +305,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Fetch consultant DB records for snapshot enrichment
     const consultantNames = proposalConfig.consultants.map((c: { nombre: string }) => c.nombre);
-    const { data: consultantRecords } = await serviceClient
-      .from('propuesta_consultores')
-      .select('nombre, foto_path, formacion_academica, experiencia_profesional, especialidades')
-      .in('nombre', consultantNames)
-      .eq('activo', true);
+    const [{ data: consultantRecords }, { data: clienteData }, { data: schoolData }] = await Promise.all([
+      serviceClient
+        .from('propuesta_consultores')
+        .select('nombre, categoria, foto_path, formacion_academica, experiencia_profesional, especialidades')
+        .in('nombre', consultantNames)
+        .eq('activo', true),
+      licitacion.cliente_id
+        ? serviceClient
+            .from('clientes')
+            .select('nombre_legal, nombre_fantasia, comuna, ciudad, nombre_representante')
+            .eq('id', licitacion.cliente_id)
+            .single()
+        : Promise.resolve({ data: null }),
+      licitacion.school_id
+        ? serviceClient
+            .from('schools')
+            .select('code')
+            .eq('id', licitacion.school_id)
+            .single()
+        : Promise.resolve({ data: null }),
+    ]);
 
     const fichaForSnapshot = ficha as {
       id: string;
@@ -306,6 +335,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       categoria: string;
       total_horas: number;
       destinatarios: string[];
+      objetivo_general?: string | null;
     } | null;
 
     const snapshotJson = buildProposalSnapshot({
@@ -315,6 +345,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       selectedDocuments,
       licitacion,
       ficha: fichaForSnapshot,
+      cliente: clienteData as BuildSnapshotInput['cliente'],
+      schoolCode: (schoolData as { code?: string } | null)?.code ?? null,
     });
 
     // Step 11: Update record to completada with web data

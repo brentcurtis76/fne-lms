@@ -6,7 +6,6 @@ import {
   Phone,
   Download,
   MessageSquare,
-  CheckCircle,
   Globe,
   Users,
   Award,
@@ -385,6 +384,25 @@ export default function ProposalPublicView({
           <p className="text-white/60 text-sm mb-2">
             Transformando comunidades educativas
           </p>
+
+          {/* Ficha & Licitación metadata */}
+          {(snapshot.ficha || snapshot.licitacion) && (
+            <div className="mt-4 mb-4 text-white/40 text-xs space-y-1">
+              {snapshot.ficha && (
+                <p>
+                  {snapshot.ficha.nombre_servicio} — {snapshot.ficha.dimension}
+                  {snapshot.ficha.categoria ? ` · ${snapshot.ficha.categoria}` : ''}
+                  {snapshot.ficha.folio ? ` · Folio ${snapshot.ficha.folio}` : ''}
+                </p>
+              )}
+              {snapshot.licitacion && (
+                <p>
+                  Licitación {snapshot.licitacion.numero} — {snapshot.licitacion.nombre} ({snapshot.licitacion.year})
+                </p>
+              )}
+            </div>
+          )}
+
           <p className="text-white/40 text-xs">
             &copy; {new Date().getFullYear()} Fundación Nueva Educación. Todos los derechos
             reservados.

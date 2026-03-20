@@ -62,7 +62,7 @@ export default function ProposalPublicView({
         <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32">
           <div className="mb-8">
             <Image
-              src="/images/fne-logo-gold.png"
+              src="/logos/fne-logo-gold.png"
               alt="Fundación Nueva Educación"
               width={160}
               height={53}
@@ -358,7 +358,7 @@ export default function ProposalPublicView({
       <footer className="bg-[#0a0a0a] text-white py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-5xl mx-auto text-center">
           <Image
-            src="/images/fne-logo-gold.png"
+            src="/logos/fne-logo-gold.png"
             alt="Fundación Nueva Educación"
             width={120}
             height={40}

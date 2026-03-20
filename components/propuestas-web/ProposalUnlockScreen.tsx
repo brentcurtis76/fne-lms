@@ -62,7 +62,7 @@ export default function ProposalUnlockScreen({
         {/* Logo */}
         <div className="mb-10">
           <Image
-            src="/images/fne-logo-gold.png"
+            src="/logos/fne-logo-gold.png"
             alt="Fundación Nueva Educación"
             width={180}
             height={60}

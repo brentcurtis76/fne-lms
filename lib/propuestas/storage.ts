@@ -3,6 +3,15 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 const BUCKET = 'propuestas';
 const DEFAULT_EXPIRY = 3600; // 1 hour
 
+/**
+ * Resolve a storage path to a signed URL for browser display.
+ * Returns null if path is falsy. Uses 1-hour expiry (resolved per-request).
+ */
+export async function resolveDisplayUrl(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null;
+  return getSignedUrl(path);
+}
+
 export async function getSignedUrl(path: string, expiresIn = DEFAULT_EXPIRY): Promise<string> {
   const { data, error } = await supabaseAdmin.storage
     .from(BUCKET)

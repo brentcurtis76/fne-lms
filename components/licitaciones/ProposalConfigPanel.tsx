@@ -707,12 +707,14 @@ export default function ProposalConfigPanel({
                         'coincide con la Ficha'
                       }
                     />
-                    {/* Rule 2: Horas */}
+                    {/* Rule 2: Horas — error if less, warning if more */}
                     <ValidationRow
-                      pass={!validationResult.errors.some(e => e.rule === 2)}
+                      pass={!validationResult.errors.some(e => e.rule === 2) && !validationResult.warnings.some(w => w.rule === 2)}
+                      warn={validationResult.warnings.some(w => w.rule === 2)}
                       label="Horas presenciales + sincrónicas"
                       detail={
                         validationResult.errors.find(e => e.rule === 2)?.message ||
+                        validationResult.warnings.find(w => w.rule === 2)?.message ||
                         `${subtotalHoras}/${selectedFicha.horas_presenciales} registradas`
                       }
                     />
@@ -1738,25 +1740,25 @@ export default function ProposalConfigPanel({
 
 function ValidationRow({
   pass,
+  warn,
   label,
   detail,
 }: {
   pass: boolean;
+  warn?: boolean;
   label: string;
   detail: string;
 }) {
+  const color = warn ? 'amber' : pass ? 'green' : 'red';
+  const Icon = warn ? AlertTriangle : pass ? CheckCircle : XCircle;
   return (
     <div className="flex items-start gap-2 text-xs">
-      {pass ? (
-        <CheckCircle size={13} className="text-green-600 mt-0.5 flex-shrink-0" />
-      ) : (
-        <XCircle size={13} className="text-red-600 mt-0.5 flex-shrink-0" />
-      )}
+      <Icon size={13} className={`text-${color}-600 mt-0.5 flex-shrink-0`} />
       <div>
-        <span className={`font-medium ${pass ? 'text-green-800' : 'text-red-800'}`}>
+        <span className={`font-medium text-${color}-800`}>
           {label}:
         </span>{' '}
-        <span className={pass ? 'text-green-700' : 'text-red-700'}>{detail}</span>
+        <span className={`text-${color}-700`}>{detail}</span>
       </div>
     </div>
   );

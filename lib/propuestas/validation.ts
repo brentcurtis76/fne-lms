@@ -82,15 +82,26 @@ export function validateProposalConfig(
     });
   }
 
-  // RULE 2: presenciales + sincronicas <= ficha.horas_presenciales
+  // RULE 2: presenciales + sincronicas vs ficha.horas_presenciales
+  // Less than ficha = error (blocks generation)
+  // More than ficha = warning only (allowed, might be intentional)
   const horasRegistradas = (config.horas_presenciales ?? 0) + (config.horas_sincronicas ?? 0);
-  if (horasRegistradas > (ficha.horas_presenciales ?? 0)) {
+  const fichaHoras = ficha.horas_presenciales ?? 0;
+  if (horasRegistradas < fichaHoras) {
     errors.push({
       rule: 2,
       field: 'horas_presenciales',
-      expected: `<= ${ficha.horas_presenciales}`,
+      expected: `>= ${fichaHoras}`,
       actual: String(horasRegistradas),
-      message: `Las horas presenciales + sincrónicas (${horasRegistradas}) superan las horas registradas en la Ficha (${ficha.horas_presenciales})`,
+      message: `Las horas presenciales + sincrónicas (${horasRegistradas}) son menores que las registradas en la Ficha (${fichaHoras})`,
+    });
+  } else if (horasRegistradas > fichaHoras) {
+    warnings.push({
+      rule: 2,
+      field: 'horas_presenciales',
+      fichaValue: String(fichaHoras),
+      proposalValue: String(horasRegistradas),
+      message: `Las horas presenciales + sincrónicas (${horasRegistradas}) superan las horas registradas en la Ficha (${fichaHoras}). Verifique que sea intencional.`,
     });
   }
 

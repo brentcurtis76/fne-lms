@@ -186,12 +186,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const consultantNames = proposalConfig.consultants.map((c: { nombre: string }) => c.nombre);
     const { data: consultantDocs } = await serviceClient
       .from('propuesta_consultores')
-      .select('cv_path')
+      .select('cv_pdf_path')
       .in('nombre', consultantNames)
       .eq('activo', true);
     if (consultantDocs) {
       for (const c of consultantDocs) {
-        if (c.cv_path) supportingDocPaths.push(c.cv_path);
+        if (c.cv_pdf_path) supportingDocPaths.push(c.cv_pdf_path);
       }
     }
   }

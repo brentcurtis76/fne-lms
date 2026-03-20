@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 import {
@@ -10,8 +11,10 @@ import {
   Users,
   Award,
   Target,
+  Loader2,
 } from 'lucide-react';
 import type { ProposalSnapshot } from '@/lib/propuestas-web/snapshot';
+import { generateProposalPDF } from '@/lib/propuestas-web/pdf-generator';
 import ConsultantCard from './ConsultantCard';
 import ContentBlockSection from './ContentBlockSection';
 import ModuleTimeline from './ModuleTimeline';
@@ -29,6 +32,20 @@ export default function ProposalPublicView({
   slug,
   accessCode,
 }: ProposalPublicViewProps) {
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    setGeneratingPdf(true);
+    try {
+      generateProposalPDF(snapshot);
+      toast.success('PDF descargado');
+    } catch {
+      toast.error('Error al generar el PDF');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
   const heroImage =
     snapshot.type === 'evoluciona' ? '/images/collaborative.png' : '/images/tractor.png';
 
@@ -335,11 +352,12 @@ export default function ProposalPublicView({
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => toast('Generación de PDF próximamente', { icon: '📄' })}
-              className="inline-flex items-center justify-center gap-2 bg-[#fbbf24] text-[#0a0a0a] rounded-full px-8 py-3 font-bold hover:bg-[#f59e0b] transition-colors"
+              onClick={handleDownloadPDF}
+              disabled={generatingPdf}
+              className="inline-flex items-center justify-center gap-2 bg-[#fbbf24] text-[#0a0a0a] rounded-full px-8 py-3 font-bold hover:bg-[#f59e0b] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Download size={20} />
-              Descargar PDF
+              {generatingPdf ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} />}
+              {generatingPdf ? 'Generando...' : 'Descargar PDF'}
             </button>
             <a
               href="mailto:contacto@fundacionnuevaeducacion.com"

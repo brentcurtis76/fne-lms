@@ -22,6 +22,9 @@ import {
   ExternalLink,
   FileWarning,
   Loader2,
+  Copy,
+  Globe,
+  Eye,
 } from 'lucide-react';
 import type { LicitacionDetail } from '@/types/licitaciones';
 import type {
@@ -105,6 +108,20 @@ function formatDate(dateStr: string | null | undefined): string {
   if (parts.length !== 3) return dateStr;
   return `${parts[2]}/${parts[1]}/${parts[0]}`;
 }
+
+const WEB_STATUS_STYLES: Record<string, string> = {
+  draft: 'bg-gray-100 text-gray-600',
+  published: 'bg-blue-100 text-blue-700',
+  viewed: 'bg-green-100 text-green-700',
+  expired: 'bg-red-100 text-red-700',
+};
+
+const WEB_STATUS_LABELS: Record<string, string> = {
+  draft: 'Borrador',
+  published: 'Publicada',
+  viewed: 'Vista',
+  expired: 'Expirada',
+};
 
 function isExpiringSoon(fecha_vencimiento: string | null): boolean {
   if (!fecha_vencimiento) return false;
@@ -198,6 +215,10 @@ export default function ProposalConfigPanel({
 
   // Generation state
   const [generating, setGenerating] = useState(false);
+  const [lastGenResult, setLastGenResult] = useState<{
+    web_slug: string;
+    access_code: string;
+  } | null>(null);
 
   // Preview state
   const [showPreview, setShowPreview] = useState(false);
@@ -485,6 +506,19 @@ export default function ProposalConfigPanel({
   };
 
   // ============================================================
+  // Clipboard helpers
+  // ============================================================
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(`${label} copiado al portapapeles`);
+    } catch {
+      toast.error('Error al copiar');
+    }
+  };
+
+  // ============================================================
   // Generate
   // ============================================================
 
@@ -580,6 +614,15 @@ export default function ProposalConfigPanel({
       }
 
       toast.success('Propuesta generada exitosamente');
+
+      // Save web credentials from response
+      if (json.data?.web_slug && json.data?.access_code) {
+        setLastGenResult({
+          web_slug: json.data.web_slug,
+          access_code: json.data.access_code,
+        });
+      }
+
       // Reload history
       try {
         const histRes = await fetch(`/api/licitaciones/${licitacionId}/propuestas`);
@@ -1448,6 +1491,89 @@ export default function ProposalConfigPanel({
                 )}
               </div>
 
+              {/* ── POST-GENERATION SUCCESS PANEL ── */}
+              {lastGenResult && (
+                <div className="bg-[#0a0a0a] rounded-lg p-6 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                      <CheckCircle size={18} className="text-green-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-white font-semibold text-sm">Propuesta Web Generada</h3>
+                      <p className="text-white/50 text-xs">Comparta el enlace y código de acceso con el cliente</p>
+                    </div>
+                  </div>
+
+                  {/* Access Code */}
+                  <div>
+                    <label className="block text-xs font-medium text-[#fbbf24] mb-1.5">Código de Acceso</label>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2.5 text-[#fbbf24] font-mono text-lg tracking-widest">
+                        {lastGenResult.access_code}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(lastGenResult.access_code, 'Código')}
+                        className="p-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white transition-colors"
+                        title="Copiar código"
+                      >
+                        <Copy size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Web Link */}
+                  <div>
+                    <label className="block text-xs font-medium text-[#fbbf24] mb-1.5">Enlace Web</label>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 bg-white/10 border border-white/20 rounded-lg px-4 py-2.5 text-white/80 font-mono text-sm truncate">
+                        {typeof window !== 'undefined'
+                          ? `${window.location.origin}/propuesta/${lastGenResult.web_slug}`
+                          : `/propuesta/${lastGenResult.web_slug}`}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copyToClipboard(
+                            `${window.location.origin}/propuesta/${lastGenResult.web_slug}`,
+                            'Enlace'
+                          )
+                        }
+                        className="p-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white transition-colors"
+                        title="Copiar enlace"
+                      >
+                        <Copy size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="flex items-center gap-3 pt-2">
+                    <a
+                      href={`/propuesta/${lastGenResult.web_slug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-2 px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] rounded-lg text-sm font-semibold hover:bg-[#f59e0b] transition-colors"
+                    >
+                      <Globe size={14} />
+                      Ver Propuesta Web
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const url = `${window.location.origin}/propuesta/${lastGenResult.web_slug}`;
+                        const text = `Link: ${url}\nCódigo: ${lastGenResult.access_code}`;
+                        copyToClipboard(text, 'Link + Código');
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 border border-[#fbbf24]/50 text-[#fbbf24] rounded-lg text-sm font-medium hover:bg-white/5 transition-colors"
+                    >
+                      <Copy size={14} />
+                      Copiar Link + Código
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* ── HISTORIAL ── */}
               <div>
                 <SectionHeader
@@ -1466,7 +1592,7 @@ export default function ProposalConfigPanel({
                         {propuestas.map(p => (
                           <div
                             key={p.id}
-                            className={`flex items-center justify-between flex-wrap gap-2 p-3 rounded-lg border text-sm ${
+                            className={`p-3 rounded-lg border text-sm ${
                               p.estado === 'completada'
                                 ? 'border-green-200 bg-green-50'
                                 : p.estado === 'error'
@@ -1474,42 +1600,92 @@ export default function ProposalConfigPanel({
                                 : 'border-gray-200 bg-gray-50'
                             }`}
                           >
-                            <div>
-                              <span className="font-medium text-gray-800">
-                                v{p.version}
-                              </span>
-                              <span className="text-gray-500 ml-2">
-                                {formatDateTime(p.created_at)}
-                              </span>
-                              <span
-                                className={`ml-2 text-xs font-medium px-1.5 py-0.5 rounded-full ${
-                                  p.estado === 'completada'
-                                    ? 'bg-green-100 text-green-700'
-                                    : p.estado === 'error'
-                                    ? 'bg-red-100 text-red-700'
-                                    : p.estado === 'generando'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-gray-100 text-gray-600'
-                                }`}
-                              >
-                                {p.estado}
-                              </span>
-                              {p.estado === 'error' && p.error_message && (
-                                <p className="text-xs text-red-600 mt-0.5">
-                                  {p.error_message}
-                                </p>
-                              )}
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                              <div className="flex items-center flex-wrap gap-2">
+                                <span className="font-medium text-gray-800">
+                                  v{p.version}
+                                </span>
+                                <span className="text-gray-500">
+                                  {formatDateTime(p.created_at)}
+                                </span>
+                                <span
+                                  className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
+                                    p.estado === 'completada'
+                                      ? 'bg-green-100 text-green-700'
+                                      : p.estado === 'error'
+                                      ? 'bg-red-100 text-red-700'
+                                      : p.estado === 'generando'
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-gray-100 text-gray-600'
+                                  }`}
+                                >
+                                  {p.estado}
+                                </span>
+                                {p.web_status && (
+                                  <span
+                                    className={`text-xs font-medium px-1.5 py-0.5 rounded-full ${
+                                      WEB_STATUS_STYLES[p.web_status] || 'bg-gray-100 text-gray-600'
+                                    }`}
+                                  >
+                                    {WEB_STATUS_LABELS[p.web_status] || p.web_status}
+                                  </span>
+                                )}
+                                {p.view_count != null && p.view_count > 0 && (
+                                  <span className="flex items-center gap-1 text-xs text-gray-500">
+                                    <Eye size={11} />
+                                    {p.view_count} vista{p.view_count !== 1 ? 's' : ''}
+                                    {p.viewed_at && (
+                                      <span className="text-gray-400">
+                                        &middot; {formatDateTime(p.viewed_at)}
+                                      </span>
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {p.estado === 'completada' && p.web_slug && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      copyToClipboard(
+                                        `${window.location.origin}/propuesta/${p.web_slug}`,
+                                        'Enlace'
+                                      )
+                                    }
+                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-300 text-gray-600 rounded-lg text-xs font-medium hover:bg-gray-50 transition-colors"
+                                    title="Copiar enlace web"
+                                  >
+                                    <Copy size={12} />
+                                    Link
+                                  </button>
+                                )}
+                                {p.estado === 'completada' && (
+                                  <button
+                                    type="button"
+                                    disabled
+                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-gray-200 text-gray-400 rounded-lg text-xs font-medium cursor-not-allowed"
+                                    title="Próximamente"
+                                  >
+                                    Regenerar Código
+                                  </button>
+                                )}
+                                {p.estado === 'completada' && p.download_url && (
+                                  <a
+                                    href={p.download_url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-green-300 text-green-700 rounded-lg text-xs font-medium hover:bg-green-50 transition-colors"
+                                  >
+                                    <Download size={13} />
+                                    PDF
+                                  </a>
+                                )}
+                              </div>
                             </div>
-                            {p.estado === 'completada' && p.download_url && (
-                              <a
-                                href={p.download_url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center gap-1 px-3 py-1.5 bg-white border border-green-300 text-green-700 rounded-lg text-xs font-medium hover:bg-green-50 transition-colors"
-                              >
-                                <Download size={13} />
-                                Descargar
-                              </a>
+                            {p.estado === 'error' && p.error_message && (
+                              <p className="text-xs text-red-600 mt-1.5">
+                                {p.error_message}
+                              </p>
                             )}
                           </div>
                         ))}

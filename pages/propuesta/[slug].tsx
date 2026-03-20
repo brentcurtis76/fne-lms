@@ -80,6 +80,25 @@ export default function PublicProposalPage() {
     if (!slug || typeof slug !== 'string') return;
 
     const init = async () => {
+      // Admin bypass — skip unlock screen if authenticated as admin
+      if (router.query.admin === 'true') {
+        try {
+          const adminRes = await fetch(`/api/propuestas/web/${slug}/admin-access`, {
+            credentials: 'include',
+          });
+          if (adminRes.ok) {
+            const adminJson = await adminRes.json();
+            if (adminJson.data?.snapshot) {
+              setSnapshot(adminJson.data.snapshot);
+              await fetchMetadata(slug);
+              return;
+            }
+          }
+        } catch {
+          // Fall through to normal flow
+        }
+      }
+
       // Try restoring session first
       const restored = await tryRestoreSession(slug);
       if (restored) {

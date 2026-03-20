@@ -369,30 +369,47 @@ export default function ProposalPublicView({
             </div>
           </div>
 
-          {/* Reference schools strip */}
-          <div className="mt-16 pt-10 border-t border-white/10">
-            <p className="text-white/40 text-xs font-semibold uppercase tracking-[0.2em] mb-6 text-center">
-              Centros de Referencia en Barcelona
-            </p>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
+          {/* Reference schools — credibility strip */}
+          <div className="mt-20 pt-12 border-t border-white/10">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-8 h-px bg-[#fbbf24]" />
+              <p className="text-white/50 text-xs font-semibold uppercase tracking-[0.3em]">
+                Centros de Referencia en Barcelona
+              </p>
+              <div className="flex-1 h-px bg-white/5" />
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {[
-                { src: '/images/schools/virolai.png', name: 'Virolai' },
-                { src: '/images/schools/sadako.png', name: 'Sadako' },
-                { src: '/images/schools/les-vinyes.png', name: 'Les Vinyes' },
-                { src: '/images/schools/el-puig.png', name: 'El Puig' },
-                { src: '/images/schools/octavio-paz.png', name: 'Octavio Paz' },
-                { src: '/images/schools/angeleta-ferrer.png', name: 'Angeleta Ferrer' },
+                { src: '/images/schools/virolai.png', name: 'Escola Virolai', leader: 'Coral Regí · Sandra Entrena' },
+                { src: '/images/schools/sadako.png', name: 'Escola Sadako', leader: 'Jordi Mussons' },
+                { src: '/images/schools/les-vinyes.png', name: 'IE Les Vinyes', leader: 'Boris Mir' },
+                { src: '/images/schools/el-puig.png', name: 'Escola El Puig', leader: '' },
+                { src: '/images/schools/octavio-paz.png', name: 'Escola Octavio Paz', leader: '' },
+                { src: '/images/schools/angeleta-ferrer.png', name: 'Institut Angeleta Ferrer', leader: 'Boris Mir' },
               ].map((school) => (
-                <div key={school.name} className="text-center group">
-                  <div className="relative w-16 h-16 mx-auto rounded-xl overflow-hidden bg-white/10 mb-2 group-hover:bg-white/20 transition-colors">
+                <div
+                  key={school.name}
+                  className="bg-white/[0.06] border border-white/10 rounded-xl p-4 flex items-center gap-4 hover:border-[#fbbf24]/20 transition-colors group"
+                >
+                  <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white flex-shrink-0">
                     <Image
                       src={school.src}
                       alt={school.name}
                       fill
-                      className="object-contain p-2"
+                      className="object-contain p-1.5"
                     />
                   </div>
-                  <p className="text-white/30 text-[10px]">{school.name}</p>
+                  <div className="min-w-0">
+                    <p className="text-white/80 text-sm font-medium leading-tight group-hover:text-[#fbbf24] transition-colors">
+                      {school.name}
+                    </p>
+                    {school.leader && (
+                      <p className="text-white/30 text-[11px] mt-0.5">
+                        {school.leader}
+                      </p>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

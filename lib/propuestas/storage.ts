@@ -9,7 +9,12 @@ const DEFAULT_EXPIRY = 3600; // 1 hour
  */
 export async function resolveDisplayUrl(path: string | null | undefined): Promise<string | null> {
   if (!path) return null;
-  return getSignedUrl(path);
+  try {
+    return await getSignedUrl(path);
+  } catch (err) {
+    console.warn(`[resolveDisplayUrl] Could not resolve ${path}:`, err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 export async function getSignedUrl(path: string, expiresIn = DEFAULT_EXPIRY): Promise<string> {

@@ -18,7 +18,7 @@ function makeLicitacion(overrides: Partial<Licitacion> = {}): Licitacion {
     id: 'test-lic-001',
     numero_licitacion: 'LIC-2026-TST001-001',
     school_id: 1,
-    cliente_id: 'cliente-001',
+    cliente_id: null,
     programa_id: 'programa-001',
     nombre_licitacion: 'Asesoria Educativa Test',
     year: 2026,

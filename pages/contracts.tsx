@@ -118,7 +118,7 @@ export default function ContractsPage() {
   // Phase 5: licitacion integration
   const [activeLicitacionId, setActiveLicitacionId] = useState<string | null>(null);
   const [activeLicitacionData, setActiveLicitacionData] = useState<{
-    cliente_id: string;
+    cliente_id: string | null;
     programa_id: string;
     precio_total_uf?: number | null;
     tipo_moneda?: 'UF' | 'CLP';

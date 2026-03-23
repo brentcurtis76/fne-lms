@@ -73,6 +73,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Fetch cliente
+    if (!licitacion.cliente_id) {
+      return sendAuthError(res, 'La licitacion no tiene un cliente asociado. Vincule un cliente antes de generar las bases.', 400);
+    }
+
     const { data: cliente } = await serviceClient
       .from('clientes')
       .select('id, nombre_legal, nombre_fantasia, rut, direccion, comuna, ciudad, nombre_representante, rut_representante')

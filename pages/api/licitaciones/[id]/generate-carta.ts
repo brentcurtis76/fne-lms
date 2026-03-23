@@ -107,6 +107,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Fetch cliente for ciudad
+    if (!licitacion.cliente_id) {
+      return sendAuthError(res, 'La licitacion no tiene un cliente asociado. Vincule un cliente antes de generar la carta.', 400);
+    }
+
     const { data: cliente } = await serviceClient
       .from('clientes')
       .select('ciudad, nombre_representante')

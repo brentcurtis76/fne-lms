@@ -73,7 +73,7 @@ export interface Licitacion {
   id: string;
   numero_licitacion: string;
   school_id: number;
-  cliente_id: string;
+  cliente_id: string | null;
   programa_id: string;
   nombre_licitacion: string;
   year: number;

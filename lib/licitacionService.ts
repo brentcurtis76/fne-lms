@@ -177,27 +177,7 @@ export async function createLicitacion(
     throw new Error('Escuela no encontrada');
   }
 
-  // 2. Validate school has a linked cliente
-  if (!school.cliente_id) {
-    throw new Error('La escuela no tiene un cliente asociado. Vincule un cliente antes de crear una licitacion.');
-  }
-
-  // 3. Validate cliente exists and has required legal fields
-  const { data: cliente, error: clienteError } = await supabase
-    .from('clientes')
-    .select('id, nombre_legal, nombre_fantasia, rut, nombre_representante, rut_representante, fecha_escritura, nombre_notario')
-    .eq('id', school.cliente_id)
-    .single();
-
-  if (clienteError || !cliente) {
-    throw new Error('Cliente vinculado no encontrado');
-  }
-
-  if (!cliente.nombre_representante || !cliente.rut_representante || !cliente.fecha_escritura || !cliente.nombre_notario) {
-    throw new Error('El cliente no tiene toda la informacion legal requerida (representante, RUT, escritura, notario)');
-  }
-
-  // 4. Validate programa exists
+  // 2. Validate programa exists
   const { data: programa, error: programaError } = await supabase
     .from('programas')
     .select('id, nombre')
@@ -208,13 +188,13 @@ export async function createLicitacion(
     throw new Error('Programa no encontrado');
   }
 
-  // 5. peso check (should be enforced by Zod too but double-check)
+  // 3. peso check (should be enforced by Zod too but double-check)
   const pesoEconomica = 100 - data.peso_evaluacion_tecnica;
   if (data.peso_evaluacion_tecnica + pesoEconomica !== 100) {
     throw new Error('Los pesos de evaluacion tecnica y economica deben sumar 100');
   }
 
-  // 6. Generate numero_licitacion with race-condition retry
+  // 4. Generate numero_licitacion with race-condition retry
   const schoolCode = String(data.school_id);
   let numeroLicitacion: string;
   let insertError: Error | null = null;
@@ -229,7 +209,7 @@ export async function createLicitacion(
       const insertData = {
         numero_licitacion: numeroLicitacion,
         school_id: data.school_id,
-        cliente_id: school.cliente_id,
+        cliente_id: school.cliente_id ?? null,
         programa_id: data.programa_id,
         nombre_licitacion: data.nombre_licitacion,
         year: data.year,
@@ -267,7 +247,7 @@ export async function createLicitacion(
         throw new Error(`Error al crear licitacion: ${dbError.message}`);
       }
 
-      // 7. Create historial entry
+      // 5. Create historial entry
       await supabase.from('licitacion_historial').insert({
         licitacion_id: created.id,
         accion: 'Licitacion creada',
@@ -716,7 +696,7 @@ export async function linkContractToLicitacion(
   // 1. Fetch current licitacion
   const { data: existing, error: fetchError } = await supabase
     .from('licitaciones')
-    .select('id, estado, ganador_es_fne, contrato_id, carta_adjudicacion_url')
+    .select('id, estado, ganador_es_fne, contrato_id, carta_adjudicacion_url, school_id, cliente_id')
     .eq('id', licitacionId)
     .single();
 
@@ -759,7 +739,41 @@ export async function linkContractToLicitacion(
     );
   }
 
-  // 3. Update licitacion
+  // 3. Validate cliente exists and has required legal fields for contract generation
+  let clienteId = existing.cliente_id;
+
+  if (!clienteId) {
+    // Try to get it from the school
+    const { data: school } = await supabase
+      .from('schools')
+      .select('cliente_id')
+      .eq('id', existing.school_id)
+      .single();
+
+    if (!school?.cliente_id) {
+      throw new Error('La escuela no tiene un cliente asociado. Vincule un cliente antes de generar el contrato.');
+    }
+
+    clienteId = school.cliente_id;
+
+    // Update the licitacion with the cliente_id now that it exists
+    await supabase
+      .from('licitaciones')
+      .update({ cliente_id: clienteId })
+      .eq('id', licitacionId);
+  }
+
+  const { data: cliente } = await supabase
+    .from('clientes')
+    .select('nombre_representante, rut_representante, fecha_escritura, nombre_notario')
+    .eq('id', clienteId)
+    .single();
+
+  if (!cliente?.nombre_representante || !cliente?.rut_representante || !cliente?.fecha_escritura || !cliente?.nombre_notario) {
+    throw new Error('El cliente no tiene toda la informacion legal requerida para generar el contrato (representante, RUT, escritura, notario)');
+  }
+
+  // 4. Update licitacion
   const { data: updated, error: updateError } = await supabase
     .from('licitaciones')
     .update({
@@ -774,7 +788,7 @@ export async function linkContractToLicitacion(
     throw new Error(`Error al vincular contrato: ${updateError?.message || 'Error desconocido'}`);
   }
 
-  // 4. Create historial entry
+  // 5. Create historial entry
   await supabase.from('licitacion_historial').insert({
     licitacion_id: licitacionId,
     accion: 'Contrato generado y vinculado',

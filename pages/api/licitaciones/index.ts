@@ -145,8 +145,15 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     return sendApiResponse(res, { licitacion }, 201);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Error inesperado';
-    // Use known user-facing messages; hide raw DB errors in details (dev-only)
-    const userMessage = message.includes('Ya existe') ? message : 'Error al crear licitación';
+    // Known business-logic errors safe to surface to the user
+    const knownErrors = [
+      'Ya existe',
+      'no encontrad',
+      'no tiene un cliente',
+      'no tiene toda la informacion legal',
+    ];
+    const isKnown = knownErrors.some(prefix => message.includes(prefix));
+    const userMessage = isKnown ? message : 'Error al crear licitación';
     return sendAuthError(res, userMessage, 400, message);
   }
 }

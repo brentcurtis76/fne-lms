@@ -149,3 +149,4 @@ export function useEnvironmentValidation() {
     errors: []
   };
 }
+// Pipeline smoke test - delete this line

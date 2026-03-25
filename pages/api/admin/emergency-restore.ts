@@ -1,13 +1,18 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { checkIsAdmin, createServiceRoleClient } from '@/lib/api-auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+    const { isAdmin, user, error: authError } = await checkIsAdmin(req, res);
+    if (!user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (!isAdmin) {
+        return res.status(403).json({ error: 'Solo administradores pueden restaurar acceso' });
+    }
+
     try {
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
-        const targetEmail = 'brent@perrotuertocm.cl';
+        const supabase = createServiceRoleClient();
+        const targetEmail = process.env.EMERGENCY_ADMIN_EMAIL || 'brent@perrotuertocm.cl';
 
         // 1. Get User ID
         // We can't query auth.users directly easily with just the client usually, 

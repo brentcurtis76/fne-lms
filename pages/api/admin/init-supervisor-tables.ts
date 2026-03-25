@@ -1,15 +1,20 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { checkIsAdmin, createServiceRoleClient } from '@/lib/api-auth';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  const { isAdmin, user, error: authError } = await checkIsAdmin(req, res);
+  if (!user) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  if (!isAdmin) {
+    return res.status(403).json({ error: 'Solo administradores pueden inicializar tablas' });
+  }
+
+  const supabaseAdmin = createServiceRoleClient();
 
   try {
     // Test if tables exist by trying to query them

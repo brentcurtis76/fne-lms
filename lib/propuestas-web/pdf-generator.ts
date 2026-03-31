@@ -2,7 +2,7 @@
  * Client-side PDF generator — elegant print-ready proposal.
  *
  * Design: Swiss corporate style. White backgrounds, dark text, gold accents
- * used only as thin rules and small labels. Optimized for A4 printing and filing.
+ * used only as thin rules and small labels. Optimized for US Letter printing and filing.
  */
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -102,9 +102,9 @@ declare module 'jspdf' {
 }
 
 export function generateProposalPDF(snapshot: ProposalSnapshot): void {
-  const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
-  const W = pdf.internal.pageSize.getWidth();   // 595.28
-  const H = pdf.internal.pageSize.getHeight();  // 841.89
+  const pdf = new jsPDF({ unit: 'pt', format: 'letter' });
+  const W = pdf.internal.pageSize.getWidth();   // 612
+  const H = pdf.internal.pageSize.getHeight();  // 792
   const M = 60;                                  // generous margin
   const CW = W - M * 2;                         // content width
   const footerZone = 44;
@@ -655,8 +655,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   if (hasBuckets) {
     const buckets = snapshot.buckets!;
 
-    pdf.addPage();
-    Y = M;
+    need(120);
     recordTOC('Distribución de Actividades');
 
     sectionHead('Distribución de Actividades');
@@ -718,8 +717,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   if (hasBuckets) {
     const buckets = snapshot.buckets!;
 
-    pdf.addPage();
-    Y = M;
+    need(120);
     recordTOC('Línea de Tiempo del Programa');
 
     sectionHead('Línea de Tiempo del Programa');
@@ -733,7 +731,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
           cells.push(b.mes === m ? `${b.hours}h` : '');
         } else {
           // cadencia + flexible span all months
-          cells.push('●');
+          cells.push('__ACTIVE__');
         }
       }
       return cells;
@@ -763,6 +761,21 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
       columnStyles: {
         0: { halign: 'left', cellWidth: 120 },
       },
+      willDrawCell: (data) => {
+        // Suppress text for sentinel cells — circle drawn in didDrawCell
+        if (data.section === 'body' && data.column.index > 0 && data.cell.raw === '__ACTIVE__') {
+          data.cell.text = [''];
+        }
+      },
+      didDrawCell: (data) => {
+        // Draw a filled gold circle for active months
+        if (data.section === 'body' && data.column.index > 0 && data.cell.raw === '__ACTIVE__') {
+          const cx = data.cell.x + data.cell.width / 2;
+          const cy = data.cell.y + data.cell.height / 2;
+          pdf.setFillColor(...gold);
+          pdf.circle(cx, cy, 3, 'F');
+        }
+      },
     });
 
     Y = (pdf as any).lastAutoTable.finalY + 20;
@@ -772,8 +785,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   // 10. ECONOMIC PROPOSAL — total only, no per-hour breakdown
   // ═══════════════════════════════════════════════════════════════════
 
-  pdf.addPage();
-  Y = M;
+  need(200);
   recordTOC('Propuesta Económica');
 
   sectionHead('Propuesta Económica');
@@ -833,8 +845,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   // ═══════════════════════════════════════════════════════════════════
 
   if (hasFichaOrLic) {
-    pdf.addPage();
-    Y = M;
+    need(100);
     recordTOC('Datos de Referencia');
     sectionHead('Datos de Referencia');
 
@@ -858,8 +869,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   // ═══════════════════════════════════════════════════════════════════
 
   if (snapshot.documents.length > 0) {
-    pdf.addPage();
-    Y = M;
+    need(120);
     recordTOC('Documentos de Apoyo');
 
     sectionHead('Documentos de Apoyo', 'Disponibles para descarga en la versión web de esta propuesta');

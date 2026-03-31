@@ -656,7 +656,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   if (hasBuckets) {
     const buckets = snapshot.buckets!;
 
-    need(120);
+    need(160);
     recordTOC('Distribución de Actividades');
 
     sectionHead('Distribución de Actividades');
@@ -718,7 +718,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   if (hasBuckets) {
     const buckets = snapshot.buckets!;
 
-    need(120);
+    need(160);
     recordTOC('Línea de Tiempo del Programa');
 
     sectionHead('Línea de Tiempo del Programa');
@@ -761,6 +761,12 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
       alternateRowStyles: { fillColor: white },
       columnStyles: {
         0: { halign: 'left', cellWidth: 120 },
+        ...Object.fromEntries(
+          Array.from({ length: PROGRAM_MONTHS }, (_, i) => [
+            i + 1,
+            { cellWidth: (CW - 120) / PROGRAM_MONTHS },
+          ])
+        ),
       },
       willDrawCell: (data) => {
         // Suppress text for sentinel cells — circle drawn in didDrawCell
@@ -870,7 +876,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   // ═══════════════════════════════════════════════════════════════════
 
   if (snapshot.documents.length > 0) {
-    need(120);
+    need(160);
     recordTOC('Documentos de Apoyo');
 
     sectionHead('Documentos de Apoyo', 'Disponibles para descarga en la versión web de esta propuesta');

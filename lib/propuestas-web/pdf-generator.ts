@@ -425,7 +425,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   need(60);
   Y += 8;
   grayRule(Y);
-  Y += 18;
+  Y += 30;
   const statsData = [
     { v: '6+', l: 'Años de experiencia' },
     { v: '3', l: 'Países' },

@@ -36,6 +36,8 @@ const MOD_LABELS: Record<string, string> = {
   hibrido: 'Híbrido',
 };
 
+const PROGRAM_MONTHS = 8;
+
 // Extend jsPDF for autoTable
 declare module 'jspdf' {
   interface jsPDF {
@@ -140,6 +142,50 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
       Y += lines.length * 13 + 4;
     }
     Y += 4;
+  };
+
+  /** Render a person block: name → title → bio → separator.
+   *  Optionally runs afterBio() between bio and separator for extra fields.
+   *  extraHeight is added to the need() check for the initial block. */
+  const renderPerson = (
+    p: { nombre: string; titulo: string; bio: string },
+    extraHeight?: number,
+    afterBio?: () => void,
+  ) => {
+    const bioLines: string[] = pdf.splitTextToSize(p.bio || '', CW - 4);
+    const blockH = 20 + 14 + bioLines.length * 12 + (extraHeight ?? 0) + 20;
+    need(blockH);
+
+    // Name
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(...ink);
+    pdf.text(p.nombre, M, Y);
+    Y += 14;
+
+    // Title
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(...gold);
+    pdf.text(p.titulo, M, Y);
+    Y += 14;
+
+    // Bio
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.setTextColor(...gray);
+    for (const line of bioLines) {
+      need(13);
+      pdf.text(line, M, Y);
+      Y += 12;
+    }
+
+    if (afterBio) afterBio();
+
+    // Separator
+    Y += 8;
+    grayRule(Y);
+    Y += 14;
   };
 
   /** Add footers to all pages (called at end) */
@@ -390,85 +436,58 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   sectionHead('Equipo de Consultoría', `${snapshot.consultants.length} profesionales asignados`);
 
   for (const c of snapshot.consultants) {
-    const bioLines: string[] = pdf.splitTextToSize(c.bio || '', CW - 4);
-    const blockH = 20 + 14 + bioLines.length * 12 + (c.especialidades?.length ? 24 : 0) + 20;
-    need(blockH);
+    renderPerson(
+      c,
+      c.especialidades?.length ? 24 : 0,
+      () => {
+        // Specialties inline
+        if (c.especialidades && c.especialidades.length > 0) {
+          Y += 4;
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(7.5);
+          pdf.setTextColor(...gray);
+          const specText = c.especialidades.join('  ·  ');
+          const specLines: string[] = pdf.splitTextToSize(specText, CW);
+          for (const sl of specLines) {
+            need(12);
+            pdf.text(sl, M, Y);
+            Y += 11;
+          }
+        }
 
-    // Name
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(11);
-    pdf.setTextColor(...ink);
-    pdf.text(c.nombre, M, Y);
-    Y += 14;
+        // Formación
+        if (c.formacion && c.formacion.length > 0) {
+          Y += 6;
+          need(14 + c.formacion.length * 13);
+          label('FORMACIÓN');
+          Y += 12;
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(9);
+          pdf.setTextColor(...ink);
+          for (const f of c.formacion) {
+            need(13);
+            pdf.text(`${f.degree} — ${f.institution} (${f.year})`, M + 8, Y);
+            Y += 12;
+          }
+        }
 
-    // Title
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(8.5);
-    pdf.setTextColor(...gold);
-    pdf.text(c.titulo, M, Y);
-    Y += 14;
-
-    // Bio
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    pdf.setTextColor(...gray);
-    for (const line of bioLines) {
-      need(13);
-      pdf.text(line, M, Y);
-      Y += 12;
-    }
-
-    // Specialties inline
-    if (c.especialidades && c.especialidades.length > 0) {
-      Y += 4;
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(7.5);
-      pdf.setTextColor(...gray);
-      const specText = c.especialidades.join('  ·  ');
-      const specLines: string[] = pdf.splitTextToSize(specText, CW);
-      for (const sl of specLines) {
-        need(12);
-        pdf.text(sl, M, Y);
-        Y += 11;
-      }
-    }
-
-    // Formación
-    if (c.formacion && c.formacion.length > 0) {
-      Y += 6;
-      need(14 + c.formacion.length * 13);
-      label('FORMACIÓN');
-      Y += 12;
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(9);
-      pdf.setTextColor(...ink);
-      for (const f of c.formacion) {
-        need(13);
-        pdf.text(`${f.degree} — ${f.institution} (${f.year})`, M + 8, Y);
-        Y += 12;
-      }
-    }
-
-    // Experiencia
-    if (c.experiencia && c.experiencia.length > 0) {
-      Y += 6;
-      need(14 + c.experiencia.length * 13);
-      label('EXPERIENCIA');
-      Y += 12;
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(9);
-      pdf.setTextColor(...ink);
-      for (const e of c.experiencia) {
-        need(13);
-        pdf.text(`${e.cargo} en ${e.empresa}`, M + 8, Y);
-        Y += 12;
-      }
-    }
-
-    // Separator
-    Y += 8;
-    grayRule(Y);
-    Y += 14;
+        // Experiencia
+        if (c.experiencia && c.experiencia.length > 0) {
+          Y += 6;
+          need(14 + c.experiencia.length * 13);
+          label('EXPERIENCIA');
+          Y += 12;
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(9);
+          pdf.setTextColor(...ink);
+          for (const e of c.experiencia) {
+            need(13);
+            pdf.text(`${e.cargo} en ${e.empresa}`, M + 8, Y);
+            Y += 12;
+          }
+        }
+      },
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -482,38 +501,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   sectionHead('Asesores Internacionales', `${INTERNATIONAL_ADVISORS.length} asesores del comité internacional`);
 
   for (const advisor of INTERNATIONAL_ADVISORS) {
-    const advBioLines: string[] = pdf.splitTextToSize(advisor.bio, CW - 4);
-    const advBlockH = 20 + 14 + advBioLines.length * 12 + 20;
-    need(advBlockH);
-
-    // Name
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(11);
-    pdf.setTextColor(...ink);
-    pdf.text(advisor.nombre, M, Y);
-    Y += 14;
-
-    // Title
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(8.5);
-    pdf.setTextColor(...gold);
-    pdf.text(advisor.titulo, M, Y);
-    Y += 14;
-
-    // Bio
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(9);
-    pdf.setTextColor(...gray);
-    for (const line of advBioLines) {
-      need(13);
-      pdf.text(line, M, Y);
-      Y += 12;
-    }
-
-    // Separator
-    Y += 8;
-    grayRule(Y);
-    Y += 14;
+    renderPerson(advisor);
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -656,11 +644,11 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
 
     sectionHead('Línea de Tiempo del Programa');
 
-    const monthCols = Array.from({ length: 8 }, (_, i) => `Mes ${i + 1}`);
+    const monthCols = Array.from({ length: PROGRAM_MONTHS }, (_, i) => `Mes ${i + 1}`);
     const tlHead = [['Actividad', ...monthCols]];
     const tlBody = buckets.map((b) => {
       const cells = [b.label];
-      for (let m = 1; m <= 8; m++) {
+      for (let m = 1; m <= PROGRAM_MONTHS; m++) {
         if (b.distributionType === 'bloque') {
           cells.push(b.mes === m ? `${b.hours}h` : '');
         } else {
@@ -765,16 +753,10 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   // ═══════════════════════════════════════════════════════════════════
 
   if (hasFichaOrLic) {
-    need(80);
-    Y += 10;
+    pdf.addPage();
+    Y = M;
     recordTOC('Datos de Referencia');
-    goldRule(Y, 40);
-    Y += 18;
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(12);
-    pdf.setTextColor(...ink);
-    pdf.text('Datos de Referencia', M, Y);
-    Y += 22;
+    sectionHead('Datos de Referencia');
 
     if (snapshot.ficha) {
       const f = snapshot.ficha;
@@ -835,7 +817,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // 9. FOOTERS + TOC PAGE NUMBERS
+  // FOOTERS + TOC PAGE NUMBERS
   // ═══════════════════════════════════════════════════════════════════
 
   addFooters();

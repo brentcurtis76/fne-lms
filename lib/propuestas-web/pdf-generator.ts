@@ -118,6 +118,31 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
     return lines.length;
   };
 
+  /** Body text with bold first sentence for better scanning.
+   *  Splits at the first `.` or `:` followed by space, where first part < 180 chars
+   *  and remainder > 30 chars. Falls back to plain body() if no clean split. */
+  const bodyWithBoldLead = (text: string): void => {
+    const match = text.match(/^(.+?[.:])(\s+.+)$/s);
+    if (match && match[1].length < 180 && match[2].trim().length > 30) {
+      const boldPart = match[1];
+      const rest = match[2].trim();
+      // Bold first sentence
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(9.5);
+      pdf.setTextColor(...ink);
+      const boldLines: string[] = pdf.splitTextToSize(boldPart, CW);
+      for (const line of boldLines) {
+        need(14);
+        pdf.text(line, M, Y);
+        Y += 13;
+      }
+      // Normal remainder
+      body(rest);
+    } else {
+      body(text);
+    }
+  };
+
   /** Small label text */
   const label = (text: string, x?: number) => {
     pdf.setFont('helvetica', 'bold');
@@ -289,6 +314,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   sectionHead('Índice');
 
   const hasBuckets = !!(snapshot.buckets && snapshot.buckets.length > 0);
+  console.log('[PDF] snapshot.buckets:', snapshot.buckets);
   const hasFichaOrLic = !!(snapshot.ficha || snapshot.licitacion);
   const hasDocs = snapshot.documents.length > 0;
 
@@ -536,11 +562,36 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
     }
     Y += 10;
 
+    // Normalize block title for redundancy detection (matching web view logic)
+    const stopWords = new Set(['el','la','los','las','de','del','en','un','una','y','a','por','para','con','que','se','su','al','es','lo','son','como','más','o','e','nos','sus']);
+    const titleNorm = block.titulo
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+    const titleWords = titleNorm.split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1);
+    const titleSet = new Set(titleWords);
+
     // Render content sections
     if (block.contenido?.sections) {
       for (const section of block.contenido.sections) {
         switch (section.type) {
           case 'heading': {
+            // Skip headings that are redundant with the block title
+            const headingNorm = (section.text || '')
+              .normalize('NFD')
+              .replace(/[\u0300-\u036f]/g, '')
+              .toLowerCase()
+              .trim();
+            const headingWords = headingNorm.split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1);
+            const overlap = headingWords.filter(w => titleSet.has(w)).length;
+            const isRedundant =
+              headingNorm === titleNorm ||
+              titleNorm.includes(headingNorm) ||
+              headingNorm.includes(titleNorm) ||
+              (titleWords.length > 0 && overlap / titleWords.length >= 0.5);
+            if (isRedundant) break;
+
             need(28);
             Y += 6;
             pdf.setFont('helvetica', 'bold');
@@ -551,7 +602,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
             break;
           }
           case 'paragraph': {
-            body(section.text || '');
+            bodyWithBoldLead(section.text || '');
             break;
           }
           case 'list': {

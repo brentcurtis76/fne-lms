@@ -7,6 +7,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { ProposalSnapshot } from './snapshot';
+import { INTERNATIONAL_ADVISORS } from './constants';
 
 // ─── Color palette (restrained — print-friendly) ────────────────────
 const ink: [number, number, number] = [24, 24, 24];
@@ -21,6 +22,19 @@ const MES = [
   '', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
+
+// Bucket label maps (Spanish, matching web view)
+const DIST_LABELS: Record<string, string> = {
+  bloque: 'Taller',
+  cadencia: 'Sesiones regulares',
+  flexible: 'Flexible',
+};
+const MOD_LABELS: Record<string, string> = {
+  presencial: 'Presencial',
+  online: 'Online',
+  asincronico: 'Asincrónico',
+  hibrido: 'Híbrido',
+};
 
 // Extend jsPDF for autoTable
 declare module 'jspdf' {
@@ -228,12 +242,20 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
 
   sectionHead('Índice');
 
-  const tocNames = [
+  const hasBuckets = !!(snapshot.buckets && snapshot.buckets.length > 0);
+  const hasFichaOrLic = !!(snapshot.ficha || snapshot.licitacion);
+  const hasDocs = snapshot.documents.length > 0;
+
+  const tocNames: string[] = [
     'Sobre Fundación Nueva Educación',
+    'Modelo de Consultoría',
     'Equipo de Consultoría',
+    'Asesores Internacionales',
     'Contenidos del Programa',
+    ...(hasBuckets ? ['Distribución de Actividades', 'Línea de Tiempo del Programa'] : []),
     'Propuesta Económica',
-    'Documentos de Apoyo',
+    ...(hasFichaOrLic ? ['Datos de Referencia'] : []),
+    ...(hasDocs ? ['Documentos de Apoyo'] : []),
   ];
 
   const tocStartY = Y;
@@ -302,7 +324,63 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   Y += 20;
 
   // ═══════════════════════════════════════════════════════════════════
-  // 4. CONSULTING TEAM — compact, multi-per-page
+  // 4. MODELO DE CONSULTORÍA — three-phase approach
+  // ═══════════════════════════════════════════════════════════════════
+
+  pdf.addPage();
+  Y = M;
+  recordTOC('Modelo de Consultoría');
+
+  sectionHead('Modelo de Consultoría', 'Nuestro Enfoque');
+
+  body(
+    'Nuestro modelo de acompañamiento se estructura en tres fases progresivas que aseguran un proceso de transformación sostenible y contextualizado a las necesidades de cada comunidad educativa.'
+  );
+
+  Y += 6;
+
+  const phases = [
+    {
+      title: 'Inicia',
+      number: '01',
+      description:
+        'Diagnóstico y levantamiento de necesidades. Identificamos las áreas de mejora y establecemos la línea base.',
+    },
+    {
+      title: 'Inspira',
+      number: '02',
+      description:
+        'Formación y acompañamiento. Implementamos programas de desarrollo profesional contextualizados.',
+    },
+    {
+      title: 'Evoluciona',
+      number: '03',
+      description:
+        'Consolidación y autonomía. Aseguramos la sostenibilidad de los cambios y la transferencia de capacidades.',
+    },
+  ];
+
+  for (const phase of phases) {
+    need(70);
+    // Phase number + title
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(8);
+    pdf.setTextColor(...gold);
+    pdf.text(phase.number, M, Y);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.setTextColor(...ink);
+    pdf.text(phase.title, M + 20, Y);
+    Y += 16;
+    // Description
+    body(phase.description);
+    Y += 4;
+    grayRule(Y);
+    Y += 14;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 5. CONSULTING TEAM — compact, multi-per-page
   // ═══════════════════════════════════════════════════════════════════
 
   pdf.addPage();
@@ -355,6 +433,38 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
       }
     }
 
+    // Formación
+    if (c.formacion && c.formacion.length > 0) {
+      Y += 6;
+      need(14 + c.formacion.length * 13);
+      label('FORMACIÓN');
+      Y += 12;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.setTextColor(...ink);
+      for (const f of c.formacion) {
+        need(13);
+        pdf.text(`${f.degree} — ${f.institution} (${f.year})`, M + 8, Y);
+        Y += 12;
+      }
+    }
+
+    // Experiencia
+    if (c.experiencia && c.experiencia.length > 0) {
+      Y += 6;
+      need(14 + c.experiencia.length * 13);
+      label('EXPERIENCIA');
+      Y += 12;
+      pdf.setFont('helvetica', 'normal');
+      pdf.setFontSize(9);
+      pdf.setTextColor(...ink);
+      for (const e of c.experiencia) {
+        need(13);
+        pdf.text(`${e.cargo} en ${e.empresa}`, M + 8, Y);
+        Y += 12;
+      }
+    }
+
     // Separator
     Y += 8;
     grayRule(Y);
@@ -362,7 +472,52 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // 5. CONTENT BLOCKS — continuous flow, not one-per-page
+  // 6. ASESORES INTERNACIONALES
+  // ═══════════════════════════════════════════════════════════════════
+
+  pdf.addPage();
+  Y = M;
+  recordTOC('Asesores Internacionales');
+
+  sectionHead('Asesores Internacionales', `${INTERNATIONAL_ADVISORS.length} asesores del comité internacional`);
+
+  for (const advisor of INTERNATIONAL_ADVISORS) {
+    const advBioLines: string[] = pdf.splitTextToSize(advisor.bio, CW - 4);
+    const advBlockH = 20 + 14 + advBioLines.length * 12 + 20;
+    need(advBlockH);
+
+    // Name
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(11);
+    pdf.setTextColor(...ink);
+    pdf.text(advisor.nombre, M, Y);
+    Y += 14;
+
+    // Title
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(...gold);
+    pdf.text(advisor.titulo, M, Y);
+    Y += 14;
+
+    // Bio
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.setTextColor(...gray);
+    for (const line of advBioLines) {
+      need(13);
+      pdf.text(line, M, Y);
+      Y += 12;
+    }
+
+    // Separator
+    Y += 8;
+    grayRule(Y);
+    Y += 14;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 7. CONTENT BLOCKS — continuous flow, not one-per-page
   // ═══════════════════════════════════════════════════════════════════
 
   pdf.addPage();
@@ -426,7 +581,127 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // 6. ECONOMIC PROPOSAL — total only, no per-hour breakdown
+  // 8. DISTRIBUCIÓN DE ACTIVIDADES (conditional)
+  // ═══════════════════════════════════════════════════════════════════
+
+  if (hasBuckets) {
+    const buckets = snapshot.buckets!;
+
+    pdf.addPage();
+    Y = M;
+    recordTOC('Distribución de Actividades');
+
+    sectionHead('Distribución de Actividades');
+
+    const grandTotal = buckets.reduce((sum, b) => sum + b.hours, 0);
+
+    const distHead = [['Actividad', 'Horas', 'Modalidad', 'Tipo', 'Notas']];
+    const distBody = buckets.map((b) => [
+      b.label,
+      String(b.hours),
+      MOD_LABELS[b.modalidad] ?? b.modalidad,
+      DIST_LABELS[b.distributionType] ?? b.distributionType,
+      b.notes ?? '',
+    ]);
+    distBody.push([
+      'TOTAL',
+      String(grandTotal),
+      '',
+      '',
+      '',
+    ]);
+
+    autoTable(pdf, {
+      head: distHead,
+      body: distBody,
+      startY: Y,
+      margin: { left: M, right: M },
+      styles: {
+        font: 'helvetica',
+        fontSize: 9,
+        cellPadding: 9,
+        textColor: ink,
+        lineColor: lightGray,
+        lineWidth: 0.5,
+      },
+      headStyles: {
+        fillColor: faintBg,
+        textColor: ink,
+        fontStyle: 'bold',
+        fontSize: 8,
+      },
+      alternateRowStyles: { fillColor: white },
+      didParseCell: (data) => {
+        // Bold the total row
+        if (data.row.index === distBody.length - 1) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = faintBg;
+        }
+      },
+    });
+
+    Y = (pdf as any).lastAutoTable.finalY + 20;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 9. LÍNEA DE TIEMPO DEL PROGRAMA (conditional)
+  // ═══════════════════════════════════════════════════════════════════
+
+  if (hasBuckets) {
+    const buckets = snapshot.buckets!;
+
+    pdf.addPage();
+    Y = M;
+    recordTOC('Línea de Tiempo del Programa');
+
+    sectionHead('Línea de Tiempo del Programa');
+
+    const monthCols = Array.from({ length: 8 }, (_, i) => `Mes ${i + 1}`);
+    const tlHead = [['Actividad', ...monthCols]];
+    const tlBody = buckets.map((b) => {
+      const cells = [b.label];
+      for (let m = 1; m <= 8; m++) {
+        if (b.distributionType === 'bloque') {
+          cells.push(b.mes === m ? `${b.hours}h` : '');
+        } else {
+          // cadencia + flexible span all months
+          cells.push('●');
+        }
+      }
+      return cells;
+    });
+
+    autoTable(pdf, {
+      head: tlHead,
+      body: tlBody,
+      startY: Y,
+      margin: { left: M, right: M },
+      styles: {
+        font: 'helvetica',
+        fontSize: 8,
+        cellPadding: 6,
+        textColor: ink,
+        lineColor: lightGray,
+        lineWidth: 0.5,
+        halign: 'center',
+      },
+      headStyles: {
+        fillColor: faintBg,
+        textColor: ink,
+        fontStyle: 'bold',
+        fontSize: 7,
+      },
+      alternateRowStyles: { fillColor: white },
+      columnStyles: {
+        0: { halign: 'left', cellWidth: 120 },
+      },
+    });
+
+    Y = (pdf as any).lastAutoTable.finalY + 20;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 10. ECONOMIC PROPOSAL — total only, no per-hour breakdown
   // ═══════════════════════════════════════════════════════════════════
 
   pdf.addPage();
@@ -486,7 +761,38 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  // 8. SUPPORTING DOCUMENTS
+  // 11. FICHA / LICITACIÓN METADATA (conditional)
+  // ═══════════════════════════════════════════════════════════════════
+
+  if (hasFichaOrLic) {
+    need(80);
+    Y += 10;
+    recordTOC('Datos de Referencia');
+    goldRule(Y, 40);
+    Y += 18;
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+    pdf.setTextColor(...ink);
+    pdf.text('Datos de Referencia', M, Y);
+    Y += 22;
+
+    if (snapshot.ficha) {
+      const f = snapshot.ficha;
+      label('FICHA DEL SERVICIO');
+      Y += 14;
+      body(`${f.nombre_servicio} — ${f.dimension} · ${f.categoria} · Folio ${f.folio}`);
+    }
+
+    if (snapshot.licitacion) {
+      const l = snapshot.licitacion;
+      label('LICITACIÓN');
+      Y += 14;
+      body(`Licitación ${l.numero} — ${l.nombre} (${l.year})`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 12. SUPPORTING DOCUMENTS
   // ═══════════════════════════════════════════════════════════════════
 
   if (snapshot.documents.length > 0) {

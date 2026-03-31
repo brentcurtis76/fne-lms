@@ -38,6 +38,62 @@ const MOD_LABELS: Record<string, string> = {
 
 const PROGRAM_MONTHS = 8;
 
+// Spanish stop words (post-NFD-normalization forms — accents already stripped)
+const SPANISH_STOP_WORDS = new Set([
+  'el','la','los','las','de','del','en','un','una','y','a','por','para',
+  'con','que','se','su','al','es','lo','son','como','mas','o','e','nos','sus',
+]);
+
+/** Normalize text for comparison: NFD strip accents → lowercase → trim */
+function normalizeText(text: string): string {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+/** Extract significant words (non-stop, length > 1) from normalized text */
+function significantWords(normalized: string): string[] {
+  return normalized.split(/\s+/).filter(w => !SPANISH_STOP_WORDS.has(w) && w.length > 1);
+}
+
+/**
+ * Check if a content block heading is redundant with its block title.
+ * Returns true when the heading is an exact match, a substring, or has
+ * ≥50% word overlap (using the longer word list as denominator to avoid
+ * false positives with short titles).
+ */
+export function isHeadingRedundant(blockTitle: string, headingText: string): boolean {
+  const titleNorm = normalizeText(blockTitle);
+  const headingNorm = normalizeText(headingText);
+
+  if (!titleNorm || !headingNorm) return false;
+
+  // Exact match
+  if (headingNorm === titleNorm) return true;
+
+  // Substring match (either direction)
+  if (titleNorm.includes(headingNorm) || headingNorm.includes(titleNorm)) return true;
+
+  // Word overlap — denominator is max of both lengths to prevent short-title false positives
+  const titleWords = significantWords(titleNorm);
+  const headingWords = significantWords(headingNorm);
+  const titleSet = new Set(titleWords);
+  const overlap = headingWords.filter(w => titleSet.has(w)).length;
+  const denominator = Math.max(titleWords.length, headingWords.length);
+
+  return denominator > 0 && overlap / denominator >= 0.5;
+}
+
+/**
+ * Split text into a bold lead sentence and the remainder.
+ * Returns null if no clean split point exists.
+ */
+export function splitBoldLead(text: string): { bold: string; rest: string } | null {
+  const match = text.match(/^(.+?[.:])(\s+.+)$/s);
+  if (match && match[1].length < 180 && match[2].trim().length > 30) {
+    return { bold: match[1], rest: match[2].trim() };
+  }
+  return null;
+}
+
 // Extend jsPDF for autoTable
 declare module 'jspdf' {
   interface jsPDF {
@@ -118,26 +174,22 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
     return lines.length;
   };
 
-  /** Body text with bold first sentence for better scanning.
-   *  Splits at the first `.` or `:` followed by space, where first part < 180 chars
-   *  and remainder > 30 chars. Falls back to plain body() if no clean split. */
+  /** Body text with bold first sentence for better scanning. */
   const bodyWithBoldLead = (text: string): void => {
-    const match = text.match(/^(.+?[.:])(\s+.+)$/s);
-    if (match && match[1].length < 180 && match[2].trim().length > 30) {
-      const boldPart = match[1];
-      const rest = match[2].trim();
+    const split = splitBoldLead(text);
+    if (split) {
       // Bold first sentence
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(9.5);
       pdf.setTextColor(...ink);
-      const boldLines: string[] = pdf.splitTextToSize(boldPart, CW);
+      const boldLines: string[] = pdf.splitTextToSize(split.bold, CW);
       for (const line of boldLines) {
         need(14);
         pdf.text(line, M, Y);
         Y += 13;
       }
       // Normal remainder
-      body(rest);
+      body(split.rest);
     } else {
       body(text);
     }
@@ -314,7 +366,6 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
   sectionHead('Índice');
 
   const hasBuckets = !!(snapshot.buckets && snapshot.buckets.length > 0);
-  console.log('[PDF] snapshot.buckets:', snapshot.buckets);
   const hasFichaOrLic = !!(snapshot.ficha || snapshot.licitacion);
   const hasDocs = snapshot.documents.length > 0;
 
@@ -562,35 +613,13 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
     }
     Y += 10;
 
-    // Normalize block title for redundancy detection (matching web view logic)
-    const stopWords = new Set(['el','la','los','las','de','del','en','un','una','y','a','por','para','con','que','se','su','al','es','lo','son','como','más','o','e','nos','sus']);
-    const titleNorm = block.titulo
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .trim();
-    const titleWords = titleNorm.split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1);
-    const titleSet = new Set(titleWords);
-
     // Render content sections
     if (block.contenido?.sections) {
       for (const section of block.contenido.sections) {
         switch (section.type) {
           case 'heading': {
             // Skip headings that are redundant with the block title
-            const headingNorm = (section.text || '')
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '')
-              .toLowerCase()
-              .trim();
-            const headingWords = headingNorm.split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1);
-            const overlap = headingWords.filter(w => titleSet.has(w)).length;
-            const isRedundant =
-              headingNorm === titleNorm ||
-              titleNorm.includes(headingNorm) ||
-              headingNorm.includes(titleNorm) ||
-              (titleWords.length > 0 && overlap / titleWords.length >= 0.5);
-            if (isRedundant) break;
+            if (isHeadingRedundant(block.titulo, section.text || '')) break;
 
             need(28);
             Y += 6;

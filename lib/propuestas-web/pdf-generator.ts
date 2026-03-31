@@ -37,6 +37,7 @@ const MOD_LABELS: Record<string, string> = {
 };
 
 const PROGRAM_MONTHS = 8;
+const ACTIVE_SENTINEL = '__ACTIVE__';
 
 // Spanish stop words (post-NFD-normalization forms — accents already stripped)
 const SPANISH_STOP_WORDS = new Set([
@@ -731,7 +732,7 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
           cells.push(b.mes === m ? `${b.hours}h` : '');
         } else {
           // cadencia + flexible span all months
-          cells.push('__ACTIVE__');
+          cells.push(ACTIVE_SENTINEL);
         }
       }
       return cells;
@@ -763,13 +764,13 @@ export function generateProposalPDF(snapshot: ProposalSnapshot): void {
       },
       willDrawCell: (data) => {
         // Suppress text for sentinel cells — circle drawn in didDrawCell
-        if (data.section === 'body' && data.column.index > 0 && data.cell.raw === '__ACTIVE__') {
+        if (data.section === 'body' && data.column.index > 0 && data.cell.raw === ACTIVE_SENTINEL) {
           data.cell.text = [''];
         }
       },
       didDrawCell: (data) => {
         // Draw a filled gold circle for active months
-        if (data.section === 'body' && data.column.index > 0 && data.cell.raw === '__ACTIVE__') {
+        if (data.section === 'body' && data.column.index > 0 && data.cell.raw === ACTIVE_SENTINEL) {
           const cx = data.cell.x + data.cell.width / 2;
           const cy = data.cell.y + data.cell.height / 2;
           pdf.setFillColor(...gold);

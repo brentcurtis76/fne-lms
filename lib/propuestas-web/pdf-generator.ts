@@ -8,6 +8,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { ProposalSnapshot } from './snapshot';
 import { INTERNATIONAL_ADVISORS } from './constants';
+import { normalizeText, significantWords } from './text-utils';
 
 // ─── Color palette (restrained — print-friendly) ────────────────────
 const ink: [number, number, number] = [24, 24, 24];
@@ -39,21 +40,6 @@ const MOD_LABELS: Record<string, string> = {
 const PROGRAM_MONTHS = 8;
 const ACTIVE_SENTINEL = '__ACTIVE__';
 
-// Spanish stop words (post-NFD-normalization forms — accents already stripped)
-const SPANISH_STOP_WORDS = new Set([
-  'el','la','los','las','de','del','en','un','una','y','a','por','para',
-  'con','que','se','su','al','es','lo','son','como','mas','o','e','nos','sus',
-]);
-
-/** Normalize text for comparison: NFD strip accents → lowercase → trim */
-function normalizeText(text: string): string {
-  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-}
-
-/** Extract significant words (non-stop, length > 1) from normalized text */
-function significantWords(normalized: string): string[] {
-  return normalized.split(/\s+/).filter(w => !SPANISH_STOP_WORDS.has(w) && w.length > 1);
-}
 
 /**
  * Check if a content block heading is redundant with its block title.

@@ -17,11 +17,13 @@ import {
 const {
   mockGetApiUser,
   mockCreateApiSupabaseClient,
+  mockCreateServiceRoleClient,
   mockHasReadPerm,
   mockHasWritePerm,
 } = vi.hoisted(() => ({
   mockGetApiUser: vi.fn(),
   mockCreateApiSupabaseClient: vi.fn(),
+  mockCreateServiceRoleClient: vi.fn(),
   mockHasReadPerm: vi.fn(),
   mockHasWritePerm: vi.fn(),
 }));
@@ -29,6 +31,7 @@ const {
 vi.mock('../../../lib/api-auth', () => ({
   getApiUser: mockGetApiUser,
   createApiSupabaseClient: mockCreateApiSupabaseClient,
+  createServiceRoleClient: mockCreateServiceRoleClient,
   sendAuthError: vi.fn((res: any, msg?: string) => {
     res.status(401).json({ error: msg || 'Authentication required' });
   }),
@@ -85,6 +88,7 @@ describe('PUT indicator — cobertura gate enforcement', () => {
     };
 
     mockCreateApiSupabaseClient.mockResolvedValue(mockClient);
+    mockCreateServiceRoleClient.mockReturnValue(mockClient);
 
     const { req, res } = createMocks({
       method: 'PUT',
@@ -128,6 +132,7 @@ describe('PUT indicator — cobertura gate enforcement', () => {
     };
 
     mockCreateApiSupabaseClient.mockResolvedValue(mockClient);
+    mockCreateServiceRoleClient.mockReturnValue(mockClient);
 
     const { req, res } = createMocks({
       method: 'PUT',
@@ -163,6 +168,7 @@ describe('PUT indicator — cobertura gate enforcement', () => {
     };
 
     mockCreateApiSupabaseClient.mockResolvedValue(mockClient);
+    mockCreateServiceRoleClient.mockReturnValue(mockClient);
 
     const { req, res } = createMocks({
       method: 'PUT',

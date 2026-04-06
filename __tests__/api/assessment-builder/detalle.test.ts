@@ -22,11 +22,13 @@ import {
 const {
   mockGetApiUser,
   mockCreateApiSupabaseClient,
+  mockCreateServiceRoleClient,
   mockHasReadPerm,
   mockHasWritePerm,
 } = vi.hoisted(() => ({
   mockGetApiUser: vi.fn(),
   mockCreateApiSupabaseClient: vi.fn(),
+  mockCreateServiceRoleClient: vi.fn(),
   mockHasReadPerm: vi.fn(),
   mockHasWritePerm: vi.fn(),
 }));
@@ -34,6 +36,7 @@ const {
 vi.mock('../../../lib/api-auth', () => ({
   getApiUser: mockGetApiUser,
   createApiSupabaseClient: mockCreateApiSupabaseClient,
+  createServiceRoleClient: mockCreateServiceRoleClient,
   sendAuthError: vi.fn((res: any, msg?: string) => {
     res.status(401).json({ error: msg || 'Authentication required' });
   }),
@@ -242,9 +245,9 @@ describe('PUT indicator — detalle category (DOD-5)', () => {
   });
 
   it('accepts valid detalleOptions update (DOD-5)', async () => {
-    mockCreateApiSupabaseClient.mockResolvedValue(
-      buildPutClient({ name: 'Updated', category: 'detalle', detalle_options: ['Nueva A', 'Nueva B', 'Nueva C'] })
-    );
+    const client = buildPutClient({ name: 'Updated', category: 'detalle', detalle_options: ['Nueva A', 'Nueva B', 'Nueva C'] });
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(client);
 
     const { req, res } = createMocks({
       method: 'PUT',
@@ -256,7 +259,9 @@ describe('PUT indicator — detalle category (DOD-5)', () => {
   });
 
   it('rejects detalleOptions update with 1 item (DOD-5)', async () => {
-    mockCreateApiSupabaseClient.mockResolvedValue(buildPutClient({}));
+    const client = buildPutClient({});
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(client);
 
     const { req, res } = createMocks({
       method: 'PUT',
@@ -268,7 +273,9 @@ describe('PUT indicator — detalle category (DOD-5)', () => {
   });
 
   it('requires detalleOptions when setting category to detalle (Fix 1)', async () => {
-    mockCreateApiSupabaseClient.mockResolvedValue(buildPutClient({}));
+    const client = buildPutClient({});
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(client);
 
     const { req, res } = createMocks({
       method: 'PUT',
@@ -311,6 +318,7 @@ describe('PUT indicator — detalle category (DOD-5)', () => {
       }),
     };
     mockCreateApiSupabaseClient.mockResolvedValue(mockClient);
+    mockCreateServiceRoleClient.mockReturnValue(mockClient);
 
     const { req, res } = createMocks({
       method: 'PUT',
@@ -324,7 +332,9 @@ describe('PUT indicator — detalle category (DOD-5)', () => {
   });
 
   it('rejects detalle options with HTML tags (XSS, Fix 4)', async () => {
-    mockCreateApiSupabaseClient.mockResolvedValue(buildPutClient({}));
+    const client = buildPutClient({});
+    mockCreateApiSupabaseClient.mockResolvedValue(client);
+    mockCreateServiceRoleClient.mockReturnValue(client);
 
     const { req, res } = createMocks({
       method: 'PUT',

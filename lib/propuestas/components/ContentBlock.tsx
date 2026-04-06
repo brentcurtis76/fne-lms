@@ -12,7 +12,6 @@ import '../fonts';
 // Browser-safe: no fs in browser — images fall back to placeholder in preview
 const isBrowser = typeof window !== 'undefined';
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const fsExistsSync: (p: string) => boolean = isBrowser ? () => false : require('fs').existsSync;
 
 // Browser-safe logo paths: public URL in browser, filesystem path on server

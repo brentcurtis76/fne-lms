@@ -26,14 +26,12 @@ function PDFLoadingState() {
 }
 
 // ── @react-pdf/renderer PDFViewer — browser-only ───────────────────────────
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const PDFViewer = dynamic<any>(
   () => import('@react-pdf/renderer').then((mod) => mod.PDFViewer),
   { ssr: false, loading: PDFLoadingState }
 );
 
 // ── PreviewDocument — wraps template + Document, also browser-only ─────────
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const PreviewDocument = dynamic<any>(
   () =>
     import('@/lib/propuestas/PreviewDocument').then(

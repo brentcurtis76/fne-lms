@@ -116,10 +116,11 @@ run-*.mjs
 !docs/qa-system/*.md  # QA system documentation
 !docs/qa-system/*.sql  # QA seed data scripts
 *.json
-!.eslintrc.json  # ESLint configuration must be tracked
-!package.json  # Package manifest must be tracked
-!package-lock.json  # Lock file required for Vercel deployment
-!tsconfig.json  # TypeScript config must be tracked
+# Config files that must be tracked
+!.eslintrc.json
+!package.json
+!package-lock.json
+!tsconfig.json
 
 # Backups
 /backups/

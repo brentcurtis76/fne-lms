@@ -48,6 +48,23 @@ describe('isHeadingRedundant', () => {
     expect(isHeadingRedundant('Alfa Beta', 'Alfa Gamma Delta Epsilon Zeta')).toBe(false);
   });
 
+  it('word-overlap at threshold (non-substring inputs) → suppressed', () => {
+    // Neither normalized string is a substring of the other, so the substring
+    // short-circuit at line 60 does NOT fire — this exercises the word-overlap branch.
+    // title: "Alfa Gamma" → significantWords: ["alfa","gamma"] (2 words)
+    // heading: "Beta Alfa Delta Gamma" → significantWords: ["beta","alfa","delta","gamma"] (4 words)
+    // overlap = 2 ("alfa","gamma"), denominator = max(2, 4) = 4, ratio = 2/4 = 0.5 → meets threshold
+    expect(isHeadingRedundant('Alfa Gamma', 'Beta Alfa Delta Gamma')).toBe(true);
+  });
+
+  it('word-overlap below threshold (non-substring inputs) → NOT suppressed', () => {
+    // Neither normalized string is a substring of the other — exercises word-overlap branch.
+    // title: "Alfa Gamma" → significantWords: ["alfa","gamma"] (2 words)
+    // heading: "Beta Alfa Delta Epsilon Zeta" → significantWords: ["beta","alfa","delta","epsilon","zeta"] (5 words)
+    // overlap = 1 ("alfa"), denominator = max(2, 5) = 5, ratio = 1/5 = 0.2 → below threshold
+    expect(isHeadingRedundant('Alfa Gamma', 'Beta Alfa Delta Epsilon Zeta')).toBe(false);
+  });
+
   it('empty heading → NOT suppressed', () => {
     expect(isHeadingRedundant('Some Title', '')).toBe(false);
   });

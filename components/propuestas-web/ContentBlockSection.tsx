@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
 import type { SnapshotContentBlock } from '@/lib/propuestas-web/snapshot';
+import { normalizeText, significantWords } from '@/lib/propuestas-web/text-utils';
 
 /* ──────────────────────────── image mapping ──────────────────────────── */
 
@@ -103,11 +104,7 @@ export default function ContentBlockSection({ block, variant, index }: ContentBl
   const firstParagraphIdx = sections.findIndex((s) => s.type === 'paragraph');
   const imageOnLeft = index % 2 !== 0;
 
-  const titleNorm = block.titulo
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
+  const titleNorm = normalizeText(block.titulo);
 
   let paragraphCount = 0;
 
@@ -159,24 +156,20 @@ export default function ContentBlockSection({ block, variant, index }: ContentBl
     switch (section.type) {
       case 'heading': {
         paragraphCount = 0;
-        const headingNorm = (section.text || '')
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase()
-          .trim();
+        const headingNorm = normalizeText(section.text || '');
 
         // Skip headings that are redundant with the block title.
         // Uses word-overlap: if >50% of content words match, it's redundant.
-        const stopWords = new Set(['el','la','los','las','de','del','en','un','una','y','a','por','para','con','que','se','su','al','es','lo','son','como','más','o','e','las','nos','sus']);
-        const titleWords = titleNorm.split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1);
-        const headingWords = headingNorm.split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1);
+        const titleWords = significantWords(titleNorm);
+        const headingWords = significantWords(headingNorm);
         const titleSet = new Set(titleWords);
         const overlap = headingWords.filter(w => titleSet.has(w)).length;
+        const denominator = Math.max(titleWords.length, headingWords.length);
         const isRedundant =
           headingNorm === titleNorm ||
           titleNorm.includes(headingNorm) ||
           headingNorm.includes(titleNorm) ||
-          (titleWords.length > 0 && overlap / titleWords.length >= 0.5);
+          (denominator > 0 && overlap / denominator >= 0.5);
         if (isRedundant) return null;
 
         // Heading card treatment — not just text

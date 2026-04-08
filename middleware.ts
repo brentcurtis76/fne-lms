@@ -108,5 +108,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/community/workspace/:path*', '/school/:path*']
+  matcher: ['/admin/:path*', '/community/workspace', '/community/workspace/:path*', '/school/:path*']
 };

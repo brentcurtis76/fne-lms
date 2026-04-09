@@ -2,6 +2,7 @@ import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { getUserRoles, getHighestRole } from '../../../utils/roleUtils';
+import { calculateActivityScore } from '../../../lib/utils/activityScore';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +26,8 @@ interface ProgressUser {
   total_time_spent_minutes: number;
   average_quiz_score?: number;
   last_activity_date?: string;
+  assignments_submitted: number;
+  assignments_total: number;
 }
 
 interface Summary {
@@ -323,7 +326,62 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
         reportableUserRoles = reportableUserRoles.concat(chunkRoles);
       }
     }
-    console.log('[detailed-api] Step 15: All data fetched, building response');
+    // Fetch lesson assignment definitions for enrolled courses (to calculate totals)
+    const allEnrolledCourseIds = [...new Set(courseData.map(a => a.course_id).filter(Boolean))];
+    console.log('[detailed-api] Step 15: Fetching lesson assignments for', allEnrolledCourseIds.length, 'courses');
+    let lessonAssignmentsData: any[] = [];
+    for (let i = 0; i < allEnrolledCourseIds.length; i += CHUNK_SIZE) {
+      const chunk = allEnrolledCourseIds.slice(i, i + CHUNK_SIZE);
+      const { data, error } = await supabase
+        .from('lesson_assignments')
+        .select('id, course_id')
+        .in('course_id', chunk);
+      if (error) console.error('Lesson assignments query error:', error.message);
+      if (data) lessonAssignmentsData = lessonAssignmentsData.concat(data);
+    }
+
+    // Fetch lesson assignment submissions (individual)
+    console.log('[detailed-api] Step 16: Fetching lesson assignment submissions');
+    let lessonAssignmentSubmissionsData: any[] = [];
+    for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+      const chunk = userIds.slice(i, i + CHUNK_SIZE);
+      const { data, error } = await supabase
+        .from('lesson_assignment_submissions')
+        .select('student_id, assignment_id, status')
+        .in('student_id', chunk)
+        .in('status', ['submitted', 'graded', 'reviewed']);
+      if (error) console.error('Lesson assignment submissions error:', error.message);
+      if (data) lessonAssignmentSubmissionsData = lessonAssignmentSubmissionsData.concat(data);
+    }
+
+    // Fetch group assignment memberships (to determine total group assignments per user)
+    console.log('[detailed-api] Step 17: Fetching group assignment memberships');
+    let groupAssignmentMembersData: any[] = [];
+    for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+      const chunk = userIds.slice(i, i + CHUNK_SIZE);
+      const { data, error } = await supabase
+        .from('group_assignment_members')
+        .select('user_id, assignment_id')
+        .in('user_id', chunk);
+      if (error) console.error('Group assignment members error:', error.message);
+      if (data) groupAssignmentMembersData = groupAssignmentMembersData.concat(data);
+    }
+
+    // Fetch group assignment submissions
+    console.log('[detailed-api] Step 18: Fetching group assignment submissions');
+    let groupAssignmentSubmissionsData: any[] = [];
+    for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+      const chunk = userIds.slice(i, i + CHUNK_SIZE);
+      const { data, error } = await supabase
+        .from('group_assignment_submissions')
+        .select('user_id, assignment_id, status')
+        .in('user_id', chunk)
+        .in('status', ['submitted', 'graded', 'reviewed']);
+      if (error) console.error('Group assignment submissions error:', error.message);
+      if (data) groupAssignmentSubmissionsData = groupAssignmentSubmissionsData.concat(data);
+    }
+
+    console.log('[detailed-api] Step 19: All data fetched, building response');
 
     // Create role and organizational mapping for quick lookup (use user_roles as source of truth)
     const roleMap = new Map();
@@ -353,6 +411,39 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
         lessonProgressByUser.set(progress.user_id, []);
       }
       lessonProgressByUser.get(progress.user_id).push(progress);
+    });
+
+    // Build lesson assignments count per course (for totals)
+    const lessonAssignmentsByCourse = new Map<string, number>();
+    lessonAssignmentsData.forEach(la => {
+      lessonAssignmentsByCourse.set(la.course_id, (lessonAssignmentsByCourse.get(la.course_id) || 0) + 1);
+    });
+
+    // Build lesson assignment submissions per user (unique assignment_ids)
+    const lessonSubmissionsByUser = new Map<string, Set<string>>();
+    lessonAssignmentSubmissionsData.forEach(s => {
+      if (!lessonSubmissionsByUser.has(s.student_id)) {
+        lessonSubmissionsByUser.set(s.student_id, new Set());
+      }
+      lessonSubmissionsByUser.get(s.student_id)!.add(s.assignment_id);
+    });
+
+    // Build group assignment totals per user (distinct assignment_ids from memberships)
+    const groupAssignmentTotalsByUser = new Map<string, Set<string>>();
+    groupAssignmentMembersData.forEach(m => {
+      if (!groupAssignmentTotalsByUser.has(m.user_id)) {
+        groupAssignmentTotalsByUser.set(m.user_id, new Set());
+      }
+      groupAssignmentTotalsByUser.get(m.user_id)!.add(m.assignment_id);
+    });
+
+    // Build group assignment submissions per user (unique assignment_ids)
+    const groupSubmissionsByUser = new Map<string, Set<string>>();
+    groupAssignmentSubmissionsData.forEach(s => {
+      if (!groupSubmissionsByUser.has(s.user_id)) {
+        groupSubmissionsByUser.set(s.user_id, new Set());
+      }
+      groupSubmissionsByUser.get(s.user_id)!.add(s.assignment_id);
     });
 
     // Build the progress users array
@@ -393,21 +484,25 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
         const lastActivity = allActivities.length > 0 ? 
           allActivities.sort().reverse()[0] : null;
 
-        // Calculate activity score for smart sorting
-        // REBALANCED WEIGHTS: lessons (60%), time (12%), recent activity (20%), course enrollments (8%)
-        // Lesson completions now heavily dominate to prevent idle time from outweighing real progress
-        const lessonScore = Math.min(total_lessons_completed * 60, 600); // Max 600 points for lessons (60%)
+        // Calculate assignment data
+        const userEnrolledCourseIds = userAssignments.map(a => a.course_id);
+        const lessonAssignmentsTotal = userEnrolledCourseIds.reduce(
+          (sum, courseId) => sum + (lessonAssignmentsByCourse.get(courseId) || 0), 0
+        );
+        const lessonAssignmentsSubmitted = lessonSubmissionsByUser.get(profile.id)?.size || 0;
+        const groupAssignmentsTotal = groupAssignmentTotalsByUser.get(profile.id)?.size || 0;
+        const groupAssignmentsSubmitted = groupSubmissionsByUser.get(profile.id)?.size || 0;
 
-        // Time uses diminishing returns (sqrt curve) to cap its influence
-        // Examples: 25min=40pts, 100min=80pts, 225min=120pts (max)
-        // This prevents users from gaming the system by leaving pages open
-        const timeScore = Math.min(Math.round(Math.sqrt(total_time_spent_minutes) * 8), 120); // Max 120 points for time (12%)
+        const assignments_total = lessonAssignmentsTotal + groupAssignmentsTotal;
+        const assignments_submitted = lessonAssignmentsSubmitted + groupAssignmentsSubmitted;
 
-        const recentActivityScore = lastActivity ?
-          Math.max(200 - Math.floor((Date.now() - new Date(lastActivity).getTime()) / (1000 * 60 * 60 * 24 * 7)), 0) : 0; // 200 points max (20%), decreases weekly
-        const courseScore = Math.min(total_courses_enrolled * 10, 80); // Max 80 points for courses (8%)
-
-        const activity_score = Math.round(lessonScore + timeScore + recentActivityScore + courseScore);
+        // Calculate activity score using shared utility
+        const { total: activity_score, breakdown: scoreBreakdown } = calculateActivityScore(
+          assignments_submitted,
+          assignments_total,
+          total_lessons_completed,
+          lastActivity || new Date(0).toISOString()
+        );
 
         // Calculate engagement quality indicator
         const engagement_quality = (() => {
@@ -431,10 +526,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
 
         // Score breakdown for transparency
         const score_breakdown = {
-          lessons: Math.round(lessonScore),
-          time: Math.round(timeScore),
-          recency: Math.round(recentActivityScore),
-          courses: Math.round(courseScore)
+          assignments: Math.round(scoreBreakdown.assignments),
+          lessons: Math.round(scoreBreakdown.lessons),
+          recency: Math.round(scoreBreakdown.recency),
         };
 
         // HYBRID APPROACH: Use user_roles as primary source, fallback to profiles
@@ -460,6 +554,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
             last_activity_date: lastActivity,
             total_lessons_completed,
             average_quiz_score: 0, // Not available in current schema
+            assignments_submitted,
+            assignments_total,
             activity_score, // Add activity score for smart sorting
             engagement_quality, // Quality indicator (high/medium/low/passive)
             score_breakdown, // Breakdown of score components

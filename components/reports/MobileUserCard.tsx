@@ -18,6 +18,8 @@ interface MobileUserCardProps {
     average_quiz_score?: number;
     last_activity_date?: string;
     activity_score?: number;
+    assignments_submitted?: number;
+    assignments_total?: number;
     engagement_quality?: 'high' | 'medium' | 'low' | 'passive';
     score_breakdown?: {
       lessons: number;

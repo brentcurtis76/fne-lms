@@ -32,6 +32,8 @@ interface ProgressUser {
   average_quiz_score?: number;
   last_activity_date?: string;
   activity_score?: number;
+  assignments_submitted?: number;
+  assignments_total?: number;
   engagement_quality?: 'high' | 'medium' | 'low' | 'passive';
   score_breakdown?: {
     lessons: number;
@@ -576,7 +578,7 @@ export default function DetailedReports() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Escuela</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Progreso</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Puntaje</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tareas</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lecciones</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tiempo</th>
                       </tr>
@@ -602,8 +604,10 @@ export default function DetailedReports() {
                               <span className="text-sm text-gray-900">{userData.completion_percentage}%</span>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                            {userData.activity_score || 0}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {(userData.assignments_total || 0) > 0
+                              ? `${userData.assignments_submitted || 0}/${userData.assignments_total}`
+                              : '-'}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {userData.total_lessons_completed}
@@ -684,12 +688,8 @@ export default function DetailedReports() {
                               <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
                             )}
                           </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                              onClick={() => handleSort('activity_score')}>
-                            Puntaje de Actividad
-                            {sortBy === 'activity_score' && (
-                              <span className="ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                            )}
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Tareas
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                             Cursos
@@ -754,31 +754,10 @@ export default function DetailedReports() {
                                 {userData.total_lessons_completed} lecciones
                               </div>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center space-x-2">
-                                <div className="text-sm font-semibold text-gray-900">
-                                  {userData.activity_score || 0}
-                                </div>
-                                {/* Quality indicator */}
-                                {userData.engagement_quality === 'passive' && (
-                                  <span
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800"
-                                    title="Alto tiempo registrado sin lecciones completadas"
-                                  >
-                                    <AlertTriangle className="h-3 w-3" />
-                                    Revisar
-                                  </span>
-                                )}
-                                {userData.engagement_quality === 'high' && (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
-                                    <Check className="h-3 w-3" />
-                                    Activo
-                                  </span>
-                                )}
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                {userData.total_lessons_completed || 0} lecciones • {Math.round((userData.total_time_spent_minutes || 0) / 60)}h
-                              </div>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {(userData.assignments_total || 0) > 0
+                                ? `${userData.assignments_submitted || 0}/${userData.assignments_total}`
+                                : '-'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="text-sm text-gray-900">

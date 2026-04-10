@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, BarChart2, Target, Play, ChevronRight, User, BookOpen, CheckCircle2 } from 'lucide-react';
+import { Clock, BarChart2, Target, Play, ChevronRight, User, BookOpen, CheckCircle2, Award, ClipboardCheck } from 'lucide-react';
 import { NetflixCourseCardProps } from '@/types/courses';
 import { CourseThumbnail } from './CourseThumbnail';
 
@@ -81,7 +81,8 @@ export function NetflixCourseCard({
   // Get CTA text based on enrollment status
   const getCTAText = (): string => {
     if (!enrollment) return 'Ver Detalles';
-    if (enrollment.is_completed) return 'Repasar';
+    if (enrollment.completion_status === 'aprobado') return 'Repasar';
+    if (enrollment.completion_status === 'completado') return 'Continuar';
     if (enrollment.progress_percentage > 0) return 'Continuar';
     return 'Comenzar';
   };
@@ -200,10 +201,18 @@ export function NetflixCourseCard({
           {/* Gradient overlay for text readability */}
           <div className="absolute inset-0 bg-gradient-to-t from-brand_primary via-brand_primary/40 to-transparent" />
 
-          {/* Completed badge - top right */}
-          {enrollment?.is_completed && (
+          {/* Status badge - top right */}
+          {enrollment?.completion_status === 'aprobado' && (
             <div className="absolute right-2 top-2 z-10">
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-1 text-xs font-semibold text-brand_primary shadow-lg">
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2 py-1 text-xs font-semibold text-white shadow-lg">
+                <Award className="h-3 w-3" />
+                Aprobado
+              </span>
+            </div>
+          )}
+          {enrollment?.completion_status === 'completado' && (
+            <div className="absolute right-2 top-2 z-10">
+              <span className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-1 text-xs font-semibold text-white shadow-lg">
                 <CheckCircle2 className="h-3 w-3" />
                 Completado
               </span>
@@ -230,7 +239,11 @@ export function NetflixCourseCard({
               <div className="h-1 w-full bg-gray-700">
                 <div
                   className={`h-full transition-all duration-300 ${
-                    enrollment.is_completed ? 'bg-amber-400' : 'bg-brand_accent'
+                    enrollment.completion_status === 'aprobado'
+                      ? 'bg-amber-500'
+                      : enrollment.completion_status === 'completado'
+                        ? 'bg-green-500'
+                        : 'bg-brand_accent'
                   }`}
                   style={{ width: `${enrollment.progress_percentage}%` }}
                 />
@@ -311,25 +324,57 @@ export function NetflixCourseCard({
                       <span className="text-gray-400">
                         {enrollment.lessons_completed || 0} de {enrollment.total_lessons} lecciones
                       </span>
-                      <span className={`font-medium ${enrollment.is_completed ? 'text-amber-400' : 'text-brand_accent'}`}>
+                      <span className={`font-medium ${
+                        enrollment.completion_status === 'aprobado'
+                          ? 'text-amber-500'
+                          : enrollment.completion_status === 'completado'
+                            ? 'text-green-400'
+                            : 'text-brand_accent'
+                      }`}>
                         {enrollment.progress_percentage}%
                       </span>
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-700">
                       <div
                         className={`h-full transition-all duration-300 ${
-                          enrollment.is_completed ? 'bg-amber-400' : 'bg-brand_accent'
+                          enrollment.completion_status === 'aprobado'
+                            ? 'bg-amber-500'
+                            : enrollment.completion_status === 'completado'
+                              ? 'bg-green-500'
+                              : 'bg-brand_accent'
                         }`}
                         style={{ width: `${enrollment.progress_percentage}%` }}
                       />
                     </div>
-                    {enrollment.is_completed && (
-                      <div className="flex items-center gap-1 text-xs text-amber-400">
-                        <CheckCircle2 className="h-3 w-3" />
-                        <span>Curso completado</span>
-                      </div>
-                    )}
                   </div>
+                )}
+
+                {/* Assignments info */}
+                {enrollment && enrollment.assignments_total != null && enrollment.assignments_total > 0 && (
+                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                    <ClipboardCheck className="h-3 w-3" />
+                    <span>Tareas: {enrollment.assignments_submitted ?? 0}/{enrollment.assignments_total}</span>
+                  </div>
+                )}
+
+                {/* Aprobado status */}
+                {enrollment?.completion_status === 'aprobado' && (
+                  <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-400">
+                      <Award className="h-3.5 w-3.5" />
+                      <span>Curso Aprobado</span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-amber-400/80">
+                      Has completado todas las lecciones y tareas.
+                    </p>
+                  </div>
+                )}
+
+                {/* Completado hint */}
+                {enrollment?.completion_status === 'completado' && (
+                  <p className="text-xs text-gray-500">
+                    Completa tus tareas pendientes para obtener la insignia.
+                  </p>
                 )}
 
                 {/* Description - full text */}

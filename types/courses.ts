@@ -60,6 +60,9 @@ export interface CourseEnrollment {
   is_completed: boolean;
   last_activity?: string | null;
   enrolled_at?: string;
+  completion_status?: 'in_progress' | 'completado' | 'aprobado';
+  assignments_submitted?: number;
+  assignments_total?: number;
 }
 
 /**
@@ -91,6 +94,9 @@ export interface NetflixCourseCardProps {
     is_completed: boolean;
     lessons_completed?: number;
     total_lessons?: number;
+    completion_status?: 'in_progress' | 'completado' | 'aprobado';
+    assignments_submitted?: number;
+    assignments_total?: number;
   } | null;
   onSelect?: (courseId: string) => void;
 }

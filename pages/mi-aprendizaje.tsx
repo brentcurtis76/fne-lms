@@ -42,6 +42,9 @@ interface CourseEnrollment {
   progress_percentage: number;
   lessons_completed: number;
   total_lessons: number;
+  completion_status?: 'in_progress' | 'completado' | 'aprobado';
+  assignments_submitted?: number;
+  assignments_total?: number;
   last_activity: string;
   assigned_at: string;
 }
@@ -94,23 +97,33 @@ const NetflixCoursesView: React.FC<NetflixCoursesViewProps> = ({
         total_lessons: course.total_lessons,
         is_completed: course.progress_percentage === 100,
         last_activity: course.last_activity,
+        completion_status: course.completion_status,
+        assignments_submitted: course.assignments_submitted,
+        assignments_total: course.assignments_total,
       },
     }));
   };
 
-  // Categorize courses
+  // Categorize courses using completion_status
   const inProgressCourses = useMemo(() => {
-    return filteredCourses.filter(
-      (course) => course.progress_percentage > 0 && course.progress_percentage < 100
-    );
+    return filteredCourses.filter((course) => {
+      // In-progress: started but not yet completado/aprobado
+      if (course.completion_status === 'aprobado') return false;
+      // Completado with pending assignments goes here too
+      if (course.completion_status === 'completado') {
+        const hasPending = (course.assignments_total ?? 0) > (course.assignments_submitted ?? 0);
+        return hasPending;
+      }
+      return course.progress_percentage > 0 && course.progress_percentage < 100;
+    });
   }, [filteredCourses]);
 
   const completedCourses = useMemo(() => {
-    return filteredCourses.filter((course) => course.progress_percentage === 100);
+    return filteredCourses.filter((course) => course.completion_status === 'aprobado');
   }, [filteredCourses]);
 
   const notStartedCourses = useMemo(() => {
-    return filteredCourses.filter((course) => course.progress_percentage === 0);
+    return filteredCourses.filter((course) => course.progress_percentage === 0 && !course.completion_status);
   }, [filteredCourses]);
 
   if (loading) {

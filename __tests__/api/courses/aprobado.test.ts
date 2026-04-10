@@ -5,142 +5,115 @@ import {
 } from '../../../lib/utils/aprobadoCheck';
 
 describe('getCompletionStatus', () => {
-  it('returns in_progress when lessons are not complete', () => {
+  it('returns in_progress when progress < 100', () => {
     expect(
       getCompletionStatus({
-        allLessonsComplete: false,
-        totalAssignments: 3,
-        passedAssignments: 3,
+        progressPercentage: 80,
+        assignmentsTotal: 3,
+        assignmentsSubmitted: 3,
+        assignmentsWithFeedback: 3,
       })
     ).toBe('in_progress');
   });
 
-  it('returns completado when lessons complete but assignments not met', () => {
+  it('returns completado when progress 100 but assignments not all submitted+feedback', () => {
     expect(
       getCompletionStatus({
-        allLessonsComplete: true,
-        totalAssignments: 5,
-        passedAssignments: 2,
+        progressPercentage: 100,
+        assignmentsTotal: 5,
+        assignmentsSubmitted: 2,
+        assignmentsWithFeedback: 2,
       })
     ).toBe('completado');
   });
 
-  it('returns aprobado when lessons complete and assignments meet default ratio', () => {
+  it('returns aprobado when progress 100 and all submitted+feedback', () => {
     expect(
       getCompletionStatus({
-        allLessonsComplete: true,
-        totalAssignments: 5,
-        passedAssignments: 3,
+        progressPercentage: 100,
+        assignmentsTotal: 5,
+        assignmentsSubmitted: 5,
+        assignmentsWithFeedback: 5,
       })
     ).toBe('aprobado');
   });
 
-  it('auto-aprobado: 0 assignments and lessons complete', () => {
+  it('auto-aprobado: 0 assignments and progress 100', () => {
     expect(
       getCompletionStatus({
-        allLessonsComplete: true,
-        totalAssignments: 0,
-        passedAssignments: 0,
+        progressPercentage: 100,
+        assignmentsTotal: 0,
+        assignmentsSubmitted: 0,
+        assignmentsWithFeedback: 0,
       })
     ).toBe('aprobado');
   });
 
-  it('edge: passed > total still returns aprobado', () => {
+  it('returns completado when submitted meets total but feedback does not', () => {
     expect(
       getCompletionStatus({
-        allLessonsComplete: true,
-        totalAssignments: 3,
-        passedAssignments: 5,
-      })
-    ).toBe('aprobado');
-  });
-
-  it('edge: passed just below default 0.6 ratio returns completado', () => {
-    // 2/4 = 0.5 < 0.6
-    expect(
-      getCompletionStatus({
-        allLessonsComplete: true,
-        totalAssignments: 4,
-        passedAssignments: 2,
+        progressPercentage: 100,
+        assignmentsTotal: 5,
+        assignmentsSubmitted: 5,
+        assignmentsWithFeedback: 3,
       })
     ).toBe('completado');
   });
 
-  it('respects custom passingRatio', () => {
-    // 2/4 = 0.5 >= 0.5
+  it('returns completado when feedback meets total but submitted does not', () => {
     expect(
       getCompletionStatus({
-        allLessonsComplete: true,
-        totalAssignments: 4,
-        passedAssignments: 2,
-        passingRatio: 0.5,
+        progressPercentage: 100,
+        assignmentsTotal: 5,
+        assignmentsSubmitted: 3,
+        assignmentsWithFeedback: 5,
       })
-    ).toBe('aprobado');
+    ).toBe('completado');
   });
 });
 
 describe('checkAprobadoEligibility', () => {
-  it('returns false when lessons are not complete', () => {
+  it('returns false when progress < 100', () => {
     expect(
       checkAprobadoEligibility({
-        allLessonsComplete: false,
-        totalAssignments: 0,
-        passedAssignments: 0,
+        progressPercentage: 50,
+        assignmentsTotal: 0,
+        assignmentsSubmitted: 0,
+        assignmentsWithFeedback: 0,
       })
     ).toBe(false);
   });
 
-  it('returns true for auto-aprobado (0 assignments, lessons done)', () => {
+  it('returns true for auto-aprobado (0 assignments, progress 100)', () => {
     expect(
       checkAprobadoEligibility({
-        allLessonsComplete: true,
-        totalAssignments: 0,
-        passedAssignments: 0,
+        progressPercentage: 100,
+        assignmentsTotal: 0,
+        assignmentsSubmitted: 0,
+        assignmentsWithFeedback: 0,
       })
     ).toBe(true);
   });
 
-  it('returns false when feedback is missing (passed < threshold)', () => {
-    // 1/5 = 0.2 < 0.6
+  it('returns false when not all submitted and feedback', () => {
     expect(
       checkAprobadoEligibility({
-        allLessonsComplete: true,
-        totalAssignments: 5,
-        passedAssignments: 1,
+        progressPercentage: 100,
+        assignmentsTotal: 5,
+        assignmentsSubmitted: 3,
+        assignmentsWithFeedback: 2,
       })
     ).toBe(false);
   });
 
-  it('returns true at exactly the threshold boundary', () => {
-    // 3/5 = 0.6 >= 0.6
+  it('returns true when all submitted and all have feedback', () => {
     expect(
       checkAprobadoEligibility({
-        allLessonsComplete: true,
-        totalAssignments: 5,
-        passedAssignments: 3,
+        progressPercentage: 100,
+        assignmentsTotal: 5,
+        assignmentsSubmitted: 5,
+        assignmentsWithFeedback: 5,
       })
     ).toBe(true);
-  });
-
-  it('edge: passedAssignments > totalAssignments returns true', () => {
-    expect(
-      checkAprobadoEligibility({
-        allLessonsComplete: true,
-        totalAssignments: 3,
-        passedAssignments: 5,
-      })
-    ).toBe(true);
-  });
-
-  it('edge: assignmentsWithFeedback < assignmentsTotal returns false', () => {
-    // Simulates scenario where feedback count hasn't met the ratio
-    // 2/10 = 0.2 < 0.6
-    expect(
-      checkAprobadoEligibility({
-        allLessonsComplete: true,
-        totalAssignments: 10,
-        passedAssignments: 2,
-      })
-    ).toBe(false);
   });
 });

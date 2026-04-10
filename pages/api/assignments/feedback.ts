@@ -131,54 +131,53 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .maybeSingle();
 
         if (!existingAprobado) {
-          // Total assignments for the course
-          const { count: totalAssignments } = await supabaseAdmin
+          // Get assignment IDs for the course
+          const { data: courseAssignments } = await supabaseAdmin
             .from('lesson_assignments')
-            .select('id', { count: 'exact', head: true })
+            .select('id')
             .eq('course_id', courseId)
             .eq('is_published', true);
 
-          if ((totalAssignments ?? 0) > 0) {
-            let passedAssignments = 0;
+          const assignmentsTotal = courseAssignments?.length ?? 0;
+          const assignmentIds = courseAssignments?.map(a => a.id) ?? [];
+
+          if (assignmentsTotal > 0) {
+            let assignmentsSubmitted = 0;
 
             // Individual submissions
             const { count: indivCount } = await supabaseAdmin
               .from('lesson_assignment_submissions')
               .select('id', { count: 'exact', head: true })
               .eq('student_id', student_id)
+              .in('assignment_id', assignmentIds)
               .in('status', ['submitted', 'graded', 'reviewed']);
 
-            passedAssignments += indivCount ?? 0;
+            assignmentsSubmitted += indivCount ?? 0;
 
             // Group submissions (CRITICAL: use user_id, NOT submitted_by)
             const { count: groupCount } = await supabaseAdmin
               .from('group_assignment_submissions')
               .select('id', { count: 'exact', head: true })
-              .eq('user_id', student_id);
+              .eq('user_id', student_id)
+              .in('assignment_id', assignmentIds)
+              .in('status', ['submitted', 'graded', 'reviewed']);
 
-            passedAssignments += groupCount ?? 0;
+            assignmentsSubmitted += groupCount ?? 0;
 
-            // Feedback count
-            const { count: feedbackTotal } = await supabaseAdmin
+            // Feedback count (separate metric)
+            const { count: feedbackCount } = await supabaseAdmin
               .from('assignment_feedback')
               .select('id', { count: 'exact', head: true })
-              .eq('student_id', student_id);
+              .eq('student_id', student_id)
+              .in('assignment_id', assignmentIds);
 
-            passedAssignments += feedbackTotal ?? 0;
-
-            // Verify 'completado' record exists (completion_type = 'course')
-            const { data: completadoRecord } = await supabaseAdmin
-              .from('course_completions')
-              .select('id')
-              .eq('user_id', student_id)
-              .eq('course_id', courseId)
-              .eq('completion_type', 'course')
-              .maybeSingle();
+            const assignmentsWithFeedback = feedbackCount ?? 0;
 
             if (checkAprobadoEligibility({
-              allLessonsComplete: !!completadoRecord,
-              totalAssignments: totalAssignments ?? 0,
-              passedAssignments,
+              progressPercentage: 100,
+              assignmentsTotal,
+              assignmentsSubmitted,
+              assignmentsWithFeedback,
             })) {
               // UPSERT prevents race conditions
               await supabaseAdmin

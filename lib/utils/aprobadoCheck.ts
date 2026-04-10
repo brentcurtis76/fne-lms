@@ -1,59 +1,33 @@
 /**
  * Two-tier completion logic.
  *
- * - "completado"  → user finished all required lessons / modules.
- * - "aprobado"    → completado AND meets the assignment-score threshold.
+ * - "completado"  → user finished all lessons (progressPercentage === 100).
+ * - "aprobado"    → completado AND all assignments submitted + received feedback.
  * - "in_progress" → not yet completado.
  *
- * Edge case: courses with 0 graded assignments are auto-aprobado
+ * Edge case: courses with 0 assignments are auto-aprobado
  * the moment they reach completado status.
  */
 
 export type CompletionStatus = 'in_progress' | 'completado' | 'aprobado';
 
-export interface CompletionInput {
-  /** Whether every required lesson / module is marked complete. */
-  allLessonsComplete: boolean;
-  /** Number of graded assignments in the course. */
-  totalAssignments: number;
-  /** Number of assignments the student has passed (score >= threshold). */
-  passedAssignments: number;
-  /** Minimum ratio of passed/total to qualify as aprobado (0-1). Default 0.6 */
-  passingRatio?: number;
+export interface AprobadoCheckInput {
+  progressPercentage: number;
+  assignmentsTotal: number;
+  assignmentsSubmitted: number;
+  assignmentsWithFeedback: number;
 }
 
-/**
- * Returns the overall completion status for a student in a course.
- */
-export function getCompletionStatus(input: CompletionInput): CompletionStatus {
-  if (!input.allLessonsComplete) {
-    return 'in_progress';
-  }
-
-  // Completado at minimum — check for aprobado
-  if (checkAprobadoEligibility(input)) {
+export function getCompletionStatus(input: AprobadoCheckInput): CompletionStatus {
+  if (input.progressPercentage < 100) return 'in_progress';
+  if (input.assignmentsTotal === 0) return 'aprobado';
+  if (input.assignmentsSubmitted >= input.assignmentsTotal &&
+      input.assignmentsWithFeedback >= input.assignmentsTotal) {
     return 'aprobado';
   }
-
   return 'completado';
 }
 
-/**
- * Determines whether a student qualifies for "aprobado" status.
- *
- * Auto-aprobado: if the course has 0 graded assignments and the
- * student has completed all lessons, they are automatically aprobado.
- */
-export function checkAprobadoEligibility(input: CompletionInput): boolean {
-  if (!input.allLessonsComplete) {
-    return false;
-  }
-
-  // 0 assignments → auto-aprobado once lessons are done
-  if (input.totalAssignments === 0) {
-    return true;
-  }
-
-  const ratio = input.passingRatio ?? 0.6;
-  return input.passedAssignments / input.totalAssignments >= ratio;
+export function checkAprobadoEligibility(input: AprobadoCheckInput): boolean {
+  return getCompletionStatus(input) === 'aprobado';
 }

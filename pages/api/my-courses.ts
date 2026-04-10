@@ -116,23 +116,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const progressPercentage = Math.round((completedLessons / totalLessons) * 100);
-      const allLessonsComplete = completedLessons >= totalLessons;
 
       // --- Assignment / completion status ---
       let assignmentsTotal = 0;
       let assignmentsSubmitted = 0;
+      let assignmentsWithFeedback = 0;
 
-      try {
-        const { count: assignCount } = await supabase
-          .from('lesson_assignments')
-          .select('id', { count: 'exact', head: true })
-          .eq('course_id', courseId)
-          .eq('is_published', true);
+      const { data: courseAssignments } = await supabase
+        .from('lesson_assignments')
+        .select('id')
+        .eq('course_id', courseId)
+        .eq('is_published', true);
 
-        assignmentsTotal = assignCount ?? 0;
-      } catch (err) {
-        console.error(`Error counting assignments for course ${courseId}:`, err);
-      }
+      assignmentsTotal = courseAssignments?.length ?? 0;
+      const assignmentIds = courseAssignments?.map(a => a.id) ?? [];
 
       if (assignmentsTotal > 0) {
         // Individual submissions
@@ -140,7 +137,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const { count: indivCount } = await supabase
             .from('lesson_assignment_submissions')
             .select('id', { count: 'exact', head: true })
-            .eq('student_id', userId);
+            .eq('student_id', userId)
+            .in('assignment_id', assignmentIds)
+            .in('status', ['submitted', 'graded', 'reviewed']);
 
           assignmentsSubmitted += indivCount ?? 0;
         } catch (err) {
@@ -152,30 +151,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const { count: groupCount } = await supabase
             .from('group_assignment_submissions')
             .select('id', { count: 'exact', head: true })
-            .eq('user_id', userId);
+            .eq('user_id', userId)
+            .in('assignment_id', assignmentIds)
+            .in('status', ['submitted', 'graded', 'reviewed']);
 
           assignmentsSubmitted += groupCount ?? 0;
         } catch (err) {
           console.error(`Error counting group submissions for course ${courseId}:`, err);
         }
 
-        // Feedback (counts as a passed assignment)
+        // Feedback count (separate metric)
         try {
           const { count: feedbackCount } = await supabase
             .from('assignment_feedback')
             .select('id', { count: 'exact', head: true })
-            .eq('student_id', userId);
+            .eq('student_id', userId)
+            .in('assignment_id', assignmentIds);
 
-          assignmentsSubmitted += feedbackCount ?? 0;
+          assignmentsWithFeedback = feedbackCount ?? 0;
         } catch (err) {
           console.error(`Error counting feedback for course ${courseId}:`, err);
         }
       }
 
       const completionStatus = getCompletionStatus({
-        allLessonsComplete,
-        totalAssignments: assignmentsTotal,
-        passedAssignments: assignmentsSubmitted,
+        progressPercentage,
+        assignmentsTotal,
+        assignmentsSubmitted,
+        assignmentsWithFeedback,
       });
 
       return {

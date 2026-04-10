@@ -259,22 +259,23 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     const generationsMap = new Map(generationsData.data?.map(g => [g.id, g] as [string, any]) || []);
     const communitiesMap = new Map(communitiesData.data?.map(c => [c.id, c] as [string, any]) || []);
 
-    // Get course assignment data (actual table used in the system)
+    // Get course enrollment data (source of truth for who is enrolled in what)
     // Use chunked queries to avoid URL length limits
-    console.log('[detailed-api] Step 12: Fetching course assignments for', userIds.length, 'users');
+    console.log('[detailed-api] Step 12: Fetching course enrollments for', userIds.length, 'users');
     let courseData: any[] = [];
     for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
       const chunk = userIds.slice(i, i + CHUNK_SIZE);
       const { data: chunkCourseData, error: courseError } = await supabase
-        .from('course_assignments')
+        .from('course_enrollments')
         .select(`
-          teacher_id,
+          user_id,
           course_id,
           progress_percentage,
-          assigned_at,
-          status
+          is_completed,
+          created_at,
+          updated_at
         `)
-        .in('teacher_id', chunk);
+        .in('user_id', chunk);
 
       if (courseError) {
         console.error('Course data error:', courseError.message);
@@ -395,13 +396,13 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
       });
     });
 
-    // Process course assignment data
-    const assignmentsByUser = new Map();
-    (courseData || []).forEach(assignment => {
-      if (!assignmentsByUser.has(assignment.teacher_id)) {
-        assignmentsByUser.set(assignment.teacher_id, []);
+    // Process course enrollment data
+    const enrollmentsByUser = new Map();
+    (courseData || []).forEach(enrollment => {
+      if (!enrollmentsByUser.has(enrollment.user_id)) {
+        enrollmentsByUser.set(enrollment.user_id, []);
       }
-      assignmentsByUser.get(assignment.teacher_id).push(assignment);
+      enrollmentsByUser.get(enrollment.user_id).push(enrollment);
     });
 
     // Process lesson progress data
@@ -448,15 +449,15 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
 
     // Build the progress users array
     let progressUsers: ProgressUser[] = (userProfiles || []).map(profile => {
-        const userAssignments = assignmentsByUser.get(profile.id) || [];
+        const userEnrollments = enrollmentsByUser.get(profile.id) || [];
         const userLessons = lessonProgressByUser.get(profile.id) || [];
-        
-        const total_courses_enrolled = userAssignments.length;
-        const completed_courses = userAssignments.filter(a => a.status === 'completed').length;
-        
-        // FIXED: Calculate completion based on actual lesson progress, not stale course progress
-        // Get total lessons completed for this user's assigned courses
-        const assignedCourseIds = userAssignments.map(a => a.course_id);
+
+        const total_courses_enrolled = userEnrollments.length;
+        const completed_courses = userEnrollments.filter(
+          (e: any) => e.is_completed || (e.progress_percentage != null && e.progress_percentage >= 100)
+        ).length;
+
+        // Calculate completion based on actual lesson progress
         const completedBlocks = userLessons.filter(l => l.completed_at);
 
         // Count UNIQUE lessons (not blocks) - lesson_progress is block-level
@@ -467,25 +468,24 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
         // This is a rough estimate - ideally we'd know total lessons per course
         const completion_percentage = uniqueLessonCount > 0 ?
           Math.min(Math.round((uniqueLessonCount / Math.max(total_courses_enrolled * 5, 1)) * 100), 100) : 0;
-        
+
         // Calculate actual lesson progress data
         // NOTE: lesson_progress is block-level, so count unique lessons not blocks
-        // (reusing uniqueCompletedLessons from completion_percentage calculation above)
         const total_lessons_completed = uniqueCompletedLessons.size;
 
         const total_time_spent_minutes = Math.round(
           userLessons.reduce((sum, l) => sum + (l.time_spent || 0), 0) / 60
         ); // Convert seconds to minutes
-        
-        // Determine most recent activity from lesson progress or course assignments
+
+        // Determine most recent activity from lesson progress or course enrollments
         const lessonActivities = userLessons.map(l => l.completed_at).filter(Boolean);
-        const courseActivities = userAssignments.map(a => a.assigned_at).filter(Boolean);
+        const courseActivities = userEnrollments.map((e: any) => e.updated_at || e.created_at).filter(Boolean);
         const allActivities = [...lessonActivities, ...courseActivities];
-        const lastActivity = allActivities.length > 0 ? 
+        const lastActivity = allActivities.length > 0 ?
           allActivities.sort().reverse()[0] : null;
 
         // Calculate assignment data
-        const userEnrolledCourseIds = userAssignments.map(a => a.course_id);
+        const userEnrolledCourseIds = userEnrollments.map((e: any) => e.course_id);
         const lessonAssignmentsTotal = userEnrolledCourseIds.reduce(
           (sum, courseId) => sum + (lessonAssignmentsByCourse.get(courseId) || 0), 0
         );

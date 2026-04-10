@@ -126,12 +126,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
           await supabaseAdmin
             .from('course_completions')
-            .insert({
+            .upsert({
               user_id: user.id,
               course_id,
               completion_type: 'aprobado',
               completed_at: new Date().toISOString(),
-              completion_notification_sent: false,
+              completion_notification_sent: true,
+            }, {
+              onConflict: 'user_id,course_id,completion_type',
             });
 
           await NotificationService.triggerNotification('course_completed', {

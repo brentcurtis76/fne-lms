@@ -138,6 +138,9 @@ export function NetflixCourseRow({
                   is_completed: course.enrollment.is_completed,
                   lessons_completed: course.enrollment.lessons_completed,
                   total_lessons: course.enrollment.total_lessons,
+                  completion_status: course.enrollment.completion_status,
+                  assignments_submitted: course.enrollment.assignments_submitted,
+                  assignments_total: course.enrollment.assignments_total,
                 } : null}
                 onSelect={onCourseSelect}
               />

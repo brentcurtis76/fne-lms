@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import MainLayout from '../components/layout/MainLayout';
 import AdvancedFilters from '../components/reports/AdvancedFilters';
@@ -107,6 +107,8 @@ export default function DetailedReports() {
   // Tab state
   const [activeTab, setActiveTab] = useState<'overview' | 'detailed' | 'analytics'>('overview');
 
+  const abortControllerRef = useRef<AbortController | null>(null);
+
   useEffect(() => {
     initializeAuth();
     
@@ -116,7 +118,12 @@ export default function DetailedReports() {
     };
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
   }, []);
 
   // Sync debounced search with filters
@@ -212,6 +219,12 @@ export default function DetailedReports() {
   };
 
   const fetchDetailedProgress = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     try {
       const response = await fetch('/api/reports/detailed', {
@@ -225,6 +238,7 @@ export default function DetailedReports() {
           pagination: { page: currentPage, limit: pageSize },
           useSmartDefaults: currentPage === 1 && sortBy === 'activity_score' && sortOrder === 'desc', // Use smart defaults for initial load
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -233,19 +247,22 @@ export default function DetailedReports() {
       }
 
       const { users, summary, pagination } = await response.json();
-      
+
       setUsers(users);
       setSummary(summary);
       setPagination(pagination);
 
     } catch (error: any) {
+      if (error.name === 'AbortError') return;
       console.error('Error fetching detailed progress:', error);
       toast.error(`Failed to load report: ${error.message}`);
       setUsers([]);
       setSummary(null);
       setPagination(null);
     } finally {
-      setLoading(false);
+      if (abortControllerRef.current === controller) {
+        setLoading(false);
+      }
     }
   };
 

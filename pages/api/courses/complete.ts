@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import NotificationService from '../../../lib/notificationService';
+import { awardBadgeAndPost } from '../../../lib/services/badgeAndPost';
 
 // Create admin client with service role key for elevated permissions
 const supabaseAdmin = createClient(
@@ -110,77 +111,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Trigger appropriate completion notification
     try {
       if (completion_type === 'course') {
-        await NotificationService.triggerNotification('course_completed', {
-          course_id,
-          student_id: user.id,
-          course_name: courseData?.title || 'Curso',
-          completion_date: completionData.completed_at
-        });
-        console.log(`✅ Course completion notification triggered for user ${user.id}`);
+        const courseName = courseData?.title || 'Curso';
 
-        // Award badge and create community announcement for course completion
-        try {
-          const courseName = courseData?.title || 'Curso';
+        // Check if the course has graded assignments
+        const { count: assignmentsTotal } = await supabaseAdmin
+          .from('lesson_assignments')
+          .select('id', { count: 'exact', head: true })
+          .eq('course_id', course_id)
+          .eq('is_published', true);
 
-          // Award the badge using database function
-          const { data: badgeResult, error: badgeError } = await supabaseAdmin
-            .rpc('award_course_completion_badge', {
-              p_user_id: user.id,
-              p_course_id: course_id,
-              p_course_name: courseName
+        if ((assignmentsTotal ?? 0) === 0) {
+          // No assignments → auto-aprobado: badge + post + aprobado record
+          await awardBadgeAndPost(user.id, course_id, courseName);
+
+          await supabaseAdmin
+            .from('course_completions')
+            .insert({
+              user_id: user.id,
+              course_id,
+              completion_type: 'aprobado',
+              completed_at: new Date().toISOString(),
+              completion_notification_sent: false,
             });
 
-          if (badgeError) {
-            console.warn('Badge award warning:', badgeError.message);
-          } else {
-            console.log(`🏅 Badge awarded for user ${user.id}:`, badgeResult ? 'new badge' : 'already exists');
-          }
-
-          // Get user's community workspace for congratulatory post
-          const { data: userRole } = await supabaseAdmin
-            .from('user_roles')
-            .select('community_id')
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-            .not('community_id', 'is', null)
-            .limit(1)
-            .maybeSingle();
-
-          if (userRole?.community_id) {
-            const { data: workspace } = await supabaseAdmin
-              .from('community_workspaces')
-              .select('id')
-              .eq('community_id', userRole.community_id)
-              .eq('is_active', true)
-              .maybeSingle();
-
-            if (workspace?.id) {
-              // Create congratulatory post with badge mention
-              const congratsContent = {
-                text: `🏅 ¡Ha ganado la insignia "Curso Completado" por completar el curso "${courseName}"!`,
-                formatted: `<p>🏅 ¡Ha ganado la insignia <strong>"Curso Completado"</strong> por completar el curso <strong>"${courseName}"</strong>!</p>`
-              };
-
-              const { error: postError } = await supabaseAdmin
-                .from('community_posts')
-                .insert({
-                  workspace_id: workspace.id,
-                  author_id: user.id,
-                  type: 'text',
-                  content: congratsContent,
-                  visibility: 'community',
-                });
-
-              if (postError) {
-                console.warn('Community post warning:', postError.message);
-              } else {
-                console.log(`📢 Congratulatory post created for user ${user.id}`);
-              }
-            }
-          }
-        } catch (badgePostError) {
-          console.warn('Badge/post system warning:', badgePostError);
-          // Don't fail - badge system might not be configured yet
+          await NotificationService.triggerNotification('course_completed', {
+            course_id,
+            student_id: user.id,
+            course_name: courseName,
+            completion_date: completionData.completed_at,
+            status: 'aprobado',
+          });
+          console.log(`Course auto-aprobado for user ${user.id} (0 assignments)`);
+        } else {
+          // Has assignments → completado only (no badge, no post)
+          await NotificationService.triggerNotification('course_completed', {
+            course_id,
+            student_id: user.id,
+            course_name: courseName,
+            completion_date: completionData.completed_at,
+            status: 'completado',
+          });
+          console.log(`Course completado for user ${user.id} (${assignmentsTotal} assignments pending review)`);
         }
       } else if (completion_type === 'module') {
         await NotificationService.triggerNotification('module_completed', {

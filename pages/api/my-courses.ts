@@ -1,5 +1,6 @@
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { NextApiRequest, NextApiResponse } from 'next';
+import { getCompletionStatus } from '../../lib/utils/aprobadoCheck';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'GET') {
@@ -115,6 +116,67 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const progressPercentage = Math.round((completedLessons / totalLessons) * 100);
+      const allLessonsComplete = completedLessons >= totalLessons;
+
+      // --- Assignment / completion status ---
+      let assignmentsTotal = 0;
+      let assignmentsSubmitted = 0;
+
+      try {
+        const { count: assignCount } = await supabase
+          .from('lesson_assignments')
+          .select('id', { count: 'exact', head: true })
+          .eq('course_id', courseId)
+          .eq('is_published', true);
+
+        assignmentsTotal = assignCount ?? 0;
+      } catch (err) {
+        console.error(`Error counting assignments for course ${courseId}:`, err);
+      }
+
+      if (assignmentsTotal > 0) {
+        // Individual submissions
+        try {
+          const { count: indivCount } = await supabase
+            .from('lesson_assignment_submissions')
+            .select('id', { count: 'exact', head: true })
+            .eq('student_id', userId);
+
+          assignmentsSubmitted += indivCount ?? 0;
+        } catch (err) {
+          console.error(`Error counting individual submissions for course ${courseId}:`, err);
+        }
+
+        // Group submissions (use user_id, NOT submitted_by)
+        try {
+          const { count: groupCount } = await supabase
+            .from('group_assignment_submissions')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId);
+
+          assignmentsSubmitted += groupCount ?? 0;
+        } catch (err) {
+          console.error(`Error counting group submissions for course ${courseId}:`, err);
+        }
+
+        // Feedback (counts as a passed assignment)
+        try {
+          const { count: feedbackCount } = await supabase
+            .from('assignment_feedback')
+            .select('id', { count: 'exact', head: true })
+            .eq('student_id', userId);
+
+          assignmentsSubmitted += feedbackCount ?? 0;
+        } catch (err) {
+          console.error(`Error counting feedback for course ${courseId}:`, err);
+        }
+      }
+
+      const completionStatus = getCompletionStatus({
+        allLessonsComplete,
+        totalAssignments: assignmentsTotal,
+        passedAssignments: assignmentsSubmitted,
+      });
 
       return {
         id: courseId,
@@ -128,6 +190,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         progress_percentage: progressPercentage,
         lessons_completed: completedLessons,
         total_lessons: totalLessons,
+        completion_status: completionStatus,
+        assignments_submitted: assignmentsSubmitted,
+        assignments_total: assignmentsTotal,
         last_activity: enrollment.updated_at,
         assigned_at: enrollment.created_at
       };

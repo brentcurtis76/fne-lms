@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { calculateActivityScore } from '@/lib/utils/activityScore';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -217,19 +218,106 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
 
-    // Find top learner
+    // Find top learner using activity score
     let topLearner: DashboardStats['topLearner'] = null;
     let topLearnerId: string | null = null;
-    let maxUserCompletions = 0;
+    let topLearnerCompletions = 0;
 
-    for (const [uid, count] of Object.entries(userCompletionCounts)) {
-      if (count > maxUserCompletions) {
-        maxUserCompletions = count;
-        topLearnerId = uid;
+    const usersToScore = Object.keys(userCompletionCounts);
+
+    if (usersToScore.length > 0) {
+      const batchSize = 50;
+      let bestScore = -1;
+
+      for (let i = 0; i < usersToScore.length; i += batchSize) {
+        const batch = usersToScore.slice(i, i + batchSize);
+
+        // Parallel queries for this batch
+        const [lessonRes, enrollmentRes, indivSubsRes, groupSubsRes] = await Promise.all([
+          supabase
+            .from('lesson_progress')
+            .select('user_id, lesson_id')
+            .in('user_id', batch)
+            .not('completed_at', 'is', null)
+            .limit(10000),
+          supabase
+            .from('course_enrollments')
+            .select('user_id, course_id, updated_at')
+            .in('user_id', batch),
+          supabase
+            .from('lesson_assignment_submissions')
+            .select('student_id')
+            .in('student_id', batch)
+            .in('status', ['submitted', 'graded', 'reviewed']),
+          supabase
+            .from('group_assignment_submissions')
+            .select('user_id')
+            .in('user_id', batch)
+            .in('status', ['submitted', 'graded', 'reviewed']),
+        ]);
+
+        // Deduplicate lessons per user (lesson_progress is block-level)
+        const userLessons: Record<string, Set<string>> = {};
+        for (const lp of lessonRes.data || []) {
+          if (!userLessons[lp.user_id]) userLessons[lp.user_id] = new Set();
+          userLessons[lp.user_id].add(lp.lesson_id);
+        }
+
+        // Enrolled courses and last activity per user
+        const userCourses: Record<string, string[]> = {};
+        const userLastActivity: Record<string, string> = {};
+        for (const e of enrollmentRes.data || []) {
+          if (!userCourses[e.user_id]) userCourses[e.user_id] = [];
+          userCourses[e.user_id].push(e.course_id);
+          if (!userLastActivity[e.user_id] || e.updated_at > userLastActivity[e.user_id]) {
+            userLastActivity[e.user_id] = e.updated_at;
+          }
+        }
+
+        // Total published assignments per course
+        const allCourseIds = [...new Set(Object.values(userCourses).flat())];
+        const courseAssignmentCounts: Record<string, number> = {};
+        if (allCourseIds.length > 0) {
+          const { data: assignmentsData } = await supabase
+            .from('lesson_assignments')
+            .select('id, course_id')
+            .in('course_id', allCourseIds)
+            .eq('is_published', true);
+          for (const a of assignmentsData || []) {
+            courseAssignmentCounts[a.course_id] = (courseAssignmentCounts[a.course_id] || 0) + 1;
+          }
+        }
+
+        // Count submissions per user
+        const userIndivSubs: Record<string, number> = {};
+        for (const s of indivSubsRes.data || []) {
+          userIndivSubs[s.student_id] = (userIndivSubs[s.student_id] || 0) + 1;
+        }
+        const userGroupSubs: Record<string, number> = {};
+        for (const s of groupSubsRes.data || []) {
+          userGroupSubs[s.user_id] = (userGroupSubs[s.user_id] || 0) + 1;
+        }
+
+        // Compute score for each user in batch
+        for (const uid of batch) {
+          const lessonsCompleted = userLessons[uid]?.size || 0;
+          const courses = userCourses[uid] || [];
+          const assignmentsTotal = courses.reduce((sum, cid) => sum + (courseAssignmentCounts[cid] || 0), 0);
+          const assignmentsSubmitted = (userIndivSubs[uid] || 0) + (userGroupSubs[uid] || 0);
+          const lastActivity = userLastActivity[uid] || new Date(0).toISOString();
+
+          const score = calculateActivityScore(assignmentsSubmitted, assignmentsTotal, lessonsCompleted, lastActivity);
+
+          if (score.total > bestScore) {
+            bestScore = score.total;
+            topLearnerId = uid;
+            topLearnerCompletions = userCompletionCounts[uid];
+          }
+        }
       }
     }
 
-    if (topLearnerId && maxUserCompletions > 0) {
+    if (topLearnerId) {
       const { data: profileData } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, email, avatar_url, school_id')
@@ -261,7 +349,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           name: `${profileData.first_name || ''} ${profileData.last_name || ''}`.trim() || 'Usuario',
           email: profileData.email || '',
           avatar_url: profileData.avatar_url,
-          completedCourses: maxUserCompletions,
+          completedCourses: topLearnerCompletions,
           school_name: schoolName,
           role: roleData?.role_type ? ROLE_DISPLAY_MAP[roleData.role_type] || roleData.role_type : undefined
         };

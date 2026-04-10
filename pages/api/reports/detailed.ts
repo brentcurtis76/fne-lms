@@ -91,6 +91,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse<ApiResponse | {
     console.log('[detailed-api] Step 5: Got user profile');
 
     const { filters, sort, pagination, useSmartDefaults = true } = req.body;
+    console.log('[FILTER-DIAG-API] Received filters:', JSON.stringify(filters));
     const { page = 1, limit = 20 } = pagination || {};
 
     // DEFAULT SORT: Always sort by activity_score (most active first)

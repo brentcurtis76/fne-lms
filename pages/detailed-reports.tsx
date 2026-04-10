@@ -187,13 +187,13 @@ export default function DetailedReports() {
         const activeRole = userRoles.find(r => r.role_type === effectiveRole) || null;
         
         // Store full profile for role-based filtering
-        setUserProfile({
-          id: session.user.id,
-          role: effectiveRole,
-          school_id: activeRole?.school_id || profileData?.school_id,
-          generation_id: activeRole?.generation_id || profileData?.generation_id,
-          community_id: activeRole?.community_id || profileData?.community_id
-        });
+        const newProfile = { id: session.user.id, role: effectiveRole, school_id: activeRole?.school_id || profileData?.school_id, generation_id: activeRole?.generation_id || profileData?.generation_id, community_id: activeRole?.community_id || profileData?.community_id };
+        setUserProfile(newProfile);
+        if (!hasInitializedFilters.current) {
+          hasInitializedFilters.current = true;
+          const isAdminRole = effectiveRole === 'admin' || effectiveRole === 'consultor';
+          setFilters(prev => ({ ...prev, school_id: isAdminRole ? 'all' : (newProfile.school_id || 'all'), generation_id: isAdminRole ? 'all' : (newProfile.generation_id || prev.generation_id), community_id: isAdminRole ? 'all' : (newProfile.community_id || prev.community_id) }));
+        }
       }
     } catch (error) {
       console.error('Auth initialization error:', error);
@@ -201,20 +201,6 @@ export default function DetailedReports() {
     }
   };
 
-  // Auto-populate filters based on user organizational scope
-  useEffect(() => {
-    if (!userProfile || hasInitializedFilters.current) return;
-    hasInitializedFilters.current = true;
-
-    const isAdmin = userProfile.role === 'admin' || userProfile.role === 'consultor';
-
-    setFilters(prev => ({
-      ...prev,
-      school_id: isAdmin ? 'all' : (userProfile.school_id || 'all'),
-      generation_id: isAdmin ? 'all' : (userProfile.generation_id || prev.generation_id),
-      community_id: isAdmin ? 'all' : (userProfile.community_id || prev.community_id)
-    }));
-  }, [userProfile]);
 
   const hasReportingAccess = (role: string) => {
     return ['admin', 'equipo_directivo', 'lider_generacion', 'lider_comunidad', 'consultor', 'supervisor_de_red'].includes(role);
@@ -226,6 +212,7 @@ export default function DetailedReports() {
     }
     const controller = new AbortController();
     abortControllerRef.current = controller;
+    console.log('[FILTER-DIAG] fetchDetailedProgress called, school_id:', filters.school_id, 'at:', new Date().toISOString());
 
     setLoading(true);
     try {

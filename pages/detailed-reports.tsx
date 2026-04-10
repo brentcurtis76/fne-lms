@@ -108,6 +108,7 @@ export default function DetailedReports() {
   const [activeTab, setActiveTab] = useState<'overview' | 'detailed' | 'analytics'>('overview');
 
   const abortControllerRef = useRef<AbortController | null>(null);
+  const hasInitializedFilters = useRef(false);
 
   useEffect(() => {
     initializeAuth();
@@ -202,7 +203,8 @@ export default function DetailedReports() {
 
   // Auto-populate filters based on user organizational scope
   useEffect(() => {
-    if (!userProfile) return;
+    if (!userProfile || hasInitializedFilters.current) return;
+    hasInitializedFilters.current = true;
 
     const isAdmin = userProfile.role === 'admin' || userProfile.role === 'consultor';
 

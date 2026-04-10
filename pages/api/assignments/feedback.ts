@@ -173,8 +173,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
             const assignmentsWithFeedback = feedbackCount ?? 0;
 
+            const { data: enrollmentData } = await supabaseAdmin
+              .from('course_enrollments')
+              .select('progress_percentage')
+              .eq('user_id', student_id)
+              .eq('course_id', courseId)
+              .single();
+
+            const actualProgress = enrollmentData?.progress_percentage ?? 0;
+
             if (checkAprobadoEligibility({
-              progressPercentage: 100,
+              progressPercentage: actualProgress,
               assignmentsTotal,
               assignmentsSubmitted,
               assignmentsWithFeedback,

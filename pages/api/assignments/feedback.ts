@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import NotificationService from '../../../lib/notificationService';
+import { awardBadgeAndPost } from '../../../lib/services/badgeAndPost';
+import { checkAprobadoEligibility } from '../../../lib/utils/aprobadoCheck';
 
 // Create admin client with service role key for elevated permissions
 const supabaseAdmin = createClient(
@@ -113,8 +115,97 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Don't fail the API call if notifications fail
     }
 
-    return res.status(200).json({ 
-      success: true, 
+    // --- Aprobado eligibility check ---
+    try {
+      const courseId = assignmentData?.course_id;
+      const courseName = (assignmentData?.courses as any)?.title || 'Curso';
+
+      if (courseId) {
+        // Guard: skip if 'aprobado' record already exists
+        const { data: existingAprobado } = await supabaseAdmin
+          .from('course_completions')
+          .select('id')
+          .eq('user_id', student_id)
+          .eq('course_id', courseId)
+          .eq('completion_type', 'aprobado')
+          .maybeSingle();
+
+        if (!existingAprobado) {
+          // Total assignments for the course
+          const { count: totalAssignments } = await supabaseAdmin
+            .from('lesson_assignments')
+            .select('id', { count: 'exact', head: true })
+            .eq('course_id', courseId)
+            .eq('is_published', true);
+
+          if ((totalAssignments ?? 0) > 0) {
+            let passedAssignments = 0;
+
+            // Individual submissions
+            const { count: indivCount } = await supabaseAdmin
+              .from('lesson_assignment_submissions')
+              .select('id', { count: 'exact', head: true })
+              .eq('student_id', student_id)
+              .in('status', ['submitted', 'graded', 'reviewed']);
+
+            passedAssignments += indivCount ?? 0;
+
+            // Group submissions (CRITICAL: use user_id, NOT submitted_by)
+            const { count: groupCount } = await supabaseAdmin
+              .from('group_assignment_submissions')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', student_id);
+
+            passedAssignments += groupCount ?? 0;
+
+            // Feedback count
+            const { count: feedbackTotal } = await supabaseAdmin
+              .from('assignment_feedback')
+              .select('id', { count: 'exact', head: true })
+              .eq('student_id', student_id);
+
+            passedAssignments += feedbackTotal ?? 0;
+
+            // Verify 'completado' record exists (completion_type = 'course')
+            const { data: completadoRecord } = await supabaseAdmin
+              .from('course_completions')
+              .select('id')
+              .eq('user_id', student_id)
+              .eq('course_id', courseId)
+              .eq('completion_type', 'course')
+              .maybeSingle();
+
+            if (checkAprobadoEligibility({
+              allLessonsComplete: !!completadoRecord,
+              totalAssignments: totalAssignments ?? 0,
+              passedAssignments,
+            })) {
+              // UPSERT prevents race conditions
+              await supabaseAdmin
+                .from('course_completions')
+                .upsert({
+                  user_id: student_id,
+                  course_id: courseId,
+                  completion_type: 'aprobado',
+                  completed_at: new Date().toISOString(),
+                  completion_notification_sent: false,
+                }, {
+                  onConflict: 'user_id,course_id,completion_type',
+                });
+
+              await awardBadgeAndPost(student_id, courseId, courseName);
+              console.log(`Aprobado recorded for student ${student_id} in course ${courseId}`);
+            }
+          }
+        }
+      }
+    } catch (aprobadoError) {
+      console.error('Aprobado eligibility check failed:', aprobadoError);
+      // Don't fail the API call if aprobado check fails
+    }
+
+    return res.status(200).json({
+      success: true,
       message: 'Feedback provided successfully',
       feedbackId: feedbackResult.id
     });

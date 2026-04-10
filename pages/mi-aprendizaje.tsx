@@ -107,13 +107,8 @@ const NetflixCoursesView: React.FC<NetflixCoursesViewProps> = ({
   // Categorize courses using completion_status
   const inProgressCourses = useMemo(() => {
     return filteredCourses.filter((course) => {
-      // In-progress: started but not yet completado/aprobado
       if (course.completion_status === 'aprobado') return false;
-      // Completado with pending assignments goes here too
-      if (course.completion_status === 'completado') {
-        const hasPending = (course.assignments_total ?? 0) > (course.assignments_submitted ?? 0);
-        return hasPending;
-      }
+      if (course.completion_status === 'completado') return true;
       return course.progress_percentage > 0 && course.progress_percentage < 100;
     });
   }, [filteredCourses]);
@@ -123,7 +118,11 @@ const NetflixCoursesView: React.FC<NetflixCoursesViewProps> = ({
   }, [filteredCourses]);
 
   const notStartedCourses = useMemo(() => {
-    return filteredCourses.filter((course) => course.progress_percentage === 0 && !course.completion_status);
+    return filteredCourses.filter((course) => {
+      if (course.completion_status === 'aprobado') return false;
+      if (course.completion_status === 'completado') return false;
+      return course.progress_percentage === 0;
+    });
   }, [filteredCourses]);
 
   if (loading) {

@@ -137,3 +137,4 @@ node_modules/canvas
 /*.png
 /*.jpg
 /preview-*.pdf
+lib/propuestas/__tests__/poc-output.pdf

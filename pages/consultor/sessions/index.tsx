@@ -7,6 +7,7 @@ import MainLayout from '../../../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../../../components/layout/FunctionalPageHeader';
 import { getUserPrimaryRole } from '../../../utils/roleUtils';
 import { Calendar, MapPin, Clock, Filter as FilterIcon, X, Link2, Users, CalendarPlus } from 'lucide-react';
+import HelpButton from '../../../components/tutorials/HelpButton';
 import { SessionStatus } from '../../../lib/types/consultor-sessions.types';
 import { format, parseISO, differenceInDays, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -386,7 +387,9 @@ const ConsultorSessionsPage: React.FC = () => {
           icon={<Calendar className="h-6 w-6" />}
           title="Mis Sesiones"
           subtitle="Vista de sesiones de consultoría asignadas"
-        />
+        >
+          <HelpButton sectionId="mis-sesiones" />
+        </ResponsiveFunctionalPageHeader>
 
         {/* Quick stats header */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

@@ -113,6 +113,7 @@ run-*.mjs
 !Progresión/*.md  # Markdown files in Progresión folder
 !docs/qa/*.md  # QA testing documentation
 !docs/*.md  # QA audit documentation (role audits, scenarios, etc.)
+!docs/tutorials/guiones/*.md  # Tutorial script skeletons
 !docs/qa-system/*.md  # QA system documentation
 !docs/qa-system/*.sql  # QA seed data scripts
 *.json

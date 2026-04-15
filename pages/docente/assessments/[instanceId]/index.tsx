@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Loader2,
 } from 'lucide-react';
+import HelpButton from '@/components/tutorials/HelpButton';
 import {
   AREA_LABELS,
   ENTITY_LABELS,
@@ -382,7 +383,9 @@ const AssessmentResponseForm: React.FC = () => {
         icon={<ClipboardCheck />}
         title={template?.name || 'Evaluación'}
         subtitle={AREA_LABELS[template?.area as TransformationArea] || 'Evaluación'}
-      />
+      >
+        <HelpButton sectionId="proceso-de-cambio" />
+      </ResponsiveFunctionalPageHeader>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back button and actions */}

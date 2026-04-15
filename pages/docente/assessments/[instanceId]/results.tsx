@@ -6,6 +6,7 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '@/components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '@/components/layout/FunctionalPageHeader';
 import { BarChart3, ArrowLeft } from 'lucide-react';
+import HelpButton from '@/components/tutorials/HelpButton';
 import {
   SummaryCards,
   StrengthsWeaknesses,
@@ -136,7 +137,9 @@ const AssessmentResults: React.FC = () => {
         icon={<BarChart3 />}
         title="Resultados"
         subtitle={`${template.areaLabel} - ${template.name}`}
-      />
+      >
+        <HelpButton sectionId="proceso-de-cambio" />
+      </ResponsiveFunctionalPageHeader>
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Back button */}

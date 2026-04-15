@@ -13,6 +13,7 @@ import { toast } from 'react-hot-toast';
 import MainLayout from '../../components/layout/MainLayout';
 import LoadingSkeleton from '../../components/common/LoadingSkeleton';
 import { ResponsiveFunctionalPageHeader } from '../../components/layout/FunctionalPageHeader';
+import HelpButton from '../../components/tutorials/HelpButton';
 import MeetingFilters from '../../components/meetings/MeetingFilters';
 import MeetingCard from '../../components/meetings/MeetingCard';
 import MeetingDocumentationModal from '../../components/meetings/MeetingDocumentationModal';
@@ -842,7 +843,9 @@ const CommunityWorkspacePage: React.FC = () => {
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Buscar en documentos, mensajes, reuniones..."
-      />
+      >
+        <HelpButton sectionId="espacio-colaborativo" />
+      </ResponsiveFunctionalPageHeader>
       
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {/* Prominent Community Header */}

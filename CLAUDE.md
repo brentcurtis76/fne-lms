@@ -1,3 +1,5 @@
+> **CRITICAL — READ FIRST:** No bridge MCP exists in this session. Never search for `bridge_post_task` or similar tools. Use `jb post ... --project genera` via the bash tool. See Claude Code section below.
+
 # GENERA (FNE-LMS) — Project Rules
 
 > Learning management system for Fundación Nueva Educación.

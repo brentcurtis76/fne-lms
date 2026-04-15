@@ -129,3 +129,10 @@ node_modules/canvas
 *.xlsx
 *.csv
 .env*.local
+
+# Bridge agent scratch output — should write to /tmp not repo root
+/*.pdf
+/*.docx
+/*.png
+/*.jpg
+/preview-*.pdf

@@ -86,3 +86,4 @@ const nextConfig = {
 }
 
 module.exports = nextConfig;
+// bridge smoke test - 2026-04-15T17:50:18Z

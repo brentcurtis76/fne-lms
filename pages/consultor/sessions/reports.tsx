@@ -20,6 +20,7 @@ import {
   AlertCircle,
   ArrowLeft,
 } from 'lucide-react';
+import HelpButton from '../../../components/tutorials/HelpButton';
 
 // Lazy-load recharts components to reduce initial bundle size.
 // Type assertions needed: recharts components have complex generics
@@ -426,6 +427,7 @@ const SessionReportsPage: React.FC = () => {
         <div className="flex items-center gap-3 mb-2">
           <BarChart3 className="w-7 h-7 text-brand_primary" />
           <h1 className="text-2xl font-bold text-gray-900">Reportes de Sesiones</h1>
+          <HelpButton sectionId="mis-reportes" />
         </div>
         <p className="text-gray-600">
           {isAdmin

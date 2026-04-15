@@ -5,6 +5,7 @@ import MainLayout from '../components/layout/MainLayout';
 import ConsultantEarningsDashboard from '../components/hours/ConsultantEarningsDashboard';
 import { getUserPrimaryRole } from '../utils/roleUtils';
 import { Clock } from 'lucide-react';
+import HelpButton from '../components/tutorials/HelpButton';
 import { User } from '@supabase/supabase-js';
 
 const MisHorasPage: React.FC = () => {
@@ -90,12 +91,13 @@ const MisHorasPage: React.FC = () => {
           <div className="p-2 bg-brand_primary/10 rounded-lg">
             <Clock className="h-6 w-6 text-brand_primary" />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-2xl font-bold text-gray-900">Mis Horas</h1>
             <p className="text-sm text-gray-500 mt-0.5">
               Consulte sus ganancias en EUR y CLP por período de tiempo.
             </p>
           </div>
+          <HelpButton sectionId="mis-horas" />
         </div>
 
         <ConsultantEarningsDashboard

@@ -15,6 +15,7 @@ import {
   BarChart3,
   RefreshCw,
 } from 'lucide-react';
+import HelpButton from '@/components/tutorials/HelpButton';
 import { AREA_LABELS, TransformationArea, GenerationType } from '@/types/assessment-builder';
 
 interface AssessmentListItem {
@@ -161,7 +162,9 @@ const DocenteAssessmentsPage: React.FC = () => {
         icon={<ClipboardCheck />}
         title="Mis Evaluaciones"
         subtitle={`${assessments.length} evaluación${assessments.length !== 1 ? 'es' : ''} asignada${assessments.length !== 1 ? 's' : ''}`}
-      />
+      >
+        <HelpButton sectionId="proceso-de-cambio" />
+      </ResponsiveFunctionalPageHeader>
 
       <div className="max-w-4xl mx-auto px-6 sm:px-8 lg:px-10 py-10">
         {/* Filters */}

@@ -4,6 +4,7 @@ import MainLayout from '../components/layout/MainLayout';
 import { ResponsiveFunctionalPageHeader } from '../components/layout/FunctionalPageHeader';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { BookOpen, MapPin } from 'lucide-react';
+import HelpButton from '../components/tutorials/HelpButton';
 import { getUserPrimaryRole } from '../utils/roleUtils';
 import { NetflixCourseRow } from '../components/courses';
 import { CourseWithEnrollment } from '../types/courses';
@@ -414,7 +415,9 @@ const MiAprendizajePage: React.FC = () => {
         searchValue={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Buscar en rutas y cursos..."
-      />
+      >
+        <HelpButton sectionId="mi-aprendizaje" />
+      </ResponsiveFunctionalPageHeader>
       
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="max-w-6xl mx-auto">

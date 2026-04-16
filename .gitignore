@@ -29,6 +29,9 @@ dist/
 # Claude Code agents (local only)
 .claude/agents/
 
+# Claude Code worktrees (local only — must be ignored so bridge `git pull` dirty-guard doesn't trip)
+.claude/worktrees/
+
 # Pipeline state (local only)
 .pipeline/
 *.swp

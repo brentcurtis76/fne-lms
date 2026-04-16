@@ -61,6 +61,8 @@ const SessionDetailPage: React.FC = () => {
 
   // Data state
   const [session, setSession] = useState<SessionWithRelations | null>(null);
+  const [sessionUpdatedAt, setSessionUpdatedAt] = useState<string | null>(null);
+  const [conflictVisible, setConflictVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('details');
   const [isFacilitator, setIsFacilitator] = useState(false);
 
@@ -157,6 +159,8 @@ const SessionDetailPage: React.FC = () => {
         return;
       }
       setSession(sessionData);
+      setSessionUpdatedAt(sessionData.updated_at ?? null);
+      setConflictVisible(false);
 
       // Check if current user is a facilitator
       const isFac = sessionData.facilitators.some(
@@ -292,8 +296,14 @@ const SessionDetailPage: React.FC = () => {
           Authorization: `Bearer ${authSession.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ attendees: attendanceData }),
+        body: JSON.stringify({ attendees: attendanceData, if_updated_at: sessionUpdatedAt }),
       });
+
+      if (response.status === 409) {
+        setConflictVisible(true);
+        toast.error('Otra persona editó esta sesión. Recarga para ver los últimos cambios.');
+        return;
+      }
 
       if (!response.ok) {
         const error = await response.json();
@@ -342,8 +352,15 @@ const SessionDetailPage: React.FC = () => {
           content: reportContent.trim(),
           visibility: reportVisibility,
           report_type: 'session_report',
+          if_updated_at: sessionUpdatedAt,
         }),
       });
+
+      if (response.status === 409) {
+        setConflictVisible(true);
+        toast.error('Otra persona editó esta sesión. Recarga para ver los últimos cambios.');
+        return;
+      }
 
       if (!response.ok) {
         const error = await response.json();
@@ -1158,6 +1175,24 @@ const SessionDetailPage: React.FC = () => {
   return (
     <MainLayout user={user} onLogout={handleLogout}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {conflictVisible && (
+          <div
+            role="alert"
+            className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2"
+          >
+            <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm text-orange-800">
+              Otra persona editó esta sesión mientras trabajabas en ella. Recarga para ver los últimos cambios.
+            </div>
+            <button
+              onClick={() => fetchSession()}
+              className="px-3 py-1 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded"
+            >
+              Recargar
+            </button>
+          </div>
+        )}
+
         {!isFacilitator && userRole !== 'admin' && (
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
             <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />

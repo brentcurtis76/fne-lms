@@ -4,42 +4,13 @@ import {
   canViewSession,
   canEditSession,
   canContributeToSession,
-  SessionAccessContext,
 } from '../../../lib/utils/session-policy';
-import { UserRole } from '../../../utils/roleUtils';
-
-const USER_ID = '11111111-1111-4111-8111-111111111111';
-const SCHOOL_ID = 1;
-const GC_ID = 'gc-uuid-1111';
-
-function buildContext(overrides?: Partial<SessionAccessContext>): SessionAccessContext {
-  return {
-    highestRole: 'consultor',
-    userRoles: [],
-    session: {
-      id: 'session-uuid-1111',
-      school_id: SCHOOL_ID,
-      growth_community_id: GC_ID,
-      status: 'programada',
-    },
-    userId: USER_ID,
-    isFacilitator: false,
-    ...overrides,
-  };
-}
-
-function buildUserRole(overrides?: Partial<UserRole>): UserRole {
-  return {
-    id: 'role-uuid-1111',
-    user_id: USER_ID,
-    role_type: 'consultor',
-    school_id: SCHOOL_ID,
-    community_id: null,
-    is_active: true,
-    created_at: new Date().toISOString(),
-    ...overrides,
-  };
-}
+import {
+  buildContext,
+  buildUserRole,
+  SCHOOL_ID,
+  GC_ID,
+} from '../../helpers/session-policy-factories';
 
 describe('session-policy helpers', () => {
   describe('canViewSession', () => {

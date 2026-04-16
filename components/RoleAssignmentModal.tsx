@@ -189,7 +189,7 @@ export default function RoleAssignmentModal({
       const organizationalScope = {
         schoolId: selectedSchool || undefined,
         generationId: selectedGeneration || undefined,
-        communityId: selectedCommunity || undefined
+        communityId: selectedRole === 'lider_comunidad' ? undefined : (selectedCommunity || undefined)
       };
 
       // Use the API-based function to bypass RLS
@@ -334,7 +334,7 @@ export default function RoleAssignmentModal({
       const organizationalScope = {
         schoolId: selectedSchool || undefined,
         generationId: selectedGeneration || undefined,
-        communityId: selectedCommunity || undefined
+        communityId: selectedRole === 'lider_comunidad' ? undefined : (selectedCommunity || undefined)
       };
 
       const assignResult = await assignRoleViaAPI(userId, selectedRole, organizationalScope);
@@ -603,7 +603,13 @@ export default function RoleAssignmentModal({
                             </label>
                             <select
                               value={selectedRole}
-                              onChange={(e) => setSelectedRole(e.target.value as UserRoleType)}
+                              onChange={(e) => {
+                              const newRole = e.target.value as UserRoleType;
+                              setSelectedRole(newRole);
+                              if (newRole === 'lider_comunidad') {
+                                setSelectedCommunity('');
+                              }
+                            }}
                               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent"
                             >
                               {availableRoles.map((roleType) => (

@@ -45,7 +45,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, 'Sesión no encontrada', 404);
     }
 
-    // Auth check: assigned facilitator only (not admin per Role Access Matrix)
+    // Determine user role for admin bypass
+    const userRoles = await getUserRoles(serviceClient, user.id);
+    const highestRole = getHighestRole(userRoles);
+
+    // Auth check: assigned facilitator OR admin
     const { data: facilitatorCheck } = await serviceClient
       .from('session_facilitators')
       .select('id')
@@ -53,7 +57,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq('user_id', user.id)
       .single();
 
-    if (!facilitatorCheck) {
+    const isAdmin = highestRole === 'admin';
+    const isFacilitator = !!facilitatorCheck;
+
+    if (!isFacilitator && !isAdmin) {
       return sendAuthError(res, 'Solo facilitadores asignados pueden finalizar sesiones', 403);
     }
 
@@ -110,11 +117,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Insert activity log
+    const adminOverride = isAdmin && !isFacilitator;
     const activityLogEntry: SessionActivityLogInsert = {
       session_id: id as string,
       user_id: user.id,
       action: 'finalized',
-      details: { previous_status: previousStatus },
+      details: { previous_status: previousStatus, admin_override: adminOverride },
     };
 
     const { error: logError } = await serviceClient

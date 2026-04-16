@@ -58,9 +58,12 @@ const SessionDetailPage: React.FC = () => {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isConsultorOrAdmin, setIsConsultorOrAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<'forbidden' | 'not_found' | null>(null);
 
   // Data state
   const [session, setSession] = useState<SessionWithRelations | null>(null);
+  const [sessionUpdatedAt, setSessionUpdatedAt] = useState<string | null>(null);
+  const [conflictVisible, setConflictVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('details');
   const [isFacilitator, setIsFacilitator] = useState(false);
 
@@ -90,42 +93,128 @@ const SessionDetailPage: React.FC = () => {
   const [submittingEditRequest, setSubmittingEditRequest] = useState(false);
 
   useEffect(() => {
-    if (router.isReady) {
-      initializeAuth();
-    }
-  }, [router.isReady]);
+    if (!router.isReady || !id) return;
 
-  useEffect(() => {
-    if (user && isConsultorOrAdmin && id) {
-      fetchSession();
-    }
-  }, [user, isConsultorOrAdmin, id]);
+    let cancelled = false;
 
-  const initializeAuth = async () => {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) {
-        router.push('/login');
-        return;
+    const loadSessionPage = async () => {
+      try {
+        // Step 1: verify session and load user/role
+        const {
+          data: { session: authSession },
+        } = await supabase.auth.getSession();
+
+        if (!authSession?.user || !authSession.access_token) {
+          router.push('/login');
+          return;
+        }
+
+        if (cancelled) return;
+        setUser(authSession.user);
+
+        const role = await getUserPrimaryRole(authSession.user.id);
+        if (cancelled) return;
+        setUserRole(role);
+        const allowed = role === 'consultor' || role === 'admin' || role === 'lider_comunidad';
+        setIsConsultorOrAdmin(allowed);
+
+        if (!allowed) {
+          router.push('/dashboard');
+          return;
+        }
+
+        // Step 2: fetch session with the verified fresh token
+        await fetchSessionData(authSession.access_token, authSession.user.id, cancelled);
+      } catch (error) {
+        console.error('Auth/fetch initialization error:', error);
+        if (!cancelled) router.push('/login');
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setUser(session.user);
+    };
 
-      const role = await getUserPrimaryRole(session.user.id);
-      setUserRole(role);
-      const allowed = role === 'consultor' || role === 'admin' || role === 'lider_comunidad';
-      setIsConsultorOrAdmin(allowed);
+    loadSessionPage();
 
-      if (!allowed) {
-        router.push('/dashboard');
-        return;
-      }
-    } catch (error) {
-      console.error('Auth initialization error:', error);
+    return () => {
+      cancelled = true;
+    };
+  }, [router.isReady, id]);
+
+  const fetchSessionData = async (
+    accessToken: string,
+    authUserId: string,
+    cancelled: boolean
+  ) => {
+    const response = await fetch(`/api/sessions/${id}?include=activity_log`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (cancelled) return;
+
+    if (response.status === 401) {
       router.push('/login');
-    } finally {
-      setLoading(false);
+      return;
+    }
+
+    if (response.status === 403) {
+      setFetchError('forbidden');
+      return;
+    }
+
+    if (response.status === 404) {
+      setFetchError('not_found');
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error('Error al cargar sesión');
+    }
+
+    const result = await response.json();
+    const sessionData = result.data?.session;
+    if (!sessionData) {
+      setFetchError('not_found');
+      return;
+    }
+    setFetchError(null);
+    setSession(sessionData);
+    setSessionUpdatedAt(sessionData.updated_at ?? null);
+    setConflictVisible(false);
+
+    // Check if current user is a facilitator
+    const isFac = sessionData.facilitators.some(
+      (f: { user_id: string }) => f.user_id === authUserId
+    );
+    setIsFacilitator(isFac);
+
+    // Initialize attendance data
+    const attendees = sessionData.attendees || [];
+    setAttendanceData(
+      attendees.map((a: SessionAttendee) => ({
+        user_id: a.user_id,
+        attended: a.attended ?? false,
+        arrival_status: a.arrival_status || undefined,
+        notes: a.notes || undefined,
+      }))
+    );
+
+    // Check for existing report by current user
+    const reports = sessionData.reports || [];
+    const userReport = reports.find(
+      (r: SessionReport) => r.author_id === authUserId && r.report_type === 'session_report'
+    );
+    if (userReport) {
+      setExistingReport(userReport);
+      setReportContent(userReport.content);
+      setReportVisibility(userReport.visibility);
+
+      // If report has audio, fetch the signed URL and transcript
+      if (userReport.audio_url) {
+        fetchReportAudioDetails(sessionData.id, userReport.id);
+      }
     }
   };
 
@@ -135,61 +224,11 @@ const SessionDetailPage: React.FC = () => {
         data: { session: authSession },
       } = await supabase.auth.getSession();
       if (!authSession?.access_token) {
-        toast.error('Error de autenticación');
+        router.push('/login');
         return;
       }
 
-      const response = await fetch(`/api/sessions/${id}?include=activity_log`, {
-        headers: {
-          Authorization: `Bearer ${authSession.access_token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al cargar sesión');
-      }
-
-      const result = await response.json();
-      const sessionData = result.data?.session;
-      if (!sessionData) {
-        toast.error('Sesión no encontrada');
-        return;
-      }
-      setSession(sessionData);
-
-      // Check if current user is a facilitator
-      const isFac = sessionData.facilitators.some(
-        (f: { user_id: string }) => f.user_id === authSession.user.id
-      );
-      setIsFacilitator(isFac);
-
-      // Initialize attendance data
-      const attendees = sessionData.attendees || [];
-      setAttendanceData(
-        attendees.map((a: SessionAttendee) => ({
-          user_id: a.user_id,
-          attended: a.attended ?? false,
-          arrival_status: a.arrival_status || undefined,
-          notes: a.notes || undefined,
-        }))
-      );
-
-      // Check for existing report by current user
-      const reports = sessionData.reports || [];
-      const userReport = reports.find(
-        (r: SessionReport) => r.author_id === authSession.user.id && r.report_type === 'session_report'
-      );
-      if (userReport) {
-        setExistingReport(userReport);
-        setReportContent(userReport.content);
-        setReportVisibility(userReport.visibility);
-
-        // If report has audio, fetch the signed URL and transcript
-        if (userReport.audio_url) {
-          fetchReportAudioDetails(sessionData.id, userReport.id);
-        }
-      }
+      await fetchSessionData(authSession.access_token, authSession.user.id, false);
     } catch (error: unknown) {
       console.error('Error fetching session:', error);
       toast.error(error instanceof Error ? error.message : 'Error al cargar sesión');
@@ -292,8 +331,14 @@ const SessionDetailPage: React.FC = () => {
           Authorization: `Bearer ${authSession.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ attendees: attendanceData }),
+        body: JSON.stringify({ attendees: attendanceData, if_updated_at: sessionUpdatedAt }),
       });
+
+      if (response.status === 409) {
+        setConflictVisible(true);
+        toast.error('Otra persona editó esta sesión. Recarga para ver los últimos cambios.');
+        return;
+      }
 
       if (!response.ok) {
         const error = await response.json();
@@ -342,8 +387,15 @@ const SessionDetailPage: React.FC = () => {
           content: reportContent.trim(),
           visibility: reportVisibility,
           report_type: 'session_report',
+          if_updated_at: sessionUpdatedAt,
         }),
       });
+
+      if (response.status === 409) {
+        setConflictVisible(true);
+        toast.error('Otra persona editó esta sesión. Recarga para ver los últimos cambios.');
+        return;
+      }
 
       if (!response.ok) {
         const error = await response.json();
@@ -1131,11 +1183,25 @@ const SessionDetailPage: React.FC = () => {
     );
   }
 
-  if (!session) {
+  if (fetchError === 'forbidden') {
     return (
       <MainLayout user={user} onLogout={handleLogout}>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-gray-600">Sesión no encontrada</div>
+        <div className="flex flex-col items-center justify-center min-h-screen gap-2">
+          <AlertCircle className="w-10 h-10 text-red-500" />
+          <h2 className="text-xl font-semibold text-gray-900">Acceso denegado</h2>
+          <p className="text-gray-600">No tiene permisos para ver esta sesión.</p>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (fetchError === 'not_found' || !session) {
+    return (
+      <MainLayout user={user} onLogout={handleLogout}>
+        <div className="flex flex-col items-center justify-center min-h-screen gap-2">
+          <AlertCircle className="w-10 h-10 text-gray-400" />
+          <h2 className="text-xl font-semibold text-gray-900">Sesión no encontrada</h2>
+          <p className="text-gray-600">La sesión solicitada no existe o fue eliminada.</p>
         </div>
       </MainLayout>
     );
@@ -1158,6 +1224,24 @@ const SessionDetailPage: React.FC = () => {
   return (
     <MainLayout user={user} onLogout={handleLogout}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {conflictVisible && (
+          <div
+            role="alert"
+            className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2"
+          >
+            <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm text-orange-800">
+              Otra persona editó esta sesión mientras trabajabas en ella. Recarga para ver los últimos cambios.
+            </div>
+            <button
+              onClick={() => fetchSession()}
+              className="px-3 py-1 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded"
+            >
+              Recargar
+            </button>
+          </div>
+        )}
+
         {!isFacilitator && userRole !== 'admin' && (
           <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start gap-2">
             <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />

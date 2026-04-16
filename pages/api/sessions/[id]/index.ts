@@ -270,17 +270,42 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
       return sendAuthError(res, 'No hay campos para actualizar', 400);
     }
 
-    // Apply update
-    const { data: updatedSession, error: updateError } = await serviceClient
+    // Optimistic locking: if client sent if_updated_at, include it as a guard
+    const ifUpdatedAt =
+      typeof req.body?.if_updated_at === 'string' ? req.body.if_updated_at : null;
+
+    let updateQuery = serviceClient
       .from('consultor_sessions')
       .update(updateData)
-      .eq('id', sessionId)
-      .select('*')
-      .single();
+      .eq('id', sessionId);
+
+    if (ifUpdatedAt) {
+      updateQuery = updateQuery.eq('updated_at', ifUpdatedAt);
+    }
+
+    const { data: updatedSession, error: updateError } = ifUpdatedAt
+      ? await updateQuery.select('*').maybeSingle()
+      : await updateQuery.select('*').single();
 
     if (updateError) {
       console.error('Database error updating session:', updateError);
       return sendAuthError(res, 'Error al actualizar sesión', 500, updateError.message);
+    }
+
+    // Guard matched zero rows — someone else modified the session in between
+    if (ifUpdatedAt && !updatedSession) {
+      const { data: currentSession } = await serviceClient
+        .from('consultor_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .maybeSingle();
+
+      return res.status(409).json({
+        error:
+          'La sesión fue modificada por otro usuario. Recarga para ver los últimos cambios.',
+        code: 'SESSION_CONFLICT',
+        current: currentSession,
+      });
     }
 
     // Insert activity log

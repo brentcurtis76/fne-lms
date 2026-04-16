@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { z } from 'zod';
 import {
   getApiUser,
   createServiceRoleClient,
@@ -14,6 +15,20 @@ import {
   AttendanceUpdatePayload,
 } from '../../../../lib/types/consultor-sessions.types';
 import { canViewSession, canContributeToSession, SessionAccessContext } from '../../../../lib/utils/session-policy';
+
+const attendeeSchema = z.object({
+  user_id: z.string().uuid({ message: 'user_id inválido en payload' }),
+  attended: z.boolean({ invalid_type_error: 'attended debe ser booleano' }),
+  arrival_status: z.enum(['on_time', 'late', 'left_early']).optional(),
+  notes: z.string().max(500, { message: 'notes excede 500 caracteres' }).optional(),
+});
+
+const attendeesPayloadSchema = z.object({
+  attendees: z.array(attendeeSchema, {
+    required_error: 'Se requiere un array de asistentes',
+    invalid_type_error: 'Se requiere un array de asistentes',
+  }),
+});
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'sessions-attendees');
@@ -114,24 +129,13 @@ async function handlePut(req: NextApiRequest, res: NextApiResponse, sessionId: s
     return sendAuthError(res, 'Autenticación requerida', 401);
   }
 
-  const { attendees } = req.body;
-
-  if (!attendees || !Array.isArray(attendees)) {
-    return sendAuthError(res, 'Se requiere un array de asistentes', 400);
+  const parseResult = attendeesPayloadSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    const firstIssue = parseResult.error.issues[0];
+    return sendAuthError(res, firstIssue?.message || 'Payload de asistentes inválido', 400);
   }
 
-  // Validate payload structure
-  for (const att of attendees) {
-    if (!att.user_id || typeof att.user_id !== 'string' || !Validators.isUUID(att.user_id)) {
-      return sendAuthError(res, 'user_id inválido en payload', 400);
-    }
-    if (typeof att.attended !== 'boolean') {
-      return sendAuthError(res, 'attended debe ser booleano', 400);
-    }
-    if (att.arrival_status && !['on_time', 'late', 'left_early'].includes(att.arrival_status)) {
-      return sendAuthError(res, 'arrival_status inválido', 400);
-    }
-  }
+  const { attendees } = parseResult.data;
 
   try {
     const serviceClient = createServiceRoleClient();

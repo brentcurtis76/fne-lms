@@ -47,6 +47,7 @@
     "test:api:watch": "cross-env NODE_OPTIONS=--require=./tests/mocks/register-canvas.js vitest --config vitest.config.api.ts",
     "test:db": "./scripts/run-pgtap-tests.sh",
     "test:db:supervisor": "psql $DATABASE_URL -f database/tests/supervisor_rls.test.sql",
+    "test:db:consultor": "psql $DATABASE_URL -f database/tests/consultor_sessions_rls.test.sql",
     "apply:group-assignments": "node scripts/apply-group-assignments.js",
     "apply:dev-role": "node scripts/apply-dev-role.js",
     "assign:dev-role": "node scripts/assign-dev-role.js",

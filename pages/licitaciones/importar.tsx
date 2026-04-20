@@ -112,17 +112,20 @@ export default function ImportarLicitacionPage() {
       if (adminAccess) {
         await Promise.all([fetchSchools(), fetchProgramas()]);
       } else {
-        // Encargado: restrict school list to the schools they manage
-        const encargadoSchools = roles
-          .filter(r => r.role_type === 'encargado_licitacion' && r.school?.id && r.school?.name)
-          .map(r => ({ id: r.school!.id as number, name: r.school!.name as string }));
-
-        // Deduplicate by id
-        const unique = Array.from(new Map(encargadoSchools.map(s => [s.id, s])).values());
-        setSchools(unique);
-
-        if (unique.length === 1) {
-          setForm(f => ({ ...f, school_id: String(unique[0].id) }));
+        // Encargado: show only the school the POST handler will accept. The
+        // handler (and every other encargado-facing licitación endpoint)
+        // authorizes via `userRoles.find(r => r.role_type === 'encargado_licitacion')`,
+        // which returns the first matching role; offering a wider list here
+        // would produce 403s on submit for multi-school encargados.
+        const primaryEncargado = roles.find(
+          r => r.role_type === 'encargado_licitacion' && r.school?.id && r.school?.name,
+        );
+        const scopedSchools = primaryEncargado?.school
+          ? [{ id: primaryEncargado.school.id as number, name: primaryEncargado.school.name as string }]
+          : [];
+        setSchools(scopedSchools);
+        if (scopedSchools.length === 1) {
+          setForm(f => ({ ...f, school_id: String(scopedSchools[0].id) }));
         }
 
         await fetchProgramas();

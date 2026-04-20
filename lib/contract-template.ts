@@ -22,7 +22,7 @@ PRIMERO: Antecedentes.
 
 SEGUNDO: Servicios Contratados
 
-La FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN) viene a implementar para el año 2025 el programa {{PROGRAMA_NOMBRE}} a los miembros seleccionados por el equipo de la comunidad educativa del {{CLIENTE_NOMBRE_FANTASIA}}, perteneciente a la {{CLIENTE_NOMBRE_LEGAL}}.
+La FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN) viene a implementar para el año {{ANIO_IMPLEMENTACION}} el programa {{PROGRAMA_NOMBRE}} a los miembros seleccionados por el equipo de la comunidad educativa del {{CLIENTE_NOMBRE_FANTASIA}}, perteneciente a la {{CLIENTE_NOMBRE_LEGAL}}.
 
 El {{CLIENTE_NOMBRE_FANTASIA}}, en consecuencia y por el presente instrumento, viene a contratar los servicios de la FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN), a fin de que ejecute la capacitación y asesoría del Programa {{PROGRAMA_NOMBRE}}.
 
@@ -249,10 +249,20 @@ export function generateContractFromTemplate(contractData: any): string {
 
   // Process conditional blocks first
   contract = processConditionalBlocks(contract, isUF, isCLP, hasPersoneriaCompleta);
-  
+
+  // Derive implementation year from contract date, falling back to current year
+  const getImplementationYear = (dateString?: string): string => {
+    if (dateString) {
+      const year = parseInt(dateString.split('T')[0].split('-')[0], 10);
+      if (!isNaN(year)) return year.toString();
+    }
+    return new Date().getFullYear().toString();
+  };
+
   // Basic replacements - client names in uppercase to match FUNDACIÓN INSTITUTO RELACIONAL (NUEVA EDUCACIÓN)
   const replacements: { [key: string]: string } = {
     '{{FECHA_CONTRATO}}': formatDate(contractData.fecha_contrato),
+    '{{ANIO_IMPLEMENTACION}}': getImplementationYear(contractData.fecha_contrato),
     '{{CLIENTE_NOMBRE_LEGAL}}': (contractData.cliente.nombre_legal || '').toUpperCase(),
     '{{CLIENTE_NOMBRE_FANTASIA}}': (contractData.cliente.nombre_fantasia || '').toUpperCase(),
     '{{CLIENTE_RUT}}': contractData.cliente.rut || '',

@@ -103,7 +103,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Get profile info (same service client — profiles RLS also blocks cross-user reads)
-    const userIds = Array.from(new Set((docenteRoles || []).map((r: any) => r.user_id)));
+    type DocenteRoleRow = { user_id: string };
+    const userIds = Array.from(
+      new Set((docenteRoles || []).map((r: DocenteRoleRow) => r.user_id))
+    );
     const { data: profiles, error: profilesError } = await serviceClient
       .from('profiles')
       .select('id, name, first_name, last_name, email')
@@ -114,8 +117,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener perfiles de docentes' });
     }
 
+    type ProfileRow = {
+      id: string;
+      name: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+    };
+
     // Format response
-    const docentes = (profiles || []).map((p: any) => ({
+    const docentes = (profiles || []).map((p: ProfileRow) => ({
       id: p.id,
       name: p.name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email,
       email: p.email,

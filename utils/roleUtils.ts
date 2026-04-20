@@ -252,7 +252,7 @@ export function hasPermission(
 
 export const TEACHING_ELIGIBLE_ROLES: UserRoleType[] = ['docente', 'admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'];
 
-export function canTeach(roles: UserRole[]): boolean {
+export function canTeach(roles: UserRole[] | null | undefined): boolean {
   if (!roles || roles.length === 0) return false;
   return roles.some(r => TEACHING_ELIGIBLE_ROLES.includes(r.role_type));
 }

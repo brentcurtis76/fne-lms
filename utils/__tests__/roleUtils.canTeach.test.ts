@@ -11,11 +11,11 @@ describe('canTeach', () => {
   });
 
   it('returns false for null', () => {
-    expect(canTeach(null as unknown as UserRole[])).toBe(false);
+    expect(canTeach(null)).toBe(false);
   });
 
   it('returns false for undefined', () => {
-    expect(canTeach(undefined as unknown as UserRole[])).toBe(false);
+    expect(canTeach(undefined)).toBe(false);
   });
 
   it('returns true for single docente', () => {

@@ -11,6 +11,7 @@ import Step6Adjudicacion from '@/components/licitaciones/Step6Adjudicacion';
 import Step7Contrato from '@/components/licitaciones/Step7Contrato';
 import DocumentCenter from '@/components/licitaciones/DocumentCenter';
 import ProposalConfigPanel from '@/components/licitaciones/ProposalConfigPanel';
+import ArchiveView from '@/components/licitaciones/ArchiveView';
 
 // Pure client-side helper — no server imports needed
 function generatePublicacionText(
@@ -417,6 +418,7 @@ export default function LicitacionDetailPage() {
     );
   }
 
+  const isHistorical = licitacion.is_historical === true;
   const activeStep = getActiveStep(licitacion.estado);
   const step1Done = activeStep > 1;
   const step2Active = activeStep === 2;
@@ -485,6 +487,15 @@ export default function LicitacionDetailPage() {
           </div>
         </div>
 
+        {isHistorical ? (
+          <ArchiveView
+            licitacion={licitacion}
+            isAdmin={isAdmin}
+            isEncargado={isEncargado}
+            onRefresh={() => fetchLicitacion(id as string)}
+          />
+        ) : (
+          <>
         {/* Stepper */}
         <Stepper activeStep={activeStep} />
 
@@ -922,6 +933,8 @@ export default function LicitacionDetailPage() {
             numeroLicitacion={licitacion.numero_licitacion}
             isAdmin={isAdmin}
           />
+        )}
+          </>
         )}
       </div>
     </MainLayout>

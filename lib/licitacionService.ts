@@ -11,6 +11,7 @@ import {
   Licitacion,
   LicitacionDetail,
   CreateLicitacionInput,
+  CreateHistoricalLicitacionInput,
   PublicacionInput,
   TimelineDates,
   LicitacionEstado,
@@ -271,6 +272,115 @@ export async function createLicitacion(
 }
 
 // ============================================================
+// createHistoricalLicitacion
+// ============================================================
+
+/**
+ * Creates a historical (already-cerrada) licitacion for record-keeping.
+ * Skips the 7 fields that were made nullable in the historico migration;
+ * the caller has already authorized the user (admin or scoped encargado).
+ */
+export async function createHistoricalLicitacion(
+  supabase: SupabaseClient,
+  data: CreateHistoricalLicitacionInput,
+  userId: string
+): Promise<Licitacion> {
+  const { data: school, error: schoolError } = await supabase
+    .from('schools')
+    .select('id, name, cliente_id')
+    .eq('id', data.school_id)
+    .single();
+
+  if (schoolError || !school) {
+    throw new Error('Escuela no encontrada');
+  }
+
+  const { data: programa, error: programaError } = await supabase
+    .from('programas')
+    .select('id, nombre')
+    .eq('id', data.programa_id)
+    .single();
+
+  if (programaError || !programa) {
+    throw new Error('Programa no encontrado');
+  }
+
+  const pesoTecnica = data.peso_evaluacion_tecnica ?? null;
+  const pesoEconomica = pesoTecnica == null ? null : 100 - pesoTecnica;
+
+  const schoolCode = String(data.school_id);
+  let insertError: Error | null = null;
+  let attempt = 0;
+  const MAX_ATTEMPTS = 3;
+
+  while (attempt < MAX_ATTEMPTS) {
+    attempt++;
+    try {
+      const numeroLicitacion = await getNextLicitacionNumber(supabase, schoolCode, data.year);
+
+      const insertData = {
+        numero_licitacion: numeroLicitacion,
+        school_id: data.school_id,
+        cliente_id: school.cliente_id ?? null,
+        programa_id: data.programa_id,
+        nombre_licitacion: data.nombre_licitacion,
+        year: data.year,
+        estado: 'cerrada' as const,
+        email_licitacion: data.email_licitacion ?? null,
+        monto_minimo: data.monto_minimo ?? null,
+        monto_maximo: data.monto_maximo ?? null,
+        tipo_moneda: data.tipo_moneda,
+        duracion_minima: data.duracion_minima ?? null,
+        duracion_maxima: data.duracion_maxima ?? null,
+        peso_evaluacion_tecnica: pesoTecnica,
+        peso_evaluacion_economica: pesoEconomica,
+        participantes_estimados: data.participantes_estimados ?? null,
+        modalidad_preferida: data.modalidad_preferida ?? null,
+        notas: data.notas ?? null,
+        fecha_publicacion: data.fecha_publicacion ?? null,
+        fecha_adjudicacion: data.fecha_adjudicacion ?? null,
+        monto_adjudicado_uf: data.monto_adjudicado_uf ?? null,
+        ganador_es_fne: data.ganador_es_fne ?? null,
+        created_by: userId,
+      };
+
+      const { data: created, error: dbError } = await supabase
+        .from('licitaciones')
+        .insert(insertData)
+        .select('*')
+        .single();
+
+      if (dbError) {
+        if (dbError.code === '23505') {
+          if (dbError.message.includes('numero_licitacion')) {
+            insertError = new Error(dbError.message);
+            continue;
+          }
+          throw new Error(`Error al crear licitacion historica: ${dbError.message}`);
+        }
+        throw new Error(`Error al crear licitacion historica: ${dbError.message}`);
+      }
+
+      await supabase.from('licitacion_historial').insert({
+        licitacion_id: created.id,
+        accion: 'Licitacion historica creada',
+        estado_anterior: null,
+        estado_nuevo: 'cerrada',
+        detalles: { numero_licitacion: created.numero_licitacion, historico: true },
+        user_id: userId,
+      });
+
+      return created as Licitacion;
+    } catch (err) {
+      insertError = err instanceof Error ? err : new Error('Error desconocido');
+      if (attempt >= MAX_ATTEMPTS) break;
+    }
+  }
+
+  throw insertError || new Error('Error al crear licitacion historica despues de varios intentos');
+}
+
+// ============================================================
 // confirmPublicacion
 // ============================================================
 
@@ -401,11 +511,37 @@ export async function getLicitacionDetail(
     programa = programaData;
   }
 
+  // A licitacion is "historical" (archive-only) when imported as already-cerrada
+  // and it bypassed the normal workflow: no ATEs, no committee, no evaluation
+  // scores. Skip the counts entirely for anything not 'cerrada'.
+  let isHistorical = false;
+  if (licitacion.estado === 'cerrada') {
+    const [atesCount, comisionCount, evalsCount] = await Promise.all([
+      supabase
+        .from('licitacion_ates')
+        .select('id', { count: 'exact', head: true })
+        .eq('licitacion_id', id),
+      supabase
+        .from('licitacion_comision')
+        .select('id', { count: 'exact', head: true })
+        .eq('licitacion_id', id),
+      supabase
+        .from('licitacion_evaluaciones')
+        .select('id', { count: 'exact', head: true })
+        .eq('licitacion_id', id),
+    ]);
+    isHistorical =
+      (atesCount.count ?? 0) === 0 &&
+      (comisionCount.count ?? 0) === 0 &&
+      (evalsCount.count ?? 0) === 0;
+  }
+
   return {
     ...licitacion,
     school,
     cliente,
     programa,
+    is_historical: isHistorical,
   } as LicitacionDetail;
 }
 

@@ -140,6 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'evaluacion_firmada',
       'carta_adjudicacion_generada',
       'carta_adjudicacion_firmada',
+      'anexos',
       'otro',
     ];
 

@@ -139,6 +139,10 @@ export interface LicitacionDetail extends Licitacion {
     id: string;
     nombre: string;
   } | null;
+  // True for imported historical records: estado='cerrada' with no ATEs,
+  // no committee members, and no evaluation scores. Drives the archive
+  // UI so the 7-step workflow is not shown for these read-only imports.
+  is_historical?: boolean;
 }
 
 // ============================================================
@@ -166,6 +170,36 @@ export const CreateLicitacionSchema = z.object({
 });
 
 export type CreateLicitacionInput = z.infer<typeof CreateLicitacionSchema>;
+
+// Historical licitacion: records imported after the fact, already in estado 'cerrada'.
+// Only school_id, programa_id, nombre_licitacion, year, and estado='cerrada' are required.
+// The 7 fields made nullable in the historico migration are optional here.
+export const CreateHistoricalLicitacionSchema = z.object({
+  school_id: z.coerce.number().int().positive('Escuela requerida'),
+  programa_id: z.string().min(1, 'Programa requerido'),
+  nombre_licitacion: z.string().min(1, 'Nombre requerido').max(500, 'Nombre demasiado largo'),
+  year: z.coerce.number().int().min(2000, 'Año minimo 2000').max(2030, 'Año maximo 2030'),
+  estado: z.literal('cerrada'),
+  email_licitacion: z.string().email('Correo electronico invalido').optional().nullable(),
+  monto_minimo: z.coerce.number().min(0, 'Monto minimo debe ser positivo').optional().nullable(),
+  monto_maximo: z.coerce.number().min(0, 'Monto maximo debe ser positivo').optional().nullable(),
+  tipo_moneda: z.enum(['UF', 'CLP']).default('UF'),
+  duracion_minima: z.string().optional().nullable(),
+  duracion_maxima: z.string().optional().nullable(),
+  peso_evaluacion_tecnica: z.coerce.number().int().min(1, 'Minimo 1%').max(99, 'Maximo 99%').optional().nullable(),
+  participantes_estimados: z.coerce.number().int().positive().optional().nullable(),
+  modalidad_preferida: z.enum(['Presencial', 'Virtual', 'Hibrido']).optional().nullable(),
+  notas: z.string().max(2000, 'Notas demasiado largas').optional().nullable(),
+  fecha_publicacion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD').optional().nullable(),
+  fecha_adjudicacion: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato YYYY-MM-DD').optional().nullable(),
+  monto_adjudicado_uf: z.coerce.number().positive().optional().nullable(),
+  ganador_es_fne: z.boolean().optional().nullable(),
+}).refine(
+  d => d.monto_minimo == null || d.monto_maximo == null || d.monto_maximo >= d.monto_minimo,
+  { message: 'Presupuesto maximo debe ser mayor o igual al minimo', path: ['monto_maximo'] }
+);
+
+export type CreateHistoricalLicitacionInput = z.infer<typeof CreateHistoricalLicitacionSchema>;
 
 export const PublicacionSchema = z.object({
   fecha_publicacion: z.string().regex(

@@ -9,8 +9,12 @@ import {
   handleMethodNotAllowed,
 } from '@/lib/api-auth';
 import { getUserRoles } from '@/utils/roleUtils';
-import { CreateLicitacionSchema, LicitacionFiltersSchema } from '@/types/licitaciones';
-import { createLicitacion } from '@/lib/licitacionService';
+import {
+  CreateLicitacionSchema,
+  CreateHistoricalLicitacionSchema,
+  LicitacionFiltersSchema,
+} from '@/types/licitaciones';
+import { createLicitacion, createHistoricalLicitacion } from '@/lib/licitacionService';
 import notificationService from '@/lib/notificationService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -109,21 +113,49 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     const userRoles = await getUserRoles(serviceClient, user.id);
     const roleTypes = userRoles.map(r => r.role_type);
     const isAdmin = roleTypes.includes('admin');
+    const isEncargado = roleTypes.includes('encargado_licitacion');
+    const isHistorical = req.body?.estado === 'cerrada';
 
-    // Only admins can create licitaciones
-    if (!isAdmin) {
-      return sendAuthError(res, 'Solo administradores pueden crear licitaciones', 403);
+    let licitacion;
+
+    if (isHistorical) {
+      const parseResult = CreateHistoricalLicitacionSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        const errors = parseResult.error.errors
+          .map(e => `${e.path.join('.')}: ${e.message}`)
+          .join('; ');
+        return sendAuthError(res, `Datos invalidos: ${errors}`, 400);
+      }
+
+      // Authorization: admin → any school; encargado → only their own scoped school.
+      if (!isAdmin) {
+        if (!isEncargado) {
+          return sendAuthError(res, 'No tiene permisos para crear licitaciones', 403);
+        }
+        const encargadoRole = userRoles.find(r => r.role_type === 'encargado_licitacion');
+        const encargadoSchoolId = encargadoRole?.school_id != null ? Number(encargadoRole.school_id) : null;
+        if (encargadoSchoolId == null || encargadoSchoolId !== parseResult.data.school_id) {
+          return sendAuthError(res, 'Solo puede registrar licitaciones historicas de su escuela', 403);
+        }
+      }
+
+      licitacion = await createHistoricalLicitacion(serviceClient, parseResult.data, user.id);
+    } else {
+      // Live workflow creation — admin-only with full field validation.
+      if (!isAdmin) {
+        return sendAuthError(res, 'Solo administradores pueden crear licitaciones', 403);
+      }
+
+      const parseResult = CreateLicitacionSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        const errors = parseResult.error.errors
+          .map(e => `${e.path.join('.')}: ${e.message}`)
+          .join('; ');
+        return sendAuthError(res, `Datos invalidos: ${errors}`, 400);
+      }
+
+      licitacion = await createLicitacion(serviceClient, parseResult.data, user.id);
     }
-
-    const parseResult = CreateLicitacionSchema.safeParse(req.body);
-    if (!parseResult.success) {
-      const errors = parseResult.error.errors
-        .map(e => `${e.path.join('.')}: ${e.message}`)
-        .join('; ');
-      return sendAuthError(res, `Datos invalidos: ${errors}`, 400);
-    }
-
-    const licitacion = await createLicitacion(serviceClient, parseResult.data, user.id);
 
     // Fire-and-forget notification — fetch school name for the notification body
     Promise.resolve(

@@ -149,6 +149,7 @@ export default function LicitacionesPage() {
   const [filterYear, setFilterYear] = useState('');
   const [filterSchool, setFilterSchool] = useState('');
   const [filterPrograma, setFilterPrograma] = useState('');
+  const [showHistorical, setShowHistorical] = useState(false);
 
   // Filter options
   const [schools, setSchools] = useState<SchoolOption[]>([]);
@@ -328,7 +329,22 @@ export default function LicitacionesPage() {
 
   const totalPages = Math.ceil(total / LIMIT);
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - 1 + i);
+  const HISTORICAL_YEAR_MIN = 2023;
+  const years = showHistorical
+    ? Array.from({ length: currentYear - HISTORICAL_YEAR_MIN + 1 }, (_, i) => currentYear - i)
+    : Array.from({ length: 5 }, (_, i) => currentYear - 1 + i);
+
+  const handleToggleHistorical = (enabled: boolean) => {
+    setShowHistorical(enabled);
+    setPage(1);
+    if (enabled) {
+      setFilterEstado('cerrada');
+      setFilterYear(String(HISTORICAL_YEAR_MIN));
+    } else {
+      setFilterEstado('');
+      setFilterYear('');
+    }
+  };
 
   // Actionable licitaciones for encargado card
   const actionableLicitaciones = licitaciones.filter(l => NEXT_ACTION[l.estado]);
@@ -438,6 +454,18 @@ export default function LicitacionesPage() {
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="flex items-center mb-4">
+            <label htmlFor="filter-historicas" className="inline-flex items-center cursor-pointer">
+              <input
+                id="filter-historicas"
+                type="checkbox"
+                checked={showHistorical}
+                onChange={e => handleToggleHistorical(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-400"
+              />
+              <span className="ml-2 text-sm font-medium text-gray-700">Mostrar históricas</span>
+            </label>
+          </div>
           <div className="flex flex-wrap gap-4">
             <div>
               <label htmlFor="filter-estado" className="block text-sm font-medium text-gray-700 mb-1">Estado</label>

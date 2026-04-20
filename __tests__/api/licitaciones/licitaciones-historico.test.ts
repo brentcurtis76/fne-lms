@@ -92,6 +92,17 @@ describe('CreateHistoricoLicitacionSchema — field validation skip', () => {
     const result = CreateHistoricoLicitacionSchema.safeParse({ ...minimal, year: 2019 });
     expect(result.success).toBe(true);
   });
+
+  it('accepts an optional numero_licitacion', () => {
+    const ok = CreateHistoricoLicitacionSchema.safeParse({
+      ...minimal,
+      numero_licitacion: 'LIC-LEGACY-2019-001',
+    });
+    expect(ok.success).toBe(true);
+
+    const okWithout = CreateHistoricoLicitacionSchema.safeParse(minimal);
+    expect(okWithout.success).toBe(true);
+  });
 });
 
 // -------------------------------------------------------

@@ -173,6 +173,7 @@ export const CreateHistoricoLicitacionSchema = z.object({
   nombre_licitacion: z.string().min(1, 'Nombre requerido').max(500, 'Nombre demasiado largo'),
   year: z.coerce.number().int().min(2000, 'Ano minimo 2000').max(2030, 'Ano maximo 2030'),
   estado: z.literal('cerrada'),
+  numero_licitacion: z.string().max(100, 'Numero demasiado largo').optional().nullable(),
   email_licitacion: z.string().email('Correo electronico invalido').optional().nullable(),
   monto_minimo: z.coerce.number().min(0, 'Monto minimo debe ser positivo').optional().nullable(),
   monto_maximo: z.coerce.number().min(0, 'Monto maximo debe ser positivo').optional().nullable(),

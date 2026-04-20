@@ -318,7 +318,9 @@ export async function createHistoricoLicitacion(
   while (attempt < MAX_ATTEMPTS) {
     attempt++;
     try {
-      const numeroLicitacion = await getNextLicitacionNumber(supabase, schoolCode, data.year);
+      const numeroLicitacion = data.numero_licitacion
+        ? data.numero_licitacion
+        : await getNextLicitacionNumber(supabase, schoolCode, data.year);
 
       const insertData = {
         numero_licitacion: numeroLicitacion,

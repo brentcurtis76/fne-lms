@@ -239,7 +239,7 @@ export function getHighestRole(roles: UserRole[]): UserRoleType | null {
  * Check if user has a specific permission
  */
 export function hasPermission(
-  roles: UserRole[], 
+  roles: UserRole[],
   permission: PermissionKey
 ): boolean {
   if (!roles || roles.length === 0) return false;
@@ -248,6 +248,33 @@ export function hasPermission(
     const permissions = ROLE_HIERARCHY[role.role_type];
     return permissions[permission];
   });
+}
+
+/**
+ * Roles eligible to deliver teaching content. Any user holding one of
+ * these roles inherits docente-equivalent capability. Sites that previously
+ * checked `role_type === 'docente'` should consult `canTeach` or this
+ * constant instead.
+ */
+export const TEACHING_ELIGIBLE_ROLES = [
+  'docente',
+  'admin',
+  'consultor',
+  'equipo_directivo',
+  'lider_generacion',
+  'lider_comunidad'
+] as const satisfies readonly UserRoleType[];
+
+const TEACHING_ELIGIBLE_SET: ReadonlySet<UserRoleType> = new Set(TEACHING_ELIGIBLE_ROLES);
+
+/**
+ * Returns true if any of the user's roles is teaching-eligible
+ * (i.e. the user may perform docente actions). See
+ * TEACHING_ELIGIBLE_ROLES for the contract.
+ */
+export function canTeach(roles: UserRole[] | null | undefined): boolean {
+  if (!roles || roles.length === 0) return false;
+  return roles.some(r => TEACHING_ELIGIBLE_SET.has(r.role_type));
 }
 
 /**

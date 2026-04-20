@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -203,13 +204,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function getReportableUsers(userId: string, userRole: string): Promise<string[]> {
   try {
     if (userRole === 'admin') {
-      // Admins can see all users
-      const { data: allUsers } = await supabase
+      // Teachers: resolve via user_roles honoring the teaching-inheritance contract
+      const { data: teacherRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .in('role_type', TEACHING_ELIGIBLE_ROLES as unknown as string[])
+        .eq('is_active', true);
+
+      // Students: legacy profiles.role column (students have no user_roles entry yet)
+      const { data: studentProfiles } = await supabase
         .from('profiles')
         .select('id')
-        .in('role', ['docente', 'teacher', 'estudiante', 'student']);
-      
-      return allUsers?.map(u => u.id) || [];
+        .in('role', ['estudiante', 'student']);
+
+      const ids = new Set<string>();
+      teacherRoles?.forEach(r => r.user_id && ids.add(r.user_id));
+      studentProfiles?.forEach(p => p.id && ids.add(p.id));
+      return Array.from(ids);
     } else if (userRole === 'consultor') {
       // Consultors can only see their assigned students
       const { data: assignments } = await supabase

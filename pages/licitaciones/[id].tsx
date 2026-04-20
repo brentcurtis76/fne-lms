@@ -11,6 +11,7 @@ import Step6Adjudicacion from '@/components/licitaciones/Step6Adjudicacion';
 import Step7Contrato from '@/components/licitaciones/Step7Contrato';
 import DocumentCenter from '@/components/licitaciones/DocumentCenter';
 import ProposalConfigPanel from '@/components/licitaciones/ProposalConfigPanel';
+import ArchiveView from '@/components/licitaciones/ArchiveView';
 
 // Pure client-side helper — no server imports needed
 function generatePublicacionText(
@@ -171,6 +172,9 @@ export default function LicitacionDetailPage() {
   // Delete licitacion
   const [deleting, setDeleting] = useState(false);
 
+  // Historical detection: estado=cerrada AND no committee/ates/evaluations
+  const [isHistorical, setIsHistorical] = useState<boolean | null>(null);
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -187,6 +191,36 @@ export default function LicitacionDetailPage() {
     fetch('/api/licitaciones/check-deadlines', { method: 'POST' })
       .catch(() => { /* intentionally silent */ });
   }, [authReady]);
+
+  // Detect historical licitacion: cerrada AND no committee, ATEs, or evaluations
+  useEffect(() => {
+    if (!licitacion) return;
+    if (licitacion.estado !== 'cerrada') {
+      setIsHistorical(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/licitaciones/${licitacion.id}/evaluacion`);
+        if (!res.ok) {
+          if (!cancelled) setIsHistorical(false);
+          return;
+        }
+        const json = await res.json();
+        const data = json.data || json;
+        const committee = Array.isArray(data.committee) ? data.committee : [];
+        const ates = Array.isArray(data.ates) ? data.ates : [];
+        const scores = Array.isArray(data.scores) ? data.scores : [];
+        if (!cancelled) {
+          setIsHistorical(committee.length === 0 && ates.length === 0 && scores.length === 0);
+        }
+      } catch {
+        if (!cancelled) setIsHistorical(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [licitacion]);
 
   const checkAuth = async () => {
     try {
@@ -485,6 +519,14 @@ export default function LicitacionDetailPage() {
           </div>
         </div>
 
+        {isHistorical ? (
+          <ArchiveView
+            licitacionId={licitacion.id}
+            isAdmin={isAdmin}
+            isEncargado={isEncargado}
+          />
+        ) : (
+        <>
         {/* Stepper */}
         <Stepper activeStep={activeStep} />
 
@@ -922,6 +964,8 @@ export default function LicitacionDetailPage() {
             numeroLicitacion={licitacion.numero_licitacion}
             isAdmin={isAdmin}
           />
+        )}
+        </>
         )}
       </div>
     </MainLayout>

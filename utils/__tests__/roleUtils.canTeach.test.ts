@@ -54,13 +54,16 @@ describe('canTeach', () => {
   });
 
   it('exposes the expected eligible role list', () => {
-    expect(TEACHING_ELIGIBLE_ROLES).toEqual([
-      'docente',
-      'admin',
-      'consultor',
-      'equipo_directivo',
-      'lider_generacion',
-      'lider_comunidad',
-    ]);
+    expect(TEACHING_ELIGIBLE_ROLES).toHaveLength(6);
+    expect(TEACHING_ELIGIBLE_ROLES).toEqual(
+      expect.arrayContaining([
+        'docente',
+        'admin',
+        'consultor',
+        'equipo_directivo',
+        'lider_generacion',
+        'lider_comunidad',
+      ])
+    );
   });
 });

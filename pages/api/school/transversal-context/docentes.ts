@@ -1,5 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
+import type { UserRoleType } from '@/types/roles';
 
 // Check if user has directivo permission for a specific school
 async function hasDirectivoPermission(
@@ -82,13 +84,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const effectiveSchoolId = isAdmin ? querySchoolId : schoolId;
 
   try {
-    // Fetch docentes using service client (user_roles RLS only allows auth.uid() = user_id)
+    // Fetch docentes using service client (user_roles RLS only allows auth.uid() = user_id).
+    // Includes leadership roles (admin/consultor/equipo_directivo/lider_*) that inherit docente privileges.
     const serviceClient = createServiceRoleClient();
     const { data: docenteRoles, error: rolesError } = await serviceClient
       .from('user_roles')
-      .select('user_id')
+      .select('user_id, role_type')
       .eq('school_id', effectiveSchoolId)
-      .eq('role_type', 'docente')
+      .in('role_type', TEACHING_ELIGIBLE_ROLES)
       .eq('is_active', true);
 
     if (rolesError) {
@@ -101,7 +104,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Get profile info (same service client — profiles RLS also blocks cross-user reads)
-    const userIds = docenteRoles.map((r: any) => r.user_id);
+    type DocenteRoleRow = { user_id: string; role_type: UserRoleType };
+    const rolesByUser = new Map<string, UserRoleType[]>();
+    for (const row of (docenteRoles || []) as DocenteRoleRow[]) {
+      const list = rolesByUser.get(row.user_id) ?? [];
+      if (!list.includes(row.role_type)) list.push(row.role_type);
+      rolesByUser.set(row.user_id, list);
+    }
+    const userIds = Array.from(rolesByUser.keys());
+    if (userIds.length === 0) {
+      return res.status(200).json({ docentes: [] });
+    }
     const { data: profiles, error: profilesError } = await serviceClient
       .from('profiles')
       .select('id, name, first_name, last_name, email')
@@ -112,11 +125,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al obtener perfiles de docentes' });
     }
 
+    type ProfileRow = {
+      id: string;
+      name: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+    };
+
     // Format response
-    const docentes = (profiles || []).map((p: any) => ({
+    const docentes = (profiles || []).map((p: ProfileRow) => ({
       id: p.id,
       name: p.name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.email,
       email: p.email,
+      roles: rolesByUser.get(p.id) ?? [],
     }));
 
     return res.status(200).json({ docentes });

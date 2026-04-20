@@ -1,6 +1,8 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
+import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
+import type { UserRoleType } from '@/types/roles';
 
 /**
  * GET /api/assignments/eligible-classmates
@@ -110,8 +112,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(403).json({ error: 'No tienes una escuela asignada' });
     }
 
-    // Select school_id deterministically: prefer docente > estudiante > first with school_id
-    let selectedRole = requesterRoles.find(r => r.role_type === 'docente' && r.school_id);
+    // Select school_id deterministically: prefer any teaching-eligible role
+    // (docente or an inheriting leadership role) > estudiante > first with school_id
+    let selectedRole = requesterRoles.find(
+      r => TEACHING_ELIGIBLE_ROLES.includes(r.role_type as UserRoleType) && r.school_id
+    );
     if (!selectedRole) {
       selectedRole = requesterRoles.find(r => r.role_type === 'estudiante' && r.school_id);
     }

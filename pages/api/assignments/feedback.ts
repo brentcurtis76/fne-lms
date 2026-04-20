@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import NotificationService from '../../../lib/notificationService';
 import { awardBadgeAndPost } from '../../../lib/services/badgeAndPost';
 import { checkAprobadoEligibility } from '../../../lib/utils/aprobadoCheck';
+import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 
 // Create admin client with service role key for elevated permissions
 const supabaseAdmin = createClient(
@@ -43,14 +44,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(401).json({ error: 'Invalid authentication token' });
     }
 
-    // Check if user has permission to provide feedback (admin or instructor)
-    const { data: profileData } = await supabaseAdmin
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
+    // Check if user has permission to provide feedback
+    // (any teaching-eligible role: docente or inheriting leadership roles)
+    const { data: teachingRole } = await supabaseAdmin
+      .from('user_roles')
+      .select('id')
+      .eq('user_id', user.id)
+      .in('role_type', TEACHING_ELIGIBLE_ROLES)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
 
-    if (!profileData || !['admin', 'docente'].includes(profileData.role)) {
+    if (!teachingRole) {
       return res.status(403).json({ error: 'Insufficient permissions to provide feedback' });
     }
 

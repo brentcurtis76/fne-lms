@@ -251,6 +251,42 @@ export function hasPermission(
 }
 
 /**
+ * Roles that inherit docente privileges and are therefore eligible
+ * to perform teaching actions (e.g. be assigned as profesor jefe of
+ * a course) without holding a separate `docente` role row.
+ *
+ * Centralized contract — callers: any feature gate that previously
+ * checked `role_type === 'docente'` should consult `canTeach` or this
+ * constant instead. API endpoints that return "teaching-eligible users"
+ * (notably `GET /api/school/transversal-context/docentes`) also use
+ * this list, so adding or removing a role here changes who appears as
+ * an assignable teacher across the platform.
+ *
+ * Excluded by design: `supervisor_de_red`, `community_manager`,
+ * `encargado_licitacion`.
+ */
+export const TEACHING_ELIGIBLE_ROLES: readonly UserRoleType[] = [
+  'docente',
+  'admin',
+  'consultor',
+  'equipo_directivo',
+  'lider_generacion',
+  'lider_comunidad',
+];
+
+const TEACHING_ELIGIBLE_SET: ReadonlySet<UserRoleType> = new Set(TEACHING_ELIGIBLE_ROLES);
+
+/**
+ * Returns true if any of the user's roles is teaching-eligible
+ * (i.e. the user may perform docente actions). See
+ * TEACHING_ELIGIBLE_ROLES for the contract.
+ */
+export function canTeach(roles: UserRole[] | null | undefined): boolean {
+  if (!roles || roles.length === 0) return false;
+  return roles.some(r => TEACHING_ELIGIBLE_SET.has(r.role_type));
+}
+
+/**
  * Get aggregated permissions for a user based on all their roles
  * Now includes legacy role support for backward compatibility
  */

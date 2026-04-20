@@ -1,5 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createClient } from '@supabase/supabase-js';
+import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
+import type { UserRoleType } from '@/types/roles';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -177,7 +179,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           // Separate teachers and students using user_roles
           const teachers = schoolUsersData.filter(u => {
             const role = userRoleMap.get(u.id);
-            return role === 'docente' || role === 'admin';
+            return !!role && (TEACHING_ELIGIBLE_ROLES as readonly UserRoleType[]).includes(role as UserRoleType);
           });
           const students = schoolUsersData.filter(u => {
             const role = userRoleMap.get(u.id);
@@ -208,7 +210,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           // Categorize active users as teachers or students using user_roles
           activeUserIds.forEach(uid => {
             const role = userRoleMap.get(uid);
-            if (role === 'docente' || role === 'admin') {
+            if (role && (TEACHING_ELIGIBLE_ROLES as readonly UserRoleType[]).includes(role as UserRoleType)) {
               activeTeachers++;
             } else if (role === 'estudiante' || role === 'student') {
               activeStudents++;

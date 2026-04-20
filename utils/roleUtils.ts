@@ -250,6 +250,13 @@ export function hasPermission(
   });
 }
 
+export const TEACHING_ELIGIBLE_ROLES: UserRoleType[] = ['docente', 'admin', 'consultor', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'];
+
+export function canTeach(roles: UserRole[]): boolean {
+  if (!roles || roles.length === 0) return false;
+  return roles.some(r => TEACHING_ELIGIBLE_ROLES.includes(r.role_type));
+}
+
 /**
  * Get aggregated permissions for a user based on all their roles
  * Now includes legacy role support for backward compatibility

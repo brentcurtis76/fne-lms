@@ -355,7 +355,17 @@ export type AdvanceStateInput = z.infer<typeof AdvanceStateSchema>;
 export interface LicitacionDocumento {
   id: string;
   licitacion_id: string;
-  tipo: string;
+  tipo:
+    | 'publicacion_imagen'
+    | 'bases_generadas'
+    | 'bases_enviadas'
+    | 'propuesta'
+    | 'evaluacion_generada'
+    | 'evaluacion_firmada'
+    | 'carta_adjudicacion_generada'
+    | 'carta_adjudicacion_firmada'
+    | 'anexos'
+    | 'otro';
   nombre: string;
   storage_path: string;
   file_name: string;

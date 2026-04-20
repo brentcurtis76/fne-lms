@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-20
 **Feature branch:** `feat/teach-inherit` (14 commits)
-**Merge commit:** (fill in after merge)
+**Merge commit:** `7fbc867`
 **Risk level:** Low (no production users currently active)
 **Rollback:** `git revert <merge-commit-sha>` + push
 

@@ -27,6 +27,26 @@ import CompletionStatusBadge from '@/components/school/CompletionStatusBadge';
 import { TRANSVERSAL_CONTEXT_FIELD_LABELS } from '@/lib/constants/transversal-context';
 import type { SchoolTransversalContext, GradeLevel, ContextGeneralQuestion, ContextGeneralResponse } from '@/types/assessment-builder';
 import { GRADE_LEVEL_LABELS } from '@/types/assessment-builder';
+import type { UserRoleType } from '@/types/roles';
+
+type DocenteOption = {
+  id: string;
+  name: string | null;
+  email: string | null;
+  roles?: UserRoleType[];
+};
+
+const DOCENTE_ROLE_BADGE_LABELS: Partial<Record<UserRoleType, string>> = {
+  docente: 'Docente',
+  admin: 'Admin',
+  consultor: 'Consultor',
+  equipo_directivo: 'Directivo',
+  lider_generacion: 'Líder generación',
+  lider_comunidad: 'Líder comunidad',
+};
+
+const docenteRoleLabel = (role: UserRoleType): string =>
+  DOCENTE_ROLE_BADGE_LABELS[role] ?? role;
 
 const WIDGET_ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
   total_students: Users,
@@ -61,7 +81,7 @@ const TransversalContextDashboard: React.FC = () => {
   // Docente assignment modal state
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<any>(null);
-  const [availableDocentes, setAvailableDocentes] = useState<any[]>([]);
+  const [availableDocentes, setAvailableDocentes] = useState<DocenteOption[]>([]);
   const [selectedDocente, setSelectedDocente] = useState<string>('');
   const [loadingDocentes, setLoadingDocentes] = useState(false);
   const [assigning, setAssigning] = useState(false);
@@ -269,8 +289,8 @@ const TransversalContextDashboard: React.FC = () => {
       );
 
       // Filter out already assigned docentes
-      const available = (data.docentes || [])
-        .filter((d: any) => !assignedIds.has(d.id));
+      const available: DocenteOption[] = (data.docentes || [])
+        .filter((d: DocenteOption) => !assignedIds.has(d.id));
 
       setAvailableDocentes(available);
     } catch (error: any) {
@@ -1005,11 +1025,17 @@ const TransversalContextDashboard: React.FC = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand_accent text-brand_primary"
                   >
                     <option value="">-- Seleccionar --</option>
-                    {availableDocentes.map(docente => (
-                      <option key={docente.id} value={docente.id}>
-                        {docente.name || docente.email}
-                      </option>
-                    ))}
+                    {availableDocentes.map(docente => {
+                      const displayName = docente.name || docente.email;
+                      const roleLabels = (docente.roles ?? [])
+                        .map(docenteRoleLabel)
+                        .join(', ');
+                      return (
+                        <option key={docente.id} value={docente.id}>
+                          {roleLabels ? `${displayName} — ${roleLabels}` : displayName}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               )}

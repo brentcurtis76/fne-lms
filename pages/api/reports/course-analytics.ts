@@ -211,15 +211,16 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
         .in('role_type', TEACHING_ELIGIBLE_ROLES as unknown as string[])
         .eq('is_active', true);
 
-      // Students: legacy profiles.role column (students have no user_roles entry yet)
-      const { data: studentProfiles } = await supabase
-        .from('profiles')
-        .select('id')
-        .in('role', ['estudiante', 'student']);
+      // Students: also sourced from user_roles so both buckets share one source of truth
+      const { data: studentRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .in('role_type', ['estudiante', 'student'])
+        .eq('is_active', true);
 
       const ids = new Set<string>();
-      teacherRoles?.forEach(r => r.user_id && ids.add(r.user_id));
-      studentProfiles?.forEach(p => p.id && ids.add(p.id));
+      teacherRoles?.forEach(ur => ur.user_id && ids.add(ur.user_id));
+      studentRoles?.forEach(ur => ur.user_id && ids.add(ur.user_id));
       return Array.from(ids);
     } else if (userRole === 'consultor') {
       // Consultors can only see their assigned students

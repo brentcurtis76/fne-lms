@@ -112,6 +112,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       rolesByUser.set(row.user_id, list);
     }
     const userIds = Array.from(rolesByUser.keys());
+    if (userIds.length === 0) {
+      return res.status(200).json({ docentes: [] });
+    }
     const { data: profiles, error: profilesError } = await serviceClient
       .from('profiles')
       .select('id, name, first_name, last_name, email')

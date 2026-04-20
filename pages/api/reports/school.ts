@@ -150,8 +150,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .in('user_id', userIds)
           .eq('is_active', true) : { data: [] };
 
-        // Build role lookup map (primary role per user by priority)
+        // Build role lookup map (primary role per user by priority) — kept for any
+        // downstream display use. Classification below must NOT rely on this, since
+        // it loses roles for multi-role users.
         const userRoleMap = new Map<string, string>();
+        // Full set of active roles per user — used for teacher/student classification
+        // so a user holding both (e.g. docente + estudiante) is counted in each bucket.
+        const rolesByUser = new Map<string, Set<UserRoleType>>();
         if (schoolUserRoles) {
           const roleOrder = [
             'admin', 'consultor', 'equipo_directivo', 'lider_generacion',
@@ -163,8 +168,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             if (!existing || roleOrder.indexOf(ur.role_type) < roleOrder.indexOf(existing)) {
               userRoleMap.set(ur.user_id, ur.role_type);
             }
+            const set = rolesByUser.get(ur.user_id) ?? new Set<UserRoleType>();
+            set.add(ur.role_type as UserRoleType);
+            rolesByUser.set(ur.user_id, set);
           }
         }
+
+        const isTeacher = (userId: string): boolean => {
+          const roles = rolesByUser.get(userId);
+          if (!roles) return false;
+          for (const r of roles) {
+            if ((TEACHING_ELIGIBLE_ROLES as readonly UserRoleType[]).includes(r)) return true;
+          }
+          return false;
+        };
+        const isStudent = (userId: string): boolean => {
+          const roles = rolesByUser.get(userId);
+          if (!roles) return false;
+          return roles.has('estudiante' as UserRoleType) || roles.has('student' as UserRoleType);
+        };
 
         const { data: courseEnrollments } = userIds.length > 0 ? await supabase
           .from('course_enrollments')
@@ -176,15 +198,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const schoolUsersData = schoolUsers?.filter(u => u.school_id === school.id) || [];
           const schoolUserIds = schoolUsersData.map(u => u.id);
 
-          // Separate teachers and students using user_roles
-          const teachers = schoolUsersData.filter(u => {
-            const role = userRoleMap.get(u.id);
-            return !!role && (TEACHING_ELIGIBLE_ROLES as readonly UserRoleType[]).includes(role as UserRoleType);
-          });
-          const students = schoolUsersData.filter(u => {
-            const role = userRoleMap.get(u.id);
-            return role === 'estudiante' || role === 'student';
-          });
+          // Separate teachers and students using the full role set per user.
+          // A user holding both a teaching-eligible role and a student role is counted in both buckets.
+          const teachers = schoolUsersData.filter(u => isTeacher(u.id));
+          const students = schoolUsersData.filter(u => isStudent(u.id));
 
           // Calculate metrics
           const totalTeachers = teachers.length;
@@ -207,14 +224,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
           });
 
-          // Categorize active users as teachers or students using user_roles
+          // Categorize active users using the full role set — users with both a
+          // teaching-eligible role and a student role increment both counters.
           activeUserIds.forEach(uid => {
-            const role = userRoleMap.get(uid);
-            if (role && (TEACHING_ELIGIBLE_ROLES as readonly UserRoleType[]).includes(role as UserRoleType)) {
-              activeTeachers++;
-            } else if (role === 'estudiante' || role === 'student') {
-              activeStudents++;
-            }
+            if (isTeacher(uid)) activeTeachers++;
+            if (isStudent(uid)) activeStudents++;
           });
 
           return {

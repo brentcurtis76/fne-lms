@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { getApiUser, createApiSupabaseClient, createServiceRoleClient, sendAuthError, handleMethodNotAllowed } from '@/lib/api-auth';
+import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 
 // Check if user has directivo permission for a specific school
 async function hasDirectivoPermission(
@@ -82,13 +83,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const effectiveSchoolId = isAdmin ? querySchoolId : schoolId;
 
   try {
-    // Fetch docentes using service client (user_roles RLS only allows auth.uid() = user_id)
+    // Fetch docentes using service client (user_roles RLS only allows auth.uid() = user_id).
+    // Includes leadership roles (admin/consultor/equipo_directivo/lider_*) that inherit docente privileges.
     const serviceClient = createServiceRoleClient();
     const { data: docenteRoles, error: rolesError } = await serviceClient
       .from('user_roles')
       .select('user_id')
       .eq('school_id', effectiveSchoolId)
-      .eq('role_type', 'docente')
+      .in('role_type', TEACHING_ELIGIBLE_ROLES)
       .eq('is_active', true);
 
     if (rolesError) {
@@ -101,7 +103,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // Get profile info (same service client — profiles RLS also blocks cross-user reads)
-    const userIds = docenteRoles.map((r: any) => r.user_id);
+    const userIds = Array.from(new Set((docenteRoles || []).map((r: any) => r.user_id)));
     const { data: profiles, error: profilesError } = await serviceClient
       .from('profiles')
       .select('id, name, first_name, last_name, email')

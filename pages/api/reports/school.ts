@@ -178,7 +178,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const roles = rolesByUser.get(userId);
           if (!roles) return false;
           for (const r of roles) {
-            if ((TEACHING_ELIGIBLE_ROLES as readonly UserRoleType[]).includes(r)) return true;
+            if (TEACHING_ELIGIBLE_ROLES.includes(r)) return true;
           }
           return false;
         };

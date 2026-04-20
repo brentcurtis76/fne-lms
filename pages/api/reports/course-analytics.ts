@@ -208,7 +208,7 @@ async function getReportableUsers(userId: string, userRole: string): Promise<str
       const { data: teacherRoles } = await supabase
         .from('user_roles')
         .select('user_id')
-        .in('role_type', TEACHING_ELIGIBLE_ROLES as unknown as string[])
+        .in('role_type', TEACHING_ELIGIBLE_ROLES)
         .eq('is_active', true);
 
       // Students: also sourced from user_roles so both buckets share one source of truth

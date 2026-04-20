@@ -265,14 +265,14 @@ export function hasPermission(
  * Excluded by design: `supervisor_de_red`, `community_manager`,
  * `encargado_licitacion`.
  */
-export const TEACHING_ELIGIBLE_ROLES = [
+export const TEACHING_ELIGIBLE_ROLES: readonly UserRoleType[] = [
   'docente',
   'admin',
   'consultor',
   'equipo_directivo',
   'lider_generacion',
   'lider_comunidad',
-] as const satisfies readonly UserRoleType[];
+];
 
 const TEACHING_ELIGIBLE_SET: ReadonlySet<UserRoleType> = new Set(TEACHING_ELIGIBLE_ROLES);
 

@@ -172,8 +172,11 @@ export default function LicitacionDetailPage() {
   // Delete licitacion
   const [deleting, setDeleting] = useState(false);
 
-  // Historical detection: estado=cerrada AND no committee/ates/evaluations
-  const [isHistorical, setIsHistorical] = useState<boolean | null>(null);
+  // Historical detection for closed licitaciones: 'pending' until /evaluacion
+  // returns, then 'archive' when no committee/ATEs/evaluations are present
+  // or 'workflow' when any of those exist. For non-closed records this stays
+  // 'workflow' directly so the live UI renders without waiting.
+  const [historicalState, setHistoricalState] = useState<'pending' | 'archive' | 'workflow'>('workflow');
 
   useEffect(() => {
     checkAuth();
@@ -192,19 +195,23 @@ export default function LicitacionDetailPage() {
       .catch(() => { /* intentionally silent */ });
   }, [authReady]);
 
-  // Detect historical licitacion: cerrada AND no committee, ATEs, or evaluations
+  // Detect historical licitacion: cerrada AND no committee, ATEs, or evaluations.
+  // Closed licitaciones start in 'pending' and default to 'archive' on any
+  // detection failure so workflow controls (ATE editing, consultas, generate-*)
+  // never leak against a closed archive — even briefly.
   useEffect(() => {
     if (!licitacion) return;
     if (licitacion.estado !== 'cerrada') {
-      setIsHistorical(false);
+      setHistoricalState('workflow');
       return;
     }
+    setHistoricalState('pending');
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch(`/api/licitaciones/${licitacion.id}/evaluacion`);
         if (!res.ok) {
-          if (!cancelled) setIsHistorical(false);
+          if (!cancelled) setHistoricalState('archive');
           return;
         }
         const json = await res.json();
@@ -213,10 +220,11 @@ export default function LicitacionDetailPage() {
         const ates = Array.isArray(data.ates) ? data.ates : [];
         const scores = Array.isArray(data.scores) ? data.scores : [];
         if (!cancelled) {
-          setIsHistorical(committee.length === 0 && ates.length === 0 && scores.length === 0);
+          const isArchive = committee.length === 0 && ates.length === 0 && scores.length === 0;
+          setHistoricalState(isArchive ? 'archive' : 'workflow');
         }
       } catch {
-        if (!cancelled) setIsHistorical(false);
+        if (!cancelled) setHistoricalState('archive');
       }
     })();
     return () => { cancelled = true; };
@@ -519,7 +527,11 @@ export default function LicitacionDetailPage() {
           </div>
         </div>
 
-        {isHistorical ? (
+        {historicalState === 'pending' ? (
+          <div className="bg-white rounded-lg shadow p-12 flex justify-center items-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-yellow-400" aria-label="Cargando"></div>
+          </div>
+        ) : historicalState === 'archive' ? (
           <ArchiveView
             licitacionId={licitacion.id}
             isAdmin={isAdmin}

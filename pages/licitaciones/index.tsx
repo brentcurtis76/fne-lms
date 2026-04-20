@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
-import { Plus, FileText, ChevronLeft, ChevronRight, Download, AlertTriangle } from 'lucide-react';
+import { Plus, FileText, ChevronLeft, ChevronRight, Download, AlertTriangle, Archive } from 'lucide-react';
 import { LicitacionEstado, ESTADO_DISPLAY, NEXT_ACTION } from '@/types/licitaciones';
 import { LicitacionesExport, LicitacionExportRow } from '@/lib/licitacionesExport';
 
@@ -149,6 +149,7 @@ export default function LicitacionesPage() {
   const [filterYear, setFilterYear] = useState('');
   const [filterSchool, setFilterSchool] = useState('');
   const [filterPrograma, setFilterPrograma] = useState('');
+  const [showHistoricas, setShowHistoricas] = useState(false);
 
   // Filter options
   const [schools, setSchools] = useState<SchoolOption[]>([]);

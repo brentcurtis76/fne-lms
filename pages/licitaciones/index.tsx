@@ -329,18 +329,22 @@ export default function LicitacionesPage() {
 
   const totalPages = Math.ceil(total / LIMIT);
   const currentYear = new Date().getFullYear();
-  const HISTORICO_MIN_YEAR = 2023;
+  // Year dropdown covers well-before-present through near-future so historical
+  // imports (legacy years) and active workflows (+ next cycles) are both selectable.
+  const YEAR_MIN = 2018;
   const years = Array.from(
-    { length: Math.max(5, currentYear - HISTORICO_MIN_YEAR + 4) },
-    (_, i) => HISTORICO_MIN_YEAR + i,
+    { length: currentYear - YEAR_MIN + 4 },
+    (_, i) => YEAR_MIN + i,
   );
 
+  // Toggle: Historical records all live under estado='cerrada'. Flipping the
+  // checkbox only touches the estado filter; year is left to the user so
+  // "Mostrar históricas" returns every historical year by default.
   const toggleHistoricas = (checked: boolean) => {
     setShowHistoricas(checked);
     setPage(1);
     if (checked) {
       setFilterEstado('cerrada');
-      if (!filterYear) setFilterYear(String(HISTORICO_MIN_YEAR));
     } else if (filterEstado === 'cerrada') {
       setFilterEstado('');
     }
@@ -384,6 +388,15 @@ export default function LicitacionesPage() {
               >
                 <Download size={18} className="mr-2" />
                 {exporting ? 'Exportando...' : 'Exportar a Excel'}
+              </button>
+            )}
+            {(isAdmin || isEncargado) && (
+              <button
+                onClick={() => router.push('/licitaciones/importar')}
+                className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2"
+              >
+                <Archive size={18} className="mr-2" />
+                Importar histórica
               </button>
             )}
             {isAdmin && (
@@ -464,7 +477,7 @@ export default function LicitacionesPage() {
             <Archive size={14} className="mr-1 text-gray-500" />
             Mostrar históricas
             <span className="ml-2 text-xs font-normal text-gray-500">
-              (licitaciones cerradas desde {HISTORICO_MIN_YEAR})
+              (licitaciones cerradas)
             </span>
           </label>
           <div className="flex flex-wrap gap-4">

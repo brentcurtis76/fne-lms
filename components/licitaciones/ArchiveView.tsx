@@ -23,7 +23,9 @@ const BUCKETS: BucketInfo[] = [
   { key: 'bases', label: 'Bases', tipos: ['bases_generadas', 'bases_enviadas'], uploadTipo: 'bases_enviadas' },
   { key: 'propuestas', label: 'Propuestas', tipos: ['propuesta'], uploadTipo: 'propuesta' },
   { key: 'evaluacion', label: 'Evaluacion', tipos: ['evaluacion_generada', 'evaluacion_firmada'], uploadTipo: 'evaluacion_firmada' },
+  { key: 'adjudicacion', label: 'Adjudicacion', tipos: ['carta_adjudicacion_generada', 'carta_adjudicacion_firmada'], uploadTipo: 'carta_adjudicacion_firmada' },
   { key: 'anexos', label: 'Anexos', tipos: ['anexos'], uploadTipo: 'anexos' },
+  { key: 'otros', label: 'Otros', tipos: ['otro'], uploadTipo: 'otro' },
 ];
 
 function formatFileSize(bytes?: number | null): string {

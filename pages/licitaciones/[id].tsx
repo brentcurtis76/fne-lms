@@ -174,9 +174,10 @@ export default function LicitacionDetailPage() {
 
   // Historical detection for closed licitaciones: 'pending' until /evaluacion
   // returns, then 'archive' when no committee/ATEs/evaluations are present
-  // or 'workflow' when any of those exist. For non-closed records this stays
-  // 'workflow' directly so the live UI renders without waiting.
-  const [historicalState, setHistoricalState] = useState<'pending' | 'archive' | 'workflow'>('workflow');
+  // or 'workflow' when any of those exist. Only consulted when the licitación
+  // is closed — live records render the workflow directly (see computed
+  // `historicalView` below).
+  const [closedRecordState, setClosedRecordState] = useState<'pending' | 'archive' | 'workflow'>('pending');
 
   useEffect(() => {
     checkAuth();
@@ -198,20 +199,17 @@ export default function LicitacionDetailPage() {
   // Detect historical licitacion: cerrada AND no committee, ATEs, or evaluations.
   // Closed licitaciones start in 'pending' and default to 'archive' on any
   // detection failure so workflow controls (ATE editing, consultas, generate-*)
-  // never leak against a closed archive — even briefly.
+  // never leak against a closed archive — even briefly on first paint.
   useEffect(() => {
     if (!licitacion) return;
-    if (licitacion.estado !== 'cerrada') {
-      setHistoricalState('workflow');
-      return;
-    }
-    setHistoricalState('pending');
+    if (licitacion.estado !== 'cerrada') return;
+    setClosedRecordState('pending');
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch(`/api/licitaciones/${licitacion.id}/evaluacion`);
         if (!res.ok) {
-          if (!cancelled) setHistoricalState('archive');
+          if (!cancelled) setClosedRecordState('archive');
           return;
         }
         const json = await res.json();
@@ -221,14 +219,20 @@ export default function LicitacionDetailPage() {
         const scores = Array.isArray(data.scores) ? data.scores : [];
         if (!cancelled) {
           const isArchive = committee.length === 0 && ates.length === 0 && scores.length === 0;
-          setHistoricalState(isArchive ? 'archive' : 'workflow');
+          setClosedRecordState(isArchive ? 'archive' : 'workflow');
         }
       } catch {
-        if (!cancelled) setHistoricalState('archive');
+        if (!cancelled) setClosedRecordState('archive');
       }
     })();
     return () => { cancelled = true; };
   }, [licitacion]);
+
+  // Live (non-closed) records render the workflow directly; closed records use
+  // the pending/archive/workflow classification so workflow components never
+  // mount during detection (first paint or in-flight).
+  const historicalView: 'pending' | 'archive' | 'workflow' =
+    licitacion && licitacion.estado !== 'cerrada' ? 'workflow' : closedRecordState;
 
   const checkAuth = async () => {
     try {
@@ -527,11 +531,11 @@ export default function LicitacionDetailPage() {
           </div>
         </div>
 
-        {historicalState === 'pending' ? (
+        {historicalView === 'pending' ? (
           <div className="bg-white rounded-lg shadow p-12 flex justify-center items-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-yellow-400" aria-label="Cargando"></div>
           </div>
-        ) : historicalState === 'archive' ? (
+        ) : historicalView === 'archive' ? (
           <ArchiveView
             licitacionId={licitacion.id}
             isAdmin={isAdmin}

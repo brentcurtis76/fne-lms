@@ -130,10 +130,15 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
         if (!isEncargado) {
           return sendAuthError(res, 'No tiene permisos para crear licitaciones', 403);
         }
-        const encargadoSchoolIds = userRoles
-          .filter(r => r.role_type === 'encargado_licitacion' && r.school_id != null)
-          .map(r => Number(r.school_id));
-        if (!encargadoSchoolIds.includes(parseResult.data.school_id)) {
+        // Match the scope-check pattern used by every other licitación endpoint
+        // (upload.ts, ates.ts, evaluacion.ts, publicacion.ts, …) so an encargado
+        // who imports a historical record can also view/upload/download its
+        // documents downstream. Multi-school encargado support is a broader
+        // fix that needs the same change across ~15 endpoints — out of scope
+        // here; keeping behavior uniform for now.
+        const encargadoRole = userRoles.find(r => r.role_type === 'encargado_licitacion');
+        const encargadoSchoolId = encargadoRole?.school_id != null ? Number(encargadoRole.school_id) : null;
+        if (!encargadoRole || encargadoSchoolId !== parseResult.data.school_id) {
           return sendAuthError(
             res,
             'No tiene permisos para registrar licitaciones historicas de esta escuela',

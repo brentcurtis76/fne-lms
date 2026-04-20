@@ -329,9 +329,10 @@ export default function LicitacionesPage() {
 
   const totalPages = Math.ceil(total / LIMIT);
   const currentYear = new Date().getFullYear();
-  // Year dropdown covers well-before-present through near-future so historical
-  // imports (legacy years) and active workflows (+ next cycles) are both selectable.
-  const YEAR_MIN = 2018;
+  // Year dropdown range: matches the historical import schema's min (2000) so
+  // every importable year is filterable, and extends past the current year so
+  // upcoming licitación cycles can be planned.
+  const YEAR_MIN = 2000;
   const years = Array.from(
     { length: currentYear - YEAR_MIN + 4 },
     (_, i) => YEAR_MIN + i,

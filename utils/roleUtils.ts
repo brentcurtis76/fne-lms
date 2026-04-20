@@ -274,6 +274,8 @@ export const TEACHING_ELIGIBLE_ROLES = [
   'lider_comunidad',
 ] as const satisfies readonly UserRoleType[];
 
+const TEACHING_ELIGIBLE_SET: ReadonlySet<UserRoleType> = new Set(TEACHING_ELIGIBLE_ROLES);
+
 /**
  * Returns true if any of the user's roles is teaching-eligible
  * (i.e. the user may perform docente actions). See
@@ -281,7 +283,7 @@ export const TEACHING_ELIGIBLE_ROLES = [
  */
 export function canTeach(roles: UserRole[] | null | undefined): boolean {
   if (!roles || roles.length === 0) return false;
-  return roles.some(r => (TEACHING_ELIGIBLE_ROLES as readonly UserRoleType[]).includes(r.role_type));
+  return roles.some(r => TEACHING_ELIGIBLE_SET.has(r.role_type));
 }
 
 /**

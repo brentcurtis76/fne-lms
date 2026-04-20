@@ -82,26 +82,44 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const effectiveSchoolId = isAdmin ? querySchoolId : schoolId;
 
   try {
-    // Fetch docentes using service client (user_roles RLS only allows auth.uid() = user_id)
+    // Fetch teaching-eligible users using service client (user_roles RLS only allows auth.uid() = user_id)
     const serviceClient = createServiceRoleClient();
-    const { data: docenteRoles, error: rolesError } = await serviceClient
+
+    const { data: schoolScopedRoles, error: schoolRolesError } = await serviceClient
       .from('user_roles')
       .select('user_id')
       .eq('school_id', effectiveSchoolId)
-      .eq('role_type', 'docente')
+      .in('role_type', ['docente', 'equipo_directivo', 'lider_generacion', 'lider_comunidad'])
       .eq('is_active', true);
 
-    if (rolesError) {
-      console.error('Error fetching docente roles:', rolesError);
+    if (schoolRolesError) {
+      console.error('Error fetching school-scoped roles:', schoolRolesError);
       return res.status(500).json({ error: 'Error al obtener docentes' });
     }
 
-    if (!docenteRoles || docenteRoles.length === 0) {
+    const { data: globalRoles, error: globalRolesError } = await serviceClient
+      .from('user_roles')
+      .select('user_id')
+      .in('role_type', ['admin', 'consultor'])
+      .eq('is_active', true);
+
+    if (globalRolesError) {
+      console.error('Error fetching global roles:', globalRolesError);
+      return res.status(500).json({ error: 'Error al obtener docentes' });
+    }
+
+    const userIds = Array.from(
+      new Set([
+        ...(schoolScopedRoles || []).map((r: any) => r.user_id),
+        ...(globalRoles || []).map((r: any) => r.user_id),
+      ])
+    );
+
+    if (userIds.length === 0) {
       return res.status(200).json({ docentes: [] });
     }
 
     // Get profile info (same service client — profiles RLS also blocks cross-user reads)
-    const userIds = docenteRoles.map((r: any) => r.user_id);
     const { data: profiles, error: profilesError } = await serviceClient
       .from('profiles')
       .select('id, name, first_name, last_name, email')

@@ -37,11 +37,11 @@ describe('canTeach', () => {
   });
 
   it('returns false for community_manager alone', () => {
-    expect(canTeach([makeRole('community_manager' as UserRoleType)])).toBe(false);
+    expect(canTeach([makeRole('community_manager')])).toBe(false);
   });
 
   it('returns false for supervisor_de_red alone', () => {
-    expect(canTeach([makeRole('supervisor_de_red' as UserRoleType)])).toBe(false);
+    expect(canTeach([makeRole('supervisor_de_red')])).toBe(false);
   });
 
   it('returns true when excluded + included roles are mixed', () => {

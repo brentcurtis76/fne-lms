@@ -329,7 +329,27 @@ export default function LicitacionesPage() {
 
   const totalPages = Math.ceil(total / LIMIT);
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - 1 + i);
+  const HISTORICO_MIN_YEAR = 2023;
+  const futureYears = Array.from({ length: 5 }, (_, i) => currentYear - 1 + i);
+  const historicoYears = Array.from(
+    { length: Math.max(0, currentYear - HISTORICO_MIN_YEAR) },
+    (_, i) => HISTORICO_MIN_YEAR + i,
+  );
+  const years = showHistoricas
+    ? Array.from(new Set([...historicoYears, ...futureYears])).sort((a, b) => a - b)
+    : futureYears;
+
+  const handleToggleHistoricas = (checked: boolean) => {
+    setShowHistoricas(checked);
+    setPage(1);
+    if (checked) {
+      setFilterEstado('cerrada');
+      setFilterYear(String(HISTORICO_MIN_YEAR));
+    } else {
+      setFilterEstado('');
+      setFilterYear('');
+    }
+  };
 
   // Actionable licitaciones for encargado card
   const actionableLicitaciones = licitaciones.filter(l => NEXT_ACTION[l.estado]);
@@ -439,6 +459,19 @@ export default function LicitacionesPage() {
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="flex items-center gap-2 mb-4 pb-4 border-b border-gray-100">
+            <input
+              id="toggle-historicas"
+              type="checkbox"
+              checked={showHistoricas}
+              onChange={e => handleToggleHistoricas(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-400"
+            />
+            <label htmlFor="toggle-historicas" className="text-sm font-medium text-gray-700 flex items-center gap-1.5 cursor-pointer">
+              <Archive size={16} aria-hidden="true" />
+              Mostrar históricas
+            </label>
+          </div>
           <div className="flex flex-wrap gap-4">
             <div>
               <label htmlFor="filter-estado" className="block text-sm font-medium text-gray-700 mb-1">Estado</label>

@@ -1539,11 +1539,68 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   )}
                 </div>
 
-                {/* Unified Agreements/Commitments Section */}
+                {/* Agreements Section */}
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-medium text-gray-900">
-                      Acuerdos y Compromisos
+                      Acuerdos
+                    </h3>
+                    <button
+                      onClick={addAgreement}
+                      className="inline-flex items-center px-3 py-2 bg-[#fbbf24] text-[#0a0a0a] text-sm rounded-lg hover:bg-[#fbbf24]/90 transition-colors duration-200"
+                    >
+                      <PlusIcon className="h-4 w-4 mr-1" />
+                      Agregar Acuerdo
+                    </button>
+                  </div>
+
+                  {formData.agreements.length === 0 ? (
+                    <div className="text-center py-6 text-gray-500">
+                      <p className="text-sm">No se han agregado acuerdos.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {formData.agreements.map((agreement, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <span className="inline-flex items-center justify-center w-6 h-6 bg-[#fbbf24] text-[#0a0a0a] text-sm font-bold rounded-full">
+                              {index + 1}
+                            </span>
+                            <button
+                              onClick={() => removeAgreement(index)}
+                              className="p-1 text-red-400 hover:text-red-600"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <TipTapEditor
+                            initialContent={agreement.agreement_doc ?? emptyDoc()}
+                            onChange={(json) => {
+                              const text = plainTextFromDoc(json);
+                              setFormData(prev => ({
+                                ...prev,
+                                agreements: prev.agreements.map((a, i) =>
+                                  i === index
+                                    ? { ...a, agreement_doc: json as any, agreement_text: text }
+                                    : a
+                                ),
+                              }));
+                            }}
+                            minHeight={80}
+                            placeholder="Describe el acuerdo…"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Commitments Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      Compromisos
                     </h3>
                     <button
                       onClick={addCommitment}

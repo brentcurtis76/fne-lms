@@ -86,6 +86,21 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({ initialContent, onChange })
     immediatelyRender: false,
   });
 
+  React.useEffect(() => {
+    if (!editor) return;
+    if (editor.isFocused) return;
+
+    if (initialContent == null) return;
+
+    if (typeof initialContent === 'string') {
+      if (editor.getHTML() === initialContent) return;
+    } else if (JSON.stringify(editor.getJSON()) === JSON.stringify(initialContent)) {
+      return;
+    }
+
+    editor.commands.setContent(initialContent, false);
+  }, [editor, initialContent]);
+
   const buttonConfigs: MenuBarProps['buttonConfigs'] = [
     {
       action: () => {

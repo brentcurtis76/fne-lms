@@ -181,27 +181,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Heartbeat: bump last_heartbeat_at on the caller's active session so the
-    // presence banner stays fresh. We only touch the row when it belongs to
-    // this user and hasn't been ended — missing/ended rows are logged but
-    // still return 200 (the autosave itself succeeded). We do NOT create new
-    // session rows here; /work-session/start owns lifecycle.
+    // Touch the active work-session heartbeat so presence stays fresh.
+    // We do NOT create a new row here — that is the job of
+    // /api/meetings/[id]/work-session/start. If the session is missing or
+    // already ended, the UPDATE simply affects zero rows and we still return 200.
     if (work_session_id) {
-      const { data: hbRow, error: hbError } = await serviceClient
+      const { error: hbError } = await serviceClient
         .from('meeting_work_sessions')
         .update({ last_heartbeat_at: now })
         .eq('id', work_session_id)
         .eq('user_id', user.id)
-        .is('ended_at', null)
-        .select('id')
-        .maybeSingle();
+        .is('ended_at', null);
 
       if (hbError) {
-        console.error('Error heartbeating work session on autosave:', hbError);
-      } else if (!hbRow) {
-        console.warn(
-          `Heartbeat skipped: work session ${work_session_id} missing or already ended for user ${user.id}`
-        );
+        console.error('Error updating work session heartbeat on autosave:', hbError);
       }
     }
 

@@ -6,7 +6,7 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
-import { formatDistanceToNowStrict, format } from 'date-fns';
+import { formatDistanceToNow, formatDistanceToNowStrict, format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import TipTapEditor from '../../src/components/TipTapEditor';
 import {
@@ -128,6 +128,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     id: string;
     user_id: string;
     started_at: string;
+    last_heartbeat_at: string | null;
+    ended_at: string | null;
     first_name: string | null;
     last_name: string | null;
   }
@@ -468,7 +470,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     try {
       const { data: sessions } = await supabase
         .from('meeting_work_sessions')
-        .select('id, user_id, started_at')
+        .select('id, user_id, started_at, last_heartbeat_at, ended_at')
         .eq('meeting_id', id)
         .is('ended_at', null)
         .order('started_at', { ascending: true });
@@ -494,6 +496,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           id: s.id,
           user_id: s.user_id,
           started_at: s.started_at,
+          last_heartbeat_at: s.last_heartbeat_at ?? null,
+          ended_at: s.ended_at ?? null,
           first_name: profileMap.get(s.user_id)?.first_name ?? null,
           last_name: profileMap.get(s.user_id)?.last_name ?? null,
         }))
@@ -1264,10 +1268,19 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                 const first = workSessions[0];
                 const name = `${first.first_name || ''} ${first.last_name || ''}`.trim() || 'Alguien';
                 const startedLabel = format(new Date(first.started_at), "d 'de' MMM, HH:mm", { locale: es });
+                const isActive = first.ended_at === null;
+                const activityAnchor = isActive && first.last_heartbeat_at
+                  ? new Date(first.last_heartbeat_at)
+                  : new Date(first.started_at);
+                const activityLabel = formatDistanceToNow(activityAnchor, { locale: es, addSuffix: false });
                 const others = workSessions.length - 1;
                 return (
                   <span>
                     Iniciado por <strong>{name}</strong> el {startedLabel}
+                    {' · '}
+                    <span title={activityAnchor.toISOString()}>
+                      Activo hace {activityLabel}
+                    </span>
                     {others > 0 && (
                       <> · {others} editor{others !== 1 ? 'es' : ''} adicional{others !== 1 ? 'es' : ''}</>
                     )}

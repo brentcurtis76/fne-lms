@@ -177,30 +177,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    let workSessionId = work_session_id ?? null;
-
-    // TODO: add a `last_activity_at TIMESTAMPTZ` column to meeting_work_sessions
-    // in a separate additive migration and update this branch to set it on
-    // autosave. We intentionally do NOT set `ended_at` here — that would close
-    // the session prematurely on every keystroke. `ended_at` is only set by
-    // the /work-session/[sessionId]/end endpoint when the modal closes.
-    if (!workSessionId) {
-      const { data: wsInsert, error: wsInsertError } = await serviceClient
+    // Heartbeat: bump last_heartbeat_at on the caller's active session so the
+    // presence banner stays fresh. We only touch the row when it belongs to
+    // this user and hasn't been ended — missing/ended rows are logged but
+    // still return 200 (the autosave itself succeeded). We do NOT create new
+    // session rows here; /work-session/start owns lifecycle.
+    if (work_session_id) {
+      const { data: hbRow, error: hbError } = await serviceClient
         .from('meeting_work_sessions')
-        .insert({ meeting_id: id, user_id: user.id })
+        .update({ last_heartbeat_at: now })
+        .eq('id', work_session_id)
+        .eq('user_id', user.id)
+        .is('ended_at', null)
         .select('id')
-        .single();
+        .maybeSingle();
 
-      if (wsInsertError) {
-        console.error('Error creating work session on autosave:', wsInsertError);
-      } else if (wsInsert) {
-        workSessionId = wsInsert.id;
+      if (hbError) {
+        console.error('Error heartbeating work session on autosave:', hbError);
+      } else if (!hbRow) {
+        console.warn(
+          `Heartbeat skipped: work session ${work_session_id} missing or already ended for user ${user.id}`
+        );
       }
     }
 
     return sendApiResponse(res, {
       version: updated.version,
-      work_session_id: workSessionId,
+      work_session_id: work_session_id ?? null,
       updated_at: updated.updated_at,
     });
   } catch (error: any) {

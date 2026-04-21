@@ -86,6 +86,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, 'No tiene permisos para editar esta reunión', 403);
     }
 
+    if (meeting.status !== 'borrador') {
+      return res.status(409).json({ error: 'meeting_not_draft' });
+    }
+
     const now = new Date().toISOString();
 
     const { error: updateError } = await serviceClient

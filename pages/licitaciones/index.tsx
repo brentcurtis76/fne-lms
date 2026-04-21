@@ -331,11 +331,12 @@ export default function LicitacionesPage() {
   const currentYear = new Date().getFullYear();
   // Year dropdown range: matches the historical import schema's min (2000) so
   // every importable year is filterable, and extends past the current year so
-  // upcoming licitación cycles can be planned.
+  // upcoming licitación cycles can be planned. Sorted descending so recent
+  // years (what users reach for most) are at the top.
   const YEAR_MIN = 2000;
   const years = Array.from(
     { length: currentYear - YEAR_MIN + 4 },
-    (_, i) => YEAR_MIN + i,
+    (_, i) => currentYear + 3 - i,
   );
 
   // Toggle: Historical records all live under estado='cerrada'. Flipping the

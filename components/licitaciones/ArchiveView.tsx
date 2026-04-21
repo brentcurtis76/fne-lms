@@ -87,13 +87,11 @@ export default function ArchiveView({ licitacionId, isAdmin = false, isEncargado
       const signedUrl = json.data?.signedUrl || json.signedUrl;
       if (!signedUrl) throw new Error('Enlace de descarga no disponible');
 
-      const a = document.createElement('a');
-      a.href = signedUrl;
-      a.download = doc.file_name || doc.nombre;
-      a.target = '_blank';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      // Supabase signed URLs are cross-origin, so browsers ignore `download`
+      // and open the URL directly; opening in a new tab lets the browser
+      // preview PDFs/images inline and trigger its native download for
+      // unpreviewable types like .docx.
+      window.open(signedUrl, '_blank', 'noopener,noreferrer');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error al descargar documento');
     } finally {

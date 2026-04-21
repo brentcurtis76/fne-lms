@@ -357,6 +357,12 @@ export async function createHistoricoLicitacion(
           if (dbError.message.includes('school_programa_year')) {
             throw new Error('Ya existe una licitacion activa para esta escuela, programa y ano.');
           }
+          // Retrying with a user-supplied numero_licitacion would just collide
+          // again. Surface a clear message instead of burning the full retry
+          // budget and leaking the raw Postgres error.
+          if (data.numero_licitacion && dbError.message.includes('numero_licitacion')) {
+            throw new Error(`El numero de licitacion "${data.numero_licitacion}" ya esta en uso.`);
+          }
           insertError = new Error(dbError.message);
           continue;
         }
@@ -374,7 +380,10 @@ export async function createHistoricoLicitacion(
 
       return created as Licitacion;
     } catch (err) {
-      if (err instanceof Error && err.message.includes('Ya existe una licitacion activa')) {
+      if (err instanceof Error && (
+        err.message.includes('Ya existe una licitacion activa') ||
+        err.message.includes('ya esta en uso')
+      )) {
         throw err;
       }
       insertError = err instanceof Error ? err : new Error('Error desconocido');

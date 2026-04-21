@@ -14,6 +14,7 @@ import {
   plainTextFromDoc,
   docOrFromText,
 } from '../../lib/tiptap/helpers';
+import { useEndWorkSession } from '../../hooks/useEndWorkSession';
 
 import {
   XIcon,
@@ -213,30 +214,9 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     currentMeetingIdRef.current = currentMeetingId;
   }, [currentMeetingId]);
 
-  // Close an open work-session. On page unload we prefer sendBeacon because
-  // fetch may be cancelled; otherwise a keepalive fetch is fine.
-  const endWorkSession = useCallback(
-    (mId: string, sId: string, unloading: boolean) => {
-      const url = `/api/meetings/${mId}/work-session/${sId}/end`;
-      if (unloading && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-        try {
-          const blob = new Blob([JSON.stringify({})], { type: 'application/json' });
-          navigator.sendBeacon(url, blob);
-          return;
-        } catch {
-          // fall through to fetch
-        }
-      }
-      void fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        keepalive: true,
-      }).catch((err) => {
-        console.error('Error ending work session:', err);
-      });
-    },
-    []
-  );
+  // Close an open work-session. Hook dedupes by sessionId so handleClose +
+  // unmount + beforeunload together still fire at most one POST per session.
+  const { endWorkSession } = useEndWorkSession();
 
   // Catch tab close / hard navigation: fire sendBeacon before the browser tears down.
   useEffect(() => {

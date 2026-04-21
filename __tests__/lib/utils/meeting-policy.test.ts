@@ -71,6 +71,22 @@ describe('meeting-policy helpers', () => {
       expect(canEditMeeting(user, buildMeeting({ status: 'cancelada' }), [])).toBe(true);
     });
 
+    it('allows consultor to edit any meeting regardless of status (matches SQL short-circuit)', () => {
+      const user = buildUser({ highestRole: 'consultor', id: OTHER_USER_ID });
+      expect(canEditMeeting(user, buildMeeting({ status: 'borrador' }), [])).toBe(true);
+      expect(canEditMeeting(user, buildMeeting({ status: 'programada' }), [])).toBe(true);
+      expect(canEditMeeting(user, buildMeeting({ status: 'en_progreso' }), [])).toBe(true);
+      expect(canEditMeeting(user, buildMeeting({ status: 'completada' }), [])).toBe(true);
+      expect(canEditMeeting(user, buildMeeting({ status: 'cancelada' }), [])).toBe(true);
+    });
+
+    it('allows consultor even when unrelated to the meeting community', () => {
+      const user = buildUser({ highestRole: 'consultor', id: OTHER_USER_ID });
+      expect(
+        canEditMeeting(user, buildMeeting({ community_id: OTHER_COMMUNITY_ID }), [])
+      ).toBe(true);
+    });
+
     it('allows creator to edit editable-status meetings', () => {
       const user = buildUser({ id: CREATOR_ID });
       expect(canEditMeeting(user, buildMeeting({ status: 'borrador' }), [])).toBe(true);
@@ -182,6 +198,16 @@ describe('meeting-policy helpers', () => {
       expect(canFinalizeMeeting(user, buildMeeting({ status: 'borrador' }), [])).toBe(true);
     });
 
+    it('allows consultor on borrador meeting', () => {
+      const user = buildUser({ highestRole: 'consultor', id: OTHER_USER_ID });
+      expect(canFinalizeMeeting(user, buildMeeting({ status: 'borrador' }), [])).toBe(true);
+    });
+
+    it('denies consultor on programada meeting (status must be borrador)', () => {
+      const user = buildUser({ highestRole: 'consultor', id: OTHER_USER_ID });
+      expect(canFinalizeMeeting(user, buildMeeting({ status: 'programada' }), [])).toBe(false);
+    });
+
     it('denies admin on programada meeting (status must be borrador)', () => {
       const user = buildUser({ highestRole: 'admin', id: OTHER_USER_ID });
       expect(canFinalizeMeeting(user, buildMeeting({ status: 'programada' }), [])).toBe(false);
@@ -227,6 +253,14 @@ describe('meeting-policy helpers', () => {
       const user = buildUser({ highestRole: 'admin', id: OTHER_USER_ID });
       expect(
         canResolveCommitment(user, { assigned_to: CREATOR_ID }, buildMeeting(), [])
+      ).toBe(true);
+    });
+
+    it('allows a consultor even when not the assignee and meeting is completada', () => {
+      const user = buildUser({ highestRole: 'consultor', id: OTHER_USER_ID });
+      const meeting = buildMeeting({ status: 'completada' });
+      expect(
+        canResolveCommitment(user, { assigned_to: CREATOR_ID }, meeting, [])
       ).toBe(true);
     });
 

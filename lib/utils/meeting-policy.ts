@@ -59,8 +59,11 @@ const EDITOR_ATTENDEE_ROLES: ReadonlySet<AttendeeRole> = new Set<AttendeeRole>([
 /**
  * Determine whether `user` may edit `meeting`.
  *
- * Admins always pass. For everyone else the meeting status must be one of
- * `borrador`, `en_progreso`, `programada`, AND the user must be one of:
+ * Admins and consultores always pass — matching the SQL `can_edit_meeting`
+ * SECURITY DEFINER function, which short-circuits TRUE for any active
+ * `admin` or `consultor` role without school scoping. For everyone else the
+ * meeting status must be one of `borrador`, `en_progreso`, `programada`,
+ * AND the user must be one of:
  *   - the creator
  *   - the designated facilitator or secretary (by id or attendee role)
  *   - an attendee with role `co_editor`
@@ -71,7 +74,7 @@ export function canEditMeeting(
   meeting: MeetingPolicyInput,
   attendees: MeetingAttendeePolicyInput[] = []
 ): boolean {
-  if (user.highestRole === 'admin') {
+  if (user.highestRole === 'admin' || user.highestRole === 'consultor') {
     return true;
   }
 

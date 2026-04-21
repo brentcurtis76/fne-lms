@@ -9,8 +9,12 @@ import {
   handleMethodNotAllowed,
 } from '@/lib/api-auth';
 import { getUserRoles } from '@/utils/roleUtils';
-import { CreateLicitacionSchema, LicitacionFiltersSchema } from '@/types/licitaciones';
-import { createLicitacion } from '@/lib/licitacionService';
+import {
+  CreateLicitacionSchema,
+  CreateHistoricoLicitacionSchema,
+  LicitacionFiltersSchema,
+} from '@/types/licitaciones';
+import { createLicitacion, createHistoricoLicitacion } from '@/lib/licitacionService';
 import notificationService from '@/lib/notificationService';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -109,8 +113,45 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse) {
     const userRoles = await getUserRoles(serviceClient, user.id);
     const roleTypes = userRoles.map(r => r.role_type);
     const isAdmin = roleTypes.includes('admin');
+    const isEncargado = roleTypes.includes('encargado_licitacion');
 
-    // Only admins can create licitaciones
+    const isHistorico = req.body && typeof req.body === 'object' && req.body.estado === 'cerrada';
+
+    if (isHistorico) {
+      const parseResult = CreateHistoricoLicitacionSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        const errors = parseResult.error.errors
+          .map(e => `${e.path.join('.')}: ${e.message}`)
+          .join('; ');
+        return sendAuthError(res, `Datos invalidos: ${errors}`, 400);
+      }
+
+      if (!isAdmin) {
+        if (!isEncargado) {
+          return sendAuthError(res, 'No tiene permisos para crear licitaciones', 403);
+        }
+        // Match the scope-check pattern used by every other licitación endpoint
+        // (upload.ts, ates.ts, evaluacion.ts, publicacion.ts, …) so an encargado
+        // who imports a historical record can also view/upload/download its
+        // documents downstream. Multi-school encargado support is a broader
+        // fix that needs the same change across ~15 endpoints — out of scope
+        // here; keeping behavior uniform for now.
+        const encargadoRole = userRoles.find(r => r.role_type === 'encargado_licitacion');
+        const encargadoSchoolId = encargadoRole?.school_id != null ? Number(encargadoRole.school_id) : null;
+        if (!encargadoRole || encargadoSchoolId !== parseResult.data.school_id) {
+          return sendAuthError(
+            res,
+            'No tiene permisos para registrar licitaciones historicas de esta escuela',
+            403,
+          );
+        }
+      }
+
+      const licitacion = await createHistoricoLicitacion(serviceClient, parseResult.data, user.id);
+      return sendApiResponse(res, { licitacion }, 201);
+    }
+
+    // Only admins can create live licitaciones
     if (!isAdmin) {
       return sendAuthError(res, 'Solo administradores pueden crear licitaciones', 403);
     }

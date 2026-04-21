@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import MainLayout from '@/components/layout/MainLayout';
 import { toast } from 'react-hot-toast';
-import { Plus, FileText, ChevronLeft, ChevronRight, Download, AlertTriangle } from 'lucide-react';
+import { Plus, FileText, ChevronLeft, ChevronRight, Download, AlertTriangle, Archive } from 'lucide-react';
 import { LicitacionEstado, ESTADO_DISPLAY, NEXT_ACTION } from '@/types/licitaciones';
 import { LicitacionesExport, LicitacionExportRow } from '@/lib/licitacionesExport';
 
@@ -149,6 +149,7 @@ export default function LicitacionesPage() {
   const [filterYear, setFilterYear] = useState('');
   const [filterSchool, setFilterSchool] = useState('');
   const [filterPrograma, setFilterPrograma] = useState('');
+  const [showHistoricas, setShowHistoricas] = useState(false);
 
   // Filter options
   const [schools, setSchools] = useState<SchoolOption[]>([]);
@@ -328,7 +329,28 @@ export default function LicitacionesPage() {
 
   const totalPages = Math.ceil(total / LIMIT);
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - 1 + i);
+  // Year dropdown range: matches the historical import schema's min (2000) so
+  // every importable year is filterable, and extends past the current year so
+  // upcoming licitación cycles can be planned. Sorted descending so recent
+  // years (what users reach for most) are at the top.
+  const YEAR_MIN = 2000;
+  const years = Array.from(
+    { length: currentYear - YEAR_MIN + 4 },
+    (_, i) => currentYear + 3 - i,
+  );
+
+  // Toggle: Historical records all live under estado='cerrada'. Flipping the
+  // checkbox only touches the estado filter; year is left to the user so
+  // "Mostrar históricas" returns every historical year by default.
+  const toggleHistoricas = (checked: boolean) => {
+    setShowHistoricas(checked);
+    setPage(1);
+    if (checked) {
+      setFilterEstado('cerrada');
+    } else if (filterEstado === 'cerrada') {
+      setFilterEstado('');
+    }
+  };
 
   // Actionable licitaciones for encargado card
   const actionableLicitaciones = licitaciones.filter(l => NEXT_ACTION[l.estado]);
@@ -368,6 +390,15 @@ export default function LicitacionesPage() {
               >
                 <Download size={18} className="mr-2" />
                 {exporting ? 'Exportando...' : 'Exportar a Excel'}
+              </button>
+            )}
+            {(isAdmin || isEncargado) && (
+              <button
+                onClick={() => router.push('/licitaciones/importar')}
+                className="flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2"
+              >
+                <Archive size={18} className="mr-2" />
+                Importar histórica
               </button>
             )}
             {isAdmin && (
@@ -438,6 +469,19 @@ export default function LicitacionesPage() {
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <label className="inline-flex items-center text-sm font-medium text-gray-700 mb-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showHistoricas}
+              onChange={e => toggleHistoricas(e.target.checked)}
+              className="mr-2 h-4 w-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-400"
+            />
+            <Archive size={14} className="mr-1 text-gray-500" />
+            Mostrar históricas
+            <span className="ml-2 text-xs font-normal text-gray-500">
+              (licitaciones cerradas)
+            </span>
+          </label>
           <div className="flex flex-wrap gap-4">
             <div>
               <label htmlFor="filter-estado" className="block text-sm font-medium text-gray-700 mb-1">Estado</label>

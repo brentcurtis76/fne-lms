@@ -11,6 +11,7 @@ import {
   Licitacion,
   LicitacionDetail,
   CreateLicitacionInput,
+  CreateHistoricoLicitacionInput,
   PublicacionInput,
   TimelineDates,
   LicitacionEstado,
@@ -268,6 +269,129 @@ export async function createLicitacion(
   }
 
   throw insertError || new Error('Error al crear licitacion despues de varios intentos');
+}
+
+// ============================================================
+// createHistoricoLicitacion
+// ============================================================
+
+/**
+ * Creates a historical/legacy licitacion with estado='cerrada'.
+ * Unlike createLicitacion, the 7 historically-nullable fields (email, montos,
+ * duracion, pesos) may be omitted. No live-workflow transitions — the record
+ * is inserted directly in the terminal 'cerrada' state.
+ */
+export async function createHistoricoLicitacion(
+  supabase: SupabaseClient,
+  data: CreateHistoricoLicitacionInput,
+  userId: string
+): Promise<Licitacion> {
+  const { data: school, error: schoolError } = await supabase
+    .from('schools')
+    .select('id, name, cliente_id')
+    .eq('id', data.school_id)
+    .single();
+
+  if (schoolError || !school) {
+    throw new Error('Escuela no encontrada');
+  }
+
+  const { data: programa, error: programaError } = await supabase
+    .from('programas')
+    .select('id, nombre')
+    .eq('id', data.programa_id)
+    .single();
+
+  if (programaError || !programa) {
+    throw new Error('Programa no encontrado');
+  }
+
+  const pesoEconomica = data.peso_evaluacion_tecnica != null
+    ? 100 - data.peso_evaluacion_tecnica
+    : null;
+
+  const schoolCode = String(data.school_id);
+  let insertError: Error | null = null;
+  let attempt = 0;
+  const MAX_ATTEMPTS = 3;
+
+  while (attempt < MAX_ATTEMPTS) {
+    attempt++;
+    try {
+      const numeroLicitacion = data.numero_licitacion
+        ? data.numero_licitacion
+        : await getNextLicitacionNumber(supabase, schoolCode, data.year);
+
+      const insertData = {
+        numero_licitacion: numeroLicitacion,
+        school_id: data.school_id,
+        cliente_id: school.cliente_id ?? null,
+        programa_id: data.programa_id,
+        nombre_licitacion: data.nombre_licitacion,
+        year: data.year,
+        estado: 'cerrada' as const,
+        email_licitacion: data.email_licitacion ?? null,
+        monto_minimo: data.monto_minimo ?? null,
+        monto_maximo: data.monto_maximo ?? null,
+        tipo_moneda: data.tipo_moneda,
+        duracion_minima: data.duracion_minima ?? null,
+        duracion_maxima: data.duracion_maxima ?? null,
+        peso_evaluacion_tecnica: data.peso_evaluacion_tecnica ?? null,
+        peso_evaluacion_economica: pesoEconomica,
+        participantes_estimados: data.participantes_estimados ?? null,
+        modalidad_preferida: data.modalidad_preferida ?? null,
+        notas: data.notas ?? null,
+        fecha_publicacion: data.fecha_publicacion ?? null,
+        fecha_adjudicacion: data.fecha_adjudicacion ?? null,
+        created_by: userId,
+      };
+
+      const { data: created, error: dbError } = await supabase
+        .from('licitaciones')
+        .insert(insertData)
+        .select('*')
+        .single();
+
+      if (dbError) {
+        if (dbError.code === '23505') {
+          if (dbError.message.includes('school_programa_year')) {
+            throw new Error('Ya existe una licitacion activa para esta escuela, programa y ano.');
+          }
+          // Retrying with a user-supplied numero_licitacion would just collide
+          // again. Surface a clear message instead of burning the full retry
+          // budget and leaking the raw Postgres error.
+          if (data.numero_licitacion && dbError.message.includes('numero_licitacion')) {
+            throw new Error(`El numero de licitacion "${data.numero_licitacion}" ya esta en uso.`);
+          }
+          insertError = new Error(dbError.message);
+          continue;
+        }
+        throw new Error(`Error al crear licitacion historica: ${dbError.message}`);
+      }
+
+      await supabase.from('licitacion_historial').insert({
+        licitacion_id: created.id,
+        accion: 'Licitacion historica registrada',
+        estado_anterior: null,
+        estado_nuevo: 'cerrada',
+        detalles: { numero_licitacion: created.numero_licitacion, historica: true },
+        user_id: userId,
+      });
+
+      return created as Licitacion;
+    } catch (err) {
+      if (err instanceof Error && (
+        err.message.includes('Ya existe una licitacion activa') ||
+        err.message.includes('ya esta en uso')
+      )) {
+        throw err;
+      }
+      insertError = err instanceof Error ? err : new Error('Error desconocido');
+      if (attempt >= MAX_ATTEMPTS) break;
+    }
+  }
+
+  throw insertError || new Error('Error al crear licitacion historica despues de varios intentos');
 }
 
 // ============================================================

@@ -15,11 +15,11 @@ export interface LicitacionExportRow {
   nombre_licitacion: string;
   estado: LicitacionEstado;
   year: number;
-  monto_minimo: number;
-  monto_maximo: number;
+  monto_minimo: number | null;
+  monto_maximo: number | null;
   tipo_moneda: string;
-  peso_evaluacion_tecnica: number;
-  peso_evaluacion_economica: number;
+  peso_evaluacion_tecnica: number | null;
+  peso_evaluacion_economica: number | null;
   fecha_publicacion?: string | null;
   fecha_limite_solicitud_bases?: string | null;
   fecha_limite_propuestas?: string | null;
@@ -75,7 +75,17 @@ export class LicitacionesExport {
 
     for (const lic of licitaciones) {
       const estadoLabel = ESTADO_DISPLAY[lic.estado]?.label || lic.estado;
-      const pesoEconomico = 100 - lic.peso_evaluacion_tecnica;
+      // Historical imports may omit pesos; prefer the stored economic weight
+      // and only derive from técnica when it is present.
+      const pesoTecnicoCell: number | string = lic.peso_evaluacion_tecnica ?? '';
+      let pesoEconomicoCell: number | string;
+      if (lic.peso_evaluacion_economica != null) {
+        pesoEconomicoCell = lic.peso_evaluacion_economica;
+      } else if (lic.peso_evaluacion_tecnica != null) {
+        pesoEconomicoCell = 100 - lic.peso_evaluacion_tecnica;
+      } else {
+        pesoEconomicoCell = '';
+      }
 
       rows.push([
         lic.numero_licitacion,
@@ -88,11 +98,11 @@ export class LicitacionesExport {
         this.formatDate(lic.fecha_limite_solicitud_bases),
         this.formatDate(lic.fecha_limite_propuestas),
         this.formatDate(lic.fecha_limite_evaluacion),
-        lic.monto_minimo,
-        lic.monto_maximo,
+        lic.monto_minimo ?? '',
+        lic.monto_maximo ?? '',
         lic.tipo_moneda,
-        lic.peso_evaluacion_tecnica,
-        pesoEconomico,
+        pesoTecnicoCell,
+        pesoEconomicoCell,
         lic.ganador_ate?.nombre_ate || '',
         lic.monto_adjudicado_uf != null
           ? this.formatNumber(lic.monto_adjudicado_uf)

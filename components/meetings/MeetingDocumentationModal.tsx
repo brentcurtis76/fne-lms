@@ -4,8 +4,10 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
  * Streamlined meeting documentation with essential information only
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
+import { formatDistanceToNowStrict, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 import TipTapEditor from '../../src/components/TipTapEditor';
 import {
   emptyDoc,
@@ -94,9 +96,34 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const supabase = useSupabaseClient();
   const [currentStep, setCurrentStep] = useState(MeetingFormStep.INFORMATION);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<AssignmentUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [loadingMeeting, setLoadingMeeting] = useState(false);
+
+  // Draft / autosave state. `currentMeetingId` becomes populated either because
+  // we were opened in edit mode or because the user just saved a new draft.
+  const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(meetingId ?? null);
+  const [workSessionId, setWorkSessionId] = useState<string | null>(null);
+  const [meetingVersion, setMeetingVersion] = useState<number>(1);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [savingIndicator, setSavingIndicator] = useState<'idle' | 'saving' | 'error'>('idle');
+  const [savedTick, setSavedTick] = useState(0);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autosaveInFlightRef = useRef<boolean>(false);
+  // Holds the latest startWorkSession so our open-effect can call it without
+  // listing the useCallback in its deps (the useCallback is declared later).
+  const startWorkSessionRef = useRef<((id: string) => Promise<void>) | null>(null);
+
+  // Work-session timeline (other editors working on this draft).
+  interface WorkSessionEntry {
+    id: string;
+    user_id: string;
+    started_at: string;
+    first_name: string | null;
+    last_name: string | null;
+  }
+  const [workSessions, setWorkSessions] = useState<WorkSessionEntry[]>([]);
 
   // Form data state
   const [formData, setFormData] = useState<MeetingDocumentationInput>({
@@ -143,10 +170,30 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     if (isOpen) {
       loadCommunityMembers();
       if (mode === 'edit' && meetingId) {
+        setCurrentMeetingId(meetingId);
         loadMeetingData();
+        // startWorkSession is a stable useCallback([]) defined below — safe to
+        // invoke inside this effect without adding it to the deps array.
+        startWorkSessionRef.current?.(meetingId);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, workspaceId, mode, meetingId]);
+
+  // Tick the "Guardado hace Ns" relative label so it stays fresh while the
+  // modal is open. Cheap — just bumps a counter every 10s.
+  useEffect(() => {
+    if (!isOpen || !lastSavedAt) return;
+    const interval = setInterval(() => setSavedTick((t) => t + 1), 10_000);
+    return () => clearInterval(interval);
+  }, [isOpen, lastSavedAt]);
+
+  // Flush any pending autosave timer when the modal unmounts/closes.
+  useEffect(() => {
+    return () => {
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    };
+  }, []);
 
   const loadCommunityMembers = async () => {
     try {
@@ -327,6 +374,18 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         if (attachments) {
           setExistingAttachments(attachments as ExistingAttachment[]);
         }
+
+        // Capture the authoritative version so optimistic-concurrency
+        // autosaves start from the right baseline.
+        setMeetingVersion((meetingDetails as any).version ?? 1);
+        if ((meetingDetails as any).updated_at) {
+          setLastSavedAt(new Date((meetingDetails as any).updated_at));
+        }
+
+        // Timeline banner source: active work sessions for this meeting.
+        if (meetingDetails.status === 'borrador') {
+          await loadWorkSessions(meetingId);
+        }
       }
     } catch (error) {
       console.error('Error loading meeting data:', error);
@@ -335,6 +394,144 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       setLoadingMeeting(false);
     }
   };
+
+  // Load active work-sessions plus the attached profile names for the
+  // draft-mode timeline banner. Best-effort — silently no-ops on failure.
+  const loadWorkSessions = async (id: string) => {
+    try {
+      const { data: sessions } = await supabase
+        .from('meeting_work_sessions')
+        .select('id, user_id, started_at')
+        .eq('meeting_id', id)
+        .is('ended_at', null)
+        .order('started_at', { ascending: true });
+
+      if (!sessions || sessions.length === 0) {
+        setWorkSessions([]);
+        return;
+      }
+
+      const userIds = Array.from(new Set(sessions.map((s: any) => s.user_id)));
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .in('id', userIds);
+
+      const profileMap = new Map<string, { first_name: string | null; last_name: string | null }>();
+      (profiles || []).forEach((p: any) => {
+        profileMap.set(p.id, { first_name: p.first_name, last_name: p.last_name });
+      });
+
+      setWorkSessions(
+        sessions.map((s: any) => ({
+          id: s.id,
+          user_id: s.user_id,
+          started_at: s.started_at,
+          first_name: profileMap.get(s.user_id)?.first_name ?? null,
+          last_name: profileMap.get(s.user_id)?.last_name ?? null,
+        }))
+      );
+    } catch (err) {
+      console.error('Error loading meeting work sessions:', err);
+    }
+  };
+
+  // Opens a new work-session row for the current user on the given meeting.
+  // Used both when the modal opens on an existing draft and right after a
+  // brand-new draft has been persisted.
+  const startWorkSession = useCallback(async (id: string): Promise<void> => {
+    try {
+      const res = await fetch(`/api/meetings/${id}/work-session/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: `modal-${Date.now()}` }),
+      });
+      if (!res.ok) {
+        console.error('Failed to start work session:', await res.text());
+        return;
+      }
+      const payload = await res.json();
+      const sessionId = payload?.data?.id ?? payload?.id;
+      if (sessionId) {
+        setWorkSessionId(sessionId);
+      }
+    } catch (err) {
+      console.error('Error starting work session:', err);
+    }
+  }, []);
+
+  // Keep the ref pointing at the latest memoized callback so the open-effect
+  // can invoke it without taking a dependency on the declaration itself.
+  useEffect(() => {
+    startWorkSessionRef.current = startWorkSession;
+  }, [startWorkSession]);
+
+  // Best-effort autosave — skips when we have no meetingId yet (user hasn't
+  // clicked "Guardar borrador" from the create flow) or when another autosave
+  // is already in flight. 409 conflicts prompt a reload.
+  const runAutosave = useCallback(async () => {
+    const id = currentMeetingId;
+    if (!id || autosaveInFlightRef.current) return;
+    autosaveInFlightRef.current = true;
+    setSavingIndicator('saving');
+    try {
+      const res = await fetch(`/api/meetings/${id}/autosave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          summary_doc: formData.summary_info.summary_doc ?? emptyDoc(),
+          notes_doc: formData.summary_info.notes_doc ?? emptyDoc(),
+          version: meetingVersion,
+          work_session_id: workSessionId ?? undefined,
+        }),
+      });
+
+      if (res.status === 409) {
+        const body = await res.json().catch(() => ({}));
+        const who = body?.updated_by_name ? ` por ${body.updated_by_name}` : '';
+        const shouldReload = typeof window !== 'undefined' && window.confirm(
+          `Esta reunión fue modificada${who} mientras editabas. ` +
+            '¿Recargar para ver los últimos cambios? Se perderán los cambios locales no guardados.'
+        );
+        setSavingIndicator('error');
+        if (shouldReload) {
+          await loadMeetingData();
+        }
+        return;
+      }
+
+      if (!res.ok) {
+        console.error('Autosave failed:', await res.text());
+        setSavingIndicator('error');
+        return;
+      }
+
+      const payload = await res.json();
+      const next = payload?.data ?? payload;
+      if (typeof next?.version === 'number') {
+        setMeetingVersion(next.version);
+      }
+      if (next?.work_session_id) {
+        setWorkSessionId(next.work_session_id);
+      }
+      const stamp = next?.updated_at ? new Date(next.updated_at) : new Date();
+      setLastSavedAt(stamp);
+      setSavingIndicator('idle');
+    } catch (err) {
+      console.error('Autosave error:', err);
+      setSavingIndicator('error');
+    } finally {
+      autosaveInFlightRef.current = false;
+    }
+  }, [currentMeetingId, formData.summary_info.summary_doc, formData.summary_info.notes_doc, meetingVersion, workSessionId]);
+
+  const scheduleAutosave = useCallback(() => {
+    if (!currentMeetingId) return;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      void runAutosave();
+    }, 2000);
+  }, [currentMeetingId, runAutosave]);
 
   const handleClose = () => {
     if (isSubmitting) return;
@@ -366,7 +563,90 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     setExistingAttachments([]);
     setAttachmentsToDelete([]);
     setSelectedFiles([]);
+    setCurrentMeetingId(meetingId ?? null);
+    setWorkSessionId(null);
+    setMeetingVersion(1);
+    setLastSavedAt(null);
+    setSavingIndicator('idle');
+    setWorkSessions([]);
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
     onClose();
+  };
+
+  // "Guardar borrador" — persists the current form state with status='borrador'
+  // and bypasses the summary-required validation from validateStep. On the
+  // create path this produces a meetingId which lets subsequent autosaves and
+  // the work-session presence banner come online.
+  const handleSaveDraft = async () => {
+    if (isSavingDraft || isSubmitting) return;
+    if (!formData.meeting_info.title || !formData.meeting_info.meeting_date) {
+      toast.error('Título y fecha son requeridos para guardar un borrador');
+      return;
+    }
+
+    setIsSavingDraft(true);
+
+    const summaryDoc = formData.summary_info.summary_doc ?? emptyDoc();
+    const notesDoc = formData.summary_info.notes_doc ?? emptyDoc();
+    const summaryText = plainTextFromDoc(summaryDoc);
+    const notesText = plainTextFromDoc(notesDoc);
+
+    try {
+      if (currentMeetingId) {
+        const result = await updateMeeting(currentMeetingId, {
+          title: formData.meeting_info.title,
+          meeting_date: formData.meeting_info.meeting_date,
+          duration_minutes: formData.meeting_info.duration_minutes,
+          location: formData.meeting_info.location,
+          summary: summaryText,
+          summary_doc: summaryDoc,
+          notes: notesText,
+          notes_doc: notesDoc,
+          status: 'borrador',
+        });
+        if (!result.success) {
+          toast.error('No se pudo guardar el borrador');
+          return;
+        }
+      } else {
+        const result = await createMeetingWithDocumentation(workspaceId, userId, {
+          ...formData,
+          summary_info: {
+            ...formData.summary_info,
+            summary: summaryText,
+            summary_doc: summaryDoc,
+            notes: notesText,
+            notes_doc: notesDoc,
+            status: 'borrador',
+          },
+          agreements: [],
+          commitments: [],
+          tasks: [],
+        });
+        if (!result.success || !result.meetingId) {
+          toast.error(result.error || 'No se pudo guardar el borrador');
+          return;
+        }
+        setCurrentMeetingId(result.meetingId);
+        setMeetingVersion(1);
+        await startWorkSession(result.meetingId);
+        await loadWorkSessions(result.meetingId);
+      }
+
+      updateSummaryInfo('status', 'borrador');
+      setLastSavedAt(new Date());
+      setSavingIndicator('idle');
+      toast.success('Borrador guardado');
+      onSuccess();
+    } catch (err) {
+      console.error('Error saving draft:', err);
+      toast.error('Error inesperado al guardar el borrador');
+    } finally {
+      setIsSavingDraft(false);
+    }
   };
 
   const validateStep = (step: MeetingFormStep): boolean => {
@@ -451,7 +731,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     try {
       let result: { success: boolean; meetingId?: string; error?: string };
 
-      if (mode === 'edit' && meetingId) {
+      // We take the update path whenever a meeting row already exists — either
+      // because we opened in edit mode or because the user clicked
+      // "Guardar borrador" earlier in this session.
+      const targetMeetingId = currentMeetingId;
+      if (targetMeetingId) {
+        const meetingId = targetMeetingId; // re-bind so existing code reads unchanged
         // Update existing meeting
         const updateResult = await updateMeeting(meetingId, {
           title: formData.meeting_info.title,
@@ -862,14 +1147,51 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                 {STEPS[currentStep].title}: {STEPS[currentStep].description}
               </p>
             </div>
-            <button
-              onClick={handleClose}
-              disabled={isSubmitting}
-              className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
-            >
-              <XIcon className="h-5 w-5" />
-            </button>
+            <div className="flex items-center space-x-3">
+              {/* Save status indicator — only meaningful once a meetingId exists */}
+              {currentMeetingId && (
+                <div className="text-xs text-gray-500" aria-live="polite" data-tick={savedTick}>
+                  {savingIndicator === 'saving' && <span>Guardando…</span>}
+                  {savingIndicator === 'error' && (
+                    <span className="text-red-600">Error al guardar</span>
+                  )}
+                  {savingIndicator === 'idle' && lastSavedAt && (
+                    <span>
+                      Guardado hace{' '}
+                      {formatDistanceToNowStrict(lastSavedAt, { locale: es, addSuffix: false })}
+                    </span>
+                  )}
+                </div>
+              )}
+              <button
+                onClick={handleClose}
+                disabled={isSubmitting}
+                className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+              >
+                <XIcon className="h-5 w-5" />
+              </button>
+            </div>
           </div>
+
+          {/* Draft timeline banner — who started / is working on this draft */}
+          {formData.summary_info.status === 'borrador' && workSessions.length > 0 && (
+            <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200 text-sm text-yellow-900">
+              {(() => {
+                const first = workSessions[0];
+                const name = `${first.first_name || ''} ${first.last_name || ''}`.trim() || 'Alguien';
+                const startedLabel = format(new Date(first.started_at), "d 'de' MMM, HH:mm", { locale: es });
+                const others = workSessions.length - 1;
+                return (
+                  <span>
+                    Iniciado por <strong>{name}</strong> el {startedLabel}
+                    {others > 0 && (
+                      <> · {others} editor{others !== 1 ? 'es' : ''} adicional{others !== 1 ? 'es' : ''}</>
+                    )}
+                  </span>
+                );
+              })()}
+            </div>
+          )}
 
           {/* Progress Steps */}
           <div className="px-6 py-4 border-b border-gray-200">
@@ -1021,7 +1343,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   </label>
                   <TipTapEditor
                     initialContent={formData.summary_info.summary_doc ?? emptyDoc()}
-                    onChange={(json) => updateSummaryInfo('summary_doc', json)}
+                    onChange={(json) => {
+                      updateSummaryInfo('summary_doc', json);
+                      scheduleAutosave();
+                    }}
                     expandable
                     minHeight={200}
                     placeholder="Resumen de la reunión…"
@@ -1037,7 +1362,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   </label>
                   <TipTapEditor
                     initialContent={formData.summary_info.notes_doc ?? emptyDoc()}
-                    onChange={(json) => updateSummaryInfo('notes_doc', json)}
+                    onChange={(json) => {
+                      updateSummaryInfo('notes_doc', json);
+                      scheduleAutosave();
+                    }}
                     expandable
                     minHeight={200}
                     placeholder="Notas adicionales, observaciones…"
@@ -1348,6 +1676,15 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                 className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50"
               >
                 Cancelar
+              </button>
+
+              <button
+                onClick={handleSaveDraft}
+                disabled={isSubmitting || isSavingDraft}
+                className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
+                title="Guarda el estado actual como borrador sin validar el resumen"
+              >
+                {isSavingDraft ? 'Guardando…' : 'Guardar borrador'}
               </button>
 
               {currentStep < MeetingFormStep.AGREEMENTS ? (

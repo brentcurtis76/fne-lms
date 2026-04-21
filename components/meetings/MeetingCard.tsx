@@ -305,9 +305,22 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               <h3 className="text-lg font-semibold text-[#0a0a0a] truncate">
                 {meeting.title}
               </h3>
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${meetingStatusColors[meeting.status]}`}>
-                {meetingStatusLabels[meeting.status]}
-              </span>
+              {meeting.status === 'borrador' ? (
+                <span
+                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-900 border border-yellow-300"
+                  title="Esta reunión está en borrador"
+                >
+                  <span
+                    className="h-2 w-2 rounded-full bg-yellow-500 mr-1.5 animate-pulse"
+                    aria-hidden="true"
+                  />
+                  Borrador
+                </span>
+              ) : (
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${meetingStatusColors[meeting.status]}`}>
+                  {meetingStatusLabels[meeting.status]}
+                </span>
+              )}
             </div>
             
             {meeting.description && (

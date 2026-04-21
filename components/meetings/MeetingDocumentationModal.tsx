@@ -122,6 +122,9 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // can read their final value without re-subscribing every time they change.
   const workSessionIdRef = useRef<string | null>(null);
   const currentMeetingIdRef = useRef<string | null>(meetingId ?? null);
+  // Guards against duplicate end-session network calls when both handleClose
+  // and the unmount cleanup fire for the same session.
+  const workSessionEndedRef = useRef<boolean>(false);
 
   // Work-session timeline (other editors working on this draft).
   interface WorkSessionEntry {
@@ -216,6 +219,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // fetch may be cancelled; otherwise a keepalive fetch is fine.
   const endWorkSession = useCallback(
     (mId: string, sId: string, unloading: boolean) => {
+      if (workSessionEndedRef.current) return;
+      workSessionEndedRef.current = true;
       const url = `/api/meetings/${mId}/work-session/${sId}/end`;
       if (unloading && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
         try {
@@ -522,6 +527,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       const payload = await res.json();
       const sessionId = payload?.data?.id ?? payload?.id;
       if (sessionId) {
+        workSessionEndedRef.current = false;
         setWorkSessionId(sessionId);
       }
     } catch (err) {
@@ -581,6 +587,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         setMeetingVersion(next.version);
       }
       if (next?.work_session_id) {
+        workSessionEndedRef.current = false;
         setWorkSessionId(next.work_session_id);
       }
       const stamp = next?.updated_at ? new Date(next.updated_at) : new Date();

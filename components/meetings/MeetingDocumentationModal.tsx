@@ -114,6 +114,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // Holds the latest startWorkSession so our open-effect can call it without
   // listing the useCallback in its deps (the useCallback is declared later).
   const startWorkSessionRef = useRef<((id: string) => Promise<void>) | null>(null);
+  // Mirror workSessionId + currentMeetingId into refs so the unmount cleanup
+  // can read their final value without re-subscribing every time they change.
+  const workSessionIdRef = useRef<string | null>(null);
+  const currentMeetingIdRef = useRef<string | null>(meetingId ?? null);
 
   // Work-session timeline (other editors working on this draft).
   interface WorkSessionEntry {
@@ -194,6 +198,65 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     };
   }, []);
+
+  // Keep refs in sync so the unmount/unload handlers always see the latest ids.
+  useEffect(() => {
+    workSessionIdRef.current = workSessionId;
+  }, [workSessionId]);
+  useEffect(() => {
+    currentMeetingIdRef.current = currentMeetingId;
+  }, [currentMeetingId]);
+
+  // Close an open work-session. On page unload we prefer sendBeacon because
+  // fetch may be cancelled; otherwise a keepalive fetch is fine.
+  const endWorkSession = useCallback(
+    (mId: string, sId: string, unloading: boolean) => {
+      const url = `/api/meetings/${mId}/work-session/${sId}/end`;
+      if (unloading && typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        try {
+          const blob = new Blob([JSON.stringify({})], { type: 'application/json' });
+          navigator.sendBeacon(url, blob);
+          return;
+        } catch {
+          // fall through to fetch
+        }
+      }
+      void fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+      }).catch((err) => {
+        console.error('Error ending work session:', err);
+      });
+    },
+    []
+  );
+
+  // Catch tab close / hard navigation: fire sendBeacon before the browser tears down.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => {
+      const mId = currentMeetingIdRef.current;
+      const sId = workSessionIdRef.current;
+      if (mId && sId) endWorkSession(mId, sId, true);
+    };
+    window.addEventListener('beforeunload', handler);
+    window.addEventListener('pagehide', handler);
+    return () => {
+      window.removeEventListener('beforeunload', handler);
+      window.removeEventListener('pagehide', handler);
+    };
+  }, [endWorkSession]);
+
+  // Unmount via client-side navigation: no unload event fires, so close the
+  // session directly from the cleanup function.
+  useEffect(() => {
+    return () => {
+      const mId = currentMeetingIdRef.current;
+      const sId = workSessionIdRef.current;
+      if (mId && sId) endWorkSession(mId, sId, false);
+    };
+  }, [endWorkSession]);
 
   const loadCommunityMembers = async () => {
     try {
@@ -535,7 +598,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
   const handleClose = () => {
     if (isSubmitting) return;
-    
+
+    // End any open work-session before we clear it from state.
+    if (currentMeetingId && workSessionId) {
+      endWorkSession(currentMeetingId, workSessionId, false);
+    }
+
     // Reset form
     setCurrentStep(MeetingFormStep.INFORMATION);
     setFormData({

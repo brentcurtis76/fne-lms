@@ -179,18 +179,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     let workSessionId = work_session_id ?? null;
 
-    if (workSessionId) {
-      const { error: wsUpdateError } = await serviceClient
-        .from('meeting_work_sessions')
-        .update({ ended_at: now })
-        .eq('id', workSessionId)
-        .eq('meeting_id', id)
-        .eq('user_id', user.id);
-
-      if (wsUpdateError) {
-        console.error('Error updating work session on autosave:', wsUpdateError);
-      }
-    } else {
+    // TODO: add a `last_activity_at TIMESTAMPTZ` column to meeting_work_sessions
+    // in a separate additive migration and update this branch to set it on
+    // autosave. We intentionally do NOT set `ended_at` here — that would close
+    // the session prematurely on every keystroke. `ended_at` is only set by
+    // the /work-session/[sessionId]/end endpoint when the modal closes.
+    if (!workSessionId) {
       const { data: wsInsert, error: wsInsertError } = await serviceClient
         .from('meeting_work_sessions')
         .insert({ meeting_id: id, user_id: user.id })

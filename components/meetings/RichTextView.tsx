@@ -11,6 +11,9 @@ interface RichTextViewProps {
   emptyText?: string;
 }
 
+// TODO: when @tiptap/extension-link is added to meetingEditorExtensions,
+// include 'a' in ALLOWED_TAGS and 'href'/'target'/'rel' in ALLOWED_ATTR,
+// and add a DOMPurify hook that forces rel="noopener noreferrer" on anchors.
 const ALLOWED_TAGS = ['h2', 'h3', 'p', 'ul', 'ol', 'li', 'strong', 'em', 'u', 'br'];
 
 const RichTextView: React.FC<RichTextViewProps> = ({

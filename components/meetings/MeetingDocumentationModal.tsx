@@ -51,6 +51,10 @@ import {
 } from '../../utils/meetingUtils';
 import { uploadFile } from '../../utils/storage';
 
+type MeetingAgreementInput = MeetingDocumentationInput['agreements'][number];
+type MeetingCommitmentInput = MeetingDocumentationInput['commitments'][number];
+type MeetingTaskInput = MeetingDocumentationInput['tasks'][number];
+
 interface MeetingDocumentationModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -1061,10 +1065,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }));
   };
 
-  const updateAgreement = (index: number, field: string, value: any) => {
+  const updateAgreement = <K extends keyof MeetingAgreementInput>(
+    index: number,
+    field: K,
+    value: MeetingAgreementInput[K]
+  ) => {
     setFormData(prev => ({
       ...prev,
-      agreements: prev.agreements.map((agreement, i) => 
+      agreements: prev.agreements.map((agreement, i) =>
         i === index ? { ...agreement, [field]: value } : agreement
       )
     }));
@@ -1087,10 +1095,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }));
   };
 
-  const updateCommitment = (index: number, field: string, value: any) => {
+  const updateCommitment = <K extends keyof MeetingCommitmentInput>(
+    index: number,
+    field: K,
+    value: MeetingCommitmentInput[K]
+  ) => {
     setFormData(prev => ({
       ...prev,
-      commitments: prev.commitments.map((commitment, i) => 
+      commitments: prev.commitments.map((commitment, i) =>
         i === index ? { ...commitment, [field]: value } : commitment
       )
     }));
@@ -1122,10 +1134,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }));
   };
 
-  const updateTask = (index: number, field: string, value: any) => {
+  const updateTask = <K extends keyof MeetingTaskInput>(
+    index: number,
+    field: K,
+    value: MeetingTaskInput[K]
+  ) => {
     setFormData(prev => ({
       ...prev,
-      tasks: prev.tasks.map((task, i) => 
+      tasks: prev.tasks.map((task, i) =>
         i === index ? { ...task, [field]: value } : task
       )
     }));

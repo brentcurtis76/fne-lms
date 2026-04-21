@@ -4,8 +4,14 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
  * Streamlined meeting documentation with essential information only
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
+import TipTapEditor from '../../src/components/TipTapEditor';
+import {
+  emptyDoc,
+  plainTextFromDoc,
+  docOrFromText,
+} from '../../lib/tiptap/helpers';
 
 import {
   XIcon,
@@ -103,13 +109,31 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     },
     summary_info: {
       summary: '',
+      summary_doc: emptyDoc(),
       notes: '',
+      notes_doc: emptyDoc(),
       status: 'completada'
     },
     agreements: [],
     commitments: [],
     tasks: []
   });
+
+  // Track original row IDs loaded in edit mode so we can diff on save
+  const originalAgreementIdsRef = useRef<Set<string>>(new Set());
+  const originalCommitmentIdsRef = useRef<Set<string>>(new Set());
+  const originalTaskIdsRef = useRef<Set<string>>(new Set());
+
+  // Existing attachments loaded from the database (edit mode)
+  interface ExistingAttachment {
+    id: string;
+    filename: string;
+    file_path: string;
+    file_size: number;
+    file_type: string;
+  }
+  const [existingAttachments, setExistingAttachments] = useState<ExistingAttachment[]>([]);
+  const [attachmentsToDelete, setAttachmentsToDelete] = useState<ExistingAttachment[]>([]);
 
   // Document upload state
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -243,7 +267,36 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       if (meetingDetails) {
         // Extract attendee IDs from the attendees array
         const attendeeIds = meetingDetails.attendees?.map(attendee => attendee.user_id) || [];
-        
+
+        const loadedAgreements = (meetingDetails.agreements || []).map(a => ({
+          id: a.id,
+          agreement_text: a.agreement_text || '',
+          agreement_doc: docOrFromText(a.agreement_doc, a.agreement_text),
+          category: a.category,
+        }));
+        const loadedCommitments = (meetingDetails.commitments || []).map(c => ({
+          id: c.id,
+          commitment_text: c.commitment_text || '',
+          commitment_doc: docOrFromText(c.commitment_doc, c.commitment_text),
+          assigned_to: c.assigned_to,
+          due_date: c.due_date || '',
+        }));
+        const loadedTasks = (meetingDetails.tasks || []).map(t => ({
+          id: t.id,
+          task_title: t.task_title,
+          task_description: t.task_description || '',
+          task_description_doc: docOrFromText(t.task_description_doc, t.task_description),
+          assigned_to: t.assigned_to,
+          due_date: t.due_date || '',
+          priority: t.priority,
+          category: t.category,
+          estimated_hours: t.estimated_hours,
+        }));
+
+        originalAgreementIdsRef.current = new Set(loadedAgreements.map(a => a.id).filter((id): id is string => !!id));
+        originalCommitmentIdsRef.current = new Set(loadedCommitments.map(c => c.id).filter((id): id is string => !!id));
+        originalTaskIdsRef.current = new Set(loadedTasks.map(t => t.id).filter((id): id is string => !!id));
+
         // Populate form with existing data
         setFormData({
           meeting_info: {
@@ -255,24 +308,24 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           },
           summary_info: {
             summary: meetingDetails.summary || '',
+            summary_doc: docOrFromText(meetingDetails.summary_doc, meetingDetails.summary),
             notes: meetingDetails.notes || '',
+            notes_doc: docOrFromText(meetingDetails.notes_doc, meetingDetails.notes),
             status: meetingDetails.status
           },
-          agreements: meetingDetails.agreements || [],
-          commitments: meetingDetails.commitments || [],
-          tasks: meetingDetails.tasks || []
+          agreements: loadedAgreements,
+          commitments: loadedCommitments,
+          tasks: loadedTasks,
         });
-        
-        // Load existing attachments
-        const { data: attachments, error: attachError } = await supabase
+
+        // Load existing attachments so they render alongside any new uploads
+        const { data: attachments } = await supabase
           .from('meeting_attachments')
-          .select('*')
+          .select('id, filename, file_path, file_size, file_type')
           .eq('meeting_id', meetingId);
-          
-        if (attachments && attachments.length > 0) {
-          // Note: We can't restore File objects, but we can show existing attachments info
-          console.log('Meeting has', attachments.length, 'existing attachments');
-          // TODO: Show existing attachments separately from new uploads
+
+        if (attachments) {
+          setExistingAttachments(attachments as ExistingAttachment[]);
         }
       }
     } catch (error) {
@@ -298,13 +351,20 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       },
       summary_info: {
         summary: '',
+        summary_doc: emptyDoc(),
         notes: '',
+        notes_doc: emptyDoc(),
         status: 'completada'
       },
       agreements: [],
       commitments: [],
       tasks: []
     });
+    originalAgreementIdsRef.current = new Set();
+    originalCommitmentIdsRef.current = new Set();
+    originalTaskIdsRef.current = new Set();
+    setExistingAttachments([]);
+    setAttachmentsToDelete([]);
     setSelectedFiles([]);
     onClose();
   };
@@ -314,7 +374,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       case MeetingFormStep.INFORMATION:
         return !!(formData.meeting_info.title && formData.meeting_info.meeting_date);
       case MeetingFormStep.SUMMARY:
-        return !!formData.summary_info.summary;
+        return plainTextFromDoc(formData.summary_info.summary_doc).trim().length > 0;
       case MeetingFormStep.AGREEMENTS:
         return true; // Agreements, commitments and tasks are optional
       default:
@@ -347,10 +407,50 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
     setIsSubmitting(true);
     setUploadingFiles(true);
-    
+
+    // Derive plaintext from the latest TipTap JSON before persisting.
+    const summaryDoc = formData.summary_info.summary_doc ?? emptyDoc();
+    const notesDoc = formData.summary_info.notes_doc ?? emptyDoc();
+    const summaryText = plainTextFromDoc(summaryDoc);
+    const notesText = plainTextFromDoc(notesDoc);
+
+    const agreementsForPersist = formData.agreements.map((a) => {
+      const doc = a.agreement_doc ?? emptyDoc();
+      return {
+        id: a.id,
+        agreement_text: plainTextFromDoc(doc) || a.agreement_text || '',
+        agreement_doc: doc,
+        category: a.category,
+      };
+    });
+    const commitmentsForPersist = formData.commitments.map((c) => {
+      const doc = c.commitment_doc ?? emptyDoc();
+      return {
+        id: c.id,
+        commitment_text: plainTextFromDoc(doc) || c.commitment_text || '',
+        commitment_doc: doc,
+        assigned_to: c.assigned_to,
+        due_date: c.due_date,
+      };
+    });
+    const tasksForPersist = formData.tasks.map((t) => {
+      const doc = t.task_description_doc ?? emptyDoc();
+      return {
+        id: t.id,
+        task_title: t.task_title,
+        task_description: plainTextFromDoc(doc) || t.task_description || '',
+        task_description_doc: doc,
+        assigned_to: t.assigned_to,
+        due_date: t.due_date,
+        priority: t.priority,
+        category: t.category,
+        estimated_hours: t.estimated_hours,
+      };
+    });
+
     try {
       let result: { success: boolean; meetingId?: string; error?: string };
-      
+
       if (mode === 'edit' && meetingId) {
         // Update existing meeting
         const updateResult = await updateMeeting(meetingId, {
@@ -358,63 +458,153 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           meeting_date: formData.meeting_info.meeting_date,
           duration_minutes: formData.meeting_info.duration_minutes,
           location: formData.meeting_info.location,
-          summary: formData.summary_info.summary,
-          notes: formData.summary_info.notes,
+          summary: summaryText,
+          summary_doc: summaryDoc,
+          notes: notesText,
+          notes_doc: notesDoc,
           status: formData.summary_info.status
         });
-        
+
         if (updateResult.success) {
-          // Update agreements, commitments, and tasks
-          // First, delete existing ones
-          await supabase.from('meeting_agreements').delete().eq('meeting_id', meetingId);
-          await supabase.from('meeting_commitments').delete().eq('meeting_id', meetingId);
-          await supabase.from('meeting_tasks').delete().eq('meeting_id', meetingId);
-          
-          // Then create new ones
-          if (formData.agreements.length > 0) {
+          // Upsert agreements/commitments/tasks.
+          // - Rows with an existing id are UPDATEd in place so completion state is preserved.
+          // - Rows without an id are INSERTed.
+          // - Rows whose ids were loaded initially but removed from state are DELETEd explicitly.
+          const currentAgreementIds = new Set(agreementsForPersist.map(a => a.id).filter((id): id is string => !!id));
+          const currentCommitmentIds = new Set(commitmentsForPersist.map(c => c.id).filter((id): id is string => !!id));
+          const currentTaskIds = new Set(tasksForPersist.map(t => t.id).filter((id): id is string => !!id));
+
+          const agreementIdsToDelete = Array.from(originalAgreementIdsRef.current).filter(id => !currentAgreementIds.has(id));
+          const commitmentIdsToDelete = Array.from(originalCommitmentIdsRef.current).filter(id => !currentCommitmentIds.has(id));
+          const taskIdsToDelete = Array.from(originalTaskIdsRef.current).filter(id => !currentTaskIds.has(id));
+
+          if (agreementIdsToDelete.length > 0) {
+            await supabase.from('meeting_agreements').delete().in('id', agreementIdsToDelete);
+          }
+          if (commitmentIdsToDelete.length > 0) {
+            await supabase.from('meeting_commitments').delete().in('id', commitmentIdsToDelete);
+          }
+          if (taskIdsToDelete.length > 0) {
+            await supabase.from('meeting_tasks').delete().in('id', taskIdsToDelete);
+          }
+
+          // Agreements
+          const agreementsToInsert = agreementsForPersist
+            .map((a, index) => ({ ...a, order_index: index }))
+            .filter(a => !a.id);
+          const agreementsToUpdate = agreementsForPersist
+            .map((a, index) => ({ ...a, order_index: index }))
+            .filter(a => !!a.id);
+
+          if (agreementsToInsert.length > 0) {
             await supabase.from('meeting_agreements').insert(
-              formData.agreements.map((agreement, index) => ({
+              agreementsToInsert.map(a => ({
                 meeting_id: meetingId,
-                agreement_text: agreement.agreement_text,
-                category: agreement.category,
-                order_index: index
+                agreement_text: a.agreement_text,
+                agreement_doc: a.agreement_doc,
+                category: a.category,
+                order_index: a.order_index,
               }))
             );
           }
-          
-          if (formData.commitments.length > 0) {
+          for (const a of agreementsToUpdate) {
+            await supabase.from('meeting_agreements').update({
+              agreement_text: a.agreement_text,
+              agreement_doc: a.agreement_doc,
+              category: a.category,
+              order_index: a.order_index,
+            }).eq('id', a.id!);
+          }
+
+          // Commitments
+          const commitmentsToInsert = commitmentsForPersist.filter(c => !c.id);
+          const commitmentsToUpdate = commitmentsForPersist.filter(c => !!c.id);
+
+          if (commitmentsToInsert.length > 0) {
             await supabase.from('meeting_commitments').insert(
-              formData.commitments.map(commitment => ({
+              commitmentsToInsert.map(c => ({
                 meeting_id: meetingId,
-                commitment_text: commitment.commitment_text,
-                assigned_to: commitment.assigned_to,
-                due_date: commitment.due_date
+                commitment_text: c.commitment_text,
+                commitment_doc: c.commitment_doc,
+                assigned_to: c.assigned_to,
+                due_date: c.due_date,
               }))
             );
           }
-          
-          if (formData.tasks.length > 0) {
+          for (const c of commitmentsToUpdate) {
+            await supabase.from('meeting_commitments').update({
+              commitment_text: c.commitment_text,
+              commitment_doc: c.commitment_doc,
+              assigned_to: c.assigned_to,
+              due_date: c.due_date,
+            }).eq('id', c.id!);
+          }
+
+          // Tasks
+          const tasksToInsert = tasksForPersist.filter(t => !t.id);
+          const tasksToUpdate = tasksForPersist.filter(t => !!t.id);
+
+          if (tasksToInsert.length > 0) {
             await supabase.from('meeting_tasks').insert(
-              formData.tasks.map(task => ({
+              tasksToInsert.map(t => ({
                 meeting_id: meetingId,
-                task_title: task.task_title,
-                task_description: task.task_description,
-                assigned_to: task.assigned_to,
-                due_date: task.due_date,
-                priority: task.priority,
-                category: task.category,
-                estimated_hours: task.estimated_hours
+                task_title: t.task_title,
+                task_description: t.task_description,
+                task_description_doc: t.task_description_doc,
+                assigned_to: t.assigned_to,
+                due_date: t.due_date,
+                priority: t.priority,
+                category: t.category,
+                estimated_hours: t.estimated_hours,
               }))
             );
           }
-          
+          for (const t of tasksToUpdate) {
+            await supabase.from('meeting_tasks').update({
+              task_title: t.task_title,
+              task_description: t.task_description,
+              task_description_doc: t.task_description_doc,
+              assigned_to: t.assigned_to,
+              due_date: t.due_date,
+              priority: t.priority,
+              category: t.category,
+              estimated_hours: t.estimated_hours,
+            }).eq('id', t.id!);
+          }
+
+          // Remove attachments the user explicitly marked for deletion.
+          if (attachmentsToDelete.length > 0) {
+            const paths = attachmentsToDelete.map(a => a.file_path);
+            try {
+              await supabase.storage.from('meeting-documents').remove(paths);
+            } catch (storageErr) {
+              console.error('Error removing attachment storage files:', storageErr);
+            }
+            await supabase
+              .from('meeting_attachments')
+              .delete()
+              .in('id', attachmentsToDelete.map(a => a.id));
+          }
+
           result = { success: true, meetingId };
         } else {
           result = updateResult;
         }
       } else {
-        // Create new meeting
-        result = await createMeetingWithDocumentation(workspaceId, userId, formData);
+        // Create new meeting — pass the fully derived plaintext + doc pair.
+        result = await createMeetingWithDocumentation(workspaceId, userId, {
+          ...formData,
+          summary_info: {
+            ...formData.summary_info,
+            summary: summaryText,
+            summary_doc: summaryDoc,
+            notes: notesText,
+            notes_doc: notesDoc,
+          },
+          agreements: agreementsForPersist.map(({ id: _id, ...rest }) => rest),
+          commitments: commitmentsForPersist.map(({ id: _id, ...rest }) => rest),
+          tasks: tasksForPersist.map(({ id: _id, ...rest }) => rest),
+        });
       }
       
       if (result.success && result.meetingId) {
@@ -518,7 +708,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }));
   };
 
-  const updateAgreement = (index: number, field: string, value: string) => {
+  const updateAgreement = (index: number, field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
       agreements: prev.agreements.map((agreement, i) => 
@@ -539,12 +729,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       ...prev,
       commitments: [
         ...prev.commitments,
-        { commitment_text: '', assigned_to: '', due_date: '' }
+        { commitment_text: '', commitment_doc: emptyDoc(), assigned_to: '', due_date: '' }
       ]
     }));
   };
 
-  const updateCommitment = (index: number, field: string, value: string) => {
+  const updateCommitment = (index: number, field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
       commitments: prev.commitments.map((commitment, i) => 
@@ -568,6 +758,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         {
           task_title: '',
           task_description: '',
+          task_description_doc: emptyDoc(),
           assigned_to: '',
           due_date: '',
           priority: 'media',
@@ -828,12 +1019,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Resumen de la Reunión *
                   </label>
-                  <textarea
-                    value={formData.summary_info.summary}
-                    onChange={(e) => updateSummaryInfo('summary', e.target.value)}
-                    placeholder="Describe los puntos principales tratados en la reunión..."
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent resize-none"
+                  <TipTapEditor
+                    initialContent={formData.summary_info.summary_doc ?? emptyDoc()}
+                    onChange={(json) => updateSummaryInfo('summary_doc', json)}
+                    expandable
+                    minHeight={200}
+                    placeholder="Resumen de la reunión…"
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Puedes incluir enlaces en el resumen. Los enlaces se mostrarán como texto clickeable.
@@ -844,12 +1035,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Notas Adicionales
                   </label>
-                  <textarea
-                    value={formData.summary_info.notes}
-                    onChange={(e) => updateSummaryInfo('notes', e.target.value)}
-                    placeholder="Notas adicionales, observaciones, etc."
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent resize-none"
+                  <TipTapEditor
+                    initialContent={formData.summary_info.notes_doc ?? emptyDoc()}
+                    onChange={(json) => updateSummaryInfo('notes_doc', json)}
+                    expandable
+                    minHeight={200}
+                    placeholder="Notas adicionales, observaciones…"
                   />
                 </div>
               </div>
@@ -889,6 +1080,41 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                       </p>
                     </div>
                   </div>
+
+                  {existingAttachments.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-medium text-gray-700 mb-3">
+                        Archivos existentes ({existingAttachments.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {existingAttachments.map((attachment) => (
+                          <div
+                            key={attachment.id}
+                            className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg"
+                          >
+                            <div className="flex items-center space-x-3 flex-1 min-w-0">
+                              <span className="text-3xl flex-shrink-0">{getFileIcon(attachment.file_type || '')}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900 truncate">{attachment.filename}</p>
+                                <p className="text-xs text-gray-500">{formatFileSize(attachment.file_size || 0)}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExistingAttachments(prev => prev.filter(a => a.id !== attachment.id));
+                                setAttachmentsToDelete(prev => [...prev, attachment]);
+                              }}
+                              className="ml-4 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Eliminar archivo"
+                            >
+                              <TrashIcon className="h-5 w-5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {selectedFiles.length > 0 && (
                     <div className="mt-6">
@@ -955,12 +1181,11 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                           </div>
                           
                           <div className="space-y-3">
-                            <textarea
-                              value={commitment.commitment_text}
-                              onChange={(e) => updateCommitment(index, 'commitment_text', e.target.value)}
-                              placeholder="Describe el acuerdo o compromiso..."
-                              rows={2}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent resize-none"
+                            <TipTapEditor
+                              initialContent={commitment.commitment_doc ?? emptyDoc()}
+                              onChange={(json) => updateCommitment(index, 'commitment_doc', json as any)}
+                              minHeight={80}
+                              placeholder="Describe el compromiso…"
                             />
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1035,12 +1260,11 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                             />
                             
-                            <textarea
-                              value={task.task_description}
-                              onChange={(e) => updateTask(index, 'task_description', e.target.value)}
-                              placeholder="Descripción de la tarea..."
-                              rows={2}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent resize-none"
+                            <TipTapEditor
+                              initialContent={task.task_description_doc ?? emptyDoc()}
+                              onChange={(json) => updateTask(index, 'task_description_doc', json)}
+                              minHeight={80}
+                              placeholder="Describe la tarea…"
                             />
                             
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

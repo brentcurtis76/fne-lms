@@ -158,18 +158,22 @@ export async function updateMeeting(
   updates: Partial<CommunityMeeting>
 ): Promise<{ success: boolean; error?: any }> {
   try {
+    const updatePayload: Record<string, any> = {
+      title: updates.title,
+      meeting_date: updates.meeting_date,
+      duration_minutes: updates.duration_minutes,
+      location: updates.location,
+      status: updates.status,
+      summary: updates.summary,
+      notes: updates.notes,
+      updated_at: new Date().toISOString()
+    };
+    if (updates.summary_doc !== undefined) updatePayload.summary_doc = updates.summary_doc;
+    if (updates.notes_doc !== undefined) updatePayload.notes_doc = updates.notes_doc;
+
     const { data, error } = await supabase
       .from('community_meetings')
-      .update({
-        title: updates.title,
-        meeting_date: updates.meeting_date,
-        duration_minutes: updates.duration_minutes,
-        location: updates.location,
-        status: updates.status,
-        summary: updates.summary,
-        notes: updates.notes,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', meetingId)
       .select()
       .single();
@@ -316,7 +320,9 @@ export async function createMeetingWithDocumentation(
         duration_minutes: documentation.meeting_info.duration_minutes,
         location: documentation.meeting_info.location,
         summary: documentation.summary_info.summary,
+        summary_doc: documentation.summary_info.summary_doc,
         notes: documentation.summary_info.notes,
+        notes_doc: documentation.summary_info.notes_doc,
         status: documentation.summary_info.status,
         created_by: userId
       })
@@ -378,6 +384,7 @@ export async function createMeetingWithDocumentation(
       const agreementsToInsert = documentation.agreements.map((agreement, index) => ({
         meeting_id: meetingId,
         agreement_text: agreement.agreement_text,
+        agreement_doc: agreement.agreement_doc,
         category: agreement.category,
         order_index: index
       }));
@@ -396,6 +403,7 @@ export async function createMeetingWithDocumentation(
       const commitmentsToInsert = documentation.commitments.map(commitment => ({
         meeting_id: meetingId,
         commitment_text: commitment.commitment_text,
+        commitment_doc: commitment.commitment_doc,
         assigned_to: commitment.assigned_to,
         due_date: commitment.due_date
       }));
@@ -415,6 +423,7 @@ export async function createMeetingWithDocumentation(
         meeting_id: meetingId,
         task_title: task.task_title,
         task_description: task.task_description,
+        task_description_doc: task.task_description_doc,
         assigned_to: task.assigned_to,
         due_date: task.due_date,
         priority: task.priority,

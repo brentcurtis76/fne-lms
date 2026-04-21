@@ -21,7 +21,9 @@ export interface CommunityMeeting {
   location?: string;
   status: MeetingStatus;
   summary?: string;
+  summary_doc?: any;
   notes?: string;
+  notes_doc?: any;
   
   // Management
   created_by: string;
@@ -75,6 +77,7 @@ export interface MeetingAgreement {
   id: string;
   meeting_id: string;
   agreement_text: string;
+  agreement_doc?: any;
   order_index: number;
   category?: string;
   created_at: string;
@@ -86,6 +89,7 @@ export interface MeetingCommitment {
   id: string;
   meeting_id: string;
   commitment_text: string;
+  commitment_doc?: any;
   assigned_to: string;
   due_date?: string;
   status: TaskStatus;
@@ -116,6 +120,7 @@ export interface MeetingTask {
   meeting_id: string;
   task_title: string;
   task_description?: string;
+  task_description_doc?: any;
   assigned_to: string;
   due_date?: string;
   priority: TaskPriority;
@@ -205,26 +210,34 @@ export interface MeetingDocumentationInput {
   // Step 2: Summary and Notes
   summary_info: {
     summary: string;
+    summary_doc?: any;
     notes?: string;
+    notes_doc?: any;
     status: MeetingStatus;
   };
-  
+
   // Step 3: Agreements
   agreements: Array<{
+    id?: string;
     agreement_text: string;
+    agreement_doc?: any;
     category?: string;
   }>;
-  
+
   // Step 4: Commitments and Tasks
   commitments: Array<{
+    id?: string;
     commitment_text: string;
+    commitment_doc?: any;
     assigned_to: string;
     due_date?: string;
   }>;
-  
+
   tasks: Array<{
+    id?: string;
     task_title: string;
     task_description?: string;
+    task_description_doc?: any;
     assigned_to: string;
     due_date?: string;
     priority: TaskPriority;

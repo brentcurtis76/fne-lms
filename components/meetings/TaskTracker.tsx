@@ -27,6 +27,8 @@ import {
   priorityColors
 } from '../../types/meetings';
 import { updateTaskStatus, getDaysUntilDue, isOverdue } from '../../utils/meetingUtils';
+import RichTextView from './RichTextView';
+import { isEmptyDoc } from '../../lib/tiptap/helpers';
 
 interface TaskTrackerProps {
   item: MeetingTask | MeetingCommitment;
@@ -47,12 +49,20 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(item.notes || '');
 
-  const title = itemType === 'task' 
-    ? (item as MeetingTask).task_title 
+  const title = itemType === 'task'
+    ? (item as MeetingTask).task_title
     : (item as MeetingCommitment).commitment_text;
 
-  const description = itemType === 'task' 
-    ? (item as MeetingTask).task_description 
+  const description = itemType === 'task'
+    ? (item as MeetingTask).task_description
+    : undefined;
+
+  const commitmentDoc = itemType === 'commitment'
+    ? (item as MeetingCommitment).commitment_doc
+    : undefined;
+
+  const taskDescriptionDoc = itemType === 'task'
+    ? (item as MeetingTask).task_description_doc
     : undefined;
 
   const priority = itemType === 'task' 
@@ -174,14 +184,28 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
             {getStatusIcon(item.status)}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-medium text-gray-900 truncate" title={title}>
-              {title}
-            </h3>
-            {description && (
+            {itemType === 'commitment' && !isEmptyDoc(commitmentDoc) ? (
+              <RichTextView
+                doc={commitmentDoc}
+                fallbackText={title}
+                className="text-sm text-gray-900"
+              />
+            ) : (
+              <h3 className="text-sm font-medium text-gray-900 truncate" title={title}>
+                {title}
+              </h3>
+            )}
+            {itemType === 'task' && !isEmptyDoc(taskDescriptionDoc) ? (
+              <RichTextView
+                doc={taskDescriptionDoc}
+                fallbackText={description}
+                className="text-xs text-gray-500 mt-1"
+              />
+            ) : description ? (
               <p className="text-xs text-gray-500 mt-1 line-clamp-2">
                 {description}
               </p>
-            )}
+            ) : null}
           </div>
         </div>
 

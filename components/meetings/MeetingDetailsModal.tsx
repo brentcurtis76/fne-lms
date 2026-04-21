@@ -24,6 +24,8 @@ import {
 import { CommunityMeeting, MeetingWithDetails } from '../../types/meetings';
 import { getMeetingDetails } from '../../utils/meetingUtils';
 import TaskTracker from './TaskTracker';
+import RichTextView from './RichTextView';
+import { isEmptyDoc } from '../../lib/tiptap/helpers';
 
 interface MeetingDetailsModalProps {
   isOpen: boolean;
@@ -323,27 +325,31 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
               {/* Content */}
               <div className="px-6 py-4 max-h-96 overflow-y-auto">
                 {/* Summary Tab */}
-                {activeTab === 'summary' && (
-                  <div className="space-y-6">
-                    {meeting.summary && (
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">Resumen</h3>
-                        <p className="text-gray-700 whitespace-pre-wrap">{meeting.summary}</p>
-                      </div>
-                    )}
-                    {meeting.notes && (
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">Notas</h3>
-                        <p className="text-gray-700 whitespace-pre-wrap">{meeting.notes}</p>
-                      </div>
-                    )}
-                    {!meeting.summary && !meeting.notes && (
-                      <p className="text-gray-500 italic text-center py-8">
-                        No hay resumen o notas para esta reunión.
-                      </p>
-                    )}
-                  </div>
-                )}
+                {activeTab === 'summary' && (() => {
+                  const hasSummary = !isEmptyDoc(meeting.summary_doc) || Boolean(meeting.summary);
+                  const hasNotes = !isEmptyDoc(meeting.notes_doc) || Boolean(meeting.notes);
+                  return (
+                    <div className="space-y-6">
+                      {hasSummary && (
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-900 mb-2">Resumen</h3>
+                          <RichTextView doc={meeting.summary_doc} fallbackText={meeting.summary} />
+                        </div>
+                      )}
+                      {hasNotes && (
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-900 mb-2">Notas</h3>
+                          <RichTextView doc={meeting.notes_doc} fallbackText={meeting.notes} />
+                        </div>
+                      )}
+                      {!hasSummary && !hasNotes && (
+                        <p className="text-gray-500 italic text-center py-8">
+                          No hay resumen o notas para esta reunión.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Attendees Tab */}
                 {activeTab === 'attendees' && (
@@ -400,7 +406,11 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                               {index + 1}
                             </div>
                             <div className="flex-1">
-                              <p className="text-gray-900">{agreement.agreement_text}</p>
+                              <RichTextView
+                                doc={agreement.agreement_doc}
+                                fallbackText={agreement.agreement_text}
+                                className="text-gray-900"
+                              />
                               {agreement.category && (
                                 <span className="inline-block mt-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
                                   {agreement.category}

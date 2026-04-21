@@ -83,6 +83,10 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
     onFiltersChange({ ...filters, overdueTasks: !filters.overdueTasks });
   };
 
+  const toggleMyDrafts = () => {
+    onFiltersChange({ ...filters, myDrafts: !filters.myDrafts });
+  };
+
   const hasActiveFilters = () => {
     return (
       filters.search ||
@@ -92,11 +96,12 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
       filters.assignedToMe ||
       filters.createdByMe ||
       filters.overdueTasks ||
+      filters.myDrafts ||
       (filters.priority && filters.priority.length > 0)
     );
   };
 
-  const statusOptions: MeetingStatus[] = ['programada', 'en_progreso', 'completada', 'cancelada', 'pospuesta'];
+  const statusOptions: MeetingStatus[] = ['borrador', 'programada', 'en_progreso', 'completada', 'cancelada', 'pospuesta'];
   const priorityOptions: TaskPriority[] = ['critica', 'alta', 'media', 'baja'];
 
   return (
@@ -265,6 +270,20 @@ const MeetingFilters: React.FC<MeetingFiltersProps> = ({
                 />
                 <ClockIcon className="h-4 w-4 text-red-400 ml-2 mr-1" />
                 <span className="text-sm text-gray-700">Con tareas vencidas</span>
+              </label>
+
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={!!filters.myDrafts}
+                  onChange={toggleMyDrafts}
+                  className="h-4 w-4 text-[#fbbf24] focus:ring-[#fbbf24] border-gray-300 rounded"
+                />
+                <span
+                  className="h-2 w-2 rounded-full bg-yellow-500 ml-2 mr-1"
+                  aria-hidden="true"
+                />
+                <span className="text-sm text-gray-700">Mis borradores</span>
               </label>
             </div>
           </div>

@@ -29,7 +29,8 @@ import { logWorkspaceActivity } from './workspaceUtils';
 export async function getMeetings(
   workspaceId: string,
   filters: Partial<MeetingFilters> = {},
-  sort: MeetingSortOptions = { field: 'meeting_date', direction: 'desc' }
+  sort: MeetingSortOptions = { field: 'meeting_date', direction: 'desc' },
+  userId?: string
 ): Promise<CommunityMeeting[]> {
   try {
     let query = supabase
@@ -58,6 +59,29 @@ export async function getMeetings(
 
     if (filters.search) {
       query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+    }
+
+    // "Mis borradores": restrict to drafts where the current user plays an
+    // editor role (creator, facilitator, secretary, or co_editor attendee).
+    if (filters.myDrafts && userId) {
+      query = query.eq('status', 'borrador');
+
+      const { data: coEditorRows } = await supabase
+        .from('meeting_attendees')
+        .select('meeting_id')
+        .eq('user_id', userId)
+        .eq('role', 'co_editor');
+
+      const coEditorIds = (coEditorRows || []).map((r: any) => r.meeting_id);
+      const orClauses = [
+        `created_by.eq.${userId}`,
+        `facilitator_id.eq.${userId}`,
+        `secretary_id.eq.${userId}`,
+      ];
+      if (coEditorIds.length > 0) {
+        orClauses.push(`id.in.(${coEditorIds.join(',')})`);
+      }
+      query = query.or(orClauses.join(','));
     }
 
     // Apply sorting

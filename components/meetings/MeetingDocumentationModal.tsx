@@ -4,8 +4,10 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
  * Streamlined meeting documentation with essential information only
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
+import { formatDistanceToNow, format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 import {
   XIcon,
@@ -23,7 +25,9 @@ import {
   CheckCircleIcon,
   PaperClipIcon,
   DocumentIcon,
-  UploadIcon
+  UploadIcon,
+  SaveIcon,
+  ClipboardListIcon
 } from '@heroicons/react/outline';
 import {
   MeetingDocumentationInput,
@@ -31,6 +35,7 @@ import {
   TaskPriority,
   MeetingStatus,
   AssignmentUser,
+  MeetingWorkSession,
   priorityLabels,
   meetingStatusLabels
 } from '../../types/meetings';
@@ -88,9 +93,21 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const supabase = useSupabaseClient();
   const [currentStep, setCurrentStep] = useState(MeetingFormStep.INFORMATION);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<AssignmentUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [loadingMeeting, setLoadingMeeting] = useState(false);
+
+  // Autosave + collaborative editing state
+  const [meetingVersion, setMeetingVersion] = useState<number>(0);
+  const [workSessionId, setWorkSessionId] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'error'>('idle');
+  const [workSessions, setWorkSessions] = useState<MeetingWorkSession[]>([]);
+  // Tick every 30s so "Guardado hace Ns" re-renders without extra effects.
+  const [nowTick, setNowTick] = useState(0);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestDocsRef = useRef<{ summary: string; notes: string }>({ summary: '', notes: '' });
 
   // Form data state
   const [formData, setFormData] = useState<MeetingDocumentationInput>({
@@ -123,6 +140,24 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       }
     }
   }, [isOpen, workspaceId, mode, meetingId]);
+
+  // Re-render the "Guardado hace Ns" indicator roughly every 30 seconds
+  // while the modal is open, without running autosave on a timer.
+  useEffect(() => {
+    if (!isOpen) return;
+    const interval = setInterval(() => setNowTick((n) => n + 1), 30_000);
+    return () => clearInterval(interval);
+  }, [isOpen]);
+
+  // Flush any pending autosave debounce timer when the modal closes.
+  useEffect(() => {
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const loadCommunityMembers = async () => {
     try {
@@ -235,15 +270,15 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
   const loadMeetingData = async () => {
     if (!meetingId) return;
-    
+
     try {
       setLoadingMeeting(true);
       const meetingDetails = await getMeetingDetails(meetingId);
-      
+
       if (meetingDetails) {
         // Extract attendee IDs from the attendees array
         const attendeeIds = meetingDetails.attendees?.map(attendee => attendee.user_id) || [];
-        
+
         // Populate form with existing data
         setFormData({
           meeting_info: {
@@ -262,13 +297,29 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           commitments: meetingDetails.commitments || [],
           tasks: meetingDetails.tasks || []
         });
-        
+
+        setMeetingVersion(meetingDetails.version ?? 0);
+        latestDocsRef.current = {
+          summary: meetingDetails.summary || '',
+          notes: meetingDetails.notes || '',
+        };
+
+        // Start a collaborative work session for edit mode or drafts.
+        if (mode === 'edit' || meetingDetails.status === 'borrador') {
+          startWorkSession(meetingId);
+        }
+
+        // Load work session timeline for the borrador banner.
+        if (meetingDetails.status === 'borrador') {
+          loadWorkSessions(meetingId);
+        }
+
         // Load existing attachments
-        const { data: attachments, error: attachError } = await supabase
+        const { data: attachments } = await supabase
           .from('meeting_attachments')
           .select('*')
           .eq('meeting_id', meetingId);
-          
+
         if (attachments && attachments.length > 0) {
           // Note: We can't restore File objects, but we can show existing attachments info
           console.log('Meeting has', attachments.length, 'existing attachments');
@@ -281,6 +332,128 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     } finally {
       setLoadingMeeting(false);
     }
+  };
+
+  const startWorkSession = async (id: string) => {
+    try {
+      const res = await fetch(`/api/meetings/${id}/work-session/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      const sid = data?.data?.work_session_id ?? data?.work_session_id;
+      if (sid) setWorkSessionId(sid);
+    } catch (err) {
+      console.error('Error starting work session:', err);
+    }
+  };
+
+  const loadWorkSessions = async (id: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('meeting_work_sessions')
+        .select(`
+          *,
+          user_profile:profiles!meeting_work_sessions_user_id_fkey(id, first_name, last_name, email, avatar_url)
+        `)
+        .eq('meeting_id', id)
+        .order('started_at', { ascending: false })
+        .limit(10);
+
+      if (!error && data) setWorkSessions(data as unknown as MeetingWorkSession[]);
+    } catch (err) {
+      console.error('Error loading work sessions:', err);
+    }
+  };
+
+  // Wrap plain text as a minimal ProseMirror doc so the autosave API's
+  // docToPlainText() extracts the same text on the server.
+  const wrapPlainText = (text: string) => {
+    const trimmed = text ?? '';
+    if (!trimmed) return { type: 'doc', content: [{ type: 'paragraph' }] };
+    return {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: trimmed }] },
+      ],
+    };
+  };
+
+  const autosaveEnabled = useCallback(() => {
+    if (mode !== 'edit' || !meetingId) return false;
+    const status = formData.summary_info.status;
+    return status !== 'completada' && status !== 'cancelada';
+  }, [mode, meetingId, formData.summary_info.status]);
+
+  const performAutosave = async () => {
+    if (!meetingId || !autosaveEnabled()) return;
+    const { summary, notes } = latestDocsRef.current;
+
+    setAutosaveState('saving');
+    try {
+      const res = await fetch(`/api/meetings/${meetingId}/autosave`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          summary_doc: wrapPlainText(summary),
+          notes_doc: wrapPlainText(notes),
+          version: meetingVersion,
+          work_session_id: workSessionId ?? undefined,
+        }),
+      });
+
+      if (res.status === 409) {
+        const payload = await res.json().catch(() => ({}));
+        await handleConflict(payload);
+        return;
+      }
+
+      if (!res.ok) {
+        setAutosaveState('error');
+        return;
+      }
+
+      const payload = await res.json();
+      const body = payload?.data ?? payload;
+      if (typeof body?.version === 'number') setMeetingVersion(body.version);
+      if (body?.work_session_id) setWorkSessionId(body.work_session_id);
+      setLastSavedAt(new Date());
+      setAutosaveState('idle');
+    } catch (err) {
+      console.error('Autosave failed:', err);
+      setAutosaveState('error');
+    }
+  };
+
+  const handleConflict = async (payload: any) => {
+    setAutosaveState('error');
+    const who = payload?.updated_by_name ? ` por ${payload.updated_by_name}` : '';
+    const confirmed = typeof window !== 'undefined'
+      ? window.confirm(
+          `Esta reunión fue modificada${who}. Se recargará la versión más reciente. Tus cambios no guardados se perderán.`
+        )
+      : true;
+    if (confirmed && meetingId) {
+      await loadMeetingData();
+    }
+  };
+
+  const scheduleAutosave = () => {
+    if (!autosaveEnabled()) return;
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      performAutosave();
+    }, 2000);
+  };
+
+  const flushAutosave = () => {
+    if (!autosaveEnabled()) return;
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    performAutosave();
   };
 
   const handleClose = () => {
@@ -336,6 +509,55 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const handlePrevious = () => {
     if (currentStep > MeetingFormStep.INFORMATION) {
       setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    // Drafts only require the minimum fields on step 1 — no summary needed.
+    if (!formData.meeting_info.title || !formData.meeting_info.meeting_date) {
+      toast.error('El título y la fecha son requeridos para guardar un borrador');
+      setCurrentStep(MeetingFormStep.INFORMATION);
+      return;
+    }
+
+    setIsSavingDraft(true);
+    try {
+      const draftData: MeetingDocumentationInput = {
+        ...formData,
+        summary_info: { ...formData.summary_info, status: 'borrador' },
+      };
+
+      let result: { success: boolean; meetingId?: string; error?: string };
+
+      if (mode === 'edit' && meetingId) {
+        const updateResult = await updateMeeting(meetingId, {
+          title: draftData.meeting_info.title,
+          meeting_date: draftData.meeting_info.meeting_date,
+          duration_minutes: draftData.meeting_info.duration_minutes,
+          location: draftData.meeting_info.location,
+          summary: draftData.summary_info.summary,
+          notes: draftData.summary_info.notes,
+          status: 'borrador',
+        });
+        result = updateResult.success
+          ? { success: true, meetingId }
+          : { success: false, error: updateResult.error?.message || 'Error al guardar borrador' };
+      } else {
+        result = await createMeetingWithDocumentation(workspaceId, userId, draftData);
+      }
+
+      if (result.success) {
+        updateSummaryInfo('status', 'borrador');
+        toast.success('Borrador guardado');
+        onSuccess();
+      } else {
+        toast.error(result.error || 'Error al guardar el borrador');
+      }
+    } catch (error) {
+      console.error('Error saving draft:', error);
+      toast.error('Error inesperado al guardar el borrador');
+    } finally {
+      setIsSavingDraft(false);
     }
   };
 
@@ -506,6 +728,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         [field]: value
       }
     }));
+
+    if (field === 'summary' || field === 'notes') {
+      latestDocsRef.current = {
+        ...latestDocsRef.current,
+        [field]: String(value ?? ''),
+      };
+      scheduleAutosave();
+    }
   };
 
   const addAgreement = () => {
@@ -653,6 +883,73 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     return '📎';
   };
 
+  const renderAutosaveIndicator = () => {
+    if (mode !== 'edit') return null;
+    // Referenced so the relative time re-renders on interval ticks.
+    void nowTick;
+
+    let text = '';
+    let tone = 'text-gray-500';
+    if (autosaveState === 'saving') {
+      text = 'Guardando…';
+    } else if (autosaveState === 'error') {
+      text = 'Error al guardar';
+      tone = 'text-red-600';
+    } else if (lastSavedAt) {
+      text = `Guardado ${formatDistanceToNow(lastSavedAt, { addSuffix: true, locale: es })}`;
+      tone = 'text-green-700';
+    }
+
+    if (!text) return null;
+    return (
+      <div className={`hidden sm:flex items-center text-xs ${tone}`} aria-live="polite">
+        <span>{text}</span>
+      </div>
+    );
+  };
+
+  const renderDraftBanner = () => {
+    if (mode !== 'edit' || formData.summary_info.status !== 'borrador') return null;
+    const mostRecent = workSessions[0];
+    const recentLabel = mostRecent?.user_profile
+      ? `${mostRecent.user_profile.first_name ?? ''} ${mostRecent.user_profile.last_name ?? ''}`.trim() || 'Alguien'
+      : 'Alguien';
+    const recentDate = mostRecent?.started_at
+      ? format(new Date(mostRecent.started_at), "d 'de' MMM", { locale: es })
+      : null;
+
+    const tooltipText = workSessions.length > 0
+      ? workSessions
+          .map((s) => {
+            const who = s.user_profile
+              ? `${s.user_profile.first_name ?? ''} ${s.user_profile.last_name ?? ''}`.trim() || 'Usuario'
+              : 'Usuario';
+            const when = s.started_at ? format(new Date(s.started_at), "d MMM HH:mm", { locale: es }) : '';
+            return `${who} — ${when}`;
+          })
+          .join('\n')
+      : 'Sin sesiones de trabajo previas';
+
+    return (
+      <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200 flex items-start gap-3">
+        <ClipboardListIcon className="h-5 w-5 text-yellow-700 flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-yellow-900">Borrador en progreso</p>
+          <p className="text-xs text-yellow-800 mt-0.5" title={tooltipText}>
+            {mostRecent
+              ? `Iniciado por ${recentLabel}${recentDate ? ` el ${recentDate}` : ''}`
+              : 'Aún no hay sesiones de trabajo registradas.'}
+            {workSessions.length > 1 && (
+              <span className="ml-1 underline decoration-dotted cursor-help">
+                +{workSessions.length - 1} sesion{workSessions.length - 1 === 1 ? '' : 'es'} más
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -663,7 +960,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         <div className={`relative w-full max-w-4xl bg-white rounded-lg shadow-xl ${className}`}>
           {/* Header */}
           <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <div>
+            <div className="flex-1 min-w-0">
               <h2 className="text-xl font-semibold text-[#0a0a0a]">
                 {mode === 'edit' ? 'Editar Reunión' : 'Documentar Reunión'}
               </h2>
@@ -671,14 +968,17 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                 {STEPS[currentStep].title}: {STEPS[currentStep].description}
               </p>
             </div>
+            {renderAutosaveIndicator()}
             <button
               onClick={handleClose}
               disabled={isSubmitting}
-              className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+              className="ml-3 p-2 text-gray-400 hover:text-gray-600 disabled:opacity-50"
             >
               <XIcon className="h-5 w-5" />
             </button>
           </div>
+
+          {renderDraftBanner()}
 
           {/* Progress Steps */}
           <div className="px-6 py-4 border-b border-gray-200">
@@ -831,6 +1131,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   <textarea
                     value={formData.summary_info.summary}
                     onChange={(e) => updateSummaryInfo('summary', e.target.value)}
+                    onBlur={() => flushAutosave()}
                     placeholder="Describe los puntos principales tratados en la reunión..."
                     rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent resize-none"
@@ -847,6 +1148,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   <textarea
                     value={formData.summary_info.notes}
                     onChange={(e) => updateSummaryInfo('notes', e.target.value)}
+                    onBlur={() => flushAutosave()}
                     placeholder="Notas adicionales, observaciones, etc."
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent resize-none"
@@ -1120,10 +1422,29 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
             <div className="flex items-center space-x-3">
               <button
                 onClick={handleClose}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isSavingDraft}
                 className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50"
               >
                 Cancelar
+              </button>
+
+              <button
+                onClick={handleSaveDraft}
+                disabled={isSubmitting || isSavingDraft}
+                className="inline-flex items-center px-4 py-2 bg-yellow-100 text-yellow-900 text-sm rounded-lg hover:bg-yellow-200 disabled:opacity-50 transition-colors duration-200"
+                title="Guardar como borrador sin salir"
+              >
+                {isSavingDraft ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-yellow-800 mr-2" />
+                    Guardando…
+                  </>
+                ) : (
+                  <>
+                    <SaveIcon className="h-4 w-4 mr-1" />
+                    Guardar borrador
+                  </>
+                )}
               </button>
 
               {currentStep < MeetingFormStep.AGREEMENTS ? (

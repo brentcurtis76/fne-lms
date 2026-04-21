@@ -1016,7 +1016,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
 
     try {
       setLoading(true);
-      const meetingsData = await getMeetings(workspace.id, filters, sort);
+      const meetingsData = await getMeetings(workspace.id, filters, sort, user?.id);
       
       // Load full details for each meeting to include agreements, commitments, and tasks
       const meetingsWithDetails = await Promise.all(

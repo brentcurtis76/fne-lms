@@ -4,11 +4,11 @@
  */
 
 // Enums matching database types
-export type MeetingStatus = 'programada' | 'en_progreso' | 'completada' | 'cancelada' | 'pospuesta';
+export type MeetingStatus = 'borrador' | 'programada' | 'en_progreso' | 'completada' | 'cancelada' | 'pospuesta';
 export type TaskStatus = 'pendiente' | 'en_progreso' | 'completado' | 'vencido' | 'cancelado';
 export type TaskPriority = 'baja' | 'media' | 'alta' | 'critica';
 export type AttendanceStatus = 'invited' | 'confirmed' | 'attended' | 'absent' | 'late';
-export type AttendeeRole = 'facilitator' | 'secretary' | 'participant' | 'observer';
+export type AttendeeRole = 'facilitator' | 'secretary' | 'participant' | 'observer' | 'co_editor';
 
 // Core meeting interface
 export interface CommunityMeeting {
@@ -27,7 +27,12 @@ export interface CommunityMeeting {
   created_by: string;
   facilitator_id?: string;
   secretary_id?: string;
-  
+
+  // Lifecycle
+  started_at?: string;
+  version: number;
+  updated_by?: string;
+
   // Metadata
   is_active: boolean;
   created_at: string;
@@ -171,6 +176,26 @@ export interface MeetingAttendee {
   };
 }
 
+// Meeting work session — tracks a collaborative editing session on a meeting draft
+export interface MeetingWorkSession {
+  id: string;
+  meeting_id: string;
+  user_id: string;
+  started_at: string;
+  ended_at?: string;
+  last_activity_at: string;
+  created_at: string;
+
+  // Related data
+  user_profile?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    avatar_url?: string;
+  };
+}
+
 // Complete meeting with all related data
 export interface MeetingWithDetails extends CommunityMeeting {
   agreements: MeetingAgreement[];
@@ -277,6 +302,9 @@ export interface MeetingFilters {
   search: string;
   priority?: TaskPriority[];
   overdueTasks: boolean;
+  // "Mis borradores": drafts where the current user is creator, facilitator,
+  // secretary, or a co_editor attendee.
+  myDrafts?: boolean;
 }
 
 // Sort options for meetings
@@ -331,6 +359,7 @@ export const priorityColors: Record<TaskPriority, string> = {
 };
 
 export const meetingStatusColors: Record<MeetingStatus, string> = {
+  borrador: 'bg-gray-100 text-gray-700',
   programada: 'bg-blue-100 text-blue-800',
   en_progreso: 'bg-yellow-100 text-yellow-800',
   completada: 'bg-green-100 text-green-800',
@@ -355,6 +384,7 @@ export const priorityLabels: Record<TaskPriority, string> = {
 };
 
 export const meetingStatusLabels: Record<MeetingStatus, string> = {
+  borrador: 'Borrador',
   programada: 'Programada',
   en_progreso: 'En Progreso',
   completada: 'Completada',

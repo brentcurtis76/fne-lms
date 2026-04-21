@@ -67,6 +67,8 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({ initialContent, onChange })
         history: false,
       }),
       // Explicitly include extensions for clarity
+      // TODO(meetings): Add @tiptap/extension-link and update sanitizer (lib/sanitize.ts)
+      // to preserve href/target/rel on <a> tags once links are supported in the editor.
       Heading.configure({ levels: [2, 3] }),
       BulletList,
       OrderedList,

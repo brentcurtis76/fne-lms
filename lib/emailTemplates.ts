@@ -56,7 +56,7 @@ export const priorityConfig = {
 /**
  * Base email layout wrapper
  */
-function emailLayout(content: string, preheader?: string): string {
+export function emailLayout(content: string, preheader?: string): string {
   return `
     <!DOCTYPE html>
     <html lang="es">
@@ -422,7 +422,196 @@ export const testEmailTemplate: EmailTemplate = {
         Si recibes este email, significa que el sistema de notificaciones está funcionando correctamente.
       </p>
     `;
-    
+
     return emailLayout(content, 'Email de prueba del sistema');
   }
+};
+
+/**
+ * Meeting Summary Email Template
+ *
+ * Sent when a facilitator finalizes a community meeting. Audience is either
+ * the whole growth community or only attendees, depending on the finalize
+ * choice persisted on `community_meetings.finalize_audience`.
+ */
+export interface MeetingSummaryEmailData {
+  title: string;
+  communityName?: string | null;
+  meetingDates: Date[];
+  facilitatorName: string;
+  finalizerName: string;
+  audience: 'community' | 'attended';
+  attendees: Array<{ name: string; attended: boolean; role: string }>;
+  summaryHtml: string;
+  notesHtml: string;
+  agreementsHtml: string;
+  commitmentsHtml: string;
+  facilitatorMessageHtml?: string;
+  meetingUrl?: string;
+}
+
+const formatMeetingDate = (d: Date): string =>
+  d.toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+const renderDateLine = (dates: Date[]): string => {
+  if (!dates || dates.length === 0) return '';
+  const sorted = [...dates].sort((a, b) => a.getTime() - b.getTime());
+  if (sorted.length === 1) return formatMeetingDate(sorted[0]);
+  return `Realizada en ${sorted.length} sesiones entre ${formatMeetingDate(sorted[0])} y ${formatMeetingDate(sorted[sorted.length - 1])}`;
+};
+
+const renderAttendeesList = (attendees: MeetingSummaryEmailData['attendees']): string => {
+  if (!attendees || attendees.length === 0) return '';
+  const rows = attendees
+    .map(
+      (a) => `
+        <li style="margin: 0 0 4px 0; font-family: Arial, sans-serif; font-size: 13px; color: #333333;">
+          <strong>${a.name}</strong>
+          ${a.attended ? `<span style="color: ${styles.colors.success}; font-size: 12px;"> · asistió</span>` : ''}
+          ${a.role && a.role !== 'participant' ? `<span style="color: ${styles.colors.gray}; font-size: 12px;"> · ${a.role}</span>` : ''}
+        </li>`
+    )
+    .join('');
+  return `<ul style="margin: 0 0 12px 0; padding-left: 20px; list-style: disc;">${rows}</ul>`;
+};
+
+export const meetingSummaryTemplate: EmailTemplate = {
+  subject: (data: MeetingSummaryEmailData) => `Resumen de reunión: ${data.title} - Genera`,
+
+  generateHTML: (data: MeetingSummaryEmailData) => {
+    const dateLine = renderDateLine(data.meetingDates);
+    const audienceLabel =
+      data.audience === 'attended' ? 'quienes asistieron' : 'la Comunidad de Crecimiento';
+
+    const facilitatorMsg = data.facilitatorMessageHtml
+      ? `
+        <div style="background-color: ${styles.colors.lightGray}; padding: 16px 20px; border-left: 4px solid ${styles.colors.secondary}; border-radius: 4px; margin: 0 0 24px 0;">
+          <p style="margin: 0 0 8px 0; font-family: Arial, sans-serif; font-size: 12px; color: ${styles.colors.gray}; text-transform: uppercase; letter-spacing: 0.05em;">
+            Mensaje del facilitador
+          </p>
+          ${data.facilitatorMessageHtml}
+        </div>`
+      : '';
+
+    const summaryBlock = data.summaryHtml
+      ? `
+        <h2 style="font-family: Arial, sans-serif; font-size: 18px; font-weight: 700; color: ${styles.colors.primary}; margin: 24px 0 12px 0;">Resumen</h2>
+        ${data.summaryHtml}`
+      : '';
+
+    const notesBlock = data.notesHtml
+      ? `
+        <h2 style="font-family: Arial, sans-serif; font-size: 18px; font-weight: 700; color: ${styles.colors.primary}; margin: 24px 0 12px 0;">Notas</h2>
+        ${data.notesHtml}`
+      : '';
+
+    const agreementsBlock = data.agreementsHtml
+      ? `
+        <h2 style="font-family: Arial, sans-serif; font-size: 18px; font-weight: 700; color: ${styles.colors.primary}; margin: 24px 0 12px 0;">Acuerdos</h2>
+        <ol style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 12px 0; padding-left: 24px;">
+          ${data.agreementsHtml}
+        </ol>`
+      : '';
+
+    const commitmentsBlock = data.commitmentsHtml
+      ? `
+        <h2 style="font-family: Arial, sans-serif; font-size: 18px; font-weight: 700; color: ${styles.colors.primary}; margin: 24px 0 12px 0;">Compromisos</h2>
+        <table role="presentation" cellspacing="0" cellpadding="8" border="0" width="100%" style="border-collapse: collapse; margin: 0 0 16px 0; font-family: Arial, sans-serif; font-size: 13px;">
+          <thead>
+            <tr>
+              <th align="left" style="background-color: ${styles.colors.lightGray}; color: ${styles.colors.primary}; font-weight: 700; padding: 8px; border-bottom: 2px solid #e5e5e5;">Compromiso</th>
+              <th align="left" style="background-color: ${styles.colors.lightGray}; color: ${styles.colors.primary}; font-weight: 700; padding: 8px; border-bottom: 2px solid #e5e5e5;">Responsable</th>
+              <th align="left" style="background-color: ${styles.colors.lightGray}; color: ${styles.colors.primary}; font-weight: 700; padding: 8px; border-bottom: 2px solid #e5e5e5;">Fecha</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.commitmentsHtml}
+          </tbody>
+        </table>`
+      : '';
+
+    const attendeesBlock = data.attendees && data.attendees.length > 0
+      ? `
+        <h2 style="font-family: Arial, sans-serif; font-size: 18px; font-weight: 700; color: ${styles.colors.primary}; margin: 24px 0 12px 0;">Asistentes</h2>
+        ${renderAttendeesList(data.attendees)}`
+      : '';
+
+    const ctaBlock = data.meetingUrl
+      ? `
+        <div style="text-align: center; margin: 32px 0 16px 0;">
+          <a href="${data.meetingUrl}"
+             style="display: inline-block; padding: 12px 28px; background-color: ${styles.colors.secondary}; color: ${styles.colors.primary}; text-decoration: none; border-radius: 6px; font-weight: 700; font-family: Arial, sans-serif; font-size: 14px;">
+            Ver reunión en Genera
+          </a>
+        </div>`
+      : '';
+
+    const content = `
+      <h2 style="font-family: Arial, sans-serif; font-size: 22px; font-weight: 700; color: ${styles.colors.primary}; margin: 0 0 8px 0; line-height: 1.3;">
+        ${data.title}
+      </h2>
+      ${data.communityName ? `<p style="margin: 0 0 4px 0; font-family: Arial, sans-serif; font-size: 14px; color: ${styles.colors.gray};">${data.communityName}</p>` : ''}
+      ${dateLine ? `<p style="margin: 0 0 20px 0; font-family: Arial, sans-serif; font-size: 13px; color: ${styles.colors.gray};">${dateLine}</p>` : ''}
+      <p style="margin: 0 0 24px 0; font-family: Arial, sans-serif; font-size: 13px; color: ${styles.colors.gray};">
+        Facilitada por <strong>${data.facilitatorName}</strong> · Finalizada por <strong>${data.finalizerName}</strong> · Enviada a ${audienceLabel}.
+      </p>
+
+      ${facilitatorMsg}
+      ${summaryBlock}
+      ${notesBlock}
+      ${agreementsBlock}
+      ${commitmentsBlock}
+      ${attendeesBlock}
+      ${ctaBlock}
+    `;
+
+    return emailLayout(content, `Resumen de la reunión ${data.title}`);
+  },
+
+  generateText: (data: MeetingSummaryEmailData) => {
+    const dateLine = renderDateLine(data.meetingDates);
+    const audienceLabel = data.audience === 'attended' ? 'quienes asistieron' : 'la Comunidad de Crecimiento';
+    const stripTags = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+    const lines: string[] = [];
+    lines.push(data.title);
+    if (data.communityName) lines.push(data.communityName);
+    if (dateLine) lines.push(dateLine);
+    lines.push(`Facilitada por ${data.facilitatorName}. Finalizada por ${data.finalizerName}. Enviada a ${audienceLabel}.`);
+    lines.push('');
+    if (data.facilitatorMessageHtml) {
+      lines.push('MENSAJE DEL FACILITADOR:');
+      lines.push(stripTags(data.facilitatorMessageHtml));
+      lines.push('');
+    }
+    if (data.summaryHtml) {
+      lines.push('RESUMEN:');
+      lines.push(stripTags(data.summaryHtml));
+      lines.push('');
+    }
+    if (data.notesHtml) {
+      lines.push('NOTAS:');
+      lines.push(stripTags(data.notesHtml));
+      lines.push('');
+    }
+    if (data.agreementsHtml) {
+      lines.push('ACUERDOS:');
+      lines.push(stripTags(data.agreementsHtml));
+      lines.push('');
+    }
+    if (data.commitmentsHtml) {
+      lines.push('COMPROMISOS:');
+      lines.push(stripTags(data.commitmentsHtml));
+      lines.push('');
+    }
+    if (data.attendees && data.attendees.length > 0) {
+      lines.push('ASISTENTES:');
+      for (const a of data.attendees) {
+        lines.push(`- ${a.name}${a.attended ? ' (asistió)' : ''}`);
+      }
+      lines.push('');
+    }
+    if (data.meetingUrl) lines.push(`Ver reunión: ${data.meetingUrl}`);
+    return lines.join('\n');
+  },
 };

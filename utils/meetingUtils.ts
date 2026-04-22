@@ -90,7 +90,8 @@ export async function getMeetingDetails(meetingId: string): Promise<MeetingWithD
         *,
         facilitator:profiles!community_meetings_facilitator_id_fkey(id, first_name, last_name),
         secretary:profiles!community_meetings_secretary_id_fkey(id, first_name, last_name),
-        created_by_profile:profiles!community_meetings_created_by_fkey(id, first_name, last_name, email)
+        created_by_profile:profiles!community_meetings_created_by_fkey(id, first_name, last_name, email),
+        finalized_by_profile:profiles!community_meetings_finalized_by_fkey(id, first_name, last_name)
       `)
       .eq('id', meetingId)
       .single();

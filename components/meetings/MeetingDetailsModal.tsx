@@ -117,6 +117,23 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
     });
   };
 
+  const formatFinalizedDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const audienceLabel = (audience: string): string => {
+    if (audience === 'community') return 'toda la comunidad de crecimiento';
+    if (audience === 'attended') return 'sólo quienes asistieron';
+    return audience;
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -220,6 +237,38 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* Post-finalize banner */}
+              {meeting.status === 'completada' && meeting.finalized_at && (
+                <div className="px-6 py-3 bg-emerald-50 border-b border-emerald-200">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-2">
+                      <CheckCircleIcon className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-emerald-900">
+                        <p className="font-medium">
+                          Finalizada el {formatFinalizedDate(meeting.finalized_at)}
+                          {meeting.finalized_by_profile && (
+                            <> por {meeting.finalized_by_profile.first_name} {meeting.finalized_by_profile.last_name}</>
+                          )}
+                        </p>
+                        {meeting.finalize_audience && (
+                          <p className="text-emerald-700 mt-0.5">
+                            Resumen enviado a {audienceLabel(meeting.finalize_audience)}.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled
+                      title="Disponible próximamente"
+                      className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-white border border-emerald-300 rounded-md hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Enviar correo de actualización
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Meeting Info */}
               <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">

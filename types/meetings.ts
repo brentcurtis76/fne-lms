@@ -209,6 +209,11 @@ export interface MeetingWithDetails extends CommunityMeeting {
   commitments: MeetingCommitment[];
   tasks: MeetingTask[];
   attendees: MeetingAttendee[];
+  finalized_by_profile?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  } | null;
 }
 
 // Meeting creation/update input

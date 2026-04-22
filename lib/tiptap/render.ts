@@ -2,8 +2,7 @@ import { generateHTML } from '@tiptap/html';
 import DOMPurify from 'isomorphic-dompurify';
 import { meetingEditorExtensions } from './extensions';
 import { isEmptyDoc as isEmptyDocHelper, plainTextFromDoc } from './helpers';
-
-const ALLOWED_TAGS = ['h2', 'h3', 'p', 'ul', 'ol', 'li', 'strong', 'em', 'u', 'br'];
+import { MEETING_ALLOWED_TAGS, MEETING_ALLOWED_ATTR } from './sanitize';
 
 const INLINE_STYLES: Record<string, string> = {
   h2: 'font-family: Arial, sans-serif; font-size: 20px; font-weight: 700; color: #0a0a0a; margin: 24px 0 12px 0; line-height: 1.3;',
@@ -43,8 +42,8 @@ export const docToHtml = (doc: any): string => {
   }
   const sanitized = DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
-    ALLOWED_TAGS,
-    ALLOWED_ATTR: [],
+    ALLOWED_TAGS: MEETING_ALLOWED_TAGS,
+    ALLOWED_ATTR: MEETING_ALLOWED_ATTR,
   });
   return applyInlineStyles(sanitized);
 };

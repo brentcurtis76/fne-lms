@@ -3,6 +3,7 @@ import { generateHTML } from '@tiptap/html';
 import DOMPurify from 'isomorphic-dompurify';
 import { meetingEditorExtensions } from '../../lib/tiptap/extensions';
 import { isEmptyDoc } from '../../lib/tiptap/helpers';
+import { MEETING_ALLOWED_TAGS, MEETING_ALLOWED_ATTR } from '../../lib/tiptap/sanitize';
 
 interface RichTextViewProps {
   doc?: any;
@@ -10,11 +11,6 @@ interface RichTextViewProps {
   className?: string;
   emptyText?: string;
 }
-
-// TODO: when @tiptap/extension-link is added to meetingEditorExtensions,
-// include 'a' in ALLOWED_TAGS and 'href'/'target'/'rel' in ALLOWED_ATTR,
-// and add a DOMPurify hook that forces rel="noopener noreferrer" on anchors.
-const ALLOWED_TAGS = ['h2', 'h3', 'p', 'ul', 'ol', 'li', 'strong', 'em', 'u', 'br'];
 
 const RichTextView: React.FC<RichTextViewProps> = ({
   doc,
@@ -28,8 +24,8 @@ const RichTextView: React.FC<RichTextViewProps> = ({
       const html = generateHTML(doc, meetingEditorExtensions);
       return DOMPurify.sanitize(html, {
         USE_PROFILES: { html: true },
-        ALLOWED_TAGS,
-        ALLOWED_ATTR: [],
+        ALLOWED_TAGS: MEETING_ALLOWED_TAGS,
+        ALLOWED_ATTR: MEETING_ALLOWED_ATTR,
       });
     } catch (error) {
       console.warn('RichTextView: failed to render doc, using plaintext fallback', error);

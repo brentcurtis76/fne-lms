@@ -140,6 +140,14 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
   }, [editable, editor]);
 
   useEffect(() => {
+    if (!editor || editor.isFocused) return;
+    const current = JSON.stringify(editor.getJSON());
+    const next = JSON.stringify(initialContent);
+    if (current === next) return;
+    editor.commands.setContent(initialContent || '', false);
+  }, [initialContent, editor]);
+
+  useEffect(() => {
     if (!isFullscreen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setIsFullscreen(false);

@@ -4,7 +4,7 @@
  */
 
 // Enums matching database types
-export type MeetingStatus = 'programada' | 'en_progreso' | 'completada' | 'cancelada' | 'pospuesta';
+export type MeetingStatus = 'borrador' | 'programada' | 'en_progreso' | 'completada' | 'cancelada' | 'pospuesta';
 export type TaskStatus = 'pendiente' | 'en_progreso' | 'completado' | 'vencido' | 'cancelado';
 export type TaskPriority = 'baja' | 'media' | 'alta' | 'critica';
 export type AttendanceStatus = 'invited' | 'confirmed' | 'attended' | 'absent' | 'late';
@@ -331,6 +331,7 @@ export const priorityColors: Record<TaskPriority, string> = {
 };
 
 export const meetingStatusColors: Record<MeetingStatus, string> = {
+  borrador: 'bg-gray-100 text-gray-700',
   programada: 'bg-blue-100 text-blue-800',
   en_progreso: 'bg-yellow-100 text-yellow-800',
   completada: 'bg-green-100 text-green-800',
@@ -355,6 +356,7 @@ export const priorityLabels: Record<TaskPriority, string> = {
 };
 
 export const meetingStatusLabels: Record<MeetingStatus, string> = {
+  borrador: 'Borrador',
   programada: 'Programada',
   en_progreso: 'En Progreso',
   completada: 'Completada',

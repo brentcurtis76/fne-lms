@@ -339,107 +339,119 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }
   };
 
-  const handleSubmit = async () => {
-    if (!validateStep(currentStep)) {
+  const persistMeetingData = async ({
+    mode: persistMode,
+    formData: persistFormData,
+    meetingId: persistMeetingId,
+    status: persistStatus,
+    runValidations,
+  }: {
+    mode: 'create' | 'edit';
+    formData: MeetingDocumentationInput;
+    meetingId?: string;
+    status?: MeetingStatus;
+    runValidations: boolean;
+  }) => {
+    if (runValidations && !validateStep(currentStep)) {
       toast.error('Por favor completa los campos requeridos');
       return;
     }
 
+    const effectiveStatus = persistStatus ?? persistFormData.summary_info.status;
+    const dataToSave: MeetingDocumentationInput = {
+      ...persistFormData,
+      summary_info: {
+        ...persistFormData.summary_info,
+        status: effectiveStatus,
+      },
+    };
+    const isDraft = effectiveStatus === 'borrador';
+
     setIsSubmitting(true);
     setUploadingFiles(true);
-    
+
     try {
       let result: { success: boolean; meetingId?: string; error?: string };
-      
-      if (mode === 'edit' && meetingId) {
-        // Update existing meeting
-        const updateResult = await updateMeeting(meetingId, {
-          title: formData.meeting_info.title,
-          meeting_date: formData.meeting_info.meeting_date,
-          duration_minutes: formData.meeting_info.duration_minutes,
-          location: formData.meeting_info.location,
-          summary: formData.summary_info.summary,
-          notes: formData.summary_info.notes,
-          status: formData.summary_info.status
+
+      if (persistMode === 'edit' && persistMeetingId) {
+        const updateResult = await updateMeeting(persistMeetingId, {
+          title: dataToSave.meeting_info.title,
+          meeting_date: dataToSave.meeting_info.meeting_date,
+          duration_minutes: dataToSave.meeting_info.duration_minutes,
+          location: dataToSave.meeting_info.location,
+          summary: dataToSave.summary_info.summary,
+          notes: dataToSave.summary_info.notes,
+          status: effectiveStatus,
         });
-        
+
         if (updateResult.success) {
-          // Update agreements, commitments, and tasks
-          // First, delete existing ones
-          await supabase.from('meeting_agreements').delete().eq('meeting_id', meetingId);
-          await supabase.from('meeting_commitments').delete().eq('meeting_id', meetingId);
-          await supabase.from('meeting_tasks').delete().eq('meeting_id', meetingId);
-          
-          // Then create new ones
-          if (formData.agreements.length > 0) {
+          await supabase.from('meeting_agreements').delete().eq('meeting_id', persistMeetingId);
+          await supabase.from('meeting_commitments').delete().eq('meeting_id', persistMeetingId);
+          await supabase.from('meeting_tasks').delete().eq('meeting_id', persistMeetingId);
+
+          if (dataToSave.agreements.length > 0) {
             await supabase.from('meeting_agreements').insert(
-              formData.agreements.map((agreement, index) => ({
-                meeting_id: meetingId,
+              dataToSave.agreements.map((agreement, index) => ({
+                meeting_id: persistMeetingId,
                 agreement_text: agreement.agreement_text,
                 category: agreement.category,
-                order_index: index
+                order_index: index,
               }))
             );
           }
-          
-          if (formData.commitments.length > 0) {
+
+          if (dataToSave.commitments.length > 0) {
             await supabase.from('meeting_commitments').insert(
-              formData.commitments.map(commitment => ({
-                meeting_id: meetingId,
+              dataToSave.commitments.map(commitment => ({
+                meeting_id: persistMeetingId,
                 commitment_text: commitment.commitment_text,
                 assigned_to: commitment.assigned_to,
-                due_date: commitment.due_date
+                due_date: commitment.due_date,
               }))
             );
           }
-          
-          if (formData.tasks.length > 0) {
+
+          if (dataToSave.tasks.length > 0) {
             await supabase.from('meeting_tasks').insert(
-              formData.tasks.map(task => ({
-                meeting_id: meetingId,
+              dataToSave.tasks.map(task => ({
+                meeting_id: persistMeetingId,
                 task_title: task.task_title,
                 task_description: task.task_description,
                 assigned_to: task.assigned_to,
                 due_date: task.due_date,
                 priority: task.priority,
                 category: task.category,
-                estimated_hours: task.estimated_hours
+                estimated_hours: task.estimated_hours,
               }))
             );
           }
-          
-          result = { success: true, meetingId };
+
+          result = { success: true, meetingId: persistMeetingId };
         } else {
           result = updateResult;
         }
       } else {
-        // Create new meeting
-        result = await createMeetingWithDocumentation(workspaceId, userId, formData);
+        result = await createMeetingWithDocumentation(workspaceId, userId, dataToSave);
       }
-      
+
       if (result.success && result.meetingId) {
-        // Upload documents if any
         if (selectedFiles.length > 0) {
           try {
-            // Create meeting-documents bucket if it doesn't exist
             const bucketName = 'meeting-documents';
-            
+
             for (const file of selectedFiles) {
-              // Generate unique file path
               const timestamp = Date.now();
               const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
               const filePath = `${workspaceId}/${result.meetingId}/${timestamp}-${sanitizedName}`;
-              
-              // Upload file
+
               const { url, error } = await uploadFile(file, filePath, bucketName);
-              
+
               if (error) {
                 console.error('Error uploading file:', file.name, error);
                 toast.error(`Error al subir ${file.name}`);
                 continue;
               }
 
-              // Save file reference to database
               const { error: dbError } = await supabase
                 .from('meeting_attachments')
                 .insert({
@@ -448,12 +460,11 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   file_path: filePath,
                   file_size: file.size,
                   file_type: file.type,
-                  uploaded_by: userId
+                  uploaded_by: userId,
                 });
 
               if (dbError) {
                 console.error('Error saving file reference:', dbError);
-                // Continue with other files even if one fails
               }
             }
           } catch (uploadError) {
@@ -462,29 +473,64 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           }
         }
 
-        // Send notifications for assigned tasks/commitments
-        const assignedUserIds = [
-          ...formData.commitments.map(c => c.assigned_to),
-          ...formData.tasks.map(t => t.assigned_to)
-        ].filter((id, index, arr) => arr.indexOf(id) === index); // Remove duplicates
+        if (!isDraft) {
+          const assignedUserIds = [
+            ...dataToSave.commitments.map(c => c.assigned_to),
+            ...dataToSave.tasks.map(t => t.assigned_to),
+          ].filter((id, index, arr) => id && arr.indexOf(id) === index);
 
-        if (assignedUserIds.length > 0) {
-          await sendTaskAssignmentNotifications(result.meetingId, assignedUserIds);
+          if (assignedUserIds.length > 0) {
+            await sendTaskAssignmentNotifications(result.meetingId, assignedUserIds);
+          }
         }
 
-        toast.success(mode === 'edit' ? 'Reunión actualizada correctamente' : 'Reunión documentada correctamente');
+        const successMessage = isDraft
+          ? 'Borrador guardado correctamente'
+          : persistMode === 'edit'
+            ? 'Reunión actualizada correctamente'
+            : 'Reunión documentada correctamente';
+        toast.success(successMessage);
         onSuccess();
         handleClose();
       } else {
-        toast.error(result.error || `Error al ${mode === 'edit' ? 'actualizar' : 'crear'} la reunión`);
+        const verb = isDraft
+          ? 'guardar el borrador'
+          : persistMode === 'edit'
+            ? 'actualizar la reunión'
+            : 'crear la reunión';
+        toast.error(result.error || `Error al ${verb}`);
       }
     } catch (error) {
       console.error('Error submitting meeting:', error);
-      toast.error(`Error inesperado al ${mode === 'edit' ? 'actualizar' : 'crear'} la reunión`);
+      const verb = isDraft
+        ? 'guardar el borrador'
+        : persistMode === 'edit'
+          ? 'actualizar la reunión'
+          : 'crear la reunión';
+      toast.error(`Error inesperado al ${verb}`);
     } finally {
       setIsSubmitting(false);
       setUploadingFiles(false);
     }
+  };
+
+  const handleSubmit = async () => {
+    await persistMeetingData({
+      mode,
+      formData,
+      meetingId,
+      runValidations: true,
+    });
+  };
+
+  const handleSaveDraft = async () => {
+    await persistMeetingData({
+      mode,
+      formData,
+      meetingId,
+      status: 'borrador',
+      runValidations: false,
+    });
   };
 
   // Helper functions for form updates
@@ -1124,6 +1170,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                 className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50"
               >
                 Cancelar
+              </button>
+
+              <button
+                onClick={handleSaveDraft}
+                disabled={isSubmitting}
+                className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 transition-colors duration-200"
+              >
+                Guardar borrador
               </button>
 
               {currentStep < MeetingFormStep.AGREEMENTS ? (

@@ -105,6 +105,99 @@ describe('/api/meetings/[id]/autosave — draft gate', () => {
     expect(JSON.parse(res._getData())).toEqual({ error: 'meeting_not_draft' });
   });
 
+  it('returns 409 { error: "meeting_finalized_concurrently" } when finalize won the race', async () => {
+    const { getApiUser, createServiceRoleClient } = await import('../../../lib/api-auth');
+    const { getUserRoles, getHighestRole } = await import('../../../utils/roleUtils');
+    const { canEditMeeting } = await import('../../../lib/utils/meeting-policy');
+
+    (getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+    (getUserRoles as any).mockResolvedValue(['facilitator']);
+    (getHighestRole as any).mockReturnValue('facilitator');
+    (canEditMeeting as any).mockReturnValue(true);
+
+    // Read sees the meeting as borrador with version 0, but the guarded
+    // update below returns zero rows and a fresh re-read shows status has
+    // advanced to completada — finalize won the race.
+    const initialMeetingRead = {
+      id: MEETING_ID,
+      status: 'borrador',
+      created_by: USER_ID,
+      facilitator_id: USER_ID,
+      secretary_id: null,
+      version: 0,
+      updated_at: new Date().toISOString(),
+      updated_by: USER_ID,
+      workspace: { community_id: 'community-1' },
+    };
+
+    const freshAfterZeroRows = {
+      version: 1,
+      status: 'completada',
+      updated_at: new Date().toISOString(),
+      updated_by: USER_ID,
+    };
+
+    // Track call count so the first select returns the initial read and the
+    // second (after zero-row update) returns the post-finalize snapshot.
+    let meetingSelectCall = 0;
+    const communityMeetingsTable: any = {
+      select: vi.fn(() => {
+        meetingSelectCall += 1;
+        const row = meetingSelectCall === 1 ? initialMeetingRead : freshAfterZeroRows;
+        return {
+          eq: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({ data: row, error: null }),
+          }),
+        };
+      }),
+      update: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    };
+
+    (createServiceRoleClient as any).mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === 'community_meetings') return communityMeetingsTable;
+        if (table === 'meeting_attendees') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+            }),
+          };
+        }
+        if (table === 'profiles') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+              }),
+            }),
+          };
+        }
+        return communityMeetingsTable;
+      }),
+    });
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: MEETING_ID },
+      body: { summary_doc: {}, notes_doc: {}, version: 0 },
+    });
+
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(409);
+    expect(JSON.parse(res._getData())).toEqual({ error: 'meeting_finalized_concurrently' });
+  });
+
   it('allows autosave when status is borrador (passes draft gate)', async () => {
     const { getApiUser, createServiceRoleClient } = await import('../../../lib/api-auth');
     const { getUserRoles, getHighestRole } = await import('../../../utils/roleUtils');
@@ -119,15 +212,17 @@ describe('/api/meetings/[id]/autosave — draft gate', () => {
       update: vi.fn().mockReturnValue({
         eq: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: {
-                  id: MEETING_ID,
-                  version: 1,
-                  updated_at: new Date().toISOString(),
-                  updated_by: USER_ID,
-                },
-                error: null,
+            eq: vi.fn().mockReturnValue({
+              select: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: {
+                    id: MEETING_ID,
+                    version: 1,
+                    updated_at: new Date().toISOString(),
+                    updated_by: USER_ID,
+                  },
+                  error: null,
+                }),
               }),
             }),
           }),

@@ -58,21 +58,23 @@ function buildClient({ meetingRow, attendees = [], updateResult, commitments = [
     error: null,
   });
 
+  const meetingUpdateFn = vi.fn().mockReturnValue({
+    eq: vi.fn().mockReturnValue({
+      is: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          maybeSingle: updateMaybeSingle,
+        }),
+      }),
+    }),
+  });
+
   const makeMeetingSelect = () => ({
     select: vi.fn().mockReturnValue({
       eq: vi.fn().mockReturnValue({
         single: vi.fn().mockResolvedValue({ data: meetingRow, error: null }),
       }),
     }),
-    update: vi.fn().mockReturnValue({
-      eq: vi.fn().mockReturnValue({
-        is: vi.fn().mockReturnValue({
-          select: vi.fn().mockReturnValue({
-            maybeSingle: updateMaybeSingle,
-          }),
-        }),
-      }),
-    }),
+    update: meetingUpdateFn,
   });
 
   const simpleListSelect = (rows: any[]) => ({
@@ -86,6 +88,7 @@ function buildClient({ meetingRow, attendees = [], updateResult, commitments = [
   });
 
   return {
+    __meetingUpdateFn: meetingUpdateFn,
     from: vi.fn((table: string) => {
       if (table === 'community_meetings') return makeMeetingSelect();
       if (table === 'meeting_attendees') {
@@ -331,6 +334,33 @@ describe('/api/meetings/[id]/finalize', () => {
     const templateData = (m.sendMeetingSummary as any).mock.calls[0][0];
     expect(templateData.commitmentsHtml).toContain('&lt;script&gt;');
     expect(templateData.commitmentsHtml).not.toContain('<script>');
+  });
+
+  it('bumps version on the atomic update to invalidate in-flight autosave tokens', async () => {
+    const m = await loadMocks();
+    (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+    (m.getUserRoles as any).mockResolvedValue([]);
+    (m.getHighestRole as any).mockReturnValue('admin');
+    (m.canFinalizeMeeting as any).mockReturnValue(true);
+    (m.getCommunityRecipients as any).mockResolvedValue([]);
+    (m.sendMeetingSummary as any).mockResolvedValue({ sent: 0, failed: 0, errors: [] });
+
+    const client = buildClient({ meetingRow: { ...meetingRow, version: 4 } });
+    (m.createServiceRoleClient as any).mockReturnValue(client);
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: MEETING_ID },
+      body: { audience: 'community' },
+    });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    const updateArgs = (client as any).__meetingUpdateFn.mock.calls[0][0];
+    expect(updateArgs).toMatchObject({
+      status: 'completada',
+      version: 5,
+    });
   });
 
   it('reports partial failure without aborting when one recipient send fails', async () => {

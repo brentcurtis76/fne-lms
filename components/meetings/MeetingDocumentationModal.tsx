@@ -563,12 +563,19 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
       if (res.status === 409) {
         const body = await res.json().catch(() => ({}));
+        setSavingIndicator('error');
+        if (body?.error === 'meeting_finalized_concurrently') {
+          if (typeof window !== 'undefined') {
+            window.alert('Esta reunión fue finalizada mientras editabas. Recargando…');
+          }
+          await loadMeetingData();
+          return;
+        }
         const who = body?.updated_by_name ? ` por ${body.updated_by_name}` : '';
         const shouldReload = typeof window !== 'undefined' && window.confirm(
           `Esta reunión fue modificada${who} mientras editabas. ` +
             '¿Recargar para ver los últimos cambios? Se perderán los cambios locales no guardados.'
         );
-        setSavingIndicator('error');
         if (shouldReload) {
           await loadMeetingData();
         }

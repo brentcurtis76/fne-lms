@@ -10,6 +10,7 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getAccessibleUrl } from '../utils/notificationPermissions';
+import { getCommunityMembers } from '../utils/roleUtils';
 import { getEventConfig, hasEventConfig } from './notificationEvents';
 
 // Type definitions for notification service
@@ -144,6 +145,120 @@ async function getLicitacionRecipients(
         }
       }
     }
+  }
+
+  return recipients;
+}
+
+type CommunityRecipient = { id: string; email: string; name: string };
+
+function notFound(resource: 'meeting' | 'workspace' | 'community'): Error {
+  const err: Error & { status?: number; code?: string } = new Error(`${resource}_not_found`);
+  err.status = 404;
+  err.code = `${resource}_not_found`;
+  return err;
+}
+
+/**
+ * Resolve recipients for a community-meeting finalize/update email.
+ *
+ * - `opts.onlyAttended = false`: every active member of the meeting's community.
+ * - `opts.onlyAttended = true`: only users with meeting_attendees.attendance_status = 'attended'.
+ *
+ * Dedupes by user id and drops users with email_enabled = false.
+ */
+export async function getCommunityRecipients(
+  supabase: SupabaseClient,
+  meetingId: string,
+  opts: { onlyAttended: boolean }
+): Promise<CommunityRecipient[]> {
+  const { data: meeting, error: meetingErr } = await supabase
+    .from('community_meetings')
+    .select('id, workspace_id')
+    .eq('id', meetingId)
+    .single();
+
+  if (meetingErr || !meeting) throw notFound('meeting');
+  const workspaceId = (meeting as { workspace_id?: string }).workspace_id;
+  if (!workspaceId) throw notFound('workspace');
+
+  const { data: workspace, error: workspaceErr } = await supabase
+    .from('community_workspaces')
+    .select('id, community_id')
+    .eq('id', workspaceId)
+    .single();
+
+  if (workspaceErr || !workspace) throw notFound('workspace');
+  const communityId = (workspace as { community_id?: string }).community_id;
+  if (!communityId) throw notFound('community');
+
+  type ProfileLike = {
+    id: string;
+    email?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
+    name?: string | null;
+  };
+
+  const candidates = new Map<string, ProfileLike>();
+
+  if (opts.onlyAttended) {
+    const { data: attendedRows } = await supabase
+      .from('meeting_attendees')
+      .select('user_id')
+      .eq('meeting_id', meetingId)
+      .eq('attendance_status', 'attended');
+
+    const attendedIds = Array.from(
+      new Set(
+        (attendedRows || [])
+          .map((r: { user_id?: string | null }) => r.user_id)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+
+    if (attendedIds.length === 0) return [];
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, email, first_name, last_name, name')
+      .in('id', attendedIds);
+
+    for (const p of (profiles || []) as ProfileLike[]) {
+      if (p?.id && !candidates.has(p.id)) candidates.set(p.id, p);
+    }
+  } else {
+    const members = await getCommunityMembers(supabase, communityId);
+    for (const m of members as unknown as ProfileLike[]) {
+      if (m?.id && !candidates.has(m.id)) candidates.set(m.id, m);
+    }
+  }
+
+  if (candidates.size === 0) return [];
+
+  const userIds = Array.from(candidates.keys());
+  const { data: prefs } = await supabase
+    .from('user_notification_preferences')
+    .select('user_id, email_enabled')
+    .in('user_id', userIds);
+
+  const optedOut = new Set(
+    ((prefs || []) as Array<{ user_id: string; email_enabled: boolean | null }>)
+      .filter((p) => p.email_enabled === false)
+      .map((p) => p.user_id)
+  );
+
+  const recipients: CommunityRecipient[] = [];
+  for (const id of userIds) {
+    if (optedOut.has(id)) continue;
+    const profile = candidates.get(id)!;
+    if (!profile.email) continue;
+    const composed = [profile.first_name, profile.last_name]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    const name = composed || profile.name || profile.email;
+    recipients.push({ id, email: profile.email, name });
   }
 
   return recipients;

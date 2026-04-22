@@ -390,6 +390,229 @@ export const immediateNotificationTemplate: EmailTemplate = {
 };
 
 /**
+ * Meeting Summary Email Template
+ * Sent when a facilitator finalizes a meeting summary to the meeting audience.
+ */
+export interface MeetingSummaryData {
+  title: string;
+  meetingDates: Date[];
+  facilitatorName: string;
+  finalizerName: string;
+  audience: string;
+  attendees: string[];
+  summaryHtml: string;
+  notesHtml: string;
+  agreementsHtml: string;
+  commitmentsHtml: string;
+  facilitatorMessageHtml?: string;
+}
+
+function formatMeetingDate(date: Date): string {
+  return date.toLocaleDateString('es-CL', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function formatMeetingDateShort(date: Date): string {
+  return date.toLocaleDateString('es-CL', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+function isBlankHtml(html: string | undefined | null): boolean {
+  if (!html) return true;
+  const stripped = html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
+  return stripped.length === 0;
+}
+
+export const meetingSummaryTemplate: EmailTemplate = {
+  subject: (data: MeetingSummaryData) => `📝 Resumen: ${data.title} - Genera`,
+
+  generateHTML: (data: MeetingSummaryData) => {
+    const sortedDates = [...data.meetingDates].sort((a, b) => a.getTime() - b.getTime());
+    const firstDate = sortedDates[0];
+    const lastDate = sortedDates[sortedDates.length - 1];
+
+    const dateLine = sortedDates.length > 1 && firstDate && lastDate
+      ? `Realizada en ${sortedDates.length} sesiones entre ${formatMeetingDateShort(firstDate)} y ${formatMeetingDateShort(lastDate)}`
+      : firstDate
+        ? formatMeetingDate(firstDate)
+        : '';
+
+    const attendeesChips = data.attendees.length > 0
+      ? data.attendees.map(name => `
+          <span style="
+            display: inline-block;
+            margin: 0 6px 6px 0;
+            padding: 4px 10px;
+            background-color: ${styles.colors.lightGray};
+            color: ${styles.colors.primary};
+            border-radius: 14px;
+            font-size: ${styles.fonts.sizes.small};
+          ">${name}</span>
+        `).join('')
+      : `<span style="color: ${styles.colors.gray}; font-size: ${styles.fonts.sizes.small};">Sin asistentes registrados</span>`;
+
+    const facilitatorMessageSection = !isBlankHtml(data.facilitatorMessageHtml) ? `
+      <div style="
+        background-color: #fff8e1;
+        border-left: 4px solid ${styles.colors.secondary};
+        padding: 16px 20px;
+        border-radius: 6px;
+        margin: 0 0 30px 0;
+        color: ${styles.colors.primary};
+        font-size: ${styles.fonts.sizes.body};
+        line-height: 1.6;
+      ">
+        <p style="margin: 0 0 8px 0; font-weight: bold; font-size: ${styles.fonts.sizes.small}; text-transform: uppercase; letter-spacing: 0.06em; color: ${styles.colors.gray};">
+          Mensaje del facilitador
+        </p>
+        ${data.facilitatorMessageHtml}
+      </div>
+    ` : '';
+
+    const notesSection = !isBlankHtml(data.notesHtml) ? `
+      <div style="margin: 0 0 30px 0;">
+        <h3 style="color: ${styles.colors.primary}; font-size: ${styles.fonts.sizes.h3}; margin: 0 0 12px 0;">
+          Notas
+        </h3>
+        <div style="color: ${styles.colors.primary}; font-size: ${styles.fonts.sizes.body}; line-height: 1.6;">
+          ${data.notesHtml}
+        </div>
+      </div>
+    ` : '';
+
+    const content = `
+      <h2 style="color: ${styles.colors.primary}; font-size: ${styles.fonts.sizes.h2}; margin: 0 0 6px 0;">
+        ${data.title}
+      </h2>
+      <p style="color: ${styles.colors.gray}; font-size: ${styles.fonts.sizes.body}; margin: 0 0 4px 0;">
+        <strong>Comunidad:</strong> ${data.audience}
+      </p>
+      <p style="color: ${styles.colors.gray}; font-size: ${styles.fonts.sizes.body}; margin: 0 0 4px 0;">
+        ${dateLine}
+      </p>
+      <p style="color: ${styles.colors.gray}; font-size: ${styles.fonts.sizes.small}; margin: 0 0 24px 0;">
+        Facilitador: ${data.facilitatorName} · Finalizado por: ${data.finalizerName}
+      </p>
+
+      ${facilitatorMessageSection}
+
+      <div style="margin: 0 0 30px 0;">
+        <h3 style="color: ${styles.colors.primary}; font-size: ${styles.fonts.sizes.h3}; margin: 0 0 12px 0;">
+          Resumen
+        </h3>
+        <div style="color: ${styles.colors.primary}; font-size: ${styles.fonts.sizes.body}; line-height: 1.6;">
+          ${data.summaryHtml}
+        </div>
+      </div>
+
+      ${notesSection}
+
+      <div style="margin: 0 0 30px 0;">
+        <h3 style="color: ${styles.colors.primary}; font-size: ${styles.fonts.sizes.h3}; margin: 0 0 12px 0;">
+          Acuerdos
+        </h3>
+        <ol style="color: ${styles.colors.primary}; font-size: ${styles.fonts.sizes.body}; line-height: 1.6; padding-left: 20px; margin: 0;">
+          ${data.agreementsHtml}
+        </ol>
+      </div>
+
+      <div style="margin: 0 0 30px 0;">
+        <h3 style="color: ${styles.colors.primary}; font-size: ${styles.fonts.sizes.h3}; margin: 0 0 12px 0;">
+          Compromisos
+        </h3>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="border-collapse: collapse; font-size: ${styles.fonts.sizes.body};">
+          <thead>
+            <tr>
+              <th align="left" style="padding: 8px 10px; background-color: ${styles.colors.lightGray}; color: ${styles.colors.primary}; border-bottom: 2px solid #e5e5e5; font-size: ${styles.fonts.sizes.small};">
+                Compromiso
+              </th>
+              <th align="left" style="padding: 8px 10px; background-color: ${styles.colors.lightGray}; color: ${styles.colors.primary}; border-bottom: 2px solid #e5e5e5; font-size: ${styles.fonts.sizes.small};">
+                Responsable
+              </th>
+              <th align="left" style="padding: 8px 10px; background-color: ${styles.colors.lightGray}; color: ${styles.colors.primary}; border-bottom: 2px solid #e5e5e5; font-size: ${styles.fonts.sizes.small};">
+                Fecha límite
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.commitmentsHtml}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin: 0 0 10px 0;">
+        <h3 style="color: ${styles.colors.primary}; font-size: ${styles.fonts.sizes.h3}; margin: 0 0 12px 0;">
+          Asistentes
+        </h3>
+        <div>${attendeesChips}</div>
+      </div>
+    `;
+
+    return emailLayout(content, `Resumen: ${data.title}`);
+  },
+
+  generateText: (data: MeetingSummaryData) => {
+    const sortedDates = [...data.meetingDates].sort((a, b) => a.getTime() - b.getTime());
+    const firstDate = sortedDates[0];
+    const lastDate = sortedDates[sortedDates.length - 1];
+
+    const dateLine = sortedDates.length > 1 && firstDate && lastDate
+      ? `Realizada en ${sortedDates.length} sesiones entre ${formatMeetingDateShort(firstDate)} y ${formatMeetingDateShort(lastDate)}`
+      : firstDate
+        ? formatMeetingDate(firstDate)
+        : 'Sin fecha registrada';
+
+    const htmlToText = (html: string): string =>
+      html
+        .replace(/<\s*br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+        .replace(/<li[^>]*>/gi, '- ')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/\n\s*\n\s*\n+/g, '\n\n')
+        .trim();
+
+    const sections: string[] = [];
+    sections.push(data.title);
+    sections.push(`Comunidad: ${data.audience}`);
+    sections.push(dateLine);
+    sections.push(`Facilitador: ${data.facilitatorName} · Finalizado por: ${data.finalizerName}`);
+
+    if (!isBlankHtml(data.facilitatorMessageHtml)) {
+      sections.push(`\nMENSAJE DEL FACILITADOR\n${htmlToText(data.facilitatorMessageHtml!)}`);
+    }
+
+    sections.push(`\nRESUMEN\n${htmlToText(data.summaryHtml)}`);
+
+    if (!isBlankHtml(data.notesHtml)) {
+      sections.push(`\nNOTAS\n${htmlToText(data.notesHtml)}`);
+    }
+
+    sections.push(`\nACUERDOS\n${htmlToText(data.agreementsHtml)}`);
+    sections.push(`\nCOMPROMISOS\n${htmlToText(data.commitmentsHtml)}`);
+
+    const attendeesText = data.attendees.length > 0
+      ? data.attendees.join(', ')
+      : 'Sin asistentes registrados';
+    sections.push(`\nASISTENTES\n${attendeesText}`);
+
+    sections.push(`\n---\n© ${new Date().getFullYear()} Genera - Fundación Nueva Educación.`);
+
+    return sections.join('\n');
+  },
+};
+
+/**
  * Test Email Template (for debugging)
  */
 export const testEmailTemplate: EmailTemplate = {

@@ -3,7 +3,7 @@
  * Reusable templates for digest emails and immediate notifications
  */
 
-import { escapeHtml } from './utils/html-escape';
+import { escapeHtml, safeUrl } from './utils/html-escape';
 
 export interface EmailTemplate {
   subject: string | ((data: any) => string);
@@ -538,10 +538,11 @@ export const meetingSummaryTemplate: EmailTemplate = {
         ${renderAttendeesList(data.attendees)}`
       : '';
 
-    const ctaBlock = data.meetingUrl
+    const safeMeetingUrl = safeUrl(data.meetingUrl);
+    const ctaBlock = safeMeetingUrl
       ? `
         <div style="text-align: center; margin: 32px 0 16px 0;">
-          <a href="${data.meetingUrl}"
+          <a href="${safeMeetingUrl}"
              style="display: inline-block; padding: 12px 28px; background-color: ${styles.colors.secondary}; color: ${styles.colors.primary}; text-decoration: none; border-radius: 6px; font-weight: 700; font-family: Arial, sans-serif; font-size: 14px;">
             Ver reunión en Genera
           </a>
@@ -613,7 +614,8 @@ export const meetingSummaryTemplate: EmailTemplate = {
       }
       lines.push('');
     }
-    if (data.meetingUrl) lines.push(`Ver reunión: ${data.meetingUrl}`);
+    const safeMeetingUrlText = safeUrl(data.meetingUrl);
+    if (safeMeetingUrlText) lines.push(`Ver reunión: ${safeMeetingUrlText}`);
     return lines.join('\n');
   },
 };

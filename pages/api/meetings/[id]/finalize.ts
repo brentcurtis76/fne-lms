@@ -232,7 +232,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       agreementsHtml,
       commitmentsHtml,
       facilitatorMessageHtml: facilitator_message_doc ? docToHtml(facilitator_message_doc) : undefined,
-      meetingUrl: `${process.env.NEXT_PUBLIC_APP_URL || ''}/comunidades-crecimiento`,
+      // No workspace deep-link exists for a specific meeting id; omit CTA rather
+      // than link to a generic page that cannot open this meeting.
+      meetingUrl: '',
     };
 
     const { sent, failed, errors } = await sendMeetingSummary(templateData, recipients);

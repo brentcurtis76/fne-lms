@@ -28,6 +28,17 @@ const profileName = (p: { first_name?: string | null; last_name?: string | null;
   return joined || p.email || 'Facilitador';
 };
 
+const PLAIN_PARAGRAPH_STYLE =
+  'font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 12px 0;';
+
+const renderRichOrPlain = (doc: any, text: string | null | undefined): string => {
+  const rich = docToHtml(doc);
+  if (rich) return rich;
+  const plain = (text ?? '').trim();
+  if (!plain) return '';
+  return `<p style="${PLAIN_PARAGRAPH_STYLE}">${escapeHtml(plain)}</p>`;
+};
+
 /**
  * POST /api/meetings/[id]/finalize
  * Transitions a borrador meeting to completada, records who finalized it and
@@ -66,7 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: meeting, error: meetingError } = await serviceClient
       .from('community_meetings')
       .select(
-        'id, title, status, created_by, facilitator_id, secretary_id, meeting_date, summary_doc, notes_doc, finalized_at, version, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id, community:communities(id, name))'
+        'id, title, status, created_by, facilitator_id, secretary_id, meeting_date, summary, summary_doc, notes, notes_doc, finalized_at, version, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id, community:communities(id, name))'
       )
       .eq('id', id)
       .single();
@@ -230,8 +241,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         attended: a.attendance_status === 'attended',
         role: a.role,
       })),
-      summaryHtml: docToHtml(meeting.summary_doc),
-      notesHtml: docToHtml(meeting.notes_doc),
+      summaryHtml: renderRichOrPlain(meeting.summary_doc, (meeting as any).summary),
+      notesHtml: renderRichOrPlain(meeting.notes_doc, (meeting as any).notes),
       agreementsHtml,
       commitmentsHtml,
       facilitatorMessageHtml: facilitator_message_doc ? docToHtml(facilitator_message_doc) : undefined,

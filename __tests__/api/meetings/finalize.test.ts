@@ -363,6 +363,81 @@ describe('/api/meetings/[id]/finalize', () => {
     });
   });
 
+  it('falls back to plain summary/notes text when rich *_doc is empty', async () => {
+    const m = await loadMocks();
+    (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+    (m.getUserRoles as any).mockResolvedValue([]);
+    (m.getHighestRole as any).mockReturnValue('admin');
+    (m.canFinalizeMeeting as any).mockReturnValue(true);
+    (m.getCommunityRecipients as any).mockResolvedValue([
+      { id: 'u1', email: 'u1@example.com', name: 'U1' },
+    ]);
+    (m.sendMeetingSummary as any).mockResolvedValue({ sent: 1, failed: 0, errors: [] });
+    (m.createServiceRoleClient as any).mockReturnValue(
+      buildClient({
+        meetingRow: {
+          ...meetingRow,
+          summary: 'Plain <b>summary</b> text',
+          summary_doc: null,
+          notes: 'Plain notes',
+          notes_doc: null,
+        },
+      })
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: MEETING_ID },
+      body: { audience: 'community' },
+    });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    const templateData = (m.sendMeetingSummary as any).mock.calls[0][0];
+    expect(templateData.summaryHtml).toContain('Plain &lt;b&gt;summary&lt;/b&gt; text');
+    expect(templateData.summaryHtml).toMatch(/^<p style="[^"]+">/);
+    expect(templateData.notesHtml).toContain('Plain notes');
+    expect(templateData.notesHtml).toMatch(/^<p style="[^"]+">/);
+  });
+
+  it('rich summary/notes doc wins over stale plain text', async () => {
+    const m = await loadMocks();
+    (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+    (m.getUserRoles as any).mockResolvedValue([]);
+    (m.getHighestRole as any).mockReturnValue('admin');
+    (m.canFinalizeMeeting as any).mockReturnValue(true);
+    (m.getCommunityRecipients as any).mockResolvedValue([
+      { id: 'u1', email: 'u1@example.com', name: 'U1' },
+    ]);
+    (m.sendMeetingSummary as any).mockResolvedValue({ sent: 1, failed: 0, errors: [] });
+    (m.createServiceRoleClient as any).mockReturnValue(
+      buildClient({
+        meetingRow: {
+          ...meetingRow,
+          summary: 'STALE_PLAIN_SUMMARY',
+          summary_doc: { type: 'doc' },
+          notes: 'STALE_PLAIN_NOTES',
+          notes_doc: { type: 'doc' },
+        },
+      })
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: MEETING_ID },
+      body: { audience: 'community' },
+    });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    const templateData = (m.sendMeetingSummary as any).mock.calls[0][0];
+    // The render.ts mock returns '<p>x</p>' when a truthy doc is provided.
+    expect(templateData.summaryHtml).toBe('<p>x</p>');
+    expect(templateData.notesHtml).toBe('<p>x</p>');
+    expect(templateData.summaryHtml).not.toContain('STALE_PLAIN_SUMMARY');
+    expect(templateData.notesHtml).not.toContain('STALE_PLAIN_NOTES');
+  });
+
   it('reports partial failure without aborting when one recipient send fails', async () => {
     const m = await loadMocks();
     (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });

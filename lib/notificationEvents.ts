@@ -666,6 +666,26 @@ export const NOTIFICATION_EVENTS: Record<string, NotificationEventConfig> = {
   },
 
   // ============================================
+  // MEETING EVENTS
+  // ============================================
+
+  meeting_finalized: {
+    defaultTitle: (d) =>
+      d.title ? `Reunión finalizada: ${d.title}` : 'Reunión finalizada',
+    defaultDescription: (d) => {
+      const who = d.finalizer_name ? ` por ${d.finalizer_name}` : '';
+      const audience =
+        d.audience === 'attended'
+          ? ' Enviada a quienes asistieron.'
+          : ' Enviada a la Comunidad de Crecimiento.';
+      return `La reunión "${d.title || 'sin título'}" fue finalizada${who}.${audience}`;
+    },
+    defaultUrl: '/comunidades-crecimiento',
+    importance: 'normal',
+    category: 'workspace',
+  },
+
+  // ============================================
   // SYSTEM EVENTS
   // ============================================
 

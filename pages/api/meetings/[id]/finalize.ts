@@ -66,7 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: meeting, error: meetingError } = await serviceClient
       .from('community_meetings')
       .select(
-        'id, title, status, created_by, facilitator_id, secretary_id, meeting_date, summary_doc, notes_doc, finalized_at, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id, community:communities(id, name))'
+        'id, title, status, created_by, facilitator_id, secretary_id, meeting_date, summary_doc, notes_doc, finalized_at, version, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id, community:communities(id, name))'
       )
       .eq('id', id)
       .single();
@@ -117,6 +117,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const now = new Date().toISOString();
 
     // Atomic: guarded by WHERE finalized_at IS NULL to prevent double-finalize.
+    // Bumping `version` also invalidates any in-flight autosave token so a
+    // racing autosave cannot write over the finalized row.
     const { data: updated, error: updateError } = await serviceClient
       .from('community_meetings')
       .update({
@@ -124,6 +126,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         finalized_at: now,
         finalized_by: user.id,
         finalize_audience: audience,
+        version: (meeting.version ?? 0) + 1,
         updated_at: now,
         updated_by: user.id,
       })

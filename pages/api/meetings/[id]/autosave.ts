@@ -130,8 +130,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const notesText = plainTextFromDoc(notes_doc);
     const nextVersion = meeting.version + 1;
 
-    // Optimistic-concurrency update: if someone else bumped `version` between
-    // the fetch above and this write, the WHERE clause fails and we emit 409.
+    // Optimistic-concurrency update guarded by `version` AND `status='borrador'`.
+    // The status guard closes the autosave/finalize race: if finalize won
+    // between the read above and this write, status is no longer 'borrador'
+    // and the update affects zero rows instead of silently writing over a
+    // finalized meeting.
     const { data: updated, error: updateError } = await serviceClient
       .from('community_meetings')
       .update({
@@ -145,6 +148,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
       .eq('id', id)
       .eq('version', version)
+      .eq('status', 'borrador')
       .select('id, version, updated_at, updated_by')
       .maybeSingle();
 
@@ -156,9 +160,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!updated) {
       const { data: fresh } = await serviceClient
         .from('community_meetings')
-        .select('version, updated_at, updated_by')
+        .select('version, status, updated_at, updated_by')
         .eq('id', id)
         .single();
+
+      // We loaded the meeting as borrador but the guarded update wrote zero
+      // rows and the row is no longer a draft — finalize won the race.
+      if (fresh?.status && fresh.status !== 'borrador') {
+        return res.status(409).json({
+          error: 'meeting_finalized_concurrently',
+        });
+      }
 
       let updatedByName: string | null = null;
       if (fresh?.updated_by) {

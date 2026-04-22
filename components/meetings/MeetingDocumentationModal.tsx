@@ -50,6 +50,7 @@ import {
   updateMeeting
 } from '../../utils/meetingUtils';
 import { uploadFile } from '../../utils/storage';
+import { FinalizeMeetingDialog } from './FinalizeMeetingDialog';
 
 type MeetingAgreementInput = MeetingDocumentationInput['agreements'][number];
 type MeetingCommitmentInput = MeetingDocumentationInput['commitments'][number];
@@ -101,6 +102,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const [currentStep, setCurrentStep] = useState(MeetingFormStep.INFORMATION);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<AssignmentUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [loadingMeeting, setLoadingMeeting] = useState(false);
@@ -1858,10 +1860,32 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   )}
                 </button>
               )}
+
+              {mode === 'edit' && formData.summary_info.status === 'borrador' && meetingId && (
+                <button
+                  type="button"
+                  onClick={() => setFinalizeOpen(true)}
+                  disabled={isSubmitting || isSavingDraft}
+                  className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors duration-200"
+                >
+                  <CheckIcon className="h-4 w-4 mr-1" />
+                  Finalizar reunión
+                </button>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {mode === 'edit' && meetingId && (
+        <FinalizeMeetingDialog
+          open={finalizeOpen}
+          onOpenChange={setFinalizeOpen}
+          meetingId={meetingId!}
+          meetingTitle={formData.meeting_info.title}
+          onFinalized={() => { handleClose(); }}
+        />
+      )}
     </div>
   );
 };

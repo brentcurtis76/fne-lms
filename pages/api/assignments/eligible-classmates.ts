@@ -214,6 +214,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 6. Filter to only include classmates from the same school
     // Use supabaseAdmin to bypass RLS (safe: already filtered to course enrollments)
+    //
+    // SOURCE OF TRUTH: this `.eq('school_id', requesterSchoolId) AND is_active=true`
+    // filter defines the classmate eligibility contract — a user is eligible iff
+    // they have AT LEAST ONE active role at the requester's school. Extra active
+    // rows at other schools or with null school_id are permitted and must not
+    // disqualify them. The validators in pages/api/assignments/create-group.ts
+    // and pages/api/assignments/add-classmates.ts must stay aligned with this
+    // semantic, and do so via the shared helper
+    // lib/utils/classmateSchoolValidation.ts (`classmatesMissingSchool`). If you
+    // change the filter here, update the helper and both routes together.
     const { data: classmateRoles, error: classmateRolesError } = await supabaseAdmin
       .from('user_roles')
       .select('user_id, school_id')

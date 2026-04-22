@@ -15,6 +15,7 @@ import { getCommunityRecipients } from '../../../../lib/notificationService';
 import notificationService from '../../../../lib/notificationService';
 import { sendMeetingSummary } from '../../../../lib/emailService';
 import { docToHtml } from '../../../../lib/tiptap/render';
+import { escapeHtml } from '../../../../lib/utils/html-escape';
 
 const finalizeSchema = z.object({
   audience: z.enum(['community', 'attended']),
@@ -190,7 +191,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const agreementsHtml = (agreements || [])
       .map((a: any, idx: number) => {
         const rendered = docToHtml(a.agreement_doc);
-        const text = rendered || (a.agreement_text ? `<p style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 8px 0;">${a.agreement_text}</p>` : '');
+        const text = rendered || (a.agreement_text ? `<p style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 8px 0;">${escapeHtml(a.agreement_text)}</p>` : '');
         return `<li style="margin: 0 0 8px 0;">${text}</li>`;
       })
       .join('');
@@ -198,7 +199,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const commitmentsHtml = (commitments || [])
       .map((c: any) => {
         const rendered = docToHtml(c.commitment_doc);
-        const body = rendered || `<p style="font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #333333; margin: 0;">${c.commitment_text || ''}</p>`;
+        const body = rendered || `<p style="font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #333333; margin: 0;">${escapeHtml(c.commitment_text || '')}</p>`;
         const assigneeName = c.assigned_to_profile
           ? `${c.assigned_to_profile.first_name ?? ''} ${c.assigned_to_profile.last_name ?? ''}`.trim() || c.assigned_to_profile.email || '—'
           : '—';
@@ -206,7 +207,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return `
           <tr>
             <td style="padding: 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top;">${body}</td>
-            <td style="padding: 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top; font-family: Arial, sans-serif; font-size: 13px; color: #333333;">${assigneeName}</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top; font-family: Arial, sans-serif; font-size: 13px; color: #333333;">${escapeHtml(assigneeName)}</td>
             <td style="padding: 8px; border-bottom: 1px solid #e5e5e5; vertical-align: top; font-family: Arial, sans-serif; font-size: 13px; color: #333333;">${dueDate}</td>
           </tr>`;
       })

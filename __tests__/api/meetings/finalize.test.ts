@@ -49,9 +49,10 @@ type BuildClientOpts = {
   meetingRow: any;
   attendees?: any[];
   updateResult?: any; // row returned by the atomic update (null => already finalized)
+  commitments?: any[];
 };
 
-function buildClient({ meetingRow, attendees = [], updateResult }: BuildClientOpts) {
+function buildClient({ meetingRow, attendees = [], updateResult, commitments = [] }: BuildClientOpts) {
   const updateMaybeSingle = vi.fn().mockResolvedValue({
     data: updateResult === undefined ? { id: MEETING_ID, finalized_at: new Date().toISOString() } : updateResult,
     error: null,
@@ -118,7 +119,7 @@ function buildClient({ meetingRow, attendees = [], updateResult }: BuildClientOp
       if (table === 'meeting_commitments') {
         return {
           select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+            eq: vi.fn().mockResolvedValue({ data: commitments, error: null }),
           }),
         };
       }
@@ -292,6 +293,44 @@ describe('/api/meetings/[id]/finalize', () => {
       MEETING_ID,
       { onlyAttended: true }
     );
+  });
+
+  it('escapes user-controlled commitment_text in fallback commitmentsHtml (XSS regression)', async () => {
+    const m = await loadMocks();
+    (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+    (m.getUserRoles as any).mockResolvedValue([]);
+    (m.getHighestRole as any).mockReturnValue('admin');
+    (m.canFinalizeMeeting as any).mockReturnValue(true);
+    (m.getCommunityRecipients as any).mockResolvedValue([
+      { id: 'u1', email: 'u1@example.com', name: 'U1' },
+    ]);
+    (m.sendMeetingSummary as any).mockResolvedValue({ sent: 1, failed: 0, errors: [] });
+    (m.createServiceRoleClient as any).mockReturnValue(
+      buildClient({
+        meetingRow,
+        commitments: [
+          {
+            commitment_text: '<script>alert(1)</script>',
+            commitment_doc: null,
+            due_date: null,
+            assigned_to_profile: null,
+          },
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: MEETING_ID },
+      body: { audience: 'community' },
+    });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(m.sendMeetingSummary).toHaveBeenCalledTimes(1);
+    const templateData = (m.sendMeetingSummary as any).mock.calls[0][0];
+    expect(templateData.commitmentsHtml).toContain('&lt;script&gt;');
+    expect(templateData.commitmentsHtml).not.toContain('<script>');
   });
 
   it('reports partial failure without aborting when one recipient send fails', async () => {

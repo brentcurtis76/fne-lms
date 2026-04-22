@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import DOMPurify from 'isomorphic-dompurify';
 import { docToHtml, docToPlainText, isEmptyDoc } from '../render';
+import { MEETING_ALLOWED_TAGS, MEETING_ALLOWED_ATTR } from '../sanitize';
 
 const richDoc = {
   type: 'doc',
@@ -91,9 +93,72 @@ describe('docToHtml', () => {
     expect(html).toMatch(/<em[^>]*>acuerdos<\/em>/);
   });
 
+  it('applies padding-left to <ol> lists', () => {
+    const orderedDoc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'orderedList',
+          content: [
+            {
+              type: 'listItem',
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'one' }] }],
+            },
+          ],
+        },
+      ],
+    };
+    const html = docToHtml(orderedDoc);
+    expect(html).toMatch(/<ol[^>]*style="[^"]*padding-left: 24px/);
+  });
+
+  it('applies text-decoration: underline to <u>', () => {
+    const underlineDoc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', marks: [{ type: 'underline' }], text: 'subrayado' }],
+        },
+      ],
+    };
+    const html = docToHtml(underlineDoc);
+    expect(html).toMatch(/<u[^>]*style="[^"]*text-decoration: underline/);
+    expect(html).toContain('subrayado');
+  });
+
+  it('strips attributes set on input nodes (no id, no data-*)', () => {
+    const docWithAttrs = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          attrs: { id: 'evil', 'data-track': 'x' },
+          content: [{ type: 'text', text: 'contenido' }],
+        },
+      ],
+    };
+    const html = docToHtml(docWithAttrs);
+    expect(html).not.toMatch(/\sid=/);
+    expect(html).not.toMatch(/\sdata-/);
+    expect(html).toContain('contenido');
+  });
+
   it('matches expected snapshot shape', () => {
     const html = docToHtml(richDoc);
     expect(html).toMatchSnapshot();
+  });
+});
+
+describe('MEETING_ALLOWED_TAGS sanitization', () => {
+  it('strips tags not in the allowlist but keeps allowed siblings', () => {
+    const dirty = '<iframe src="evil"></iframe><p>ok</p>';
+    const clean = DOMPurify.sanitize(dirty, {
+      ALLOWED_TAGS: MEETING_ALLOWED_TAGS,
+      ALLOWED_ATTR: MEETING_ALLOWED_ATTR,
+    });
+    expect(clean).not.toMatch(/<iframe/i);
+    expect(clean).toContain('<p>ok</p>');
   });
 });
 

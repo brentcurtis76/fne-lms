@@ -3,6 +3,8 @@
  * Reusable templates for digest emails and immediate notifications
  */
 
+import { escapeHtml } from './utils/html-escape';
+
 export interface EmailTemplate {
   subject: string | ((data: any) => string);
   generateHTML: (data: any) => string;
@@ -466,9 +468,9 @@ const renderAttendeesList = (attendees: MeetingSummaryEmailData['attendees']): s
     .map(
       (a) => `
         <li style="margin: 0 0 4px 0; font-family: Arial, sans-serif; font-size: 13px; color: #333333;">
-          <strong>${a.name}</strong>
+          <strong>${escapeHtml(a.name)}</strong>
           ${a.attended ? `<span style="color: ${styles.colors.success}; font-size: 12px;"> · asistió</span>` : ''}
-          ${a.role && a.role !== 'participant' ? `<span style="color: ${styles.colors.gray}; font-size: 12px;"> · ${a.role}</span>` : ''}
+          ${a.role && a.role !== 'participant' ? `<span style="color: ${styles.colors.gray}; font-size: 12px;"> · ${escapeHtml(a.role)}</span>` : ''}
         </li>`
     )
     .join('');
@@ -476,7 +478,7 @@ const renderAttendeesList = (attendees: MeetingSummaryEmailData['attendees']): s
 };
 
 export const meetingSummaryTemplate: EmailTemplate = {
-  subject: (data: MeetingSummaryEmailData) => `Resumen de reunión: ${data.title} - Genera`,
+  subject: (data: MeetingSummaryEmailData) => `Resumen de reunión: ${escapeHtml(data.title)} - Genera`,
 
   generateHTML: (data: MeetingSummaryEmailData) => {
     const dateLine = renderDateLine(data.meetingDates);
@@ -548,12 +550,12 @@ export const meetingSummaryTemplate: EmailTemplate = {
 
     const content = `
       <h2 style="font-family: Arial, sans-serif; font-size: 22px; font-weight: 700; color: ${styles.colors.primary}; margin: 0 0 8px 0; line-height: 1.3;">
-        ${data.title}
+        ${escapeHtml(data.title)}
       </h2>
-      ${data.communityName ? `<p style="margin: 0 0 4px 0; font-family: Arial, sans-serif; font-size: 14px; color: ${styles.colors.gray};">${data.communityName}</p>` : ''}
+      ${data.communityName ? `<p style="margin: 0 0 4px 0; font-family: Arial, sans-serif; font-size: 14px; color: ${styles.colors.gray};">${escapeHtml(data.communityName)}</p>` : ''}
       ${dateLine ? `<p style="margin: 0 0 20px 0; font-family: Arial, sans-serif; font-size: 13px; color: ${styles.colors.gray};">${dateLine}</p>` : ''}
       <p style="margin: 0 0 24px 0; font-family: Arial, sans-serif; font-size: 13px; color: ${styles.colors.gray};">
-        Facilitada por <strong>${data.facilitatorName}</strong> · Finalizada por <strong>${data.finalizerName}</strong> · Enviada a ${audienceLabel}.
+        Facilitada por <strong>${escapeHtml(data.facilitatorName)}</strong> · Finalizada por <strong>${escapeHtml(data.finalizerName)}</strong> · Enviada a ${audienceLabel}.
       </p>
 
       ${facilitatorMsg}
@@ -565,7 +567,7 @@ export const meetingSummaryTemplate: EmailTemplate = {
       ${ctaBlock}
     `;
 
-    return emailLayout(content, `Resumen de la reunión ${data.title}`);
+    return emailLayout(content, `Resumen de la reunión ${escapeHtml(data.title)}`);
   },
 
   generateText: (data: MeetingSummaryEmailData) => {

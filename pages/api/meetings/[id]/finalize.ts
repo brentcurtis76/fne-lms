@@ -5,6 +5,7 @@ import {
   createServiceRoleClient,
   sendAuthError,
   sendApiResponse,
+  sendMeetingError,
   logApiRequest,
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
@@ -122,7 +123,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (meeting.status !== 'borrador') {
-      return res.status(409).json({ error: 'meeting_not_draft' });
+      return sendMeetingError(
+        res,
+        409,
+        'meeting_not_draft',
+        'La reunión ya no está en borrador'
+      );
     }
 
     const now = new Date().toISOString();
@@ -152,7 +158,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     if (!updated) {
       // Another caller won the race.
-      return res.status(409).json({ error: 'meeting_already_finalized' });
+      return sendMeetingError(
+        res,
+        409,
+        'meeting_already_finalized',
+        'La reunión ya fue finalizada por otro usuario'
+      );
     }
 
     // Close any open work sessions for this meeting.

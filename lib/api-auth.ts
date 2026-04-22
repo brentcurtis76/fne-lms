@@ -162,6 +162,18 @@ export function sendAuthError(
   res.status(status).json(errorResponse);
 }
 
+// Structured error response for meeting routes. Preserves the machine-readable
+// `code` (e.g. `meeting_not_draft`) alongside a human-readable `error` message
+// so clients can branch on the code while still surfacing a friendly message.
+export function sendMeetingError(
+  res: NextApiResponse<ApiError>,
+  status: number,
+  code: string,
+  message: string
+): void {
+  res.status(status).json({ error: message, code });
+}
+
 // Standard success response
 export function sendApiResponse<T>(
   res: NextApiResponse<ApiSuccess<T>>, 

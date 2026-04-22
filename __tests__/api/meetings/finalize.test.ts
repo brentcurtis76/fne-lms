@@ -12,6 +12,9 @@ vi.mock('../../../lib/api-auth', () => ({
   sendApiResponse: vi.fn((res, data, status = 200) => {
     res.status(status).json({ data });
   }),
+  sendMeetingError: vi.fn((res, status, code, message) => {
+    res.status(status).json({ error: message, code });
+  }),
   logApiRequest: vi.fn(),
   handleMethodNotAllowed: vi.fn((res) => {
     res.status(405).json({ error: 'Method not allowed' });
@@ -209,7 +212,7 @@ describe('/api/meetings/[id]/finalize', () => {
     expect(res._getStatusCode()).toBe(403);
   });
 
-  it('returns 409 when meeting is not in borrador', async () => {
+  it('returns 409 with unified { error, code } shape when meeting is not in borrador', async () => {
     const m = await loadMocks();
     (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
     (m.getUserRoles as any).mockResolvedValue([]);
@@ -227,7 +230,40 @@ describe('/api/meetings/[id]/finalize', () => {
     await handler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(409);
-    expect(JSON.parse(res._getData())).toEqual({ error: 'meeting_not_draft' });
+    const body = JSON.parse(res._getData());
+    expect(body).toEqual({
+      error: 'La reunión ya no está en borrador',
+      code: 'meeting_not_draft',
+    });
+    expect(typeof body.error).toBe('string');
+    expect(body.code).toBe('meeting_not_draft');
+  });
+
+  it('returns 409 with unified { error, code } shape when finalize loses the race', async () => {
+    const m = await loadMocks();
+    (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+    (m.getUserRoles as any).mockResolvedValue([]);
+    (m.getHighestRole as any).mockReturnValue('admin');
+    (m.canFinalizeMeeting as any).mockReturnValue(true);
+    // updateResult = null → atomic UPDATE matched zero rows (another caller won)
+    (m.createServiceRoleClient as any).mockReturnValue(
+      buildClient({ meetingRow, updateResult: null })
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: MEETING_ID },
+      body: { audience: 'community' },
+    });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(409);
+    const body = JSON.parse(res._getData());
+    expect(body).toEqual({
+      error: 'La reunión ya fue finalizada por otro usuario',
+      code: 'meeting_already_finalized',
+    });
+    expect(body.code).toBe('meeting_already_finalized');
   });
 
   it('happy path — community audience returns sent count', async () => {

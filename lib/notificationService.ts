@@ -149,6 +149,92 @@ async function getLicitacionRecipients(
   return recipients;
 }
 
+/**
+ * Resolve recipients for a community-meeting finalize/update email.
+ *
+ * - `opts.onlyAttended = false` (default): every active member of the meeting's
+ *   growth community (all role types).
+ * - `opts.onlyAttended = true`: only users with `meeting_attendees.attendance_status = 'attended'`.
+ *
+ * Dedupes by user id. Filters users whose notification preferences have
+ * `email_enabled = false`.
+ */
+export async function getCommunityRecipients(
+  supabase: SupabaseClient,
+  meetingId: string,
+  opts: { onlyAttended: boolean }
+): Promise<Array<{ id: string; email: string; name: string }>> {
+  const { data: meeting, error: meetingErr } = await supabase
+    .from('community_meetings')
+    .select(
+      'id, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id)'
+    )
+    .eq('id', meetingId)
+    .single();
+
+  if (meetingErr || !meeting) {
+    throw new Error('meeting_not_found');
+  }
+
+  const workspace = Array.isArray((meeting as any).workspace)
+    ? (meeting as any).workspace[0]
+    : (meeting as any).workspace;
+  const communityId = workspace?.community_id as string | undefined;
+
+  const userIdSet = new Set<string>();
+
+  if (opts.onlyAttended) {
+    const { data: attendedRows } = await supabase
+      .from('meeting_attendees')
+      .select('user_id')
+      .eq('meeting_id', meetingId)
+      .eq('attendance_status', 'attended');
+    for (const row of attendedRows || []) {
+      if (row.user_id) userIdSet.add(row.user_id as string);
+    }
+  } else {
+    if (!communityId) return [];
+    const { data: roleRows } = await supabase
+      .from('user_roles')
+      .select('user_id')
+      .eq('community_id', communityId)
+      .eq('is_active', true);
+    for (const row of roleRows || []) {
+      if (row.user_id) userIdSet.add(row.user_id as string);
+    }
+  }
+
+  if (userIdSet.size === 0) return [];
+
+  const userIds = Array.from(userIdSet);
+
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, email, first_name, last_name, name')
+    .in('id', userIds);
+
+  // Respect email-enabled preference; when no row exists, default is to send.
+  const { data: prefs } = await supabase
+    .from('user_notification_preferences')
+    .select('user_id, email_enabled')
+    .in('user_id', userIds);
+
+  const optedOut = new Set(
+    (prefs || [])
+      .filter((p: any) => p.email_enabled === false)
+      .map((p: any) => p.user_id as string)
+  );
+
+  const recipients: Array<{ id: string; email: string; name: string }> = [];
+  for (const p of profiles || []) {
+    if (!p.email || optedOut.has(p.id)) continue;
+    const composed = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
+    const name = composed || (p as any).name || p.email;
+    recipients.push({ id: p.id as string, email: p.email as string, name });
+  }
+  return recipients;
+}
+
 class NotificationService {
   
   /**

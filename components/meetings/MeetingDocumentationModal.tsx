@@ -788,7 +788,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       const doc = c.commitment_doc ?? emptyDoc();
       return {
         id: c.id,
-        commitment_text: plainTextFromDoc(doc) || c.commitment_text || '',
+        commitment_text: plainTextFromDoc(doc),
         commitment_doc: doc,
         assigned_to: c.assigned_to,
         due_date: c.due_date,
@@ -799,7 +799,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       return {
         id: t.id,
         task_title: t.task_title,
-        task_description: plainTextFromDoc(doc) || t.task_description || '',
+        task_description: plainTextFromDoc(doc),
         task_description_doc: doc,
         assigned_to: t.assigned_to,
         due_date: t.due_date,
@@ -1664,7 +1664,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                           <div className="space-y-3">
                             <TipTapEditor
                               initialContent={commitment.commitment_doc ?? emptyDoc()}
-                              onChange={(json) => updateCommitment(index, 'commitment_doc', json as any)}
+                              onChange={(json) => {
+                                updateCommitment(index, 'commitment_doc', json as any);
+                                updateCommitment(index, 'commitment_text', plainTextFromDoc(json));
+                              }}
                               minHeight={80}
                               placeholder="Describe el compromiso…"
                             />
@@ -1743,7 +1746,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                             
                             <TipTapEditor
                               initialContent={task.task_description_doc ?? emptyDoc()}
-                              onChange={(json) => updateTask(index, 'task_description_doc', json)}
+                              onChange={(json) => {
+                                updateTask(index, 'task_description_doc', json);
+                                updateTask(index, 'task_description', plainTextFromDoc(json));
+                              }}
                               minHeight={80}
                               placeholder="Describe la tarea…"
                             />

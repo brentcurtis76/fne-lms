@@ -3,6 +3,7 @@ import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 import type { UserRoleType } from '@/types/roles';
+import { classmatesMissingSchool } from '@/lib/utils/classmateSchoolValidation';
 
 /**
  * POST /api/assignments/create-group
@@ -138,9 +139,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 .in('user_id', classmateIds)
                 .eq('is_active', true);
 
-            const invalidSchool = classmateRoles?.filter(r => r.school_id !== requesterSchoolId);
-            if (invalidSchool && invalidSchool.length > 0) {
-                console.error('[create-group] Invalid school for classmates:', invalidSchool);
+            const missingAtSchool = classmatesMissingSchool(
+                classmateIds,
+                classmateRoles ?? [],
+                requesterSchoolId,
+            );
+            if (missingAtSchool.length > 0) {
+                console.error('[create-group] Classmates missing active role at requester school:', missingAtSchool);
                 return res.status(400).json({ error: 'Algunos compañeros no pertenecen a tu escuela' });
             }
 

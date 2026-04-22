@@ -3,6 +3,7 @@ import { createPagesServerClient } from '@supabase/auth-helpers-nextjs';
 import { createClient } from '@supabase/supabase-js';
 import { TEACHING_ELIGIBLE_ROLES } from '@/utils/roleUtils';
 import type { UserRoleType } from '@/types/roles';
+import { classmatesMissingSchool } from '@/lib/utils/classmateSchoolValidation';
 
 /**
  * POST /api/assignments/add-classmates
@@ -238,28 +239,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: 'Error al validar compañeros' });
     }
 
-    // Ensure all classmates are from the same school
-    const invalidClassmates = classmateRoles?.filter(
-      role => role.school_id !== requesterSchoolId
-    ) || [];
+    // Ensure every classmate has at least one active role at the requester's school
+    const missingAtSchool = classmatesMissingSchool(
+      classmateIds,
+      classmateRoles ?? [],
+      requesterSchoolId,
+    );
 
-    if (invalidClassmates.length > 0) {
-      return res.status(400).json({
-        error: 'Algunos compañeros no pertenecen a tu escuela'
-      });
-    }
-
-    if (classmateRoles?.length !== classmateIds.length) {
-      const foundIds = new Set(classmateRoles?.map(r => r.user_id) || []);
-      const missingIds = classmateIds.filter(id => !foundIds.has(id));
-      console.error('[add-classmates] VALIDATION FAILED - Roles Check');
+    if (missingAtSchool.length > 0) {
+      console.error('[add-classmates] VALIDATION FAILED - School Check');
       console.error('[add-classmates] Requested classmates:', classmateIds);
-      console.error('[add-classmates] Found with active roles:', Array.from(foundIds));
-      console.error('[add-classmates] Missing active roles:', missingIds);
       console.error('[add-classmates] Classmate roles found:', JSON.stringify(classmateRoles));
+      console.error('[add-classmates] Missing active role at requester school:', missingAtSchool);
       return res.status(400).json({
-        error: 'Algunos compañeros no tienen roles activos en el sistema o no pertenecen a tu escuela',
-        details: { missingIds, foundCount: classmateRoles?.length, requestedCount: classmateIds.length }
+        error: 'Algunos compañeros no pertenecen a tu escuela',
+        details: { missingIds: missingAtSchool, requesterSchoolId },
       });
     }
 

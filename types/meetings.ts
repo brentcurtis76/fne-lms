@@ -9,6 +9,7 @@ export type TaskStatus = 'pendiente' | 'en_progreso' | 'completado' | 'vencido' 
 export type TaskPriority = 'baja' | 'media' | 'alta' | 'critica';
 export type AttendanceStatus = 'invited' | 'confirmed' | 'attended' | 'absent' | 'late';
 export type AttendeeRole = 'facilitator' | 'secretary' | 'participant' | 'observer' | 'co_editor';
+export type FinalizeAudience = 'community' | 'attended';
 
 // Core meeting interface
 export interface CommunityMeeting {
@@ -37,6 +38,9 @@ export interface CommunityMeeting {
   started_at?: string;
   version: number;
   updated_by?: string;
+  finalized_at?: string | null;
+  finalized_by?: string | null;
+  finalize_audience?: FinalizeAudience | null;
   
   // Related data (populated via joins)
   workspace?: {

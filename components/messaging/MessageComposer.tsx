@@ -28,9 +28,9 @@ import {
 import {
   validateMessage,
   extractMentionsFromContent,
-  formatFileSize,
   isValidAttachment,
 } from '../../utils/messagingUtils';
+import { formatFileSize } from '../../lib/utils/file-format';
 import MentionPicker from './MentionPicker';
 
 interface MessageComposerProps {

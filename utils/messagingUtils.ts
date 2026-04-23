@@ -25,8 +25,6 @@ export function getThreadCategoryConfig(category: ThreadCategory) {
   return THREAD_CATEGORIES.find(cat => cat.type === category) || THREAD_CATEGORIES[0];
 }
 
-export { formatFileSize } from '../lib/utils/file-format';
-
 export function getReactionEmoji(reactionType: string): string {
   const reactions: Record<string, string> = {
     thumbs_up: '👍',

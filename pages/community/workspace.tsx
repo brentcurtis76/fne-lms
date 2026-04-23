@@ -63,8 +63,8 @@ import {
   incrementDocumentCounter,
   getFolderBreadcrumb,
   extractUniqueTags,
-  formatFileSize
 } from '../../utils/documentUtils';
+import { formatFileSize } from '../../lib/utils/file-format';
 import {
   CommunityMeeting,
   MeetingFilters as MeetingFiltersType,

@@ -37,11 +37,11 @@ import {
 import {
   getFileTypeIcon,
   getFileTypeColor,
-  formatFileSize,
   formatRelativeTime,
   canUserEditDocument,
   canUserDeleteDocument,
 } from '../../utils/documentUtils';
+import { formatFileSize } from '../../lib/utils/file-format';
 
 interface DocumentGridProps {
   documents: DocumentWithDetails[];

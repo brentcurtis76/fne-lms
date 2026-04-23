@@ -537,7 +537,6 @@ export function canUserDeleteDocument(
 // UTILITY FUNCTIONS
 // =============================================================================
 
-export { formatFileSize };
 
 /**
  * Format relative time

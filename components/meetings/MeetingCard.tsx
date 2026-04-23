@@ -30,6 +30,7 @@ import {
 } from '../../types/meetings';
 import { formatMeetingDate, isOverdue } from '../../utils/meetingUtils';
 import { profileName } from '../../lib/utils/profile-name';
+import { formatFileSize, getFileIcon } from '../../lib/utils/file-format';
 import TaskTracker from './TaskTracker';
 
 interface MeetingCardProps {
@@ -224,23 +225,6 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
         ))}
       </div>
     );
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const getFileIcon = (mimeType: string): string => {
-    if (mimeType.startsWith('image/')) return '🖼️';
-    if (mimeType.includes('pdf')) return '📄';
-    if (mimeType.includes('word')) return '📝';
-    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
-    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '📽️';
-    return '📎';
   };
 
   const handleDownload = async (attachment: any) => {

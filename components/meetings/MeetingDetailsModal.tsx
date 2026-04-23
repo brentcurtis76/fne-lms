@@ -33,6 +33,7 @@ import { isEmptyDoc } from '../../lib/tiptap/helpers';
 import { audienceProseLabel } from '../../lib/meetings/audience-labels';
 import { CLOSE_BEFORE_DELETE_MS } from '../../lib/meetings/constants';
 import { profileName } from '../../lib/utils/profile-name';
+import { formatFileSize, getFileIcon } from '../../lib/utils/file-format';
 
 interface MeetingDetailsModalProps {
   isOpen: boolean;
@@ -125,23 +126,6 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const getFileIcon = (mimeType: string): string => {
-    if (mimeType.startsWith('image/')) return '🖼️';
-    if (mimeType.includes('pdf')) return '📄';
-    if (mimeType.includes('word')) return '📝';
-    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
-    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '📽️';
-    return '📎';
   };
 
   const handleDownload = async (attachment: any) => {

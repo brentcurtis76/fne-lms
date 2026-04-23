@@ -4,6 +4,7 @@
 // Utility functions for document management following established patterns
 
 import { supabase } from '../lib/supabase-wrapper';
+import { formatFileSize } from '../lib/utils/file-format';
 import { getUserWorkspaceAccess } from './workspaceUtils';
 
 // Storage bucket configuration
@@ -536,18 +537,7 @@ export function canUserDeleteDocument(
 // UTILITY FUNCTIONS
 // =============================================================================
 
-/**
- * Format file size in human readable format
- */
-export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
+export { formatFileSize };
 
 /**
  * Format relative time

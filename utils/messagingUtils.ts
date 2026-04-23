@@ -25,13 +25,7 @@ export function getThreadCategoryConfig(category: ThreadCategory) {
   return THREAD_CATEGORIES.find(cat => cat.type === category) || THREAD_CATEGORIES[0];
 }
 
-export function formatFileSize(bytes: number): string {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
+export { formatFileSize } from '../lib/utils/file-format';
 
 export function getReactionEmoji(reactionType: string): string {
   const reactions: Record<string, string> = {

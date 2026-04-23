@@ -70,7 +70,7 @@ async function handlePost(req: NextApiRequest, res: NextApiResponse, sessionId: 
     // Fetch session
     const { data: session, error: sessionError } = await serviceClient
       .from('consultor_sessions')
-      .select('id, status, title, session_date, objectives, schools(name), growth_communities(name)')
+      .select('id, status, title, session_date, objectives, schools!consultor_sessions_school_id_fkey(name), growth_communities(name)')
       .eq('id', sessionId)
       .eq('is_active', true)
       .single();

@@ -343,7 +343,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse) {
     // Build query
     let query = serviceClient
       .from('consultor_sessions')
-      .select('*, session_facilitators(*, profiles(first_name, last_name, email)), schools(name), growth_communities(name)', {
+      .select('*, session_facilitators(*, profiles(first_name, last_name, email)), schools!consultor_sessions_school_id_fkey(name), growth_communities(name)', {
         count: 'exact',
       })
       .eq('is_active', true);

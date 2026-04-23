@@ -51,6 +51,13 @@ import { FinalizeMeetingDialog } from './FinalizeMeetingDialog';
 import { WorkSessionBanner } from './WorkSessionBanner';
 import { AttachmentRow } from './AttachmentRow';
 import { MeetingModalFooter } from './MeetingModalFooter';
+import {
+  deriveMeetingDocs,
+  applyMeetingDiffs,
+  removeDeletedAttachments,
+  uploadSelectedAttachments,
+  collectAssignedUserIds,
+} from './persistMeeting';
 import { MEETING_STATUS } from '../../lib/utils/meeting-policy';
 import { profileName } from '../../lib/utils/profile-name';
 import {
@@ -700,52 +707,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     }
 
     const effectiveStatus: MeetingStatus = status ?? formData.summary_info.status;
-    const isDraft = effectiveStatus === 'borrador';
+    const isDraft = effectiveStatus === MEETING_STATUS.BORRADOR;
 
-    // Derive plaintext from the latest TipTap JSON before persisting.
-    const summaryDoc = formData.summary_info.summary_doc ?? emptyDoc();
-    const notesDoc = formData.summary_info.notes_doc ?? emptyDoc();
-    const summaryText = plainTextFromDoc(summaryDoc);
-    const notesText = plainTextFromDoc(notesDoc);
-
-    const agreementsForPersist = formData.agreements.map((a) => {
-      const doc = a.agreement_doc ?? emptyDoc();
-      return {
-        id: a.id,
-        agreement_text: plainTextFromDoc(doc) || a.agreement_text || '',
-        agreement_doc: doc,
-        category: a.category,
-      };
-    });
-    const commitmentsForPersist = formData.commitments.map((c) => {
-      const doc = c.commitment_doc ?? emptyDoc();
-      return {
-        id: c.id,
-        commitment_text: plainTextFromDoc(doc),
-        commitment_doc: doc,
-        assigned_to: c.assigned_to,
-        due_date: c.due_date,
-      };
-    });
-    const tasksForPersist = formData.tasks.map((t) => {
-      const doc = t.task_description_doc ?? emptyDoc();
-      return {
-        id: t.id,
-        task_title: t.task_title,
-        task_description: plainTextFromDoc(doc),
-        task_description_doc: doc,
-        assigned_to: t.assigned_to,
-        due_date: t.due_date,
-        priority: t.priority,
-        category: t.category,
-        estimated_hours: t.estimated_hours,
-      };
-    });
+    const docs = deriveMeetingDocs(formData);
 
     let result: { success: boolean; meetingId?: string; error?: string };
 
-    // Existing row → update path. Either we opened in edit mode or the user
-    // clicked "Guardar borrador" earlier and we already have a meetingId.
     const targetMeetingId = currentMeetingId;
     if (targetMeetingId) {
       const meetingId = targetMeetingId;
@@ -754,130 +721,20 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         meeting_date: formData.meeting_info.meeting_date,
         duration_minutes: formData.meeting_info.duration_minutes,
         location: formData.meeting_info.location,
-        summary: summaryText,
-        summary_doc: summaryDoc,
-        notes: notesText,
-        notes_doc: notesDoc,
+        summary: docs.summaryText,
+        summary_doc: docs.summaryDoc,
+        notes: docs.notesText,
+        notes_doc: docs.notesDoc,
         status: effectiveStatus,
       });
 
       if (updateResult.success) {
-        // Upsert agreements/commitments/tasks.
-        // - Rows with an existing id are UPDATEd in place so completion state is preserved.
-        // - Rows without an id are INSERTed.
-        // - Rows whose ids were loaded initially but removed from state are DELETEd explicitly.
-        const currentAgreementIds = new Set(agreementsForPersist.map(a => a.id).filter((id): id is string => !!id));
-        const currentCommitmentIds = new Set(commitmentsForPersist.map(c => c.id).filter((id): id is string => !!id));
-        const currentTaskIds = new Set(tasksForPersist.map(t => t.id).filter((id): id is string => !!id));
-
-        const agreementIdsToDelete = Array.from(originalAgreementIdsRef.current).filter(id => !currentAgreementIds.has(id));
-        const commitmentIdsToDelete = Array.from(originalCommitmentIdsRef.current).filter(id => !currentCommitmentIds.has(id));
-        const taskIdsToDelete = Array.from(originalTaskIdsRef.current).filter(id => !currentTaskIds.has(id));
-
-        if (agreementIdsToDelete.length > 0) {
-          await supabase.from('meeting_agreements').delete().in('id', agreementIdsToDelete);
-        }
-        if (commitmentIdsToDelete.length > 0) {
-          await supabase.from('meeting_commitments').delete().in('id', commitmentIdsToDelete);
-        }
-        if (taskIdsToDelete.length > 0) {
-          await supabase.from('meeting_tasks').delete().in('id', taskIdsToDelete);
-        }
-
-        const agreementsToInsert = agreementsForPersist
-          .map((a, index) => ({ ...a, order_index: index }))
-          .filter(a => !a.id);
-        const agreementsToUpdate = agreementsForPersist
-          .map((a, index) => ({ ...a, order_index: index }))
-          .filter(a => !!a.id);
-
-        if (agreementsToInsert.length > 0) {
-          await supabase.from('meeting_agreements').insert(
-            agreementsToInsert.map(a => ({
-              meeting_id: meetingId,
-              agreement_text: a.agreement_text,
-              agreement_doc: a.agreement_doc,
-              category: a.category,
-              order_index: a.order_index,
-            }))
-          );
-        }
-        for (const a of agreementsToUpdate) {
-          await supabase.from('meeting_agreements').update({
-            agreement_text: a.agreement_text,
-            agreement_doc: a.agreement_doc,
-            category: a.category,
-            order_index: a.order_index,
-          }).eq('id', a.id!);
-        }
-
-        const commitmentsToInsert = commitmentsForPersist.filter(c => !c.id);
-        const commitmentsToUpdate = commitmentsForPersist.filter(c => !!c.id);
-
-        if (commitmentsToInsert.length > 0) {
-          await supabase.from('meeting_commitments').insert(
-            commitmentsToInsert.map(c => ({
-              meeting_id: meetingId,
-              commitment_text: c.commitment_text,
-              commitment_doc: c.commitment_doc,
-              assigned_to: c.assigned_to,
-              due_date: c.due_date,
-            }))
-          );
-        }
-        for (const c of commitmentsToUpdate) {
-          await supabase.from('meeting_commitments').update({
-            commitment_text: c.commitment_text,
-            commitment_doc: c.commitment_doc,
-            assigned_to: c.assigned_to,
-            due_date: c.due_date,
-          }).eq('id', c.id!);
-        }
-
-        const tasksToInsert = tasksForPersist.filter(t => !t.id);
-        const tasksToUpdate = tasksForPersist.filter(t => !!t.id);
-
-        if (tasksToInsert.length > 0) {
-          await supabase.from('meeting_tasks').insert(
-            tasksToInsert.map(t => ({
-              meeting_id: meetingId,
-              task_title: t.task_title,
-              task_description: t.task_description,
-              task_description_doc: t.task_description_doc,
-              assigned_to: t.assigned_to,
-              due_date: t.due_date,
-              priority: t.priority,
-              category: t.category,
-              estimated_hours: t.estimated_hours,
-            }))
-          );
-        }
-        for (const t of tasksToUpdate) {
-          await supabase.from('meeting_tasks').update({
-            task_title: t.task_title,
-            task_description: t.task_description,
-            task_description_doc: t.task_description_doc,
-            assigned_to: t.assigned_to,
-            due_date: t.due_date,
-            priority: t.priority,
-            category: t.category,
-            estimated_hours: t.estimated_hours,
-          }).eq('id', t.id!);
-        }
-
-        if (attachmentsToDelete.length > 0) {
-          const paths = attachmentsToDelete.map(a => a.file_path);
-          try {
-            await supabase.storage.from('meeting-documents').remove(paths);
-          } catch (storageErr) {
-            console.error('Error removing attachment storage files:', storageErr);
-          }
-          await supabase
-            .from('meeting_attachments')
-            .delete()
-            .in('id', attachmentsToDelete.map(a => a.id));
-        }
-
+        await applyMeetingDiffs(supabase, meetingId, docs, {
+          agreements: originalAgreementIdsRef.current,
+          commitments: originalCommitmentIdsRef.current,
+          tasks: originalTaskIdsRef.current,
+        });
+        await removeDeletedAttachments(supabase, attachmentsToDelete);
         result = { success: true, meetingId };
       } else {
         result = updateResult;
@@ -888,15 +745,15 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         ...formData,
         summary_info: {
           ...formData.summary_info,
-          summary: summaryText,
-          summary_doc: summaryDoc,
-          notes: notesText,
-          notes_doc: notesDoc,
+          summary: docs.summaryText,
+          summary_doc: docs.summaryDoc,
+          notes: docs.notesText,
+          notes_doc: docs.notesDoc,
           status: effectiveStatus,
         },
-        agreements: agreementsForPersist.map(({ id: _id, ...rest }) => rest),
-        commitments: commitmentsForPersist.map(({ id: _id, ...rest }) => rest),
-        tasks: tasksForPersist.map(({ id: _id, ...rest }) => rest),
+        agreements: docs.agreementsForPersist.map(({ id: _id, ...rest }) => rest),
+        commitments: docs.commitmentsForPersist.map(({ id: _id, ...rest }) => rest),
+        tasks: docs.tasksForPersist.map(({ id: _id, ...rest }) => rest),
       });
     }
 
@@ -906,47 +763,17 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
     // Attachment uploads (run for both draft and submit paths so a draft saver
     // doesn't silently drop files they selected in step 3).
-    if (selectedFiles.length > 0) {
-      try {
-        const bucketName = 'meeting-documents';
-        for (const file of selectedFiles) {
-          const timestamp = Date.now();
-          const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-          const filePath = `${workspaceId}/${result.meetingId}/${timestamp}-${sanitizedName}`;
-          const { error } = await uploadFile(file, filePath, bucketName);
-          if (error) {
-            console.error('Error uploading file:', file.name, error);
-            toast.error(`Error al subir ${file.name}`);
-            continue;
-          }
-          const { error: dbError } = await supabase
-            .from('meeting_attachments')
-            .insert({
-              meeting_id: result.meetingId,
-              filename: file.name,
-              file_path: filePath,
-              file_size: file.size,
-              file_type: file.type,
-              uploaded_by: userId,
-            });
-          if (dbError) {
-            console.error('Error saving file reference:', dbError);
-          }
-        }
-      } catch (uploadError) {
-        console.error('Error during file upload:', uploadError);
-        toast.error('Algunos archivos no se pudieron subir');
-      }
-    }
+    await uploadSelectedAttachments(supabase, uploadFile, toast.error, {
+      meetingId: result.meetingId,
+      workspaceId,
+      userId,
+      files: selectedFiles,
+    });
 
     // Send notifications for assigned tasks/commitments only when the user is
     // actually submitting — a draft save should not fire notifications yet.
     if (!isDraft) {
-      const assignedUserIds = [
-        ...formData.commitments.map(c => c.assigned_to),
-        ...formData.tasks.map(t => t.assigned_to),
-      ].filter((id, index, arr) => id && arr.indexOf(id) === index);
-
+      const assignedUserIds = collectAssignedUserIds(formData);
       if (assignedUserIds.length > 0) {
         await sendTaskAssignmentNotifications(result.meetingId, assignedUserIds);
       }

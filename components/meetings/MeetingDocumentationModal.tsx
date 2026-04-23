@@ -6,7 +6,7 @@ import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
-import { formatDistanceToNowStrict, formatDistanceToNow, format } from 'date-fns';
+import { formatDistanceToNowStrict } from 'date-fns';
 import { es } from 'date-fns/locale';
 import TipTapEditor from '../../src/components/TipTapEditor';
 import {
@@ -17,8 +17,6 @@ import {
 
 import {
   XIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   CheckIcon,
   PlusIcon,
   TrashIcon,
@@ -50,9 +48,11 @@ import {
 } from '../../utils/meetingUtils';
 import { uploadFile } from '../../utils/storage';
 import { FinalizeMeetingDialog } from './FinalizeMeetingDialog';
+import { WorkSessionBanner } from './WorkSessionBanner';
+import { AttachmentRow } from './AttachmentRow';
+import { MeetingModalFooter } from './MeetingModalFooter';
 import { MEETING_STATUS } from '../../lib/utils/meeting-policy';
 import { profileName } from '../../lib/utils/profile-name';
-import { formatFileSize, getFileIcon } from '../../lib/utils/file-format';
 import {
   AUTOSAVE_DEBOUNCE_MS,
   SAVED_TICK_INTERVAL_MS,
@@ -1241,26 +1241,8 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           </div>
 
           {/* Draft timeline banner — who started / is working on this draft */}
-          {formData.summary_info.status === MEETING_STATUS.BORRADOR && workSessions.length > 0 && (
-            <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200 text-sm text-yellow-900">
-              {(() => {
-                const first = workSessions[0];
-                const name = profileName(first, 'Alguien');
-                const startedLabel = format(new Date(first.started_at), "d 'de' MMM, HH:mm", { locale: es });
-                const activityTs = first.last_heartbeat_at ?? first.started_at;
-                const activeLabel = formatDistanceToNow(new Date(activityTs), { locale: es, addSuffix: false });
-                const others = workSessions.length - 1;
-                return (
-                  <span>
-                    Iniciado por <strong>{name}</strong> el {startedLabel}
-                    {' · '}Activo hace {activeLabel}
-                    {others > 0 && (
-                      <> · {others} editor{others !== 1 ? 'es' : ''} adicional{others !== 1 ? 'es' : ''}</>
-                    )}
-                  </span>
-                );
-              })()}
-            </div>
+          {formData.summary_info.status === MEETING_STATUS.BORRADOR && (
+            <WorkSessionBanner sessions={workSessions} />
           )}
 
           {/* Progress Steps */}
@@ -1486,29 +1468,17 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                       </h4>
                       <div className="space-y-2">
                         {existingAttachments.map((attachment) => (
-                          <div
+                          <AttachmentRow
                             key={attachment.id}
-                            className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg"
-                          >
-                            <div className="flex items-center space-x-3 flex-1 min-w-0">
-                              <span className="text-3xl flex-shrink-0">{getFileIcon(attachment.file_type || '')}</span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">{attachment.filename}</p>
-                                <p className="text-xs text-gray-500">{formatFileSize(attachment.file_size || 0)}</p>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setExistingAttachments(prev => prev.filter(a => a.id !== attachment.id));
-                                setAttachmentsToDelete(prev => [...prev, attachment]);
-                              }}
-                              className="ml-4 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Eliminar archivo"
-                            >
-                              <TrashIcon className="h-5 w-5" />
-                            </button>
-                          </div>
+                            filename={attachment.filename}
+                            fileType={attachment.file_type}
+                            fileSize={attachment.file_size}
+                            variant="existing"
+                            onRemove={() => {
+                              setExistingAttachments(prev => prev.filter(a => a.id !== attachment.id));
+                              setAttachmentsToDelete(prev => [...prev, attachment]);
+                            }}
+                          />
                         ))}
                       </div>
                     </div>
@@ -1519,22 +1489,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                       <h4 className="text-sm font-medium text-gray-700 mb-3">Archivos seleccionados ({selectedFiles.length})</h4>
                       <div className="space-y-2">
                         {selectedFiles.map((file, index) => (
-                          <div key={index} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
-                            <div className="flex items-center space-x-3 flex-1 min-w-0">
-                              <span className="text-3xl flex-shrink-0">{getFileIcon(file.type)}</span>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                                <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => removeFile(index)}
-                              className="ml-4 p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                              title="Eliminar archivo"
-                            >
-                              <TrashIcon className="h-5 w-5" />
-                            </button>
-                          </div>
+                          <AttachmentRow
+                            key={index}
+                            filename={file.name}
+                            fileType={file.type}
+                            fileSize={file.size}
+                            variant="selected"
+                            onRemove={() => removeFile(index)}
+                          />
                         ))}
                       </div>
                     </div>
@@ -1792,76 +1754,23 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between p-6 border-t border-gray-200">
-            <button
-              onClick={handlePrevious}
-              disabled={currentStep === MeetingFormStep.INFORMATION || isSubmitting}
-              className="inline-flex items-center px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
-            >
-              <ChevronLeftIcon className="h-4 w-4 mr-1" />
-              Anterior
-            </button>
+          <MeetingModalFooter
+            currentStep={currentStep}
+            isSubmitting={isSubmitting}
+            isSavingDraft={isSavingDraft}
+            uploadingFiles={uploadingFiles}
+            selectedFileCount={selectedFiles.length}
+            mode={mode}
+            meetingStatus={formData.summary_info.status}
+            meetingId={meetingId}
+            onPrevious={handlePrevious}
+            onNext={handleNext}
+            onSubmit={handleSubmit}
+            onClose={handleClose}
+            onSaveDraft={handleSaveDraft}
+            onOpenFinalize={() => setFinalizeOpen(true)}
+          />
 
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={handleClose}
-                disabled={isSubmitting}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-
-              <button
-                onClick={handleSaveDraft}
-                disabled={isSubmitting || isSavingDraft}
-                className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors duration-200"
-                title="Guarda el estado actual como borrador sin validar el resumen"
-              >
-                {isSavingDraft ? 'Guardando…' : 'Guardar borrador'}
-              </button>
-
-              {currentStep < MeetingFormStep.AGREEMENTS ? (
-                <button
-                  onClick={handleNext}
-                  disabled={isSubmitting}
-                  className="inline-flex items-center px-4 py-2 bg-brand_accent text-brand_primary text-sm rounded-lg hover:bg-brand_accent/90 disabled:opacity-50 transition-colors duration-200"
-                >
-                  Siguiente
-                  <ChevronRightIcon className="h-4 w-4 ml-1" />
-                </button>
-              ) : (
-                <button
-                  onClick={handleSubmit}
-                  disabled={isSubmitting}
-                  className="inline-flex items-center px-4 py-2 bg-brand_primary text-white text-sm rounded-lg hover:bg-brand_primary/90 disabled:opacity-50 transition-colors duration-200"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      {uploadingFiles ? `Subiendo ${selectedFiles.length} archivo${selectedFiles.length !== 1 ? 's' : ''}…` : 'Guardando…'}
-                    </>
-                  ) : (
-                    <>
-                      <CheckIcon className="h-4 w-4 mr-1" />
-                      {mode === 'edit' ? 'Guardar Cambios' : 'Crear Reunión'}
-                    </>
-                  )}
-                </button>
-              )}
-
-              {mode === 'edit' && formData.summary_info.status === MEETING_STATUS.BORRADOR && meetingId && (
-                <button
-                  type="button"
-                  onClick={() => setFinalizeOpen(true)}
-                  disabled={isSubmitting || isSavingDraft}
-                  className="inline-flex items-center px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors duration-200"
-                >
-                  <CheckIcon className="h-4 w-4 mr-1" />
-                  Finalizar reunión
-                </button>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 

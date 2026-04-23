@@ -1,18 +1,15 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
 import {
-  getApiUser,
   createServiceRoleClient,
-  sendAuthError,
+  sendApiError,
   sendApiResponse,
   sendMeetingError,
   logApiRequest,
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
-import { Validators } from '../../../../lib/types/api-auth.types';
-import { getUserRoles, getHighestRole } from '../../../../utils/roleUtils';
-import { canEditMeeting } from '../../../../lib/utils/meeting-policy';
 import { plainTextFromDoc } from '../../../../lib/tiptap/helpers';
+import { loadMeetingAuthContext } from '../../../../lib/api/meetings/load-context';
 
 const autosaveSchema = z.object({
   summary_doc: z.record(z.unknown()),
@@ -53,80 +50,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return handleMethodNotAllowed(res, ['POST']);
   }
 
-  const { id } = req.query;
-
-  if (!id || typeof id !== 'string' || !Validators.isUUID(id)) {
-    return sendAuthError(res, 'ID de reunión inválido', 400);
-  }
-
-  const { user, error: authError } = await getApiUser(req, res);
-  if (authError || !user) {
-    return sendAuthError(res, 'Autenticación requerida', 401);
-  }
-
   const parseResult = autosaveSchema.safeParse(req.body);
   if (!parseResult.success) {
     const firstIssue = parseResult.error.issues[0];
-    return sendAuthError(res, firstIssue?.message || 'Payload de autoguardado inválido', 400);
+    return sendApiError(res, firstIssue?.message || 'Payload de autoguardado inválido', 400);
   }
   const { summary_doc, notes_doc, version, work_session_id } = parseResult.data;
 
   try {
-    const serviceClient = createServiceRoleClient();
+    const ctx = await loadMeetingAuthContext<{
+      id: string;
+      status: string;
+      version: number;
+      updated_at: string;
+      updated_by: string | null;
+    }>(req, res, {
+      meetingSelect:
+        'id, status, created_by, facilitator_id, secretary_id, version, updated_at, updated_by, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id)',
+      require: 'edit',
+      requireDraft: true,
+    });
+    if (!ctx) return;
 
-    const { data: meeting, error: meetingError } = await serviceClient
-      .from('community_meetings')
-      .select(
-        'id, status, created_by, facilitator_id, secretary_id, version, updated_at, updated_by, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id)'
-      )
-      .eq('id', id)
-      .single();
-
-    if (meetingError || !meeting) {
-      return sendAuthError(res, 'Reunión no encontrada', 404);
-    }
-
-    const userRoles = await getUserRoles(serviceClient, user.id);
-    const highestRole = getHighestRole(userRoles);
-
-    if (!highestRole) {
-      return sendAuthError(res, 'Usuario sin roles asignados', 403);
-    }
-
-    const { data: attendees } = await serviceClient
-      .from('meeting_attendees')
-      .select('user_id, role')
-      .eq('meeting_id', id);
-
-    const workspace = Array.isArray((meeting as any).workspace)
-      ? (meeting as any).workspace[0]
-      : (meeting as any).workspace;
-
-    if (
-      !canEditMeeting(
-        { id: user.id, highestRole, userRoles },
-        {
-          id: meeting.id,
-          status: meeting.status,
-          created_by: meeting.created_by,
-          facilitator_id: meeting.facilitator_id,
-          secretary_id: meeting.secretary_id,
-          community_id: workspace?.community_id ?? null,
-        },
-        attendees || []
-      )
-    ) {
-      return sendAuthError(res, 'No tiene permisos para editar esta reunión', 403);
-    }
-
-    if (meeting.status !== 'borrador') {
-      return sendMeetingError(
-        res,
-        409,
-        'meeting_not_draft',
-        'La reunión ya no está en borrador',
-      );
-    }
+    const { meeting, serviceClient, user } = ctx;
+    const id = meeting.id;
 
     if (meeting.version !== version) {
       const updatedByName = await resolveUpdaterName(serviceClient, meeting.updated_by);
@@ -168,7 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (updateError) {
       console.error('Error updating meeting on autosave:', updateError);
-      return sendAuthError(res, 'Error al guardar la reunión', 500, updateError.message);
+      return sendApiError(res, 'Error al guardar la reunión', 500, updateError.message);
     }
 
     if (!updated) {
@@ -223,6 +170,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error: any) {
     console.error('Autosave error:', error);
-    return sendAuthError(res, 'Error inesperado al autoguardar', 500, error.message);
+    return sendApiError(res, 'Error inesperado al autoguardar', 500, error.message);
   }
 }

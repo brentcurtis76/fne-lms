@@ -145,21 +145,38 @@ export async function checkIsAdmin(
   }
 }
 
-// Standard error response with logging
+// Standard error response with logging. Despite the name, this is the
+// catch-all error helper used for 400 validation, 404 not-found, 500 server
+// errors, and genuine 401/403 auth failures. Prefer `sendApiError` below
+// for non-auth callers — it is an alias with a clearer name.
 export function sendAuthError(
-  res: NextApiResponse<ApiError>, 
-  message: string = ErrorMessages.UNAUTHORIZED, 
+  res: NextApiResponse<ApiError>,
+  message: string = ErrorMessages.UNAUTHORIZED,
   status: number = HttpStatus.UNAUTHORIZED,
   details?: string
 ): void {
   console.error(`[API Auth] Error ${status}: ${message}`, details || '');
-  
+
   const errorResponse: ApiError = { error: message };
   if (details && process.env.NODE_ENV === 'development') {
     errorResponse.details = details;
   }
-  
+
   res.status(status).json(errorResponse);
+}
+
+// Plain API error response. Same behavior as `sendAuthError` — the
+// auth-oriented name was historical and doesn't match actual usage
+// (400 validation / 404 not-found / 500 server errors all route through it).
+// New non-auth callers should use this name; `sendAuthError` stays for
+// real 401/403 auth paths and existing callers.
+export function sendApiError(
+  res: NextApiResponse<ApiError>,
+  message: string,
+  status: number,
+  details?: string
+): void {
+  sendAuthError(res, message, status, details);
 }
 
 // Structured error response for meeting routes. Preserves the machine-readable

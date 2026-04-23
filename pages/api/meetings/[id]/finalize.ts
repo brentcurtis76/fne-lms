@@ -1,22 +1,18 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
 import {
-  getApiUser,
-  createServiceRoleClient,
-  sendAuthError,
+  sendApiError,
   sendApiResponse,
   sendMeetingError,
   logApiRequest,
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
-import { Validators } from '../../../../lib/types/api-auth.types';
-import { getUserRoles, getHighestRole } from '../../../../utils/roleUtils';
-import { canFinalizeMeeting } from '../../../../lib/utils/meeting-policy';
 import { getCommunityRecipients } from '../../../../lib/notificationService';
 import notificationService from '../../../../lib/notificationService';
 import { sendMeetingSummary } from '../../../../lib/emailService';
 import { docToHtml } from '../../../../lib/tiptap/render';
 import { escapeHtml } from '../../../../lib/utils/html-escape';
+import { loadMeetingAuthContext } from '../../../../lib/api/meetings/load-context';
 
 const finalizeSchema = z.object({
   audience: z.enum(['community', 'attended']),
@@ -40,6 +36,23 @@ const renderRichOrPlain = (doc: any, text: string | null | undefined): string =>
   return `<p style="${PLAIN_PARAGRAPH_STYLE}">${escapeHtml(plain)}</p>`;
 };
 
+type FinalizeMeeting = {
+  id: string;
+  title: string;
+  status: string;
+  created_by: string;
+  facilitator_id: string | null;
+  secretary_id: string | null;
+  meeting_date: string | null;
+  summary: string | null;
+  summary_doc: any;
+  notes: string | null;
+  notes_doc: any;
+  finalized_at: string | null;
+  version: number;
+  workspace?: any;
+};
+
 /**
  * POST /api/meetings/[id]/finalize
  * Transitions a borrador meeting to completada, records who finalized it and
@@ -53,49 +66,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return handleMethodNotAllowed(res, ['POST']);
   }
 
-  const { id } = req.query;
-  if (!id || typeof id !== 'string' || !Validators.isUUID(id)) {
-    return sendAuthError(res, 'ID de reunión inválido', 400);
-  }
-
-  const { user, error: authError } = await getApiUser(req, res);
-  if (authError || !user) {
-    return sendAuthError(res, 'Autenticación requerida', 401);
-  }
-
   const parsed = finalizeSchema.safeParse(req.body);
   if (!parsed.success) {
     const firstIssue = parsed.error.issues[0];
-    return sendAuthError(res, firstIssue?.message || 'Payload de finalización inválido', 400);
+    return sendApiError(res, firstIssue?.message || 'Payload de finalización inválido', 400);
   }
   const { audience, facilitator_message_doc } = parsed.data;
 
   const startedAt = Date.now();
 
   try {
-    const serviceClient = createServiceRoleClient();
+    const ctx = await loadMeetingAuthContext<FinalizeMeeting>(req, res, {
+      meetingSelect:
+        'id, title, status, created_by, facilitator_id, secretary_id, meeting_date, summary, summary_doc, notes, notes_doc, finalized_at, version, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id, community:communities(id, name))',
+      require: 'finalize',
+    });
+    if (!ctx) return;
 
-    const { data: meeting, error: meetingError } = await serviceClient
-      .from('community_meetings')
-      .select(
-        'id, title, status, created_by, facilitator_id, secretary_id, meeting_date, summary, summary_doc, notes, notes_doc, finalized_at, version, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id, community:communities(id, name))'
-      )
-      .eq('id', id)
-      .single();
+    const { meeting, serviceClient, user } = ctx;
+    const id = meeting.id;
 
-    if (meetingError || !meeting) {
-      return sendAuthError(res, 'Reunión no encontrada', 404);
+    if (meeting.status !== 'borrador') {
+      return sendMeetingError(
+        res,
+        409,
+        'meeting_not_draft',
+        'La reunión ya no está en borrador',
+      );
     }
 
-    const userRoles = await getUserRoles(serviceClient, user.id);
-    const highestRole = getHighestRole(userRoles);
-    if (!highestRole) {
-      return sendAuthError(res, 'Usuario sin roles asignados', 403);
-    }
-
-    const { data: attendees } = await serviceClient
+    // finalize needs richer attendee data (attendance_status + profile) for
+    // the email body; the shared context helper only returns user_id + role.
+    const { data: attendeesRich } = await serviceClient
       .from('meeting_attendees')
-      .select('user_id, role, attendance_status, user_profile:profiles(id, first_name, last_name, email)')
+      .select(
+        'user_id, role, attendance_status, user_profile:profiles(id, first_name, last_name, email)',
+      )
       .eq('meeting_id', id);
 
     const workspace = Array.isArray((meeting as any).workspace)
@@ -104,32 +110,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const community = Array.isArray(workspace?.community)
       ? workspace.community[0]
       : workspace?.community;
-
-    if (
-      !canFinalizeMeeting(
-        { id: user.id, highestRole, userRoles },
-        {
-          id: meeting.id,
-          status: meeting.status,
-          created_by: meeting.created_by,
-          facilitator_id: meeting.facilitator_id,
-          secretary_id: meeting.secretary_id,
-          community_id: workspace?.community_id ?? null,
-        },
-        (attendees || []).map((a: any) => ({ user_id: a.user_id, role: a.role }))
-      )
-    ) {
-      return sendAuthError(res, 'No tiene permisos para finalizar esta reunión', 403);
-    }
-
-    if (meeting.status !== 'borrador') {
-      return sendMeetingError(
-        res,
-        409,
-        'meeting_not_draft',
-        'La reunión ya no está en borrador'
-      );
-    }
 
     const now = new Date().toISOString();
 
@@ -154,7 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (updateError) {
       console.error('Error finalizing meeting:', updateError);
-      return sendAuthError(res, 'Error al finalizar la reunión', 500, updateError.message);
+      return sendApiError(res, 'Error al finalizar la reunión', 500, updateError.message);
     }
     if (!updated) {
       // Another caller won the race.
@@ -162,7 +142,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         res,
         409,
         'meeting_already_finalized',
-        'La reunión ya fue finalizada por otro usuario'
+        'La reunión ya fue finalizada por otro usuario',
       );
     }
 
@@ -214,7 +194,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const agreementsHtml = (agreements || [])
-      .map((a: any, idx: number) => {
+      .map((a: any) => {
         const rendered = docToHtml(a.agreement_doc);
         const text = rendered || (a.agreement_text ? `<p style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 8px 0;">${escapeHtml(a.agreement_text)}</p>` : '');
         return `<li style="margin: 0 0 8px 0;">${text}</li>`;
@@ -245,15 +225,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       facilitatorName: profileName(facilitatorProfile as any),
       finalizerName: profileName(finalizerProfile as any),
       audience,
-      attendees: (attendees || []).map((a: any) => ({
+      attendees: (attendeesRich || []).map((a: any) => ({
         name: a.user_profile
           ? `${a.user_profile.first_name ?? ''} ${a.user_profile.last_name ?? ''}`.trim() || a.user_profile.email || 'Asistente'
           : 'Asistente',
         attended: a.attendance_status === 'attended',
         role: a.role,
       })),
-      summaryHtml: renderRichOrPlain(meeting.summary_doc, (meeting as any).summary),
-      notesHtml: renderRichOrPlain(meeting.notes_doc, (meeting as any).notes),
+      // Legacy plain summary/notes fallback: most autosave-written meetings
+      // have non-empty summary_doc/notes_doc and the fallback is unreachable,
+      // but agreement/commitment rows can still be authored outside the
+      // TipTap editor (seed scripts, external tools) so the fallback stays.
+      summaryHtml: renderRichOrPlain(meeting.summary_doc, meeting.summary),
+      notesHtml: renderRichOrPlain(meeting.notes_doc, meeting.notes),
       agreementsHtml,
       commitmentsHtml,
       facilitatorMessageHtml: facilitator_message_doc ? docToHtml(facilitator_message_doc) : undefined,
@@ -296,6 +280,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   } catch (error: any) {
     console.error('Finalize error:', error);
-    return sendAuthError(res, 'Error inesperado al finalizar la reunión', 500, error.message);
+    return sendApiError(res, 'Error inesperado al finalizar la reunión', 500, error.message);
   }
 }

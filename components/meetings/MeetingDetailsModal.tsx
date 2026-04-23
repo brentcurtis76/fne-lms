@@ -27,6 +27,7 @@ import RichTextView from './RichTextView';
 import { isEmptyDoc } from '../../lib/tiptap/helpers';
 import { audienceProseLabel } from '../../lib/meetings/audience-labels';
 import { CLOSE_BEFORE_DELETE_MS } from '../../lib/meetings/constants';
+import { profileName } from '../../lib/utils/profile-name';
 
 interface MeetingDetailsModalProps {
   isOpen: boolean;
@@ -235,7 +236,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                         <p className="font-medium">
                           Finalizada el {formatDate(meeting.finalized_at, { withWeekday: false })}
                           {meeting.finalized_by_profile && (
-                            <> por {meeting.finalized_by_profile.first_name} {meeting.finalized_by_profile.last_name}</>
+                            <> por {profileName(meeting.finalized_by_profile, '')}</>
                           )}
                         </p>
                         {meeting.finalize_audience && (
@@ -270,7 +271,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                     <div className="flex items-center gap-2">
                       <UserIcon className="h-5 w-5 text-gray-400" />
                       <span className="text-gray-700">
-                        Facilitador: {meeting.facilitator.first_name} {meeting.facilitator.last_name}
+                        Facilitador: {profileName(meeting.facilitator, 'Sin asignar')}
                       </span>
                     </div>
                   )}
@@ -278,7 +279,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                     <div className="flex items-center gap-2">
                       <UserIcon className="h-5 w-5 text-gray-400" />
                       <span className="text-gray-700">
-                        Creado por: {meeting.created_by_profile.first_name} {meeting.created_by_profile.last_name}
+                        Creado por: {profileName(meeting.created_by_profile, 'Sin nombre')}
                       </span>
                     </div>
                   )}
@@ -397,7 +398,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                             {attendee.user_profile && attendee.user_profile.avatar_url ? (
                               <img
                                 src={attendee.user_profile.avatar_url}
-                                alt={`${attendee.user_profile.first_name} ${attendee.user_profile.last_name}`}
+                                alt={profileName(attendee.user_profile, 'Asistente')}
                                 className="h-10 w-10 rounded-full"
                               />
                             ) : (
@@ -408,7 +409,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                             <div>
                               <p className="text-sm font-medium text-gray-900">
                                 {attendee.user_profile
-                                  ? `${attendee.user_profile.first_name || ''} ${attendee.user_profile.last_name || ''}`.trim() || 'Usuario sin nombre'
+                                  ? profileName(attendee.user_profile, 'Usuario sin nombre')
                                   : 'Usuario no encontrado'}
                               </p>
                               {attendee.user_profile && attendee.user_profile.email && (

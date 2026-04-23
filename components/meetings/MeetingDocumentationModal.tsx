@@ -49,6 +49,7 @@ import {
 import { uploadFile } from '../../utils/storage';
 import { FinalizeMeetingDialog } from './FinalizeMeetingDialog';
 import { MEETING_STATUS } from '../../lib/utils/meeting-policy';
+import { profileName } from '../../lib/utils/profile-name';
 import {
   AUTOSAVE_DEBOUNCE_MS,
   SAVED_TICK_INTERVAL_MS,
@@ -1273,7 +1274,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
             <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200 text-sm text-yellow-900">
               {(() => {
                 const first = workSessions[0];
-                const name = `${first.first_name || ''} ${first.last_name || ''}`.trim() || 'Alguien';
+                const name = profileName(first, 'Alguien');
                 const startedLabel = format(new Date(first.started_at), "d 'de' MMM, HH:mm", { locale: es });
                 const activityTs = first.last_heartbeat_at ?? first.started_at;
                 const activeLabel = formatDistanceToNow(new Date(activityTs), { locale: es, addSuffix: false });
@@ -1408,7 +1409,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                           className="h-4 w-4 text-[#fbbf24] focus:ring-[#fbbf24] border-gray-300 rounded"
                         />
                         <span className="ml-2 text-sm text-gray-700">
-                          {user.first_name} {user.last_name}
+                          {profileName(user, '')}
                         </span>
                       </label>
                     ))}
@@ -1683,7 +1684,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 <option value="">Asignar a…</option>
                                 {availableUsers.map(user => (
                                   <option key={user.id} value={user.id}>
-                                    {user.first_name} {user.last_name}
+                                    {profileName(user, '')}
                                   </option>
                                 ))}
                               </select>
@@ -1765,7 +1766,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 <option value="">Asignar a…</option>
                                 {availableUsers.map(user => (
                                   <option key={user.id} value={user.id}>
-                                    {user.first_name} {user.last_name}
+                                    {profileName(user, '')}
                                   </option>
                                 ))}
                               </select>

@@ -27,6 +27,7 @@ import {
   priorityColors
 } from '../../types/meetings';
 import { updateTaskStatus, getDaysUntilDue, isOverdue } from '../../utils/meetingUtils';
+import { profileName } from '../../lib/utils/profile-name';
 import RichTextView from './RichTextView';
 import { isEmptyDoc } from '../../lib/tiptap/helpers';
 
@@ -221,7 +222,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
         {item.assigned_to_profile && (
           <div className="flex items-center space-x-1">
             <UserIcon className="h-3 w-3" />
-            <span>{item.assigned_to_profile.first_name} {item.assigned_to_profile.last_name}</span>
+            <span>{profileName(item.assigned_to_profile, 'Sin asignar')}</span>
           </div>
         )}
 

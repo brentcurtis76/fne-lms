@@ -29,6 +29,7 @@ import {
   meetingStatusColors
 } from '../../types/meetings';
 import { formatMeetingDate, isOverdue } from '../../utils/meetingUtils';
+import { profileName } from '../../lib/utils/profile-name';
 import TaskTracker from './TaskTracker';
 
 interface MeetingCardProps {
@@ -351,9 +352,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               {meeting.facilitator && meeting.facilitator.first_name && (
                 <div className="flex items-center space-x-1">
                   <UserIcon className="h-4 w-4" />
-                  <span>
-                    {meeting.facilitator.first_name} {meeting.facilitator.last_name}
-                  </span>
+                  <span>{profileName(meeting.facilitator, '')}</span>
                 </div>
               )}
             </div>
@@ -379,7 +378,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                       {/* Tooltip */}
                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                         {attendee.user_profile
-                          ? `${attendee.user_profile.first_name || ''} ${attendee.user_profile.last_name || ''}`.trim() || 'Sin nombre'
+                          ? profileName(attendee.user_profile, 'Sin nombre')
                           : 'Usuario'}
                       </div>
                     </div>

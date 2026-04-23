@@ -197,7 +197,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
           ) : meeting ? (
             <>
               {/* Header */}
-              <div className="bg-[#0a0a0a] px-6 py-4">
+              <div className="bg-brand_primary px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <h2 className="text-xl font-semibold text-white">
@@ -301,7 +301,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                     onClick={() => setActiveTab('summary')}
                     className={`py-2 px-6 border-b-2 font-medium text-sm ${
                       activeTab === 'summary'
-                        ? 'border-[#fbbf24] text-[#0a0a0a]'
+                        ? 'border-brand_accent text-brand_primary'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
@@ -312,7 +312,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                     onClick={() => setActiveTab('attendees')}
                     className={`py-2 px-6 border-b-2 font-medium text-sm ${
                       activeTab === 'attendees'
-                        ? 'border-[#fbbf24] text-[#0a0a0a]'
+                        ? 'border-brand_accent text-brand_primary'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
@@ -324,7 +324,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                       onClick={() => setActiveTab('agreements')}
                       className={`py-2 px-6 border-b-2 font-medium text-sm ${
                         activeTab === 'agreements'
-                          ? 'border-[#fbbf24] text-[#0a0a0a]'
+                          ? 'border-brand_accent text-brand_primary'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                     >
@@ -337,7 +337,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                       onClick={() => setActiveTab('tasks')}
                       className={`py-2 px-6 border-b-2 font-medium text-sm ${
                         activeTab === 'tasks'
-                          ? 'border-[#fbbf24] text-[#0a0a0a]'
+                          ? 'border-brand_accent text-brand_primary'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                     >
@@ -349,7 +349,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                     onClick={() => setActiveTab('documents')}
                     className={`py-2 px-6 border-b-2 font-medium text-sm ${
                       activeTab === 'documents'
-                        ? 'border-[#fbbf24] text-[#0a0a0a]'
+                        ? 'border-brand_accent text-brand_primary'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                     }`}
                   >
@@ -402,8 +402,8 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                                 className="h-10 w-10 rounded-full"
                               />
                             ) : (
-                              <div className="h-10 w-10 rounded-full bg-[#fbbf24] flex items-center justify-center">
-                                <UserIcon className="h-6 w-6 text-[#0a0a0a]" />
+                              <div className="h-10 w-10 rounded-full bg-brand_accent flex items-center justify-center">
+                                <UserIcon className="h-6 w-6 text-brand_primary" />
                               </div>
                             )}
                             <div>
@@ -439,7 +439,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                       <div className="space-y-3">
                         {meeting.agreements.map((agreement, index) => (
                           <div key={agreement.id} className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
-                            <div className="flex-shrink-0 w-8 h-8 bg-[#fbbf24] rounded-full flex items-center justify-center text-sm font-bold text-[#0a0a0a]">
+                            <div className="flex-shrink-0 w-8 h-8 bg-brand_accent rounded-full flex items-center justify-center text-sm font-bold text-brand_primary">
                               {index + 1}
                             </div>
                             <div className="flex-1">
@@ -513,7 +513,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                   <div>
                     {loadingAttachments ? (
                       <div className="flex items-center justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#fbbf24]"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand_accent"></div>
                       </div>
                     ) : attachments.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -531,7 +531,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                             </div>
                             <button
                               onClick={() => handleDownload(attachment)}
-                              className="flex-shrink-0 p-2 text-[#0a0a0a] hover:text-[#fbbf24] hover:bg-[#fbbf24]/10 rounded-lg transition-colors"
+                              className="flex-shrink-0 p-2 text-brand_primary hover:text-brand_accent hover:bg-brand_accent/10 rounded-lg transition-colors"
                               title="Descargar documento"
                             >
                               <DownloadIcon className="h-4 w-4" />
@@ -580,7 +580,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                       onEdit(meeting.id);
                       onClose();
                     }}
-                    className="px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] font-medium rounded-lg hover:bg-[#fbbf24]/90 transition-colors"
+                    className="px-4 py-2 bg-brand_accent text-brand_primary font-medium rounded-lg hover:bg-brand_accent/90 transition-colors"
                   >
                     Editar Reunión
                   </button>

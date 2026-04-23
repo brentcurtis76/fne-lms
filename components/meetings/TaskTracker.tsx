@@ -357,7 +357,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Agregar notas sobre el progreso..."
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent text-sm resize-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent text-sm resize-none"
               />
               <div className="flex justify-end space-x-2 mt-2">
                 <button
@@ -369,7 +369,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
                 <button
                   onClick={saveNotes}
                   disabled={isUpdating}
-                  className="px-3 py-1 bg-[#fbbf24] text-[#0a0a0a] text-xs rounded-lg hover:bg-[#fbbf24]/90 transition-colors duration-200 disabled:opacity-50"
+                  className="px-3 py-1 bg-brand_accent text-brand_primary text-xs rounded-lg hover:bg-brand_accent/90 transition-colors duration-200 disabled:opacity-50"
                 >
                   Guardar
                 </button>
@@ -390,7 +390,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
       {/* Loading Overlay */}
       {isUpdating && (
         <div className="absolute inset-0 bg-white/50 rounded-lg flex items-center justify-center">
-          <RefreshIcon className="h-5 w-5 text-[#fbbf24] animate-spin" />
+          <RefreshIcon className="h-5 w-5 text-brand_accent animate-spin" />
         </div>
       )}
     </div>

@@ -1,23 +1,35 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import {
+  getApiUser,
+  createServiceRoleClient,
   sendApiError,
   sendApiResponse,
   logApiRequest,
   handleMethodNotAllowed,
 } from '../../../../../../lib/api-auth';
 import { Validators } from '../../../../../../lib/types/api-auth.types';
-import { loadMeetingAuthContext } from '../../../../../../lib/api/meetings/load-context';
 
-// NOTE: intentionally no `requireDraft` here — `end` is idempotent and must
-// stay callable after finalize so the `beforeunload` cleanup path can close
-// its local session without producing 409 toast noise. finalize.ts already
-// closes open sessions server-side; if the row is already closed, the UPDATE
-// below simply affects zero rows and we return 200.
+// Intentionally does NOT route through `loadMeetingAuthContext` or
+// `canEditMeeting`. Reasoning:
+//
+// - `end` is idempotent cleanup, frequently called from `beforeunload` /
+//   unmount after the caller has already transitioned the meeting to
+//   `completada` via finalize. Routing through `canEditMeeting` would 403
+//   the cleanup call for any non-admin (facilitator, secretary, co_editor)
+//   because `completada` is not in `EDITABLE_STATUSES` — directly
+//   contradicting the intent that finalize must survive unmount cleanup.
+// - Ownership of the session row is the real authorization boundary here.
+//   The UPDATE's `.eq('user_id', user.id)` guarantees a user can only close
+//   their own session; status-based edit policy adds no value on top of
+//   that because the user cannot cross rows regardless of meeting status.
+// - No meeting-row fetch is required for the end path, so we skip the
+//   select/join/policy plumbing entirely.
 
 /**
  * POST /api/meetings/[id]/work-session/[sessionId]/end
  * Closes a collaborative work-session row by setting `ended_at = now()`.
- * Idempotent — only updates rows belonging to the caller that are still open.
+ * Idempotent — only updates rows belonging to the authenticated caller
+ * that are still open. Status-agnostic (see comment above).
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'meetings-work-session-end');
@@ -26,27 +38,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return handleMethodNotAllowed(res, ['POST']);
   }
 
-  const { sessionId } = req.query;
+  const { id, sessionId } = req.query;
+  if (!id || typeof id !== 'string' || !Validators.isUUID(id)) {
+    return sendApiError(res, 'ID de reunión inválido', 400);
+  }
   if (!sessionId || typeof sessionId !== 'string' || !Validators.isUUID(sessionId)) {
     return sendApiError(res, 'ID de sesión inválido', 400);
   }
 
-  try {
-    const ctx = await loadMeetingAuthContext<{ id: string }>(req, res, {
-      meetingSelect:
-        'id, status, created_by, facilitator_id, secretary_id, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id)',
-      require: 'edit',
-    });
-    if (!ctx) return;
+  const { user, error: authError } = await getApiUser(req, res);
+  if (authError || !user) {
+    return sendApiError(res, 'Autenticación requerida', 401);
+  }
 
-    const { meeting, serviceClient, user } = ctx;
+  try {
+    const serviceClient = createServiceRoleClient();
     const now = new Date().toISOString();
 
     const { error: updateError } = await serviceClient
       .from('meeting_work_sessions')
       .update({ ended_at: now })
       .eq('id', sessionId)
-      .eq('meeting_id', meeting.id)
+      .eq('meeting_id', id)
       .eq('user_id', user.id)
       .is('ended_at', null);
 

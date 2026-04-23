@@ -20,13 +20,23 @@ export const INLINE_STYLES: Record<string, string> = {
  * Email-body paragraph styles. Kept alongside INLINE_STYLES so any tweak to
  * brand typography/spacing lives in one place — finalize.ts used to carry
  * three duplicate constants, and EMAIL_PARAGRAPH_STYLE was byte-for-byte
- * identical to INLINE_STYLES.p, creating a silent drift vector.
+ * identical to INLINE_STYLES.p.
+ *
+ * EMAIL_PARAGRAPH_STYLE was previously aliased to INLINE_STYLES.p, but the
+ * two sibling constants (TIGHT/COMPACT) are independent literals — so the
+ * module already admitted divergence. A shared alias invited silent
+ * breakage: tuning in-app `<p>` spacing for a screen reader would have
+ * quietly shifted Outlook's line-height too. Promoting to a standalone
+ * literal with a sync comment makes the constraint explicit.
  *
  * - EMAIL_PARAGRAPH_STYLE: default body paragraphs (summary, notes).
+ *   KEEP SYNCHRONIZED with INLINE_STYLES.p unless email rendering must
+ *   intentionally diverge.
  * - EMAIL_PARAGRAPH_TIGHT_STYLE: agreement-list items (slightly tighter bottom margin).
  * - EMAIL_PARAGRAPH_COMPACT_STYLE: commitment-table cells (smaller font, no bottom margin).
  */
-export const EMAIL_PARAGRAPH_STYLE = INLINE_STYLES.p;
+export const EMAIL_PARAGRAPH_STYLE =
+  'font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 12px 0;';
 export const EMAIL_PARAGRAPH_TIGHT_STYLE =
   'font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 8px 0;';
 export const EMAIL_PARAGRAPH_COMPACT_STYLE =
@@ -63,7 +73,11 @@ export const docToSafeHtml = (doc: any): string => {
   let html: string;
   try {
     html = generateHTML(doc, meetingEditorExtensions);
-  } catch {
+  } catch (err) {
+    console.error(
+      '[tiptap/render] docToSafeHtml: generateHTML failed; falling back to empty string',
+      err,
+    );
     return '';
   }
   return DOMPurify.sanitize(html, {

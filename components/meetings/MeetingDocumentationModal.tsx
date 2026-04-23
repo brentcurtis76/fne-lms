@@ -795,7 +795,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     setIsSavingDraft(true);
     try {
       const { success, meetingId: savedId, version: savedVersion } = await persistMeetingData({
-        status: 'borrador',
+        status: MEETING_STATUS.BORRADOR,
         runValidations: false,
       });
       if (!success) return;
@@ -812,7 +812,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         await loadWorkSessions(savedId);
       }
 
-      updateSummaryInfo('status', 'borrador');
+      updateSummaryInfo('status', MEETING_STATUS.BORRADOR);
       setLastSavedAt(new Date());
       setSavingIndicator('idle');
       toast.success('Borrador guardado');

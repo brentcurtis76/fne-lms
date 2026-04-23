@@ -127,7 +127,7 @@ export function canFinalizeMeeting(
   meeting: MeetingPolicyInput,
   attendees: MeetingAttendeePolicyInput[] = []
 ): boolean {
-  return meeting.status === 'borrador' && canEditMeeting(user, meeting, attendees);
+  return meeting.status === MEETING_STATUS.BORRADOR && canEditMeeting(user, meeting, attendees);
 }
 
 /**

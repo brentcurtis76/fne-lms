@@ -235,42 +235,7 @@ export async function getMeetingWithDetails(meetingId: string): Promise<MeetingW
       .single();
 
     if (meetingError || !meeting) {
-      // Gracefully handle missing tables - try simple_meetings
-      if (meetingError?.code === '42P01' || meetingError?.message?.includes('does not exist')) {
-        console.warn('Meetings table not found - trying simple_meetings');
-        
-        // Try to fetch from simple_meetings table
-        const { data: simpleMeeting, error: simpleError } = await supabase
-          .from('simple_meetings')
-          .select('*')
-          .eq('id', meetingId)
-          .single();
-          
-        if (simpleError || !simpleMeeting) {
-          console.error('Error fetching simple meeting:', simpleError);
-          return null;
-        }
-        
-        // Transform simple meeting to MeetingWithDetails
-        const meetingData = simpleMeeting.meeting_data || {};
-        return {
-          ...simpleMeeting,
-          description: simpleMeeting.notes,
-          is_active: true,
-          agreements: meetingData.agreements || [],
-          commitments: meetingData.commitments || [],
-          tasks: meetingData.tasks || [],
-          attendees: (meetingData.attendees || []).map((userId: string) => ({
-            id: `attendee-${userId}`,
-            meeting_id: simpleMeeting.id,
-            user_id: userId,
-            attendance_status: 'attended',
-            role: 'participant'
-          }))
-        } as MeetingWithDetails;
-      } else {
-        console.error('Error fetching meeting:', meetingError);
-      }
+      console.error('Error fetching meeting:', meetingError);
       return null;
     }
 
@@ -364,49 +329,6 @@ export async function createMeetingWithDocumentation(
 
     if (meetingError || !meeting) {
       console.error('Error creating meeting:', meetingError);
-      
-      // Check if it's a missing table error
-      if (meetingError?.code === '42P01' || meetingError?.message?.includes('does not exist')) {
-        // Try to create a simplified meeting record in a basic table
-        console.warn('Meeting tables not found - trying simple_meetings table');
-        
-        // Create a simplified meeting in the simple_meetings table as a fallback
-        const { data: simpleMeeting, error: simpleError } = await supabase
-          .from('simple_meetings')
-          .insert({
-            workspace_id: workspaceId,
-            title: documentation.meeting_info.title,
-            meeting_date: documentation.meeting_info.meeting_date,
-            duration_minutes: documentation.meeting_info.duration_minutes,
-            location: documentation.meeting_info.location,
-            summary: documentation.summary_info.summary,
-            notes: documentation.summary_info.notes,
-            status: documentation.summary_info.status,
-            created_by: userId,
-            meeting_data: {
-              agreements: documentation.agreements,
-              commitments: documentation.commitments,
-              tasks: documentation.tasks,
-              attendees: documentation.meeting_info.attendee_ids
-            }
-          })
-          .select('id')
-          .single();
-          
-        if (simpleError) {
-          console.error('Error creating simple meeting:', simpleError);
-          return { 
-            success: false, 
-            error: 'Las tablas de reuniones no están configuradas. Por favor, ejecute el script SQL: database/simple-meetings.sql en Supabase.' 
-          };
-        }
-        
-        if (simpleMeeting) {
-          toast.success('Reunión guardada exitosamente.');
-          return { success: true, meetingId: simpleMeeting.id };
-        }
-      }
-      
       return { success: false, error: meetingError?.message || 'Error al crear la reunión' };
     }
 

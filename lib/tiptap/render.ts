@@ -4,7 +4,7 @@ import { meetingEditorExtensions } from './extensions';
 import { isEmptyDoc as isEmptyDocHelper, plainTextFromDoc } from './helpers';
 import { MEETING_ALLOWED_TAGS, MEETING_ALLOWED_ATTR } from './sanitize';
 
-const INLINE_STYLES: Record<string, string> = {
+export const INLINE_STYLES: Record<string, string> = {
   h2: 'font-family: Arial, sans-serif; font-size: 20px; font-weight: 700; color: #0a0a0a; margin: 24px 0 12px 0; line-height: 1.3;',
   h3: 'font-family: Arial, sans-serif; font-size: 16px; font-weight: 700; color: #0a0a0a; margin: 20px 0 8px 0; line-height: 1.3;',
   p: 'font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 12px 0;',
@@ -15,6 +15,22 @@ const INLINE_STYLES: Record<string, string> = {
   em: 'font-style: italic;',
   u: 'text-decoration: underline;',
 };
+
+/**
+ * Email-body paragraph styles. Kept alongside INLINE_STYLES so any tweak to
+ * brand typography/spacing lives in one place — finalize.ts used to carry
+ * three duplicate constants, and EMAIL_PARAGRAPH_STYLE was byte-for-byte
+ * identical to INLINE_STYLES.p, creating a silent drift vector.
+ *
+ * - EMAIL_PARAGRAPH_STYLE: default body paragraphs (summary, notes).
+ * - EMAIL_PARAGRAPH_TIGHT_STYLE: agreement-list items (slightly tighter bottom margin).
+ * - EMAIL_PARAGRAPH_COMPACT_STYLE: commitment-table cells (smaller font, no bottom margin).
+ */
+export const EMAIL_PARAGRAPH_STYLE = INLINE_STYLES.p;
+export const EMAIL_PARAGRAPH_TIGHT_STYLE =
+  'font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 8px 0;';
+export const EMAIL_PARAGRAPH_COMPACT_STYLE =
+  'font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #333333; margin: 0;';
 
 const applyInlineStyles = (html: string): string => {
   return html
@@ -47,7 +63,7 @@ export const docToSafeHtml = (doc: any): string => {
   let html: string;
   try {
     html = generateHTML(doc, meetingEditorExtensions);
-  } catch (error) {
+  } catch {
     return '';
   }
   return DOMPurify.sanitize(html, {

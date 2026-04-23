@@ -55,6 +55,12 @@ vi.mock('../../../lib/notificationService', () => ({
 
 vi.mock('../../../lib/tiptap/render', () => ({
   docToHtml: vi.fn((doc) => (doc ? '<p>x</p>' : '')),
+  EMAIL_PARAGRAPH_STYLE:
+    'font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 12px 0;',
+  EMAIL_PARAGRAPH_TIGHT_STYLE:
+    'font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 8px 0;',
+  EMAIL_PARAGRAPH_COMPACT_STYLE:
+    'font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #333333; margin: 0;',
 }));
 
 const MEETING_ID = '123e4567-e89b-12d3-a456-426614174000';

@@ -10,7 +10,12 @@ import {
 import { getCommunityRecipients } from '../../../../lib/notificationService';
 import notificationService from '../../../../lib/notificationService';
 import { sendMeetingSummary } from '../../../../lib/emailService';
-import { docToHtml } from '../../../../lib/tiptap/render';
+import {
+  docToHtml,
+  EMAIL_PARAGRAPH_STYLE,
+  EMAIL_PARAGRAPH_TIGHT_STYLE,
+  EMAIL_PARAGRAPH_COMPACT_STYLE,
+} from '../../../../lib/tiptap/render';
 import { escapeHtml } from '../../../../lib/utils/html-escape';
 import { loadMeetingAuthContext } from '../../../../lib/api/meetings/load-context';
 import { MEETING_STATUS } from '../../../../lib/utils/meeting-policy';
@@ -21,22 +26,16 @@ const finalizeSchema = z.object({
   facilitator_message_doc: z.record(z.unknown()).optional(),
 });
 
-// Shared email-body paragraph styles. Three near-identical strings used to
-// be inlined — kept at module level so tweaks to brand palette or spacing
-// apply uniformly across summary/notes/agreements/commitments fallbacks.
-const EMAIL_PARAGRAPH_STYLE =
-  'font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 12px 0;';
-const EMAIL_PARAGRAPH_TIGHT_STYLE =
-  'font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 8px 0;';
-const EMAIL_PARAGRAPH_COMPACT_STYLE =
-  'font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #333333; margin: 0;';
-
-const renderRichOrPlain = (doc: any, text: string | null | undefined): string => {
+const renderRichOrPlain = (
+  doc: any,
+  text: string | null | undefined,
+  style: string = EMAIL_PARAGRAPH_STYLE,
+): string => {
   const rich = docToHtml(doc);
   if (rich) return rich;
   const plain = (text ?? '').trim();
   if (!plain) return '';
-  return `<p style="${EMAIL_PARAGRAPH_STYLE}">${escapeHtml(plain)}</p>`;
+  return `<p style="${style}">${escapeHtml(plain)}</p>`;
 };
 
 type FinalizeMeeting = {
@@ -114,12 +113,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       )
       .eq('meeting_id', id);
 
-    const workspace = Array.isArray((meeting as any).workspace)
-      ? (meeting as any).workspace[0]
-      : (meeting as any).workspace;
-    const community = Array.isArray(workspace?.community)
-      ? workspace.community[0]
-      : workspace?.community;
+    // `ctx.workspace` is the already-normalized outer row (array/object →
+    // object), saved one level of `(meeting as any)` juggling. The nested
+    // `community` join is finalize-specific so it normalizes here.
+    const { workspace } = ctx;
+    const rawCommunity = (workspace as any)?.community;
+    const community = Array.isArray(rawCommunity) ? rawCommunity[0] : rawCommunity;
 
     const now = new Date().toISOString();
 
@@ -205,16 +204,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const agreementsHtml = (agreements || [])
       .map((a: any) => {
-        const rendered = docToHtml(a.agreement_doc);
-        const text = rendered || (a.agreement_text ? `<p style="${EMAIL_PARAGRAPH_TIGHT_STYLE}">${escapeHtml(a.agreement_text)}</p>` : '');
+        const text = renderRichOrPlain(a.agreement_doc, a.agreement_text, EMAIL_PARAGRAPH_TIGHT_STYLE);
         return `<li style="margin: 0 0 8px 0;">${text}</li>`;
       })
       .join('');
 
     const commitmentsHtml = (commitments || [])
       .map((c: any) => {
-        const rendered = docToHtml(c.commitment_doc);
-        const body = rendered || `<p style="${EMAIL_PARAGRAPH_COMPACT_STYLE}">${escapeHtml(c.commitment_text || '')}</p>`;
+        const body = renderRichOrPlain(c.commitment_doc, c.commitment_text, EMAIL_PARAGRAPH_COMPACT_STYLE);
         const assigneeName = profileName(c.assigned_to_profile, '—');
         const dueDate = c.due_date ? new Date(c.due_date).toLocaleDateString('es-CL') : '—';
         return `

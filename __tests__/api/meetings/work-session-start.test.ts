@@ -9,6 +9,9 @@ vi.mock('../../../lib/api-auth', () => ({
   sendAuthError: vi.fn((res, message, status) => {
     res.status(status).json({ error: message });
   }),
+  sendMeetingError: vi.fn((res, status, code, message) => {
+    res.status(status).json({ error: message, code });
+  }),
   sendApiResponse: vi.fn((res, data, status = 200) => {
     res.status(status).json({ data });
   }),
@@ -74,7 +77,7 @@ describe('/api/meetings/[id]/work-session/start — draft gate', () => {
     vi.clearAllMocks();
   });
 
-  it('returns 409 { error: "meeting_not_draft" } when status is not borrador', async () => {
+  it('returns 409 with unified { error, code: "meeting_not_draft" } shape when status is not borrador', async () => {
     const { getApiUser, createServiceRoleClient } = await import('../../../lib/api-auth');
     const { getUserRoles, getHighestRole } = await import('../../../utils/roleUtils');
     const { canEditMeeting } = await import('../../../lib/utils/meeting-policy');
@@ -104,7 +107,10 @@ describe('/api/meetings/[id]/work-session/start — draft gate', () => {
     await handler(req as any, res as any);
 
     expect(res._getStatusCode()).toBe(409);
-    expect(JSON.parse(res._getData())).toEqual({ error: 'meeting_not_draft' });
+    const body = JSON.parse(res._getData());
+    expect(body.code).toBe('meeting_not_draft');
+    expect(typeof body.error).toBe('string');
+    expect(body.error).not.toBe('meeting_not_draft'); // must be a human message, not the code
   });
 
   it('allows start when status is borrador (passes draft gate)', async () => {

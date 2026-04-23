@@ -1,15 +1,23 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import { z } from 'zod';
 import {
   getApiUser,
   createServiceRoleClient,
   sendAuthError,
   sendApiResponse,
+  sendMeetingError,
   logApiRequest,
   handleMethodNotAllowed,
 } from '../../../../../lib/api-auth';
 import { Validators } from '../../../../../lib/types/api-auth.types';
 import { getUserRoles, getHighestRole } from '../../../../../utils/roleUtils';
 import { canEditMeeting } from '../../../../../lib/utils/meeting-policy';
+
+// Bounded validation so the `client_id` column isn't written with unbounded
+// input. Keeps parity with the zod bodies on autosave + finalize.
+const startBodySchema = z.object({
+  client_id: z.string().min(1).max(128).optional(),
+});
 
 /**
  * POST /api/meetings/[id]/work-session/start
@@ -84,10 +92,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (meeting.status !== 'borrador') {
-      return res.status(409).json({ error: 'meeting_not_draft' });
+      return sendMeetingError(
+        res,
+        409,
+        'meeting_not_draft',
+        'La reunión ya no está en borrador',
+      );
     }
 
-    const clientId = typeof req.body?.client_id === 'string' ? req.body.client_id : null;
+    const bodyParse = startBodySchema.safeParse(req.body ?? {});
+    if (!bodyParse.success) {
+      const firstIssue = bodyParse.error.issues[0];
+      return sendAuthError(res, firstIssue?.message || 'Cuerpo inválido', 400);
+    }
+    const clientId = bodyParse.data.client_id ?? null;
 
     const { data: session, error: insertError } = await serviceClient
       .from('meeting_work_sessions')

@@ -309,9 +309,10 @@ export async function createMeetingWithDocumentation(
   workspaceId: string,
   userId: string,
   documentation: MeetingDocumentationInput
-): Promise<{ success: boolean; meetingId?: string; error?: string }> {
+): Promise<{ success: boolean; meetingId?: string; version?: number; error?: string }> {
   try {
-    // Start transaction
+    // Start transaction — read back `version` so the caller can seed its
+    // optimistic-locking state with the authoritative DB value (default is 0).
     const { data: meeting, error: meetingError } = await supabase
       .from('community_meetings')
       .insert({
@@ -327,7 +328,7 @@ export async function createMeetingWithDocumentation(
         status: documentation.summary_info.status,
         created_by: userId
       })
-      .select('id')
+      .select('id, version')
       .single();
 
     if (meetingError || !meeting) {
@@ -473,7 +474,7 @@ export async function createMeetingWithDocumentation(
       }
     );
 
-    return { success: true, meetingId };
+    return { success: true, meetingId, version: (meeting as any).version ?? 0 };
 
   } catch (error) {
     console.error('Error in createMeetingWithDocumentation:', error);

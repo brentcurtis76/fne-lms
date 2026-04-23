@@ -79,7 +79,11 @@ describe('/api/meetings/[id]/work-session/[sessionId]/end — draft gate', () =>
     vi.clearAllMocks();
   });
 
-  it('returns 409 { error: "meeting_not_draft" } when status is not borrador', async () => {
+  it('succeeds idempotently when status is no longer borrador (finalize cleanup path)', async () => {
+    // Regression test: previously this route returned 409 when status !== 'borrador',
+    // which broke `beforeunload` cleanup immediately after finalize transitioned the
+    // meeting to 'completada'. The end route is now status-agnostic; the
+    // `.is('ended_at', null)` + `.eq('user_id', user.id)` filters make it safe.
     const { getApiUser, createServiceRoleClient } = await import('../../../lib/api-auth');
     const { getUserRoles, getHighestRole } = await import('../../../utils/roleUtils');
     const { canEditMeeting } = await import('../../../lib/utils/meeting-policy');
@@ -108,8 +112,7 @@ describe('/api/meetings/[id]/work-session/[sessionId]/end — draft gate', () =>
 
     await handler(req as any, res as any);
 
-    expect(res._getStatusCode()).toBe(409);
-    expect(JSON.parse(res._getData())).toEqual({ error: 'meeting_not_draft' });
+    expect(res._getStatusCode()).toBe(200);
   });
 
   it('allows end when status is borrador (passes draft gate)', async () => {

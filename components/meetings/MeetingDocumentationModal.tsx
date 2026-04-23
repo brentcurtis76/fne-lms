@@ -111,7 +111,10 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // we were opened in edit mode or because the user just saved a new draft.
   const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(meetingId ?? null);
   const [workSessionId, setWorkSessionId] = useState<string | null>(null);
-  const [meetingVersion, setMeetingVersion] = useState<number>(1);
+  // Optimistic-concurrency version; DB default is 0 for freshly-inserted rows.
+  // Edit mode overwrites this from the loaded meeting; create mode overwrites
+  // after the first save returns the authoritative DB value.
+  const [meetingVersion, setMeetingVersion] = useState<number>(0);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savingIndicator, setSavingIndicator] = useState<'idle' | 'saving' | 'error'>('idle');
   const [savedTick, setSavedTick] = useState(0);
@@ -452,7 +455,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
         // Capture the authoritative version so optimistic-concurrency
         // autosaves start from the right baseline.
-        setMeetingVersion((meetingDetails as any).version ?? 1);
+        setMeetingVersion((meetingDetails as any).version ?? 0);
         if ((meetingDetails as any).updated_at) {
           setLastSavedAt(new Date((meetingDetails as any).updated_at));
         }
@@ -655,7 +658,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     setSelectedFiles([]);
     setCurrentMeetingId(meetingId ?? null);
     setWorkSessionId(null);
-    setMeetingVersion(1);
+    setMeetingVersion(0);
     setLastSavedAt(null);
     setSavingIndicator('idle');
     setWorkSessions([]);
@@ -681,7 +684,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   }: {
     status?: MeetingStatus;
     runValidations: boolean;
-  }): Promise<{ success: boolean; meetingId?: string }> => {
+  }): Promise<{ success: boolean; meetingId?: string; version?: number }> => {
     if (runValidations && !validateStep(currentStep)) {
       toast.error('Por favor completa los campos requeridos');
       return { success: false };
@@ -944,7 +947,14 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       }
     }
 
-    return { success: true, meetingId: result.meetingId };
+    // Thread the inserted `version` (only populated by the create path — edit
+    // mode already owns an authoritative version in component state) back to
+    // the caller so it can seed the optimistic-lock state correctly.
+    return {
+      success: true,
+      meetingId: result.meetingId,
+      version: 'version' in result ? (result as any).version : undefined,
+    };
   };
 
   const handleSaveDraft = async () => {
@@ -952,7 +962,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
     setIsSavingDraft(true);
     try {
-      const { success, meetingId: savedId } = await persistMeetingData({
+      const { success, meetingId: savedId, version: savedVersion } = await persistMeetingData({
         status: 'borrador',
         runValidations: false,
       });
@@ -960,9 +970,12 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
       // First-save-from-create transitioned us from no-id → id; spin up the
       // work-session so subsequent autosaves have a session to heartbeat on.
+      // Seed the version state with the authoritative value returned from the
+      // create call; the DB default is 0, not 1, so hardcoding 1 here would
+      // cause the very next autosave to 409 with "updated by another user".
       if (savedId && !currentMeetingId) {
         setCurrentMeetingId(savedId);
-        setMeetingVersion(1);
+        setMeetingVersion(savedVersion ?? 0);
         await startWorkSession(savedId);
         await loadWorkSessions(savedId);
       }

@@ -5,6 +5,7 @@ import {
   createServiceRoleClient,
   sendAuthError,
   sendApiResponse,
+  sendMeetingError,
   logApiRequest,
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
@@ -19,6 +20,24 @@ const autosaveSchema = z.object({
   version: z.number().int().nonnegative({ message: 'version debe ser un entero >= 0' }),
   work_session_id: z.string().uuid({ message: 'work_session_id inválido' }).optional(),
 });
+
+// Resolve a profile id into a "First Last" display name, or null when the row
+// is missing / both name fields are blank. Used in the two version-conflict
+// branches so the client can show "Modificado por Ana Pérez" in the reload
+// dialog.
+async function resolveUpdaterName(
+  serviceClient: ReturnType<typeof createServiceRoleClient>,
+  updaterId: string | null,
+): Promise<string | null> {
+  if (!updaterId) return null;
+  const { data } = await serviceClient
+    .from('profiles')
+    .select('first_name, last_name')
+    .eq('id', updaterId)
+    .maybeSingle();
+  if (!data) return null;
+  return `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || null;
+}
 
 /**
  * POST /api/meetings/[id]/autosave
@@ -101,24 +120,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (meeting.status !== 'borrador') {
-      return res.status(409).json({ error: 'meeting_not_draft' });
+      return sendMeetingError(
+        res,
+        409,
+        'meeting_not_draft',
+        'La reunión ya no está en borrador',
+      );
     }
 
     if (meeting.version !== version) {
-      let updatedByName: string | null = null;
-      if (meeting.updated_by) {
-        const { data: updater } = await serviceClient
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('id', meeting.updated_by)
-          .maybeSingle();
-        if (updater) {
-          updatedByName =
-            `${updater.first_name ?? ''} ${updater.last_name ?? ''}`.trim() || null;
-        }
-      }
+      const updatedByName = await resolveUpdaterName(serviceClient, meeting.updated_by);
       return res.status(409).json({
         error: 'Conflicto de versión: la reunión fue modificada por otro usuario',
+        code: 'version_conflict',
         current_version: meeting.version,
         updated_by_name: updatedByName,
         updated_at: meeting.updated_at,
@@ -167,26 +181,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // We loaded the meeting as borrador but the guarded update wrote zero
       // rows and the row is no longer a draft — finalize won the race.
       if (fresh?.status && fresh.status !== 'borrador') {
-        return res.status(409).json({
-          error: 'meeting_finalized_concurrently',
-        });
+        return sendMeetingError(
+          res,
+          409,
+          'meeting_finalized_concurrently',
+          'La reunión fue finalizada mientras editabas',
+        );
       }
 
-      let updatedByName: string | null = null;
-      if (fresh?.updated_by) {
-        const { data: updater } = await serviceClient
-          .from('profiles')
-          .select('first_name, last_name')
-          .eq('id', fresh.updated_by)
-          .maybeSingle();
-        if (updater) {
-          updatedByName =
-            `${updater.first_name ?? ''} ${updater.last_name ?? ''}`.trim() || null;
-        }
-      }
-
+      const updatedByName = await resolveUpdaterName(serviceClient, fresh?.updated_by ?? null);
       return res.status(409).json({
         error: 'Conflicto de versión: la reunión fue modificada por otro usuario',
+        code: 'version_conflict',
         current_version: fresh?.version ?? meeting.version,
         updated_by_name: updatedByName,
         updated_at: fresh?.updated_at ?? meeting.updated_at,

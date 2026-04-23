@@ -7,6 +7,12 @@ import {
   logApiRequest,
   handleMethodNotAllowed,
 } from '../../../../../../lib/api-auth';
+// NOTE: intentionally no sendMeetingError / 'meeting_not_draft' guard here —
+// `end` is idempotent and must stay callable after finalize so the
+// `beforeunload` cleanup path can close its local session without producing
+// 409 toast noise. See finalize.ts which already closes open sessions server-
+// side; if the row is already closed, the UPDATE below simply affects zero
+// rows and we return 200.
 import { Validators } from '../../../../../../lib/types/api-auth.types';
 import { getUserRoles, getHighestRole } from '../../../../../../utils/roleUtils';
 import { canEditMeeting } from '../../../../../../lib/utils/meeting-policy';
@@ -86,9 +92,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return sendAuthError(res, 'No tiene permisos para editar esta reunión', 403);
     }
 
-    if (meeting.status !== 'borrador') {
-      return res.status(409).json({ error: 'meeting_not_draft' });
-    }
+    // No status guard — the `.is('ended_at', null)` + `.eq('user_id', user.id)`
+    // filters below make this safe to call regardless of meeting status.
 
     const now = new Date().toISOString();
 

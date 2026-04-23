@@ -203,7 +203,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                         <p className="font-medium">
                           Finalizada el {formatDate(meeting.finalized_at, { withWeekday: false })}
                           {meeting.finalized_by_profile && (
-                            <> por {profileName(meeting.finalized_by_profile, '')}</>
+                            <> por {profileName(meeting.finalized_by_profile, 'un usuario')}</>
                           )}
                         </p>
                         {meeting.finalize_audience && (

@@ -1189,7 +1189,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                           className="h-4 w-4 text-brand_accent focus:ring-brand_accent border-gray-300 rounded"
                         />
                         <span className="ml-2 text-sm text-gray-700">
-                          {profileName(user, '')}
+                          {profileName(user, 'Usuario sin nombre')}
                         </span>
                       </label>
                     ))}
@@ -1299,7 +1299,11 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                             key={attachment.id}
                             filename={attachment.filename}
                             fileType={attachment.file_type}
-                            fileSize={attachment.file_size}
+                            // Preserve the pre-extraction "0 Bytes" rendering for
+                            // legacy rows with a null file_size column. The new
+                            // helper returns '' for null so the UI label would
+                            // otherwise vanish.
+                            fileSize={attachment.file_size ?? 0}
                             variant="existing"
                             onRemove={() => {
                               setExistingAttachments(prev => prev.filter(a => a.id !== attachment.id));
@@ -1444,7 +1448,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 <option value="">Asignar a…</option>
                                 {availableUsers.map(user => (
                                   <option key={user.id} value={user.id}>
-                                    {profileName(user, '')}
+                                    {profileName(user, 'Usuario sin nombre')}
                                   </option>
                                 ))}
                               </select>
@@ -1526,7 +1530,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 <option value="">Asignar a…</option>
                                 {availableUsers.map(user => (
                                   <option key={user.id} value={user.id}>
-                                    {profileName(user, '')}
+                                    {profileName(user, 'Usuario sin nombre')}
                                   </option>
                                 ))}
                               </select>

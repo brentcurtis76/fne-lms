@@ -24,10 +24,30 @@ import { getUserRoles, getHighestRole } from '../../../utils/roleUtils';
 import {
   canEditMeeting,
   canFinalizeMeeting,
+  MEETING_STATUS,
 } from '../../utils/meeting-policy';
 import type { UserRole } from '../../../types/roles';
+import type { MeetingStatus } from '../../../types/meetings';
 
 export type MeetingAuthRequire = 'edit' | 'finalize';
+
+/**
+ * Shared `workspace:community_workspaces!…(community_id)` join fragment.
+ * Every meeting select in the app needs this to resolve community-scoped
+ * policy/recipient logic; exporting it keeps the FK-hinted relation name
+ * DRY so a future rename doesn't silently break half of the callers.
+ */
+export const MEETING_WORKSPACE_JOIN =
+  'workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id)';
+
+/**
+ * The minimum column set `loadMeetingAuthContext` needs to execute the
+ * `canEditMeeting` / `canFinalizeMeeting` policy helpers. Exported so the
+ * four calling routes compose their select as `${MEETING_POLICY_COLUMNS}, …`
+ * instead of re-spelling the prefix (and risking drift — e.g. a typo in
+ * `facilitator_id` would be a silent authz bug).
+ */
+export const MEETING_POLICY_COLUMNS = `id, status, created_by, facilitator_id, secretary_id, ${MEETING_WORKSPACE_JOIN}`;
 
 export interface LoadMeetingAuthContextOptions {
   /** Columns to include on the `.select(...)` for `community_meetings`. */
@@ -54,6 +74,23 @@ export interface MeetingAuthContext<M = Record<string, any>> {
   workspace: { community_id: string | null } | null;
   attendees: Array<{ user_id: string; role: string }>;
   serviceClient: ReturnType<typeof createServiceRoleClient>;
+}
+
+/**
+ * Internal minimum shape the helper reads off the loaded `meeting` row. The
+ * public generic `M` preserves the caller's concrete type for the returned
+ * `ctx.meeting`, but the six reads this helper performs are typed through
+ * `MeetingPolicyFields` so a single cast suffices — previously every read
+ * was its own `(meeting as any)` cast, which hid the fact that a typo in a
+ * caller's `meetingSelect` string would only surface at runtime.
+ */
+interface MeetingPolicyFields {
+  id: string;
+  status: MeetingStatus;
+  created_by: string;
+  facilitator_id: string | null;
+  secretary_id: string | null;
+  workspace: unknown;
 }
 
 /**
@@ -109,19 +146,39 @@ export async function loadMeetingAuthContext<M extends Record<string, any> = Rec
     .eq('meeting_id', id);
   const attendees = attendeesRaw || [];
 
+  // Single cast to the internal contract so the six reads below are typed.
+  const m = meeting as unknown as MeetingPolicyFields;
+
   // Supabase returns joined rows as either an object OR a single-element
   // array depending on the relationship definition. Normalize to object.
-  const rawWorkspace = (meeting as any).workspace;
-  const workspace = Array.isArray(rawWorkspace)
+  const rawWorkspace = m.workspace;
+  const workspace = (Array.isArray(rawWorkspace)
     ? rawWorkspace[0] ?? null
-    : rawWorkspace ?? null;
+    : rawWorkspace ?? null) as { community_id: string | null } | null;
+
+  // Draft-gate BEFORE the edit-policy check. `canEditMeeting` denies
+  // non-admin callers when the status is outside EDITABLE_STATUSES, so a
+  // concurrently-finalized meeting would otherwise surface as 403 for
+  // facilitators/secretaries — never reaching the 409 `meeting_not_draft`
+  // branch the client relies on to auto-reload. Admins would still see 409
+  // (they pass the policy check), so the client handler worked only for
+  // admins. This ordering gives every caller the 409 signal.
+  if (opts.requireDraft && m.status !== MEETING_STATUS.BORRADOR) {
+    sendMeetingError(
+      res,
+      409,
+      'meeting_not_draft',
+      'La reunión ya no está en borrador',
+    );
+    return null;
+  }
 
   const policyInput = {
-    id: (meeting as any).id,
-    status: (meeting as any).status,
-    created_by: (meeting as any).created_by,
-    facilitator_id: (meeting as any).facilitator_id,
-    secretary_id: (meeting as any).secretary_id,
+    id: m.id,
+    status: m.status,
+    created_by: m.created_by,
+    facilitator_id: m.facilitator_id,
+    secretary_id: m.secretary_id,
     community_id: workspace?.community_id ?? null,
   };
 
@@ -138,16 +195,6 @@ export async function loadMeetingAuthContext<M extends Record<string, any> = Rec
         ? 'No tiene permisos para finalizar esta reunión'
         : 'No tiene permisos para editar esta reunión';
     sendAuthError(res, msg, 403);
-    return null;
-  }
-
-  if (opts.requireDraft && (meeting as any).status !== 'borrador') {
-    sendMeetingError(
-      res,
-      409,
-      'meeting_not_draft',
-      'La reunión ya no está en borrador',
-    );
     return null;
   }
 

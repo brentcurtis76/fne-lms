@@ -574,9 +574,20 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
       if (res.status === 409) {
         const body = await res.json().catch(() => ({}));
         setSavingIndicator('error');
-        if (body?.error === 'meeting_finalized_concurrently') {
+        // Both codes mean "the server already considers the draft closed —
+        // reload unconditionally." They differ only in the UX copy. The
+        // server exposes the sentinel via `body.code`; `body.error` holds
+        // the Spanish user-facing message and MUST NOT be branched on.
+        if (
+          body?.code === 'meeting_finalized_concurrently' ||
+          body?.code === 'meeting_not_draft'
+        ) {
           if (typeof window !== 'undefined') {
-            window.alert('Esta reunión fue finalizada mientras editabas. Recargando…');
+            const msg =
+              body.code === 'meeting_finalized_concurrently'
+                ? 'Esta reunión fue finalizada mientras editabas. Recargando…'
+                : 'Esta reunión ya no está en borrador. Recargando…';
+            window.alert(msg);
           }
           await loadMeetingData();
           return;

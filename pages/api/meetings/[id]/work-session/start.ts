@@ -6,7 +6,10 @@ import {
   logApiRequest,
   handleMethodNotAllowed,
 } from '../../../../../lib/api-auth';
-import { loadMeetingAuthContext } from '../../../../../lib/api/meetings/load-context';
+import {
+  loadMeetingAuthContext,
+  MEETING_POLICY_COLUMNS,
+} from '../../../../../lib/api/meetings/load-context';
 
 // Bounded validation so the `client_id` column isn't written with unbounded
 // input. Keeps parity with the zod bodies on autosave + finalize.
@@ -29,8 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const ctx = await loadMeetingAuthContext<{ id: string; status: string }>(req, res, {
-      meetingSelect:
-        'id, status, created_by, facilitator_id, secretary_id, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id)',
+      meetingSelect: MEETING_POLICY_COLUMNS,
       require: 'edit',
       requireDraft: true,
     });

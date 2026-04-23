@@ -6,7 +6,10 @@ import {
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
 import { getCommunityRecipients } from '../../../../lib/notificationService';
-import { loadMeetingAuthContext } from '../../../../lib/api/meetings/load-context';
+import {
+  loadMeetingAuthContext,
+  MEETING_POLICY_COLUMNS,
+} from '../../../../lib/api/meetings/load-context';
 
 /**
  * GET /api/meetings/[id]/recipients?audience=community|attended
@@ -28,8 +31,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const ctx = await loadMeetingAuthContext<{ id: string }>(req, res, {
-      meetingSelect:
-        'id, status, created_by, facilitator_id, secretary_id, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id)',
+      meetingSelect: MEETING_POLICY_COLUMNS,
       require: 'finalize',
     });
     if (!ctx) return;

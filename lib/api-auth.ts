@@ -182,13 +182,16 @@ export function sendApiError(
 // Structured error response for meeting routes. Preserves the machine-readable
 // `code` (e.g. `meeting_not_draft`) alongside a human-readable `error` message
 // so clients can branch on the code while still surfacing a friendly message.
+// `extra` lets callers attach route-specific fields (current_version,
+// updated_by_name, updated_at) without duplicating the shape.
 export function sendMeetingError(
   res: NextApiResponse<ApiError>,
   status: number,
   code: string,
-  message: string
+  message: string,
+  extra?: Record<string, unknown>
 ): void {
-  res.status(status).json({ error: message, code });
+  res.status(status).json({ ...(extra ?? {}), error: message, code });
 }
 
 // Standard success response

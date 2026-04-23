@@ -9,11 +9,14 @@ vi.mock('../../../lib/api-auth', () => ({
   sendAuthError: vi.fn((res, message, status) => {
     res.status(status).json({ error: message });
   }),
+  sendApiError: vi.fn((res, message, status) => {
+    res.status(status).json({ error: message });
+  }),
   sendApiResponse: vi.fn((res, data, status = 200) => {
     res.status(status).json({ data });
   }),
-  sendMeetingError: vi.fn((res, status, code, message) => {
-    res.status(status).json({ error: message, code });
+  sendMeetingError: vi.fn((res, status, code, message, extra) => {
+    res.status(status).json({ ...(extra ?? {}), error: message, code });
   }),
   logApiRequest: vi.fn(),
   handleMethodNotAllowed: vi.fn((res) => {
@@ -28,6 +31,15 @@ vi.mock('../../../utils/roleUtils', () => ({
 
 vi.mock('../../../lib/utils/meeting-policy', () => ({
   canFinalizeMeeting: vi.fn(),
+  canEditMeeting: vi.fn(),
+  MEETING_STATUS: {
+    BORRADOR: 'borrador',
+    PROGRAMADA: 'programada',
+    EN_PROGRESO: 'en_progreso',
+    COMPLETADA: 'completada',
+    CANCELADA: 'cancelada',
+    POSPUESTA: 'pospuesta',
+  },
 }));
 
 vi.mock('../../../lib/emailService', () => ({
@@ -472,6 +484,46 @@ describe('/api/meetings/[id]/finalize', () => {
     expect(templateData.notesHtml).toBe('<p>x</p>');
     expect(templateData.summaryHtml).not.toContain('STALE_PLAIN_SUMMARY');
     expect(templateData.notesHtml).not.toContain('STALE_PLAIN_NOTES');
+  });
+
+  it('returns 200 with summary_email_sent=false when email dispatch throws (DB already committed)', async () => {
+    // F2 regression — before the fix, a thrown email error surfaced as 500
+    // even though the meeting row was already `status='completada'`. The
+    // client then retried and hit `meeting_already_finalized`, masking the
+    // orphan-email state. Now the DB commit is the point-of-no-return and
+    // the email call is wrapped in its own try/catch with a warning field.
+    const m = await loadMocks();
+    (m.getApiUser as any).mockResolvedValue({ user: { id: USER_ID }, error: null });
+    (m.getUserRoles as any).mockResolvedValue([]);
+    (m.getHighestRole as any).mockReturnValue('admin');
+    (m.canFinalizeMeeting as any).mockReturnValue(true);
+    (m.getCommunityRecipients as any).mockResolvedValue([
+      { id: 'u1', email: 'u1@example.com', name: 'U1' },
+    ]);
+    (m.sendMeetingSummary as any).mockRejectedValue(new Error('resend_outage'));
+    (m.createServiceRoleClient as any).mockReturnValue(buildClient({ meetingRow }));
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: MEETING_ID },
+      body: { audience: 'community' },
+    });
+    await handler(req as any, res as any);
+
+    expect(res._getStatusCode()).toBe(200);
+    const payload = JSON.parse(res._getData());
+    expect(payload.data).toMatchObject({
+      ok: true,
+      summary_email_sent: false,
+      summary_email_error: 'resend_outage',
+      recipients_count: 1,
+    });
+    // meeting_finalized notification still fires — commitments still need
+    // in-app notifications even if the summary email failed.
+    expect(m.triggerNotification).toHaveBeenCalledWith(
+      'meeting_finalized',
+      expect.objectContaining({ meeting_id: MEETING_ID }),
+    );
   });
 
   it('reports partial failure without aborting when one recipient send fails', async () => {

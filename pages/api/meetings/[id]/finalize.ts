@@ -13,6 +13,7 @@ import { sendMeetingSummary } from '../../../../lib/emailService';
 import { docToHtml } from '../../../../lib/tiptap/render';
 import { escapeHtml } from '../../../../lib/utils/html-escape';
 import { loadMeetingAuthContext } from '../../../../lib/api/meetings/load-context';
+import { MEETING_STATUS } from '../../../../lib/utils/meeting-policy';
 import { profileName } from '../../../../lib/utils/profile-name';
 
 const finalizeSchema = z.object({
@@ -78,9 +79,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const startedAt = Date.now();
 
   try {
+    // Finalize needs the `community:communities(id, name)` inner select on
+    // the workspace join for the email header, so it re-declares the
+    // workspace clause instead of using the plain `MEETING_POLICY_COLUMNS`.
+    // Policy reads still only require `community_id` off the join, which
+    // this extended form still provides.
     const ctx = await loadMeetingAuthContext<FinalizeMeeting>(req, res, {
       meetingSelect:
-        'id, title, status, created_by, facilitator_id, secretary_id, meeting_date, summary, summary_doc, notes, notes_doc, finalized_at, version, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id, community:communities(id, name))',
+        'id, status, created_by, facilitator_id, secretary_id, ' +
+        'workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id, community:communities(id, name)), ' +
+        'title, meeting_date, summary, summary_doc, notes, notes_doc, finalized_at, version',
       require: 'finalize',
     });
     if (!ctx) return;
@@ -88,7 +96,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { meeting, serviceClient, user } = ctx;
     const id = meeting.id;
 
-    if (meeting.status !== 'borrador') {
+    if (meeting.status !== MEETING_STATUS.BORRADOR) {
       return sendMeetingError(
         res,
         409,
@@ -244,7 +252,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       meetingUrl: '',
     };
 
-    const { sent, failed, errors } = await sendMeetingSummary(templateData, recipients);
+    // The DB commit above is the point-of-no-return: `status='completada'`
+    // + `finalized_at` + `finalize_audience` are durable. Email delivery is
+    // a best-effort side effect — if Resend throws we must still return 200
+    // so the client doesn't retry (retries hit `meeting_already_finalized`
+    // and leave the user with a misleading error). The warning fields let
+    // the client surface "Finalizada — correo pendiente" instead.
+    let summaryEmailSent = true;
+    let summaryEmailError: string | null = null;
+    let sent = 0;
+    let failed = 0;
+    let errorsPreview: unknown[] = [];
+    try {
+      const result = await sendMeetingSummary(templateData, recipients);
+      sent = result.sent;
+      failed = result.failed;
+      errorsPreview = result.errors;
+    } catch (emailErr: any) {
+      summaryEmailSent = false;
+      summaryEmailError = emailErr?.message || 'email_dispatch_failed';
+      console.error('[meetings-finalize] summary email dispatch failed:', {
+        meeting_id: id,
+        error: summaryEmailError,
+      });
+    }
 
     // Fire in-app notification event. Do not await in a way that blocks on failure.
     try {
@@ -266,8 +297,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       recipient_count: recipients.length,
       sent,
       failed,
+      summary_email_sent: summaryEmailSent,
       ms_elapsed: msElapsed,
-      errors_preview: errors.slice(0, 3),
+      errors_preview: errorsPreview.slice(0, 3),
     });
 
     return sendApiResponse(res, {
@@ -275,6 +307,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       recipients_count: recipients.length,
       sent,
       failed,
+      summary_email_sent: summaryEmailSent,
+      summary_email_error: summaryEmailError,
     });
   } catch (error: any) {
     console.error('Finalize error:', error);

@@ -9,8 +9,11 @@ vi.mock('../../../lib/api-auth', () => ({
   sendAuthError: vi.fn((res, message, status) => {
     res.status(status).json({ error: message });
   }),
-  sendMeetingError: vi.fn((res, status, code, message) => {
-    res.status(status).json({ error: message, code });
+  sendApiError: vi.fn((res, message, status) => {
+    res.status(status).json({ error: message });
+  }),
+  sendMeetingError: vi.fn((res, status, code, message, extra) => {
+    res.status(status).json({ ...(extra ?? {}), error: message, code });
   }),
   sendApiResponse: vi.fn((res, data, status = 200) => {
     res.status(status).json({ data });
@@ -28,6 +31,14 @@ vi.mock('../../../utils/roleUtils', () => ({
 
 vi.mock('../../../lib/utils/meeting-policy', () => ({
   canEditMeeting: vi.fn(),
+  MEETING_STATUS: {
+    BORRADOR: 'borrador',
+    PROGRAMADA: 'programada',
+    EN_PROGRESO: 'en_progreso',
+    COMPLETADA: 'completada',
+    CANCELADA: 'cancelada',
+    POSPUESTA: 'pospuesta',
+  },
 }));
 
 const MEETING_ID = '123e4567-e89b-12d3-a456-426614174000';

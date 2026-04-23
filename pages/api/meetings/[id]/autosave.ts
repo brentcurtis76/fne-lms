@@ -9,7 +9,11 @@ import {
   handleMethodNotAllowed,
 } from '../../../../lib/api-auth';
 import { plainTextFromDoc } from '../../../../lib/tiptap/helpers';
-import { loadMeetingAuthContext } from '../../../../lib/api/meetings/load-context';
+import {
+  loadMeetingAuthContext,
+  MEETING_POLICY_COLUMNS,
+} from '../../../../lib/api/meetings/load-context';
+import { MEETING_STATUS } from '../../../../lib/utils/meeting-policy';
 
 const autosaveSchema = z.object({
   summary_doc: z.record(z.unknown()),
@@ -65,8 +69,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updated_at: string;
       updated_by: string | null;
     }>(req, res, {
-      meetingSelect:
-        'id, status, created_by, facilitator_id, secretary_id, version, updated_at, updated_by, workspace:community_workspaces!community_meetings_workspace_id_fkey(community_id)',
+      meetingSelect: `${MEETING_POLICY_COLUMNS}, version, updated_at, updated_by`,
       require: 'edit',
       requireDraft: true,
     });
@@ -77,13 +80,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (meeting.version !== version) {
       const updatedByName = await resolveUpdaterName(serviceClient, meeting.updated_by);
-      return res.status(409).json({
-        error: 'Conflicto de versión: la reunión fue modificada por otro usuario',
-        code: 'version_conflict',
-        current_version: meeting.version,
-        updated_by_name: updatedByName,
-        updated_at: meeting.updated_at,
-      });
+      return sendMeetingError(
+        res,
+        409,
+        'version_conflict',
+        'Conflicto de versión: la reunión fue modificada por otro usuario',
+        {
+          current_version: meeting.version,
+          updated_by_name: updatedByName,
+          updated_at: meeting.updated_at,
+        },
+      );
     }
 
     const now = new Date().toISOString();
@@ -91,9 +98,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const notesText = plainTextFromDoc(notes_doc);
     const nextVersion = meeting.version + 1;
 
-    // Optimistic-concurrency update guarded by `version` AND `status='borrador'`.
+    // Optimistic-concurrency update guarded by `version` AND status draft.
     // The status guard closes the autosave/finalize race: if finalize won
-    // between the read above and this write, status is no longer 'borrador'
+    // between the read above and this write, status is no longer borrador
     // and the update affects zero rows instead of silently writing over a
     // finalized meeting.
     const { data: updated, error: updateError } = await serviceClient
@@ -109,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
       .eq('id', id)
       .eq('version', version)
-      .eq('status', 'borrador')
+      .eq('status', MEETING_STATUS.BORRADOR)
       .select('id, version, updated_at, updated_by')
       .maybeSingle();
 
@@ -127,7 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // We loaded the meeting as borrador but the guarded update wrote zero
       // rows and the row is no longer a draft — finalize won the race.
-      if (fresh?.status && fresh.status !== 'borrador') {
+      if (fresh?.status && fresh.status !== MEETING_STATUS.BORRADOR) {
         return sendMeetingError(
           res,
           409,
@@ -137,13 +144,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const updatedByName = await resolveUpdaterName(serviceClient, fresh?.updated_by ?? null);
-      return res.status(409).json({
-        error: 'Conflicto de versión: la reunión fue modificada por otro usuario',
-        code: 'version_conflict',
-        current_version: fresh?.version ?? meeting.version,
-        updated_by_name: updatedByName,
-        updated_at: fresh?.updated_at ?? meeting.updated_at,
-      });
+      return sendMeetingError(
+        res,
+        409,
+        'version_conflict',
+        'Conflicto de versión: la reunión fue modificada por otro usuario',
+        {
+          current_version: fresh?.version ?? meeting.version,
+          updated_by_name: updatedByName,
+          updated_at: fresh?.updated_at ?? meeting.updated_at,
+        },
+      );
     }
 
     // Touch the active work-session heartbeat so presence stays fresh.

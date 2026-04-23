@@ -20,7 +20,12 @@ import {
   MenuIcon,
   TrashIcon
 } from '@heroicons/react/outline';
-import { CommunityMeeting, MeetingWithDetails } from '../../types/meetings';
+import {
+  CommunityMeeting,
+  MeetingWithDetails,
+  meetingStatusColors,
+  meetingStatusLabels,
+} from '../../types/meetings';
 import { getMeetingDetails } from '../../utils/meetingUtils';
 import TaskTracker from './TaskTracker';
 import RichTextView from './RichTextView';
@@ -152,28 +157,6 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
     }
   };
 
-  const getStatusColor = (status: string) => {
-    const colors = {
-      programada: 'bg-blue-100 text-blue-800',
-      en_progreso: 'bg-yellow-100 text-yellow-800',
-      completada: 'bg-green-100 text-green-800',
-      cancelada: 'bg-red-100 text-red-800',
-      pospuesta: 'bg-gray-100 text-gray-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels = {
-      programada: 'Programada',
-      en_progreso: 'En Progreso',
-      completada: 'Completada',
-      cancelada: 'Cancelada',
-      pospuesta: 'Pospuesta'
-    };
-    return labels[status] || status;
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -204,8 +187,8 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                       {meeting.title}
                     </h2>
                     <div className="flex items-center gap-4 mt-2 text-sm text-gray-200">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(meeting.status)}`}>
-                        {getStatusLabel(meeting.status)}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${meetingStatusColors[meeting.status] ?? 'bg-gray-100 text-gray-800'}`}>
+                        {meetingStatusLabels[meeting.status] ?? meeting.status}
                       </span>
                       <div className="flex items-center gap-1">
                         <CalendarIcon className="h-4 w-4" />

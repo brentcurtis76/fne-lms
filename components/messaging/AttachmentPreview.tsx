@@ -26,10 +26,10 @@ import { MessageAttachment, MessageWithDetails } from '../../types/messaging';
 import {
   getFileTypeIcon,
   getFileTypeColor,
-  formatFileSize,
   formatRelativeTime,
   isPreviewSupported,
 } from '../../utils/documentUtils';
+import { formatFileSize } from '../../lib/utils/file-format';
 
 interface AttachmentPreviewProps {
   isOpen: boolean;

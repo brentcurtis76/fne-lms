@@ -16,8 +16,8 @@ import {
   uploadDocument,
   createFolder,
   getFileTypeConfig,
-  formatFileSize,
 } from '../../utils/documentUtils';
+import { formatFileSize } from '../../lib/utils/file-format';
 
 interface DocumentUploadModalProps {
   isOpen: boolean;

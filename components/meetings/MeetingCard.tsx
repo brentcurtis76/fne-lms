@@ -29,6 +29,8 @@ import {
   meetingStatusColors
 } from '../../types/meetings';
 import { formatMeetingDate, isOverdue } from '../../utils/meetingUtils';
+import { profileName } from '../../lib/utils/profile-name';
+import { formatFileSize, getFileIcon } from '../../lib/utils/file-format';
 import TaskTracker from './TaskTracker';
 
 interface MeetingCardProps {
@@ -122,7 +124,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             href={part}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[#0a0a0a] hover:text-[#fbbf24] underline"
+            className="text-brand_primary hover:text-brand_accent underline"
           >
             {part}
           </a>
@@ -171,7 +173,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
           <div className="space-y-3">
             {meetingWithDetails.agreements.map((agreement, index) => (
               <div key={agreement.id} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
-                <div className="flex-shrink-0 w-6 h-6 bg-[#fbbf24] rounded-full flex items-center justify-center text-xs font-bold text-[#0a0a0a]">
+                <div className="flex-shrink-0 w-6 h-6 bg-brand_accent rounded-full flex items-center justify-center text-xs font-bold text-brand_primary">
                   {index + 1}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -225,23 +227,6 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
     );
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const getFileIcon = (mimeType: string): string => {
-    if (mimeType.startsWith('image/')) return '🖼️';
-    if (mimeType.includes('pdf')) return '📄';
-    if (mimeType.includes('word')) return '📝';
-    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
-    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '📽️';
-    return '📎';
-  };
-
   const handleDownload = async (attachment: any) => {
     try {
       const { data } = supabase.storage
@@ -258,7 +243,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
     if (loadingAttachments) {
       return (
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#fbbf24]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand_accent"></div>
         </div>
       );
     }
@@ -283,7 +268,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             </div>
             <button
               onClick={() => handleDownload(attachment)}
-              className="flex-shrink-0 p-2 text-[#0a0a0a] hover:text-[#fbbf24] hover:bg-[#fbbf24]/10 rounded-lg transition-colors"
+              className="flex-shrink-0 p-2 text-brand_primary hover:text-brand_accent hover:bg-brand_accent/10 rounded-lg transition-colors"
               title="Descargar documento"
             >
               <DownloadIcon className="h-4 w-4" />
@@ -302,12 +287,25 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
             <div className="flex items-center space-x-3 mb-2">
-              <h3 className="text-lg font-semibold text-[#0a0a0a] truncate">
+              <h3 className="text-lg font-semibold text-brand_primary truncate">
                 {meeting.title}
               </h3>
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${meetingStatusColors[meeting.status]}`}>
-                {meetingStatusLabels[meeting.status]}
-              </span>
+              {meeting.status === 'borrador' ? (
+                <span
+                  className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-900 border border-yellow-300"
+                  title="Esta reunión está en borrador"
+                >
+                  <span
+                    className="h-2 w-2 rounded-full bg-yellow-500 mr-1.5 animate-pulse"
+                    aria-hidden="true"
+                  />
+                  Borrador
+                </span>
+              ) : (
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${meetingStatusColors[meeting.status]}`}>
+                  {meetingStatusLabels[meeting.status]}
+                </span>
+              )}
             </div>
             
             {meeting.description && (
@@ -338,9 +336,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               {meeting.facilitator && meeting.facilitator.first_name && (
                 <div className="flex items-center space-x-1">
                   <UserIcon className="h-4 w-4" />
-                  <span>
-                    {meeting.facilitator.first_name} {meeting.facilitator.last_name}
-                  </span>
+                  <span>{profileName(meeting.facilitator, '')}</span>
                 </div>
               )}
             </div>
@@ -366,7 +362,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                       {/* Tooltip */}
                       <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
                         {attendee.user_profile
-                          ? `${attendee.user_profile.first_name || ''} ${attendee.user_profile.last_name || ''}`.trim() || 'Sin nombre'
+                          ? profileName(attendee.user_profile, 'Sin nombre')
                           : 'Usuario'}
                       </div>
                     </div>
@@ -389,7 +385,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             {onView && (
               <button
                 onClick={() => onView(meeting.id)}
-                className="p-2 text-gray-400 hover:text-[#0a0a0a] hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                className="p-2 text-gray-400 hover:text-brand_primary hover:bg-gray-100 rounded-lg transition-colors duration-200"
                 title="Ver detalles"
               >
                 <EyeIcon className="h-4 w-4" />
@@ -399,7 +395,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
             {canEdit && onEdit && (
               <button
                 onClick={() => onEdit(meeting.id)}
-                className="p-2 text-gray-400 hover:text-[#fbbf24] hover:bg-[#fbbf24]/10 rounded-lg transition-colors duration-200"
+                className="p-2 text-gray-400 hover:text-brand_accent hover:bg-brand_accent/10 rounded-lg transition-colors duration-200"
                 title="Editar reunión"
               >
                 <PencilIcon className="h-4 w-4" />
@@ -436,7 +432,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               onClick={() => toggleSection('summary')}
               className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
                 activeSection === 'summary' && isExpanded
-                  ? 'bg-[#fbbf24] text-[#0a0a0a]'
+                  ? 'bg-brand_accent text-brand_primary'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >
@@ -449,7 +445,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                 onClick={() => toggleSection('agreements')}
                 className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
                   activeSection === 'agreements' && isExpanded
-                    ? 'bg-[#fbbf24] text-[#0a0a0a]'
+                    ? 'bg-brand_accent text-brand_primary'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -463,7 +459,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
                 onClick={() => toggleSection('tasks')}
                 className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
                   activeSection === 'tasks' && isExpanded
-                    ? 'bg-[#fbbf24] text-[#0a0a0a]'
+                    ? 'bg-brand_accent text-brand_primary'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -476,7 +472,7 @@ const MeetingCard: React.FC<MeetingCardProps> = ({
               onClick={() => toggleSection('documents')}
               className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium transition-colors duration-200 ${
                 activeSection === 'documents' && isExpanded
-                  ? 'bg-[#fbbf24] text-[#0a0a0a]'
+                  ? 'bg-brand_accent text-brand_primary'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
             >

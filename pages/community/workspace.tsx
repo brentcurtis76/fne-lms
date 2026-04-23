@@ -63,8 +63,8 @@ import {
   incrementDocumentCounter,
   getFolderBreadcrumb,
   extractUniqueTags,
-  formatFileSize
 } from '../../utils/documentUtils';
+import { formatFileSize } from '../../lib/utils/file-format';
 import {
   CommunityMeeting,
   MeetingFilters as MeetingFiltersType,
@@ -1016,7 +1016,7 @@ const MeetingsTabContent: React.FC<MeetingsTabContentProps> = ({ workspace, work
 
     try {
       setLoading(true);
-      const meetingsData = await getMeetings(workspace.id, filters, sort);
+      const meetingsData = await getMeetings(workspace.id, filters, sort, user?.id ?? null);
       
       // Load full details for each meeting to include agreements, commitments, and tasks
       const meetingsWithDetails = await Promise.all(

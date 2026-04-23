@@ -16,14 +16,24 @@ import {
   PaperClipIcon,
   DownloadIcon,
   CheckCircleIcon,
-  ExclamationIcon,
   UsersIcon,
   MenuIcon,
   TrashIcon
 } from '@heroicons/react/outline';
-import { CommunityMeeting, MeetingWithDetails } from '../../types/meetings';
+import {
+  CommunityMeeting,
+  MeetingWithDetails,
+  meetingStatusColors,
+  meetingStatusLabels,
+} from '../../types/meetings';
 import { getMeetingDetails } from '../../utils/meetingUtils';
 import TaskTracker from './TaskTracker';
+import RichTextView from './RichTextView';
+import { isEmptyDoc } from '../../lib/tiptap/helpers';
+import { audienceProseLabel } from '../../lib/meetings/audience-labels';
+import { CLOSE_BEFORE_DELETE_MS } from '../../lib/meetings/constants';
+import { profileName } from '../../lib/utils/profile-name';
+import { formatFileSize, getFileIcon } from '../../lib/utils/file-format';
 
 interface MeetingDetailsModalProps {
   isOpen: boolean;
@@ -103,33 +113,19 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
     }
   };
 
-  const formatDate = (dateString: string) => {
+  // Unified date formatter — drop `withWeekday` for banner contexts where
+  // the long "lunes 22 de abril" prefix would bloat an already-dense row.
+  const formatDate = (dateString: string, opts: { withWeekday?: boolean } = {}): string => {
+    const { withWeekday = true } = opts;
     const date = new Date(dateString);
     return date.toLocaleDateString('es-ES', {
-      weekday: 'long',
+      ...(withWeekday ? { weekday: 'long' as const } : {}),
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-  };
-
-  const getFileIcon = (mimeType: string): string => {
-    if (mimeType.startsWith('image/')) return '🖼️';
-    if (mimeType.includes('pdf')) return '📄';
-    if (mimeType.includes('word')) return '📝';
-    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
-    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '📽️';
-    return '📎';
   };
 
   const handleDownload = async (attachment: any) => {
@@ -143,28 +139,6 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
       console.error('Error downloading file:', error);
       toast.error('Error al descargar el archivo');
     }
-  };
-
-  const getStatusColor = (status: string) => {
-    const colors = {
-      programada: 'bg-blue-100 text-blue-800',
-      en_progreso: 'bg-yellow-100 text-yellow-800',
-      completada: 'bg-green-100 text-green-800',
-      cancelada: 'bg-red-100 text-red-800',
-      pospuesta: 'bg-gray-100 text-gray-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getStatusLabel = (status: string) => {
-    const labels = {
-      programada: 'Programada',
-      en_progreso: 'En Progreso',
-      completada: 'Completada',
-      cancelada: 'Cancelada',
-      pospuesta: 'Pospuesta'
-    };
-    return labels[status] || status;
   };
 
   if (!isOpen) return null;
@@ -190,15 +164,15 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
           ) : meeting ? (
             <>
               {/* Header */}
-              <div className="bg-[#0a0a0a] px-6 py-4">
+              <div className="bg-brand_primary px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <h2 className="text-xl font-semibold text-white">
                       {meeting.title}
                     </h2>
                     <div className="flex items-center gap-4 mt-2 text-sm text-gray-200">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(meeting.status)}`}>
-                        {getStatusLabel(meeting.status)}
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${meetingStatusColors[meeting.status] ?? 'bg-gray-100 text-gray-800'}`}>
+                        {meetingStatusLabels[meeting.status] ?? meeting.status}
                       </span>
                       <div className="flex items-center gap-1">
                         <CalendarIcon className="h-4 w-4" />
@@ -219,6 +193,38 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                 </div>
               </div>
 
+              {/* Post-finalize banner */}
+              {meeting.status === 'completada' && meeting.finalized_at && (
+                <div className="px-6 py-3 bg-emerald-50 border-b border-emerald-200">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-2">
+                      <CheckCircleIcon className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-emerald-900">
+                        <p className="font-medium">
+                          Finalizada el {formatDate(meeting.finalized_at, { withWeekday: false })}
+                          {meeting.finalized_by_profile && (
+                            <> por {profileName(meeting.finalized_by_profile, 'un usuario')}</>
+                          )}
+                        </p>
+                        {meeting.finalize_audience && (
+                          <p className="text-emerald-700 mt-0.5">
+                            Resumen enviado a {audienceProseLabel(meeting.finalize_audience)}.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled
+                      title="Disponible próximamente"
+                      className="flex-shrink-0 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-white border border-emerald-300 rounded-md hover:bg-emerald-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Enviar correo de actualización
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Meeting Info */}
               <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -232,7 +238,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                     <div className="flex items-center gap-2">
                       <UserIcon className="h-5 w-5 text-gray-400" />
                       <span className="text-gray-700">
-                        Facilitador: {meeting.facilitator.first_name} {meeting.facilitator.last_name}
+                        Facilitador: {profileName(meeting.facilitator, 'Sin asignar')}
                       </span>
                     </div>
                   )}
@@ -240,7 +246,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                     <div className="flex items-center gap-2">
                       <UserIcon className="h-5 w-5 text-gray-400" />
                       <span className="text-gray-700">
-                        Creado por: {meeting.created_by_profile.first_name} {meeting.created_by_profile.last_name}
+                        Creado por: {profileName(meeting.created_by_profile, 'Sin nombre')}
                       </span>
                     </div>
                   )}
@@ -255,95 +261,107 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                 </div>
               </div>
 
-              {/* Tabs */}
+              {/* Tabs — config-array-driven so adding or reordering tabs
+                  doesn't require five near-identical button blocks. Keep
+                  the attendee/agreement/task visibility rules and count
+                  labels with the data they describe, not scattered across
+                  JSX branches. */}
               <div className="border-b border-gray-200">
                 <nav className="-mb-px flex">
-                  <button
-                    onClick={() => setActiveTab('summary')}
-                    className={`py-2 px-6 border-b-2 font-medium text-sm ${
-                      activeTab === 'summary'
-                        ? 'border-[#fbbf24] text-[#0a0a0a]'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <DocumentTextIcon className="h-5 w-5 inline-block mr-2" />
-                    Resumen y Notas
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('attendees')}
-                    className={`py-2 px-6 border-b-2 font-medium text-sm ${
-                      activeTab === 'attendees'
-                        ? 'border-[#fbbf24] text-[#0a0a0a]'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <UsersIcon className="h-5 w-5 inline-block mr-2" />
-                    Participantes {meeting.attendees && meeting.attendees.length > 0 && `(${meeting.attendees.length})`}
-                  </button>
-                  {meeting.agreements && meeting.agreements.length > 0 && (
-                    <button
-                      onClick={() => setActiveTab('agreements')}
-                      className={`py-2 px-6 border-b-2 font-medium text-sm ${
-                        activeTab === 'agreements'
-                          ? 'border-[#fbbf24] text-[#0a0a0a]'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <MenuIcon className="h-5 w-5 inline-block mr-2" />
-                      Acuerdos ({meeting.agreements.length})
-                    </button>
-                  )}
-                  {(meeting.tasks.length > 0 || meeting.commitments.length > 0) && (
-                    <button
-                      onClick={() => setActiveTab('tasks')}
-                      className={`py-2 px-6 border-b-2 font-medium text-sm ${
-                        activeTab === 'tasks'
-                          ? 'border-[#fbbf24] text-[#0a0a0a]'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      <CheckCircleIcon className="h-5 w-5 inline-block mr-2" />
-                      Tareas y Compromisos ({meeting.tasks.length + meeting.commitments.length})
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setActiveTab('documents')}
-                    className={`py-2 px-6 border-b-2 font-medium text-sm ${
-                      activeTab === 'documents'
-                        ? 'border-[#fbbf24] text-[#0a0a0a]'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <PaperClipIcon className="h-5 w-5 inline-block mr-2" />
-                    Documentos
-                  </button>
+                  {([
+                    {
+                      id: 'summary',
+                      label: 'Resumen y Notas',
+                      icon: DocumentTextIcon,
+                      count: null,
+                      show: true,
+                    },
+                    {
+                      id: 'attendees',
+                      label: 'Participantes',
+                      icon: UsersIcon,
+                      count: meeting.attendees?.length ?? 0,
+                      show: true,
+                    },
+                    {
+                      id: 'agreements',
+                      label: 'Acuerdos',
+                      icon: MenuIcon,
+                      count: meeting.agreements?.length ?? 0,
+                      show: (meeting.agreements?.length ?? 0) > 0,
+                    },
+                    {
+                      id: 'tasks',
+                      label: 'Tareas y Compromisos',
+                      icon: CheckCircleIcon,
+                      count:
+                        (meeting.tasks?.length ?? 0) +
+                        (meeting.commitments?.length ?? 0),
+                      show:
+                        (meeting.tasks?.length ?? 0) +
+                          (meeting.commitments?.length ?? 0) >
+                        0,
+                    },
+                    {
+                      id: 'documents',
+                      label: 'Documentos',
+                      icon: PaperClipIcon,
+                      count: null,
+                      show: true,
+                    },
+                  ] as const)
+                    .filter((tab) => tab.show)
+                    .map((tab) => {
+                      const Icon = tab.icon;
+                      const active = activeTab === tab.id;
+                      const hasCount = tab.count != null && tab.count > 0;
+                      return (
+                        <button
+                          key={tab.id}
+                          onClick={() => setActiveTab(tab.id)}
+                          className={`py-2 px-6 border-b-2 font-medium text-sm ${
+                            active
+                              ? 'border-brand_accent text-brand_primary'
+                              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          <Icon className="h-5 w-5 inline-block mr-2" />
+                          {tab.label}
+                          {hasCount ? ` (${tab.count})` : ''}
+                        </button>
+                      );
+                    })}
                 </nav>
               </div>
 
               {/* Content */}
               <div className="px-6 py-4 max-h-96 overflow-y-auto">
                 {/* Summary Tab */}
-                {activeTab === 'summary' && (
-                  <div className="space-y-6">
-                    {meeting.summary && (
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">Resumen</h3>
-                        <p className="text-gray-700 whitespace-pre-wrap">{meeting.summary}</p>
-                      </div>
-                    )}
-                    {meeting.notes && (
-                      <div>
-                        <h3 className="text-sm font-medium text-gray-900 mb-2">Notas</h3>
-                        <p className="text-gray-700 whitespace-pre-wrap">{meeting.notes}</p>
-                      </div>
-                    )}
-                    {!meeting.summary && !meeting.notes && (
-                      <p className="text-gray-500 italic text-center py-8">
-                        No hay resumen o notas para esta reunión.
-                      </p>
-                    )}
-                  </div>
-                )}
+                {activeTab === 'summary' && (() => {
+                  const hasSummary = !isEmptyDoc(meeting.summary_doc) || Boolean(meeting.summary);
+                  const hasNotes = !isEmptyDoc(meeting.notes_doc) || Boolean(meeting.notes);
+                  return (
+                    <div className="space-y-6">
+                      {hasSummary && (
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-900 mb-2">Resumen</h3>
+                          <RichTextView doc={meeting.summary_doc} fallbackText={meeting.summary} />
+                        </div>
+                      )}
+                      {hasNotes && (
+                        <div>
+                          <h3 className="text-sm font-medium text-gray-900 mb-2">Notas</h3>
+                          <RichTextView doc={meeting.notes_doc} fallbackText={meeting.notes} />
+                        </div>
+                      )}
+                      {!hasSummary && !hasNotes && (
+                        <p className="text-gray-500 italic text-center py-8">
+                          No hay resumen o notas para esta reunión.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Attendees Tab */}
                 {activeTab === 'attendees' && (
@@ -355,18 +373,18 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                             {attendee.user_profile && attendee.user_profile.avatar_url ? (
                               <img
                                 src={attendee.user_profile.avatar_url}
-                                alt={`${attendee.user_profile.first_name} ${attendee.user_profile.last_name}`}
+                                alt={profileName(attendee.user_profile, 'Asistente')}
                                 className="h-10 w-10 rounded-full"
                               />
                             ) : (
-                              <div className="h-10 w-10 rounded-full bg-[#fbbf24] flex items-center justify-center">
-                                <UserIcon className="h-6 w-6 text-[#0a0a0a]" />
+                              <div className="h-10 w-10 rounded-full bg-brand_accent flex items-center justify-center">
+                                <UserIcon className="h-6 w-6 text-brand_primary" />
                               </div>
                             )}
                             <div>
                               <p className="text-sm font-medium text-gray-900">
                                 {attendee.user_profile
-                                  ? `${attendee.user_profile.first_name || ''} ${attendee.user_profile.last_name || ''}`.trim() || 'Usuario sin nombre'
+                                  ? profileName(attendee.user_profile, 'Usuario sin nombre')
                                   : 'Usuario no encontrado'}
                               </p>
                               {attendee.user_profile && attendee.user_profile.email && (
@@ -396,11 +414,15 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                       <div className="space-y-3">
                         {meeting.agreements.map((agreement, index) => (
                           <div key={agreement.id} className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg">
-                            <div className="flex-shrink-0 w-8 h-8 bg-[#fbbf24] rounded-full flex items-center justify-center text-sm font-bold text-[#0a0a0a]">
+                            <div className="flex-shrink-0 w-8 h-8 bg-brand_accent rounded-full flex items-center justify-center text-sm font-bold text-brand_primary">
                               {index + 1}
                             </div>
                             <div className="flex-1">
-                              <p className="text-gray-900">{agreement.agreement_text}</p>
+                              <RichTextView
+                                doc={agreement.agreement_doc}
+                                fallbackText={agreement.agreement_text}
+                                className="text-gray-900"
+                              />
                               {agreement.category && (
                                 <span className="inline-block mt-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
                                   {agreement.category}
@@ -466,7 +488,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                   <div>
                     {loadingAttachments ? (
                       <div className="flex items-center justify-center py-8">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#fbbf24]"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand_accent"></div>
                       </div>
                     ) : attachments.length > 0 ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -484,7 +506,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                             </div>
                             <button
                               onClick={() => handleDownload(attachment)}
-                              className="flex-shrink-0 p-2 text-[#0a0a0a] hover:text-[#fbbf24] hover:bg-[#fbbf24]/10 rounded-lg transition-colors"
+                              className="flex-shrink-0 p-2 text-brand_primary hover:text-brand_accent hover:bg-brand_accent/10 rounded-lg transition-colors"
                               title="Descargar documento"
                             >
                               <DownloadIcon className="h-4 w-4" />
@@ -514,10 +536,11 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                     <button
                       onClick={() => {
                         onClose();
-                        // Small delay to ensure modal closes before opening delete modal
+                        // Small delay so the modal's close transition finishes
+                        // before the delete-confirm dialog mounts on top of it.
                         setTimeout(() => {
                           onDelete(meeting.id);
-                        }, 150);
+                        }, CLOSE_BEFORE_DELETE_MS);
                       }}
                       className="inline-flex items-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
                     >
@@ -532,7 +555,7 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                       onEdit(meeting.id);
                       onClose();
                     }}
-                    className="px-4 py-2 bg-[#fbbf24] text-[#0a0a0a] font-medium rounded-lg hover:bg-[#fbbf24]/90 transition-colors"
+                    className="px-4 py-2 bg-brand_accent text-brand_primary font-medium rounded-lg hover:bg-brand_accent/90 transition-colors"
                   >
                     Editar Reunión
                   </button>

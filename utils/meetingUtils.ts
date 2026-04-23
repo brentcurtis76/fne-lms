@@ -24,12 +24,18 @@ import {
 import { logWorkspaceActivity } from './workspaceUtils';
 
 /**
- * Get meetings for a workspace with filtering and sorting
+ * Get meetings for a workspace with filtering and sorting.
+ *
+ * `userId` is required when `filters.myDrafts` is true — that branch
+ * restricts results to the caller's own draft meetings (as creator,
+ * facilitator, secretary, or co-editor attendee). When `userId` is missing
+ * the `myDrafts` flag is ignored; the regular filters still apply.
  */
 export async function getMeetings(
   workspaceId: string,
   filters: Partial<MeetingFilters> = {},
-  sort: MeetingSortOptions = { field: 'meeting_date', direction: 'desc' }
+  sort: MeetingSortOptions = { field: 'meeting_date', direction: 'desc' },
+  userId: string | null = null
 ): Promise<CommunityMeeting[]> {
   try {
     let query = supabase
@@ -43,8 +49,33 @@ export async function getMeetings(
       .eq('workspace_id', workspaceId)
       .eq('is_active', true);
 
-    // Apply filters
-    if (filters.status && filters.status.length > 0) {
+    // "Mis borradores" — restrict to drafts where the caller has edit
+    // authority (creator, facilitator, secretary, or co-editor attendee).
+    // Overrides the `status` filter since the two are orthogonal (the UI
+    // treats myDrafts as a quick-filter shortcut, not a refinement of
+    // whatever status chips are ticked).
+    const myDraftsActive = !!(filters.myDrafts && userId);
+    if (myDraftsActive) {
+      const { data: coEditorRows } = await supabase
+        .from('meeting_attendees')
+        .select('meeting_id')
+        .eq('user_id', userId)
+        .eq('role', 'co_editor');
+      const coEditorMeetingIds = (coEditorRows ?? [])
+        .map((r: { meeting_id: string | null }) => r.meeting_id)
+        .filter((id): id is string => !!id);
+
+      query = query.eq('status', 'borrador');
+      const orClauses = [
+        `created_by.eq.${userId}`,
+        `facilitator_id.eq.${userId}`,
+        `secretary_id.eq.${userId}`,
+      ];
+      if (coEditorMeetingIds.length > 0) {
+        orClauses.push(`id.in.(${coEditorMeetingIds.join(',')})`);
+      }
+      query = query.or(orClauses.join(','));
+    } else if (filters.status && filters.status.length > 0) {
       query = query.in('status', filters.status);
     }
 
@@ -90,7 +121,8 @@ export async function getMeetingDetails(meetingId: string): Promise<MeetingWithD
         *,
         facilitator:profiles!community_meetings_facilitator_id_fkey(id, first_name, last_name),
         secretary:profiles!community_meetings_secretary_id_fkey(id, first_name, last_name),
-        created_by_profile:profiles!community_meetings_created_by_fkey(id, first_name, last_name, email)
+        created_by_profile:profiles!community_meetings_created_by_fkey(id, first_name, last_name, email),
+        finalized_by_profile:profiles!community_meetings_finalized_by_fkey(id, first_name, last_name)
       `)
       .eq('id', meetingId)
       .single();
@@ -158,18 +190,22 @@ export async function updateMeeting(
   updates: Partial<CommunityMeeting>
 ): Promise<{ success: boolean; error?: any }> {
   try {
+    const updatePayload: Record<string, any> = {
+      title: updates.title,
+      meeting_date: updates.meeting_date,
+      duration_minutes: updates.duration_minutes,
+      location: updates.location,
+      status: updates.status,
+      summary: updates.summary,
+      notes: updates.notes,
+      updated_at: new Date().toISOString()
+    };
+    if (updates.summary_doc !== undefined) updatePayload.summary_doc = updates.summary_doc;
+    if (updates.notes_doc !== undefined) updatePayload.notes_doc = updates.notes_doc;
+
     const { data, error } = await supabase
       .from('community_meetings')
-      .update({
-        title: updates.title,
-        meeting_date: updates.meeting_date,
-        duration_minutes: updates.duration_minutes,
-        location: updates.location,
-        status: updates.status,
-        summary: updates.summary,
-        notes: updates.notes,
-        updated_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', meetingId)
       .select()
       .single();
@@ -199,42 +235,7 @@ export async function getMeetingWithDetails(meetingId: string): Promise<MeetingW
       .single();
 
     if (meetingError || !meeting) {
-      // Gracefully handle missing tables - try simple_meetings
-      if (meetingError?.code === '42P01' || meetingError?.message?.includes('does not exist')) {
-        console.warn('Meetings table not found - trying simple_meetings');
-        
-        // Try to fetch from simple_meetings table
-        const { data: simpleMeeting, error: simpleError } = await supabase
-          .from('simple_meetings')
-          .select('*')
-          .eq('id', meetingId)
-          .single();
-          
-        if (simpleError || !simpleMeeting) {
-          console.error('Error fetching simple meeting:', simpleError);
-          return null;
-        }
-        
-        // Transform simple meeting to MeetingWithDetails
-        const meetingData = simpleMeeting.meeting_data || {};
-        return {
-          ...simpleMeeting,
-          description: simpleMeeting.notes,
-          is_active: true,
-          agreements: meetingData.agreements || [],
-          commitments: meetingData.commitments || [],
-          tasks: meetingData.tasks || [],
-          attendees: (meetingData.attendees || []).map((userId: string) => ({
-            id: `attendee-${userId}`,
-            meeting_id: simpleMeeting.id,
-            user_id: userId,
-            attendance_status: 'attended',
-            role: 'participant'
-          }))
-        } as MeetingWithDetails;
-      } else {
-        console.error('Error fetching meeting:', meetingError);
-      }
+      console.error('Error fetching meeting:', meetingError);
       return null;
     }
 
@@ -304,9 +305,10 @@ export async function createMeetingWithDocumentation(
   workspaceId: string,
   userId: string,
   documentation: MeetingDocumentationInput
-): Promise<{ success: boolean; meetingId?: string; error?: string }> {
+): Promise<{ success: boolean; meetingId?: string; version?: number; error?: string }> {
   try {
-    // Start transaction
+    // Start transaction — read back `version` so the caller can seed its
+    // optimistic-locking state with the authoritative DB value (default is 0).
     const { data: meeting, error: meetingError } = await supabase
       .from('community_meetings')
       .insert({
@@ -316,58 +318,17 @@ export async function createMeetingWithDocumentation(
         duration_minutes: documentation.meeting_info.duration_minutes,
         location: documentation.meeting_info.location,
         summary: documentation.summary_info.summary,
+        summary_doc: documentation.summary_info.summary_doc,
         notes: documentation.summary_info.notes,
+        notes_doc: documentation.summary_info.notes_doc,
         status: documentation.summary_info.status,
         created_by: userId
       })
-      .select('id')
+      .select('id, version')
       .single();
 
     if (meetingError || !meeting) {
       console.error('Error creating meeting:', meetingError);
-      
-      // Check if it's a missing table error
-      if (meetingError?.code === '42P01' || meetingError?.message?.includes('does not exist')) {
-        // Try to create a simplified meeting record in a basic table
-        console.warn('Meeting tables not found - trying simple_meetings table');
-        
-        // Create a simplified meeting in the simple_meetings table as a fallback
-        const { data: simpleMeeting, error: simpleError } = await supabase
-          .from('simple_meetings')
-          .insert({
-            workspace_id: workspaceId,
-            title: documentation.meeting_info.title,
-            meeting_date: documentation.meeting_info.meeting_date,
-            duration_minutes: documentation.meeting_info.duration_minutes,
-            location: documentation.meeting_info.location,
-            summary: documentation.summary_info.summary,
-            notes: documentation.summary_info.notes,
-            status: documentation.summary_info.status,
-            created_by: userId,
-            meeting_data: {
-              agreements: documentation.agreements,
-              commitments: documentation.commitments,
-              tasks: documentation.tasks,
-              attendees: documentation.meeting_info.attendee_ids
-            }
-          })
-          .select('id')
-          .single();
-          
-        if (simpleError) {
-          console.error('Error creating simple meeting:', simpleError);
-          return { 
-            success: false, 
-            error: 'Las tablas de reuniones no están configuradas. Por favor, ejecute el script SQL: database/simple-meetings.sql en Supabase.' 
-          };
-        }
-        
-        if (simpleMeeting) {
-          toast.success('Reunión guardada exitosamente.');
-          return { success: true, meetingId: simpleMeeting.id };
-        }
-      }
-      
       return { success: false, error: meetingError?.message || 'Error al crear la reunión' };
     }
 
@@ -378,6 +339,7 @@ export async function createMeetingWithDocumentation(
       const agreementsToInsert = documentation.agreements.map((agreement, index) => ({
         meeting_id: meetingId,
         agreement_text: agreement.agreement_text,
+        agreement_doc: agreement.agreement_doc,
         category: agreement.category,
         order_index: index
       }));
@@ -396,6 +358,7 @@ export async function createMeetingWithDocumentation(
       const commitmentsToInsert = documentation.commitments.map(commitment => ({
         meeting_id: meetingId,
         commitment_text: commitment.commitment_text,
+        commitment_doc: commitment.commitment_doc,
         assigned_to: commitment.assigned_to,
         due_date: commitment.due_date
       }));
@@ -415,6 +378,7 @@ export async function createMeetingWithDocumentation(
         meeting_id: meetingId,
         task_title: task.task_title,
         task_description: task.task_description,
+        task_description_doc: task.task_description_doc,
         assigned_to: task.assigned_to,
         due_date: task.due_date,
         priority: task.priority,
@@ -463,7 +427,7 @@ export async function createMeetingWithDocumentation(
       }
     );
 
-    return { success: true, meetingId };
+    return { success: true, meetingId, version: (meeting as any).version ?? 0 };
 
   } catch (error) {
     console.error('Error in createMeetingWithDocumentation:', error);

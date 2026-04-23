@@ -35,10 +35,10 @@ import {
 } from '../../types/messaging';
 import {
   formatRelativeTime,
-  formatFileSize,
   getReactionEmoji,
   getReactionLabel,
 } from '../../utils/messagingUtils';
+import { formatFileSize } from '../../lib/utils/file-format';
 
 interface MessageCardProps {
   message: MessageWithDetails;

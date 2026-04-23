@@ -27,6 +27,9 @@ import {
   priorityColors
 } from '../../types/meetings';
 import { updateTaskStatus, getDaysUntilDue, isOverdue } from '../../utils/meetingUtils';
+import { profileName } from '../../lib/utils/profile-name';
+import RichTextView from './RichTextView';
+import { isEmptyDoc } from '../../lib/tiptap/helpers';
 
 interface TaskTrackerProps {
   item: MeetingTask | MeetingCommitment;
@@ -47,12 +50,20 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
   const [showNotes, setShowNotes] = useState(false);
   const [notes, setNotes] = useState(item.notes || '');
 
-  const title = itemType === 'task' 
-    ? (item as MeetingTask).task_title 
+  const title = itemType === 'task'
+    ? (item as MeetingTask).task_title
     : (item as MeetingCommitment).commitment_text;
 
-  const description = itemType === 'task' 
-    ? (item as MeetingTask).task_description 
+  const description = itemType === 'task'
+    ? (item as MeetingTask).task_description
+    : undefined;
+
+  const commitmentDoc = itemType === 'commitment'
+    ? (item as MeetingCommitment).commitment_doc
+    : undefined;
+
+  const taskDescriptionDoc = itemType === 'task'
+    ? (item as MeetingTask).task_description_doc
     : undefined;
 
   const priority = itemType === 'task' 
@@ -174,14 +185,28 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
             {getStatusIcon(item.status)}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-medium text-gray-900 truncate" title={title}>
-              {title}
-            </h3>
-            {description && (
+            {itemType === 'commitment' && !isEmptyDoc(commitmentDoc) ? (
+              <RichTextView
+                doc={commitmentDoc}
+                fallbackText={title}
+                className="text-sm text-gray-900"
+              />
+            ) : (
+              <h3 className="text-sm font-medium text-gray-900 truncate" title={title}>
+                {title}
+              </h3>
+            )}
+            {itemType === 'task' && !isEmptyDoc(taskDescriptionDoc) ? (
+              <RichTextView
+                doc={taskDescriptionDoc}
+                fallbackText={description}
+                className="text-xs text-gray-500 mt-1"
+              />
+            ) : description ? (
               <p className="text-xs text-gray-500 mt-1 line-clamp-2">
                 {description}
               </p>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -197,7 +222,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
         {item.assigned_to_profile && (
           <div className="flex items-center space-x-1">
             <UserIcon className="h-3 w-3" />
-            <span>{item.assigned_to_profile.first_name} {item.assigned_to_profile.last_name}</span>
+            <span>{profileName(item.assigned_to_profile, 'Sin asignar')}</span>
           </div>
         )}
 
@@ -332,7 +357,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Agregar notas sobre el progreso..."
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent text-sm resize-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand_accent focus:border-transparent text-sm resize-none"
               />
               <div className="flex justify-end space-x-2 mt-2">
                 <button
@@ -344,7 +369,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
                 <button
                   onClick={saveNotes}
                   disabled={isUpdating}
-                  className="px-3 py-1 bg-[#fbbf24] text-[#0a0a0a] text-xs rounded-lg hover:bg-[#fbbf24]/90 transition-colors duration-200 disabled:opacity-50"
+                  className="px-3 py-1 bg-brand_accent text-brand_primary text-xs rounded-lg hover:bg-brand_accent/90 transition-colors duration-200 disabled:opacity-50"
                 >
                   Guardar
                 </button>
@@ -365,7 +390,7 @@ const TaskTracker: React.FC<TaskTrackerProps> = ({
       {/* Loading Overlay */}
       {isUpdating && (
         <div className="absolute inset-0 bg-white/50 rounded-lg flex items-center justify-center">
-          <RefreshIcon className="h-5 w-5 text-[#fbbf24] animate-spin" />
+          <RefreshIcon className="h-5 w-5 text-brand_accent animate-spin" />
         </div>
       )}
     </div>

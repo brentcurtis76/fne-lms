@@ -27,9 +27,9 @@ import {
   isPreviewSupported,
   getFileTypeIcon,
   getFileTypeColor,
-  formatFileSize,
   formatRelativeTime,
 } from '../../utils/documentUtils';
+import { formatFileSize } from '../../lib/utils/file-format';
 
 interface DocumentPreviewProps {
   isOpen: boolean;

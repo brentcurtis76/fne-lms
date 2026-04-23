@@ -8,7 +8,8 @@ export type MeetingStatus = 'borrador' | 'programada' | 'en_progreso' | 'complet
 export type TaskStatus = 'pendiente' | 'en_progreso' | 'completado' | 'vencido' | 'cancelado';
 export type TaskPriority = 'baja' | 'media' | 'alta' | 'critica';
 export type AttendanceStatus = 'invited' | 'confirmed' | 'attended' | 'absent' | 'late';
-export type AttendeeRole = 'facilitator' | 'secretary' | 'participant' | 'observer';
+export type AttendeeRole = 'facilitator' | 'secretary' | 'participant' | 'observer' | 'co_editor';
+export type FinalizeAudience = 'community' | 'attended';
 
 // Core meeting interface
 export interface CommunityMeeting {
@@ -21,7 +22,9 @@ export interface CommunityMeeting {
   location?: string;
   status: MeetingStatus;
   summary?: string;
+  summary_doc?: any;
   notes?: string;
+  notes_doc?: any;
   
   // Management
   created_by: string;
@@ -32,6 +35,12 @@ export interface CommunityMeeting {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  started_at?: string;
+  version: number;
+  updated_by?: string;
+  finalized_at?: string | null;
+  finalized_by?: string | null;
+  finalize_audience?: FinalizeAudience | null;
   
   // Related data (populated via joins)
   workspace?: {
@@ -75,6 +84,7 @@ export interface MeetingAgreement {
   id: string;
   meeting_id: string;
   agreement_text: string;
+  agreement_doc?: any;
   order_index: number;
   category?: string;
   created_at: string;
@@ -86,6 +96,7 @@ export interface MeetingCommitment {
   id: string;
   meeting_id: string;
   commitment_text: string;
+  commitment_doc?: any;
   assigned_to: string;
   due_date?: string;
   status: TaskStatus;
@@ -116,6 +127,7 @@ export interface MeetingTask {
   meeting_id: string;
   task_title: string;
   task_description?: string;
+  task_description_doc?: any;
   assigned_to: string;
   due_date?: string;
   priority: TaskPriority;
@@ -171,12 +183,37 @@ export interface MeetingAttendee {
   };
 }
 
+// Collaborative work-session presence for co-editing a meeting draft
+export interface MeetingWorkSession {
+  id: string;
+  meeting_id: string;
+  user_id: string;
+  started_at: string;
+  last_heartbeat_at: string;
+  ended_at?: string;
+  client_id?: string;
+
+  // Related data
+  user_profile?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    avatar_url?: string;
+  };
+}
+
 // Complete meeting with all related data
 export interface MeetingWithDetails extends CommunityMeeting {
   agreements: MeetingAgreement[];
   commitments: MeetingCommitment[];
   tasks: MeetingTask[];
   attendees: MeetingAttendee[];
+  finalized_by_profile?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  } | null;
 }
 
 // Meeting creation/update input
@@ -205,26 +242,34 @@ export interface MeetingDocumentationInput {
   // Step 2: Summary and Notes
   summary_info: {
     summary: string;
+    summary_doc?: any;
     notes?: string;
+    notes_doc?: any;
     status: MeetingStatus;
   };
-  
+
   // Step 3: Agreements
   agreements: Array<{
+    id?: string;
     agreement_text: string;
+    agreement_doc?: any;
     category?: string;
   }>;
-  
+
   // Step 4: Commitments and Tasks
   commitments: Array<{
+    id?: string;
     commitment_text: string;
+    commitment_doc?: any;
     assigned_to: string;
     due_date?: string;
   }>;
-  
+
   tasks: Array<{
+    id?: string;
     task_title: string;
     task_description?: string;
+    task_description_doc?: any;
     assigned_to: string;
     due_date?: string;
     priority: TaskPriority;
@@ -277,6 +322,9 @@ export interface MeetingFilters {
   search: string;
   priority?: TaskPriority[];
   overdueTasks: boolean;
+  // "Mis borradores": restrict to meetings with status='borrador' where the
+  // current user is a creator, facilitator, secretary, or co-editor.
+  myDrafts?: boolean;
 }
 
 // Sort options for meetings
@@ -331,7 +379,7 @@ export const priorityColors: Record<TaskPriority, string> = {
 };
 
 export const meetingStatusColors: Record<MeetingStatus, string> = {
-  borrador: 'bg-gray-100 text-gray-700',
+  borrador: 'bg-slate-100 text-slate-800',
   programada: 'bg-blue-100 text-blue-800',
   en_progreso: 'bg-yellow-100 text-yellow-800',
   completada: 'bg-green-100 text-green-800',
@@ -363,3 +411,30 @@ export const meetingStatusLabels: Record<MeetingStatus, string> = {
   cancelada: 'Cancelada',
   pospuesta: 'Pospuesta'
 };
+
+// Row shape returned by `meeting_work_sessions` joined with the editing
+// user's profile — powers the draft-timeline banner in the documentation
+// modal. Previously inlined inside MeetingDocumentationModal; relocated
+// here so component-extracted consumers (e.g. a future WorkSessionBanner
+// subcomponent) can share the same contract without re-declaring the
+// shape.
+export interface WorkSessionEntry {
+  id: string;
+  user_id: string;
+  started_at: string;
+  last_heartbeat_at: string | null;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+// Minimum fields the meeting-attachments UI needs when reading existing
+// rows from `meeting_attachments`. Relocated from the documentation modal
+// for the same reason as WorkSessionEntry — the shape is consumed by the
+// modal itself plus any future AttachmentRow subcomponent.
+export interface ExistingAttachment {
+  id: string;
+  filename: string;
+  file_path: string;
+  file_size: number;
+  file_type: string;
+}

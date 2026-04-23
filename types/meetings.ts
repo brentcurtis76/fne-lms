@@ -411,3 +411,30 @@ export const meetingStatusLabels: Record<MeetingStatus, string> = {
   cancelada: 'Cancelada',
   pospuesta: 'Pospuesta'
 };
+
+// Row shape returned by `meeting_work_sessions` joined with the editing
+// user's profile — powers the draft-timeline banner in the documentation
+// modal. Previously inlined inside MeetingDocumentationModal; relocated
+// here so component-extracted consumers (e.g. a future WorkSessionBanner
+// subcomponent) can share the same contract without re-declaring the
+// shape.
+export interface WorkSessionEntry {
+  id: string;
+  user_id: string;
+  started_at: string;
+  last_heartbeat_at: string | null;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+// Minimum fields the meeting-attachments UI needs when reading existing
+// rows from `meeting_attachments`. Relocated from the documentation modal
+// for the same reason as WorkSessionEntry — the shape is consumed by the
+// modal itself plus any future AttachmentRow subcomponent.
+export interface ExistingAttachment {
+  id: string;
+  filename: string;
+  file_path: string;
+  file_size: number;
+  file_type: string;
+}

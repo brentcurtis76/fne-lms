@@ -37,7 +37,9 @@ import {
   MeetingStatus,
   AssignmentUser,
   priorityLabels,
-  meetingStatusLabels
+  meetingStatusLabels,
+  WorkSessionEntry,
+  ExistingAttachment,
 } from '../../types/meetings';
 import { 
   createMeetingWithDocumentation,
@@ -138,14 +140,6 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const workSessionEndedRef = useRef<boolean>(false);
 
   // Work-session timeline (other editors working on this draft).
-  interface WorkSessionEntry {
-    id: string;
-    user_id: string;
-    started_at: string;
-    last_heartbeat_at: string | null;
-    first_name: string | null;
-    last_name: string | null;
-  }
   const [workSessions, setWorkSessions] = useState<WorkSessionEntry[]>([]);
 
   // Form data state
@@ -175,13 +169,6 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   const originalTaskIdsRef = useRef<Set<string>>(new Set());
 
   // Existing attachments loaded from the database (edit mode)
-  interface ExistingAttachment {
-    id: string;
-    filename: string;
-    file_path: string;
-    file_size: number;
-    file_type: string;
-  }
   const [existingAttachments, setExistingAttachments] = useState<ExistingAttachment[]>([]);
   const [attachmentsToDelete, setAttachmentsToDelete] = useState<ExistingAttachment[]>([]);
 

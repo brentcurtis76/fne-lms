@@ -24,12 +24,18 @@ import {
 import { logWorkspaceActivity } from './workspaceUtils';
 
 /**
- * Get meetings for a workspace with filtering and sorting
+ * Get meetings for a workspace with filtering and sorting.
+ *
+ * `userId` is required when `filters.myDrafts` is true — that branch
+ * restricts results to the caller's own draft meetings (as creator,
+ * facilitator, secretary, or co-editor attendee). When `userId` is missing
+ * the `myDrafts` flag is ignored; the regular filters still apply.
  */
 export async function getMeetings(
   workspaceId: string,
   filters: Partial<MeetingFilters> = {},
-  sort: MeetingSortOptions = { field: 'meeting_date', direction: 'desc' }
+  sort: MeetingSortOptions = { field: 'meeting_date', direction: 'desc' },
+  userId: string | null = null
 ): Promise<CommunityMeeting[]> {
   try {
     let query = supabase
@@ -43,8 +49,33 @@ export async function getMeetings(
       .eq('workspace_id', workspaceId)
       .eq('is_active', true);
 
-    // Apply filters
-    if (filters.status && filters.status.length > 0) {
+    // "Mis borradores" — restrict to drafts where the caller has edit
+    // authority (creator, facilitator, secretary, or co-editor attendee).
+    // Overrides the `status` filter since the two are orthogonal (the UI
+    // treats myDrafts as a quick-filter shortcut, not a refinement of
+    // whatever status chips are ticked).
+    const myDraftsActive = !!(filters.myDrafts && userId);
+    if (myDraftsActive) {
+      const { data: coEditorRows } = await supabase
+        .from('meeting_attendees')
+        .select('meeting_id')
+        .eq('user_id', userId)
+        .eq('role', 'co_editor');
+      const coEditorMeetingIds = (coEditorRows ?? [])
+        .map((r: { meeting_id: string | null }) => r.meeting_id)
+        .filter((id): id is string => !!id);
+
+      query = query.eq('status', 'borrador');
+      const orClauses = [
+        `created_by.eq.${userId}`,
+        `facilitator_id.eq.${userId}`,
+        `secretary_id.eq.${userId}`,
+      ];
+      if (coEditorMeetingIds.length > 0) {
+        orClauses.push(`id.in.(${coEditorMeetingIds.join(',')})`);
+      }
+      query = query.or(orClauses.join(','));
+    } else if (filters.status && filters.status.length > 0) {
       query = query.in('status', filters.status);
     }
 

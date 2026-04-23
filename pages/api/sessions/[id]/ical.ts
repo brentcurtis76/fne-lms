@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Fetch session with school and growth community names
     const { data: session, error: sessionError } = await serviceClient
       .from('consultor_sessions')
-      .select('*, schools(name), growth_communities(name)')
+      .select('*, schools!consultor_sessions_school_id_fkey(name), growth_communities(name)')
       .eq('id', id)
       .eq('is_active', true)
       .single();

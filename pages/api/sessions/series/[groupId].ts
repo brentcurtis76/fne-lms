@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: sessions, error: queryError } = await serviceClient
       .from('consultor_sessions')
       .select(
-        'id, title, session_date, start_time, end_time, status, session_number, recurrence_group_id, schools(name), growth_communities(name), session_facilitators(user_id, is_lead, profiles:profiles(first_name, last_name))'
+        'id, title, session_date, start_time, end_time, status, session_number, recurrence_group_id, schools!consultor_sessions_school_id_fkey(name), growth_communities(name), session_facilitators(user_id, is_lead, profiles:profiles(first_name, last_name))'
       )
       .eq('recurrence_group_id', groupId)
       .eq('is_active', true)

@@ -60,7 +60,7 @@ async function handleGet(req: NextApiRequest, res: NextApiResponse, sessionId: s
     // Admins can access inactive sessions; all others require is_active = true
     let sessionQuery = serviceClient
       .from('consultor_sessions')
-      .select('*, schools(name), growth_communities(name)')
+      .select('*, schools!consultor_sessions_school_id_fkey(name), growth_communities(name)')
       .eq('id', sessionId);
 
     if (highestRole !== 'admin') {

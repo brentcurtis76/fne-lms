@@ -16,7 +16,6 @@ import {
   PaperClipIcon,
   DownloadIcon,
   CheckCircleIcon,
-  ExclamationIcon,
   UsersIcon,
   MenuIcon,
   TrashIcon
@@ -26,6 +25,8 @@ import { getMeetingDetails } from '../../utils/meetingUtils';
 import TaskTracker from './TaskTracker';
 import RichTextView from './RichTextView';
 import { isEmptyDoc } from '../../lib/tiptap/helpers';
+import { audienceProseLabel } from '../../lib/meetings/audience-labels';
+import { CLOSE_BEFORE_DELETE_MS } from '../../lib/meetings/constants';
 
 interface MeetingDetailsModalProps {
   isOpen: boolean;
@@ -105,33 +106,19 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
     }
   };
 
-  const formatDate = (dateString: string) => {
+  // Unified date formatter — drop `withWeekday` for banner contexts where
+  // the long "lunes 22 de abril" prefix would bloat an already-dense row.
+  const formatDate = (dateString: string, opts: { withWeekday?: boolean } = {}): string => {
+    const { withWeekday = true } = opts;
     const date = new Date(dateString);
     return date.toLocaleDateString('es-ES', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatFinalizedDate = (dateString: string): string => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
+      ...(withWeekday ? { weekday: 'long' as const } : {}),
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     });
-  };
-
-  const audienceLabel = (audience: string): string => {
-    if (audience === 'community') return 'toda la comunidad de crecimiento';
-    if (audience === 'attended') return 'sólo quienes asistieron';
-    return audience;
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -246,14 +233,14 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                       <CheckCircleIcon className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
                       <div className="text-sm text-emerald-900">
                         <p className="font-medium">
-                          Finalizada el {formatFinalizedDate(meeting.finalized_at)}
+                          Finalizada el {formatDate(meeting.finalized_at, { withWeekday: false })}
                           {meeting.finalized_by_profile && (
                             <> por {meeting.finalized_by_profile.first_name} {meeting.finalized_by_profile.last_name}</>
                           )}
                         </p>
                         {meeting.finalize_audience && (
                           <p className="text-emerald-700 mt-0.5">
-                            Resumen enviado a {audienceLabel(meeting.finalize_audience)}.
+                            Resumen enviado a {audienceProseLabel(meeting.finalize_audience)}.
                           </p>
                         )}
                       </div>
@@ -573,10 +560,11 @@ const MeetingDetailsModal: React.FC<MeetingDetailsModalProps> = ({
                     <button
                       onClick={() => {
                         onClose();
-                        // Small delay to ensure modal closes before opening delete modal
+                        // Small delay so the modal's close transition finishes
+                        // before the delete-confirm dialog mounts on top of it.
                         setTimeout(() => {
                           onDelete(meeting.id);
-                        }, 150);
+                        }, CLOSE_BEFORE_DELETE_MS);
                       }}
                       className="inline-flex items-center px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
                     >

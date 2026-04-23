@@ -42,11 +42,25 @@ export type MeetingPolicyInput = Pick<
  */
 export type MeetingAttendeePolicyInput = Pick<MeetingAttendee, 'user_id' | 'role'>;
 
+/**
+ * Canonical meeting-status values. The DB stores the Spanish enum labels
+ * directly; this `as const` surfaces the set for autocomplete and lets
+ * callers stop sprinkling `'borrador'` literals through route handlers.
+ */
+export const MEETING_STATUS = {
+  BORRADOR: 'borrador',
+  PROGRAMADA: 'programada',
+  EN_PROGRESO: 'en_progreso',
+  COMPLETADA: 'completada',
+  CANCELADA: 'cancelada',
+  POSPUESTA: 'pospuesta',
+} as const satisfies Record<string, MeetingStatus>;
+
 /** Statuses in which non-admin editors retain write access. */
 const EDITABLE_STATUSES: ReadonlySet<MeetingStatus> = new Set<MeetingStatus>([
-  'borrador',
-  'en_progreso',
-  'programada',
+  MEETING_STATUS.BORRADOR,
+  MEETING_STATUS.EN_PROGRESO,
+  MEETING_STATUS.PROGRAMADA,
 ]);
 
 /** Attendee roles that grant edit access (when status is editable). */

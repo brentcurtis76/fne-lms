@@ -11,9 +11,17 @@ import {
   DialogFooter,
 } from '../ui/dialog';
 import TipTapEditor from '../../src/components/TipTapEditor';
-import { emptyDoc, isEmptyDoc } from '../../lib/tiptap/helpers';
+import { emptyDoc, isEmptyDoc, type TipTapDoc } from '../../lib/tiptap/helpers';
+import { AUDIENCE_PICKER_LABELS } from '../../lib/meetings/audience-labels';
 
 type Audience = 'community' | 'attended';
+
+// Keep all user-visible 409 strings in one place so adding a new meeting-
+// conflict code is a one-line patch.
+const CONFLICT_MESSAGES: Record<string, string> = {
+  meeting_not_draft: 'La reunión ya no está en borrador',
+  meeting_already_finalized: 'La reunión ya fue finalizada por otro usuario',
+};
 
 interface FinalizeMeetingDialogProps {
   open: boolean;
@@ -37,7 +45,7 @@ export function FinalizeMeetingDialog({
   onFinalized,
 }: FinalizeMeetingDialogProps) {
   const [audience, setAudience] = useState<Audience>('community');
-  const [facilitatorDoc, setFacilitatorDoc] = useState<any>(() => emptyDoc());
+  const [facilitatorDoc, setFacilitatorDoc] = useState<TipTapDoc>(() => emptyDoc());
   const [recipients, setRecipients] = useState<RecipientState>({ kind: 'idle' });
   const [submitting, setSubmitting] = useState(false);
 
@@ -99,14 +107,12 @@ export function FinalizeMeetingDialog({
       const payload = await res.json().catch(() => ({} as any));
 
       if (res.status === 409) {
-        const code = payload?.code;
-        if (code === 'meeting_not_draft') {
-          toast.error('La reunión ya no está en borrador');
-        } else if (code === 'meeting_already_finalized') {
-          toast.error('La reunión ya fue finalizada por otro usuario');
-        } else {
-          toast.error(payload?.error || 'No se pudo finalizar la reunión');
-        }
+        const code = payload?.code as string | undefined;
+        toast.error(
+          (code && CONFLICT_MESSAGES[code]) ||
+            payload?.error ||
+            'No se pudo finalizar la reunión',
+        );
         setSubmitting(false);
         return;
       }
@@ -122,7 +128,7 @@ export function FinalizeMeetingDialog({
       toast.success(`Reunión finalizada y enviada a ${count} destinatarios`);
       onFinalized?.();
       onOpenChange(false);
-    } catch (error: any) {
+    } catch {
       toast.error('Error al finalizar la reunión');
       setSubmitting(false);
     }
@@ -151,7 +157,7 @@ export function FinalizeMeetingDialog({
                 disabled={submitting}
                 className="mt-1"
               />
-              <span>Toda la comunidad</span>
+              <span>{AUDIENCE_PICKER_LABELS.community}</span>
             </label>
             <label className="flex items-start gap-2 text-sm text-gray-800">
               <input
@@ -163,7 +169,7 @@ export function FinalizeMeetingDialog({
                 disabled={submitting}
                 className="mt-1"
               />
-              <span>Solo los asistentes</span>
+              <span>{AUDIENCE_PICKER_LABELS.attended}</span>
             </label>
 
             <div className="text-xs text-gray-600 min-h-[1rem]" aria-live="polite">

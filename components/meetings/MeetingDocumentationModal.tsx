@@ -23,15 +23,12 @@ import {
   PlusIcon,
   TrashIcon,
   CalendarIcon,
-  ClockIcon,
-  LocationMarkerIcon,
   UserIcon,
   DocumentTextIcon,
   MenuIcon,
   CheckCircleIcon,
   PaperClipIcon,
   DocumentIcon,
-  UploadIcon
 } from '@heroicons/react/outline';
 import {
   MeetingDocumentationInput,
@@ -51,6 +48,14 @@ import {
 } from '../../utils/meetingUtils';
 import { uploadFile } from '../../utils/storage';
 import { FinalizeMeetingDialog } from './FinalizeMeetingDialog';
+import { MEETING_STATUS } from '../../lib/utils/meeting-policy';
+import {
+  AUTOSAVE_DEBOUNCE_MS,
+  SAVED_TICK_INTERVAL_MS,
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENT_LABEL,
+  ALLOWED_ATTACHMENT_MIME_TYPES,
+} from '../../lib/meetings/constants';
 
 type MeetingAgreementInput = MeetingDocumentationInput['agreements'][number];
 type MeetingCommitmentInput = MeetingDocumentationInput['commitments'][number];
@@ -201,7 +206,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
   // modal is open. Cheap — just bumps a counter every 10s.
   useEffect(() => {
     if (!isOpen || !lastSavedAt) return;
-    const interval = setInterval(() => setSavedTick((t) => t + 1), 10_000);
+    const interval = setInterval(() => setSavedTick((t) => t + 1), SAVED_TICK_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [isOpen, lastSavedAt]);
 
@@ -461,7 +466,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
         }
 
         // Timeline banner source: active work sessions for this meeting.
-        if (meetingDetails.status === 'borrador') {
+        if (meetingDetails.status === MEETING_STATUS.BORRADOR) {
           await loadWorkSessions(meetingId);
         }
       }
@@ -618,7 +623,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
     if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
     autosaveTimerRef.current = setTimeout(() => {
       void runAutosave();
-    }, 2000);
+    }, AUTOSAVE_DEBOUNCE_MS);
   }, [currentMeetingId, runAutosave]);
 
   const handleClose = () => {
@@ -1169,28 +1174,15 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
 
     const fileArray = Array.from(files);
     const validFiles = fileArray.filter(file => {
-      // Validate file type
-      const allowedTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'image/jpeg',
-        'image/png',
-        'image/gif'
-      ];
-
-      if (!allowedTypes.includes(file.type)) {
+      if (!ALLOWED_ATTACHMENT_MIME_TYPES.includes(file.type)) {
         toast.error(`Tipo de archivo no permitido: ${file.name}`);
         return false;
       }
 
-      // Validate file size (10MB limit)
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error(`Archivo demasiado grande: ${file.name}. Máximo 10MB.`);
+      // Validate file size against the module-level cap so the toast copy
+      // and the numeric limit cannot drift apart.
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        toast.error(`Archivo demasiado grande: ${file.name}. Máximo ${MAX_ATTACHMENT_LABEL}.`);
         return false;
       }
 
@@ -1266,7 +1258,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
           </div>
 
           {/* Draft timeline banner — who started / is working on this draft */}
-          {formData.summary_info.status === 'borrador' && workSessions.length > 0 && (
+          {formData.summary_info.status === MEETING_STATUS.BORRADOR && workSessions.length > 0 && (
             <div className="px-6 py-3 bg-yellow-50 border-b border-yellow-200 text-sm text-yellow-900">
               {(() => {
                 const first = workSessions[0];
@@ -1499,7 +1491,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                         <span className="pl-1">o arrastrar y soltar</span>
                       </div>
                       <p className="text-xs text-gray-500 mt-2">
-                        PDF, Word, Excel, PowerPoint, o imágenes hasta 10MB
+                        PDF, Word, Excel, PowerPoint, o imágenes hasta {MAX_ATTACHMENT_LABEL}
                       </p>
                     </div>
                   </div>
@@ -1677,7 +1669,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 onChange={(e) => updateCommitment(index, 'assigned_to', e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                               >
-                                <option value="">Asignar a...</option>
+                                <option value="">Asignar a…</option>
                                 {availableUsers.map(user => (
                                   <option key={user.id} value={user.id}>
                                     {user.first_name} {user.last_name}
@@ -1759,7 +1751,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                                 onChange={(e) => updateTask(index, 'assigned_to', e.target.value)}
                                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#fbbf24] focus:border-transparent"
                               >
-                                <option value="">Asignar a...</option>
+                                <option value="">Asignar a…</option>
                                 {availableUsers.map(user => (
                                   <option key={user.id} value={user.id}>
                                     {user.first_name} {user.last_name}
@@ -1863,7 +1855,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                   {isSubmitting ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                      {uploadingFiles ? `Subiendo ${selectedFiles.length} archivo${selectedFiles.length !== 1 ? 's' : ''}...` : 'Guardando...'}
+                      {uploadingFiles ? `Subiendo ${selectedFiles.length} archivo${selectedFiles.length !== 1 ? 's' : ''}…` : 'Guardando…'}
                     </>
                   ) : (
                     <>
@@ -1874,7 +1866,7 @@ const MeetingDocumentationModal: React.FC<MeetingDocumentationModalProps> = ({
                 </button>
               )}
 
-              {mode === 'edit' && formData.summary_info.status === 'borrador' && meetingId && (
+              {mode === 'edit' && formData.summary_info.status === MEETING_STATUS.BORRADOR && meetingId && (
                 <button
                   type="button"
                   onClick={() => setFinalizeOpen(true)}

@@ -18,21 +18,31 @@ const INLINE_STYLES: Record<string, string> = {
 
 const applyInlineStyles = (html: string): string => {
   return html
+    // MEETING_ALLOWED_ATTR = [] so DOMPurify has already stripped every
+    // attribute by the time we get here — no class-strip needed. The regex
+    // still captures any `style` that downstream code might one day inject
+    // via post-sanitize transforms.
     .replace(/<(h2|h3|p|ul|ol|li|strong|em|u)(\s[^>]*)?>/gi, (_match, tag, attrs = '') => {
-      const cleaned = (attrs || '').replace(/\sclass\s*=\s*"[^"]*"/gi, '').replace(/\sclass\s*=\s*'[^']*'/gi, '');
-      const existingStyleMatch = /\sstyle\s*=\s*"([^"]*)"/i.exec(cleaned);
+      const existingStyleMatch = /\sstyle\s*=\s*"([^"]*)"/i.exec(attrs || '');
       const inline = INLINE_STYLES[tag.toLowerCase()];
-      if (!inline) return `<${tag}${cleaned}>`;
+      if (!inline) return `<${tag}${attrs || ''}>`;
       if (existingStyleMatch) {
         const merged = `${inline} ${existingStyleMatch[1]}`;
-        const newAttrs = cleaned.replace(existingStyleMatch[0], ` style="${merged}"`);
+        const newAttrs = (attrs || '').replace(existingStyleMatch[0], ` style="${merged}"`);
         return `<${tag}${newAttrs}>`;
       }
-      return `<${tag}${cleaned} style="${inline}">`;
+      return `<${tag}${attrs || ''} style="${inline}">`;
     });
 };
 
-export const docToHtml = (doc: any): string => {
+/**
+ * generateHTML → DOMPurify sanitize, shared by the email renderer and the
+ * in-app `RichTextView`. Returns '' for empty/invalid docs. Two call sites
+ * previously reimplemented this pipeline with identical allowlists — this
+ * is the security invariant they now share, so an allowlist change here
+ * (e.g. when anchors are added — see `sanitize.ts` TODO) applies to both.
+ */
+export const docToSafeHtml = (doc: any): string => {
   if (!doc || isEmptyDocHelper(doc)) return '';
   let html: string;
   try {
@@ -40,12 +50,21 @@ export const docToHtml = (doc: any): string => {
   } catch (error) {
     return '';
   }
-  const sanitized = DOMPurify.sanitize(html, {
+  return DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
     ALLOWED_TAGS: MEETING_ALLOWED_TAGS,
     ALLOWED_ATTR: MEETING_ALLOWED_ATTR,
   });
-  return applyInlineStyles(sanitized);
+};
+
+/**
+ * Email-bound variant: safe HTML + inline styles so Gmail/Outlook render
+ * correctly without a `<style>` block (those get stripped by most clients).
+ */
+export const docToHtml = (doc: any): string => {
+  const safe = docToSafeHtml(doc);
+  if (!safe) return '';
+  return applyInlineStyles(safe);
 };
 
 export const docToPlainText = (doc: any): string => plainTextFromDoc(doc);

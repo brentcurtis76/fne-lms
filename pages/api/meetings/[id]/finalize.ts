@@ -13,27 +13,29 @@ import { sendMeetingSummary } from '../../../../lib/emailService';
 import { docToHtml } from '../../../../lib/tiptap/render';
 import { escapeHtml } from '../../../../lib/utils/html-escape';
 import { loadMeetingAuthContext } from '../../../../lib/api/meetings/load-context';
+import { profileName } from '../../../../lib/utils/profile-name';
 
 const finalizeSchema = z.object({
   audience: z.enum(['community', 'attended']),
   facilitator_message_doc: z.record(z.unknown()).optional(),
 });
 
-const profileName = (p: { first_name?: string | null; last_name?: string | null; email?: string | null } | null | undefined): string => {
-  if (!p) return 'Facilitador';
-  const joined = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
-  return joined || p.email || 'Facilitador';
-};
-
-const PLAIN_PARAGRAPH_STYLE =
+// Shared email-body paragraph styles. Three near-identical strings used to
+// be inlined — kept at module level so tweaks to brand palette or spacing
+// apply uniformly across summary/notes/agreements/commitments fallbacks.
+const EMAIL_PARAGRAPH_STYLE =
   'font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 12px 0;';
+const EMAIL_PARAGRAPH_TIGHT_STYLE =
+  'font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 8px 0;';
+const EMAIL_PARAGRAPH_COMPACT_STYLE =
+  'font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #333333; margin: 0;';
 
 const renderRichOrPlain = (doc: any, text: string | null | undefined): string => {
   const rich = docToHtml(doc);
   if (rich) return rich;
   const plain = (text ?? '').trim();
   if (!plain) return '';
-  return `<p style="${PLAIN_PARAGRAPH_STYLE}">${escapeHtml(plain)}</p>`;
+  return `<p style="${EMAIL_PARAGRAPH_STYLE}">${escapeHtml(plain)}</p>`;
 };
 
 type FinalizeMeeting = {
@@ -196,7 +198,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const agreementsHtml = (agreements || [])
       .map((a: any) => {
         const rendered = docToHtml(a.agreement_doc);
-        const text = rendered || (a.agreement_text ? `<p style="font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; margin: 0 0 8px 0;">${escapeHtml(a.agreement_text)}</p>` : '');
+        const text = rendered || (a.agreement_text ? `<p style="${EMAIL_PARAGRAPH_TIGHT_STYLE}">${escapeHtml(a.agreement_text)}</p>` : '');
         return `<li style="margin: 0 0 8px 0;">${text}</li>`;
       })
       .join('');
@@ -204,10 +206,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const commitmentsHtml = (commitments || [])
       .map((c: any) => {
         const rendered = docToHtml(c.commitment_doc);
-        const body = rendered || `<p style="font-family: Arial, sans-serif; font-size: 13px; line-height: 1.6; color: #333333; margin: 0;">${escapeHtml(c.commitment_text || '')}</p>`;
-        const assigneeName = c.assigned_to_profile
-          ? `${c.assigned_to_profile.first_name ?? ''} ${c.assigned_to_profile.last_name ?? ''}`.trim() || c.assigned_to_profile.email || '—'
-          : '—';
+        const body = rendered || `<p style="${EMAIL_PARAGRAPH_COMPACT_STYLE}">${escapeHtml(c.commitment_text || '')}</p>`;
+        const assigneeName = profileName(c.assigned_to_profile, '—');
         const dueDate = c.due_date ? new Date(c.due_date).toLocaleDateString('es-CL') : '—';
         return `
           <tr>
@@ -222,13 +222,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       title: meeting.title,
       communityName: community?.name ?? null,
       meetingDates,
-      facilitatorName: profileName(facilitatorProfile as any),
-      finalizerName: profileName(finalizerProfile as any),
+      facilitatorName: profileName(facilitatorProfile as any, 'Facilitador'),
+      finalizerName: profileName(finalizerProfile as any, 'Facilitador'),
       audience,
       attendees: (attendeesRich || []).map((a: any) => ({
-        name: a.user_profile
-          ? `${a.user_profile.first_name ?? ''} ${a.user_profile.last_name ?? ''}`.trim() || a.user_profile.email || 'Asistente'
-          : 'Asistente',
+        name: profileName(a.user_profile, 'Asistente'),
         attended: a.attendance_status === 'attended',
         role: a.role,
       })),

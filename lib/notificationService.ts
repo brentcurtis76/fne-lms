@@ -11,6 +11,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { getAccessibleUrl } from '../utils/notificationPermissions';
 import { getEventConfig, hasEventConfig } from './notificationEvents';
+import { profileName } from './utils/profile-name';
 
 // Type definitions for notification service
 interface TriggerOptions {
@@ -228,8 +229,7 @@ export async function getCommunityRecipients(
   const recipients: Array<{ id: string; email: string; name: string }> = [];
   for (const p of profiles || []) {
     if (!p.email || optedOut.has(p.id)) continue;
-    const composed = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
-    const name = composed || (p as any).name || p.email;
+    const name = profileName(p as any, p.email as string);
     recipients.push({ id: p.id as string, email: p.email as string, name });
   }
   return recipients;

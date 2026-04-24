@@ -2,6 +2,20 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Editor, EditorContent, useEditor } from '@tiptap/react';
+import {
+  Bold as BoldIcon,
+  Italic as ItalicIcon,
+  Underline as UnderlineIcon,
+  Heading2 as Heading2Icon,
+  Heading3 as Heading3Icon,
+  List as ListIcon,
+  ListOrdered as ListOrderedIcon,
+  Undo2 as Undo2Icon,
+  Redo2 as Redo2Icon,
+  Maximize2 as Maximize2Icon,
+  Minimize2 as Minimize2Icon,
+  X as XIcon,
+} from 'lucide-react';
 import { buildMeetingEditorExtensions } from '@/lib/tiptap/extensions';
 
 interface TipTapEditorProps {
@@ -20,64 +34,73 @@ interface ButtonConfig {
   can?: () => boolean;
   isActiveKey?: string;
   isActiveOptions?: { [key: string]: any };
-  label: string;
+  icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' | 'false' }>;
   ariaLabel: string;
   title: string;
   noActiveState?: boolean;
 }
 
+type ToolbarItem = ButtonConfig | 'divider';
+
 interface MenuBarProps {
   editor: Editor | null;
-  buttonConfigs: ButtonConfig[];
+  toolbarItems: ToolbarItem[];
   expandable?: boolean;
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
 }
 
-const MaximizeIcon: React.FC = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M8 3H5a2 2 0 0 0-2 2v3" />
-    <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
-    <path d="M3 16v3a2 2 0 0 0 2 2h3" />
-    <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
-  </svg>
-);
+const buttonBase =
+  'inline-flex items-center justify-center h-8 w-8 rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-1';
+const buttonInactive = 'text-slate-600 hover:bg-slate-100 hover:text-slate-900';
+const buttonActive = 'bg-amber-100 text-amber-900 hover:bg-amber-100';
+const buttonDisabled = 'disabled:opacity-40 disabled:cursor-not-allowed disabled:pointer-events-none';
 
-const MinimizeIcon: React.FC = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    <path d="M8 3v3a2 2 0 0 1-2 2H3" />
-    <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
-    <path d="M3 16h3a2 2 0 0 1 2 2v3" />
-    <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
-  </svg>
-);
-
-const MenuBar: React.FC<MenuBarProps> = ({ editor, buttonConfigs, expandable, isFullscreen, onToggleFullscreen }) => {
+const MenuBar: React.FC<MenuBarProps> = ({ editor, toolbarItems, expandable, isFullscreen, onToggleFullscreen }) => {
   if (!editor) {
     return null;
   }
 
-  const baseStyle = 'px-3 py-2 mx-3 mb-2 text-sm font-bold border-4 rounded-md shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-[#0a0a0a] inline-block';
-  const inactiveStyle = `bg-white text-[#0a0a0a] border-[#0a0a0a] ${baseStyle}`;
-  const activeStyle = `bg-[#fbbf24] text-[#0a0a0a] border-[#fbbf24] ${baseStyle}`;
-  const iconButtonStyle = `bg-white text-[#0a0a0a] border-[#0a0a0a] px-2 py-2 mx-3 mb-2 border-4 rounded-md shadow-md hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-[#0a0a0a] inline-flex items-center justify-center`;
-
   return (
-    <div className="flex flex-wrap items-center gap-4 p-4 border-b-2 border-gray-400 mb-3 bg-gray-50">
-      {buttonConfigs.map(config => {
-        const isEffectivelyActive = config.isActiveKey && editor.isEditable ? editor.isActive(config.isActiveKey, config.isActiveOptions) : false;
+    <div
+      className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-slate-200 bg-white"
+      role="toolbar"
+      aria-label="Formato de texto"
+    >
+      {toolbarItems.map((item, index) => {
+        if (item === 'divider') {
+          return (
+            <span
+              key={`div-${index}`}
+              aria-hidden="true"
+              className="mx-1 h-5 w-px bg-slate-200"
+            />
+          );
+        }
+        const Icon = item.icon;
+        const isEffectivelyActive =
+          item.isActiveKey && editor.isEditable
+            ? editor.isActive(item.isActiveKey, item.isActiveOptions)
+            : false;
+        const isEnabled = item.can ? item.can() && editor.isEditable : editor.isEditable;
+        const stateClass = item.noActiveState
+          ? buttonInactive
+          : isEffectivelyActive
+          ? buttonActive
+          : buttonInactive;
+
         return (
           <button
             type="button"
-            key={config.label}
-            onClick={config.action}
-            disabled={!(config.can ? config.can() && editor.isEditable : editor.isEditable)}
-            aria-label={config.ariaLabel}
-            aria-pressed={config.noActiveState ? undefined : isEffectivelyActive}
-            title={config.title}
-            className={config.noActiveState ? inactiveStyle : (isEffectivelyActive ? activeStyle : inactiveStyle)}
+            key={item.ariaLabel}
+            onClick={item.action}
+            disabled={!isEnabled}
+            aria-label={item.ariaLabel}
+            aria-pressed={item.noActiveState ? undefined : isEffectivelyActive}
+            title={item.title}
+            className={`${buttonBase} ${stateClass} ${buttonDisabled}`}
           >
-            {config.label}
+            <Icon className="h-4 w-4" aria-hidden="true" />
           </button>
         );
       })}
@@ -87,9 +110,13 @@ const MenuBar: React.FC<MenuBarProps> = ({ editor, buttonConfigs, expandable, is
           onClick={onToggleFullscreen}
           aria-label={isFullscreen ? 'Minimizar editor' : 'Maximizar editor'}
           title={isFullscreen ? 'Minimizar (Esc)' : 'Maximizar'}
-          className={`${iconButtonStyle} ml-auto`}
+          className={`${buttonBase} ${buttonInactive} ml-auto`}
         >
-          {isFullscreen ? <MinimizeIcon /> : <MaximizeIcon />}
+          {isFullscreen ? (
+            <Minimize2Icon className="h-4 w-4" aria-hidden="true" />
+          ) : (
+            <Maximize2Icon className="h-4 w-4" aria-hidden="true" />
+          )}
         </button>
       )}
     </div>
@@ -127,7 +154,7 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-sm sm:prose lg:prose-xl focus:outline-none p-3 border border-gray-300 rounded-md w-full',
+        class: 'prose prose-sm sm:prose lg:prose-xl focus:outline-none px-4 py-3 w-full',
       },
     },
     immediatelyRender: false,
@@ -161,16 +188,16 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
     };
   }, [isFullscreen]);
 
-  const buttonConfigs: ButtonConfig[] = [
+  const toolbarItems: ToolbarItem[] = [
     {
       action: () => {
         if (editor && editor.isEditable) {
           editor.chain().focus().toggleBold().run();
         }
       },
-      can: () => editor ? editor.isEditable : false,
+      can: () => (editor ? editor.isEditable : false),
       isActiveKey: 'bold',
-      label: 'Bold',
+      icon: BoldIcon,
       ariaLabel: 'Negrita',
       title: 'Negrita (Ctrl+B)',
     },
@@ -180,9 +207,9 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
           editor.chain().focus().toggleItalic().run();
         }
       },
-      can: () => editor ? editor.isEditable : false,
+      can: () => (editor ? editor.isEditable : false),
       isActiveKey: 'italic',
-      label: 'Italic',
+      icon: ItalicIcon,
       ariaLabel: 'Cursiva',
       title: 'Cursiva (Ctrl+I)',
     },
@@ -192,22 +219,23 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
           editor.chain().focus().toggleUnderline().run();
         }
       },
-      can: () => editor ? editor.isEditable : false,
+      can: () => (editor ? editor.isEditable : false),
       isActiveKey: 'underline',
-      label: 'Underline',
+      icon: UnderlineIcon,
       ariaLabel: 'Subrayado',
       title: 'Subrayado (Ctrl+U)',
     },
+    'divider',
     {
       action: () => {
         if (editor && editor.isEditable) {
           editor.chain().focus().toggleHeading({ level: 2 }).run();
         }
       },
-      can: () => editor ? editor.isEditable : false,
+      can: () => (editor ? editor.isEditable : false),
       isActiveKey: 'heading',
       isActiveOptions: { level: 2 },
-      label: 'H2',
+      icon: Heading2Icon,
       ariaLabel: 'Encabezado nivel 2',
       title: 'Encabezado 2 (Ctrl+Alt+2)',
     },
@@ -217,22 +245,23 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
           editor.chain().focus().toggleHeading({ level: 3 }).run();
         }
       },
-      can: () => editor ? editor.isEditable : false,
+      can: () => (editor ? editor.isEditable : false),
       isActiveKey: 'heading',
       isActiveOptions: { level: 3 },
-      label: 'H3',
+      icon: Heading3Icon,
       ariaLabel: 'Encabezado nivel 3',
       title: 'Encabezado 3 (Ctrl+Alt+3)',
     },
+    'divider',
     {
       action: () => {
         if (editor && editor.isEditable) {
           editor.chain().focus().toggleBulletList().run();
         }
       },
-      can: () => editor ? editor.isEditable : false,
+      can: () => (editor ? editor.isEditable : false),
       isActiveKey: 'bulletList',
-      label: 'Bullet List',
+      icon: ListIcon,
       ariaLabel: 'Lista con viñetas',
       title: 'Lista con viñetas (Ctrl+Shift+8)',
     },
@@ -242,20 +271,21 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
           editor.chain().focus().toggleOrderedList().run();
         }
       },
-      can: () => editor ? editor.isEditable : false,
+      can: () => (editor ? editor.isEditable : false),
       isActiveKey: 'orderedList',
-      label: 'Numbered List',
+      icon: ListOrderedIcon,
       ariaLabel: 'Lista numerada',
       title: 'Lista numerada (Ctrl+Shift+7)',
     },
+    'divider',
     {
       action: () => {
         if (editor && editor.isEditable && editor.can().undo()) {
           editor.chain().focus().undo().run();
         }
       },
-      can: () => editor ? editor.can().undo() && editor.isEditable : false,
-      label: 'Undo',
+      can: () => (editor ? editor.can().undo() && editor.isEditable : false),
+      icon: Undo2Icon,
       ariaLabel: 'Deshacer',
       title: 'Deshacer (Ctrl+Z)',
       noActiveState: true,
@@ -266,8 +296,8 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
           editor.chain().focus().redo().run();
         }
       },
-      can: () => editor ? editor.can().redo() && editor.isEditable : false,
-      label: 'Redo',
+      can: () => (editor ? editor.can().redo() && editor.isEditable : false),
+      icon: Redo2Icon,
       ariaLabel: 'Rehacer',
       title: 'Rehacer (Ctrl+Shift+Z)',
       noActiveState: true,
@@ -284,10 +314,10 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
   };
 
   const inlineEditor = (
-    <div className="border-2 border-gray-300 rounded-lg shadow-md">
+    <div className="rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden transition-shadow focus-within:border-amber-300 focus-within:ring-2 focus-within:ring-amber-400/40">
       <MenuBar
         editor={editor}
-        buttonConfigs={buttonConfigs}
+        toolbarItems={toolbarItems}
         expandable={expandable}
         isFullscreen={false}
         onToggleFullscreen={expandable ? () => setIsFullscreen(true) : undefined}
@@ -307,21 +337,21 @@ const TipTapEditor: React.FC<TipTapEditorProps> = ({
       aria-modal="true"
       aria-label="Editor en pantalla completa"
     >
-      <div className="flex items-center justify-between border-b-2 border-gray-300 px-4 py-2 bg-gray-50">
-        <span className="text-sm font-bold text-[#0a0a0a]">Editor</span>
+      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2 bg-white">
+        <span className="text-sm font-semibold text-slate-900">Editor</span>
         <button
           type="button"
           onClick={() => setIsFullscreen(false)}
           aria-label="Cerrar pantalla completa"
           title="Cerrar (Esc)"
-          className="px-3 py-1 text-sm font-bold border-2 border-[#0a0a0a] rounded-md bg-white hover:bg-gray-100 focus:outline-none focus:ring-4 focus:ring-[#0a0a0a]"
+          className={`${buttonBase} ${buttonInactive}`}
         >
-          ✕
+          <XIcon className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
       <MenuBar
         editor={editor}
-        buttonConfigs={buttonConfigs}
+        toolbarItems={toolbarItems}
         expandable={expandable}
         isFullscreen={true}
         onToggleFullscreen={() => setIsFullscreen(false)}

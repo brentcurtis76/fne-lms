@@ -341,7 +341,8 @@ export default function ClientsManagement() {
         if (contracts && contracts.length > 0) {
           const confirmEdit = confirm(
             `Este cliente tiene ${contracts.length} contrato(s) asociado(s).\n\n` +
-            `Los cambios afectarán los contratos existentes.\n\n` +
+            `Los cambios al nombre y RUT del representante legal solo afectarán contratos y licitaciones futuros. ` +
+            `Los demás campos del cliente sí afectarán los contratos existentes que se regeneren.\n\n` +
             `¿Desea continuar?`
           );
 

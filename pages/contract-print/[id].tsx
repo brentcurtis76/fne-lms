@@ -19,6 +19,8 @@ interface Contrato {
   anexo_fecha?: string;
   numero_participantes?: number;
   nombre_ciclo?: 'Primer Ciclo' | 'Segundo Ciclo' | 'Tercer Ciclo' | 'Equipo Directivo';
+  snapshot_nombre_representante?: string;
+  snapshot_rut_representante?: string;
   clientes: {
     nombre_legal: string;
     nombre_fantasia: string;
@@ -685,8 +687,8 @@ export default function ContractPrintPage() {
                       direccion: contrato.parent_contract.clientes.direccion,
                       comuna: contrato.parent_contract.clientes.comuna,
                       ciudad: contrato.parent_contract.clientes.ciudad,
-                      nombre_representante: contrato.parent_contract.clientes.nombre_representante,
-                      rut_representante: contrato.parent_contract.clientes.rut_representante,
+                      nombre_representante: contrato.parent_contract.snapshot_nombre_representante ?? contrato.parent_contract.clientes.nombre_representante,
+                      rut_representante: contrato.parent_contract.snapshot_rut_representante ?? contrato.parent_contract.clientes.rut_representante,
                       fecha_escritura: contrato.parent_contract.clientes.fecha_escritura,
                       nombre_notario: contrato.parent_contract.clientes.nombre_notario,
                       comuna_notaria: contrato.parent_contract.clientes.comuna_notaria,
@@ -712,8 +714,8 @@ export default function ContractPrintPage() {
                     direccion: contrato.clientes.direccion,
                     comuna: contrato.clientes.comuna,
                     ciudad: contrato.clientes.ciudad,
-                    nombre_representante: contrato.clientes.nombre_representante,
-                    rut_representante: contrato.clientes.rut_representante,
+                    nombre_representante: contrato.snapshot_nombre_representante ?? contrato.clientes.nombre_representante,
+                    rut_representante: contrato.snapshot_rut_representante ?? contrato.clientes.rut_representante,
                     fecha_escritura: contrato.clientes.fecha_escritura,
                     nombre_notario: contrato.clientes.nombre_notario,
                     comuna_notaria: contrato.clientes.comuna_notaria,

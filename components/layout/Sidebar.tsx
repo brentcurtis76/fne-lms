@@ -313,6 +313,14 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     adminOnly: true
   },
   {
+    id: 'growth-communities',
+    label: 'Comunidades',
+    icon: UserGroupIcon,
+    href: '/admin/growth-communities',
+    description: 'Gestionar miembros de comunidades',
+    adminOnly: true
+  },
+  {
     id: 'networks',
     label: 'Redes de Colegios',
     icon: NetworkIcon,

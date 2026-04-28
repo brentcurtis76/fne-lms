@@ -24,6 +24,7 @@ const USER_LIDER = '33333333-3333-4333-8333-333333333333';
 const COMMUNITY_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const OTHER_COMMUNITY_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const GENERATION_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const FORBIDDEN_ERROR = 'Solo administradores pueden gestionar miembros de comunidades';
 
 interface TableResult {
   data?: unknown;
@@ -114,10 +115,19 @@ function setupNonAdmin(userId: string = USER_ID) {
   });
 }
 
+function setupUnauthenticated() {
+  mockCheckIsAdmin.mockResolvedValueOnce({
+    isAdmin: false,
+    user: null,
+    error: new Error('No active session'),
+  });
+}
+
 const COMMUNITY_ROW = {
   id: COMMUNITY_ID,
   name: 'Comunidad A',
   school_id: 1,
+  school: { name: 'Colegio Uno' },
   generation_id: GENERATION_ID,
   max_teachers: null as number | null,
 };
@@ -127,45 +137,51 @@ describe('admin/growth-communities/[id]/members — auth', () => {
     vi.clearAllMocks();
   });
 
-  it('GET rejects non-admin with 403 and never opens a service-role client', async () => {
+  const nonAdminRoles = [
+    'consultor',
+    'lider_comunidad',
+    'equipo_directivo',
+    'docente',
+  ] as const;
+
+  const requests = [
+    { method: 'GET', query: { id: COMMUNITY_ID } },
+    { method: 'POST', query: { id: COMMUNITY_ID }, body: { userIds: [USER_ID] } },
+    { method: 'DELETE', query: { id: COMMUNITY_ID, userId: USER_ID } },
+  ] as const;
+
+  it.each(nonAdminRoles)('%s cannot GET community members', async () => {
     setupNonAdmin();
-    const { req, res } = createMocks({ method: 'GET', query: { id: COMMUNITY_ID } });
+    const { req, res } = createMocks(requests[0]);
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(403);
+    expect(JSON.parse(res._getData())).toEqual({ error: FORBIDDEN_ERROR });
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it('POST rejects non-admin with 403 and never opens a service-role client', async () => {
+  it.each(nonAdminRoles)('%s cannot POST community members', async () => {
     setupNonAdmin();
-    const { req, res } = createMocks({
-      method: 'POST',
-      query: { id: COMMUNITY_ID },
-      body: { userIds: [USER_ID] },
-    });
+    const { req, res } = createMocks(requests[1]);
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(403);
+    expect(JSON.parse(res._getData())).toEqual({ error: FORBIDDEN_ERROR });
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it('DELETE rejects non-admin with 403 and never opens a service-role client', async () => {
+  it.each(nonAdminRoles)('%s cannot DELETE community members', async () => {
     setupNonAdmin();
-    const { req, res } = createMocks({
-      method: 'DELETE',
-      query: { id: COMMUNITY_ID, userId: USER_ID },
-    });
+    const { req, res } = createMocks(requests[2]);
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(403);
+    expect(JSON.parse(res._getData())).toEqual({ error: FORBIDDEN_ERROR });
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it('lider_comunidad is not admin: GET still returns 403 — leader role does not auto-elevate', async () => {
-    // checkIsAdmin returns isAdmin=false even when the caller is a community
-    // leader. This is the same code path as any other non-admin, but we name
-    // the case explicitly to lock in the expectation.
-    setupNonAdmin(USER_LIDER);
-    const { req, res } = createMocks({ method: 'GET', query: { id: COMMUNITY_ID } });
+  it.each(requests)('unauthenticated $method returns 401', async (request) => {
+    setupUnauthenticated();
+    const { req, res } = createMocks(request);
     await handler(req as never, res as never);
-    expect(res._getStatusCode()).toBe(403);
+    expect(res._getStatusCode()).toBe(401);
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 });
@@ -234,9 +250,7 @@ describe('admin/growth-communities/[id]/members — POST', () => {
 
     expect(res._getStatusCode()).toBe(200);
     const body = JSON.parse(res._getData());
-    expect(body.added).toEqual([
-      { user_id: USER_ID, role_id: 'role-docente', role_type: 'docente' },
-    ]);
+    expect(body.assigned).toBe(1);
     expect(body.skipped).toEqual([]);
 
     const updateCalls = tracker.fromCalls.filter(
@@ -254,24 +268,12 @@ describe('admin/growth-communities/[id]/members — POST', () => {
     const tracker: Tracker = { fromCalls: [] };
 
     const community = { ...COMMUNITY_ROW, max_teachers: 1 };
-    const userRoles = [
-      {
-        id: 'role-docente',
-        user_id: USER_ID,
-        role_type: 'docente',
-        school_id: 1,
-        generation_id: GENERATION_ID,
-        community_id: null,
-        is_active: true,
-      },
-    ];
 
     mockCreateServiceRoleClient.mockReturnValueOnce(
       buildSequencedClient(
         {
           growth_communities: [{ data: community }],
           user_roles: [
-            { data: userRoles }, // initial select
             { count: 1 }, // capacity count: already 1 active member
           ],
         },
@@ -287,7 +289,11 @@ describe('admin/growth-communities/[id]/members — POST', () => {
     await handler(req as never, res as never);
 
     expect(res._getStatusCode()).toBe(400);
-    expect(JSON.parse(res._getData())).toEqual({ error: 'exceeds_max' });
+    expect(JSON.parse(res._getData())).toEqual({
+      error: 'exceeds_max',
+      currentMemberCount: 1,
+      maxTeachers: 1,
+    });
     // Capacity check failed before any write — no update calls anywhere.
     expect(tracker.fromCalls.flatMap((c) => c.updates)).toHaveLength(0);
   });
@@ -327,10 +333,149 @@ describe('admin/growth-communities/[id]/members — POST', () => {
 
     expect(res._getStatusCode()).toBe(200);
     const body = JSON.parse(res._getData());
-    expect(body.added).toEqual([]);
+    expect(body.assigned).toBe(0);
     expect(body.skipped).toEqual([
-      { user_id: USER_ID, reason: 'already_in_community' },
+      { userId: USER_ID, reason: 'already_in_community' },
     ]);
+    expect(tracker.fromCalls.flatMap((c) => c.updates)).toHaveLength(0);
+  });
+
+  it('returns no_eligible_role when the user has no active role at the community school', async () => {
+    setupAdmin();
+    const tracker: Tracker = { fromCalls: [] };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          growth_communities: [{ data: COMMUNITY_ROW }],
+          user_roles: [{ data: [] }],
+        },
+        tracker
+      )
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: COMMUNITY_ID },
+      body: { userIds: [USER_ID] },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData())).toEqual({
+      assigned: 0,
+      skipped: [{ userId: USER_ID, reason: 'no_eligible_role' }],
+    });
+    expect(tracker.fromCalls.flatMap((c) => c.updates)).toHaveLength(0);
+  });
+
+  it('bulk assigns three users and preserves role_type by updating only chosen row ids', async () => {
+    setupAdmin();
+    const tracker: Tracker = { fromCalls: [] };
+
+    const userA = '00000000-0000-4000-8000-000000000101';
+    const userB = '00000000-0000-4000-8000-000000000102';
+    const userC = '00000000-0000-4000-8000-000000000103';
+    const userRoles = [
+      {
+        id: 'role-a-docente',
+        user_id: userA,
+        role_type: 'docente',
+        school_id: 1,
+        generation_id: GENERATION_ID,
+        community_id: null,
+        is_active: true,
+      },
+      {
+        id: 'role-b-directivo',
+        user_id: userB,
+        role_type: 'equipo_directivo',
+        school_id: 1,
+        generation_id: GENERATION_ID,
+        community_id: null,
+        is_active: true,
+      },
+      {
+        id: 'role-c-consultor',
+        user_id: userC,
+        role_type: 'consultor',
+        school_id: 1,
+        generation_id: GENERATION_ID,
+        community_id: null,
+        is_active: true,
+      },
+    ];
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          growth_communities: [{ data: COMMUNITY_ROW }],
+          user_roles: [
+            { data: userRoles },
+            { data: null, error: null },
+          ],
+        },
+        tracker
+      )
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: COMMUNITY_ID },
+      body: { userIds: [userA, userB, userC] },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData())).toEqual({ assigned: 3, skipped: [] });
+
+    const updateCalls = tracker.fromCalls.filter((c) => c.updates.length > 0);
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0].updates[0]).toEqual({ community_id: COMMUNITY_ID });
+    expect(updateCalls[0].inArgs).toEqual([
+      ['role-a-docente', 'role-b-directivo', 'role-c-consultor'],
+    ]);
+  });
+
+  it('returns generation_mismatch and issues no update when the chosen row has another generation', async () => {
+    setupAdmin();
+    const tracker: Tracker = { fromCalls: [] };
+
+    const otherGenerationId = 'ffffffff-ffff-4fff-8fff-ffffffffffff';
+    const userRoles = [
+      {
+        id: 'role-mismatch',
+        user_id: USER_ID,
+        role_type: 'docente',
+        school_id: 1,
+        generation_id: otherGenerationId,
+        community_id: null,
+        is_active: true,
+      },
+    ];
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          growth_communities: [{ data: COMMUNITY_ROW }],
+          user_roles: [{ data: userRoles }],
+        },
+        tracker
+      )
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: COMMUNITY_ID },
+      body: { userIds: [USER_ID] },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData())).toEqual({
+      assigned: 0,
+      skipped: [{ userId: USER_ID, reason: 'generation_mismatch' }],
+    });
     expect(tracker.fromCalls.flatMap((c) => c.updates)).toHaveLength(0);
   });
 
@@ -371,8 +516,8 @@ describe('admin/growth-communities/[id]/members — POST', () => {
 
     expect(res._getStatusCode()).toBe(200);
     const body = JSON.parse(res._getData());
-    expect(body.added).toEqual([]);
-    expect(body.skipped).toEqual([{ user_id: USER_LIDER, reason: 'is_leader' }]);
+    expect(body.assigned).toBe(0);
+    expect(body.skipped).toEqual([{ userId: USER_LIDER, reason: 'is_leader' }]);
     expect(tracker.fromCalls.flatMap((c) => c.updates)).toHaveLength(0);
   });
 
@@ -416,8 +561,8 @@ describe('admin/growth-communities/[id]/members — POST', () => {
 
     expect(res._getStatusCode()).toBe(200);
     const body = JSON.parse(res._getData());
-    expect(body.added).toEqual([]);
-    expect(body.skipped).toEqual([{ user_id: USER_LIDER, reason: 'is_leader' }]);
+    expect(body.assigned).toBe(0);
+    expect(body.skipped).toEqual([{ userId: USER_LIDER, reason: 'is_leader' }]);
     expect(tracker.fromCalls.flatMap((c) => c.updates)).toHaveLength(0);
   });
 });
@@ -450,7 +595,10 @@ describe('admin/growth-communities/[id]/members — DELETE', () => {
     await handler(req as never, res as never);
 
     expect(res._getStatusCode()).toBe(400);
-    expect(JSON.parse(res._getData())).toEqual({ error: 'is_leader_remove_blocked' });
+    expect(JSON.parse(res._getData())).toEqual({
+      error: 'is_leader_remove_blocked',
+      message: 'Reasigna el liderazgo antes de remover este usuario.',
+    });
     expect(tracker.fromCalls.flatMap((c) => c.updates)).toHaveLength(0);
   });
 
@@ -590,24 +738,55 @@ describe('admin/growth-communities/[id]/members — GET response shape', () => {
     expect(res._getStatusCode()).toBe(200);
     const body = JSON.parse(res._getData());
 
+    expect(body.community).toEqual({
+      id: COMMUNITY_ID,
+      name: 'Comunidad A',
+      school_id: 1,
+      school_name: 'Colegio Uno',
+      generation_id: GENERATION_ID,
+      max_teachers: null,
+    });
+
     expect(body.currentMembers.map((m: { user_id: string }) => m.user_id)).toEqual([memberId]);
-    expect(body.currentMembers[0].role.id).toBe('r1');
-    expect(body.currentMembers[0].profile.first_name).toBe('Ana');
+    expect(body.currentMembers[0]).toMatchObject({
+      user_id: memberId,
+      first_name: 'Ana',
+      last_name: 'M',
+      email: 'ana@x',
+      role_type: 'docente',
+      user_roles_id: 'r1',
+    });
 
     expect(
       body.eligibleUsers.unassigned.map((u: { user_id: string }) => u.user_id)
     ).toEqual([unassignedId]);
-    expect(body.eligibleUsers.unassigned[0].chosen_role.id).toBe('r2');
+    expect(body.eligibleUsers.unassigned[0]).toMatchObject({
+      user_id: unassignedId,
+      first_name: 'Bea',
+      last_name: 'U',
+      email: 'bea@x',
+      role_type: 'docente',
+    });
 
     expect(
       body.eligibleUsers.reassignFrom.map((u: { user_id: string }) => u.user_id)
     ).toEqual([reassignId]);
-    expect(body.eligibleUsers.reassignFrom[0].from_community_id).toBe(OTHER_COMMUNITY_ID);
-    expect(body.eligibleUsers.reassignFrom[0].from_community_name).toBe('Otra Comunidad');
+    expect(body.eligibleUsers.reassignFrom[0]).toMatchObject({
+      user_id: reassignId,
+      first_name: 'Cam',
+      last_name: 'R',
+      email: 'cam@x',
+      role_type: 'docente',
+      current_community_id: OTHER_COMMUNITY_ID,
+      current_community_name: 'Otra Comunidad',
+    });
 
     expect(body.excludedSummary).toEqual({
-      is_leader: 1,
-      generation_mismatch: 1,
+      count: 2,
+      reasons: {
+        is_leader: 1,
+        generation_mismatch: 1,
+      },
     });
   });
 });

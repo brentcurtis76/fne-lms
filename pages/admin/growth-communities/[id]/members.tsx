@@ -28,21 +28,14 @@ interface CommunityProps {
 }
 
 interface ProfileLite {
-  id: string;
   first_name: string | null;
   last_name: string | null;
   email: string | null;
-  avatar_url: string | null;
 }
 
-interface RoleLite {
-  id: string;
+interface MemberLite extends ProfileLite {
   user_id: string;
   role_type: string;
-  school_id: number | string | null;
-  generation_id: string | null;
-  community_id: string | null;
-  is_active: boolean;
 }
 
 interface MembersResponse {
@@ -50,27 +43,26 @@ interface MembersResponse {
     id: string;
     name: string;
     school_id: number | string;
+    school_name: string | null;
     generation_id: string | null;
     max_teachers: number | null;
   };
-  currentMembers: Array<{ user_id: string; profile: ProfileLite | null; role: RoleLite }>;
+  currentMembers: Array<MemberLite & { user_roles_id: string }>;
   eligibleUsers: {
-    unassigned: Array<{
-      user_id: string;
-      profile: ProfileLite | null;
-      chosen_role: RoleLite;
-    }>;
-    reassignFrom: Array<{
-      user_id: string;
-      profile: ProfileLite | null;
-      chosen_role: RoleLite;
-      from_community_id: string;
-      from_community_name: string | null;
-    }>;
+    unassigned: MemberLite[];
+    reassignFrom: Array<
+      MemberLite & {
+        current_community_id: string;
+        current_community_name: string | null;
+      }
+    >;
   };
   excludedSummary: {
-    is_leader: number;
-    generation_mismatch: number;
+    count: number;
+    reasons: {
+      is_leader: number;
+      generation_mismatch: number;
+    };
   };
 }
 
@@ -126,18 +118,32 @@ export const getServerSideProps: GetServerSideProps<{ community: CommunityProps 
   };
 };
 
-function displayName(p: ProfileLite | null): string {
-  if (!p) return '—';
+function displayName(p: ProfileLite): string {
   const full = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
   return full || p.email || '—';
 }
 
-function matchesSearch(p: ProfileLite | null, q: string): boolean {
+function matchesSearch(p: ProfileLite, q: string): boolean {
   if (!q) return true;
   const needle = q.toLowerCase();
-  const name = `${p?.first_name ?? ''} ${p?.last_name ?? ''}`.toLowerCase();
-  const email = (p?.email ?? '').toLowerCase();
+  const name = `${p.first_name ?? ''} ${p.last_name ?? ''}`.toLowerCase();
+  const email = (p.email ?? '').toLowerCase();
   return name.includes(needle) || email.includes(needle);
+}
+
+function skippedReasonLabel(reason: string): string {
+  switch (reason) {
+    case 'no_eligible_role':
+      return 'sin rol elegible en este colegio';
+    case 'already_in_community':
+      return 'ya pertenece a esta comunidad';
+    case 'is_leader':
+      return 'es líder de comunidad';
+    case 'generation_mismatch':
+      return 'pertenece a otra generación';
+    default:
+      return reason;
+  }
 }
 
 const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ community }) => {
@@ -192,15 +198,15 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
   };
 
   const filteredCurrent = useMemo(
-    () => (data?.currentMembers ?? []).filter((m) => matchesSearch(m.profile, search)),
+    () => (data?.currentMembers ?? []).filter((m) => matchesSearch(m, search)),
     [data, search]
   );
   const filteredUnassigned = useMemo(
-    () => (data?.eligibleUsers.unassigned ?? []).filter((m) => matchesSearch(m.profile, search)),
+    () => (data?.eligibleUsers.unassigned ?? []).filter((m) => matchesSearch(m, search)),
     [data, search]
   );
   const filteredReassign = useMemo(
-    () => (data?.eligibleUsers.reassignFrom ?? []).filter((m) => matchesSearch(m.profile, search)),
+    () => (data?.eligibleUsers.reassignFrom ?? []).filter((m) => matchesSearch(m, search)),
     [data, search]
   );
 
@@ -213,8 +219,50 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
 
   const totalSelected = selectedUnassigned.size + selectedReassign.size;
   const hasReassignments = selectedReassign.size > 0;
+  const selectedUnassignedUsers = useMemo(
+    () => (data?.eligibleUsers.unassigned ?? []).filter((u) => selectedUnassigned.has(u.user_id)),
+    [data, selectedUnassigned]
+  );
+  const selectedReassignUsers = useMemo(
+    () => (data?.eligibleUsers.reassignFrom ?? []).filter((u) => selectedReassign.has(u.user_id)),
+    [data, selectedReassign]
+  );
+
+  const allFilteredUnassignedSelected =
+    filteredUnassigned.length > 0 &&
+    filteredUnassigned.every((u) => selectedUnassigned.has(u.user_id));
+  const allFilteredReassignSelected =
+    filteredReassign.length > 0 && filteredReassign.every((u) => selectedReassign.has(u.user_id));
+
+  const handleSelectAllUnassigned = () => {
+    setSelectedUnassigned((prev) => {
+      const next = new Set(prev);
+      if (allFilteredUnassignedSelected) {
+        filteredUnassigned.forEach((u) => next.delete(u.user_id));
+      } else {
+        filteredUnassigned.forEach((u) => next.add(u.user_id));
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllReassign = () => {
+    setSelectedReassign((prev) => {
+      const next = new Set(prev);
+      if (allFilteredReassignSelected) {
+        filteredReassign.forEach((u) => next.delete(u.user_id));
+      } else {
+        filteredReassign.forEach((u) => next.add(u.user_id));
+      }
+      return next;
+    });
+  };
 
   const handleRemove = async (userId: string) => {
+    if (!window.confirm('¿Quitar este usuario de la comunidad?')) {
+      return;
+    }
+
     try {
       const res = await fetch(
         `/api/admin/growth-communities/${community.id}/members?userId=${encodeURIComponent(userId)}`,
@@ -222,7 +270,7 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
       );
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(json.error ?? 'Error al quitar miembro');
+        toast.error(json.message ?? json.error ?? 'Error al quitar miembro');
         return;
       }
       toast.success('Miembro quitado de la comunidad');
@@ -248,20 +296,24 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (json.error === 'exceeds_max') {
-          toast.error('La asignación excede la capacidad máxima de la comunidad');
+          toast.error(
+            `La asignación excede la capacidad máxima (${json.currentMemberCount ?? '—'} / ${json.maxTeachers ?? '—'})`
+          );
         } else {
           toast.error(json.error ?? 'Error al asignar miembros');
         }
         return;
       }
-      const added = Array.isArray(json.added) ? json.added.length : 0;
+      const assigned = typeof json.assigned === 'number' ? json.assigned : 0;
       const skipped = Array.isArray(json.skipped) ? json.skipped.length : 0;
-      if (added > 0) {
+      if (assigned > 0) {
         toast.success(
-          `${added} usuario(s) asignado(s)${skipped > 0 ? ` — ${skipped} omitido(s)` : ''}`
+          `${assigned} usuario(s) asignado(s)${skipped > 0 ? `, ${skipped} omitido(s): ${json.skipped.map((s: { reason: string }) => skippedReasonLabel(s.reason)).join(', ')}` : ''}`
         );
       } else {
-        toast.error(`Ningún usuario asignado${skipped > 0 ? ` — ${skipped} omitido(s)` : ''}`);
+        toast.error(
+          `Ningún usuario asignado${skipped > 0 ? `, ${skipped} omitido(s): ${json.skipped.map((s: { reason: string }) => skippedReasonLabel(s.reason)).join(', ')}` : ''}`
+        );
       }
       setSelectedUnassigned(new Set());
       setSelectedReassign(new Set());
@@ -277,7 +329,7 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
     ? 'Asignando...'
     : hasReassignments
       ? selectedUnassigned.size > 0
-        ? `Asignar y reasignar ${totalSelected} usuario(s)`
+        ? `Asignar ${selectedUnassigned.size} nuevo(s) y reasignar ${selectedReassign.size}`
         : `Reasignar ${selectedReassign.size} usuario(s)`
       : `Asignar ${selectedUnassigned.size} usuario(s)`;
 
@@ -290,9 +342,10 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
   }
 
   const excluded = data?.excludedSummary;
-  const excludedTotal = (excluded?.is_leader ?? 0) + (excluded?.generation_mismatch ?? 0);
+  const excludedTotal = excluded?.count ?? 0;
   const maxTeachers = data?.community.max_teachers ?? null;
   const currentCount = data?.currentMembers.length ?? 0;
+  const schoolName = data?.community.school_name ?? community.school_name;
   const eligibleCount =
     (data?.eligibleUsers.unassigned.length ?? 0) +
     (data?.eligibleUsers.reassignFrom.length ?? 0);
@@ -309,7 +362,7 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
       <ResponsiveFunctionalPageHeader
         icon={<Users />}
         title="Miembros de la comunidad"
-        subtitle={`${community.name} — ${community.school_name}`}
+        subtitle={`${community.name} — ${schoolName}`}
       />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-32">
@@ -318,7 +371,7 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-gray-900">{community.name}</h2>
-              <p className="text-sm text-gray-500">{community.school_name}</p>
+              <p className="text-sm text-gray-500">{schoolName}</p>
             </div>
             <div className="flex flex-wrap items-center gap-4 text-sm">
               <div className="text-gray-700">
@@ -378,12 +431,12 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
                   </tr>
                 ) : (
                   filteredCurrent.map((m) => {
-                    const isLeader = m.role.role_type === 'lider_comunidad';
+                    const isLeader = m.role_type === 'lider_comunidad';
                     return (
                       <tr key={m.user_id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 text-gray-900">{displayName(m.profile)}</td>
-                        <td className="px-4 py-3 text-gray-600">{m.profile?.email ?? '—'}</td>
-                        <td className="px-4 py-3 text-gray-600">{m.role.role_type}</td>
+                        <td className="px-4 py-3 text-gray-900">{displayName(m)}</td>
+                        <td className="px-4 py-3 text-gray-600">{m.email ?? '—'}</td>
+                        <td className="px-4 py-3 text-gray-600">{m.role_type}</td>
                         <td className="px-4 py-3 text-right">
                           {isLeader ? (
                             <button
@@ -422,6 +475,14 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
             <span className="text-sm font-medium text-gray-700">
               Sin asignar ({filteredUnassigned.length})
             </span>
+            <button
+              type="button"
+              onClick={handleSelectAllUnassigned}
+              disabled={filteredUnassigned.length === 0}
+              className="text-xs font-medium text-brand_primary hover:underline disabled:text-gray-400 disabled:no-underline"
+            >
+              {allFilteredUnassignedSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
+            </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -430,17 +491,8 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
                   <th scope="col" className="px-4 py-3 text-left">
                     <input
                       type="checkbox"
-                      checked={
-                        filteredUnassigned.length > 0 &&
-                        selectedUnassigned.size === filteredUnassigned.length
-                      }
-                      onChange={() => {
-                        if (selectedUnassigned.size === filteredUnassigned.length) {
-                          setSelectedUnassigned(new Set());
-                        } else {
-                          setSelectedUnassigned(new Set(filteredUnassigned.map((u) => u.user_id)));
-                        }
-                      }}
+                      checked={allFilteredUnassignedSelected}
+                      onChange={handleSelectAllUnassigned}
                       className="rounded border-gray-300"
                       aria-label="Seleccionar todos los usuarios sin asignar"
                     />
@@ -477,12 +529,12 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
                             setSelectedUnassigned((s) => toggle(s, u.user_id))
                           }
                           className="rounded border-gray-300"
-                          aria-label={`Seleccionar ${displayName(u.profile)}`}
+                          aria-label={`Seleccionar ${displayName(u)}`}
                         />
                       </td>
-                      <td className="px-4 py-3 text-gray-900">{displayName(u.profile)}</td>
-                      <td className="px-4 py-3 text-gray-600">{u.profile?.email ?? '—'}</td>
-                      <td className="px-4 py-3 text-gray-600">{u.chosen_role.role_type}</td>
+                      <td className="px-4 py-3 text-gray-900">{displayName(u)}</td>
+                      <td className="px-4 py-3 text-gray-600">{u.email ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{u.role_type}</td>
                     </tr>
                   ))
                 )}
@@ -492,14 +544,14 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
         </div>
 
         {/* Reassign from another community (collapsed by default) */}
-        <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+        <div className="bg-white rounded-lg shadow overflow-hidden mb-6 border border-red-100">
           <button
             type="button"
             onClick={() => setReassignOpen((v) => !v)}
             aria-expanded={reassignOpen}
-            className="w-full p-4 border-b border-gray-100 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            className="w-full p-4 border-b border-red-100 flex items-center justify-between bg-red-50 hover:bg-red-100 transition-colors"
           >
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-red-800">
               Cambiar de comunidad ({filteredReassign.length})
             </span>
             {reassignOpen ? (
@@ -519,6 +571,16 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
                   Estos usuarios ya pertenecen a otra comunidad. Al asignarlos aquí se{' '}
                   <strong>moverán</strong> y dejarán de ser miembros de su comunidad anterior.
                 </p>
+              </div>
+              <div className="p-4 border-b border-gray-100 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleSelectAllReassign}
+                  disabled={filteredReassign.length === 0}
+                  className="text-xs font-medium text-red-700 hover:underline disabled:text-gray-400 disabled:no-underline"
+                >
+                  {allFilteredReassignSelected ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                </button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -562,14 +624,14 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
                                 setSelectedReassign((s) => toggle(s, u.user_id))
                               }
                               className="rounded border-gray-300"
-                              aria-label={`Reasignar ${displayName(u.profile)}`}
+                              aria-label={`Reasignar ${displayName(u)}`}
                             />
                           </td>
-                          <td className="px-4 py-3 text-gray-900">{displayName(u.profile)}</td>
-                          <td className="px-4 py-3 text-gray-600">{u.profile?.email ?? '—'}</td>
-                          <td className="px-4 py-3 text-gray-600">{u.chosen_role.role_type}</td>
+                          <td className="px-4 py-3 text-gray-900">{displayName(u)}</td>
+                          <td className="px-4 py-3 text-gray-600">{u.email ?? '—'}</td>
+                          <td className="px-4 py-3 text-gray-600">{u.role_type}</td>
                           <td className="px-4 py-3 text-gray-600">
-                            {u.from_community_name ?? u.from_community_id}
+                            {u.current_community_name ?? u.current_community_id}
                           </td>
                         </tr>
                       ))
@@ -589,19 +651,23 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
               <p className="font-medium">
                 {excludedTotal} usuario(s) del colegio no aparecen como elegibles
               </p>
-              <ul className="mt-1 list-disc list-inside text-blue-700">
-                {(excluded?.is_leader ?? 0) > 0 && (
-                  <li>
-                    {excluded?.is_leader} es líder de otra comunidad y no puede moverse desde aquí
-                  </li>
-                )}
-                {(excluded?.generation_mismatch ?? 0) > 0 && (
-                  <li>
-                    {excluded?.generation_mismatch} pertenece a una generación distinta a la de
-                    esta comunidad
-                  </li>
-                )}
-              </ul>
+              <details className="mt-1">
+                <summary className="cursor-pointer text-blue-700">Ver detalles</summary>
+                <ul className="mt-1 list-disc list-inside text-blue-700">
+                  {(excluded?.reasons.is_leader ?? 0) > 0 && (
+                    <li>
+                      {excluded?.reasons.is_leader} es líder de otra comunidad y no puede moverse
+                      desde aquí
+                    </li>
+                  )}
+                  {(excluded?.reasons.generation_mismatch ?? 0) > 0 && (
+                    <li>
+                      {excluded?.reasons.generation_mismatch} pertenece a una generación distinta a
+                      la de esta comunidad
+                    </li>
+                  )}
+                </ul>
+              </details>
             </div>
           </div>
         )}
@@ -664,12 +730,28 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
                   <strong>{community.name}</strong>.
                 </p>
                 {selectedUnassigned.size > 0 && (
-                  <p>· {selectedUnassigned.size} nuevo(s) miembro(s).</p>
+                  <div>
+                    <p className="font-medium">{selectedUnassigned.size} nuevo(s) miembro(s)</p>
+                    <ul className="mt-1 max-h-28 overflow-y-auto list-disc list-inside text-gray-600">
+                      {selectedUnassignedUsers.map((u) => (
+                        <li key={u.user_id}>{displayName(u)}</li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
                 {selectedReassign.size > 0 && (
-                  <p className="text-amber-700">
-                    · {selectedReassign.size} se moverá(n) desde otra comunidad.
-                  </p>
+                  <div className="text-amber-700">
+                    <p className="font-medium">
+                      {selectedReassign.size} se moverá(n) desde otra comunidad
+                    </p>
+                    <ul className="mt-1 max-h-28 overflow-y-auto list-disc list-inside">
+                      {selectedReassignUsers.map((u) => (
+                        <li key={u.user_id}>
+                          {displayName(u)} ({u.current_community_name ?? u.current_community_id})
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 )}
               </div>
               <div className="p-4 border-t border-gray-100 flex justify-end gap-2">

@@ -369,14 +369,14 @@ export default function ContractsPage() {
       const fileName = `${contrato.numero_contrato}_${Date.now()}.${fileExt}`;
       
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('contratos')
+        .from('contracts')
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
-        .from('contratos')
+        .from('contracts')
         .getPublicUrl(fileName);
 
       // Update contract status to active and save file URL

@@ -78,20 +78,25 @@ describe('Rule 2 — horas presenciales + sincrónicas', () => {
     expect(result.errors.filter(e => e.rule === 2)).toHaveLength(0);
   });
 
-  it('passes when sum is below ficha hours', () => {
-    const config = makeConfig({ horas_presenciales: 80, horas_sincronicas: 40 });
+  it('fails when sum is below ficha hours', () => {
+    const config = makeConfig({ horas_presenciales: 80, horas_sincronicas: 40 }); // 120 < 148
     const result = validateProposalConfig(config, makeFicha());
-    expect(result.errors.filter(e => e.rule === 2)).toHaveLength(0);
-  });
-
-  it('fails when sum exceeds ficha hours', () => {
-    const config = makeConfig({ horas_presenciales: 130, horas_sincronicas: 30 }); // 160 > 148
-    const result = validateProposalConfig(config, makeFicha());
-    expect(result.valid).toBe(false);
     const err = result.errors.find(e => e.rule === 2);
     expect(err).toBeDefined();
-    expect(err?.actual).toBe('160');
-    expect(err?.expected).toBe('<= 148');
+    expect(err?.expected).toBe('>= 148');
+    expect(err?.actual).toBe('120');
+  });
+
+  it('warns (no error) when sum exceeds ficha hours', () => {
+    const config = makeConfig({ horas_presenciales: 130, horas_sincronicas: 30 }); // 160 > 148
+    const result = validateProposalConfig(config, makeFicha());
+    expect(result.errors.filter(e => e.rule === 2)).toHaveLength(0);
+    const warn = result.warnings.find(w => w.rule === 2);
+    expect(warn).toBeDefined();
+    expect(warn?.field).toBe('horas_presenciales');
+    expect(warn?.fichaValue).toBe('148');
+    expect(warn?.proposalValue).toBe('160');
+    expect(result.valid).toBe(true);
   });
 });
 
@@ -312,7 +317,8 @@ describe('Multiple errors accumulate correctly', () => {
   it('returns all rule violations in a single call', () => {
     const config = makeConfig({
       nombre_servicio: 'Nombre Incorrecto',               // Rule 1
-      horas_presenciales: 200,                            // Rule 2 (200 > 148)
+      horas_presenciales: 50,                             // Rule 2 (50 + 30 = 80 < 148)
+      horas_sincronicas: 30,
       horas_asincronicas: -10,                            // Rule 3
       consultores: [{ nombre: 'Desconocido' }],           // Rule 5
     });

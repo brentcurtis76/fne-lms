@@ -109,23 +109,39 @@ const GrowthCommunitiesIndexPage: React.FC = () => {
         };
         const raw = (comms ?? []) as RawCommunity[];
 
-        const counts = await Promise.all(
-          raw.map(async (c) => {
-            const { count } = await supabase
-              .from('user_roles')
-              .select('id', { count: 'exact', head: true })
-              .eq('community_id', c.id)
-              .eq('is_active', true);
-            return count ?? 0;
-          })
-        );
+        // One grouped query instead of N per-community count queries.
+        const countByCommunity = new Map<string, number>();
+        if (raw.length > 0) {
+          const { data: memberRows, error: countError } = await supabase
+            .from('user_roles')
+            .select('community_id')
+            .in(
+              'community_id',
+              raw.map((c) => c.id)
+            )
+            .eq('is_active', true);
+          if (countError) {
+            toast.error('Error al cargar miembros');
+          } else {
+            for (const row of (memberRows ?? []) as Array<{
+              community_id: string | null;
+            }>) {
+              if (row.community_id) {
+                countByCommunity.set(
+                  row.community_id,
+                  (countByCommunity.get(row.community_id) ?? 0) + 1
+                );
+              }
+            }
+          }
+        }
 
-        const enriched: CommunityRow[] = raw.map((c, i) => ({
+        const enriched: CommunityRow[] = raw.map((c) => ({
           id: c.id,
           name: c.name,
           generation_id: c.generation_id,
           max_teachers: c.max_teachers,
-          member_count: counts[i],
+          member_count: countByCommunity.get(c.id) ?? 0,
         }));
         setCommunities(enriched);
       } catch {

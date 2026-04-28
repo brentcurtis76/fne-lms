@@ -100,11 +100,15 @@ async function handleGet(
   supabase: SupabaseClient,
   community: CommunityRow
 ) {
+  // ORDER BY id is the deterministic tie-break when a user has multiple rows
+  // of the same role_type at this school. Without it, Postgres returns rows
+  // in physical order and chooseBestRow can flip between callers.
   const { data: schoolRoles, error: rolesError } = await supabase
     .from('user_roles')
     .select('id, user_id, role_type, school_id, generation_id, community_id, is_active')
     .eq('school_id', community.school_id)
-    .eq('is_active', true);
+    .eq('is_active', true)
+    .order('id', { ascending: true });
 
   if (rolesError) {
     return sendApiError(res, 'Failed to load roles', 500, rolesError.message);
@@ -158,9 +162,12 @@ async function handleGet(
     const chosen = chooseBestRow(userRows);
     if (!chosen) continue;
 
-    // INVARIANT: never modify a lider_comunidad row whose community_id is set.
-    // If that's the only row we could pick, the user can't be added here.
-    if (chosen.role_type === 'lider_comunidad' && chosen.community_id) {
+    // INVARIANT: never modify a lider_comunidad row, period — regardless of
+    // whether community_id is currently set. Even a null-community_id leader
+    // row must not be bound here, because doing so would promote the user to
+    // leader of the target community via the bulk-add UI. Leadership ties go
+    // through the dedicated role-management flow.
+    if (chosen.role_type === 'lider_comunidad') {
       isLeaderCount++;
       continue;
     }
@@ -228,13 +235,15 @@ async function handlePost(
   }
 
   // Only consider rows in this community's school. Rows from other schools
-  // are intentionally invisible to this endpoint.
+  // are intentionally invisible to this endpoint. ORDER BY id matches the GET
+  // path so chooseBestRow picks the same row the admin saw in the UI.
   const { data: schoolRoles, error: rolesError } = await supabase
     .from('user_roles')
     .select('id, user_id, role_type, school_id, generation_id, community_id, is_active')
     .eq('school_id', community.school_id)
     .eq('is_active', true)
-    .in('user_id', userIds);
+    .in('user_id', userIds)
+    .order('id', { ascending: true });
 
   if (rolesError) {
     return sendApiError(res, 'Failed to load roles', 500, rolesError.message);
@@ -274,8 +283,10 @@ async function handlePost(
       continue;
     }
 
-    // INVARIANT: never modify a lider_comunidad row whose community_id is set.
-    if (chosen.role_type === 'lider_comunidad' && chosen.community_id) {
+    // INVARIANT: never modify a lider_comunidad row, period. Even when
+    // community_id is null, binding it via this UI would promote the user
+    // to leader. Leadership flows live in role-management.
+    if (chosen.role_type === 'lider_comunidad') {
       skipped.push({ user_id: userId, reason: 'is_leader' });
       continue;
     }
@@ -294,6 +305,13 @@ async function handlePost(
 
   // Recompute capacity at write time. Capacity is enforced against the live
   // count of active members in this community plus the batch we'd add.
+  //
+  // KNOWN RACE: count → update is not atomic. Two concurrent POSTs can each
+  // pass this check, then both commit, briefly putting current_count above
+  // max_teachers. Tolerable because (a) admin UIs are rarely concurrent and
+  // (b) max_teachers is a soft cap, not a hard invariant. A future RPC owned
+  // by the DB agent (e.g. assign_to_growth_community(community_id, row_ids))
+  // would close this window — outside the scope of this app-layer change.
   if (community.max_teachers != null) {
     const { count, error: countError } = await supabase
       .from('user_roles')
@@ -310,29 +328,38 @@ async function handlePost(
     }
   }
 
-  const idsToBind = chosenRows.map((c) => c.row.id);
-  // INVARIANT: only backfill generation_id when chosen row's generation_id is null.
-  const idsForGenBackfill = chosenRows
-    .filter((c) => c.row.generation_id == null && community.generation_id)
-    .map((c) => c.row.id);
-
-  if (idsToBind.length > 0) {
-    const { error: updateError } = await supabase
-      .from('user_roles')
-      .update({ community_id: community.id })
-      .in('id', idsToBind);
-    if (updateError) {
-      return sendApiError(res, 'Failed to update roles', 500, updateError.message);
+  // Split chosen rows into two groups so each row gets exactly ONE UPDATE,
+  // closing the previous "community_id set, generation_id still null" gap
+  // between the two prior UPDATEs.
+  // INVARIANT: only backfill generation_id when the chosen row's
+  // generation_id is null — never overwrite a non-null value.
+  const idsBindOnly: string[] = [];
+  const idsBindAndBackfill: string[] = [];
+  for (const c of chosenRows) {
+    if (community.generation_id != null && c.row.generation_id == null) {
+      idsBindAndBackfill.push(c.row.id);
+    } else {
+      idsBindOnly.push(c.row.id);
     }
   }
 
-  if (idsForGenBackfill.length > 0) {
-    const { error: backfillError } = await supabase
+  if (idsBindAndBackfill.length > 0) {
+    const { error: bothError } = await supabase
       .from('user_roles')
-      .update({ generation_id: community.generation_id })
-      .in('id', idsForGenBackfill);
-    if (backfillError) {
-      return sendApiError(res, 'Failed to backfill generation', 500, backfillError.message);
+      .update({ community_id: community.id, generation_id: community.generation_id })
+      .in('id', idsBindAndBackfill);
+    if (bothError) {
+      return sendApiError(res, 'Failed to update roles', 500, bothError.message);
+    }
+  }
+
+  if (idsBindOnly.length > 0) {
+    const { error: bindError } = await supabase
+      .from('user_roles')
+      .update({ community_id: community.id })
+      .in('id', idsBindOnly);
+    if (bindError) {
+      return sendApiError(res, 'Failed to update roles', 500, bindError.message);
     }
   }
 

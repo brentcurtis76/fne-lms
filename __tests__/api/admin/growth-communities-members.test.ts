@@ -375,6 +375,51 @@ describe('admin/growth-communities/[id]/members — POST', () => {
     expect(body.skipped).toEqual([{ user_id: USER_LIDER, reason: 'is_leader' }]);
     expect(tracker.fromCalls.flatMap((c) => c.updates)).toHaveLength(0);
   });
+
+  it('skips with is_leader even when lider_comunidad row has community_id=null — no role-escalation surface', async () => {
+    setupAdmin();
+    const tracker: Tracker = { fromCalls: [] };
+
+    // Regression guard for F2: a user whose only eligible row is an
+    // *unbound* lider_comunidad (community_id=null) used to slip through the
+    // old `&& chosen.community_id` guard and get bound to this community —
+    // effectively promoting them to leader via the bulk-add UI. The new
+    // invariant is "never modify a lider_comunidad row, period."
+    const userRoles = [
+      {
+        id: 'role-lider-unbound',
+        user_id: USER_LIDER,
+        role_type: 'lider_comunidad',
+        school_id: 1,
+        generation_id: GENERATION_ID,
+        community_id: null,
+        is_active: true,
+      },
+    ];
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient(
+        {
+          growth_communities: [{ data: COMMUNITY_ROW }],
+          user_roles: [{ data: userRoles }],
+        },
+        tracker
+      )
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: COMMUNITY_ID },
+      body: { userIds: [USER_LIDER] },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = JSON.parse(res._getData());
+    expect(body.added).toEqual([]);
+    expect(body.skipped).toEqual([{ user_id: USER_LIDER, reason: 'is_leader' }]);
+    expect(tracker.fromCalls.flatMap((c) => c.updates)).toHaveLength(0);
+  });
 });
 
 describe('admin/growth-communities/[id]/members — DELETE', () => {

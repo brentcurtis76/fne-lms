@@ -144,8 +144,9 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
   const router = useRouter();
   const supabase = useSupabaseClient();
 
+  // Admin gate is enforced in getServerSideProps — non-admins never reach
+  // this client. No client-side isAdmin state needed.
   const [user, setUser] = useState<User | null>(null);
-  const [isAdmin] = useState(true);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<MembersResponse | null>(null);
   const [search, setSearch] = useState('');
@@ -288,17 +289,6 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
     );
   }
 
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex justify-center items-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-brand_primary mb-4">Acceso Denegado</h1>
-          <p className="text-gray-600">No tiene permisos para acceder a esta página.</p>
-        </div>
-      </div>
-    );
-  }
-
   const excluded = data?.excludedSummary;
   const excludedTotal = (excluded?.is_leader ?? 0) + (excluded?.generation_mismatch ?? 0);
   const maxTeachers = data?.community.max_teachers ?? null;
@@ -313,7 +303,7 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
       currentPage="growth-communities"
       pageTitle=""
       breadcrumbs={[]}
-      isAdmin={isAdmin}
+      isAdmin={true}
       onLogout={handleLogout}
     >
       <ResponsiveFunctionalPageHeader

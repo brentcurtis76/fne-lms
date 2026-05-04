@@ -88,7 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Step 2: Fetch the group details
     const { data: group, error: groupError } = await supabaseAdmin
       .from('group_assignment_groups')
-      .select('id, name, assignment_id, community_id, school_id, is_consultant_managed, max_members, created_at, created_by')
+      .select('id, name, assignment_id, community_id, school_id, is_consultant_managed, created_at')
       .eq('id', membership.group_id)
       .single();
 

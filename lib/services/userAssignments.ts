@@ -271,6 +271,88 @@ class UserAssignmentsService {
   }
 
   /**
+   * Get same-school, same-course peers eligible for collaborative submission
+   * Used when a group has no community context (community_id is null) — falls
+   * back to course classmates from the requester's school. Excludes users who
+   * have already submitted the assignment.
+   */
+  async getShareableMembersBySchool(
+    supabase: SupabaseClient,
+    assignmentId: string,
+    schoolId: number | string,
+    courseId: string,
+    excludeUserId?: string
+  ): Promise<CommunityMember[]> {
+    try {
+      const { data: enrollments, error: enrollmentsError } = await supabase
+        .from('course_enrollments')
+        .select('user_id')
+        .eq('course_id', courseId)
+        .eq('status', 'active');
+
+      if (enrollmentsError) throw enrollmentsError;
+
+      const enrolledIds = (enrollments || [])
+        .map(e => e.user_id)
+        .filter(id => id && id !== excludeUserId);
+
+      if (enrolledIds.length === 0) return [];
+
+      const { data: roles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .in('user_id', enrolledIds)
+        .eq('school_id', schoolId)
+        .eq('is_active', true)
+        .not('role_type', 'in', '(consultor,admin,equipo_directivo,lider_generacion)');
+
+      if (rolesError) throw rolesError;
+
+      const sameSchoolIds = Array.from(
+        new Set((roles || []).map(r => r.user_id))
+      );
+
+      if (sameSchoolIds.length === 0) return [];
+
+      const { data: submissions } = await supabase
+        .from('lesson_assignment_submissions')
+        .select('student_id')
+        .eq('assignment_id', assignmentId);
+
+      const submittedIds = new Set(submissions?.map(s => s.student_id) || []);
+
+      const eligibleIds = sameSchoolIds.filter(id => !submittedIds.has(id));
+
+      if (eligibleIds.length === 0) return [];
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, email, name, first_name, last_name, avatar_url')
+        .in('id', eligibleIds);
+
+      if (profilesError) throw profilesError;
+
+      return (profiles || []).map(profile => {
+        const fullName =
+          profile.name ||
+          (profile.first_name && profile.last_name
+            ? `${profile.first_name} ${profile.last_name}`.trim()
+            : profile.first_name || profile.last_name || null);
+        return {
+          id: profile.id,
+          email: profile.email,
+          full_name: fullName,
+          avatar_url: profile.avatar_url,
+          has_submitted: false
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching school-scoped shareable members:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Check if a user already has a submission for an assignment
    * (either as original submitter or as a recipient of a shared submission)
    * FIXED: Now queries lesson_assignment_submissions

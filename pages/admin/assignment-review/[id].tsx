@@ -115,7 +115,10 @@ export default function AssignmentReviewPage() {
 
       if (blockError) throw blockError;
 
-      // Load all groups for this assignment
+      // Load all groups for this assignment.
+      // Left join community (school-only groups have community_id null) and also
+      // join the group's own school via group_assignment_groups.school_id so we
+      // can show a school label when there is no community context.
       const { data: groups, error: groupsError } = await supabase
         .from('group_assignment_groups')
         .select(`
@@ -127,6 +130,10 @@ export default function AssignmentReviewPage() {
               id,
               name
             )
+          ),
+          school:schools!school_id (
+            id,
+            name
           )
         `)
         .eq('assignment_id', assignmentId);
@@ -176,7 +183,14 @@ export default function AssignmentReviewPage() {
         }
       }
 
-      // Construct assignment details
+      // Construct assignment details. School-only groups have a null community
+      // relation, so fall back to the group's own school for the label.
+      const firstGroup: any = groups?.[0];
+      const communityName = firstGroup?.community?.name || '';
+      const schoolName = firstGroup?.community
+        ? firstGroup?.community?.school?.name || ''
+        : firstGroup?.school?.name || '';
+
       const assignmentDetails: AssignmentDetails = {
         id: blockData.id,
         title: blockData.payload?.title || 'Tarea Grupal',
@@ -184,8 +198,8 @@ export default function AssignmentReviewPage() {
         instructions: blockData.payload?.instructions || '',
         course_title: blockData.lesson?.course?.title || '',
         lesson_title: blockData.lesson?.title || '',
-        community_name: groups[0]?.community?.name || '',
-        school_name: groups[0]?.community?.school?.name || '',
+        community_name: communityName,
+        school_name: schoolName,
         created_at: blockData.created_at,
         total_groups: groups?.length || 0,
         submitted_groups: submissionsData?.filter(s => s.status === 'submitted' || s.status === 'reviewed').length || 0,

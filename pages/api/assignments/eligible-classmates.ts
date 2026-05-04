@@ -103,7 +103,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Use supabaseAdmin to bypass RLS
     const { data: requesterRoles, error: roleError } = await supabaseAdmin
       .from('user_roles')
-      .select('school_id, role_type')
+      .select('school_id, role_type, community_id')
       .eq('user_id', userId)
       .eq('is_active', true);
 
@@ -131,6 +131,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const requesterSchoolId = selectedRole.school_id;
     console.log('[eligible-classmates] requester has', requesterRoles.length, 'active roles, selected role:', selectedRole.role_type, 'school_id:', requesterSchoolId);
+
+    // Resolve requester's effective community: active role with community_id,
+    // otherwise profiles.community_id, otherwise null.
+    let requesterCommunityId: string | number | null =
+      requesterRoles.find(r => r.community_id)?.community_id ?? null;
+
+    if (!requesterCommunityId) {
+      const { data: requesterProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('community_id')
+        .eq('id', userId)
+        .maybeSingle();
+      requesterCommunityId = requesterProfile?.community_id ?? null;
+    }
+    console.log('[eligible-classmates] requester effective community_id:', requesterCommunityId);
 
     // 4. Get assignment's course_id by traversing blocks → lessons
     // Use supabaseAdmin to bypass RLS (blocks table may have restrictive policies)
@@ -216,7 +231,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Use supabaseAdmin to bypass RLS (safe: already filtered to course enrollments)
     const { data: classmateRoles, error: classmateRolesError } = await supabaseAdmin
       .from('user_roles')
-      .select('user_id, school_id')
+      .select('user_id, school_id, community_id')
       .in('user_id', enrolledClassmates.map(e => e.user_id))
       .eq('school_id', requesterSchoolId)
       .eq('is_active', true);
@@ -225,6 +240,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error('[eligible-classmates] Error fetching classmate roles:', classmateRolesError);
       return res.status(500).json({ error: 'Error al verificar compañeros' });
     }
+
+    // Build a per-peer map of community_id from any active role in the same school.
+    const peerRoleCommunity = new Map<string, string | number | null>();
+    (classmateRoles || []).forEach(r => {
+      if (!peerRoleCommunity.has(r.user_id) && r.community_id) {
+        peerRoleCommunity.set(r.user_id, r.community_id);
+      }
+    });
 
     const sameSchoolUserIds = new Set(classmateRoles?.map(r => r.user_id) || []);
     const sameSchoolClassmates = enrolledClassmates.filter(c => sameSchoolUserIds.has(c.user_id));
@@ -270,10 +293,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ classmates: [] });
     }
 
-    // Fetch profiles separately (no FK join)
+    // Fetch profiles separately (no FK join), including community_id for affinity fallback.
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from('profiles')
-      .select('id, first_name, last_name, email, avatar_url')
+      .select('id, first_name, last_name, email, avatar_url, community_id')
       .in('id', eligibleUserIds);
 
     if (profilesError) {
@@ -291,6 +314,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Build response by joining profile data in application code
     const eligibleClassmates = eligibleUserIds.map(uid => {
       const profile = profileMap.get(uid);
+
+      // Effective community for the peer: roles first, profiles fallback.
+      const peerCommunityId =
+        peerRoleCommunity.get(uid) ?? profile?.community_id ?? null;
+
+      const affinity: 'community' | 'school' =
+        requesterCommunityId && peerCommunityId && peerCommunityId === requesterCommunityId
+          ? 'community'
+          : 'school';
+
       return {
         id: uid,
         first_name: profile?.first_name,
@@ -299,7 +332,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Usuario desconocido'
           : 'Usuario desconocido',
         email: profile?.email,
-        avatar_url: profile?.avatar_url
+        avatar_url: profile?.avatar_url,
+        affinity
       };
     });
 

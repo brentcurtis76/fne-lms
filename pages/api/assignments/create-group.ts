@@ -50,34 +50,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             }
         );
 
-        // 1. Validate requester has a school assigned
+        // 1. Resolve requester's school (required) and community (optional).
         const { data: requesterRoles, error: roleError } = await supabase
             .from('user_roles')
             .select('school_id, role_type, community_id')
             .eq('user_id', userId)
             .eq('is_active', true);
 
-        if (roleError || !requesterRoles || requesterRoles.length === 0) {
+        if (roleError) {
             console.error('[create-group] Role check failed:', roleError);
             return res.status(403).json({ error: 'No tienes una escuela asignada' });
         }
 
-        // Select school_id deterministically: prefer any teaching-eligible role
-        // (docente or an inheriting leadership role) > first with school_id
-        let selectedRole = requesterRoles.find(
+        // Resolve school_id: prefer a teaching-eligible role with school_id,
+        // otherwise fall back to the first active role with school_id.
+        const teachingRoleWithSchool = requesterRoles?.find(
             r => TEACHING_ELIGIBLE_ROLES.includes(r.role_type as UserRoleType) && r.school_id
         );
-        if (!selectedRole) {
-            selectedRole = requesterRoles.find(r => r.school_id);
-        }
+        const fallbackRoleWithSchool = requesterRoles?.find(r => r.school_id);
+        const requesterSchoolId =
+            teachingRoleWithSchool?.school_id ?? fallbackRoleWithSchool?.school_id ?? null;
 
-        if (!selectedRole || !selectedRole.school_id) {
+        if (!requesterSchoolId) {
             console.error('[create-group] No school_id found in roles:', requesterRoles);
             return res.status(403).json({ error: 'No tienes una escuela asignada' });
         }
 
-        const requesterSchoolId = selectedRole.school_id;
+        // Resolve community_id independently: active role with community_id,
+        // otherwise profiles.community_id, otherwise null.
+        let requesterCommunityId: string | number | null =
+            requesterRoles?.find(r => r.community_id)?.community_id ?? null;
+
+        if (!requesterCommunityId) {
+            const { data: profileCommunity } = await supabase
+                .from('profiles')
+                .select('community_id')
+                .eq('id', userId)
+                .maybeSingle();
+            requesterCommunityId = profileCommunity?.community_id ?? null;
+        }
+
         console.log('[create-group] Requester school ID:', requesterSchoolId);
+        console.log('[create-group] Requester community ID:', requesterCommunityId);
 
         // 2. Validate assignment and get course_id
         const { data: assignmentBlock, error: blockError } = await supabase
@@ -177,7 +191,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             .insert({
                 assignment_id: assignmentId,
                 is_consultant_managed: false,
-                community_id: selectedRole.community_id,
+                community_id: requesterCommunityId,
+                school_id: requesterSchoolId,
                 name: groupName
             })
             .select()

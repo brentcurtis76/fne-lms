@@ -193,7 +193,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // 3. Consultant assignment (consultants assigned to schools/communities)
       if (!hasAccess) {
-        // Get assignment's community to check consultant assignment
+        // Get assignment's community to check consultant assignment.
+        // School-only groups (community_id null) skip this block and rely on the
+        // same-school validation below — there is no community-scoped consultant path.
         const { data: assignmentGroup } = await supabase
           .from('group_assignment_groups')
           .select('community_id')

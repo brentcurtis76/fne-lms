@@ -197,6 +197,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             id,
             name,
             community_id,
+            school_id,
             assignment_group_members (
               user_id,
               profiles (
@@ -228,8 +229,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         let filteredGroups = groups || [];
 
         if (school_id) {
+          // Filter by the group's own school_id. Groups with a null community_id
+          // only appear in school-scoped queries (community_id filter would skip them).
           filteredGroups = filteredGroups.filter((g: any) =>
-            g.growth_communities?.school_id === parseInt(school_id as string)
+            g.school_id === parseInt(school_id as string)
           );
         }
         if (community_id) {

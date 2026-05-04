@@ -121,6 +121,10 @@ async function notifyConsultants(
 
     if (!group) return;
 
+    // School-only groups (community_id null) have no community-scoped consultants today,
+    // so there is nobody to notify here.
+    if (!(group as any).community_id) return;
+
     const { data: consultantAssignments } = await supabaseAdmin
       .from('consultant_assignments')
       .select('consultant_id')

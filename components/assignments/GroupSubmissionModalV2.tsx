@@ -24,6 +24,16 @@ interface GroupSubmissionModalV2Props {
   onSubmit: (submissionData: any) => void;
 }
 
+interface EligibleClassmate {
+  id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
+  affinity: 'community' | 'school';
+}
+
 export default function GroupSubmissionModalV2({
   assignment,
   group,
@@ -46,7 +56,7 @@ export default function GroupSubmissionModalV2({
   const [activeGroup, setActiveGroup] = useState<any>(group);
 
   // Teammate invitation state
-  const [eligibleClassmates, setEligibleClassmates] = useState<any[]>([]);
+  const [eligibleClassmates, setEligibleClassmates] = useState<EligibleClassmate[]>([]);
   const [selectedClassmates, setSelectedClassmates] = useState<Set<string>>(new Set());
   const [loadingClassmates, setLoadingClassmates] = useState(false);
   const [classmateSearchQuery, setClassmateSearchQuery] = useState('');
@@ -668,51 +678,85 @@ export default function GroupSubmissionModalV2({
                     </div>
                   ) : (
                     <>
-                      <div className="max-h-48 overflow-y-auto grid grid-cols-2 gap-2 mb-3">
-                        {eligibleClassmates
-                          .filter(classmate => {
-                            if (!classmateSearchQuery) return true;
-                            const query = classmateSearchQuery.toLowerCase();
-                            return (
-                              classmate.full_name?.toLowerCase().includes(query) ||
-                              classmate.email?.toLowerCase().includes(query)
-                            );
-                          })
-                          .map(classmate => (
-                            <button
-                              key={classmate.id}
-                              type="button"
-                              onClick={() => handleToggleClassmate(classmate.id)}
-                              className={`flex items-center gap-2 p-2 rounded border-2 transition-colors ${selectedClassmates.has(classmate.id)
-                                ? 'border-[#fbbf24] bg-yellow-50'
-                                : 'border-gray-200 hover:border-gray-300 bg-gray-50'
-                                }`}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={selectedClassmates.has(classmate.id)}
-                                onChange={() => { }}
-                                className="w-4 h-4 text-[#0a0a0a] rounded focus:ring-[#0a0a0a]"
+                      {(() => {
+                        const query = classmateSearchQuery.toLowerCase();
+                        const matches = (c: EligibleClassmate) =>
+                          !classmateSearchQuery ||
+                          c.full_name?.toLowerCase().includes(query) ||
+                          c.email?.toLowerCase().includes(query);
+
+                        const filtered = eligibleClassmates.filter(matches);
+                        const communityPeers = filtered.filter(c => c.affinity === 'community');
+                        const schoolPeers = filtered.filter(c => c.affinity !== 'community');
+
+                        const renderPeer = (classmate: EligibleClassmate) => (
+                          <button
+                            key={classmate.id}
+                            type="button"
+                            onClick={() => handleToggleClassmate(classmate.id)}
+                            className={`flex items-center gap-2 p-2 rounded border-2 transition-colors ${selectedClassmates.has(classmate.id)
+                              ? 'border-[#fbbf24] bg-yellow-50'
+                              : 'border-gray-200 hover:border-gray-300 bg-gray-50'
+                              }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedClassmates.has(classmate.id)}
+                              onChange={() => { }}
+                              className="w-4 h-4 text-[#0a0a0a] rounded focus:ring-[#0a0a0a]"
+                            />
+                            {classmate.avatar_url ? (
+                              <img
+                                src={classmate.avatar_url}
+                                alt={classmate.full_name || 'User'}
+                                className="w-6 h-6 rounded-full"
                               />
-                              {classmate.avatar_url ? (
-                                <img
-                                  src={classmate.avatar_url}
-                                  alt={classmate.full_name || 'User'}
-                                  className="w-6 h-6 rounded-full"
-                                />
-                              ) : (
-                                <div className="w-6 h-6 bg-[#fbbf24] rounded-full flex items-center justify-center">
-                                  <span className="text-[#0a0a0a] text-xs font-medium">
-                                    {classmate.full_name?.charAt(0).toUpperCase() || '?'}
-                                  </span>
+                            ) : (
+                              <div className="w-6 h-6 bg-[#fbbf24] rounded-full flex items-center justify-center">
+                                <span className="text-[#0a0a0a] text-xs font-medium">
+                                  {classmate.full_name?.charAt(0).toUpperCase() || '?'}
+                                </span>
+                              </div>
+                            )}
+                            <span className="text-sm text-gray-700 truncate flex-1 text-left">
+                              {classmate.full_name || 'Usuario desconocido'}
+                            </span>
+                          </button>
+                        );
+
+                        const hasCommunitySection = eligibleClassmates.some(c => c.affinity === 'community');
+
+                        return (
+                          <div className="max-h-48 overflow-y-auto mb-3 space-y-3">
+                            {hasCommunitySection && (
+                              <div>
+                                <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                                  Tu comunidad
+                                </h4>
+                                {communityPeers.length > 0 ? (
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {communityPeers.map(renderPeer)}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-gray-400">Sin coincidencias</p>
+                                )}
+                              </div>
+                            )}
+                            <div>
+                              <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                                Tu escuela
+                              </h4>
+                              {schoolPeers.length > 0 ? (
+                                <div className="grid grid-cols-2 gap-2">
+                                  {schoolPeers.map(renderPeer)}
                                 </div>
+                              ) : (
+                                <p className="text-xs text-gray-400">Sin coincidencias</p>
                               )}
-                              <span className="text-sm text-gray-700 truncate flex-1 text-left">
-                                {classmate.full_name || 'Usuario desconocido'}
-                              </span>
-                            </button>
-                          ))}
-                      </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
 
                       {eligibleClassmates.length === 0 && (
                         <p className="text-sm text-gray-500 text-center py-4">

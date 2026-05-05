@@ -2,7 +2,7 @@ import '../styles/globals.css';
 import '../styles/notifications.css';
 import type { AppProps } from 'next/app';
 import { SessionContextProvider } from '@supabase/auth-helpers-react';
-import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '../lib/supabase-wrapper';
 
 import Head from 'next/head';
 import { Toaster } from 'react-hot-toast';
@@ -16,7 +16,7 @@ import { QASessionProvider } from '../components/qa/QASessionProvider';
 import { useWebVitals } from '../hooks/useWebVitals';
 
 // Create a singleton Supabase client
-const supabaseClient = createPagesBrowserClient();
+const supabaseClient = getSupabaseClient();
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   // Environment validation on app startup
@@ -37,9 +37,6 @@ export default function MyApp({ Component, pageProps }: AppProps) {
           {/* App metadata */}
           <meta name="description" content="Hub de Transformación Educativa - Genera" />
           <meta name="application-name" content="Genera" />
-
-          {/* PWA Support */}
-          <link rel="manifest" href="/manifest.json" />
         </Head>
         {/* Dynamic favicon based on route */}
         <DynamicFavicon />

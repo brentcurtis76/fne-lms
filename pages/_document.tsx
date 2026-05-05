@@ -31,14 +31,8 @@ export default function Document() {
           onLoad={(e) => { (e.currentTarget as HTMLLinkElement).media = 'all'; }}
         />
         
-        {/* Resource hints for critical resources */}
-        <link rel="preload" as="image" href="/genera/logo-compact-on-dark.svg" />
-        
         {/* Meta tags for performance */}
         <meta httpEquiv="x-dns-prefetch-control" content="on" />
-        
-        {/* Preload Tailwind CSS */}
-        <link rel="preload" href="https://cdn.tailwindcss.com" as="script" />
       </Head>
       <body>
         <Main />

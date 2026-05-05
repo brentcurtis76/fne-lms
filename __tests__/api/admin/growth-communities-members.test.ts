@@ -2,8 +2,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createMocks } from 'node-mocks-http';
 
-const { mockCheckIsAdmin, mockCreateServiceRoleClient } = vi.hoisted(() => ({
-  mockCheckIsAdmin: vi.fn(),
+const { mockCheckIsAdminOrEquipoDirectivo, mockCreateServiceRoleClient } = vi.hoisted(() => ({
+  mockCheckIsAdminOrEquipoDirectivo: vi.fn(),
   mockCreateServiceRoleClient: vi.fn(),
 }));
 
@@ -11,7 +11,7 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
-    checkIsAdmin: mockCheckIsAdmin,
+    checkIsAdminOrEquipoDirectivo: mockCheckIsAdminOrEquipoDirectivo,
     createServiceRoleClient: mockCreateServiceRoleClient,
   };
 });
@@ -19,12 +19,13 @@ vi.mock('../../../lib/api-auth', async (importOriginal) => {
 import handler from '../../../pages/api/admin/growth-communities/[id]/members';
 
 const ADMIN_ID = '11111111-1111-4111-8111-111111111111';
+const ED_ID = '99999999-9999-4999-8999-999999999999';
 const USER_ID = '22222222-2222-4222-8222-222222222222';
 const USER_LIDER = '33333333-3333-4333-8333-333333333333';
 const COMMUNITY_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const OTHER_COMMUNITY_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const GENERATION_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
-const FORBIDDEN_ERROR = 'Solo administradores pueden gestionar miembros de comunidades';
+const FORBIDDEN_ERROR = 'No tienes permiso para gestionar miembros de esta comunidad';
 
 interface TableResult {
   data?: unknown;
@@ -100,24 +101,40 @@ function buildSequencedClient(
 }
 
 function setupAdmin() {
-  mockCheckIsAdmin.mockResolvedValueOnce({
-    isAdmin: true,
-    user: { id: ADMIN_ID },
+  mockCheckIsAdminOrEquipoDirectivo.mockResolvedValueOnce({
+    isAuthorized: true,
+    role: 'admin',
+    schoolId: null,
+    user: { id: ADMIN_ID } as any,
     error: null,
   });
 }
 
-function setupNonAdmin(userId: string = USER_ID) {
-  mockCheckIsAdmin.mockResolvedValueOnce({
-    isAdmin: false,
-    user: { id: userId },
+function setupEquipoDirectivo(schoolId: number, userId: string = ED_ID) {
+  mockCheckIsAdminOrEquipoDirectivo.mockResolvedValueOnce({
+    isAuthorized: true,
+    role: 'equipo_directivo',
+    schoolId,
+    user: { id: userId } as any,
+    error: null,
+  });
+}
+
+function setupUnauthorized(userId: string = USER_ID) {
+  mockCheckIsAdminOrEquipoDirectivo.mockResolvedValueOnce({
+    isAuthorized: false,
+    role: null,
+    schoolId: null,
+    user: { id: userId } as any,
     error: null,
   });
 }
 
 function setupUnauthenticated() {
-  mockCheckIsAdmin.mockResolvedValueOnce({
-    isAdmin: false,
+  mockCheckIsAdminOrEquipoDirectivo.mockResolvedValueOnce({
+    isAuthorized: false,
+    role: null,
+    schoolId: null,
     user: null,
     error: new Error('No active session'),
   });
@@ -137,10 +154,12 @@ describe('admin/growth-communities/[id]/members — auth', () => {
     vi.clearAllMocks();
   });
 
-  const nonAdminRoles = [
+  // Roles whose users should always fail the helper (isAuthorized: false).
+  // equipo_directivo is excluded here because ED has dedicated tests covering
+  // both same-school (authorized) and other-school (forbidden) paths.
+  const unauthorizedRoles = [
     'consultor',
     'lider_comunidad',
-    'equipo_directivo',
     'docente',
   ] as const;
 
@@ -150,8 +169,8 @@ describe('admin/growth-communities/[id]/members — auth', () => {
     { method: 'DELETE', query: { id: COMMUNITY_ID, userId: USER_ID } },
   ] as const;
 
-  it.each(nonAdminRoles)('%s cannot GET community members', async () => {
-    setupNonAdmin();
+  it.each(unauthorizedRoles)('%s cannot GET community members', async () => {
+    setupUnauthorized();
     const { req, res } = createMocks(requests[0]);
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(403);
@@ -159,8 +178,8 @@ describe('admin/growth-communities/[id]/members — auth', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it.each(nonAdminRoles)('%s cannot POST community members', async () => {
-    setupNonAdmin();
+  it.each(unauthorizedRoles)('%s cannot POST community members', async () => {
+    setupUnauthorized();
     const { req, res } = createMocks(requests[1]);
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(403);
@@ -168,8 +187,8 @@ describe('admin/growth-communities/[id]/members — auth', () => {
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 
-  it.each(nonAdminRoles)('%s cannot DELETE community members', async () => {
-    setupNonAdmin();
+  it.each(unauthorizedRoles)('%s cannot DELETE community members', async () => {
+    setupUnauthorized();
     const { req, res } = createMocks(requests[2]);
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(403);
@@ -182,6 +201,15 @@ describe('admin/growth-communities/[id]/members — auth', () => {
     const { req, res } = createMocks(request);
     await handler(req as never, res as never);
     expect(res._getStatusCode()).toBe(401);
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+  });
+
+  it('isAuthorized: false returns 403 with forbidden body', async () => {
+    setupUnauthorized();
+    const { req, res } = createMocks(requests[0]);
+    await handler(req as never, res as never);
+    expect(res._getStatusCode()).toBe(403);
+    expect(JSON.parse(res._getData())).toEqual({ error: FORBIDDEN_ERROR });
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
   });
 });
@@ -788,5 +816,139 @@ describe('admin/growth-communities/[id]/members — GET response shape', () => {
         generation_mismatch: 1,
       },
     });
+  });
+});
+
+describe('admin/growth-communities/[id]/members — equipo_directivo', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('GET by equipo_directivo in same school returns 200', async () => {
+    setupEquipoDirectivo(1);
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient({
+        growth_communities: [{ data: COMMUNITY_ROW }],
+        user_roles: [{ data: [] }],
+        profiles: [{ data: [] }],
+      })
+    );
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { id: COMMUNITY_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    const body = JSON.parse(res._getData());
+    expect(body.community.school_id).toBe(1);
+    expect(body.currentMembers).toEqual([]);
+  });
+
+  it('GET by equipo_directivo in a different school returns 403', async () => {
+    setupEquipoDirectivo(999);
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient({
+        growth_communities: [{ data: COMMUNITY_ROW }],
+      })
+    );
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { id: COMMUNITY_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(403);
+    expect(JSON.parse(res._getData())).toEqual({ error: FORBIDDEN_ERROR });
+  });
+
+  it('GET by equipo_directivo succeeds when community.school_id is "42" and helper schoolId is 42', async () => {
+    // Type coercion: the DB column may surface as a string in some shapes.
+    // The handler must coerce to number before comparing against the helper's
+    // numeric schoolId.
+    setupEquipoDirectivo(42);
+
+    const community = { ...COMMUNITY_ROW, school_id: '42' };
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient({
+        growth_communities: [{ data: community }],
+        user_roles: [{ data: [] }],
+        profiles: [{ data: [] }],
+      })
+    );
+
+    const { req, res } = createMocks({
+      method: 'GET',
+      query: { id: COMMUNITY_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+  });
+
+  it('POST by equipo_directivo in same school assigns one member', async () => {
+    setupEquipoDirectivo(1);
+
+    const userRoles = [
+      {
+        id: 'role-docente-ed',
+        user_id: USER_ID,
+        role_type: 'docente',
+        school_id: 1,
+        generation_id: GENERATION_ID,
+        community_id: null,
+        is_active: true,
+      },
+    ];
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient({
+        growth_communities: [{ data: COMMUNITY_ROW }],
+        user_roles: [
+          { data: userRoles },
+          { data: null, error: null },
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({
+      method: 'POST',
+      query: { id: COMMUNITY_ID },
+      body: { userIds: [USER_ID] },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData())).toEqual({ assigned: 1, skipped: [] });
+  });
+
+  it('DELETE by equipo_directivo in same school removes the member', async () => {
+    setupEquipoDirectivo(1);
+
+    const matchingRows = [{ id: 'role-here', role_type: 'docente' }];
+
+    mockCreateServiceRoleClient.mockReturnValueOnce(
+      buildSequencedClient({
+        growth_communities: [{ data: COMMUNITY_ROW }],
+        user_roles: [
+          { data: matchingRows },
+          { data: null, error: null },
+        ],
+      })
+    );
+
+    const { req, res } = createMocks({
+      method: 'DELETE',
+      query: { id: COMMUNITY_ID, userId: USER_ID },
+    });
+    await handler(req as never, res as never);
+
+    expect(res._getStatusCode()).toBe(200);
+    expect(JSON.parse(res._getData())).toEqual({ removed: 1 });
   });
 });

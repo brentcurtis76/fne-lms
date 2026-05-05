@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import {
-  checkIsAdmin,
+  checkIsAdminOrEquipoDirectivo,
   createServiceRoleClient,
   handleMethodNotAllowed,
   logApiRequest,
@@ -84,7 +84,7 @@ function serializeCommunity(community: CommunityRow) {
 }
 
 const COMMUNITY_MEMBERS_FORBIDDEN =
-  'Solo administradores pueden gestionar miembros de comunidades';
+  'No tienes permiso para gestionar miembros de esta comunidad';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   logApiRequest(req, 'admin/growth-communities/[id]/members');
@@ -99,13 +99,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   return handleDelete(req, res);
 }
 
-async function getAdminContext(req: NextApiRequest, res: NextApiResponse) {
-  const { isAdmin, user, error: authError } = await checkIsAdmin(req, res);
+async function getAuthContext(req: NextApiRequest, res: NextApiResponse) {
+  const { isAuthorized, role, schoolId, user, error: authError } =
+    await checkIsAdminOrEquipoDirectivo(req, res);
   if (authError) {
     sendApiError(res, 'Unauthorized', 401, authError.message);
     return null;
   }
-  if (!isAdmin || !user) {
+  if (!isAuthorized || !user) {
     res.status(403).json({ error: COMMUNITY_MEMBERS_FORBIDDEN });
     return null;
   }
@@ -130,6 +131,17 @@ async function getAdminContext(req: NextApiRequest, res: NextApiResponse) {
     return null;
   }
 
+  if (role === 'equipo_directivo') {
+    const communitySchoolId =
+      typeof community.school_id === 'number'
+        ? community.school_id
+        : Number(community.school_id);
+    if (!Number.isFinite(communitySchoolId) || communitySchoolId !== schoolId) {
+      res.status(403).json({ error: COMMUNITY_MEMBERS_FORBIDDEN });
+      return null;
+    }
+  }
+
   return { supabase, community };
 }
 
@@ -137,7 +149,7 @@ async function handleGet(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
-  const context = await getAdminContext(req, res);
+  const context = await getAuthContext(req, res);
   if (!context) return;
   const { supabase, community } = context;
 
@@ -292,7 +304,7 @@ async function handlePost(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
-  const context = await getAdminContext(req, res);
+  const context = await getAuthContext(req, res);
   if (!context) return;
   const { supabase, community } = context;
 
@@ -435,7 +447,7 @@ async function handleDelete(
   req: NextApiRequest,
   res: NextApiResponse,
 ) {
-  const context = await getAdminContext(req, res);
+  const context = await getAuthContext(req, res);
   if (!context) return;
   const { supabase, community } = context;
 

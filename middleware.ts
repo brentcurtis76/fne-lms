@@ -42,6 +42,11 @@ export async function middleware(req: NextRequest) {
       return res;
     }
 
+    // Equipo directivo: only growth communities management
+    if (roles.includes('equipo_directivo') && pathname.startsWith('/admin/growth-communities')) {
+      return res;
+    }
+
     // Everyone else → redirect to dashboard
     return NextResponse.redirect(new URL('/dashboard', req.url));
   }

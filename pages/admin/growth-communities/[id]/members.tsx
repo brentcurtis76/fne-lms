@@ -66,9 +66,12 @@ interface MembersResponse {
   };
 }
 
-export const getServerSideProps: GetServerSideProps<{ community: CommunityProps }> = async (
-  ctx
-) => {
+type PageProps = {
+  role: 'admin' | 'equipo_directivo';
+  community: CommunityProps;
+};
+
+export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => {
   const supabase = createPagesServerClient(ctx);
   const {
     data: { session },
@@ -78,17 +81,42 @@ export const getServerSideProps: GetServerSideProps<{ community: CommunityProps 
   }
 
   const service = createServiceRoleClient();
-  const { data: adminRow } = await service
+  const { data: roleRows } = await service
     .from('user_roles')
-    .select('id')
+    .select('id, role_type, school_id')
     .eq('user_id', session.user.id)
-    .eq('role_type', 'admin')
-    .eq('is_active', true)
-    .limit(1)
-    .maybeSingle();
+    .eq('is_active', true);
 
-  if (!adminRow) {
-    return { redirect: { destination: '/dashboard', permanent: false } };
+  const rows = (roleRows ?? []) as Array<{
+    id: number;
+    role_type: string;
+    school_id: number | string | null;
+  }>;
+
+  const isAdmin = rows.some((r) => r.role_type === 'admin');
+
+  let role: 'admin' | 'equipo_directivo' | null = null;
+  let edSchoolId: number | null = null;
+
+  if (isAdmin) {
+    role = 'admin';
+  } else {
+    const edRow = rows
+      .filter((r) => r.role_type === 'equipo_directivo')
+      .sort((a, b) => a.id - b.id)[0];
+
+    if (!edRow || edRow.school_id === null || edRow.school_id === undefined) {
+      return { redirect: { destination: '/dashboard', permanent: false } };
+    }
+
+    const schoolId =
+      typeof edRow.school_id === 'string' ? Number(edRow.school_id) : edRow.school_id;
+    if (!Number.isFinite(schoolId)) {
+      return { redirect: { destination: '/dashboard', permanent: false } };
+    }
+
+    role = 'equipo_directivo';
+    edSchoolId = schoolId;
   }
 
   const rawId = ctx.params?.id;
@@ -99,16 +127,32 @@ export const getServerSideProps: GetServerSideProps<{ community: CommunityProps 
 
   const { data: community } = await service
     .from('growth_communities')
-    .select('id, name, school:schools(name)')
+    .select('id, name, school_id, school:schools(name)')
     .eq('id', communityId)
-    .maybeSingle<{ id: string; name: string; school: { name: string } | null }>();
+    .maybeSingle<{
+      id: string;
+      name: string;
+      school_id: number | string | null;
+      school: { name: string } | null;
+    }>();
 
   if (!community) {
     return { notFound: true };
   }
 
+  if (role === 'equipo_directivo' && edSchoolId !== null) {
+    const communitySchoolId =
+      typeof community.school_id === 'number'
+        ? community.school_id
+        : Number(community.school_id);
+    if (!Number.isFinite(communitySchoolId) || communitySchoolId !== edSchoolId) {
+      return { redirect: { destination: '/dashboard', permanent: false } };
+    }
+  }
+
   return {
     props: {
+      role,
       community: {
         id: community.id,
         name: community.name,
@@ -146,12 +190,10 @@ function skippedReasonLabel(reason: string): string {
   }
 }
 
-const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ community }) => {
+const GrowthCommunityMembersPage: React.FC<PageProps> = ({ role, community }) => {
   const router = useRouter();
   const supabase = useSupabaseClient();
 
-  // Admin gate is enforced in getServerSideProps — non-admins never reach
-  // this client. No client-side isAdmin state needed.
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<MembersResponse | null>(null);
@@ -356,7 +398,7 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
       currentPage="growth-communities"
       pageTitle=""
       breadcrumbs={[]}
-      isAdmin={true}
+      isAdmin={role === 'admin'}
       onLogout={handleLogout}
     >
       <ResponsiveFunctionalPageHeader

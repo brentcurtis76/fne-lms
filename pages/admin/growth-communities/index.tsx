@@ -24,7 +24,11 @@ interface CommunityRow {
   member_count: number;
 }
 
-export const getServerSideProps: GetServerSideProps = async (ctx) => {
+type PageProps =
+  | { role: 'admin'; schoolId: null }
+  | { role: 'equipo_directivo'; schoolId: number };
+
+export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => {
   const supabase = createPagesServerClient(ctx);
   const {
     data: { session },
@@ -34,29 +38,49 @@ export const getServerSideProps: GetServerSideProps = async (ctx) => {
   }
 
   const service = createServiceRoleClient();
-  const { data: adminRow } = await service
+  const { data: roleRows } = await service
     .from('user_roles')
-    .select('id')
+    .select('id, role_type, school_id')
     .eq('user_id', session.user.id)
-    .eq('role_type', 'admin')
-    .eq('is_active', true)
-    .limit(1)
-    .maybeSingle();
+    .eq('is_active', true);
 
-  if (!adminRow) {
+  const rows = (roleRows ?? []) as Array<{
+    id: number;
+    role_type: string;
+    school_id: number | string | null;
+  }>;
+
+  const isAdmin = rows.some((r) => r.role_type === 'admin');
+  if (isAdmin) {
+    return { props: { role: 'admin' as const, schoolId: null } };
+  }
+
+  const edRow = rows
+    .filter((r) => r.role_type === 'equipo_directivo')
+    .sort((a, b) => a.id - b.id)[0];
+
+  if (!edRow || edRow.school_id === null || edRow.school_id === undefined) {
     return { redirect: { destination: '/dashboard', permanent: false } };
   }
 
-  return { props: {} };
+  const schoolId =
+    typeof edRow.school_id === 'string' ? Number(edRow.school_id) : edRow.school_id;
+  if (!Number.isFinite(schoolId)) {
+    return { redirect: { destination: '/dashboard', permanent: false } };
+  }
+
+  return { props: { role: 'equipo_directivo' as const, schoolId } };
 };
 
-const GrowthCommunitiesIndexPage: React.FC = () => {
+const GrowthCommunitiesIndexPage: React.FC<PageProps> = ({ role, schoolId }) => {
   const router = useRouter();
   const supabase = useSupabaseClient();
 
   const [user, setUser] = useState<User | null>(null);
   const [schools, setSchools] = useState<SchoolLite[]>([]);
-  const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
+  const [selectedSchoolId, setSelectedSchoolId] = useState<string>(
+    role === 'equipo_directivo' ? String(schoolId) : ''
+  );
   const [communities, setCommunities] = useState<CommunityRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -173,7 +197,7 @@ const GrowthCommunitiesIndexPage: React.FC = () => {
       currentPage="growth-communities"
       pageTitle=""
       breadcrumbs={[]}
-      isAdmin={true}
+      isAdmin={role === 'admin'}
       onLogout={handleLogout}
     >
       <ResponsiveFunctionalPageHeader
@@ -183,27 +207,29 @@ const GrowthCommunitiesIndexPage: React.FC = () => {
       />
 
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <label
-            htmlFor="filter-school"
-            className="block text-xs font-medium text-gray-600 mb-1"
-          >
-            Colegio
-          </label>
-          <select
-            id="filter-school"
-            value={selectedSchoolId}
-            onChange={(e) => setSelectedSchoolId(e.target.value)}
-            className="w-full sm:w-96 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand_accent focus:border-transparent bg-white"
-          >
-            <option value="">Selecciona un colegio</option>
-            {schools.map((s) => (
-              <option key={s.id} value={String(s.id)}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {role === 'admin' && (
+          <div className="bg-white rounded-lg shadow p-4 mb-6">
+            <label
+              htmlFor="filter-school"
+              className="block text-xs font-medium text-gray-600 mb-1"
+            >
+              Colegio
+            </label>
+            <select
+              id="filter-school"
+              value={selectedSchoolId}
+              onChange={(e) => setSelectedSchoolId(e.target.value)}
+              className="w-full sm:w-96 p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-brand_accent focus:border-transparent bg-white"
+            >
+              <option value="">Selecciona un colegio</option>
+              {schools.map((s) => (
+                <option key={s.id} value={String(s.id)}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="p-4 border-b border-gray-100">

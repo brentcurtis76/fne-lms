@@ -90,6 +90,43 @@ export async function isGlobalAdmin(supabase: SupabaseClient, userId: string): P
 }
 
 /**
+ * Resolve the school_id for a user's active equipo_directivo role.
+ * Returns null if the user has no active equipo_directivo row, or on any error.
+ * When multiple active rows exist, deterministically returns the lowest-id row.
+ */
+export async function getEquipoDirectivoSchoolId(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<number | null> {
+  try {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('id, school_id')
+      .eq('user_id', userId)
+      .eq('role_type', 'equipo_directivo')
+      .eq('is_active', true)
+      .order('id', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[roleUtils.getEquipoDirectivoSchoolId]', error);
+      return null;
+    }
+
+    if (!data || data.school_id === null || data.school_id === undefined) {
+      return null;
+    }
+
+    const schoolId = typeof data.school_id === 'string' ? Number(data.school_id) : data.school_id;
+    return Number.isFinite(schoolId) ? schoolId : null;
+  } catch (err) {
+    console.error('[roleUtils.getEquipoDirectivoSchoolId]', err);
+    return null;
+  }
+}
+
+/**
  * Check if user has admin privileges
  * Uses the new user_roles system exclusively
  * Note: When called from API routes, should be passed a service role client to bypass RLS

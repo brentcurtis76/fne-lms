@@ -56,6 +56,7 @@ export default function RoleAssignmentModal({
   const [roleToDelete, setRoleToDelete] = useState<UserRole | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showNewRoleForm, setShowNewRoleForm] = useState(false);
+  const [liderCommunityMode, setLiderCommunityMode] = useState<'new' | 'existing'>('new');
 
   const normalizeId = (value: string | number | null | undefined) =>
     value === null || value === undefined ? '' : String(value);
@@ -90,6 +91,8 @@ export default function RoleAssignmentModal({
       setIsViewing(false);
       setIsEditing(false);
       setSelectedRoleForView(null);
+      setLiderCommunityMode('new');
+      setSelectedCommunity('');
     }
   }, [isOpen, userId]);
 
@@ -174,11 +177,10 @@ export default function RoleAssignmentModal({
       }
 
       // Validation: Community leader role requires generation for schools with generations
-      if (selectedRole === 'lider_comunidad' && selectedSchool) {
+      if (selectedRole === 'lider_comunidad' && selectedSchool && liderCommunityMode === 'new') {
         const school = findSchoolById(selectedSchool);
-        const schoolGenerations = getGenerationsForSchool(selectedSchool);
         const schoolHasGenerations = school?.has_generations === true;
-        
+
         if (schoolHasGenerations && !selectedGeneration) {
           toast.error(`La escuela "${school?.name}" utiliza generaciones. Debe seleccionar una generación para crear la comunidad.`);
           setLoading(false);
@@ -186,10 +188,21 @@ export default function RoleAssignmentModal({
         }
       }
 
+      if (selectedRole === 'lider_comunidad' && liderCommunityMode === 'existing' && !selectedCommunity) {
+        toast.error('Debes seleccionar una comunidad existente.');
+        setLoading(false);
+        return;
+      }
+
       const organizationalScope = {
         schoolId: selectedSchool || undefined,
         generationId: selectedGeneration || undefined,
-        communityId: selectedCommunity || undefined
+        communityId:
+          selectedRole === 'lider_comunidad'
+            ? liderCommunityMode === 'existing'
+              ? selectedCommunity || undefined
+              : undefined
+            : selectedCommunity || undefined
       };
 
       // Use the API-based function to bypass RLS
@@ -201,18 +214,23 @@ export default function RoleAssignmentModal({
           localStorage.removeItem(`permissions_${userId}`);
         }
 
-        if (selectedRole === 'lider_comunidad' && result.communityId) {
-          toast.success('Rol asignado y comunidad creada correctamente');
+        if (selectedRole === 'lider_comunidad') {
+          if (liderCommunityMode === 'existing') {
+            toast.success('Rol de líder asignado a la comunidad existente');
+          } else {
+            toast.success('Rol asignado y comunidad creada correctamente');
+          }
         } else {
           toast.success('Rol asignado correctamente');
         }
         await loadData(); // Refresh roles
         onRoleUpdate(); // Notify parent component
-        
+
         // Reset form
         setSelectedRole('docente');
         setSelectedGeneration('');
         setSelectedCommunity('');
+        setLiderCommunityMode('new');
         setShowNewRoleForm(false);
       } else {
         console.error('[RoleAssignmentModal] Role assignment failed:', {
@@ -303,6 +321,11 @@ export default function RoleAssignmentModal({
     setSelectedSchool(normalizeId(role.school_id));
     setSelectedGeneration(normalizeId(role.generation_id));
     setSelectedCommunity(normalizeId(role.community_id));
+    if (role.role_type === 'lider_comunidad' && role.community_id) {
+      setLiderCommunityMode('existing');
+    } else {
+      setLiderCommunityMode('new');
+    }
   };
 
   const handleStartNewRole = () => {
@@ -314,6 +337,7 @@ export default function RoleAssignmentModal({
     setSelectedSchool('');
     setSelectedGeneration('');
     setSelectedCommunity('');
+    setLiderCommunityMode('new');
     setShowNewRoleForm(true);
   };
 
@@ -322,6 +346,12 @@ export default function RoleAssignmentModal({
 
     try {
       setLoading(true);
+
+      if (selectedRole === 'lider_comunidad' && liderCommunityMode === 'existing' && !selectedCommunity) {
+        toast.error('Debes seleccionar una comunidad existente.');
+        setLoading(false);
+        return;
+      }
 
       // First remove the old role using API
       const removeResult = await removeRoleViaAPI(editingRole.id);
@@ -334,7 +364,12 @@ export default function RoleAssignmentModal({
       const organizationalScope = {
         schoolId: selectedSchool || undefined,
         generationId: selectedGeneration || undefined,
-        communityId: selectedCommunity || undefined
+        communityId:
+          selectedRole === 'lider_comunidad'
+            ? liderCommunityMode === 'existing'
+              ? selectedCommunity || undefined
+              : undefined
+            : selectedCommunity || undefined
       };
 
       const assignResult = await assignRoleViaAPI(userId, selectedRole, organizationalScope);
@@ -345,10 +380,18 @@ export default function RoleAssignmentModal({
           localStorage.removeItem(`permissions_${userId}`);
         }
 
-        toast.success('Rol actualizado correctamente');
+        if (selectedRole === 'lider_comunidad') {
+          if (liderCommunityMode === 'existing') {
+            toast.success('Rol de líder asignado a la comunidad existente');
+          } else {
+            toast.success('Rol asignado y comunidad creada correctamente');
+          }
+        } else {
+          toast.success('Rol actualizado correctamente');
+        }
         await loadData(); // Refresh roles
         onRoleUpdate(); // Notify parent component
-        
+
         // Reset edit mode
         setIsEditing(false);
         setEditingRole(null);
@@ -356,6 +399,7 @@ export default function RoleAssignmentModal({
         setSelectedSchool('');
         setSelectedGeneration('');
         setSelectedCommunity('');
+        setLiderCommunityMode('new');
       } else {
         toast.error(assignResult.error || 'Error al actualizar rol');
       }
@@ -374,6 +418,7 @@ export default function RoleAssignmentModal({
     setSelectedSchool('');
     setSelectedGeneration('');
     setSelectedCommunity('');
+    setLiderCommunityMode('new');
   };
 
   const getRoleDisplayInfo = (role: UserRole) => {
@@ -720,13 +765,76 @@ export default function RoleAssignmentModal({
                             <div>
                               <label className="block text-sm font-medium text-gray-700 mb-2">
                                 <Users className="inline mr-1" size={16} />
-                                {selectedRole === 'lider_comunidad' ? 'Nueva Comunidad (se creará automáticamente)' : 'Comunidad de Crecimiento (Opcional)'}
+                                {selectedRole === 'lider_comunidad' ? 'Comunidad' : 'Comunidad de Crecimiento (Opcional)'}
                               </label>
                               {selectedRole === 'lider_comunidad' ? (
-                                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                  <p className="text-sm text-blue-800">
-                                    Se creará automáticamente una nueva comunidad con el nombre del líder
-                                  </p>
+                                <div role="radiogroup" aria-label="Modo de comunidad" className="space-y-2">
+                                  <label className="flex items-start p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input
+                                      type="radio"
+                                      name="liderCommunityMode"
+                                      value="new"
+                                      checked={liderCommunityMode === 'new'}
+                                      onChange={() => {
+                                        setLiderCommunityMode('new');
+                                        setSelectedCommunity('');
+                                      }}
+                                      className="mt-1 mr-3"
+                                    />
+                                    <span>
+                                      <span className="block text-sm font-medium text-gray-900">
+                                        Crear nueva comunidad
+                                      </span>
+                                      <span className="block text-xs text-gray-600 mt-1">
+                                        Se creará automáticamente con el nombre del líder.
+                                      </span>
+                                    </span>
+                                  </label>
+                                  <label className="flex items-start p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                                    <input
+                                      type="radio"
+                                      name="liderCommunityMode"
+                                      value="existing"
+                                      checked={liderCommunityMode === 'existing'}
+                                      onChange={() => setLiderCommunityMode('existing')}
+                                      className="mt-1 mr-3"
+                                    />
+                                    <span>
+                                      <span className="block text-sm font-medium text-gray-900">
+                                        Asignar como líder a una comunidad existente
+                                      </span>
+                                      <span className="block text-xs text-gray-600 mt-1">
+                                        Permite agregar un co-líder o cambiar el líder de una comunidad ya existente sin duplicarla.
+                                      </span>
+                                    </span>
+                                  </label>
+                                  {liderCommunityMode === 'existing' && (
+                                    <select
+                                      value={selectedCommunity}
+                                      onChange={(e) => setSelectedCommunity(e.target.value)}
+                                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#0a0a0a] focus:border-transparent mt-2"
+                                      aria-label="Comunidad existente"
+                                    >
+                                      <option value="">Seleccionar comunidad existente</option>
+                                      {availableCommunities
+                                        .filter(comm => {
+                                          if (selectedSchool && !idsEqual(comm.school_id, selectedSchool)) {
+                                            return false;
+                                          }
+
+                                          if (selectedGeneration && !idsEqual(comm.generation_id, selectedGeneration)) {
+                                            return false;
+                                          }
+
+                                          return true;
+                                        })
+                                        .map((community) => (
+                                          <option key={normalizeId(community.id)} value={normalizeId(community.id)}>
+                                            {community.name}
+                                          </option>
+                                        ))}
+                                    </select>
+                                  )}
                                 </div>
                               ) : (
                                 <>
@@ -746,7 +854,7 @@ export default function RoleAssignmentModal({
                                           return false;
                                         }
 
-                                        // If no generation is selected but school is selected, 
+                                        // If no generation is selected but school is selected,
                                         // show all communities for that school (including those without generations)
                                         return true;
                                       })
@@ -769,7 +877,7 @@ export default function RoleAssignmentModal({
                             <div className="space-y-3">
                               <button
                                 onClick={handleUpdateRole}
-                                disabled={loading}
+                                disabled={loading || (selectedRole === 'lider_comunidad' && liderCommunityMode === 'existing' && !selectedCommunity)}
                                 className="w-full bg-[#fbbf24] text-white py-3 px-4 rounded-lg hover:bg-[#e6a530] transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                               >
                                 {loading ? 'Actualizando...' : 'Actualizar Rol'}
@@ -791,8 +899,9 @@ export default function RoleAssignmentModal({
                               
                               // Validation rules
                               const isGenLeaderInvalidSchool = selectedRole === 'lider_generacion' && selectedSchool && !schoolHasGenerations;
-                              const isCommunityLeaderMissingGeneration = selectedRole === 'lider_comunidad' && selectedSchool && schoolHasGenerations && !selectedGeneration;
-                              const isFormInvalid = isGenLeaderInvalidSchool || isCommunityLeaderMissingGeneration;
+                              const isCommunityLeaderMissingGeneration = selectedRole === 'lider_comunidad' && liderCommunityMode === 'new' && selectedSchool && schoolHasGenerations && !selectedGeneration;
+                              const isCommunityLeaderMissingExisting = selectedRole === 'lider_comunidad' && liderCommunityMode === 'existing' && !selectedCommunity;
+                              const isFormInvalid = isGenLeaderInvalidSchool || isCommunityLeaderMissingGeneration || isCommunityLeaderMissingExisting;
 
                               return (
                                 <button

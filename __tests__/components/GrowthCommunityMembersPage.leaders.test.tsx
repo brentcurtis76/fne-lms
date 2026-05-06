@@ -272,7 +272,7 @@ describe('GrowthCommunityMembersPage — leaders panel', () => {
     expect(findButtonByText(/Cambiar líder/i)).toBeTruthy();
   });
 
-  it('(b) clicking "Promotear a líder" opens the confirm modal and Confirmar fires POST /leaders with the right body', async () => {
+  it('(b) clicking "Promover a líder" opens the confirm modal and Confirmar fires POST /leaders with the right body', async () => {
     const { calls } = installFetch({
       membersResponse: makeMembersResponse(),
       leaders: ({ method }) => {
@@ -284,11 +284,11 @@ describe('GrowthCommunityMembersPage — leaders panel', () => {
     render(<GrowthCommunityMembersPage {...baseProps} />);
 
     await waitFor(() => {
-      expect(findButtonByText(/Promotear a líder/i)).toBeTruthy();
+      expect(findButtonByText(/Promover a líder/i)).toBeTruthy();
     });
 
     await act(async () => {
-      fireEvent.click(findButtonByText(/Promotear a líder/i)!);
+      fireEvent.click(findButtonByText(/Promover a líder/i)!);
     });
 
     // Modal opens with the question copy.

@@ -194,7 +194,7 @@ Tip: keep a notes scratch buffer. After each scenario, prefix entries with `[A1.
 - Steps:
   1. Navigate to `/admin/growth-communities`, pick QA Test School, click "Gestionar miembros" on QA Test Community.
   2. The page now has a "Líderes de la comunidad (2)" panel above "Miembros actuales".
-  3. Below, in "Miembros actuales", find a non-leader member (e.g., `docente.qa@fne.cl`). Click "Promotear a líder".
+  3. Below, in "Miembros actuales", find a non-leader member (e.g., `docente.qa@fne.cl`). Click "Promover a líder".
   4. Confirm in the modal.
 - Expected:
   - Toast: "Docente QA ahora es líder de la comunidad." (or similar with the user's name).
@@ -215,7 +215,7 @@ Tip: keep a notes scratch buffer. After each scenario, prefix entries with `[A1.
   - Toast: "Líder convertido en miembro."
   - Leaders panel: now 1 leader (`lider.qa@fne.cl` only).
   - "Miembros actuales" now shows `docente-multirole.qa@fne.cl` as a regular member.
-- **Reset:** in the same page, click "Promotear a líder" on `docente-multirole.qa@fne.cl` to restore them as a leader.
+- **Reset:** in the same page, click "Promover a líder" on `docente-multirole.qa@fne.cl` to restore them as a leader.
 
 ### B2.3 — Demote leader: "Quitar de esta comunidad"
 
@@ -378,7 +378,7 @@ These verify edge cases the dev team flagged but couldn't fully test in unit tes
 - Steps:
   1. Open two browser tabs.
   2. In each tab, log in as admin and navigate to the same community's leaders panel.
-  3. Click "Promotear a líder" on the same target user in both tabs at the same instant.
+  3. Click "Promover a líder" on the same target user in both tabs at the same instant.
 - Expected: one tab returns 200 (`promoted: 1`). The other tab returns 409 `already_leader` OR (very rarely, due to FIXME-F4) both succeed and the user has 2 leader rows. If the latter happens, **report it** — it's a known race condition that still needs a DB unique partial index.
 
 ### R2 — Cross-community member + demote

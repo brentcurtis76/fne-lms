@@ -635,7 +635,7 @@ const GrowthCommunityMembersPage: React.FC<PageProps> = ({ role, community }) =>
                             onClick={() => setPromoteTargetId(m.user_id)}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium text-brand_primary bg-brand_accent/40 hover:bg-brand_accent/60 transition-colors"
                           >
-                            Promotear a líder
+                            Promover a líder
                           </button>
                           <button
                             type="button"

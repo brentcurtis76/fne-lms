@@ -318,7 +318,7 @@ const NAVIGATION_ITEMS: NavigationItem[] = [
     icon: UserGroupIcon,
     href: '/admin/growth-communities',
     description: 'Gestionar miembros de comunidades',
-    adminOnly: true
+    restrictedRoles: ['admin', 'equipo_directivo']
   },
   {
     id: 'networks',

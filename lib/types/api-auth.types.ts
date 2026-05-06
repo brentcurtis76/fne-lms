@@ -31,6 +31,24 @@ export interface AdminAuthResult extends AuthResult {
 }
 
 /**
+ * Result of an admin-or-equipo-directivo authentication check.
+ *
+ * Three terminal states:
+ * - Admin: `isAuthorized: true`, `role: 'admin'`, `schoolId: null`
+ *   (admins are platform-wide and not scoped to a single school).
+ * - Equipo directivo: `isAuthorized: true`, `role: 'equipo_directivo'`,
+ *   `schoolId` set to the school the user is ED for.
+ * - Unauthorized: `isAuthorized: false`, `role: null`, `schoolId: null`.
+ *   Used both when there is no authenticated user and when the user has
+ *   neither role; check `user`/`error` to disambiguate.
+ */
+export interface AdminOrEDAuthResult extends AuthResult {
+  isAuthorized: boolean;
+  role: 'admin' | 'equipo_directivo' | null;
+  schoolId: number | null;
+}
+
+/**
  * Standard API error response
  */
 export interface ApiError {

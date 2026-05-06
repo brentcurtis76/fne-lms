@@ -8,7 +8,6 @@ import { toast } from 'react-hot-toast';
 import {
   Users,
   Search,
-  Lock,
   Trash2,
   ChevronUp,
   ChevronDown,
@@ -66,9 +65,12 @@ interface MembersResponse {
   };
 }
 
-export const getServerSideProps: GetServerSideProps<{ community: CommunityProps }> = async (
-  ctx
-) => {
+type PageProps = {
+  role: 'admin' | 'equipo_directivo';
+  community: CommunityProps;
+};
+
+export const getServerSideProps: GetServerSideProps<PageProps> = async (ctx) => {
   const supabase = createPagesServerClient(ctx);
   const {
     data: { session },
@@ -78,17 +80,42 @@ export const getServerSideProps: GetServerSideProps<{ community: CommunityProps 
   }
 
   const service = createServiceRoleClient();
-  const { data: adminRow } = await service
+  const { data: roleRows } = await service
     .from('user_roles')
-    .select('id')
+    .select('id, role_type, school_id')
     .eq('user_id', session.user.id)
-    .eq('role_type', 'admin')
-    .eq('is_active', true)
-    .limit(1)
-    .maybeSingle();
+    .eq('is_active', true);
 
-  if (!adminRow) {
-    return { redirect: { destination: '/dashboard', permanent: false } };
+  const rows = (roleRows ?? []) as Array<{
+    id: number;
+    role_type: string;
+    school_id: number | string | null;
+  }>;
+
+  const isAdmin = rows.some((r) => r.role_type === 'admin');
+
+  let role: 'admin' | 'equipo_directivo' | null = null;
+  let edSchoolId: number | null = null;
+
+  if (isAdmin) {
+    role = 'admin';
+  } else {
+    const edRow = rows
+      .filter((r) => r.role_type === 'equipo_directivo')
+      .sort((a, b) => a.id - b.id)[0];
+
+    if (!edRow || edRow.school_id === null || edRow.school_id === undefined) {
+      return { redirect: { destination: '/dashboard', permanent: false } };
+    }
+
+    const schoolId =
+      typeof edRow.school_id === 'string' ? Number(edRow.school_id) : edRow.school_id;
+    if (!Number.isFinite(schoolId)) {
+      return { redirect: { destination: '/dashboard', permanent: false } };
+    }
+
+    role = 'equipo_directivo';
+    edSchoolId = schoolId;
   }
 
   const rawId = ctx.params?.id;
@@ -99,16 +126,32 @@ export const getServerSideProps: GetServerSideProps<{ community: CommunityProps 
 
   const { data: community } = await service
     .from('growth_communities')
-    .select('id, name, school:schools(name)')
+    .select('id, name, school_id, school:schools(name)')
     .eq('id', communityId)
-    .maybeSingle<{ id: string; name: string; school: { name: string } | null }>();
+    .maybeSingle<{
+      id: string;
+      name: string;
+      school_id: number | string | null;
+      school: { name: string } | null;
+    }>();
 
   if (!community) {
     return { notFound: true };
   }
 
+  if (role === 'equipo_directivo' && edSchoolId !== null) {
+    const communitySchoolId =
+      typeof community.school_id === 'number'
+        ? community.school_id
+        : Number(community.school_id);
+    if (!Number.isFinite(communitySchoolId) || communitySchoolId !== edSchoolId) {
+      return { redirect: { destination: '/dashboard', permanent: false } };
+    }
+  }
+
   return {
     props: {
+      role,
       community: {
         id: community.id,
         name: community.name,
@@ -146,12 +189,10 @@ function skippedReasonLabel(reason: string): string {
   }
 }
 
-const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ community }) => {
+const GrowthCommunityMembersPage: React.FC<PageProps> = ({ role, community }) => {
   const router = useRouter();
   const supabase = useSupabaseClient();
 
-  // Admin gate is enforced in getServerSideProps — non-admins never reach
-  // this client. No client-side isAdmin state needed.
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<MembersResponse | null>(null);
@@ -161,6 +202,17 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
   const [reassignOpen, setReassignOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [changeLeaderTargetId, setChangeLeaderTargetId] = useState<string | null>(null);
+  const [promoteTargetId, setPromoteTargetId] = useState<string | null>(null);
+  const [promoteSubmitting, setPromoteSubmitting] = useState(false);
+  const [demoteMode, setDemoteMode] = useState<'demote_to_member' | 'remove_from_community'>(
+    'demote_to_member'
+  );
+  const [demoteSubmitting, setDemoteSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (changeLeaderTargetId) setDemoteMode('demote_to_member');
+  }, [changeLeaderTargetId]);
 
   useEffect(() => {
     (async () => {
@@ -197,9 +249,17 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
     router.push('/login');
   };
 
+  const leaders = useMemo(
+    () => data?.currentMembers?.filter((m) => m.role_type === 'lider_comunidad') ?? [],
+    [data]
+  );
+  const nonLeaderMembers = useMemo(
+    () => data?.currentMembers?.filter((m) => m.role_type !== 'lider_comunidad') ?? [],
+    [data]
+  );
   const filteredCurrent = useMemo(
-    () => (data?.currentMembers ?? []).filter((m) => matchesSearch(m, search)),
-    [data, search]
+    () => nonLeaderMembers.filter((m) => matchesSearch(m, search)),
+    [nonLeaderMembers, search]
   );
   const filteredUnassigned = useMemo(
     () => (data?.eligibleUsers.unassigned ?? []).filter((m) => matchesSearch(m, search)),
@@ -325,6 +385,88 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
     }
   };
 
+  const promoteTarget = useMemo(
+    () => nonLeaderMembers.find((m) => m.user_id === promoteTargetId) ?? null,
+    [nonLeaderMembers, promoteTargetId]
+  );
+  const demoteTarget = useMemo(
+    () => leaders.find((m) => m.user_id === changeLeaderTargetId) ?? null,
+    [leaders, changeLeaderTargetId]
+  );
+
+  const handleConfirmPromote = async () => {
+    if (!promoteTarget) return;
+    setPromoteSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/growth-communities/${community.id}/leaders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: promoteTarget.user_id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const code = json.error as string | undefined;
+        const map: Record<string, string> = {
+          already_leader: 'Este usuario ya es líder de esta comunidad.',
+          no_eligible_role_in_school: 'El usuario no tiene un rol activo en este colegio.',
+          generation_mismatch: 'El usuario pertenece a una generación distinta.',
+          invalid_user_id: 'Identificador de usuario inválido.',
+        };
+        toast.error(
+          (code && map[code]) ?? json.message ?? json.error ?? 'Error al promover a líder'
+        );
+        return;
+      }
+      toast.success(`${displayName(promoteTarget)} ahora es líder de la comunidad.`);
+      setPromoteTargetId(null);
+      fetchMembers();
+    } catch {
+      toast.error('Error de red al promover a líder');
+    } finally {
+      setPromoteSubmitting(false);
+    }
+  };
+
+  const handleConfirmDemote = async () => {
+    if (!demoteTarget) return;
+    setDemoteSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/growth-communities/${community.id}/leaders`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: demoteTarget.user_id, mode: demoteMode }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const code = json.error as string | undefined;
+        const map: Record<string, string> = {
+          no_eligible_role_to_demote_to:
+            "Este usuario no tiene otro rol en este colegio. Usa 'Quitar de esta comunidad' en su lugar.",
+          generation_mismatch_on_demote:
+            'El usuario pertenece a otra generación; no se puede mantener como miembro.',
+          chosen_row_in_other_community:
+            "El otro rol del usuario ya pertenece a otra comunidad. Reasigna ese rol primero o usa 'Quitar de esta comunidad'.",
+          compensation_failed: 'Error inconsistente al cambiar líder. Contacta a soporte.',
+        };
+        toast.error(
+          (code && map[code]) ?? json.message ?? json.error ?? 'Error al cambiar líder'
+        );
+        return;
+      }
+      toast.success(
+        demoteMode === 'demote_to_member'
+          ? 'Líder convertido en miembro'
+          : 'Líder removido de la comunidad'
+      );
+      setChangeLeaderTargetId(null);
+      fetchMembers();
+    } catch {
+      toast.error('Error de red al cambiar líder');
+    } finally {
+      setDemoteSubmitting(false);
+    }
+  };
+
   const bulkLabel = submitting
     ? 'Asignando...'
     : hasReassignments
@@ -356,7 +498,7 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
       currentPage="growth-communities"
       pageTitle=""
       breadcrumbs={[]}
-      isAdmin={true}
+      isAdmin={role === 'admin'}
       onLogout={handleLogout}
     >
       <ResponsiveFunctionalPageHeader
@@ -397,11 +539,62 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
           </div>
         </div>
 
+        {/* Leaders */}
+        <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">
+              Líderes de la comunidad ({leaders.length})
+            </span>
+          </div>
+          {leaders.length === 0 ? (
+            <div className="flex items-start gap-3 p-4 bg-blue-50 text-blue-800 text-sm">
+              <Info className="h-5 w-5 flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <p>Esta comunidad no tiene líderes activos. Promueve un miembro abajo.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-gray-700">
+                      Nombre
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-left font-medium text-gray-700">
+                      Email
+                    </th>
+                    <th scope="col" className="px-4 py-3 text-right font-medium text-gray-700">
+                      Acciones
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {leaders.map((m) => (
+                    <tr key={m.user_id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 text-gray-900">{displayName(m)}</td>
+                      <td className="px-4 py-3 text-gray-600">{m.email ?? '—'}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => setChangeLeaderTargetId(m.user_id)}
+                          aria-pressed={changeLeaderTargetId === m.user_id}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium text-brand_primary bg-brand_accent/40 hover:bg-brand_accent/60 transition-colors"
+                        >
+                          Cambiar líder
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
         {/* Current members */}
         <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <span className="text-sm font-medium text-gray-700">
-              Miembros actuales ({filteredCurrent.length})
+              Miembros actuales (no líderes) ({nonLeaderMembers.length})
             </span>
           </div>
           <div className="overflow-x-auto">
@@ -430,39 +623,32 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
                     </td>
                   </tr>
                 ) : (
-                  filteredCurrent.map((m) => {
-                    const isLeader = m.role_type === 'lider_comunidad';
-                    return (
-                      <tr key={m.user_id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 text-gray-900">{displayName(m)}</td>
-                        <td className="px-4 py-3 text-gray-600">{m.email ?? '—'}</td>
-                        <td className="px-4 py-3 text-gray-600">{m.role_type}</td>
-                        <td className="px-4 py-3 text-right">
-                          {isLeader ? (
-                            <button
-                              type="button"
-                              disabled
-                              title="No se puede quitar al líder de su comunidad"
-                              aria-label="No se puede quitar al líder de su comunidad"
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium bg-gray-100 text-gray-400 cursor-not-allowed"
-                            >
-                              <Lock className="h-3.5 w-3.5" />
-                              Quitar
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleRemove(m.user_id)}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Quitar
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
+                  filteredCurrent.map((m) => (
+                    <tr key={m.user_id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 text-gray-900">{displayName(m)}</td>
+                      <td className="px-4 py-3 text-gray-600">{m.email ?? '—'}</td>
+                      <td className="px-4 py-3 text-gray-600">{m.role_type}</td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPromoteTargetId(m.user_id)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium text-brand_primary bg-brand_accent/40 hover:bg-brand_accent/60 transition-colors"
+                          >
+                            Promover a líder
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(m.user_id)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Quitar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
@@ -769,6 +955,128 @@ const GrowthCommunityMembersPage: React.FC<{ community: CommunityProps }> = ({ c
                   className="px-4 py-2 text-sm font-semibold bg-brand_primary text-white hover:opacity-90 rounded-md disabled:opacity-50"
                 >
                   Confirmar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Promote to leader modal */}
+        {promoteTarget && (
+          <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="flex items-start justify-between p-4 border-b border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-900">Promover a líder</h3>
+                <button
+                  type="button"
+                  onClick={() => setPromoteTargetId(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                  aria-label="Cerrar"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-4 text-sm text-gray-700">
+                <p>
+                  ¿Promover a <strong>{displayName(promoteTarget)}</strong> como líder de esta
+                  comunidad?
+                </p>
+              </div>
+              <div className="p-4 border-t border-gray-100 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPromoteTargetId(null)}
+                  disabled={promoteSubmitting}
+                  className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmPromote}
+                  disabled={promoteSubmitting}
+                  className="px-4 py-2 text-sm font-semibold bg-brand_primary text-white hover:opacity-90 rounded-md disabled:opacity-50"
+                >
+                  {promoteSubmitting ? 'Promoviendo...' : 'Confirmar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Change leader (demote) modal */}
+        {demoteTarget && (
+          <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              <div className="flex items-start justify-between p-4 border-b border-gray-100">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Cambiar líder: {demoteTarget.first_name ?? ''} {demoteTarget.last_name ?? ''}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setChangeLeaderTargetId(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                  aria-label="Cerrar"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="p-4 text-sm text-gray-700 space-y-3">
+                <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="demote_mode"
+                    value="demote_to_member"
+                    checked={demoteMode === 'demote_to_member'}
+                    onChange={() => setDemoteMode('demote_to_member')}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-medium text-gray-900 block">
+                      Convertir en miembro de esta comunidad
+                    </span>
+                    <span className="text-xs text-gray-600 block mt-1">
+                      El usuario perderá su rol de líder pero seguirá siendo miembro de esta
+                      comunidad usando su otro rol activo en este colegio.
+                    </span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-3 p-3 border border-gray-200 rounded-md cursor-pointer hover:bg-gray-50">
+                  <input
+                    type="radio"
+                    name="demote_mode"
+                    value="remove_from_community"
+                    checked={demoteMode === 'remove_from_community'}
+                    onChange={() => setDemoteMode('remove_from_community')}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-medium text-gray-900 block">
+                      Quitar de esta comunidad
+                    </span>
+                    <span className="text-xs text-gray-600 block mt-1">
+                      El usuario será removido completamente de esta comunidad. Podrá volver a ser
+                      asignado a otra comunidad más tarde.
+                    </span>
+                  </span>
+                </label>
+              </div>
+              <div className="p-4 border-t border-gray-100 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setChangeLeaderTargetId(null)}
+                  disabled={demoteSubmitting}
+                  className="px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmDemote}
+                  disabled={demoteSubmitting}
+                  className="px-4 py-2 text-sm font-semibold bg-brand_primary text-white hover:opacity-90 rounded-md disabled:opacity-50"
+                >
+                  {demoteSubmitting ? 'Aplicando...' : 'Confirmar'}
                 </button>
               </div>
             </div>

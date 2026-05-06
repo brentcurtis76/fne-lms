@@ -1,15 +1,16 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { createServerSupabaseClient } from '@supabase/auth-helpers-nextjs';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { 
-  AuthResult, 
-  AdminAuthResult, 
-  HttpStatus, 
+import {
+  AuthResult,
+  AdminAuthResult,
+  AdminOrEDAuthResult,
+  HttpStatus,
   ErrorMessages,
   ApiError,
   ApiSuccess
 } from './types/api-auth.types';
-import { hasAdminPrivileges, extractRolesFromMetadata } from '../utils/roleUtils';
+import { hasAdminPrivileges, getEquipoDirectivoSchoolId, extractRolesFromMetadata } from '../utils/roleUtils';
 
 // Create a consistent Supabase client for API routes
 export async function createApiSupabaseClient(
@@ -137,10 +138,54 @@ export async function checkIsAdmin(
 
   } catch (error) {
     console.error('[API Auth] Admin check failed:', error);
-    return { 
-      isAdmin: false, 
-      user, 
-      error: error instanceof Error ? error : new Error('Admin verification failed') 
+    return {
+      isAdmin: false,
+      user,
+      error: error instanceof Error ? error : new Error('Admin verification failed')
+    };
+  }
+}
+
+// Check if user is an admin or has an active equipo_directivo role.
+// Admin precedence: if the user is an admin, returns immediately without
+// looking up the equipo_directivo school_id.
+export async function checkIsAdminOrEquipoDirectivo(
+  req: NextApiRequest,
+  res: NextApiResponse
+): Promise<AdminOrEDAuthResult> {
+  const { user, error } = await getApiUser(req, res);
+
+  if (error || !user) {
+    return { isAuthorized: false, role: null, schoolId: null, user: null, error };
+  }
+
+  try {
+    const serviceClient = createServiceRoleClient();
+    const isAdmin = await hasAdminPrivileges(serviceClient, user.id);
+
+    if (isAdmin) {
+      console.log(`[API Auth] Admin verified via RLS check for user: ${user.id}`);
+      return { isAuthorized: true, role: 'admin', schoolId: null, user, error: null };
+    }
+
+    const schoolId = await getEquipoDirectivoSchoolId(serviceClient, user.id);
+
+    if (typeof schoolId === 'number') {
+      console.log(`[API Auth] Equipo directivo verified for user ${user.id}, school ${schoolId}`);
+      return { isAuthorized: true, role: 'equipo_directivo', schoolId, user, error: null };
+    }
+
+    console.log(`[API Auth] User is neither admin nor equipo_directivo: ${user.id}`);
+    return { isAuthorized: false, role: null, schoolId: null, user, error: null };
+
+  } catch (error) {
+    console.error('[API Auth] Admin-or-ED check failed:', error);
+    return {
+      isAuthorized: false,
+      role: null,
+      schoolId: null,
+      user,
+      error: error instanceof Error ? error : new Error('Authorization check failed')
     };
   }
 }
